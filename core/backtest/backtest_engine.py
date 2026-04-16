@@ -148,7 +148,7 @@ class BacktestEngine:
         if open_df is not None:
             opens = open_df.reindex(dates, method="ffill")
         else:
-            opens = prices.shift(-1)   # T+1 close 近似
+            opens = prices.shift(-1).ffill().bfill()  # T+1 close 近似
 
         vix = vix_series.reindex(dates, method="ffill").fillna(_DEFAULT_VIX) \
               if vix_series is not None \

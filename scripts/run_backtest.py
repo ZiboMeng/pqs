@@ -130,8 +130,10 @@ def run_strategy(
             benchmark  = benchmark_series,
         )
         if wf_windows:
-            acceptance = analyzer.acceptance_check(wf_windows, benchmark_series)
-            logger.info("%s OOS: %s", name, acceptance)
+            oos_check = WindowAnalyzer.oos_consistency_check(wf_windows)
+            logger.info("%s OOS consistency: %s", name, oos_check)
+            acceptance = analyzer.acceptance_check(bt_result, benchmark_series)
+            logger.info("%s Tier D: %s", name, acceptance)
 
     return {
         "name":       name,
