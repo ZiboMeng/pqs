@@ -292,7 +292,7 @@ class TestClassifySeriesOutput:
         vix    = _make_vix(100)
         result = det.classify_series(spy, vix)
         assert isinstance(result, pd.Series)
-        assert result.dtype == object  # string
+        assert pd.api.types.is_string_dtype(result)  # string
 
     def test_length_equals_common_dates(self):
         det = _make_detector()

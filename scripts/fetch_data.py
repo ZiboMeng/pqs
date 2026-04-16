@@ -35,7 +35,7 @@ from core.logging_setup import get_logger, setup_logging
 setup_logging()
 logger = get_logger("fetch_data")
 
-_START_DATE          = "2013-01-01"
+_DEFAULT_START_DATE  = "2007-01-01"
 _INTRADAY_FREQS      = ["60m", "30m", "15m"]
 _INTRADAY_LOOKBACK_DAYS = 700   # yfinance 60m 免费限制约 730 天
 
@@ -54,10 +54,11 @@ def get_all_symbols(cfg) -> dict:
 
 
 def download_daily(
-    symbols:  list,
-    store:    MarketDataStore,
-    provider: YFinanceProvider,
-    full:     bool = False,
+    symbols:    list,
+    store:      MarketDataStore,
+    provider:   YFinanceProvider,
+    full:       bool = False,
+    start_date: str  = _DEFAULT_START_DATE,
 ) -> None:
     """下载/增量更新日线数据。"""
     validator = DataValidator()
@@ -73,7 +74,7 @@ def download_daily(
                     success += 1
                     continue
             else:
-                start = _START_DATE
+                start = start_date
 
             logger.info("[%s] 下载日线 from %s ...", sym, start)
             result = provider.fetch_daily([sym], start=start)
@@ -165,9 +166,12 @@ def main():
 
     logger.info("准备下载 %d 个可交易标的 + %d 个宏观指标", len(tradeable), len(macro))
 
+    start_date = cfg.backtest.start_date or _DEFAULT_START_DATE
+    logger.info("日线起始日期: %s (来自 backtest.yaml)", start_date)
+
     if not args.intraday_only:
         logger.info("=== 下载日线数据 ===")
-        download_daily(tradeable + macro, store, provider, full=args.full)
+        download_daily(tradeable + macro, store, provider, full=args.full, start_date=start_date)
 
     if not args.daily_only:
         logger.info("=== 下载日内数据 ===")

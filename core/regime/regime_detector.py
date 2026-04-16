@@ -198,7 +198,7 @@ class RegimeDetector:
         raw_series = pd.Series(raw_states, index=common)
         smoothed   = self._smooth(raw_series, self._cfg.smoothing_window)
 
-        return smoothed.map(lambda s: s.value)
+        return smoothed.map(lambda s: s.value if hasattr(s, 'value') else str(s))
 
     def get_current(
         self,
