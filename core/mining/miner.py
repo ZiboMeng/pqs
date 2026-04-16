@@ -220,10 +220,11 @@ class StrategyMiner:
         tier_rank = {"S": 4, "A": 3, "B": 2, "C": 1, "D": 0}
         min_rank  = tier_rank.get(self._min_tier, 1)
 
-        # Filter eligible candidates
+        # Filter eligible candidates (holdout is a hard gate for promotion)
         eligible = [
             r for r in results
             if r.passed_oos
+            and r.passed_holdout
             and tier_rank.get(r.tier, 0) >= min_rank
         ]
         if not eligible:

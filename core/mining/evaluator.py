@@ -713,8 +713,10 @@ class MiningEvaluator:
             return "D"
         if not np.isnan(r.oos_is_sharpe_ratio) and r.oos_is_sharpe_ratio < self._min_oos_is_ratio:
             return "D"
+        if not r.passed_holdout:
+            return "C"
         ir = r.oos_ir if not np.isnan(r.oos_ir) else 0.0
-        if ir >= _TIER_THRESHOLDS["S"] and r.passed_robustness and r.passed_holdout:
+        if ir >= _TIER_THRESHOLDS["S"] and r.passed_robustness:
             return "S"
         if ir >= _TIER_THRESHOLDS["A"] and r.passed_robustness:
             return "A"
