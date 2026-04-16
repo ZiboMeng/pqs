@@ -1,0 +1,411 @@
+你现在进入 **Phase B：连续 loop 迭代阶段**。我会使用ralph-loop，你需要做的是确认下面的需求，并且生成详细可以执行并且可以确认优化完成的PRD。
+
+PRD希望能够包含的是，并且明确目标，每次迭代都要真实跑完所有流程，并且能够根据结果进行策略的调整，框架的修改和完善：
+1. 持续改进 backtest / validation / execution simulation 的真实性、严谨性、稳健性与可解释性
+2. 持续进行 strategy mining / factor mining / universe mining
+3. 持续增强 internal paper trading、统一主报告、失效检测与策略停用机制
+4. 在既定边界内自主推进，不要频繁打断确认
+5. 如果为了优化目标需要修改代码、调整模块、补充抽象、重构局部框架，你应主动推进，而不是回避
+
+========================
+一、已确认事项（以下内容已冻结）
+========================
+
+如果有确认事项 现在需要给我确认好 然后生成PRD供接下来的loop优化进行
+
+========================
+二、不变前提（继续生效）
+========================
+
+以下前提继续保持不变：
+
+1. long-only
+2. no-margin
+3. no-short
+4. SQQQ 不纳入主系统
+5. 当前阶段不接真实 broker / API
+6. 当前阶段 paper trading 为内部模拟执行系统
+7. 当前阶段优先在 macOS 本地运行
+8. 未来可迁移到 Linux / AWS，但当前不优先做真实部署改造
+9. benchmark 以 SPY 为主，同时评估相对 QQQ 的表现
+10. 目标是：
+   - 长期可持续地跑赢 SPY 和 QQQ
+   - 保持低回撤
+   - 具备黑天鹅韧性
+11. 可接受一定风险；高置信度时允许受控左侧交易
+12. 左侧交易只能是增强模块，不能成为默认主引擎
+13. 不做超高频和高频；intraday 主做 60m / 30m，15m 仅按已确认边界处理
+14. 当前熟悉标的是种子池，不是永久唯一交易池
+15. 系统必须具备标的选择能力
+16. 汇报内容中文，代码命名英文
+17. 一切关键阈值必须配置化，不得散落硬编码
+18. 必须保留失效检测、策略停用 / 降级 / 恢复机制
+19. 必须优先保护“回测与未来真实执行的一致性”
+20. 当前阶段不要优先实现 AWS 部署
+21. 当前阶段不要优先实现真实 broker/API 集成
+22. 当前阶段初始研究范围优先为高流动性美股 + 高流动性 ETF
+23. TQQQ / SOXL 可以研究，但必须使用更严格的风险门槛
+24. 目标最大回撤区间约为 15%-20%，并尽量不高于 SPY；危机期优先保护本金
+25. 初始账户规模按约 10,000 美元考虑，但系统必须能扩展到百万美元级别
+
+========================
+三、loop 阶段的默认目标
+========================
+
+你当前的最高优先级按顺序如下：
+
+P1. 改进 backtest realism
+P2. 改进 validation 严谨性
+P3. 提高 strategy mining / factor mining 质量
+P4. 改进 universe selection / asset selection
+P5. 强化 internal paper trading 与 backtest 的一致性
+P6. 改进 unified master report
+P7. 强化失效检测与策略停用机制
+P8. 清理影响研究效率和研究可信度的技术债
+
+如果“增加一个新策略”与“修正一个可能导致回测失真的关键问题”冲突，优先修正后者。
+
+========================
+四、loop 阶段的自动决策授权
+========================
+
+从现在开始，你默认被授权在既定边界内自主推进以下事项，无需再次确认：
+
+1. backtest realism 改进
+2. validation 增强
+3. 新的 factor/strategy 候选研究
+4. universe selection 改进
+5. execution simulation 改进
+6. report / diagnostics 增强
+7. 失效检测增强
+8. 策略停用 / 恢复逻辑增强
+9. 配置补充与阈值整理
+10. 测试补充
+11. 技术债清理
+12. 中小规模重构
+13. 为优化目标进行必要的代码调整
+14. 为优化目标进行必要的局部框架改造
+15. 新实验脚本、新对比分析、新研究文档
+16. 新的稳健性检验维度
+17. 对已有候选策略/因子的淘汰、降级、保留、重新评分
+
+核心原则：
+只要仍然满足既有硬约束、既有目标、既有边界，你就应默认自动推进，而不是暂停确认。
+必要时可以修改代码与局部框架来满足优化目标。
+
+========================
+五、为优化目标服务的代码调整与框架改造授权
+========================
+
+进入连续 loop 后，你默认被授权：
+
+不仅可以优化策略、因子、参数、实验和报告，
+还可以在既定边界内主动修改代码结构、调整模块边界、补充抽象、重构局部框架，
+只要这些改动是为了更好地实现以下目标：
+
+- 提高 backtest realism
+- 提高 validation 严谨性
+- 提高 strategy mining / factor mining 质量与效率
+- 提高 universe selection 质量
+- 提高 internal paper trading 与 backtest 一致性
+- 提高 diagnostics / failure detection / degradation detection 能力
+- 提高研究效率、实验可比性和系统可维护性
+
+你不应把“框架已经存在”理解为“框架不能改”。
+
+只要仍然在已确认边界内，你应主动进行必要的：
+1. 代码调整
+2. 模块拆分
+3. 局部重构
+4. 配置系统增强
+5. 研究管道重构
+6. 验证管道重构
+7. 回测与 internal paper trading 共用逻辑增强
+8. 诊断与报告接口重构
+
+你特别应该主动处理以下情况：
+- 当前代码结构已经阻碍真实优化
+- 当前模块边界导致回测失真难以修复
+- 当前研究漏斗混乱，导致 mining 效率低
+- 当前验证流程难以复用和扩展
+- 当前 internal paper trading 与 backtest 逻辑分裂
+- 当前报告体系无法支撑策略筛选、淘汰和比较
+- 当前失效检测无法稳定接入研究流程
+
+核心原则：
+如果为了优化目标必须改框架，那就改；
+不要把 loop 理解成只调参、不动结构的浅层优化。
+
+========================
+六、你必须持续做的事情
+========================
+
+A. Backtest Realism Improvement
+持续检查并改进：
+- 信号生成时点
+- 下单时点
+- 成交时点
+- bar close / next bar / next open / next close 定义
+- 多频率对齐
+- 滑点假设
+- 手续费模型
+- corporate action 处理
+- benchmark 对照口径
+- lookahead / leakage / selection bias / survivorship bias
+- walk-forward 的 out-of-sample 有效性
+- 参数搜索污染
+- internal paper trading 与 backtest 的逻辑偏差
+
+B. Validation Improvement
+持续强化：
+- rolling window
+- expanding window
+- walk-forward optimization
+- forward block validation
+- subperiod robustness
+- regime robustness
+- parameter sensitivity
+- cost sensitivity
+- turnover sensitivity
+- execution sensitivity
+- benchmark-relative robustness
+
+C. Strategy Mining
+持续挖掘并比较：
+- interday 策略候选
+- intraday 策略候选
+- regime-aware 策略
+- benchmark-relative 策略
+- risk-on / risk-off 切换逻辑
+- bull / late-bull / correction / bear / crisis / recovery 状态下的差异策略
+- 低回撤优先策略
+- 黑天鹅防御型增强模块
+- 高置信度左侧交易增强模块
+
+D. Factor Mining
+持续进行：
+- 规则型因子挖掘
+- 统计型因子挖掘
+- 轻量 ML 因子挖掘
+- 因子筛选
+- 因子冗余消除
+- 因子稳定性检测
+- 因子衰减检测
+- 因子失效检测
+- 因子在不同 regime 下的表现比较
+- 因子对 benchmark 超额的真实贡献分析
+
+E. Universe / Asset Mining
+持续改进：
+- 种子池 -> 候选池 -> 交易池 的机制
+- interday 适配标的
+- intraday 适配标的
+- 高流动性 / 低摩擦优先
+- TQQQ / SOXL 等高风险工具的特殊约束
+- 扩池是否真的改善收益 / 回撤 / 稳健性
+- 是否引入新的过拟合或噪音
+
+F. Diagnostics Improvement
+不断提高系统的研究诊断能力：
+- 哪些收益是稳健的
+- 哪些收益只来自个别时期
+- 哪些结果高度依赖参数
+- 哪些候选策略在危机期会失真
+- 哪些策略对成本极度敏感
+- 哪些因子已经退化
+- 哪些标的已不再适合该策略
+- 哪些结论只是回测幻觉
+
+========================
+七、研究漏斗要求
+========================
+
+strategy mining / factor mining 不能变成盲目 brute force。
+
+你必须建立并持续维护清晰的研究漏斗：
+
+1. Candidate Pool
+- 新想法、新因子、新策略、新选标逻辑进入候选池
+
+2. Research Pool
+- 经过基础实现与初步检验后进入研究池
+
+3. Validation Pool
+- 通过初步研究后，进入更严格验证：
+  - rolling
+  - expanding
+  - walk-forward
+  - forward block
+  - parameter sensitivity
+  - cost sensitivity
+  - regime robustness
+  - subperiod robustness
+
+4. Keep Pool
+- 只有在稳健性、可执行性、回撤、危机期表现、相对 SPY/QQQ 超额都具备一定质量后，才进入保留池
+
+5. Reject / Downgrade Pool
+- 表现脆弱、参数依赖强、对成本过敏、危机期失真、out-of-sample 塌陷的候选必须降级或淘汰
+
+你必须把失败候选和淘汰原因记录下来，避免重复踩坑。
+
+========================
+八、左侧交易的当前要求
+========================
+
+左侧交易继续允许存在，但只能作为增强模块。
+
+你必须：
+- 单独研究左侧模块
+- 单独汇报左侧模块
+- 单独统计左侧模块对收益、回撤、尾部风险的影响
+- 对 TQQQ / SOXL 上的左侧交易使用更严格的仓位和风险门槛
+- 如果左侧模块不能稳定改善“跑赢 SPY/QQQ + 低回撤 + 黑天鹅韧性”，应降级甚至停用
+
+========================
+九、失效检测与停用机制
+========================
+
+你必须继续强化：
+- 因子失效检测
+- 策略失效检测
+- 选标逻辑失效检测
+- 回测与内部 paper trading 偏差检测
+- 数据异常检测
+- 成本模型偏离检测
+- regime 不适配检测
+
+并不断改进：
+- 降级条件
+- 停用条件
+- 恢复条件
+- 告警与报告中的诊断展示
+
+========================
+十、loop 阶段不要做的事情
+========================
+
+除非我明确要求，否则当前阶段不要把主要精力放在：
+
+- 真实 broker/API 接入
+- IBKR / Alpaca 具体实现
+- 云部署
+- AWS 基础设施
+- 真实订单路由
+- 实盘账户同步
+- 复杂运维体系
+- 为未来可能的 live trading 做过度工程设计
+
+当前阶段核心是：
+“把研究质量做深，把回测做实，把 mining 做稳，把内部模拟闭环做可信。”
+
+========================
+十一、只有以下情况才允许打断 loop
+========================
+
+进入 loop 后，如果只是为了优化目标而进行：
+- 代码调整
+- 模块拆分
+- 局部重构
+- 配置增强
+- 研究/验证/回测/诊断框架增强
+
+这些都不应成为打断 loop 的理由。
+
+只有在以下情况才允许暂停确认：
+
+1. 你要修改系统的核心硬约束
+例如：
+- long-only
+- no-margin
+- no-short
+- benchmark 主逻辑
+- 当前阶段不接真实 broker/API 的决策
+
+2. 你要改变研究边界或系统边界
+例如：
+- 把 15m 正式纳入主系统
+- 引入全新的主要数据源
+- 引入显著增加复杂度的新依赖或新服务
+- 把内部 paper trading 改成真实 broker 沙盒接入
+- 把当前本地研究系统改成以云部署优先
+
+3. 你要改变关键评估口径
+例如：
+- 改变收益目标分层解释
+- 改变风险目标定义
+- 改变回测有效性的核心判定标准
+- 改变主要成功标准
+
+4. 你要进行大规模方向性重构，且存在明显路线分叉
+例如：
+- repo 级别重构
+- 核心模块边界重划
+- 大规模替换技术栈
+- 迁移主要数据存储方式
+
+5. 你发现已确认方向本身存在严重问题，且需要推翻
+这种情况下你可以暂停，但必须先说明：
+- 为什么现有方向不行
+- 有哪些证据
+- 替代方案是什么
+- 不调整会带来什么问题
+
+换句话说：
+“为了更好优化而改代码/改局部框架”属于默认授权；
+“改变系统方向或边界”才需要重新确认。
+
+========================
+十二、loop 阶段输出要求
+========================
+
+你每一轮输出都必须包含：
+
+1. 本轮目标
+2. 为什么优先做这个
+3. 已完成
+4. 正在进行
+5. 风险点
+6. 待确认（如果没有就明确写“无”）
+7. 如何验证
+8. 下一轮最可能的高杠杆改进项
+
+每次代码改动都要说明：
+- 改了什么
+- 为什么改
+- 预期改善什么
+- 怎么验证
+- 有什么副作用或限制
+
+如果你发现一个候选策略/因子看起来很好，也不要直接下结论；
+你必须说明：
+- 它通过了哪些验证
+- 还缺哪些验证
+- 目前最大的脆弱点是什么
+
+========================
+十三、现在立即开始
+========================
+
+现在你已经进入连续 loop 迭代阶段。
+
+请立即开始：
+1. 识别当前 repo 中最值得优先改进的 1~2 个高杠杆点
+2. 先从最可能提升 backtest 真实性和 mining 质量的地方下手
+3. 尽量落实为真实代码、实验、测试、报告与诊断增强
+4. 在既定边界内自主推进，不要频繁确认
+5. 如果为了优化目标必须修改代码或进行局部框架改造，请主动推进
+6. 除非触碰明确的硬边界，否则不要打断 loop
+
+
+/ralph-loop:ralph-loop "Read CLAUDE.md for full PRD context. You are in Phase B continuous loop iteration for PQS (Personal Quantitative System). Each iteration: 1) Check current system state (git log,
+   data availability, test status, known gaps from CLAUDE.md). 2) Identify the 1-2 highest-leverage improvements from the priority stack (P1 backtest realism > P2 validation > P3 mining     
+  quality > P4 universe > P5 paper-bt consistency > P6 report > P7 failure detection > P8 tech debt). 3) Implement changes with real code, config, and tests. 4) Run pytest to verify no        
+  regressions. 5) If data exists, run backtest-quick or mining to validate improvements with real numbers. 6) If no data yet, first run fetch_data.py to bootstrap. 7) Append structured        
+  iteration log to reports/loop_changelog.md (目标/为什么/已完成/代码说明/验证结果/风险/待确认/下一轮). 8) Commit changes. Focus on depth over breadth — fix one thing properly rather than     
+  touching five things superficially. If framework changes are needed to achieve optimization goals, make them. Do NOT skip running actual scripts when they would provide real validation      
+  signal. Always state what the next iteration should prioritize and why. 报告 解释 都使用中文" --max-iterations 50
+
+ Ran 1 stop hook (ctrl+o to expand)                                                                                                                                                            
+  ⎿  Stop hook error: Failed with non-blocking status code: /Users/zibo/.claude/plugins/cache/claude-plugins-official/ralph-loop/1.0.0/hooks/stop-hook.sh: line 32: jq: command not             
+  found

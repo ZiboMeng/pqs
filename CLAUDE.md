@@ -47,12 +47,28 @@ Architecture: config/ → core/ → scripts/ → tests/ with 615 passing unit te
 - Feature pipeline multi-timeframe alignment not fully end-to-end tested with real data
 - No left-side trading module implementation yet
 - Universe dynamic rebalance (periodic re-scoring) not yet triggered by any script
+- No factor mining pipeline — factor_engine/factor_evaluator have evaluation framework (IC/rank-IC/quintile/decay) but no actual factor generation code                                     
+- XGBoost/SHAP in requirements.txt but never used anywhere in code — need ML-based alpha signals                                                                                            
+- No automated factor constructor (systematically generate momentum/volatility/price-volume divergence/mean-reversion candidates from OHLCV + macro data)                                   
+- No multi-factor composite signal logic (weighted scoring or ML model combining multiple factors)                                                                                          
+- indicators.py computes technicals (EMA/RSI/MACD) but they don't flow through research funnel as "factors"                                                                                 
+- Factor → strategy signal conversion path not implemented                                                                                                                                  
+- Mining currently only does strategy parameter search (Optuna TPE on 3 existing strategy templates) — no new strategy structure discovery   
 
 ### Priority Stack (P1 = highest)
 ```
 P1. Backtest realism
 P2. Validation rigor
 P3. Strategy/factor mining quality
+### P3 Expansion: Factor & ML Mining (to be built in loop iterations)                                                                                                                       
+    1. Build factor generation pipeline — auto-construct candidate factors from OHLCV + macro features
+    2. Wire factor_evaluator to real candidates — run IC screen, quintile analysis, decay detection on generated factors
+    3. Integrate XGBoost for feature importance analysis + nonlinear alpha signal generation
+    4. Implement SHAP-based factor attribution — understand which factors drive predictions
+    5. Build multi-factor combination layer — weighted scoring or ML ensemble → composite alpha signal
+    6. Establish factor research funnel: generate → IC screen → OOS validate → regime robustness → promote/reject
+    7. Add new strategy structure discovery beyond the 3 existing templates (e.g., mean-reversion, statistical arbitrage pairs within ETF universe, volatility harvesting)
+    8. Connect ML signals to existing backtest/execution pipeline with same T+1 open execution semantics
 P4. Universe selection quality
 P5. Internal paper trading ↔ backtest consistency
 P6. Unified master report
