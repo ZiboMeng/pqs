@@ -1,0 +1,64 @@
+benchmarks: [SPY, QQQ]
+primary_benchmark: SPY
+
+window_analysis:
+  enabled: true
+  warmup_bars: 252
+  rolling_window_bars: 504     # 2 years
+  rolling_step_bars: 63        # 3 months
+  expanding_min_bars: 252      # 1 year minimum
+  walk_forward_train_bars: 756 # 3 years
+  walk_forward_test_bars: 126  # 6 months
+  forward_block_holdout_bars: 252  # 1 year holdout
+
+leakage_check:
+  enabled: true
+  check_signal_uses_future: true
+  check_fill_price_valid: true
+
+intraday:
+  primary_freq: 60m
+  position_allow_overnight: false
+  eod_force_close: true
+  eod_slippage_multiplier: 1.5
+  avoid_first_bar: true
+  avoid_last_n_bars: 1
+  min_tradeable_bars_per_day: 3
+  paper_trading_mode: eod_simulation
+  polling_interval_minutes: 60
+  intraday_uses_interday_regime: true
+  intraday_max_position_pct: 0.50
+
+  multi_timeframe:
+    enabled: true
+    aux_freqs: [30m, 15m, 5m]
+    graceful_degradation: true
+    min_history_days:
+      5m: 20
+      15m: 20
+      30m: 20
+    lookback_bars:
+      30m: 8
+      15m: 16
+      5m: 24
+    timeframe_weights:
+      30m: 0.50
+      15m: 0.35
+      5m: 0.15
+
+  confluence_filter:
+    enabled: true
+    min_threshold: 0.60
+    weak_threshold: 0.60
+    strong_threshold: 0.80
+
+validation:
+  min_excess_return_vs_spy: 0.05
+  min_ir_vs_spy: 0.30
+  max_drawdown_vs_spy_multiplier: 1.5
+  max_crisis_drawdown_abs: 0.25
+  min_oos_vs_is_return_ratio: 0.50
+  min_windows_positive_excess_pct: 0.60
+  auto_fail_single_period_contribution: 0.50
+  auto_fail_single_asset_contribution: 0.40
+  auto_fail_crisis_vs_benchmark_multiplier: 2.0

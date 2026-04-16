@@ -1,0 +1,21 @@
+env: local
+project_name: pqs
+version: "0.1.0"
+
+paths:
+  data_dir: data
+  reports_dir: reports
+  config_dir: config
+  db_path: data/trading.db
+
+logging:
+  level: INFO
+  log_to_file: true
+  log_file_name: pqs.log
+  max_bytes: 10485760   # 10 MB
+  backup_count: 5
+
+account:
+  initial_capital_usd: 10000.0
+  currency: USD
+  timezone: America/New_York

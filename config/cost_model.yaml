@@ -1,0 +1,43 @@
+# Cost model — all values in basis points (bps). 1 bps = 0.01%
+# Research-grade conservative estimates.
+# Interday slippage: assumes market-order, 1-day horizon.
+# Intraday slippage: higher due to tighter time window and more volatility.
+# Stress multiplier: applied when VIX >= vix_stress_threshold.
+
+mode: bps_based
+vix_stress_threshold: 30.0
+stress_slippage_multiplier: 2.5
+
+tiers:
+  liquid_etf:
+    # Broad-market and sector ETFs with very tight bid/ask spreads
+    symbols: [SPY, QQQ, GLD, IWM, XLK, XLF, XLE, XLV, XLI, XLY, XLP, XLU, XLB]
+    commission_bps: 0.5
+    slippage_interday_bps: 4
+    slippage_intraday_bps: 7
+
+  large_cap_equity:
+    # Mag7 and other large-cap US equities
+    symbols: [AAPL, MSFT, GOOGL, GOOG, AMZN, META, NVDA, TSLA, BRK-B, JPM, V, MA]
+    commission_bps: 0.5
+    slippage_interday_bps: 6
+    slippage_intraday_bps: 10
+
+  leveraged_etf:
+    # 3x leveraged ETFs — wider spreads, higher intraday volatility
+    symbols: [TQQQ, SOXL, UPRO, SPXL, TECL]
+    commission_bps: 1.0
+    slippage_interday_bps: 12
+    slippage_intraday_bps: 20
+
+  default:
+    # Fallback for any symbol not matched above
+    symbols: []
+    commission_bps: 1.0
+    slippage_interday_bps: 8
+    slippage_intraday_bps: 12
+
+capacity_model:
+  enabled: false
+  threshold_usd: 500000
+  impact_bps_per_100k: 1.0

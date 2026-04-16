@@ -1,0 +1,32 @@
+seed_pool:
+  - SPY
+  - QQQ
+  - GLD
+  - AAPL
+  - MSFT
+  - GOOGL
+  - AMZN
+  - META
+  - NVDA
+  - TSLA
+  - TQQQ
+  - SOXL
+
+blacklist:
+  - SQQQ
+  - SOXS
+
+high_risk_symbols:
+  symbols: [TQQQ, SOXL]
+  max_single_weight: 0.10
+  max_total_weight: 0.12
+  require_risk_on_regime: true
+  left_side_trading_multiplier: 0.5
+
+liquidity:
+  min_avg_volume_30d: 1000000
+  min_price_usd: 5.0
+  min_history_days: 252
+
+max_selected_symbols: 10
+min_selected_symbols: 2
