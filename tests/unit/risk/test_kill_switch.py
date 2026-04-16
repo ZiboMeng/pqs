@@ -39,13 +39,13 @@ def _losing_equity(n_loss: int = 6, pad: int = 20) -> pd.Series:
 
 class TestKillSwitchResult:
     def test_str_triggered(self):
-        r = KillSwitchResult(triggered=True, active_rules=["max_drawdown"])
-        assert "TRIGGERED" in str(r)
+        r = KillSwitchResult(triggered=True, active_rules=["max_drawdown"], state="DEGRADED")
         assert "max_drawdown" in str(r)
+        assert "DEGRADED" in str(r)
 
     def test_str_not_triggered(self):
-        r = KillSwitchResult(triggered=False)
-        assert "正常" in str(r)
+        r = KillSwitchResult(triggered=False, state="NORMAL")
+        assert "NORMAL" in str(r)
 
     def test_triggered_bool(self):
         r = KillSwitchResult(triggered=True)

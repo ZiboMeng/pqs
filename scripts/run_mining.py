@@ -152,8 +152,26 @@ def main():
     # ── 初始化 Evaluator & Miner ──────────────────────────────────────────────
     cost_model = CostModel(cfg.cost_model)
     evaluator  = MiningEvaluator(
-        cost_model      = cost_model,
-        initial_capital = cfg.system.account.initial_capital_usd,
+        cost_model          = cost_model,
+        initial_capital     = cfg.system.account.initial_capital_usd,
+        quick_min_sharpe    = mining_cfg.get("quick_min_sharpe",    0.30),
+        quick_max_dd        = mining_cfg.get("quick_max_drawdown",  0.40),
+        quick_min_cagr      = mining_cfg.get("quick_min_cagr",      0.02),
+        oos_min_pass_rate   = mining_cfg.get("oos_min_pass_rate",   0.60),
+        oos_min_ir          = mining_cfg.get("oos_min_ir_vs_benchmark", 0.30),
+        oos_min_excess_ret  = mining_cfg.get("oos_min_excess_return", 0.03),
+        regime_robust_n     = mining_cfg.get("regime_robust_min_regimes", 2),
+        cost_multiplier     = mining_cfg.get("cost_robust_multiplier", 2.0),
+        param_max_change    = mining_cfg.get("param_robust_max_sharpe_change", 0.50),
+        diversity_max_corr  = mining_cfg.get("diversity_max_correlation", 0.70),
+        score_weights       = mining_cfg.get("score_weights"),
+        holdout_bars        = mining_cfg.get("holdout_bars", 252),
+        quick_data_fraction = mining_cfg.get("quick_data_fraction", 0.70),
+        stress_periods      = mining_cfg.get("stress_periods", []),
+        crisis_dd_vs_spy    = mining_cfg.get("crisis_dd_vs_spy_multiplier", 1.0),
+        wf_test_bars_by_type = mining_cfg.get("walk_forward_test_bars_by_type", {}),
+        min_oos_is_sharpe_ratio = mining_cfg.get("min_oos_is_sharpe_ratio", 0.50),
+        defensive_window_dd_mult = mining_cfg.get("defensive_window_dd_multiplier", 1.3),
     )
 
     # 过滤策略类型

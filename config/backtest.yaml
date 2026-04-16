@@ -1,8 +1,8 @@
 benchmarks: [SPY, QQQ]
 primary_benchmark: SPY
 
-# Global backtest date range — 2013 gives full data for all seed symbols incl. TQQQ/SOXL
-start_date: "2013-01-02"
+# Global backtest date range — 2007 enables 2008-09 crisis stress testing
+start_date: "2007-01-02"
 end_date: null  # null = use latest available data
 
 window_analysis:
@@ -99,6 +99,46 @@ mining:
   optuna_db: "data/mining/optuna.db"
   archive_db: "data/mining/archive.db"
   equity_curve_dir: "data/mining/equity_curves"
+
+  # Data isolation for anti-overfitting
+  quick_data_fraction: 0.70       # Stage 1 quick filter uses first 70% of non-holdout data
+  holdout_bars: 252               # Last 252 bars reserved as final holdout (invisible during mining)
+
+  # Black swan stress periods (each must pass or strategy is demoted)
+  stress_periods:
+    - name: "financial_crisis_2008"
+      start: "2007-10-01"
+      end: "2009-03-31"
+      max_drawdown_abs: 0.25
+    - name: "covid_crash_2020"
+      start: "2020-02-15"
+      end: "2020-04-15"
+      max_drawdown_abs: 0.25
+    - name: "rate_hike_2022"
+      start: "2022-01-01"
+      end: "2022-12-31"
+      max_drawdown_abs: 0.25
+    - name: "q4_selloff_2018"
+      start: "2018-10-01"
+      end: "2018-12-31"
+      max_drawdown_abs: 0.25
+
+  # CRISIS regime pass: drawdown <= SPY same-period * crisis_dd_vs_spy_multiplier
+  crisis_dd_vs_spy_multiplier: 1.0
+
+  # Walk-forward test_bars by strategy rebalance frequency
+  walk_forward_test_bars_by_type:
+    trend_following: 126           # daily signals → 6 months OOS
+    dual_momentum: 252             # monthly rebalance → 1 year OOS
+    cross_asset_rotation: 252      # monthly rebalance → 1 year OOS
+    _default: 189                  # fallback for unknown types
+
+  # OOS/IS overfit detection
+  min_oos_is_sharpe_ratio: 0.50    # OOS Sharpe / IS Sharpe < this → Tier D
+
+  # Regime-aware OOS window pass criteria
+  # Defensive windows (CRISIS/RISK_OFF/CAUTIOUS): relaxed — drawdown <= benchmark * multiplier
+  defensive_window_dd_multiplier: 1.3
 
   # Composite score weights (for ranking candidates)
   score_weights:

@@ -48,6 +48,19 @@ CREATE TABLE IF NOT EXISTS trials (
     param_robust         INTEGER NOT NULL DEFAULT 0,
     passed_robustness    INTEGER NOT NULL DEFAULT 0,
 
+    -- Stress
+    stress_passed        INTEGER NOT NULL DEFAULT 0,
+    stress_results_json  TEXT,
+
+    -- Holdout
+    holdout_ir           REAL,
+    holdout_excess_return REAL,
+    holdout_max_dd       REAL,
+    passed_holdout       INTEGER NOT NULL DEFAULT 0,
+
+    -- Overfit
+    oos_is_sharpe_ratio  REAL,
+
     -- Overall
     tier                 TEXT    NOT NULL DEFAULT 'D',
     composite_score      REAL    NOT NULL DEFAULT 0.0,
@@ -98,6 +111,8 @@ class MiningArchive:
 
     def save_eval(self, result: "EvalResult") -> None:  # type: ignore[name-defined]
         """保存或更新单次评估结果。"""
+        import json as _json
+        stress_json = _json.dumps(result.stress_results) if hasattr(result, 'stress_results') else None
         conn = self._connect()
         conn.execute(
             """INSERT OR REPLACE INTO trials (
@@ -105,9 +120,12 @@ class MiningArchive:
                 quick_sharpe, quick_max_dd, quick_cagr, passed_quick,
                 oos_ir, oos_pass_rate, oos_sharpe, oos_excess_return, passed_oos,
                 regime_robust, cost_robust, param_robust, passed_robustness,
+                stress_passed, stress_results_json,
+                holdout_ir, holdout_excess_return, holdout_max_dd, passed_holdout,
+                oos_is_sharpe_ratio,
                 tier, composite_score, diversity_corr, passed_diversity,
                 evaluated_at, optuna_value
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 result.spec_id,
                 result.strategy_type,
@@ -125,6 +143,13 @@ class MiningArchive:
                 int(result.cost_robust),
                 int(result.param_robust),
                 int(result.passed_robustness),
+                int(getattr(result, 'stress_passed', False)),
+                stress_json,
+                getattr(result, 'holdout_ir', None),
+                getattr(result, 'holdout_excess_return', None),
+                getattr(result, 'holdout_max_dd', None),
+                int(getattr(result, 'passed_holdout', False)),
+                getattr(result, 'oos_is_sharpe_ratio', None),
                 result.tier,
                 result.composite_score,
                 result.diversity_corr,
@@ -236,6 +261,8 @@ class MiningArchive:
             f"""SELECT spec_id, strategy_type, tier, composite_score,
                        quick_sharpe, oos_ir, oos_pass_rate, oos_excess_return,
                        quick_max_dd, regime_robust, cost_robust, param_robust,
+                       stress_passed, holdout_ir, holdout_excess_return,
+                       passed_holdout, oos_is_sharpe_ratio,
                        passed_quick, passed_oos, evaluated_at
                 FROM trials {where}
                 ORDER BY composite_score DESC LIMIT {n}""",
@@ -271,4 +298,23 @@ class MiningArchive:
         conn.execute(_CREATE_TRIALS)
         conn.execute(_CREATE_PROMOTIONS)
         conn.commit()
+        self._migrate_db(conn)
         conn.close()
+
+    @staticmethod
+    def _migrate_db(conn: sqlite3.Connection) -> None:
+        """Add columns introduced in Round 1 if they don't exist yet."""
+        existing = {row[1] for row in conn.execute("PRAGMA table_info(trials)").fetchall()}
+        migrations = [
+            ("stress_passed",       "INTEGER NOT NULL DEFAULT 0"),
+            ("stress_results_json", "TEXT"),
+            ("holdout_ir",          "REAL"),
+            ("holdout_excess_return","REAL"),
+            ("holdout_max_dd",      "REAL"),
+            ("passed_holdout",      "INTEGER NOT NULL DEFAULT 0"),
+            ("oos_is_sharpe_ratio", "REAL"),
+        ]
+        for col, typedef in migrations:
+            if col not in existing:
+                conn.execute(f"ALTER TABLE trials ADD COLUMN {col} {typedef}")
+        conn.commit()

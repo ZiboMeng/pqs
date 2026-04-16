@@ -64,6 +64,9 @@ class MasterReport:
     universe_status : 投资宇宙当前状态
     paper_trading   : 模拟盘 P&L 状态
     risk_summary    : 综合风险摘要
+    regime_performance : Regime-stratified 表现分解
+    strategy_attribution : 策略级别归因
+    bt_paper_reconciliation : 回测 vs Paper 对账
     """
 
     generated_at:    pd.Timestamp
@@ -74,6 +77,9 @@ class MasterReport:
     universe_status: Optional[Dict] = None
     paper_trading:   Optional[Dict] = None
     risk_summary:    Optional[Dict] = None
+    regime_performance:      Optional[Dict] = None
+    strategy_attribution:    Optional[Dict] = None
+    bt_paper_reconciliation: Optional[Dict] = None
 
     # ── 序列化 ────────────────────────────────────────────────────────────────
 
@@ -87,6 +93,9 @@ class MasterReport:
             "universe_status": self.universe_status,
             "paper_trading":   self.paper_trading,
             "risk_summary":    self.risk_summary,
+            "regime_performance":      self.regime_performance,
+            "strategy_attribution":    self.strategy_attribution,
+            "bt_paper_reconciliation": self.bt_paper_reconciliation,
         }
 
     def to_markdown(self) -> str:
@@ -251,7 +260,63 @@ class MasterReport:
                 "",
             ]
 
-        # ── 7. 风险摘要 ───────────────────────────────────────────────────────
+        # ── Regime-stratified 表现 ────────────────────────────────────────────
+        if self.regime_performance is not None:
+            section_idx += 1
+            rp = self.regime_performance
+            lines += [
+                "---",
+                f"## {section_idx}. Regime 分层表现",
+                "",
+                "| Regime | 天数 | CAGR | Sharpe | MaxDD | vs SPY |",
+                "|--------|------|------|--------|-------|--------|",
+            ]
+            for row in rp.get("regimes", []):
+                lines.append(
+                    f"| {row['regime']} | {row['n_days']} | "
+                    f"{_fmt_pct(row.get('cagr'))} | {_fmt_f2(row.get('sharpe'))} | "
+                    f"{_fmt_pct(row.get('max_dd'))} | {_fmt_pct(row.get('excess_vs_spy'))} |"
+                )
+            lines.append("")
+
+        # ── Strategy-level 归因 ───────────────────────────────────────────────
+        if self.strategy_attribution is not None:
+            section_idx += 1
+            sa = self.strategy_attribution
+            lines += [
+                "---",
+                f"## {section_idx}. 策略归因",
+                "",
+                "| 策略 | CAGR | Sharpe | MaxDD | 贡献占比 |",
+                "|------|------|--------|-------|---------|",
+            ]
+            for row in sa.get("strategies", []):
+                lines.append(
+                    f"| {row['name']} | {_fmt_pct(row.get('cagr'))} | "
+                    f"{_fmt_f2(row.get('sharpe'))} | {_fmt_pct(row.get('max_dd'))} | "
+                    f"{_fmt_pct(row.get('contribution_pct'))} |"
+                )
+            lines.append("")
+
+        # ── Backtest vs Paper 对账 ────────────────────────────────────────────
+        if self.bt_paper_reconciliation is not None:
+            section_idx += 1
+            bp = self.bt_paper_reconciliation
+            status = "正常" if bp.get("within_tolerance") else "偏离"
+            lines += [
+                "---",
+                f"## {section_idx}. 回测 vs 模拟盘对账",
+                "",
+                f"- 状态: **{status}**",
+                f"- 对照天数: **{bp.get('n_days', 0)}**",
+                f"- 平均日偏离: **{bp.get('mean_daily_diff_bps', 0):.1f} bps**",
+                f"- 最大日偏离: **{bp.get('max_daily_diff_bps', 0):.1f} bps**",
+                f"- 累计偏离: **{_fmt_pct(bp.get('cumulative_diff'))}**",
+                f"- 容忍阈值: **{bp.get('tolerance_bps', 150):.0f} bps**",
+                "",
+            ]
+
+        # ── 风险摘要 ──────────────────────────────────────────────────────────
         if self.risk_summary is not None:
             section_idx += 1
             r = self.risk_summary

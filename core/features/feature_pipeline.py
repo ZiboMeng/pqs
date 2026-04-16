@@ -97,9 +97,21 @@ class FeaturePipeline:
         self,
         graceful_degradation: bool = True,
         confluence_weights:   Optional[Dict[str, float]] = None,
+        timeframe_optimizer:  Optional["TimeframeOptimizer"] = None,
     ):
         self.graceful_degradation = graceful_degradation
-        self.confluence_weights   = confluence_weights or self._DEFAULT_CONFLUENCE_WEIGHTS
+        self._tf_optimizer = timeframe_optimizer
+        if confluence_weights is not None:
+            self.confluence_weights = confluence_weights
+        elif timeframe_optimizer is not None:
+            self.confluence_weights = timeframe_optimizer.get_weights()
+        else:
+            self.confluence_weights = self._DEFAULT_CONFLUENCE_WEIGHTS
+
+    def update_weights_for_regime(self, regime: str) -> None:
+        """Update confluence weights from TimeframeOptimizer for the current regime."""
+        if self._tf_optimizer is not None:
+            self.confluence_weights = self._tf_optimizer.get_weights(regime)
 
     # ── Public API ────────────────────────────────────────────────────────────
 

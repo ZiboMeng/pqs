@@ -41,6 +41,8 @@ class UniverseConfig(BaseModel):
     high_risk_symbols: HighRiskSymbolConfig = Field(default_factory=HighRiskSymbolConfig)
     liquidity: UniverseLiquidityConfig = Field(default_factory=UniverseLiquidityConfig)
 
+    first_trade_dates: Dict[str, str] = Field(default_factory=dict)
+
     # interday vs intraday can use different subsets
     interday_eligible_override: Optional[List[str]] = None
     intraday_eligible_override: Optional[List[str]] = None

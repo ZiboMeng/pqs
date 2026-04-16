@@ -80,9 +80,22 @@ class EvalResult:
     param_robust:      bool  = False
     passed_robustness: bool  = False
 
+    # Stage 3b: Stress periods
+    stress_passed:     bool  = False
+    stress_results:    Dict[str, Dict] = field(default_factory=dict)
+
     # Stage 4: Diversity
     diversity_corr:  float = float("nan")
     passed_diversity: bool = False
+
+    # Stage 5: Holdout
+    holdout_ir:             float = float("nan")
+    holdout_excess_return:  float = float("nan")
+    holdout_max_dd:         float = float("nan")
+    passed_holdout:         bool  = False
+
+    # OOS/IS overfit ratio
+    oos_is_sharpe_ratio: float = float("nan")
 
     # Overall
     tier:            str   = "D"
@@ -135,6 +148,13 @@ class MiningEvaluator:
         param_max_change:   float = 0.50,
         diversity_max_corr: float = 0.70,
         score_weights:      Optional[Dict[str, float]] = None,
+        holdout_bars:       int   = 252,
+        quick_data_fraction: float = 0.70,
+        stress_periods:     Optional[List[Dict]] = None,
+        crisis_dd_vs_spy:   float = 1.0,
+        wf_test_bars_by_type: Optional[Dict[str, int]] = None,
+        min_oos_is_sharpe_ratio: float = 0.50,
+        defensive_window_dd_mult: float = 1.3,
     ) -> None:
         self._cost              = cost_model
         self._capital           = initial_capital
@@ -148,6 +168,13 @@ class MiningEvaluator:
         self._cost_mult         = cost_multiplier
         self._param_change      = param_max_change
         self._div_corr          = diversity_max_corr
+        self._holdout_bars      = holdout_bars
+        self._quick_frac        = quick_data_fraction
+        self._stress_periods    = stress_periods or []
+        self._crisis_dd_spy     = crisis_dd_vs_spy
+        self._wf_test_bars      = wf_test_bars_by_type or {}
+        self._min_oos_is_ratio  = min_oos_is_sharpe_ratio
+        self._def_win_dd_mult   = defensive_window_dd_mult
         self._score_w           = score_weights or {
             "oos_ir":             2.0,
             "oos_sharpe":         1.0,
@@ -156,6 +183,8 @@ class MiningEvaluator:
             "regime_robust":      1.0,
             "cost_robust":        0.5,
             "param_robust":       0.5,
+            "stress_bonus":       1.5,
+            "holdout_bonus":      2.0,
         }
 
     # ── Public API ────────────────────────────────────────────────────────────
@@ -172,18 +201,13 @@ class MiningEvaluator:
         stop_after:        str = "full",   # "quick" | "oos" | "full"
     ) -> EvalResult:
         """
-        运行完整多阶段评估。
+        运行完整多阶段评估（含数据隔离）。
 
-        Parameters
-        ----------
-        spec              : 要评估的策略规格
-        price_df          : 日收盘价（所有资产）
-        regime_series     : RegimeDetector 输出
-        benchmark_series  : 基准价格（SPY）
-        risk_universe     : 风险资产列表（传给策略实例化）
-        def_universe      : 防御资产列表（传给策略实例化）
-        promoted_curves   : {spec_id: equity_curve} 已晋升策略的权益曲线（用于多样性检查）
-        stop_after        : 在哪个阶段后停止（节省时间）
+        数据切分逻辑:
+          holdout  = 最后 holdout_bars 天（Stage 5 专用，Stages 1-4 不可见）
+          non_holdout = price_df 去掉 holdout
+          quick_data = non_holdout 的前 quick_data_fraction（Stage 1 快筛）
+          oos_data = 完整 non_holdout（Stage 2-4 walk-forward / robustness）
         """
         result = EvalResult(
             spec_id       = spec.spec_id,
@@ -191,12 +215,33 @@ class MiningEvaluator:
             params        = spec.params_dict,
         )
 
-        # ── Stage 1: Quick ────────────────────────────────────────────────────
+        # ── Data isolation ────────────────────────────────────────────────────
+        n_total = len(price_df)
+        holdout_start_idx = max(0, n_total - self._holdout_bars)
+
+        non_holdout_df   = price_df.iloc[:holdout_start_idx]
+        holdout_df       = price_df.iloc[holdout_start_idx:]
+
+        n_nh = len(non_holdout_df)
+        quick_end_idx    = int(n_nh * self._quick_frac)
+        quick_df         = non_holdout_df.iloc[:quick_end_idx]
+
+        non_holdout_regime = regime_series.reindex(non_holdout_df.index, method="ffill")
+        quick_regime       = regime_series.reindex(quick_df.index, method="ffill")
+        non_holdout_bench  = benchmark_series.reindex(non_holdout_df.index, method="ffill")
+        quick_bench        = benchmark_series.reindex(quick_df.index, method="ffill")
+
+        logger.debug(
+            "Data isolation: total=%d, non_holdout=%d, quick=%d, holdout=%d",
+            n_total, n_nh, quick_end_idx, len(holdout_df),
+        )
+
+        # ── Stage 1: Quick (uses only first 70% of non-holdout) ──────────────
         try:
             strategy = instantiate_strategy(spec, risk_universe, def_universe)
-            signals  = strategy.generate(price_df, regime_series)
-            weights  = self._build_weights(signals, price_df, regime_series)
-            bt_result = self._run_backtest(weights, price_df, regime_series, benchmark_series)
+            signals  = strategy.generate(quick_df, quick_regime)
+            weights  = self._build_weights(signals, quick_df, quick_regime)
+            bt_result = self._run_backtest(weights, quick_df, quick_regime, quick_bench)
         except Exception as exc:
             logger.warning("Evaluator Stage1 error for %s: %s", spec.spec_id, exc)
             result.composite_score = -999.0
@@ -220,10 +265,11 @@ class MiningEvaluator:
             result.composite_score = self._score(result)
             return result
 
-        # ── Stage 2: OOS ──────────────────────────────────────────────────────
+        # ── Stage 2: OOS (uses full non-holdout for walk-forward) ─────────────
         try:
             oos_metrics = self._run_walk_forward(
-                spec, price_df, regime_series, benchmark_series, risk_universe, def_universe
+                spec, non_holdout_df, non_holdout_regime, non_holdout_bench,
+                risk_universe, def_universe,
             )
             result.oos_ir           = oos_metrics.get("mean_oos_ir", float("nan"))
             result.oos_pass_rate    = oos_metrics.get("pass_rate",   float("nan"))
@@ -231,6 +277,9 @@ class MiningEvaluator:
             result.oos_excess_return = oos_metrics.get("mean_oos_excess_return", float("nan"))
         except Exception as exc:
             logger.warning("Evaluator Stage2 error for %s: %s", spec.spec_id, exc)
+
+        if not np.isnan(result.quick_sharpe) and not np.isnan(result.oos_sharpe) and abs(result.quick_sharpe) > 1e-6:
+            result.oos_is_sharpe_ratio = result.oos_sharpe / result.quick_sharpe
 
         result.passed_oos = (
             not np.isnan(result.oos_ir)
@@ -243,18 +292,29 @@ class MiningEvaluator:
             result.composite_score = self._score(result)
             return result
 
-        # ── Stage 3: Robustness ───────────────────────────────────────────────
+        # ── Stage 3: Robustness (uses full non-holdout) ───────────────────────
+        nh_strategy = instantiate_strategy(spec, risk_universe, def_universe)
+        nh_signals  = nh_strategy.generate(non_holdout_df, non_holdout_regime)
+        nh_weights  = self._build_weights(nh_signals, non_holdout_df, non_holdout_regime)
+
         result.regime_robust = self._check_regime_robustness(
-            spec, price_df, regime_series, benchmark_series, risk_universe, def_universe
+            spec, non_holdout_df, non_holdout_regime, non_holdout_bench,
+            risk_universe, def_universe,
         )
         result.cost_robust = self._check_cost_robustness(
-            weights, price_df, regime_series, benchmark_series
+            nh_weights, non_holdout_df, non_holdout_regime, non_holdout_bench
         )
         result.param_robust = self._check_param_robustness(
-            spec, price_df, regime_series, benchmark_series,
+            spec, non_holdout_df, non_holdout_regime, non_holdout_bench,
             result.quick_sharpe, risk_universe, def_universe,
         )
-        result.passed_robustness = result.regime_robust and result.cost_robust
+
+        # Stage 3b: Stress periods (uses full price_df since stress periods may be outside non-holdout)
+        result.stress_passed, result.stress_results = self._check_stress_periods(
+            spec, price_df, regime_series, benchmark_series, risk_universe, def_universe,
+        )
+
+        result.passed_robustness = result.regime_robust and result.cost_robust and result.stress_passed
 
         # ── Stage 4: Diversity ────────────────────────────────────────────────
         if promoted_curves and result.equity_curve is not None:
@@ -263,7 +323,42 @@ class MiningEvaluator:
             )
             result.passed_diversity = result.diversity_corr < self._div_corr
         else:
-            result.passed_diversity = True  # first strategy always passes
+            result.passed_diversity = True
+
+        # ── Stage 5: Holdout (last 252 bars, invisible until now) ─────────────
+        if len(holdout_df) >= 60:
+            try:
+                holdout_regime = regime_series.reindex(holdout_df.index, method="ffill")
+                holdout_bench  = benchmark_series.reindex(holdout_df.index, method="ffill")
+                h_strategy = instantiate_strategy(spec, risk_universe, def_universe)
+                h_signals  = h_strategy.generate(holdout_df, holdout_regime)
+                h_weights  = self._build_weights(h_signals, holdout_df, holdout_regime)
+                h_bt       = self._run_backtest(h_weights, holdout_df, holdout_regime, holdout_bench)
+                h_m        = h_bt.metrics
+
+                result.holdout_max_dd = h_m.get("max_drawdown", float("nan"))
+
+                bench_ret = holdout_bench.pct_change().dropna()
+                bench_cagr = float((1 + bench_ret.mean()) ** 252 - 1) if len(bench_ret) > 0 else 0.0
+                h_cagr = h_m.get("cagr", float("nan"))
+                if not np.isnan(h_cagr):
+                    result.holdout_excess_return = h_cagr - bench_cagr
+
+                strat_ret = h_bt.equity_curve.pct_change().dropna() if not h_bt.equity_curve.empty else pd.Series(dtype=float)
+                b_ret_aligned = bench_ret.reindex(strat_ret.index).fillna(0)
+                if len(strat_ret) > 10:
+                    te = (strat_ret - b_ret_aligned).std() * np.sqrt(252)
+                    if te > 1e-6:
+                        result.holdout_ir = float((strat_ret.mean() - b_ret_aligned.mean()) * 252 / te)
+
+                result.passed_holdout = (
+                    not np.isnan(result.holdout_ir) and result.holdout_ir >= 0.20
+                )
+            except Exception as exc:
+                logger.warning("Evaluator Stage5 holdout error for %s: %s", spec.spec_id, exc)
+        else:
+            result.passed_holdout = True
+            logger.debug("Holdout data too short (%d bars), skipping holdout check", len(holdout_df))
 
         # ── Tier & score ──────────────────────────────────────────────────────
         result.tier            = self._assign_tier(result)
@@ -302,6 +397,29 @@ class MiningEvaluator:
             regime_series = regime_series,
         )
 
+    def _get_test_bars(self, strategy_type: str) -> int:
+        """Look up walk-forward test_bars for a strategy type."""
+        if strategy_type in self._wf_test_bars:
+            return self._wf_test_bars[strategy_type]
+        return self._wf_test_bars.get("_default", 126)
+
+    def _is_defensive_window(
+        self,
+        window,
+        regime_series: pd.Series,
+    ) -> bool:
+        """Check if a walk-forward test window falls in a defensive regime."""
+        defensive = {"CRISIS", "RISK_OFF", "CAUTIOUS"}
+        aligned = regime_series.reindex(
+            pd.date_range(window.test_start, window.test_end, freq="B"),
+            method="ffill",
+        )
+        if aligned.empty:
+            return False
+        counts = aligned.value_counts()
+        dominant = counts.index[0] if not counts.empty else "NEUTRAL"
+        return dominant in defensive
+
     def _run_walk_forward(
         self,
         spec:             StrategySpec,
@@ -311,11 +429,12 @@ class MiningEvaluator:
         risk_universe:    Optional[List[str]],
         def_universe:     Optional[List[str]],
     ) -> Dict[str, float]:
-        """Walk-forward OOS 评估，返回汇总统计。"""
+        """Walk-forward OOS with type-specific test_bars and regime-aware pass criteria."""
         from core.backtest.window_analyzer import WindowAnalyzer
 
-        engine   = BacktestEngine(cost_model=self._cost, initial_capital=self._capital)
-        analyzer = WindowAnalyzer(engine=engine)
+        test_bars = self._get_test_bars(spec.strategy_type)
+        engine    = BacktestEngine(cost_model=self._cost, initial_capital=self._capital)
+        analyzer  = WindowAnalyzer(engine=engine)
 
         strategy = instantiate_strategy(spec, risk_universe, def_universe)
         signals  = strategy.generate(price_df, regime_series)
@@ -325,6 +444,7 @@ class MiningEvaluator:
             signals_df = weights,
             price_df   = price_df,
             benchmark  = benchmark_series,
+            test_size  = test_bars,
         )
 
         if not windows:
@@ -334,11 +454,26 @@ class MiningEvaluator:
         sharps = [w.metrics.get("sharpe",          float("nan")) for w in windows]
         excess = [w.metrics.get("excess_return",   float("nan")) for w in windows]
 
-        n_pass = sum(
-            1 for w in windows
-            if w.metrics.get("excess_return", -99) > 0.05
-            and w.metrics.get("ir", -99) > 0.30
-        )
+        n_pass = 0
+        for w in windows:
+            is_def = self._is_defensive_window(w, regime_series)
+            if is_def:
+                strat_dd = abs(w.metrics.get("max_drawdown", -1.0))
+                b_slice = benchmark_series.loc[w.test_start:w.test_end].dropna()
+                if len(b_slice) > 1:
+                    b_cummax = b_slice.cummax()
+                    bench_dd = abs(float(((b_slice - b_cummax) / b_cummax).min()))
+                else:
+                    bench_dd = strat_dd
+                if bench_dd < 1e-6:
+                    bench_dd = strat_dd
+                if strat_dd <= bench_dd * self._def_win_dd_mult:
+                    n_pass += 1
+            else:
+                if (w.metrics.get("excess_return", -99) > 0.05
+                        and w.metrics.get("ir", -99) > 0.30):
+                    n_pass += 1
+
         pass_rate = n_pass / len(windows)
 
         def _mean(lst: list) -> float:
@@ -351,6 +486,7 @@ class MiningEvaluator:
             "mean_oos_excess_return": _mean(excess),
             "pass_rate":              pass_rate,
             "n_windows":              len(windows),
+            "test_bars_used":         test_bars,
         }
 
     def _check_regime_robustness(
@@ -362,31 +498,123 @@ class MiningEvaluator:
         risk_universe: Optional[List[str]],
         def_universe:  Optional[List[str]],
     ) -> bool:
-        """至少在 regime_robust_n 个 regime 下超额收益为正。"""
-        target_regimes = ["BULL", "RISK_ON", "NEUTRAL"]
+        """
+        All 6 regimes tested with differentiated criteria:
+          Growth regimes (BULL/RISK_ON/NEUTRAL): excess_return > 0 in >= regime_robust_n
+          Defensive regimes (CAUTIOUS/RISK_OFF/CRISIS): drawdown <= SPY × crisis_dd_vs_spy in >= 1
+        """
+        growth_regimes    = ["BULL", "RISK_ON", "NEUTRAL"]
+        defensive_regimes = ["CAUTIOUS", "RISK_OFF", "CRISIS"]
+
         strategy = instantiate_strategy(spec, risk_universe, def_universe)
         signals  = strategy.generate(price_df, regime_series)
         weights  = self._build_weights(signals, price_df, regime_series)
 
         benchmark_ret = benchmark_series.pct_change().dropna()
-        positive_count = 0
+        aligned_regime = regime_series.reindex(weights.index, method="ffill")
 
-        for r in target_regimes:
-            mask  = (regime_series.reindex(weights.index, method="ffill") == r)
+        growth_pass = 0
+        defensive_pass = 0
+        defensive_tested = 0
+
+        for r in growth_regimes:
+            mask = (aligned_regime == r)
             if mask.sum() < 60:
                 continue
             r_weights = weights[mask]
             r_prices  = price_df.reindex(r_weights.index)
             r_bench   = benchmark_ret.reindex(r_weights.index).fillna(0)
-            bt        = self._run_backtest(r_weights, r_prices, regime_series, benchmark_series)
-            m         = bt.metrics
-            excess    = m.get("cagr", 0.0) - float(
-                (1 + r_bench.mean()) ** 252 - 1
-            )
+            bt = self._run_backtest(r_weights, r_prices, regime_series, benchmark_series)
+            m  = bt.metrics
+            excess = m.get("cagr", 0.0) - float((1 + r_bench.mean()) ** 252 - 1)
             if excess > 0:
-                positive_count += 1
+                growth_pass += 1
 
-        return positive_count >= self._regime_n
+        for r in defensive_regimes:
+            mask = (aligned_regime == r)
+            if mask.sum() < 30:
+                continue
+            defensive_tested += 1
+            r_weights = weights[mask]
+            r_prices  = price_df.reindex(r_weights.index)
+            r_bench   = benchmark_ret.reindex(r_weights.index).fillna(0)
+            bt = self._run_backtest(r_weights, r_prices, regime_series, benchmark_series)
+            strat_dd = abs(bt.metrics.get("max_drawdown", -1.0))
+
+            bench_eq = (1 + r_bench).cumprod()
+            bench_dd = abs(float((bench_eq / bench_eq.cummax() - 1).min())) if len(bench_eq) > 0 else 1.0
+            if strat_dd <= bench_dd * self._crisis_dd_spy:
+                defensive_pass += 1
+
+        growth_ok    = growth_pass >= self._regime_n
+        defensive_ok = defensive_tested == 0 or defensive_pass >= 1
+        return growth_ok and defensive_ok
+
+    def _check_stress_periods(
+        self,
+        spec:             StrategySpec,
+        price_df:         pd.DataFrame,
+        regime_series:    pd.Series,
+        benchmark_series: pd.Series,
+        risk_universe:    Optional[List[str]],
+        def_universe:     Optional[List[str]],
+    ) -> Tuple[bool, Dict[str, Dict]]:
+        """
+        Run backtest on each configured stress period.
+        Strategy must not exceed max_drawdown_abs in any period with sufficient data.
+        Returns (all_passed, {period_name: metrics_dict}).
+        """
+        if not self._stress_periods:
+            return True, {}
+
+        results: Dict[str, Dict] = {}
+        all_passed = True
+
+        for sp in self._stress_periods:
+            name      = sp.get("name", "unknown")
+            sp_start  = pd.Timestamp(sp["start"])
+            sp_end    = pd.Timestamp(sp["end"])
+            max_dd    = sp.get("max_drawdown_abs", 0.25)
+
+            period_df = price_df[(price_df.index >= sp_start) & (price_df.index <= sp_end)]
+            if len(period_df) < 30:
+                results[name] = {"skipped": True, "reason": f"insufficient_data({len(period_df)}<30)"}
+                logger.debug("Stress period %s: only %d bars, skipping", name, len(period_df))
+                continue
+
+            try:
+                p_regime = regime_series.reindex(period_df.index, method="ffill")
+                p_bench  = benchmark_series.reindex(period_df.index, method="ffill")
+                strategy = instantiate_strategy(spec, risk_universe, def_universe)
+                signals  = strategy.generate(period_df, p_regime)
+                weights  = self._build_weights(signals, period_df, p_regime)
+                bt       = self._run_backtest(weights, period_df, p_regime, p_bench)
+                strat_dd = abs(bt.metrics.get("max_drawdown", -1.0))
+
+                bench_ret = p_bench.pct_change().dropna()
+                bench_eq  = (1 + bench_ret).cumprod()
+                bench_dd  = abs(float((bench_eq / bench_eq.cummax() - 1).min())) if len(bench_eq) > 0 else 1.0
+
+                passed = strat_dd <= max_dd
+                results[name] = {
+                    "skipped": False,
+                    "strat_max_dd": strat_dd,
+                    "bench_max_dd": bench_dd,
+                    "max_dd_limit": max_dd,
+                    "passed": passed,
+                    "strat_cagr": bt.metrics.get("cagr", float("nan")),
+                }
+                if not passed:
+                    all_passed = False
+                    logger.debug(
+                        "Stress period %s FAILED: strat_dd=%.2f%% > limit=%.2f%%",
+                        name, strat_dd * 100, max_dd * 100,
+                    )
+            except Exception as exc:
+                results[name] = {"skipped": True, "reason": str(exc)}
+                logger.warning("Stress period %s error: %s", name, exc)
+
+        return all_passed, results
 
     def _check_cost_robustness(
         self,
@@ -482,10 +710,12 @@ class MiningEvaluator:
     def _assign_tier(self, r: EvalResult) -> str:
         if not r.passed_oos:
             return "D"
+        if not np.isnan(r.oos_is_sharpe_ratio) and r.oos_is_sharpe_ratio < self._min_oos_is_ratio:
+            return "D"
         ir = r.oos_ir if not np.isnan(r.oos_ir) else 0.0
-        if ir >= _TIER_THRESHOLDS["S"] and r.passed_robustness:
+        if ir >= _TIER_THRESHOLDS["S"] and r.passed_robustness and r.passed_holdout:
             return "S"
-        if ir >= _TIER_THRESHOLDS["A"]:
+        if ir >= _TIER_THRESHOLDS["A"] and r.passed_robustness:
             return "A"
         if ir >= _TIER_THRESHOLDS["B"]:
             return "B"
@@ -516,5 +746,13 @@ class MiningEvaluator:
             score += w.get("cost_robust", 0.5)
         if r.param_robust:
             score += w.get("param_robust", 0.5)
+        if r.stress_passed:
+            score += w.get("stress_bonus", 1.5)
+        if r.passed_holdout:
+            score += w.get("holdout_bonus", 2.0)
+            if not np.isnan(r.holdout_ir):
+                score += max(0, r.holdout_ir) * 1.0
+        if not np.isnan(r.oos_is_sharpe_ratio) and r.oos_is_sharpe_ratio < 0.5:
+            score -= 2.0
         return score
 

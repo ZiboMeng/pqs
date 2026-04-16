@@ -51,6 +51,42 @@ blacklist:
   - SQQQ
   - SOXS
 
+# Point-in-time: first trade dates for survivorship bias prevention
+# Symbols only enter candidate pool after first_trade_date + min_history_days
+first_trade_dates:
+  SPY: "1993-01-29"
+  QQQ: "1999-03-10"
+  GLD: "2004-11-18"
+  AAPL: "1980-12-12"
+  MSFT: "1986-03-13"
+  GOOGL: "2004-08-19"
+  AMZN: "1997-05-15"
+  META: "2012-05-18"
+  NVDA: "1999-01-22"
+  TSLA: "2010-06-29"
+  TQQQ: "2010-02-09"
+  SOXL: "2010-03-11"
+  XLK: "1998-12-22"
+  XLF: "1998-12-22"
+  XLE: "1998-12-22"
+  XLV: "1998-12-22"
+  XLI: "1998-12-22"
+  XLY: "1998-12-22"
+  XLP: "1998-12-22"
+  XLU: "1998-12-22"
+  XLB: "1998-12-22"
+  XLRE: "2015-10-08"
+  XLC: "2018-06-18"
+  MTUM: "2013-04-16"
+  QUAL: "2013-07-18"
+  VLUE: "2013-04-16"
+  USMV: "2011-10-20"
+  SCHD: "2011-10-20"
+  TLT: "2002-07-26"
+  IEF: "2002-07-26"
+  SHY: "2002-07-22"
+  SLV: "2006-04-28"
+
 high_risk_symbols:
   symbols: [TQQQ, SOXL]
   max_single_weight: 0.10

@@ -25,7 +25,7 @@ UniverseManager: 四层股票池管理。
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from typing import Dict, List, Optional, Set
 
 import pandas as pd
@@ -74,6 +74,7 @@ class UniverseManager:
         self._candidate: List[str]  = []
         self._active:    Set[str]   = set()
         self._filter_log: Dict[str, FilterResult] = {}
+        self._first_trade_dates: Dict[str, date] = self._parse_first_trade_dates(config)
 
     # ── 公开 API ──────────────────────────────────────────────────────────────
 
@@ -86,6 +87,8 @@ class UniverseManager:
         重新计算 candidate 池。
 
         传入当前各 symbol 的日频 OHLCV DataFrame，逐一做流动性 / 历史 / blacklist 检查。
+        当 as_of 不为 None 时，启用 point-in-time 过滤：只使用 as_of 之前的数据，
+        且排除 first_trade_date + min_history_days > as_of 的标的。
 
         Returns
         -------
@@ -95,7 +98,9 @@ class UniverseManager:
 
         for sym in self._watchlist:
             df  = ohlcv_frames.get(sym)
-            res = self._filter_symbol(sym, df)
+            if as_of is not None and df is not None and not df.empty:
+                df = df[df.index <= pd.Timestamp(as_of)]
+            res = self._filter_symbol(sym, df, as_of=as_of)
             results.append(res)
             self._filter_log[sym] = res
 
@@ -190,10 +195,20 @@ class UniverseManager:
 
     # ── 内部过滤逻辑 ──────────────────────────────────────────────────────────
 
+    def get_first_trade_date(self, symbol: str) -> Optional[date]:
+        return self._first_trade_dates.get(symbol)
+
+    def get_earliest_eligible_date(self, symbol: str) -> Optional[date]:
+        ftd = self._first_trade_dates.get(symbol)
+        if ftd is None:
+            return None
+        return ftd + timedelta(days=int(self._config.liquidity.min_history_days * 1.5))
+
     def _filter_symbol(
         self,
         symbol: str,
         df:     Optional[pd.DataFrame],
+        as_of:  Optional[date] = None,
     ) -> FilterResult:
         """对单个 symbol 执行全部过滤规则，返回 FilterResult。"""
         res = FilterResult(symbol=symbol, eligible=True)
@@ -203,22 +218,34 @@ class UniverseManager:
         if self._config.is_blacklisted(symbol):
             res.eligible = False
             res.reasons.append("blacklisted")
-            return res   # 黑名单直接返回，不再做后续检查
+            return res
 
-        # 2. 数据是否存在
+        # 2. Point-in-time: symbol must have been tradeable long enough by as_of
+        if as_of is not None:
+            ftd = self._first_trade_dates.get(symbol)
+            if ftd is not None:
+                earliest = ftd + timedelta(days=int(liq.min_history_days * 1.5))
+                if as_of < earliest:
+                    res.eligible = False
+                    res.reasons.append(
+                        f"pit_not_yet_eligible(first_trade={ftd},earliest={earliest},as_of={as_of})"
+                    )
+                    return res
+
+        # 3. 数据是否存在
         if df is None or df.empty:
             res.eligible = False
             res.reasons.append("no_data")
             return res
 
-        # 3. 最少历史天数
+        # 4. 最少历史天数
         if len(df) < liq.min_history_days:
             res.eligible = False
             res.reasons.append(
                 f"history_too_short({len(df)}<{liq.min_history_days})"
             )
 
-        # 4. 最低价格（用最近 close 判断）
+        # 5. 最低价格（用最近 close 判断）
         last_close = df["close"].iloc[-1] if "close" in df.columns else None
         if last_close is not None and last_close < liq.min_price_usd:
             res.eligible = False
@@ -226,7 +253,7 @@ class UniverseManager:
                 f"price_too_low({last_close:.2f}<{liq.min_price_usd})"
             )
 
-        # 5. 最低成交量（30 日均量）
+        # 6. 最低成交量（30 日均量）
         if "volume" in df.columns:
             vol_window = min(30, len(df))
             avg_vol = df["volume"].iloc[-vol_window:].mean()
@@ -237,3 +264,13 @@ class UniverseManager:
                 )
 
         return res
+
+    @staticmethod
+    def _parse_first_trade_dates(config: UniverseConfig) -> Dict[str, date]:
+        result: Dict[str, date] = {}
+        for sym, d in config.first_trade_dates.items():
+            try:
+                result[sym] = date.fromisoformat(str(d))
+            except (ValueError, TypeError):
+                pass
+        return result

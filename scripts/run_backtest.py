@@ -242,6 +242,18 @@ def main():
     if primary_wf:
         builder.set_rolling_windows(primary_wf)
 
+    # Regime-stratified performance
+    if not primary_result.equity_curve.empty and spy_close is not None:
+        builder.set_regime_performance(
+            equity_curve=primary_result.equity_curve,
+            regime_series=regime_series,
+            benchmark_series=spy_close,
+        )
+
+    # Strategy-level attribution
+    if len(all_runs) > 1:
+        builder.set_strategy_attribution(all_runs)
+
     report = builder.build()
     report_path = run_ctx.path("master_report.md")
     report.save(str(report_path))
