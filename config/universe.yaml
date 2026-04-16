@@ -12,6 +12,41 @@ seed_pool:
   - TQQQ
   - SOXL
 
+# Sector ETFs (SPDR)
+sector_etfs:
+  - XLK   # Technology
+  - XLF   # Financials
+  - XLE   # Energy
+  - XLV   # Health Care
+  - XLI   # Industrials
+  - XLY   # Consumer Discretionary
+  - XLP   # Consumer Staples
+  - XLU   # Utilities
+  - XLB   # Materials
+  - XLRE  # Real Estate
+  - XLC   # Communication Services
+
+# Factor ETFs
+factor_etfs:
+  - MTUM  # Momentum
+  - QUAL  # Quality
+  - VLUE  # Value
+  - USMV  # Min Volatility
+  - SCHD  # Dividend
+
+# Cross-asset / Defensive
+cross_asset:
+  - TLT   # 20+ Year Treasury
+  - IEF   # 7-10 Year Treasury
+  - SHY   # 1-3 Year Treasury (cash proxy)
+  - SLV   # Silver
+
+# Macro reference series (non-tradeable, used for regime/features only)
+macro_reference:
+  - "^VIX"    # VIX volatility index
+  - "^TNX"    # 10-year Treasury yield
+  - "DX-Y.NYB"  # DXY dollar index proxy
+
 blacklist:
   - SQQQ
   - SOXS

@@ -1,6 +1,10 @@
 benchmarks: [SPY, QQQ]
 primary_benchmark: SPY
 
+# Global backtest date range — 2013 gives full data for all seed symbols incl. TQQQ/SOXL
+start_date: "2013-01-02"
+end_date: null  # null = use latest available data
+
 window_analysis:
   enabled: true
   warmup_bars: 252
@@ -31,20 +35,19 @@ intraday:
 
   multi_timeframe:
     enabled: true
-    aux_freqs: [30m, 15m, 5m]
+    aux_freqs: [30m, 15m]        # 60m primary; 30m+15m aux; 5m dropped per Q5
     graceful_degradation: true
     min_history_days:
-      5m: 20
       15m: 20
       30m: 20
     lookback_bars:
       30m: 8
       15m: 16
-      5m: 24
+    # Initial static weights — overridden at runtime by TimeframeOptimizer
     timeframe_weights:
-      30m: 0.50
-      15m: 0.35
-      5m: 0.15
+      60m: 0.45
+      30m: 0.40
+      15m: 0.15
 
   confluence_filter:
     enabled: true
@@ -62,3 +65,47 @@ validation:
   auto_fail_single_period_contribution: 0.50
   auto_fail_single_asset_contribution: 0.40
   auto_fail_crisis_vs_benchmark_multiplier: 2.0
+
+# ── Strategy Mining Loop ──────────────────────────────────────────────────────
+mining:
+  # Quick evaluation gate (full-period backtest)
+  quick_min_sharpe: 0.30
+  quick_max_drawdown: 0.40
+  quick_min_cagr: 0.02
+
+  # OOS evaluation gate (walk-forward)
+  oos_min_pass_rate: 0.60          # fraction of OOS windows passing Tier D
+  oos_min_ir_vs_benchmark: 0.30
+  oos_min_excess_return: 0.03
+
+  # Robustness checks
+  regime_robust_min_regimes: 2     # must be positive in N+ regimes
+  cost_robust_multiplier: 2.0      # net alpha positive at 2x cost
+  param_robust_max_sharpe_change: 0.50  # ±20% param → Sharpe change < 50%
+
+  # Diversity filter
+  diversity_max_correlation: 0.70  # max return correlation with promoted strategies
+
+  # Optuna settings
+  n_trials_per_type: 80            # Optuna trials per strategy type per run
+  time_budget_seconds: 3600        # max wall-clock time per mining run
+  sampler: tpe                     # tpe | random | cmaes
+
+  # Promotion
+  promote_top_n: 5                 # max strategies in active pool
+  min_tier_to_promote: C           # C, B, A, S
+
+  # Persistence
+  optuna_db: "data/mining/optuna.db"
+  archive_db: "data/mining/archive.db"
+  equity_curve_dir: "data/mining/equity_curves"
+
+  # Composite score weights (for ranking candidates)
+  score_weights:
+    oos_ir: 2.0
+    oos_sharpe: 1.0
+    oos_excess_return: 5.0
+    max_drawdown_penalty: 3.0
+    regime_robust_bonus: 1.0
+    cost_robust_bonus: 0.5
+    param_robust_bonus: 0.5

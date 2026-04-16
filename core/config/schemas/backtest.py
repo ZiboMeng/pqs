@@ -1,6 +1,6 @@
 """Backtest and intraday configuration schemas."""
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, model_validator
 from datetime import date
 
@@ -113,8 +113,11 @@ class BacktestConfig(BaseModel):
 
     start_date_override: Optional[date] = None
     end_date_override: Optional[date] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
     benchmarks: List[str] = Field(default=["SPY", "QQQ"])
     primary_benchmark: str = "SPY"
+    mining: Optional[Dict[str, Any]] = None
 
     window_analysis: WindowAnalysisConfig = Field(default_factory=WindowAnalysisConfig)
     leakage_check: CostLeakageCheckConfig = Field(default_factory=CostLeakageCheckConfig)

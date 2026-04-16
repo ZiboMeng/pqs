@@ -1,0 +1,195 @@
+"""Unit tests for BacktestEngine and compute_metrics."""
+
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from core.config.schemas.cost_model import CostModelConfig, CostTierConfig
+from core.execution.cost_model import CostModel
+from core.backtest.backtest_engine import BacktestEngine, BacktestResult, compute_metrics
+
+
+# ── 辅助函数 ──────────────────────────────────────────────────────────────────
+
+def _make_cost_model() -> CostModel:
+    cfg = CostModelConfig(
+        tiers={
+            "default": CostTierConfig(
+                symbols=[],
+                commission_bps=0.5,
+                slippage_interday_bps=3.0,
+                slippage_intraday_bps=5.0,
+            )
+        }
+    )
+    return CostModel(cfg)
+
+
+def _make_price_df(
+    n: int = 200,
+    syms: list[str] = ("SPY", "QQQ"),
+    start: str = "2022-01-03",
+    seed: int = 42,
+) -> pd.DataFrame:
+    """生成合成日线收盘价矩阵（随机游走）。"""
+    rng  = np.random.default_rng(seed)
+    idx  = pd.bdate_range(start, periods=n)
+    data = {}
+    for sym in syms:
+        ret  = rng.normal(0.0003, 0.012, n)   # 略带正漂移
+        price = 100.0 * np.cumprod(1 + ret)
+        data[sym] = price
+    return pd.DataFrame(data, index=idx)
+
+
+def _make_signals(
+    price_df: pd.DataFrame,
+    equal_weight: bool = True,
+) -> pd.DataFrame:
+    """生成等权重信号（所有 symbol 同等权重）。"""
+    n    = len(price_df)
+    syms = price_df.columns.tolist()
+    w    = 1.0 / len(syms)
+    data = {sym: [w] * n for sym in syms}
+    return pd.DataFrame(data, index=price_df.index)
+
+
+# ── BacktestEngine.run ────────────────────────────────────────────────────────
+
+class TestBacktestEngineRun:
+    def test_returns_backtest_result(self):
+        price   = _make_price_df()
+        signals = _make_signals(price)
+        engine  = BacktestEngine(_make_cost_model(), initial_capital=100_000.0)
+        result  = engine.run(signals, price)
+        assert isinstance(result, BacktestResult)
+
+    def test_equity_curve_length_matches_dates(self):
+        price   = _make_price_df(100)
+        signals = _make_signals(price)
+        engine  = BacktestEngine(_make_cost_model())
+        result  = engine.run(signals, price)
+        assert len(result.equity_curve) == 100
+
+    def test_equity_starts_at_initial_capital(self):
+        price   = _make_price_df(100)
+        signals = _make_signals(price)
+        engine  = BacktestEngine(_make_cost_model(), initial_capital=100_000.0)
+        result  = engine.run(signals, price)
+        assert result.equity_curve.iloc[0] == pytest.approx(100_000.0)
+
+    def test_equity_curve_positive(self):
+        price   = _make_price_df(200)
+        signals = _make_signals(price)
+        engine  = BacktestEngine(_make_cost_model())
+        result  = engine.run(signals, price)
+        assert (result.equity_curve > 0).all()
+
+    def test_no_negative_cash(self):
+        price   = _make_price_df(100)
+        signals = _make_signals(price)
+        engine  = BacktestEngine(_make_cost_model())
+        result  = engine.run(signals, price)
+        # 现金可以因持仓而接近 0，但不应大幅负值
+        assert result.cash_curve.min() > -1_000.0   # 小额浮动允许
+
+    def test_trades_recorded(self):
+        price   = _make_price_df(100)
+        signals = _make_signals(price)
+        engine  = BacktestEngine(_make_cost_model())
+        result  = engine.run(signals, price)
+        assert result.n_trades > 0
+
+    def test_metrics_populated(self):
+        price   = _make_price_df(200)
+        signals = _make_signals(price)
+        engine  = BacktestEngine(_make_cost_model())
+        result  = engine.run(signals, price)
+        for key in ["cagr", "sharpe", "max_drawdown", "volatility"]:
+            assert key in result.metrics, f"Missing metric: {key}"
+
+    def test_empty_signals_returns_empty_result(self):
+        price   = _make_price_df(50)
+        signals = pd.DataFrame()   # 空信号
+        engine  = BacktestEngine(_make_cost_model())
+        result  = engine.run(signals, price)
+        assert result.equity_curve.empty
+
+    def test_hold_nothing_equity_flat(self):
+        """全零信号（不持仓）→ 权益曲线应等于初始资金（全部在现金）。"""
+        price    = _make_price_df(50)
+        signals  = pd.DataFrame(0.0, index=price.index, columns=price.columns)
+        engine   = BacktestEngine(_make_cost_model(), initial_capital=100_000.0)
+        result   = engine.run(signals, price)
+        assert (result.equity_curve - 100_000.0).abs().max() < 0.01
+
+    def test_rebalance_threshold_reduces_trades(self):
+        """高阈值换仓 → 交易次数应少于低阈值。"""
+        price   = _make_price_df(100)
+        signals = _make_signals(price)
+        low  = BacktestEngine(_make_cost_model(), rebalance_threshold=0.001)
+        high = BacktestEngine(_make_cost_model(), rebalance_threshold=0.20)
+        r_low  = low.run(signals, price)
+        r_high = high.run(signals, price)
+        assert r_high.n_trades <= r_low.n_trades
+
+    def test_bullish_signals_grow_equity(self):
+        """持续上涨行情 + 满仓信号 → 期末权益应高于初始资金。"""
+        n    = 200
+        idx  = pd.bdate_range("2022-01-03", periods=n)
+        # 构造单调上涨价格
+        price   = pd.DataFrame({"SPY": 100.0 * (1.001 ** np.arange(n))}, index=idx)
+        signals = pd.DataFrame({"SPY": 0.95}, index=idx)
+        engine  = BacktestEngine(_make_cost_model(), initial_capital=100_000.0)
+        result  = engine.run(signals, price)
+        assert result.equity_curve.iloc[-1] > 100_000.0
+
+
+# ── compute_metrics ───────────────────────────────────────────────────────────
+
+class TestComputeMetrics:
+    def _make_equity(self, n: int = 252, cagr: float = 0.10) -> pd.Series:
+        idx  = pd.bdate_range("2022-01-03", periods=n)
+        daily_ret = (1 + cagr) ** (1 / 252) - 1
+        vals = 100_000.0 * np.cumprod([1 + daily_ret] * n)
+        return pd.Series(vals, index=idx)
+
+    def test_returns_dict(self):
+        eq = self._make_equity()
+        m  = compute_metrics(eq)
+        assert isinstance(m, dict)
+
+    def test_positive_cagr_for_rising_equity(self):
+        eq = self._make_equity(cagr=0.15)
+        m  = compute_metrics(eq)
+        assert m["cagr"] > 0
+
+    def test_total_return_positive(self):
+        eq = self._make_equity(cagr=0.10)
+        m  = compute_metrics(eq)
+        assert m["total_return"] > 0
+
+    def test_max_drawdown_negative(self):
+        eq = self._make_equity()
+        m  = compute_metrics(eq)
+        assert m["max_drawdown"] <= 0
+
+    def test_empty_equity_returns_empty_dict(self):
+        m = compute_metrics(pd.Series(dtype=float))
+        assert m == {}
+
+    def test_sharpe_with_benchmark(self):
+        eq    = self._make_equity(252)
+        bench = self._make_equity(252, cagr=0.08)
+        m     = compute_metrics(eq, initial_capital=100_000.0, benchmark=bench)
+        assert "ir" in m
+        assert "alpha" in m
+        assert "beta" in m
+
+    def test_flat_equity_zero_vol(self):
+        idx = pd.bdate_range("2022-01-03", periods=10)
+        eq  = pd.Series([100_000.0] * 10, index=idx)
+        m   = compute_metrics(eq)
+        assert m.get("volatility", 0.0) == pytest.approx(0.0, abs=1e-6)

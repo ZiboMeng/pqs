@@ -1,7 +1,7 @@
 """Universe / asset selection configuration schemas."""
 
 from typing import Dict, List, Optional
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, ConfigDict
 
 
 class UniverseLiquidityConfig(BaseModel):
@@ -33,6 +33,11 @@ class UniverseConfig(BaseModel):
         default=["SPY", "QQQ", "GLD", "AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "TQQQ", "SOXL"]
     )
     blacklist: List[str] = Field(default=["SQQQ", "SOXS"])
+
+    sector_etfs:    List[str] = Field(default_factory=list)
+    factor_etfs:    List[str] = Field(default_factory=list)
+    cross_asset:    List[str] = Field(default_factory=list)
+    macro_reference: List[str] = Field(default_factory=list)
     high_risk_symbols: HighRiskSymbolConfig = Field(default_factory=HighRiskSymbolConfig)
     liquidity: UniverseLiquidityConfig = Field(default_factory=UniverseLiquidityConfig)
 
