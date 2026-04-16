@@ -39,6 +39,11 @@ class MultiFactorStrategy:
     lookback_quality  : window for quality (rolling sharpe) factor
     """
 
+    _DEFAULT_REGIME_SCALE = {
+        "BULL": 1.0, "RISK_ON": 1.0, "NEUTRAL": 0.90,
+        "CAUTIOUS": 0.70, "RISK_OFF": 0.50, "CRISIS": 0.20,
+    }
+
     def __init__(
         self,
         symbols:           Optional[List[str]] = None,
@@ -49,6 +54,7 @@ class MultiFactorStrategy:
         lookback_vol:      int   = 63,
         lookback_mom:      int   = 252,
         lookback_quality:  int   = 126,
+        regime_scale:      Optional[Dict[str, float]] = None,
     ):
         self._symbols     = symbols or []
         self._top_n       = top_n
@@ -63,6 +69,7 @@ class MultiFactorStrategy:
         self._vol_lb      = lookback_vol
         self._mom_lb      = lookback_mom
         self._qual_lb     = lookback_quality
+        self._regime_scale = regime_scale or self._DEFAULT_REGIME_SCALE
 
     def generate(
         self,
@@ -161,5 +168,12 @@ class MultiFactorStrategy:
                     row[sym] = wts[sym]
             signals.loc[date] = row
             last_selection = row
+
+        aligned_regime = regime_series.reindex(signals.index, method="ffill")
+        for date in signals.index:
+            r = aligned_regime.get(date, "NEUTRAL")
+            scale = self._regime_scale.get(str(r), 0.90)
+            if scale < 1.0:
+                signals.loc[date] = signals.loc[date] * scale
 
         return signals

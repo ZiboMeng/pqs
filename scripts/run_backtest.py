@@ -112,7 +112,9 @@ def run_strategy(
     logger.info("=== 回测策略: %s ===", name)
 
     signals = strategy.generate(price_df, regime_series)
-    weights = constructor.build(
+    use_vp = not isinstance(strategy, MultiFactorStrategy)
+    actual_constructor = constructor if use_vp else PortfolioConstructor(use_vol_parity=False)
+    weights = actual_constructor.build(
         raw_signals   = signals,
         price_df      = price_df,
         regime_series = regime_series,
