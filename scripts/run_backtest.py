@@ -36,6 +36,7 @@ from core.regime.regime_detector import RegimeDetector
 from core.signals.strategies.dual_momentum import DualMomentumStrategy
 from core.signals.strategies.trend_following import TrendFollowingStrategy
 from core.signals.strategies.cross_asset_rotation import CrossAssetRotationStrategy
+from core.signals.strategies.multi_factor import MultiFactorStrategy
 from core.portfolio.constructor import PortfolioConstructor
 from core.backtest.backtest_engine import BacktestEngine, compute_metrics
 from core.backtest.window_analyzer import WindowAnalyzer
@@ -70,6 +71,10 @@ def build_strategies(cfg, price_df: pd.DataFrame, risk_syms: list, def_syms: lis
         "trend_following":      TrendFollowingStrategy(symbols=risk_syms),
         "cross_asset_rotation": CrossAssetRotationStrategy(
             risk_assets=risk_syms, defensive_assets=def_syms
+        ),
+        "multi_factor":         MultiFactorStrategy(
+            symbols=risk_syms, top_n=5, rebalance_monthly=False,
+            factor_weights={"low_vol": 0.15, "momentum": 0.45, "quality": 0.25, "pv_div": 0.15},
         ),
     }
 
