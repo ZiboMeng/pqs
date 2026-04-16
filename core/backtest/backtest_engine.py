@@ -112,11 +112,12 @@ class BacktestEngine:
 
     def run(
         self,
-        signals_df:    pd.DataFrame,
-        price_df:      pd.DataFrame,
-        open_df:       Optional[pd.DataFrame] = None,
-        vix_series:    Optional[pd.Series] = None,
-        regime_series: Optional[pd.Series] = None,
+        signals_df:       pd.DataFrame,
+        price_df:         pd.DataFrame,
+        open_df:          Optional[pd.DataFrame] = None,
+        vix_series:       Optional[pd.Series] = None,
+        regime_series:    Optional[pd.Series] = None,
+        benchmark_series: Optional[pd.Series] = None,
     ) -> BacktestResult:
         """
         执行回测。
@@ -234,7 +235,8 @@ class BacktestEngine:
         weights_df   = pd.DataFrame(weight_records, index=dates).fillna(0.0)
         positions_df = pd.DataFrame(position_records, index=dates).fillna(0.0)
 
-        metrics = compute_metrics(equity_curve, initial_capital=self._capital)
+        bench = benchmark_series.reindex(equity_curve.index, method="ffill") if benchmark_series is not None else None
+        metrics = compute_metrics(equity_curve, initial_capital=self._capital, benchmark=bench)
 
         return BacktestResult(
             equity_curve = equity_curve,

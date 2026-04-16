@@ -392,9 +392,10 @@ class MiningEvaluator:
             initial_capital = self._capital,
         )
         return engine.run(
-            signals_df    = weights,
-            price_df      = price_df,
-            regime_series = regime_series,
+            signals_df       = weights,
+            price_df         = price_df,
+            regime_series    = regime_series,
+            benchmark_series = benchmark_series,
         )
 
     def _get_test_bars(self, strategy_type: str) -> int:

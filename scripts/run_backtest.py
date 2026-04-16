@@ -114,9 +114,10 @@ def run_strategy(
     )
 
     bt_result = engine.run(
-        signals_df    = weights,
-        price_df      = price_df,
-        regime_series = regime_series,
+        signals_df       = weights,
+        price_df         = price_df,
+        regime_series    = regime_series,
+        benchmark_series = benchmark_series,
     )
     logger.info("%s: %s", name, bt_result)
 
