@@ -24,6 +24,7 @@ except ImportError:
 from core.signals.strategies.dual_momentum import DualMomentumStrategy
 from core.signals.strategies.trend_following import TrendFollowingStrategy
 from core.signals.strategies.cross_asset_rotation import CrossAssetRotationStrategy
+from core.signals.strategies.multi_factor import MultiFactorStrategy
 
 
 # ── StrategySpec ──────────────────────────────────────────────────────────────
@@ -199,12 +200,61 @@ class CrossAssetRotationSpace(ParameterSpace):
         )
 
 
+# ── MultiFactorSpace ─────────────────────────────────────────────────────────
+
+class MultiFactorSpace(ParameterSpace):
+    """Multi-factor composite strategy search space."""
+
+    strategy_type = "multi_factor"
+
+    def suggest(self, trial: Any) -> Dict[str, Any]:
+        w_vol = trial.suggest_float("w_low_vol", 0.05, 0.30, step=0.05)
+        w_mom = trial.suggest_float("w_momentum", 0.20, 0.50, step=0.05)
+        w_qual = trial.suggest_float("w_quality", 0.10, 0.35, step=0.05)
+        w_pv = max(0.0, round(1.0 - w_vol - w_mom - w_qual, 2))
+        return {
+            "top_n":             trial.suggest_int("top_n", 4, 6),
+            "w_low_vol":         w_vol,
+            "w_momentum":        w_mom,
+            "w_quality":         w_qual,
+            "w_pv_div":          round(w_pv, 2),
+            "rebalance_monthly": trial.suggest_categorical("rebalance_monthly", [False]),
+            "score_weighted":    trial.suggest_categorical("score_weighted", [True, False]),
+            "lookback_vol":      trial.suggest_int("lookback_vol", 42, 126, step=21),
+            "lookback_mom":      trial.suggest_int("lookback_mom", 126, 252, step=63),
+            "lookback_quality":  trial.suggest_int("lookback_quality", 63, 252, step=63),
+        }
+
+    def instantiate(
+        self,
+        params:        Dict[str, Any],
+        risk_universe: Optional[List[str]] = None,
+        def_universe:  Optional[List[str]] = None,
+    ) -> MultiFactorStrategy:
+        return MultiFactorStrategy(
+            symbols           = risk_universe,
+            top_n             = params["top_n"],
+            factor_weights    = {
+                "low_vol":  params["w_low_vol"],
+                "momentum": params["w_momentum"],
+                "quality":  params["w_quality"],
+                "pv_div":   params["w_pv_div"],
+            },
+            rebalance_monthly = params["rebalance_monthly"],
+            score_weighted    = params["score_weighted"],
+            lookback_vol      = params["lookback_vol"],
+            lookback_mom      = params["lookback_mom"],
+            lookback_quality  = params["lookback_quality"],
+        )
+
+
 # ── Registry ──────────────────────────────────────────────────────────────────
 
 ALL_SPACES: List[ParameterSpace] = [
     DualMomentumSpace(),
     TrendFollowingSpace(),
     CrossAssetRotationSpace(),
+    MultiFactorSpace(),
 ]
 
 

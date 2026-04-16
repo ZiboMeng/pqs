@@ -131,6 +131,7 @@ mining:
     trend_following: 126           # daily signals → 6 months OOS
     dual_momentum: 252             # monthly rebalance → 1 year OOS
     cross_asset_rotation: 252      # monthly rebalance → 1 year OOS
+    multi_factor: 126              # daily rebalance → 6 months OOS
     _default: 189                  # fallback for unknown types
 
   # OOS/IS overfit detection
