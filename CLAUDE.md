@@ -38,22 +38,29 @@ Architecture: config/ → core/ → scripts/ → tests/ with 615 passing unit te
 - TimeframeOptimizer integrated into FeaturePipeline
 - Archive with full audit trail (stress/holdout/overfit columns, DB migration support)
 
-**Not yet done / known gaps:**
-- No historical price data downloaded (need `fetch_data.py` first run)
-- No actual mining run executed yet
-- `core/diagnostics/` detectors not wired into daily paper trading flow
-- Master report backtest-vs-paper section needs live paper data to populate
-- pre-existing test failure in `test_regime_detector.py` (`.value` attr on string)
-- Feature pipeline multi-timeframe alignment not fully end-to-end tested with real data
-- No left-side trading module implementation yet
-- Universe dynamic rebalance (periodic re-scoring) not yet triggered by any script
-- No factor mining pipeline — factor_engine/factor_evaluator have evaluation framework (IC/rank-IC/quintile/decay) but no actual factor generation code                                     
-- XGBoost/SHAP in requirements.txt but never used anywhere in code — need ML-based alpha signals                                                                                            
-- No automated factor constructor (systematically generate momentum/volatility/price-volume divergence/mean-reversion candidates from OHLCV + macro data)                                   
-- No multi-factor composite signal logic (weighted scoring or ML model combining multiple factors)                                                                                          
-- indicators.py computes technicals (EMA/RSI/MACD) but they don't flow through research funnel as "factors"                                                                                 
-- Factor → strategy signal conversion path not implemented                                                                                                                                  
-- Mining currently only does strategy parameter search (Optuna TPE on 3 existing strategy templates) — no new strategy structure discovery   
+**Completed in Loop 1-18:**
+- ✅ Daily data 2007-2026 (35 symbols) — Loop 1
+- ✅ Regime detector fix + 654 tests passing — Loop 1
+- ✅ Benchmark IR/alpha/beta calculation — Loop 2
+- ✅ Walk-forward OOS validation — Loop 3
+- ✅ Mining pipeline end-to-end (52+ strategies evaluated) — Loop 4-5
+- ✅ Factor generation pipeline (27 factors, IC screening) — Loop 6
+- ✅ MultiFactorStrategy (5-factor composite) — Loop 7
+- ✅ Vol_parity=False discovery (+4% CAGR) — Loop 10
+- ✅ 5-stage mining validation pass (3+ strategies) — Loop 11
+- ✅ Cost sensitivity analysis (robust to 3x) — Loop 13
+- ✅ Min holding days (turnover -20%) — Loop 14
+- ✅ Relative strength factor (+3% holdout excess) — Loop 15-16
+- ✅ Diagnostics wired into run_paper.py — Loop 18
+- ✅ Master report with regime-stratified + strategy attribution
+
+**Remaining gaps:**
+- No intraday data (60m/30m) — paper trading replay blocked
+- Master report backtest-vs-paper section needs paper trading data
+- No left-side trading module
+- XGBoost/SHAP not yet used (ML signals)
+- Universe dynamic rebalance not triggered by any script
+- Feature pipeline multi-timeframe not tested with real intraday data
 
 ### Intraday Quantitative Pipeline (to be built in loop iterations)
     1. Download intraday data (60m/30m/15m) via fetch_data.py --intraday-only

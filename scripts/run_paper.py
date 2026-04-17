@@ -224,18 +224,30 @@ def main():
     diagnostics = DiagnosticSuite()
 
     if args.mode == "replay":
-        # 加载 60m K 线（按日期索引）
-        price_df_60m = {}
-        for sym in all_syms:
+        # 加载 60m K 线——按日期分组，每日一个 multi-symbol DataFrame
+        intraday_by_sym = {}
+        for sym in all_tradeable:
             try:
                 df = store.read(sym, "60m")
                 if df is not None and not df.empty:
-                    for date, group in df.groupby(df.index.date):
-                        key = str(date)
-                        if key not in price_df_60m:
-                            price_df_60m[key] = group
+                    intraday_by_sym[sym] = df
             except Exception:
                 pass
+
+        price_df_60m = {}
+        if intraday_by_sym:
+            all_dates = set()
+            for df in intraday_by_sym.values():
+                all_dates.update(df.index.date)
+            for d in sorted(all_dates):
+                day_frames = {}
+                for sym, df in intraday_by_sym.items():
+                    mask = df.index.date == d
+                    if mask.any():
+                        day_frames[sym] = df[mask]
+                if day_frames:
+                    first = next(iter(day_frames.values()))
+                    price_df_60m[str(d)] = first
 
         run_replay(
             engine         = engine,
