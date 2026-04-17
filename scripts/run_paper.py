@@ -110,31 +110,49 @@ def run_replay(
         regime_series = regime,
     )
 
-    for date in dates:
+    for i, date in enumerate(dates):
         date_ts = pd.Timestamp(date)
 
-        if engine.is_kill_switch_triggered:
-            logger.warning("[%s] Kill switch 触发，停止回放", date.date())
+        eq_data = [r["equity"] for r in engine._tracker._records] if engine._tracker._records else [engine._initial_capital]
+        ks_result = engine.kill_switch.evaluate(pd.Series(eq_data))
+        if ks_result.state == "SUSPENDED":
+            logger.warning("[%s] Kill switch SUSPENDED，停止回放", date.date())
             break
 
-        # 获取当日 60m K 线
-        day_bars = price_df_60m.get(str(date.date()))
-        if day_bars is None or (isinstance(day_bars, pd.DataFrame) and day_bars.empty):
-            logger.debug("[%s] 无 60m 数据，跳过", date.date())
-            continue
-
-        # 当日信号
         if date_ts not in weights.index:
             continue
-        day_sigs = weights.loc[[date_ts]]
+
+        day_wts = weights.loc[date_ts]
+        target = {s: float(v) for s, v in day_wts.items() if v > 0.001}
+
+        next_idx = i + 1
+        if next_idx >= len(dates):
+            break
+        next_date = dates[next_idx]
+
+        prices_today = {}
+        open_next = {}
+        for sym in price_df_1d.columns:
+            if date_ts in price_df_1d.index:
+                p = price_df_1d.loc[date_ts, sym]
+                if not pd.isna(p):
+                    prices_today[sym] = float(p)
+            if next_date in price_df_1d.index:
+                o = price_df_1d.loc[next_date, sym]
+                if not pd.isna(o):
+                    open_next[sym] = float(o)
+
+        if not prices_today or not open_next:
+            continue
 
         try:
-            result = engine.run_day(
-                date     = date_ts,
-                day_bars = day_bars,
-                day_sigs = day_sigs,
+            result = engine.run_day_daily(
+                date=next_date,
+                target_wts=target,
+                prices=prices_today,
+                open_prices=open_next,
             )
-            engine.reconcile(date_ts, result)
+            engine.reconcile(next_date, result)
         except Exception as exc:
             logger.error("[%s] 执行失败: %s", date.date(), exc)
 

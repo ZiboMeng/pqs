@@ -23,7 +23,10 @@ from typing import Dict, List, Optional
 
 import pandas as pd
 
+import numpy as np
+
 from core.execution.cost_model import CostModel
+from core.execution.execution_simulator import ExecutionSimulator, Order, OrderSide, Fill
 from core.backtest.intraday_engine import IntradayBacktestEngine, DayResult
 from core.paper_trading.pnl_tracker import PnLTracker
 from core.risk.kill_switch import KillSwitch, KillSwitchConfig
@@ -152,6 +155,82 @@ class PaperTradingEngine:
         )
         return result
 
+    def run_day_daily(
+        self,
+        date:        pd.Timestamp,
+        target_wts:  Dict[str, float],
+        prices:      Dict[str, float],
+        open_prices: Dict[str, float],
+        vix:         float = 15.0,
+    ) -> DayResult:
+        """
+        Daily-mode execution: rebalance to target weights using T+1 open prices.
+        Same execution semantics as BacktestEngine but for paper trading.
+        """
+        sim = ExecutionSimulator(cost_model=self._engine._cost)
+
+        portfolio_value = self._cash + sum(
+            self._positions.get(s, 0) * prices.get(s, 0) for s in self._positions
+        )
+
+        orders: list = []
+        for sym, target_w in target_wts.items():
+            target_value = portfolio_value * target_w
+            current_value = self._positions.get(sym, 0) * prices.get(sym, 0)
+            diff_value = target_value - current_value
+            op = open_prices.get(sym, 0)
+            if op <= 0:
+                continue
+            diff_shares = diff_value / op
+            if abs(diff_shares) < 0.5:
+                continue
+            side = OrderSide.BUY if diff_shares > 0 else OrderSide.SELL
+            orders.append(Order(
+                symbol=sym, side=side,
+                qty_shares=abs(int(np.floor(abs(diff_shares)))),
+                signal_date=date,
+            ))
+
+        sells = [o for o in orders if o.side == OrderSide.SELL]
+        buys = [o for o in orders if o.side == OrderSide.BUY]
+
+        fills: list = []
+        for o in sells:
+            f = sim.simulate_fill(o, open_prices.get(o.symbol, 0), vix, self._cash)
+            if f:
+                self._positions[f.order.symbol] = self._positions.get(f.order.symbol, 0) - f.executed_qty
+                self._cash -= f.cash_delta
+                if self._positions.get(f.order.symbol, 0) <= 0:
+                    self._positions.pop(f.order.symbol, None)
+                fills.append(f)
+
+        for o in buys:
+            f = sim.simulate_fill(o, open_prices.get(o.symbol, 0), vix, self._cash)
+            if f:
+                self._positions[f.order.symbol] = self._positions.get(f.order.symbol, 0) + f.executed_qty
+                self._cash -= f.cash_delta
+                fills.append(f)
+
+        equity = self._cash + sum(
+            self._positions.get(s, 0) * prices.get(s, 0) for s in self._positions
+        )
+        net_pnl = equity - portfolio_value
+
+        result = DayResult(
+            date=date, trades=fills,
+            eod_positions=dict(self._positions), eod_cash=self._cash,
+            gross_pnl=net_pnl, net_pnl=net_pnl, forced_close=False,
+        )
+
+        self._tracker.record(result, equity)
+        self._save_state(date, result, equity)
+
+        logger.info(
+            "[%s] daily: equity=%.2f  pnl=%.2f  trades=%d",
+            date.date(), equity, net_pnl, len(fills),
+        )
+        return result
+
     # ── 状态查询 ──────────────────────────────────────────────────────────────
 
     def get_positions(self) -> Dict[str, float]:
@@ -169,6 +248,14 @@ class PaperTradingEngine:
     def get_pnl_summary(self) -> Dict:
         """返回 PnLTracker.summary() 字典。"""
         return self._tracker.summary()
+
+    @property
+    def kill_switch(self) -> KillSwitch:
+        return self._kill_switch
+
+    def get_equity_curve(self) -> pd.Series:
+        """Return equity curve from PnLTracker."""
+        return self._tracker.equity_series
 
     def load_history(self) -> pd.DataFrame:
         """从 SQLite 加载完整每日历史记录（index=date）。"""

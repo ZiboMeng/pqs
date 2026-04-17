@@ -120,6 +120,13 @@ class PnLTracker:
 
     # ── 汇总 ──────────────────────────────────────────────────────────────────
 
+    @property
+    def equity_series(self) -> "pd.Series":
+        import pandas as _pd
+        if not self._records:
+            return _pd.Series(dtype=float)
+        return _pd.Series({r["date"]: r["equity"] for r in self._records}).sort_index()
+
     def summary(self) -> Dict:
         """返回关键绩效指标字典。"""
         return {
