@@ -108,18 +108,32 @@ def download_intraday(
     store:    MarketDataStore,
     provider: YFinanceProvider,
     freqs:    list = None,
+    full:     bool = False,
 ) -> None:
     """下载/增量更新日内数据（60m / 30m / 15m）。"""
     freqs     = freqs or _INTRADAY_FREQS
     validator = DataValidator()
+    success, skipped = 0, 0
 
     for sym in symbols:
         for freq in freqs:
             try:
-                end   = pd.Timestamp.today()
-                start = end - pd.Timedelta(days=_INTRADAY_LOOKBACK_DAYS)
+                end = pd.Timestamp.today()
 
-                logger.info("[%s] 下载 %s ...", sym, freq)
+                if not full:
+                    last_date = store.get_last_date(sym, freq)
+                    if last_date is not None:
+                        days_stale = (end - last_date).days
+                        if days_stale <= 1:
+                            skipped += 1
+                            continue
+                        start = last_date - pd.Timedelta(days=5)
+                    else:
+                        start = end - pd.Timedelta(days=_INTRADAY_LOOKBACK_DAYS)
+                else:
+                    start = end - pd.Timedelta(days=_INTRADAY_LOOKBACK_DAYS)
+
+                logger.info("[%s] 下载 %s (from %s)...", sym, freq, start.date())
                 result = provider.fetch_intraday([sym], freq=freq, start=str(start.date()))
                 ohlcv  = result.get(sym)
 
@@ -134,11 +148,14 @@ def download_intraday(
                         logger.error("[%s/%s] 数据质量问题: %s", sym, freq, issue)
 
                 store.append(sym, freq, df)
+                success += 1
                 logger.info("[%s] %s 保存完成 (%d 行)", sym, freq, len(df))
                 time.sleep(0.2)
 
             except Exception as exc:
                 logger.error("[%s/%s] 下载失败: %s", sym, freq, exc)
+
+    logger.info("日内下载完成: %d 更新, %d 跳过 (已是最新)", success, skipped)
 
 
 def main():
@@ -175,7 +192,7 @@ def main():
 
     if not args.daily_only:
         logger.info("=== 下载日内数据 ===")
-        download_intraday(tradeable, store, provider)
+        download_intraday(tradeable, store, provider, full=args.full)
 
     logger.info("全部下载完成。")
 
