@@ -294,6 +294,72 @@ class WindowAnalyzer:
         logger.info("walk_forward: completed %d OOS windows", len(results))
         return results
 
+    # ── Expanding window 验证 ──────────────────────────────────────────────────
+
+    def expanding_window(
+        self,
+        signals_df:  pd.DataFrame,
+        price_df:    pd.DataFrame,
+        open_df:     Optional[pd.DataFrame] = None,
+        benchmark:   Optional[pd.Series] = None,
+        min_train:   int = 504,
+        test_size:   int = 126,
+    ) -> List[WindowResult]:
+        """
+        Expanding window validation: training set grows, test set fixed size.
+
+        Each window:
+          Train: [0, t)              — expands over time
+          Test:  [t, t+test_size)    — fixed size, no overlap
+        """
+        dates = signals_df.index.intersection(price_df.index)
+        n = len(dates)
+
+        results: List[WindowResult] = []
+        w_id = 0
+        train_end = min_train
+
+        while train_end + test_size <= n:
+            test_end = train_end + test_size
+            train_dates = dates[:train_end]
+            test_dates = dates[train_end:test_end]
+
+            s_test = signals_df.loc[test_dates]
+            p_test = price_df.loc[test_dates]
+            o_test = open_df.loc[test_dates] if open_df is not None else None
+            b_test = benchmark.loc[test_dates] if benchmark is not None else None
+
+            result = self._engine.run(s_test, p_test, o_test)
+
+            metrics = result.metrics.copy()
+            if b_test is not None and not result.equity_curve.empty:
+                extra = compute_metrics(
+                    result.equity_curve,
+                    initial_capital=result.equity_curve.iloc[0],
+                    benchmark=b_test,
+                )
+                metrics.update({k: v for k, v in extra.items() if k not in metrics})
+                b_m = compute_metrics(b_test, initial_capital=b_test.iloc[0])
+                metrics["excess_return"] = (
+                    metrics.get("cagr", float("nan")) - b_m.get("cagr", float("nan"))
+                )
+
+            results.append(WindowResult(
+                window_id=w_id,
+                train_start=train_dates[0],
+                train_end=train_dates[-1],
+                test_start=test_dates[0],
+                test_end=test_dates[-1],
+                metrics=metrics,
+                is_oos=True,
+            ))
+
+            train_end += test_size
+            w_id += 1
+
+        logger.info("expanding_window: completed %d windows (min_train=%d)", len(results), min_train)
+        return results
+
     # ── OOS 一致性检查 ────────────────────────────────────────────────────────
 
     @staticmethod
