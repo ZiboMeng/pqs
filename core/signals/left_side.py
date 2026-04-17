@@ -44,6 +44,26 @@ class LeftSideConfig:
     profit_target_pct: float = 0.15
     auto_disable_on_consecutive_loss: int = 3
 
+    @classmethod
+    def from_risk_config(cls, risk_cfg) -> "LeftSideConfig":
+        """Create from cfg.risk.left_side_trading (pydantic model)."""
+        ls = risk_cfg.left_side_trading
+        return cls(
+            enabled=ls.enabled,
+            allowed_regimes=list(ls.allowed_regimes),
+            min_drawdown_from_peak=ls.min_drawdown_from_peak,
+            min_factor_consensus=ls.min_factor_consensus,
+            max_vix=ls.max_vix,
+            no_active_kill_switch=ls.no_active_kill_switch,
+            max_single_position=ls.max_single_position,
+            build_in_tranches=ls.build_in_tranches,
+            tranche_interval_days=ls.tranche_interval_days,
+            time_stop_days=ls.time_stop_days,
+            loss_stop_pct=ls.loss_stop_pct,
+            profit_target_pct=ls.profit_target_pct,
+            auto_disable_on_consecutive_loss=ls.auto_disable_on_consecutive_loss,
+        )
+
 
 @dataclass
 class LeftSidePosition:

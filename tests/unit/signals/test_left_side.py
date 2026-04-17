@@ -31,6 +31,17 @@ class TestLeftSideConfig:
         cfg = LeftSideConfig(enabled=True, max_vix=35.0)
         assert cfg.max_vix == 35.0
 
+    def test_from_risk_config(self):
+        """Verify LeftSideConfig.from_risk_config reads values from risk.yaml."""
+        from core.config.loader import load_config
+        from pathlib import Path
+        full_cfg = load_config(Path("config"))
+        ls_cfg = LeftSideConfig.from_risk_config(full_cfg.risk)
+        assert ls_cfg.enabled == full_cfg.risk.left_side_trading.enabled
+        assert ls_cfg.max_vix == full_cfg.risk.left_side_trading.max_vix
+        assert ls_cfg.allowed_regimes == list(full_cfg.risk.left_side_trading.allowed_regimes)
+        assert ls_cfg.max_single_position == full_cfg.risk.left_side_trading.max_single_position
+
 
 class TestLeftSideDisabled:
     def test_returns_empty_when_disabled(self):
