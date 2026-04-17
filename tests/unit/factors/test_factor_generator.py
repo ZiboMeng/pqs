@@ -72,6 +72,26 @@ class TestGenerateAllFactors:
         assert "spy_trend_200d" in factors
         assert "market_vol_ratio" in factors
 
+    def test_breadth_factors_exist(self):
+        prices, _ = _make_price_volume()
+        factors = generate_all_factors(prices)
+        assert "cross_section_dispersion_21d" in factors
+        assert "advance_ratio_10d" in factors
+
+    def test_overnight_factors_with_open(self):
+        prices, _ = _make_price_volume()
+        open_prices = prices * (1 + np.random.randn(*prices.shape) * 0.002)
+        factors = generate_all_factors(prices, open_df=open_prices)
+        assert "overnight_gap_5d" in factors
+        assert "overnight_gap_21d" in factors
+        assert "overnight_vs_intraday" in factors
+
+    def test_factor_count_with_all_inputs(self):
+        prices, volumes = _make_price_volume()
+        open_prices = prices * (1 + np.random.randn(*prices.shape) * 0.002)
+        factors = generate_all_factors(prices, volumes, open_df=open_prices)
+        assert len(factors) >= 35, f"Expected ≥35 factors, got {len(factors)}"
+
 
 class TestFactorLeakage:
     """Verify factors don't use future data in execution context."""

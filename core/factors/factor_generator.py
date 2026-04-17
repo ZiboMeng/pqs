@@ -28,6 +28,7 @@ def generate_all_factors(
     price_df: pd.DataFrame,
     volume_df: pd.DataFrame | None = None,
     benchmark_col: str = "SPY",
+    open_df: pd.DataFrame | None = None,
 ) -> Dict[str, pd.DataFrame]:
     """
     Generate all candidate factors from price (and optionally volume) data.
@@ -53,6 +54,9 @@ def generate_all_factors(
     factors.update(_relative_strength_factors(price_df, benchmark_col))
     factors.update(_sector_rotation_factors(price_df))
     factors.update(_macro_regime_factors(price_df, benchmark_col))
+    if open_df is not None:
+        factors.update(_overnight_factors(price_df, open_df))
+    factors.update(_breadth_factors(price_df))
 
     logger.info("FactorGenerator: produced %d candidate factors", len(factors))
     return factors
@@ -180,6 +184,45 @@ def _sector_rotation_factors(price_df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
     vol_21 = daily_ret.rolling(21).std()
     ret_21_raw = price_df.pct_change(21)
     factors["return_per_risk_21d"] = ret_21_raw / vol_21.replace(0, np.nan)
+
+    return factors
+
+
+def _overnight_factors(
+    price_df: pd.DataFrame,
+    open_df: pd.DataFrame,
+) -> Dict[str, pd.DataFrame]:
+    """Overnight return factors — isolate pre-market information flow."""
+    factors = {}
+    overnight_ret = open_df / price_df.shift(1) - 1
+
+    for window in [5, 21]:
+        factors[f"overnight_gap_{window}d"] = overnight_ret.rolling(window).mean()
+
+    intraday_ret = price_df / open_df - 1
+    factors["overnight_vs_intraday"] = (
+        overnight_ret.rolling(21).mean() - intraday_ret.rolling(21).mean()
+    )
+
+    return factors
+
+
+def _breadth_factors(price_df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+    """Cross-sectional breadth and dispersion factors."""
+    factors = {}
+    daily_ret = price_df.pct_change()
+
+    cs_std_21 = daily_ret.rolling(21).std().mean(axis=1)
+    factors["cross_section_dispersion_21d"] = pd.DataFrame(
+        {s: cs_std_21 for s in price_df.columns}, index=price_df.index
+    )
+
+    advancing = (daily_ret > 0).sum(axis=1)
+    total = daily_ret.notna().sum(axis=1).replace(0, 1)
+    adv_ratio = (advancing / total).rolling(10).mean()
+    factors["advance_ratio_10d"] = pd.DataFrame(
+        {s: adv_ratio for s in price_df.columns}, index=price_df.index
+    )
 
     return factors
 
