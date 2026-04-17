@@ -199,7 +199,7 @@ class PaperTradingEngine:
             f = sim.simulate_fill(o, open_prices.get(o.symbol, 0), vix, self._cash)
             if f:
                 self._positions[f.order.symbol] = self._positions.get(f.order.symbol, 0) - f.executed_qty
-                self._cash -= f.cash_delta
+                self._cash += f.cash_delta
                 if self._positions.get(f.order.symbol, 0) <= 0:
                     self._positions.pop(f.order.symbol, None)
                 fills.append(f)
@@ -208,7 +208,7 @@ class PaperTradingEngine:
             f = sim.simulate_fill(o, open_prices.get(o.symbol, 0), vix, self._cash)
             if f:
                 self._positions[f.order.symbol] = self._positions.get(f.order.symbol, 0) + f.executed_qty
-                self._cash -= f.cash_delta
+                self._cash += f.cash_delta
                 fills.append(f)
 
         equity = self._cash + sum(

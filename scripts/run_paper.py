@@ -186,7 +186,8 @@ def main():
 
     # ── 初始化 PaperTradingEngine ─────────────────────────────────────────────
     cost_model  = CostModel(cfg.cost_model)
-    pnl_tracker = PnLTracker()
+    initial_cap = cfg.system.account.initial_capital_usd
+    pnl_tracker = PnLTracker(initial_capital=initial_cap)
     kill_switch = KillSwitch(KillSwitchConfig())
     engine = PaperTradingEngine(
         cost_model      = cost_model,
