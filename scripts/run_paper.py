@@ -33,11 +33,12 @@ from core.config.loader import load_config
 from core.data.market_data_store import MarketDataStore
 from core.execution.cost_model import CostModel
 from core.regime.regime_detector import RegimeDetector
-from core.signals.strategies.cross_asset_rotation import CrossAssetRotationStrategy
+from core.signals.strategies.multi_factor import MultiFactorStrategy
 from core.portfolio.constructor import PortfolioConstructor
 from core.paper_trading.paper_trading_engine import PaperTradingEngine
 from core.paper_trading.pnl_tracker import PnLTracker
 from core.risk.kill_switch import KillSwitch, KillSwitchConfig
+from core.diagnostics.detectors import DiagnosticSuite
 from core.logging_setup import setup_logging, get_logger
 
 setup_logging()
@@ -53,7 +54,10 @@ def show_status(engine: PaperTradingEngine) -> None:
     print(f"  总收益率:   {summary.get('total_return', 0):.2%}")
     print(f"  最大回撤:   {summary.get('max_drawdown', 0):.2%}")
     print(f"  Sharpe:     {summary.get('sharpe', float('nan')):.2f}")
-    print(f"  Kill Switch: {'触发' if engine.is_kill_switch_triggered else '正常'}")
+    ks = engine.kill_switch if hasattr(engine, 'kill_switch') else None
+    ks_state = ks.state if ks else "UNKNOWN"
+    ks_mult = ks.position_multiplier if ks else 1.0
+    print(f"  Kill Switch: {ks_state} (position mult={ks_mult:.0%})")
 
     pos = engine.get_positions()
     if pos:
@@ -65,14 +69,16 @@ def show_status(engine: PaperTradingEngine) -> None:
 
 
 def run_replay(
-    engine:       PaperTradingEngine,
-    price_df_1d:  pd.DataFrame,
-    price_df_60m: dict,
-    regime:       pd.Series,
+    engine:         PaperTradingEngine,
+    price_df_1d:    pd.DataFrame,
+    price_df_60m:   dict,
+    regime:         pd.Series,
     strategy,
-    constructor:  PortfolioConstructor,
-    from_date:    str,
-    to_date:      str = None,
+    constructor:    PortfolioConstructor,
+    diagnostics:    DiagnosticSuite,
+    spy_benchmark:  pd.Series,
+    from_date:      str,
+    to_date:        str = None,
 ) -> None:
     """
     历史数据回放（伪 track record）。
@@ -132,6 +138,19 @@ def run_replay(
         except Exception as exc:
             logger.error("[%s] 执行失败: %s", date.date(), exc)
 
+    # Run diagnostics
+    equity = engine.get_equity_curve() if hasattr(engine, 'get_equity_curve') else pd.Series(dtype=float)
+    if not equity.empty and spy_benchmark is not None:
+        diag_results = diagnostics.run_all(
+            strategy_equity=equity,
+            benchmark_equity=spy_benchmark.reindex(equity.index, method="ffill"),
+        )
+        print("\n=== 诊断结果 ===")
+        for d in diag_results:
+            print(f"  {d}")
+        if diagnostics.any_triggered(diag_results):
+            logger.warning("诊断发现异常，请检查策略状态")
+
     show_status(engine)
 
 
@@ -189,11 +208,20 @@ def main():
     regime         = detector.classify_series(spy_close, vix_for_regime)
 
     # Strategy
-    constructor = PortfolioConstructor()
-    strategy    = CrossAssetRotationStrategy(
-        risk_assets      = [s for s in list(uni.seed_pool) if s not in def_syms],
-        defensive_assets = def_syms,
+    all_tradeable = list(dict.fromkeys(
+        list(uni.seed_pool) + list(uni.sector_etfs) + list(uni.factor_etfs) + list(uni.cross_asset)
+    ))
+    risk_syms = [s for s in all_tradeable if s not in def_syms
+                 and s not in ["TQQQ", "SOXL"] and s not in uni.blacklist]
+
+    constructor = PortfolioConstructor(use_vol_parity=False)
+    strategy    = MultiFactorStrategy(
+        symbols=risk_syms, top_n=4, rebalance_monthly=False,
+        factor_weights={"low_vol": 0.05, "momentum": 0.15, "quality": 0.20,
+                        "pv_div": 0.25, "rel_strength": 0.30},
+        min_holding_days=3,
     )
+    diagnostics = DiagnosticSuite()
 
     if args.mode == "replay":
         # 加载 60m K 线（按日期索引）
@@ -210,14 +238,16 @@ def main():
                 pass
 
         run_replay(
-            engine        = engine,
-            price_df_1d   = price_df_1d,
-            price_df_60m  = price_df_60m,
-            regime        = regime,
-            strategy      = strategy,
-            constructor   = constructor,
-            from_date     = args.from_date,
-            to_date       = args.to_date,
+            engine         = engine,
+            price_df_1d    = price_df_1d,
+            price_df_60m   = price_df_60m,
+            regime         = regime,
+            strategy       = strategy,
+            constructor    = constructor,
+            diagnostics    = diagnostics,
+            spy_benchmark  = spy_close,
+            from_date      = args.from_date,
+            to_date        = args.to_date,
         )
 
     elif args.mode == "live":
