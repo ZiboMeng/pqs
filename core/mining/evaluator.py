@@ -240,7 +240,7 @@ class MiningEvaluator:
         try:
             strategy = instantiate_strategy(spec, risk_universe, def_universe)
             signals  = strategy.generate(quick_df, quick_regime)
-            weights  = self._build_weights(signals, quick_df, quick_regime)
+            weights  = self._build_weights(signals, quick_df, quick_regime, spec.strategy_type)
             bt_result = self._run_backtest(weights, quick_df, quick_regime, quick_bench)
         except Exception as exc:
             logger.warning("Evaluator Stage1 error for %s: %s", spec.spec_id, exc)
@@ -295,7 +295,7 @@ class MiningEvaluator:
         # ── Stage 3: Robustness (uses full non-holdout) ───────────────────────
         nh_strategy = instantiate_strategy(spec, risk_universe, def_universe)
         nh_signals  = nh_strategy.generate(non_holdout_df, non_holdout_regime)
-        nh_weights  = self._build_weights(nh_signals, non_holdout_df, non_holdout_regime)
+        nh_weights  = self._build_weights(nh_signals, non_holdout_df, non_holdout_regime, spec.strategy_type)
 
         result.regime_robust = self._check_regime_robustness(
             spec, non_holdout_df, non_holdout_regime, non_holdout_bench,
@@ -332,7 +332,7 @@ class MiningEvaluator:
                 holdout_bench  = benchmark_series.reindex(holdout_df.index, method="ffill")
                 h_strategy = instantiate_strategy(spec, risk_universe, def_universe)
                 h_signals  = h_strategy.generate(holdout_df, holdout_regime)
-                h_weights  = self._build_weights(h_signals, holdout_df, holdout_regime)
+                h_weights  = self._build_weights(h_signals, holdout_df, holdout_regime, spec.strategy_type)
                 h_bt       = self._run_backtest(h_weights, holdout_df, holdout_regime, holdout_bench)
                 h_m        = h_bt.metrics
 
@@ -367,13 +367,17 @@ class MiningEvaluator:
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
+    _NO_VOL_PARITY_TYPES = {"multi_factor"}
+
     def _build_weights(
         self,
-        signals:       pd.DataFrame,
-        price_df:      pd.DataFrame,
-        regime_series: pd.Series,
+        signals:        pd.DataFrame,
+        price_df:       pd.DataFrame,
+        regime_series:  pd.Series,
+        strategy_type:  str = "",
     ) -> pd.DataFrame:
-        constructor = PortfolioConstructor()
+        use_vp = strategy_type not in self._NO_VOL_PARITY_TYPES
+        constructor = PortfolioConstructor(use_vol_parity=use_vp)
         return constructor.build(
             raw_signals   = signals,
             price_df      = price_df,
@@ -439,7 +443,7 @@ class MiningEvaluator:
 
         strategy = instantiate_strategy(spec, risk_universe, def_universe)
         signals  = strategy.generate(price_df, regime_series)
-        weights  = self._build_weights(signals, price_df, regime_series)
+        weights  = self._build_weights(signals, price_df, regime_series, spec.strategy_type)
 
         windows = analyzer.walk_forward(
             signals_df = weights,
@@ -509,7 +513,7 @@ class MiningEvaluator:
 
         strategy = instantiate_strategy(spec, risk_universe, def_universe)
         signals  = strategy.generate(price_df, regime_series)
-        weights  = self._build_weights(signals, price_df, regime_series)
+        weights  = self._build_weights(signals, price_df, regime_series, spec.strategy_type)
 
         benchmark_ret = benchmark_series.pct_change().dropna()
         aligned_regime = regime_series.reindex(weights.index, method="ffill")
@@ -588,7 +592,7 @@ class MiningEvaluator:
                 p_bench  = benchmark_series.reindex(period_df.index, method="ffill")
                 strategy = instantiate_strategy(spec, risk_universe, def_universe)
                 signals  = strategy.generate(period_df, p_regime)
-                weights  = self._build_weights(signals, period_df, p_regime)
+                weights  = self._build_weights(signals, period_df, p_regime, spec.strategy_type)
                 bt       = self._run_backtest(weights, period_df, p_regime, p_bench)
                 strat_dd = abs(bt.metrics.get("max_drawdown", -1.0))
 
@@ -674,7 +678,7 @@ class MiningEvaluator:
                     p_spec    = SS.from_dict(spec.strategy_type, perturbed)
                     strategy  = instantiate_strategy(p_spec, risk_universe, def_universe)
                     signals   = strategy.generate(price_df, regime_series)
-                    weights   = self._build_weights(signals, price_df, regime_series)
+                    weights   = self._build_weights(signals, price_df, regime_series, spec.strategy_type)
                     bt        = self._run_backtest(weights, price_df, regime_series, benchmark_series)
                     p_sharpe  = bt.metrics.get("sharpe", float("nan"))
                     if np.isnan(p_sharpe):

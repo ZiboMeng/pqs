@@ -50,3 +50,6 @@ htmlcov/
 
 # Optuna DB
 *.db
+
+# temp
+x.txt

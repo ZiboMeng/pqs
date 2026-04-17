@@ -21,6 +21,7 @@
       "Bash(git rebase *)",
       "Bash(git reset *)",
       "Bash(git clean *)"
-    ]
+    ],
+    "defaultMode": "dontAsk" 
   }
 }

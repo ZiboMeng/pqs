@@ -55,8 +55,27 @@ Architecture: config/ → core/ → scripts/ → tests/ with 615 passing unit te
 - Factor → strategy signal conversion path not implemented                                                                                                                                  
 - Mining currently only does strategy parameter search (Optuna TPE on 3 existing strategy templates) — no new strategy structure discovery   
 
+### Intraday Quantitative Pipeline (to be built in loop iterations)
+    1. Download intraday data (60m/30m/15m) via fetch_data.py --intraday-only
+    2. Build intraday-specific strategies (60m momentum, mean-reversion, volatility breakout)
+    3. Wire IntraDayBacktestEngine into mining pipeline with proper intraday cost model
+    4. Intraday-specific validation: avoid first/last bar, EOD force close, overnight risk
+    5. Separate intraday mining archive and leaderboard from interday
+    6. Master report must have TWO sections: interday performance + intraday performance
+    7. Intraday and interday strategies should be independently evaluated, reported, and promoted
+    8. Future goal: portfolio-level combination of best interday + best intraday strategies
+
 ### Priority Stack (P1 = highest)
 ```
+###P1 Expansion: Intraday Quantitative Pipeline (to be built in loop iterations)
+    1. Download intraday data (60m/30m/15m) via fetch_data.py --intraday-only
+    2. Build intraday-specific strategies (60m momentum, mean-reversion, volatility breakout)
+    3. Wire IntraDayBacktestEngine into mining pipeline with proper intraday cost model
+    4. Intraday-specific validation: avoid first/last bar, EOD force close, overnight risk
+    5. Separate intraday mining archive and leaderboard from interday
+    6. Master report must have TWO sections: interday performance + intraday performance
+    7. Intraday and interday strategies should be independently evaluated, reported, and promoted
+    8. Future goal: portfolio-level combination of best interday + best intraday strategies
 P1. Backtest realism
 P2. Validation rigor
 P3. Strategy/factor mining quality
