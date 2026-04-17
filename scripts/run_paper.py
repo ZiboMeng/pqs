@@ -112,6 +112,10 @@ def run_replay(
         regime_series = regime,
     )
 
+    import uuid
+    run_id = str(uuid.uuid4())[:8]
+    logger.info("Replay run_id: %s", run_id)
+
     for i, date in enumerate(dates):
         date_ts = pd.Timestamp(date)
 
@@ -127,42 +131,85 @@ def run_replay(
         day_wts = weights.loc[date_ts]
         target = {s: float(v) for s, v in day_wts.items() if v > 0.001}
 
-        next_idx = i + 1
-        if next_idx >= len(dates):
-            break
-        next_date = dates[next_idx]
+        # Check for intraday bars (Dict[str, DataFrame] per day)
+        day_bars_60m = price_df_60m.get(str(date.date()))
 
-        prices_today = {}
-        open_next = {}
-        for sym in price_df_1d.columns:
-            if date_ts in price_df_1d.index:
-                p = price_df_1d.loc[date_ts, sym]
-                if not pd.isna(p):
-                    prices_today[sym] = float(p)
-            # Use real T+1 open price, fall back to T+1 close only if open unavailable
-            if next_date in open_df_1d.index and sym in open_df_1d.columns:
-                o = open_df_1d.loc[next_date, sym]
-                if not pd.isna(o):
-                    open_next[sym] = float(o)
-                    continue
-            if next_date in price_df_1d.index:
-                o = price_df_1d.loc[next_date, sym]
-                if not pd.isna(o):
-                    open_next[sym] = float(o)
+        if day_bars_60m and isinstance(day_bars_60m, dict) and len(day_bars_60m) > 0:
+            # ── Intraday bar-by-bar path ──
+            if engine.has_fill_for_bar(run_id, pd.Timestamp(str(date.date()) + " 09:30")):
+                logger.debug("[%s] Skipping (idempotency — fills exist)", date.date())
+                continue
 
-        if not prices_today or not open_next:
-            continue
+            try:
+                result = engine._engine.run_multi_day(
+                    date=date_ts,
+                    day_bars=day_bars_60m,
+                    target_wts=target,
+                    positions=engine._positions.copy(),
+                    cash=engine._cash,
+                )
+                engine._positions = result.eod_positions
+                engine._cash = result.eod_cash
 
-        try:
-            result = engine.run_day_daily(
-                date=next_date,
-                target_wts=target,
-                prices=prices_today,
-                open_prices=open_next,
-            )
-            engine.reconcile(next_date, result)
-        except Exception as exc:
-            logger.error("[%s] 执行失败: %s", date.date(), exc)
+                # Persist bar-level data
+                eod_equity = engine._cash + sum(
+                    engine._positions.get(s, 0) * float(
+                        day_bars_60m[s]["close"].iloc[-1]) for s in engine._positions
+                    if s in day_bars_60m and len(day_bars_60m[s]) > 0
+                )
+                engine.save_intraday_bar(
+                    run_id=run_id, date=date_ts,
+                    bar_ts=pd.Timestamp(str(date.date()) + " 15:30"),
+                    orders=[], fills=result.trades,
+                    positions=engine._positions, cash=engine._cash, equity=eod_equity,
+                )
+                engine.save_bar_checkpoint(
+                    run_id=run_id, date=date_ts,
+                    bar_ts=pd.Timestamp(str(date.date()) + " 15:30"),
+                    positions=engine._positions, cash=engine._cash,
+                )
+
+                engine._tracker.record(result, eod_equity)
+                engine._save_state(date_ts, result, eod_equity)
+                engine.reconcile(date_ts, result)
+
+            except Exception as exc:
+                logger.error("[%s] Intraday 执行失败: %s", date.date(), exc)
+        else:
+            # ── Daily fallback path ──
+            next_idx = i + 1
+            if next_idx >= len(dates):
+                break
+            next_date = dates[next_idx]
+
+            prices_today = {}
+            open_next = {}
+            for sym in price_df_1d.columns:
+                if date_ts in price_df_1d.index:
+                    p = price_df_1d.loc[date_ts, sym]
+                    if not pd.isna(p):
+                        prices_today[sym] = float(p)
+                if next_date in open_df_1d.index and sym in open_df_1d.columns:
+                    o = open_df_1d.loc[next_date, sym]
+                    if not pd.isna(o):
+                        open_next[sym] = float(o)
+                        continue
+                if next_date in price_df_1d.index:
+                    o = price_df_1d.loc[next_date, sym]
+                    if not pd.isna(o):
+                        open_next[sym] = float(o)
+
+            if not prices_today or not open_next:
+                continue
+
+            try:
+                result = engine.run_day_daily(
+                    date=next_date, target_wts=target,
+                    prices=prices_today, open_prices=open_next,
+                )
+                engine.reconcile(next_date, result)
+            except Exception as exc:
+                logger.error("[%s] Daily 执行失败: %s", date.date(), exc)
 
     # Run diagnostics
     equity = engine.get_equity_curve() if hasattr(engine, 'get_equity_curve') else pd.Series(dtype=float)
