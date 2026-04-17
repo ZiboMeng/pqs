@@ -188,7 +188,13 @@ def main():
     cost_model  = CostModel(cfg.cost_model)
     initial_cap = cfg.system.account.initial_capital_usd
     pnl_tracker = PnLTracker(initial_capital=initial_cap)
-    kill_switch = KillSwitch(KillSwitchConfig())
+    halt_pct = cfg.risk.drawdown_limits.halt_pct if hasattr(cfg.risk, 'drawdown_limits') else 0.25
+    ks_cfg = KillSwitchConfig(
+        max_drawdown=-halt_pct,
+        degrade_dd_ratio=0.70,
+        suspend_dd_ratio=1.00,
+    )
+    kill_switch = KillSwitch(ks_cfg)
     engine = PaperTradingEngine(
         cost_model      = cost_model,
         pnl_tracker     = pnl_tracker,
