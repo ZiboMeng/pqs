@@ -48,41 +48,29 @@ def main():
     if args.paper_status:
         try:
             cost_model  = CostModel(cfg.cost_model)
-            pnl_tracker = PnLTracker()
+            pnl_tracker = PnLTracker(initial_capital=cfg.system.account.initial_capital_usd)
             engine = PaperTradingEngine(
                 cost_model      = cost_model,
                 pnl_tracker     = pnl_tracker,
                 db_path         = args.db_path,
                 initial_capital = cfg.system.account.initial_capital_usd,
             )
-            summary = engine.get_pnl_summary()
+            ks_triggered = hasattr(engine, '_kill_switch') and engine._kill_switch.state != "NORMAL"
             builder.set_paper_trading(
-                equity         = engine.get_equity(),
-                total_return   = summary.get("total_return", 0),
-                max_drawdown   = summary.get("max_drawdown", 0),
-                sharpe         = summary.get("sharpe"),
-                n_days         = summary.get("n_days", 0),
-                kill_switch    = engine.is_kill_switch_triggered,
+                tracker     = engine._tracker,
+                kill_switch = ks_triggered,
             )
             logger.info("模拟盘状态已加载")
         except Exception as exc:
             logger.warning("加载模拟盘状态失败: %s", exc)
 
-    # ── Mining 排行榜（可选） ────────────────────────────────────────────────
+    # ── Mining 排行榜 ────────────────────────────────────────────────────────
     mining_archive_db = "data/mining/archive.db"
     if Path(mining_archive_db).exists():
         try:
             archive = MiningArchive(db_path=mining_archive_db)
-            promoted = archive.get_promoted()
-            stats    = archive.stats()
-            builder.set_factors(
-                factor_summary = [
-                    {"strategy": p["strategy_type"], "tier": p["tier"],
-                     "score": p["composite_score"], "spec_id": p["spec_id"]}
-                    for p in promoted
-                ]
-            )
-            logger.info("Mining 结果已加载 (%d 个晋升策略)", len(promoted))
+            stats = archive.stats()
+            logger.info("Mining 统计: %s", stats)
         except Exception as exc:
             logger.warning("加载 Mining 存档失败: %s", exc)
 
