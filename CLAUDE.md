@@ -38,36 +38,55 @@ Architecture: config/ → core/ → scripts/ → tests/ with 615 passing unit te
 - TimeframeOptimizer integrated into FeaturePipeline
 - Archive with full audit trail (stress/holdout/overfit columns, DB migration support)
 
-**Completed in Loop 1-30:**
-- ✅ Daily data 2007-2026 (35 symbols) + 60m intraday (32 symbols) — Loop 1, 19
-- ✅ Regime detector fix + 654 tests passing — Loop 1
-- ✅ Benchmark IR/alpha/beta calculation — Loop 2
-- ✅ Walk-forward OOS validation (32 windows) — Loop 3
-- ✅ Mining pipeline end-to-end (100+ strategies evaluated) — Loop 4-5, 8, 11, 16, 27, 29
-- ✅ Factor generation pipeline (27 factors, IC screening) — Loop 6
-- ✅ MultiFactorStrategy (5-factor composite) — Loop 7
-- ✅ Vol_parity=False discovery — Loop 10
-- ✅ Cost sensitivity (robust to 3x) — Loop 13
-- ✅ Min holding days (turnover -20%) — Loop 14
-- ✅ Relative strength factor — Loop 15-16
-- ✅ Diagnostics wired into run_paper.py — Loop 18
-- ✅ Paper trading daily-mode + consistency fix (~4% tracking error) — Loop 20-24
-- ✅ GBM feature importance analysis — Loop 25
-- ✅ **Real open price execution** (reveals 5% CAGR overestimation) — Loop 26-27
-- ✅ OOS thresholds recalibrated for real open — Loop 29
-- ✅ 1 strategy passes 5-stage with real open (OOS IR=0.224, holdout +11.3%) — Loop 29
-- ✅ Master report with regime-stratified + strategy attribution
+**Completed in Loop 1-37 (41 commits, 654 tests, 75 mining trials):**
 
-**Current best validated strategy (real open prices):**
-- multi_factor 7188bbdf3fb7: CAGR 15.8%, Sharpe 0.88, MaxDD -19.4%, IR 0.19
-- Params: pv_div=0.30, quality=0.25, rel_strength=0.25, momentum=0.15, vol=0.05
-- Holdout excess +11.3% vs SPY
-- All robustness checks pass (regime, cost, stress, holdout)
+Infrastructure:
+- ✅ Daily data 2007-2026 (35 symbols) + 60m intraday (32 symbols)
+- ✅ Real T+1 open price execution (not close approximation)
+- ✅ Integer share mode in BacktestEngine
+- ✅ 654 unit tests passing
+- ✅ 9 runnable scripts via run_all.sh (12 modes)
+
+Validation:
+- ✅ Walk-forward OOS (32 windows, regime-aware pass criteria)
+- ✅ Forward-block holdout (last 252d invisible during mining)
+- ✅ Data isolation (Stage 1 uses first 70% of non-holdout)
+- ✅ 4 stress period tests (2008, 2020-COVID, 2022, 2018-Q4)
+- ✅ Cost sensitivity (robust to 3x)
+- ✅ OOS/IS Sharpe overfit gate
+
+Mining & Factors:
+- ✅ 5-stage mining pipeline: Quick → OOS → Robustness+Stress → Diversity → Holdout
+- ✅ 30 candidate factors (5 families: momentum, vol, quality, volume, relative strength + 3 macro)
+- ✅ GBM feature importance analysis
+- ✅ MultiFactorStrategy (6-factor composite with market_trend)
+- ✅ 3 strategies promoted (Tier B×2 + Tier C×1, all real open validated)
+
+Execution:
+- ✅ Paper trading daily-mode (shared BacktestEngine rebalance logic)
+- ✅ Kill switch 3-tier (NORMAL→DEGRADED→SUSPENDED with auto-recovery)
+- ✅ Diagnostics suite (4 detectors) wired into paper trading EOD
+
+Reporting:
+- ✅ Master report: regime-stratified (vs SPY + vs QQQ), strategy attribution, bt-paper reconciliation
+- ✅ Universe rebalance script (PIT + cross-sectional scoring)
+
+**Current best validated strategy (real open prices, target_vol=0.25):**
+- multi_factor 5c48d991aaab (Tier B): CAGR 18.9%, Sharpe 0.97, MaxDD -19.7%, IR 0.33
+- Params: RS=0.30, momentum=0.30, quality=0.25, market_trend=0.10, pv_div=0.05
+- OOS IR=0.37, pass_rate=77%, holdout excess=+14.4%
+- All robustness checks pass (regime, cost, param, stress)
+
+**Key discoveries:**
+1. Real open price reveals 5% CAGR overestimation vs close approximation (Loop 26-27)
+2. target_vol=0.25 (was 0.15) breaks OOS bottleneck — pass rate 0%→38% (Loop 33)
+3. Vol_parity harmful for multi_factor (already has low_vol factor) (Loop 10)
+4. Relative strength + momentum are dominant alpha sources (Loop 15, 25)
 
 **Remaining gaps:**
 - Left-side trading module not implemented
-- Universe dynamic rebalance not triggered by any script
-- ML signals (XGBoost) used for analysis only, not as trading signal
+- ML signals used for analysis only, not as trading signal
+- Intraday pipeline not built
 - Feature pipeline multi-timeframe not tested with real intraday data
 
 ### Intraday Quantitative Pipeline (to be built in loop iterations)
@@ -82,7 +101,7 @@ Architecture: config/ → core/ → scripts/ → tests/ with 615 passing unit te
 
 ### Priority Stack (P1 = highest)
 ```
-###P1 Expansion: Intraday Quantitative Pipeline (to be built in loop iterations)
+### P1 Expansion: Intraday Quantitative Pipeline (to be built in loop iterations)
     1. Download intraday data (60m/30m/15m) via fetch_data.py --intraday-only
     2. Build intraday-specific strategies (60m momentum, mean-reversion, volatility breakout)
     3. Wire IntraDayBacktestEngine into mining pipeline with proper intraday cost model
