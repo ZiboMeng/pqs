@@ -315,7 +315,10 @@ class MiningEvaluator:
             spec, price_df, regime_series, benchmark_series, risk_universe, def_universe,
         )
 
-        result.passed_robustness = result.regime_robust and result.cost_robust and result.stress_passed
+        # Stage 3c: Subperiod robustness (no single subperiod > 50% of total return)
+        subperiod_ok = self._check_subperiod_robustness(result.equity_curve)
+
+        result.passed_robustness = result.regime_robust and result.cost_robust and result.stress_passed and subperiod_ok
 
         # ── Stage 4: Diversity ────────────────────────────────────────────────
         if promoted_curves and result.equity_curve is not None:
@@ -627,6 +630,26 @@ class MiningEvaluator:
                 logger.warning("Stress period %s error: %s", name, exc)
 
         return all_passed, results
+
+    @staticmethod
+    def _check_subperiod_robustness(
+        equity_curve: Optional[pd.Series],
+        n_periods: int = 4,
+        max_contribution: float = 0.50,
+    ) -> bool:
+        """No single subperiod should contribute > max_contribution of total return."""
+        if equity_curve is None or len(equity_curve) < n_periods * 60:
+            return True
+        total_ret = float(equity_curve.iloc[-1] / equity_curve.iloc[0] - 1)
+        if abs(total_ret) < 1e-6:
+            return True
+        n = len(equity_curve)
+        for i in range(n_periods):
+            seg = equity_curve.iloc[i * n // n_periods:(i + 1) * n // n_periods]
+            seg_ret = float(seg.iloc[-1] / seg.iloc[0] - 1)
+            if abs(seg_ret / total_ret) > max_contribution:
+                return False
+        return True
 
     def _check_cost_robustness(
         self,
