@@ -275,6 +275,7 @@ def main():
             except Exception:
                 pass
 
+        # price_df_60m: date_str → Dict[symbol → DataFrame]  (multi-asset per day)
         price_df_60m = {}
         if intraday_by_sym:
             all_dates = set()
@@ -287,8 +288,7 @@ def main():
                     if mask.any():
                         day_frames[sym] = df[mask]
                 if day_frames:
-                    first = next(iter(day_frames.values()))
-                    price_df_60m[str(d)] = first
+                    price_df_60m[str(d)] = day_frames
 
         run_replay(
             engine         = engine,

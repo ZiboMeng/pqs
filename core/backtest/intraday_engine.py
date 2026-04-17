@@ -204,6 +204,125 @@ class IntradayBacktestEngine:
             metrics      = metrics,
         )
 
+    # ── Multi-asset 单日执行 ────────────────────────────────────────────────────
+
+    def run_multi_day(
+        self,
+        date:        pd.Timestamp,
+        day_bars:    Dict[str, pd.DataFrame],
+        target_wts:  Dict[str, float],
+        positions:   Dict[str, float],
+        cash:        float,
+        vix:         float = 15.0,
+    ) -> DayResult:
+        """
+        Execute one trading day across multiple assets using intraday bars.
+
+        Parameters
+        ----------
+        day_bars   : {symbol → DataFrame with OHLCV columns} for this day
+        target_wts : {symbol → target weight} from strategy signal
+        positions  : {symbol → shares held} at start of day
+        cash       : cash at start of day
+        vix        : VIX value for cost model
+
+        Returns DayResult with fills, eod_positions, eod_cash.
+        """
+        shares = positions.copy()
+        cur_cash = cash
+        fills: List[Fill] = []
+
+        if not day_bars:
+            return DayResult(date=date, trades=[], eod_positions=shares,
+                             eod_cash=cur_cash, gross_pnl=0.0, net_pnl=0.0, forced_close=False)
+
+        ref_sym = next(iter(day_bars))
+        ref_df = day_bars[ref_sym]
+        bar_times = ref_df.index
+        n_bars = len(bar_times)
+
+        init_val = cur_cash + self._multi_portfolio_value(shares, day_bars, 0)
+
+        for i in range(n_bars - 1):
+            bar_ts = bar_times[i]
+            next_idx = i + 1
+
+            port_val = cur_cash + self._multi_portfolio_value(shares, day_bars, i)
+            if port_val <= 0:
+                continue
+
+            cur_w = {}
+            for sym, qty in shares.items():
+                if sym in day_bars and i < len(day_bars[sym]):
+                    p = float(day_bars[sym]["close"].iloc[i])
+                    if p > 0:
+                        cur_w[sym] = (qty * p) / port_val
+
+            open_prices = {}
+            for sym in set(list(cur_w) + list(target_wts)):
+                if sym in day_bars and next_idx < len(day_bars[sym]):
+                    op = day_bars[sym]["open"].iloc[next_idx]
+                    if not np.isnan(op) and op > 0:
+                        open_prices[sym] = float(op)
+
+            orders = _generate_orders(
+                cur_weights=cur_w, tgt_weights=target_wts,
+                portfolio_val=port_val, open_prices=open_prices,
+                signal_date=bar_ts, min_trade_usd=self._min_trade,
+                rebal_thr=self._rebal_thr,
+            )
+
+            new_fills = self._sim.simulate_fills(
+                orders=orders, open_prices=open_prices, vix=vix, cash=cur_cash,
+            )
+            for f in new_fills:
+                prev = shares.get(f.symbol, 0.0)
+                if f.side == OrderSide.BUY:
+                    shares[f.symbol] = prev + f.executed_qty
+                else:
+                    shares[f.symbol] = max(prev - f.executed_qty, 0.0)
+                cur_cash += f.cash_delta
+                fills.append(f)
+
+            shares = {s: q for s, q in shares.items() if q > 1e-6}
+
+        if self._eod_close and shares:
+            eod_prices = {}
+            for sym in list(shares):
+                if sym in day_bars and len(day_bars[sym]) > 0:
+                    eod_prices[sym] = float(day_bars[sym]["close"].iloc[-1])
+            for sym, qty in list(shares.items()):
+                if sym in eod_prices and eod_prices[sym] > 0:
+                    order = Order(symbol=sym, side=OrderSide.SELL,
+                                  qty_shares=qty, signal_date=date)
+                    f = self._sim.simulate_fill(order, eod_prices[sym], vix, cur_cash)
+                    if f:
+                        shares[sym] = max(shares.get(sym, 0) - f.executed_qty, 0)
+                        cur_cash += f.cash_delta
+                        fills.append(f)
+            shares = {s: q for s, q in shares.items() if q > 1e-6}
+
+        end_val = cur_cash + self._multi_portfolio_value(shares, day_bars, -1)
+        net_pnl = end_val - init_val
+
+        return DayResult(date=date, trades=fills, eod_positions=shares,
+                         eod_cash=cur_cash, gross_pnl=net_pnl, net_pnl=net_pnl,
+                         forced_close=self._eod_close and len(shares) == 0)
+
+    @staticmethod
+    def _multi_portfolio_value(
+        shares: Dict[str, float],
+        day_bars: Dict[str, pd.DataFrame],
+        bar_idx: int,
+    ) -> float:
+        total = 0.0
+        for sym, qty in shares.items():
+            if sym in day_bars and len(day_bars[sym]) > 0:
+                idx = bar_idx if bar_idx >= 0 else len(day_bars[sym]) + bar_idx
+                idx = max(0, min(idx, len(day_bars[sym]) - 1))
+                total += qty * float(day_bars[sym]["close"].iloc[idx])
+        return total
+
     # ── 单日核心逻辑（Paper Trading 同样调用此函数）────────────────────────────
 
     def run_single_day(
