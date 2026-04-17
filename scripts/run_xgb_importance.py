@@ -153,6 +153,27 @@ def main():
     print("\nTop 5 most important:", list(importance.head(5).index))
     print("Bottom 5 least important:", list(importance.tail(5).index))
 
+    # Permutation importance on test set (model-agnostic, more reliable)
+    from sklearn.inspection import permutation_importance
+    logger.info("Computing permutation importance on test set...")
+    perm_result = permutation_importance(model, X_test, y_test, n_repeats=10,
+                                          random_state=42, n_jobs=-1)
+    perm_imp = pd.Series(perm_result.importances_mean, index=feature_cols).sort_values(ascending=False)
+    perm_imp.to_frame("perm_importance").to_parquet(artifacts_dir / "xgb_perm_importance.parquet")
+
+    print("\n=== Permutation Importance (OOS, H=%d) ===" % args.horizon)
+    for fname, imp in perm_imp.head(15).items():
+        bar = "#" * max(0, int(imp * 5000))
+        print("  %-25s  %+.5f  %s" % (fname, imp, bar))
+
+    # Compare XGB built-in vs permutation rankings
+    print("\n=== Ranking Comparison (Top 10) ===")
+    print("%-5s  %-25s  %-25s" % ("Rank", "XGB built-in", "Permutation (OOS)"))
+    for i in range(min(10, len(importance))):
+        xgb_name = importance.index[i]
+        perm_name = perm_imp.index[i] if i < len(perm_imp) else "—"
+        print("%-5d  %-25s  %-25s" % (i + 1, xgb_name, perm_name))
+
 
 if __name__ == "__main__":
     main()
