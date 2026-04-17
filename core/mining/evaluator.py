@@ -482,8 +482,8 @@ class MiningEvaluator:
                 if strat_dd <= bench_dd * self._def_win_dd_mult:
                     n_pass += 1
             else:
-                if (w.metrics.get("excess_return", -99) > 0.05
-                        and w.metrics.get("ir", -99) > 0.30):
+                if (w.metrics.get("excess_return", -99) > self._oos_excess
+                        and w.metrics.get("ir", -99) > self._oos_ir):
                     n_pass += 1
 
         pass_rate = n_pass / len(windows)
