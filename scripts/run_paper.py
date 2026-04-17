@@ -307,6 +307,7 @@ def main():
     elif args.mode == "live":
         logger.info("Live 模式：运行当日模拟盘...")
         today = pd.Timestamp.today().normalize()
+        yesterday = price_df_1d.index[price_df_1d.index < today][-1] if len(price_df_1d.index[price_df_1d.index < today]) > 0 else None
 
         signals = strategy.generate(price_df_1d, regime)
         weights = constructor.build(
@@ -315,12 +316,36 @@ def main():
             regime_series = regime,
         )
 
-        if today not in weights.index:
-            logger.warning("当日 (%s) 无信号数据，请确认行情已更新", today.date())
+        if yesterday is None or yesterday not in weights.index:
+            logger.warning("无足够历史数据生成信号 (today=%s)", today.date())
+        elif today not in price_df_1d.index and today not in open_df_1d.index:
+            logger.warning("当日 (%s) 无价格数据，请先运行 fetch_data.py 更新", today.date())
         else:
-            day_sigs = weights.loc[[today]]
-            logger.info("当日目标权重:\n%s", day_sigs.T.to_string())
-            logger.info("（完整日内执行需要 60m 行情数据）")
+            day_wts = weights.loc[yesterday]
+            target = {s: float(v) for s, v in day_wts.items() if v > 0.001}
+            logger.info("目标权重 (基于 %s 信号):\n%s", yesterday.date(),
+                        pd.Series(target).sort_values(ascending=False).to_string())
+
+            prices_yd = {s: float(price_df_1d.loc[yesterday, s]) for s in price_df_1d.columns
+                         if not pd.isna(price_df_1d.loc[yesterday].get(s))}
+            opens_today = {}
+            if today in open_df_1d.index:
+                opens_today = {s: float(open_df_1d.loc[today, s]) for s in open_df_1d.columns
+                               if not pd.isna(open_df_1d.loc[today].get(s))}
+            elif today in price_df_1d.index:
+                opens_today = {s: float(price_df_1d.loc[today, s]) for s in price_df_1d.columns
+                               if not pd.isna(price_df_1d.loc[today].get(s))}
+
+            if opens_today:
+                result = engine.run_day_daily(
+                    date=today, target_wts=target,
+                    prices=prices_yd, open_prices=opens_today,
+                )
+                logger.info("Live 执行完成: %d trades, equity=%.2f",
+                            result.n_trades, engine._cash + sum(
+                                engine._positions.get(s,0) * prices_yd.get(s,0) for s in engine._positions))
+            else:
+                logger.warning("无当日 open 价格，跳过执行")
 
         show_status(engine)
 
