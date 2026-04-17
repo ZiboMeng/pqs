@@ -38,28 +38,36 @@ Architecture: config/ → core/ → scripts/ → tests/ with 615 passing unit te
 - TimeframeOptimizer integrated into FeaturePipeline
 - Archive with full audit trail (stress/holdout/overfit columns, DB migration support)
 
-**Completed in Loop 1-18:**
-- ✅ Daily data 2007-2026 (35 symbols) — Loop 1
+**Completed in Loop 1-30:**
+- ✅ Daily data 2007-2026 (35 symbols) + 60m intraday (32 symbols) — Loop 1, 19
 - ✅ Regime detector fix + 654 tests passing — Loop 1
 - ✅ Benchmark IR/alpha/beta calculation — Loop 2
-- ✅ Walk-forward OOS validation — Loop 3
-- ✅ Mining pipeline end-to-end (52+ strategies evaluated) — Loop 4-5
+- ✅ Walk-forward OOS validation (32 windows) — Loop 3
+- ✅ Mining pipeline end-to-end (100+ strategies evaluated) — Loop 4-5, 8, 11, 16, 27, 29
 - ✅ Factor generation pipeline (27 factors, IC screening) — Loop 6
 - ✅ MultiFactorStrategy (5-factor composite) — Loop 7
-- ✅ Vol_parity=False discovery (+4% CAGR) — Loop 10
-- ✅ 5-stage mining validation pass (3+ strategies) — Loop 11
-- ✅ Cost sensitivity analysis (robust to 3x) — Loop 13
+- ✅ Vol_parity=False discovery — Loop 10
+- ✅ Cost sensitivity (robust to 3x) — Loop 13
 - ✅ Min holding days (turnover -20%) — Loop 14
-- ✅ Relative strength factor (+3% holdout excess) — Loop 15-16
+- ✅ Relative strength factor — Loop 15-16
 - ✅ Diagnostics wired into run_paper.py — Loop 18
+- ✅ Paper trading daily-mode + consistency fix (~4% tracking error) — Loop 20-24
+- ✅ GBM feature importance analysis — Loop 25
+- ✅ **Real open price execution** (reveals 5% CAGR overestimation) — Loop 26-27
+- ✅ OOS thresholds recalibrated for real open — Loop 29
+- ✅ 1 strategy passes 5-stage with real open (OOS IR=0.224, holdout +11.3%) — Loop 29
 - ✅ Master report with regime-stratified + strategy attribution
 
+**Current best validated strategy (real open prices):**
+- multi_factor 7188bbdf3fb7: CAGR 15.8%, Sharpe 0.88, MaxDD -19.4%, IR 0.19
+- Params: pv_div=0.30, quality=0.25, rel_strength=0.25, momentum=0.15, vol=0.05
+- Holdout excess +11.3% vs SPY
+- All robustness checks pass (regime, cost, stress, holdout)
+
 **Remaining gaps:**
-- No intraday data (60m/30m) — paper trading replay blocked
-- Master report backtest-vs-paper section needs paper trading data
-- No left-side trading module
-- XGBoost/SHAP not yet used (ML signals)
+- Left-side trading module not implemented
 - Universe dynamic rebalance not triggered by any script
+- ML signals (XGBoost) used for analysis only, not as trading signal
 - Feature pipeline multi-timeframe not tested with real intraday data
 
 ### Intraday Quantitative Pipeline (to be built in loop iterations)
