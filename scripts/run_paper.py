@@ -71,6 +71,7 @@ def show_status(engine: PaperTradingEngine) -> None:
 def run_replay(
     engine:         PaperTradingEngine,
     price_df_1d:    pd.DataFrame,
+    open_df_1d:     pd.DataFrame,
     price_df_60m:   dict,
     regime:         pd.Series,
     strategy,
@@ -137,6 +138,12 @@ def run_replay(
                 p = price_df_1d.loc[date_ts, sym]
                 if not pd.isna(p):
                     prices_today[sym] = float(p)
+            # Use real T+1 open price, fall back to T+1 close only if open unavailable
+            if next_date in open_df_1d.index and sym in open_df_1d.columns:
+                o = open_df_1d.loc[next_date, sym]
+                if not pd.isna(o):
+                    open_next[sym] = float(o)
+                    continue
             if next_date in price_df_1d.index:
                 o = price_df_1d.loc[next_date, sym]
                 if not pd.isna(o):
@@ -215,14 +222,19 @@ def main():
     def_syms = [s for s in ["TLT", "IEF", "GLD", "SHY"] if s in all_syms]
 
     frames = {}
+    open_frames = {}
     for sym in all_syms:
         try:
             df = store.read(sym, "1d")
-            if df is not None and not df.empty and "close" in df.columns:
-                frames[sym] = df["close"]
+            if df is not None and not df.empty:
+                if "close" in df.columns:
+                    frames[sym] = df["close"]
+                if "open" in df.columns:
+                    open_frames[sym] = df["open"]
         except Exception:
             pass
     price_df_1d = pd.DataFrame(frames).sort_index() if frames else pd.DataFrame()
+    open_df_1d = pd.DataFrame(open_frames).sort_index() if open_frames else pd.DataFrame()
 
     # Regime
     vix_df     = store.read("^VIX", "1d") if store.get_last_date("^VIX", "1d") is not None else None
@@ -277,6 +289,7 @@ def main():
         run_replay(
             engine         = engine,
             price_df_1d    = price_df_1d,
+            open_df_1d     = open_df_1d,
             price_df_60m   = price_df_60m,
             regime         = regime,
             strategy       = strategy,
