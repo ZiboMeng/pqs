@@ -74,6 +74,7 @@ class PaperTradingEngine:
         confluence_enabled: bool               = True,
         kill_switch:        Optional[KillSwitch] = None,
         replay_mode:        bool               = False,
+        integer_shares:     bool               = True,
     ):
         self._engine = IntradayBacktestEngine(
             cost_model         = cost_model,
@@ -86,6 +87,7 @@ class PaperTradingEngine:
         self._initial_capital = initial_capital
         self._kill_switch     = kill_switch or KillSwitch(KillSwitchConfig())
         self._replay_mode     = replay_mode
+        self._integer_shares  = integer_shares
 
         # 运行时状态
         self._positions: Dict[str, float] = {}
@@ -185,7 +187,7 @@ class PaperTradingEngine:
         daily_engine = _DailyEngine(
             cost_model=self._engine._cost,
             initial_capital=self._initial_capital,
-            integer_shares=True,
+            integer_shares=self._integer_shares,
         )
         orders = daily_engine._generate_orders(
             cur_weights=cur_weights,
