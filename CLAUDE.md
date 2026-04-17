@@ -137,16 +137,18 @@ Candidate Pool → Research Pool → Validation Pool → Keep Pool
 ```
 Every rejected candidate must be logged with reason in archive. No blind brute-force mining.
 
-Validation Pool criteria (all must pass):
-- Rolling + expanding + walk-forward + forward-block
-- Parameter sensitivity (±20% → Sharpe change < 50%)
-- Cost sensitivity (2x cost → still positive alpha)
-- Regime robustness (growth ≥2 positive, defensive ≥1 not worse than SPY)
-- Stress period survival (DD ≤ 25% in each of 4 crisis periods)
-- Subperiod robustness (no single period > 50% contribution)
-- OOS/IS Sharpe ratio ≥ 0.50
-- Holdout IR ≥ 0.20
-- Diversity (correlation < 0.70 with existing promoted strategies)
+Validation Pool criteria (all implemented and enforced in mining evaluator):
+- ✅ Walk-forward OOS (regime-aware pass criteria, type-specific test_bars)
+- ✅ Expanding window (recursive training set growth)
+- ✅ Forward-block holdout (last 252d invisible during mining)
+- ✅ Parameter sensitivity (±20% → Sharpe change < 50%)
+- ✅ Cost sensitivity (2x cost → still positive alpha)
+- ✅ Regime robustness (growth ≥2 positive, defensive ≥1 not worse than SPY)
+- ✅ Stress period survival (DD ≤ 25% in 2008, 2020-COVID, 2022, 2018-Q4)
+- ✅ Subperiod robustness (no single quartile > 50% contribution)
+- ✅ OOS/IS Sharpe ratio ≥ 0.50
+- ✅ Holdout IR ≥ 0.20
+- ✅ Diversity (correlation < 0.70 with existing promoted strategies)
 
 ### Autonomous Decision Authority
 Authorized WITHOUT confirmation:
