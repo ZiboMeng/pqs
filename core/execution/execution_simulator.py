@@ -144,7 +144,7 @@ class ExecutionSimulator:
             return None
 
         is_buy     = order.side == OrderSide.BUY
-        slip_bps   = self._cost.cost_bps(order.symbol, self._freq, vix)
+        slip_bps   = self._cost._cfg.get_slippage_bps(order.symbol, self._freq, vix)
         slip_ratio = slip_bps / 10_000
 
         # 滑点调整后的成交价
