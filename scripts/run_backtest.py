@@ -64,6 +64,21 @@ def load_prices(store: MarketDataStore, symbols: list, freq: str = "1d") -> pd.D
     return pd.DataFrame(frames).sort_index()
 
 
+def load_open_prices(store: MarketDataStore, symbols: list) -> pd.DataFrame:
+    """加载多个 symbol 的开盘价矩阵（用于 T+1 成交）。"""
+    frames = {}
+    for sym in symbols:
+        try:
+            df = store.read(sym, "1d")
+            if df is not None and not df.empty and "open" in df.columns:
+                frames[sym] = df["open"]
+        except Exception:
+            pass
+    if not frames:
+        return pd.DataFrame()
+    return pd.DataFrame(frames).sort_index()
+
+
 def build_strategies(cfg, price_df: pd.DataFrame, risk_syms: list, def_syms: list) -> dict:
     """构建默认策略集合 + Mining 晋升策略。"""
     strategies = {
@@ -108,6 +123,7 @@ def run_strategy(
     engine:           BacktestEngine,
     constructor:      PortfolioConstructor,
     walk_forward:     bool = True,
+    open_df:          pd.DataFrame = None,
 ) -> dict:
     """运行单个策略回测，返回结果字典。"""
     logger.info("=== 回测策略: %s ===", name)
@@ -124,6 +140,7 @@ def run_strategy(
     bt_result = engine.run(
         signals_df       = weights,
         price_df         = price_df,
+        open_df          = open_df,
         regime_series    = regime_series,
         benchmark_series = benchmark_series,
     )
@@ -179,6 +196,7 @@ def main():
     # ── 加载价格 ─────────────────────────────────────────────────────────────
     logger.info("加载价格数据...")
     price_df = load_prices(store, all_tradeable)
+    open_df = load_open_prices(store, all_tradeable)
     if price_df.empty:
         logger.error("价格数据为空，请先运行 fetch_data.py")
         sys.exit(1)
@@ -187,8 +205,12 @@ def main():
     end   = args.end
     if start:
         price_df = price_df[price_df.index >= start]
+        if not open_df.empty:
+            open_df = open_df[open_df.index >= start]
     if end:
         price_df = price_df[price_df.index <= end]
+        if not open_df.empty:
+            open_df = open_df[open_df.index <= end]
 
     logger.info("价格矩阵: %d 行 × %d 列 (%s ~ %s)",
                 len(price_df), len(price_df.columns),
@@ -237,6 +259,7 @@ def main():
             engine           = engine,
             constructor      = constructor,
             walk_forward     = not args.no_walk_forward,
+            open_df          = open_df if not open_df.empty else None,
         )
         all_runs[name] = run
 
