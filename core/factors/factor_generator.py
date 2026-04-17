@@ -27,14 +27,16 @@ logger = get_logger(__name__)
 def generate_all_factors(
     price_df: pd.DataFrame,
     volume_df: pd.DataFrame | None = None,
+    benchmark_col: str = "SPY",
 ) -> Dict[str, pd.DataFrame]:
     """
     Generate all candidate factors from price (and optionally volume) data.
 
     Parameters
     ----------
-    price_df  : close prices, index=date, columns=symbols
-    volume_df : daily volume, same shape as price_df (optional)
+    price_df      : close prices, index=date, columns=symbols
+    volume_df     : daily volume, same shape as price_df (optional)
+    benchmark_col : column name for benchmark (used in relative strength)
 
     Returns
     -------
@@ -48,6 +50,8 @@ def generate_all_factors(
     if volume_df is not None:
         factors.update(_volume_factors(price_df, volume_df))
     factors.update(_quality_factors(price_df))
+    factors.update(_relative_strength_factors(price_df, benchmark_col))
+    factors.update(_sector_rotation_factors(price_df))
 
     logger.info("FactorGenerator: produced %d candidate factors", len(factors))
     return factors
@@ -129,6 +133,52 @@ def _quality_factors(price_df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
     dd = (price_df - cummax) / cummax
     max_dd_126 = dd.rolling(126, min_periods=21).min()
     factors["max_dd_126d"] = -max_dd_126
+
+    return factors
+
+
+def _relative_strength_factors(
+    price_df: pd.DataFrame,
+    benchmark_col: str = "SPY",
+) -> Dict[str, pd.DataFrame]:
+    """Relative strength vs benchmark — outperformers tend to keep outperforming."""
+    factors = {}
+    if benchmark_col not in price_df.columns:
+        return factors
+
+    bench = price_df[benchmark_col]
+    for lookback in [21, 63, 126]:
+        sym_ret = price_df.pct_change(lookback)
+        bench_ret = bench.pct_change(lookback)
+        rs = sym_ret.sub(bench_ret, axis=0)
+        factors[f"rs_vs_spy_{lookback}d"] = rs
+
+    rs_63 = price_df.pct_change(63).sub(bench.pct_change(63), axis=0)
+    rs_21 = price_df.pct_change(21).sub(bench.pct_change(21), axis=0)
+    factors["rs_acceleration"] = rs_63 - rs_21
+
+    return factors
+
+
+def _sector_rotation_factors(price_df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+    """Cross-sectional rank-based factors for sector/asset rotation."""
+    factors = {}
+    daily_ret = price_df.pct_change()
+
+    for lookback in [21, 63]:
+        rolling_ret = price_df.pct_change(lookback)
+        rank = rolling_ret.rank(axis=1, pct=True)
+        factors[f"xsection_rank_{lookback}d"] = rank
+
+    ret_63 = price_df.pct_change(63)
+    ret_21 = price_df.pct_change(21)
+    rank_63 = ret_63.rank(axis=1, pct=True)
+    rank_21 = ret_21.rank(axis=1, pct=True)
+    factors["rank_momentum_change"] = rank_63 - rank_21
+
+    vol_21 = daily_ret.rolling(21).std()
+    ret_21_raw = price_df.pct_change(21)
+    factors["return_per_risk_21d"] = ret_21_raw / vol_21.replace(0, np.nan)
 
     return factors
 

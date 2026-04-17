@@ -60,10 +60,11 @@ class MultiFactorStrategy:
         self._symbols     = symbols or []
         self._top_n       = top_n
         self._weights     = factor_weights or {
-            "low_vol":    0.30,
+            "low_vol":    0.20,
             "momentum":   0.25,
-            "quality":    0.25,
-            "pv_div":     0.20,
+            "quality":    0.20,
+            "pv_div":     0.15,
+            "rel_strength": 0.20,
         }
         self._monthly     = rebalance_monthly
         self._score_wt    = score_weighted
@@ -107,6 +108,11 @@ class MultiFactorStrategy:
                 pv_vol = vdf.pct_change().rolling(20).mean()
                 pv = pv_ret - pv_vol
                 factors["pv_div"] = pv.reindex(columns=syms)
+
+        if "SPY" in price_df.columns:
+            spy_ret = price_df["SPY"].pct_change(63)
+            sym_ret = pdf.pct_change(63)
+            factors["rel_strength"] = sym_ret.sub(spy_ret, axis=0)
 
         def _zscore(df):
             mu = df.mean(axis=1)
