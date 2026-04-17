@@ -526,3 +526,104 @@ class PaperTradingEngine:
         conn.execute("DELETE FROM pt_history")
         conn.commit()
         conn.close()
+
+    # ── Intraday persistence ─────────────────────────────────────────────────
+
+    def save_intraday_bar(
+        self,
+        run_id:    str,
+        date:      pd.Timestamp,
+        bar_ts:    pd.Timestamp,
+        orders:    List[Order],
+        fills:     List[Fill],
+        positions: Dict[str, float],
+        cash:      float,
+        equity:    float,
+    ) -> None:
+        """Persist one bar's orders, fills, positions, and equity snapshot."""
+        conn = sqlite3.connect(self._db_path)
+        date_str = str(date.date())
+        bar_str = str(bar_ts)
+
+        for o in orders:
+            conn.execute(
+                "INSERT INTO intraday_orders (run_id, date, bar_ts, symbol, side, qty, signal_source) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (run_id, date_str, bar_str, o.symbol, o.side.value if hasattr(o.side, 'value') else str(o.side),
+                 o.qty_shares, None),
+            )
+
+        for f in fills:
+            conn.execute(
+                "INSERT INTO intraday_fills (run_id, date, bar_ts, symbol, side, qty, price, "
+                "slippage_usd, commission_usd, cash_delta) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (run_id, date_str, bar_str, f.order.symbol,
+                 f.order.side.value if hasattr(f.order.side, 'value') else str(f.order.side),
+                 f.executed_qty, f.executed_price,
+                 f.cost_breakdown.slippage_usd, f.cost_breakdown.commission_usd, f.cash_delta),
+            )
+
+        for sym, qty in positions.items():
+            if qty > 1e-6:
+                conn.execute(
+                    "INSERT INTO intraday_positions (run_id, date, bar_ts, symbol, qty, avg_cost) "
+                    "VALUES (?,?,?,?,?,?)",
+                    (run_id, date_str, bar_str, sym, qty, None),
+                )
+
+        port_val = equity - cash
+        conn.execute(
+            "INSERT INTO intraday_equity (run_id, date, bar_ts, equity, cash, portfolio_value) "
+            "VALUES (?,?,?,?,?,?)",
+            (run_id, date_str, bar_str, equity, cash, port_val),
+        )
+
+        conn.commit()
+        conn.close()
+
+    def save_bar_checkpoint(
+        self,
+        run_id:   str,
+        date:     pd.Timestamp,
+        bar_ts:   pd.Timestamp,
+        positions: Dict[str, float],
+        cash:     float,
+    ) -> None:
+        """Save checkpoint for restart recovery."""
+        state = json.dumps({"positions": positions, "cash": cash})
+        conn = sqlite3.connect(self._db_path)
+        conn.execute(
+            "INSERT OR REPLACE INTO bar_checkpoints (run_id, date, last_bar_ts, state_json, updated_at) "
+            "VALUES (?,?,?,?,?)",
+            (run_id, str(date.date()), str(bar_ts), state, str(pd.Timestamp.now())),
+        )
+        conn.commit()
+        conn.close()
+
+    def load_bar_checkpoint(self, run_id: str) -> Optional[Dict]:
+        """Load latest checkpoint for a run_id. Returns None if not found."""
+        conn = sqlite3.connect(self._db_path)
+        row = conn.execute(
+            "SELECT date, last_bar_ts, state_json FROM bar_checkpoints WHERE run_id=?",
+            (run_id,),
+        ).fetchone()
+        conn.close()
+        if row is None:
+            return None
+        state = json.loads(row[2])
+        return {
+            "date": pd.Timestamp(row[0]),
+            "last_bar_ts": pd.Timestamp(row[1]),
+            "positions": state["positions"],
+            "cash": state["cash"],
+        }
+
+    def has_fill_for_bar(self, run_id: str, bar_ts: pd.Timestamp) -> bool:
+        """Check if fills already exist for this bar (idempotency guard)."""
+        conn = sqlite3.connect(self._db_path)
+        n = conn.execute(
+            "SELECT COUNT(*) FROM intraday_fills WHERE run_id=? AND bar_ts=?",
+            (run_id, str(bar_ts)),
+        ).fetchone()[0]
+        conn.close()
+        return n > 0
