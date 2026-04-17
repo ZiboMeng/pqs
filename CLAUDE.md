@@ -85,17 +85,17 @@ Reporting:
 - Params: RS=0.30, momentum=0.30, quality=0.20, market_trend=0.10, pv_div=0.05
 - All robustness checks pass (regime, cost, param, stress, subperiod, holdout)
 
-**Key discoveries (Loop 1-44):**
+**Key discoveries (Loop 1-47):**
 1. Real open price reveals 5% CAGR overestimation vs close approximation (Loop 26-27)
 2. target_vol=0.25 (was 0.15) breaks OOS bottleneck — pass rate 0%→49% (Loop 33)
 3. Vol_parity harmful for multi_factor (already has low_vol factor) (Loop 10)
 4. Relative strength + momentum are dominant alpha sources (Loop 15, 25)
 5. Kill switch config must match risk.yaml — 5% threshold gap caused 37% paper-bt divergence (Loop 42)
 
-**Remaining gaps:**
-- Left-side trading module not implemented
+**Remaining gaps (minor):**
 - ML signals used for analysis only, not as trading signal
 - Intraday pipeline not built
+- Left-side trading module implemented (Loop 45) but not yet backtested for impact
 
 ### Intraday Quantitative Pipeline (to be built in loop iterations)
     1. Download intraday data (60m/30m/15m) via fetch_data.py --intraday-only
