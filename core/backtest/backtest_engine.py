@@ -101,12 +101,14 @@ class BacktestEngine:
         initial_capital:       float = 100_000.0,
         min_trade_usd:         float = 100.0,
         rebalance_threshold:   float = 0.02,
+        integer_shares:        bool  = False,
     ):
         self._cost      = cost_model
         self._sim       = ExecutionSimulator(cost_model, freq="interday", allow_partial=True)
         self._capital   = initial_capital
         self._min_trade = min_trade_usd
         self._rebal_thr = rebalance_threshold
+        self._int_shares = integer_shares
 
     # ── 主入口 ────────────────────────────────────────────────────────────────
 
@@ -289,6 +291,8 @@ class BacktestEngine:
                 continue
 
             qty = delta_usd / exec_price
+            if self._int_shares:
+                qty = float(int(qty))
             if qty < 1e-6:
                 continue
 
