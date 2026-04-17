@@ -13,6 +13,7 @@ import tempfile
 from pathlib import Path
 
 from core.backtest.backtest_engine import BacktestEngine
+from core.config.loader import load_config
 from core.execution.cost_model import CostModel
 from core.paper_trading.paper_trading_engine import PaperTradingEngine
 from core.paper_trading.pnl_tracker import PnLTracker
@@ -195,3 +196,71 @@ class TestBacktestPaperConsistency:
         )
 
         assert len(paper_equities_int) > 0, "Paper trading produced no equity records"
+
+
+class TestQQQOutperformance:
+    """Validate strategy vs QQQ hard constraints from PRD v3."""
+
+    @pytest.fixture(autouse=True)
+    def _load_real_data(self):
+        """Load real market data for QQQ validation."""
+        from core.data.market_data_store import MarketDataStore
+        from core.regime.regime_detector import RegimeDetector
+        from core.signals.strategies.multi_factor import MultiFactorStrategy
+        from core.portfolio.constructor import PortfolioConstructor
+        cfg = load_config(Path("config"))
+        store = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
+        uni = cfg.universe
+        all_syms = list(dict.fromkeys(
+            list(uni.seed_pool) + list(uni.sector_etfs) + list(uni.factor_etfs) + list(uni.cross_asset)))
+        pf, of = {}, {}
+        for sym in all_syms:
+            df = store.read(sym, "1d")
+            if df is not None and not df.empty:
+                if "close" in df.columns: pf[sym] = df["close"]
+                if "open" in df.columns: of[sym] = df["open"]
+        self.price_df = pd.DataFrame(pf).sort_index()
+        self.open_df = pd.DataFrame(of).sort_index()
+        self.price_df = self.price_df[self.price_df.index >= "2007-01-02"]
+        self.open_df = self.open_df[self.open_df.index >= "2007-01-02"]
+
+        if "QQQ" not in self.price_df.columns or len(self.price_df) < 252:
+            pytest.skip("Insufficient real data for QQQ validation")
+
+        spy = self.price_df["SPY"]
+        vix = store.read("^VIX", "1d")["close"].reindex(self.price_df.index, method="ffill").fillna(20)
+        detector = RegimeDetector(cfg.regime)
+        self.regime = detector.classify_series(spy, vix)
+        risk_syms = [s for s in all_syms if s not in ["TLT", "IEF", "GLD", "SHY", "TQQQ", "SOXL"]
+                     and s not in uni.blacklist]
+        self.strat = MultiFactorStrategy(
+            symbols=risk_syms, top_n=4, rebalance_monthly=False, score_weighted=True,
+            factor_weights={"low_vol": 0, "momentum": 0.30, "quality": 0.25,
+                            "pv_div": 0.05, "rel_strength": 0.30, "market_trend": 0.10},
+            min_holding_days=3, lookback_mom=189, lookback_quality=189, lookback_vol=84)
+        signals = self.strat.generate(self.price_df, self.regime)
+        constructor = PortfolioConstructor(use_vol_parity=False)
+        weights = constructor.build(raw_signals=signals, price_df=self.price_df, regime_series=self.regime)
+        cost = CostModel(cfg.cost_model)
+        engine = BacktestEngine(cost_model=cost, initial_capital=10000)
+        self.bt = engine.run(signals_df=weights, price_df=self.price_df, open_df=self.open_df,
+                             regime_series=self.regime, benchmark_series=spy)
+        from core.backtest.backtest_engine import compute_metrics
+        self.qqq_metrics = compute_metrics(
+            self.price_df["QQQ"].loc[self.price_df.index[0]:],
+            initial_capital=self.price_df["QQQ"].iloc[0])
+
+    def test_full_period_cagr_beats_qqq(self):
+        strat_cagr = self.bt.metrics.get("cagr", 0)
+        qqq_cagr = self.qqq_metrics.get("cagr", 0)
+        assert strat_cagr > qqq_cagr, (
+            f"Strategy CAGR {strat_cagr:.1%} must exceed QQQ {qqq_cagr:.1%}")
+
+    def test_holdout_return_beats_qqq(self):
+        holdout_start = self.price_df.index[-252]
+        eq_h = self.bt.equity_curve.loc[holdout_start:]
+        qqq_h = self.price_df["QQQ"].loc[holdout_start:]
+        strat_ret = float(eq_h.iloc[-1] / eq_h.iloc[0] - 1)
+        qqq_ret = float(qqq_h.iloc[-1] / qqq_h.iloc[0] - 1)
+        assert strat_ret > qqq_ret, (
+            f"Holdout: strategy {strat_ret:.1%} must exceed QQQ {qqq_ret:.1%}")
