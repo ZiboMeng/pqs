@@ -208,16 +208,18 @@ class MultiFactorSpace(ParameterSpace):
     strategy_type = "multi_factor"
 
     def suggest(self, trial: Any) -> Dict[str, Any]:
-        w_vol = trial.suggest_float("w_low_vol", 0.05, 0.30, step=0.05)
-        w_mom = trial.suggest_float("w_momentum", 0.20, 0.50, step=0.05)
-        w_qual = trial.suggest_float("w_quality", 0.10, 0.35, step=0.05)
-        w_pv = max(0.0, round(1.0 - w_vol - w_mom - w_qual, 2))
+        w_vol = trial.suggest_float("w_low_vol", 0.0, 0.15, step=0.05)
+        w_mom = trial.suggest_float("w_momentum", 0.10, 0.30, step=0.05)
+        w_qual = trial.suggest_float("w_quality", 0.15, 0.35, step=0.05)
+        w_rs = trial.suggest_float("w_rel_strength", 0.10, 0.30, step=0.05)
+        w_pv = max(0.0, round(1.0 - w_vol - w_mom - w_qual - w_rs, 2))
         return {
             "top_n":             trial.suggest_int("top_n", 4, 6),
             "w_low_vol":         w_vol,
             "w_momentum":        w_mom,
             "w_quality":         w_qual,
             "w_pv_div":          round(w_pv, 2),
+            "w_rel_strength":    w_rs,
             "rebalance_monthly": trial.suggest_categorical("rebalance_monthly", [False]),
             "score_weighted":    trial.suggest_categorical("score_weighted", [True, False]),
             "lookback_vol":      trial.suggest_int("lookback_vol", 42, 126, step=21),
@@ -236,10 +238,11 @@ class MultiFactorSpace(ParameterSpace):
             symbols           = risk_universe,
             top_n             = params["top_n"],
             factor_weights    = {
-                "low_vol":  params["w_low_vol"],
-                "momentum": params["w_momentum"],
-                "quality":  params["w_quality"],
-                "pv_div":   params["w_pv_div"],
+                "low_vol":       params["w_low_vol"],
+                "momentum":      params["w_momentum"],
+                "quality":       params["w_quality"],
+                "pv_div":        params["w_pv_div"],
+                "rel_strength":  params.get("w_rel_strength", 0.0),
             },
             rebalance_monthly = params["rebalance_monthly"],
             score_weighted    = params["score_weighted"],
