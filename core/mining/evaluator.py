@@ -175,6 +175,7 @@ class MiningEvaluator:
         self._wf_test_bars      = wf_test_bars_by_type or {}
         self._min_oos_is_ratio  = min_oos_is_sharpe_ratio
         self._def_win_dd_mult   = defensive_window_dd_mult
+        self._open_df: Optional[pd.DataFrame] = None
         self._score_w           = score_weights or {
             "oos_ir":             2.0,
             "oos_sharpe":         1.0,
@@ -384,6 +385,10 @@ class MiningEvaluator:
             regime_series = regime_series,
         )
 
+    def set_open_df(self, open_df: pd.DataFrame) -> None:
+        """Set open price data for realistic T+1 open execution."""
+        self._open_df = open_df
+
     def _run_backtest(
         self,
         weights:          pd.DataFrame,
@@ -395,9 +400,11 @@ class MiningEvaluator:
             cost_model      = self._cost,
             initial_capital = self._capital,
         )
+        open_slice = self._open_df.reindex(price_df.index) if self._open_df is not None else None
         return engine.run(
             signals_df       = weights,
             price_df         = price_df,
+            open_df          = open_slice,
             regime_series    = regime_series,
             benchmark_series = benchmark_series,
         )

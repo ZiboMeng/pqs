@@ -130,9 +130,22 @@ def main():
         logger.error("价格数据为空，请先运行 fetch_data.py")
         sys.exit(1)
 
+    # Load open prices for realistic T+1 execution
+    open_frames = {}
+    for sym in all_syms:
+        try:
+            df = store.read(sym, "1d")
+            if df is not None and not df.empty and "open" in df.columns:
+                open_frames[sym] = df["open"]
+        except Exception:
+            pass
+    open_df = pd.DataFrame(open_frames).sort_index() if open_frames else None
+
     start = args.start or cfg.backtest.start_date or "2013-01-02"
     if start:
         price_df = price_df[price_df.index >= start]
+        if open_df is not None:
+            open_df = open_df[open_df.index >= start]
 
     logger.info("价格矩阵: %d 行 × %d 列 (%s ~ %s)",
                 len(price_df), len(price_df.columns),
@@ -173,6 +186,9 @@ def main():
         min_oos_is_sharpe_ratio = mining_cfg.get("min_oos_is_sharpe_ratio", 0.50),
         defensive_window_dd_mult = mining_cfg.get("defensive_window_dd_multiplier", 1.3),
     )
+    if open_df is not None:
+        evaluator.set_open_df(open_df)
+        logger.info("Mining evaluator 使用真实 open price")
 
     # 过滤策略类型
     spaces = ALL_SPACES
