@@ -177,11 +177,17 @@ class IntradayBacktestEngine:
             all_fills.extend(day_res.trades)
 
             # 日末权益 = 现金 + 持仓市值（EOD 已平仓则仅现金）
-            close_prices = day_bars["close"] if "close" in day_bars.columns else pd.Series(dtype=float)
+            if "close" in day_bars.columns:
+                last_bar = day_bars.iloc[-1]
+                if isinstance(last_bar.get("close"), (int, float, np.floating)):
+                    eod_prices = {"_default": float(last_bar["close"])}
+                else:
+                    eod_prices = {}
+            else:
+                eod_prices = {}
             port_val = cash + sum(
-                shares.get(sym, 0) * float(close_prices.iloc[-1])
+                shares.get(sym, 0) * eod_prices.get(sym, eod_prices.get("_default", 0))
                 for sym in shares
-                if not close_prices.empty
             )
             equity_records.append(port_val)
             date_index.append(date_ts)
