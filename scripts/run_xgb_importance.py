@@ -104,17 +104,19 @@ def main():
 
     logger.info("Train: %d, Test: %d", len(X_train), len(X_test))
 
-    from sklearn.ensemble import GradientBoostingRegressor
+    import xgboost as xgb
 
-    model = GradientBoostingRegressor(
+    model = xgb.XGBRegressor(
         n_estimators=200,
         max_depth=4,
         learning_rate=0.05,
         subsample=0.8,
-        max_features=0.8,
+        colsample_bytree=0.8,
         random_state=42,
+        n_jobs=-1,
+        verbosity=0,
     )
-    model.fit(X_train, y_train)
+    model.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=False)
 
     train_score = model.score(X_train, y_train)
     test_score = model.score(X_test, y_test)
@@ -123,13 +125,31 @@ def main():
     # Feature importance
     importance = pd.Series(model.feature_importances_, index=feature_cols).sort_values(ascending=False)
 
+    # Save artifacts
+    artifacts_dir = Path("data/ml")
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    run_config = {
+        "model": "XGBRegressor",
+        "n_estimators": 200, "max_depth": 4, "learning_rate": 0.05,
+        "subsample": 0.8, "colsample_bytree": 0.8, "random_state": 42,
+        "horizon": args.horizon,
+        "train_end": str(split_date.date()),
+        "n_train": len(X_train), "n_test": len(X_test),
+        "n_features": len(feature_cols),
+        "r2_train": round(train_score, 4),
+        "r2_test": round(test_score, 4),
+    }
+    import json
+    (artifacts_dir / "xgb_config.json").write_text(json.dumps(run_config, indent=2))
+    importance.to_frame("importance").to_parquet(artifacts_dir / "xgb_importance.parquet")
+    logger.info("Artifacts saved to %s", artifacts_dir)
+
     print("\n=== XGBoost Feature Importance (H=%d) ===" % args.horizon)
     print("R2: train=%.4f, test=%.4f\n" % (train_score, test_score))
     for fname, imp in importance.head(20).items():
         bar = "#" * int(imp * 200)
         print("  %-25s  %.4f  %s" % (fname, imp, bar))
 
-    # Top 5 vs bottom 5 factor names
     print("\nTop 5 most important:", list(importance.head(5).index))
     print("Bottom 5 least important:", list(importance.tail(5).index))
 
