@@ -135,3 +135,25 @@ class DataProvider(ABC):
         if symbol not in frames:
             return pd.Series(dtype=float, name=symbol)
         return frames[symbol].close.rename(symbol)
+
+    def healthcheck(self) -> bool:
+        """Check if the data source is reachable. Default: True."""
+        return True
+
+    def get_metadata(self, symbol: str) -> Dict:
+        """Return symbol metadata (exchange, sector, first_trade_date, etc.). Optional."""
+        return {"symbol": symbol}
+
+    def fetch_incremental(
+        self,
+        symbol: str,
+        freq:   str,
+        last_date: pd.Timestamp,
+    ) -> Optional[OHLCVFrame]:
+        """Fetch only data since last_date. Default: delegates to fetch_daily/intraday."""
+        start = last_date + pd.Timedelta(days=1)
+        if freq == "1d":
+            result = self.fetch_daily([symbol], start=str(start.date()))
+        else:
+            result = self.fetch_intraday([symbol], freq=freq, start=str(start.date()))
+        return result.get(symbol)
