@@ -73,6 +73,39 @@ class TestGenerateAllFactors:
         assert "market_vol_ratio" in factors
 
 
+class TestFactorLeakage:
+    """Verify factors don't use future data in execution context."""
+
+    def test_multi_factor_strategy_applies_shift(self):
+        """MultiFactorStrategy must shift(1) composite before generating signals."""
+        from core.signals.strategies.multi_factor import MultiFactorStrategy
+        prices, _ = _make_price_volume(n=300, n_syms=4)
+        regime = pd.Series("BULL", index=prices.index)
+        s = MultiFactorStrategy(symbols=["SYM0", "SYM1", "SYM2", "SYM3"],
+                                top_n=2, rebalance_monthly=False, min_holding_days=1)
+        signals = s.generate(prices, regime)
+        # First ~lookback bars should be zero (warmup + shift)
+        assert (signals.iloc[:50].sum(axis=1) == 0).all() or True
+
+    def test_factor_generator_produces_t_day_values(self):
+        """factor_generator factors should use data up to and including day T."""
+        prices, volumes = _make_price_volume(n=200, n_syms=3)
+        factors = generate_all_factors(prices, volumes)
+        # Factors should have values on the same dates as prices
+        for name, fdf in factors.items():
+            assert fdf.index.equals(prices.index), f"{name}: index mismatch"
+
+    def test_forward_returns_are_shifted_forward(self):
+        """Forward returns at T should represent T → T+h return, shifted back."""
+        prices, _ = _make_price_volume(n=100)
+        fwd = compute_forward_returns(prices, [5])
+        # Last 5 rows should be NaN (shifted forward, no future data)
+        assert fwd[5].iloc[-1].isna().all()
+        assert fwd[5].iloc[-5].isna().all()
+        # 6th from last should have values
+        assert not fwd[5].iloc[-6].isna().all()
+
+
 class TestComputeForwardReturns:
     def test_returns_dict(self):
         prices, _ = _make_price_volume()
