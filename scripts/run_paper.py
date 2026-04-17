@@ -204,9 +204,9 @@ def main():
     # ── 加载价格数据 ──────────────────────────────────────────────────────────
     uni      = cfg.universe
     all_syms = list(dict.fromkeys(
-        list(uni.seed_pool) + list(uni.cross_asset)
+        list(uni.seed_pool) + list(uni.sector_etfs) + list(uni.factor_etfs) + list(uni.cross_asset)
     ))
-    def_syms = [s for s in ["TLT", "IEF", "GLD"] if s in all_syms]
+    def_syms = [s for s in ["TLT", "IEF", "GLD", "SHY"] if s in all_syms]
 
     frames = {}
     for sym in all_syms:
