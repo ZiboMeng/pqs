@@ -160,14 +160,16 @@ Evidence levels:
 | Full funnel walkthrough | ✅ 1 candidate complete | C-13 |
 | New factor families (overnight+breadth) | ✅ 5 new factors | C-14 |
 
-#### Remaining
+#### Remaining (all low-medium priority)
 
 | Feature | Impact | Notes |
 |---------|--------|-------|
-| strict_match 10bps precision | Medium | Currently 500bps; needs execution path unification |
-| Intraday multi-asset engine | Medium | IntradayBacktestEngine assumes single-asset |
-| SHAP attribution | Low | Permutation importance is functional alternative |
-| QQQ validation in mining evaluator | Low | Validated manually; auto-check in evaluator not wired |
+| strict_match 10bps precision | Medium | Currently 500bps; needs BT vectorized→incremental unification |
+| Intraday multi-asset engine | Medium | EOD valuation fixed (C-16), full bar loop still single-asset |
+| SHAP attribution | Low | Permutation importance (C-11) is functional alternative |
+| QQQ check in mining evaluator | Low | Validated in tests (C-7), not auto-checked per-trial |
+| Parallel mining | Low | Single-threaded works; parallelism needs DB lock design |
+| Computation caching | Low | Regime/factor outputs recalculated each run |
 
 ---
 
