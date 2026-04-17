@@ -52,6 +52,7 @@ def generate_all_factors(
     factors.update(_quality_factors(price_df))
     factors.update(_relative_strength_factors(price_df, benchmark_col))
     factors.update(_sector_rotation_factors(price_df))
+    factors.update(_macro_regime_factors(price_df, benchmark_col))
 
     logger.info("FactorGenerator: produced %d candidate factors", len(factors))
     return factors
@@ -179,6 +180,39 @@ def _sector_rotation_factors(price_df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
     vol_21 = daily_ret.rolling(21).std()
     ret_21_raw = price_df.pct_change(21)
     factors["return_per_risk_21d"] = ret_21_raw / vol_21.replace(0, np.nan)
+
+    return factors
+
+
+def _macro_regime_factors(
+    price_df: pd.DataFrame,
+    benchmark_col: str = "SPY",
+) -> Dict[str, pd.DataFrame]:
+    """Market-wide regime signals applied cross-sectionally as factors."""
+    factors = {}
+    if benchmark_col not in price_df.columns:
+        return factors
+
+    bench = price_df[benchmark_col]
+    bench_ret = bench.pct_change()
+
+    bench_ma200 = bench.rolling(200).mean()
+    above_ma200 = (bench / bench_ma200 - 1).clip(-0.3, 0.3)
+    factors["spy_trend_200d"] = pd.DataFrame(
+        {s: above_ma200 for s in price_df.columns}, index=price_df.index
+    )
+
+    bench_vol_21 = bench_ret.rolling(21).std() * np.sqrt(252)
+    bench_vol_63 = bench_ret.rolling(63).std() * np.sqrt(252)
+    vol_ratio = (bench_vol_21 / bench_vol_63.replace(0, np.nan)).clip(0.3, 3.0)
+    factors["market_vol_ratio"] = pd.DataFrame(
+        {s: -vol_ratio for s in price_df.columns}, index=price_df.index
+    )
+
+    bench_dd = bench / bench.cummax() - 1
+    factors["market_drawdown"] = pd.DataFrame(
+        {s: bench_dd for s in price_df.columns}, index=price_df.index
+    )
 
     return factors
 

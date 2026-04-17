@@ -114,6 +114,13 @@ class MultiFactorStrategy:
             sym_ret = pdf.pct_change(63)
             factors["rel_strength"] = sym_ret.sub(spy_ret, axis=0)
 
+            spy = price_df["SPY"]
+            spy_ma200 = spy.rolling(200).mean()
+            trend = (spy / spy_ma200 - 1).clip(-0.3, 0.3)
+            factors["market_trend"] = pd.DataFrame(
+                {s: trend for s in syms}, index=pdf.index
+            )
+
         def _zscore(df):
             mu = df.mean(axis=1)
             sd = df.std(axis=1).replace(0, np.nan)
