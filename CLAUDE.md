@@ -38,56 +38,64 @@ Architecture: config/ → core/ → scripts/ → tests/ with 615 passing unit te
 - TimeframeOptimizer integrated into FeaturePipeline
 - Archive with full audit trail (stress/holdout/overfit columns, DB migration support)
 
-**Completed in Loop 1-37 (41 commits, 654 tests, 75 mining trials):**
+**Completed in Loop 1-44 (46 commits, 654 tests, 87 mining trials):**
 
 Infrastructure:
 - ✅ Daily data 2007-2026 (35 symbols) + 60m intraday (32 symbols)
 - ✅ Real T+1 open price execution (not close approximation)
 - ✅ Integer share mode in BacktestEngine
 - ✅ 654 unit tests passing
-- ✅ 9 runnable scripts via run_all.sh (12 modes)
+- ✅ 9 runnable scripts via run_all.sh (12 modes incl. research/universe/factors/xgb)
 
-Validation:
+Validation (11 criteria, all implemented):
 - ✅ Walk-forward OOS (32 windows, regime-aware pass criteria)
+- ✅ Expanding window validation (recursive training growth)
 - ✅ Forward-block holdout (last 252d invisible during mining)
 - ✅ Data isolation (Stage 1 uses first 70% of non-holdout)
 - ✅ 4 stress period tests (2008, 2020-COVID, 2022, 2018-Q4)
+- ✅ Subperiod robustness (no quartile > 50% contribution)
 - ✅ Cost sensitivity (robust to 3x)
+- ✅ Parameter sensitivity (±20% → Sharpe change < 50%)
+- ✅ Regime robustness (6 regimes, differentiated criteria)
 - ✅ OOS/IS Sharpe overfit gate
+- ✅ Diversity gate (correlation < 0.70)
 
 Mining & Factors:
-- ✅ 5-stage mining pipeline: Quick → OOS → Robustness+Stress → Diversity → Holdout
-- ✅ 30 candidate factors (5 families: momentum, vol, quality, volume, relative strength + 3 macro)
+- ✅ 5-stage mining pipeline: Quick → OOS → Robustness+Stress+Subperiod → Diversity → Holdout
+- ✅ 30 candidate factors (momentum, vol, quality, volume, relative strength, macro)
 - ✅ GBM feature importance analysis
-- ✅ MultiFactorStrategy (6-factor composite with market_trend)
-- ✅ 3 strategies promoted (Tier B×2 + Tier C×1, all real open validated)
+- ✅ MultiFactorStrategy (6-factor composite)
+- ✅ 6 strategies promoted (all Tier B, real open validated, 49% pass rate)
 
 Execution:
 - ✅ Paper trading daily-mode (shared BacktestEngine rebalance logic)
-- ✅ Kill switch 3-tier (NORMAL→DEGRADED→SUSPENDED with auto-recovery)
+- ✅ Paper-backtest consistency < 0.2% (same period, same signals)
+- ✅ Kill switch 3-tier from config (NORMAL→DEGRADED→SUSPENDED, auto-recovery verified)
 - ✅ Diagnostics suite (4 detectors) wired into paper trading EOD
 
 Reporting:
 - ✅ Master report: regime-stratified (vs SPY + vs QQQ), strategy attribution, bt-paper reconciliation
 - ✅ Universe rebalance script (PIT + cross-sectional scoring)
+- ✅ Factor IC screening script
+- ✅ GBM feature importance script
 
 **Current best validated strategy (real open prices, target_vol=0.25):**
-- multi_factor 5c48d991aaab (Tier B): CAGR 18.9%, Sharpe 0.97, MaxDD -19.7%, IR 0.33
-- Params: RS=0.30, momentum=0.30, quality=0.25, market_trend=0.10, pv_div=0.05
-- OOS IR=0.37, pass_rate=77%, holdout excess=+14.4%
-- All robustness checks pass (regime, cost, param, stress)
+- multi_factor b713867fe630 (Tier B): OOS IR=0.40, pass_rate=70%, holdout +14.4%
+- Full-period: CAGR 18.9%, Sharpe 0.98, MaxDD -19.7%, IR 0.33
+- Params: RS=0.30, momentum=0.30, quality=0.20, market_trend=0.10, pv_div=0.05
+- All robustness checks pass (regime, cost, param, stress, subperiod, holdout)
 
-**Key discoveries:**
+**Key discoveries (Loop 1-44):**
 1. Real open price reveals 5% CAGR overestimation vs close approximation (Loop 26-27)
-2. target_vol=0.25 (was 0.15) breaks OOS bottleneck — pass rate 0%→38% (Loop 33)
+2. target_vol=0.25 (was 0.15) breaks OOS bottleneck — pass rate 0%→49% (Loop 33)
 3. Vol_parity harmful for multi_factor (already has low_vol factor) (Loop 10)
 4. Relative strength + momentum are dominant alpha sources (Loop 15, 25)
+5. Kill switch config must match risk.yaml — 5% threshold gap caused 37% paper-bt divergence (Loop 42)
 
 **Remaining gaps:**
 - Left-side trading module not implemented
 - ML signals used for analysis only, not as trading signal
 - Intraday pipeline not built
-- Feature pipeline multi-timeframe not tested with real intraday data
 
 ### Intraday Quantitative Pipeline (to be built in loop iterations)
     1. Download intraday data (60m/30m/15m) via fetch_data.py --intraday-only
