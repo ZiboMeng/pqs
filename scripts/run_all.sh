@@ -75,6 +75,41 @@ case "$MODE" in
     log "回放完成 ✓"
     ;;
 
+  research)
+    log "=== PQS 完整研究流程 ==="
+    log "Step 1/5: 下载/更新数据"
+    $PYTHON scripts/fetch_data.py --daily-only
+
+    log "Step 2/5: Universe 重评估"
+    $PYTHON scripts/run_universe_rebalance.py --top 15
+
+    log "Step 3/5: 因子 IC 筛选"
+    $PYTHON scripts/run_factor_screen.py --top 15
+
+    log "Step 4/5: 策略挖掘 (multi_factor)"
+    $PYTHON scripts/run_mining.py --type multi_factor --trials 40 --budget 1200
+
+    log "Step 5/5: 完整回测 + 报告"
+    $PYTHON scripts/run_backtest.py
+
+    log "研究流程完成 ✓"
+    ;;
+
+  universe)
+    log "=== Universe 重评估 ==="
+    $PYTHON scripts/run_universe_rebalance.py "${@:2}"
+    ;;
+
+  factors)
+    log "=== 因子筛选 ==="
+    $PYTHON scripts/run_factor_screen.py "${@:2}"
+    ;;
+
+  xgb)
+    log "=== GBM Feature Importance ==="
+    $PYTHON scripts/run_xgb_importance.py "${@:2}"
+    ;;
+
   backtest-only)
     log "=== PQS 回测（跳过数据下载）==="
     $PYTHON scripts/run_backtest.py
@@ -109,12 +144,16 @@ case "$MODE" in
     echo ""
     echo "可用 mode:"
     echo "  full            完整流程 (下载 + 回测 + 报告)"
+    echo "  research        研究流程 (数据 + universe + factors + mining + 回测)"
     echo "  mine            策略挖掘 (1h, 80 trials/type)"
     echo "  mine-long       策略挖掘 (4h, 200 trials/type)"
     echo "  daily           每日流程 (增量更新 + 模拟盘 + 日报)"
     echo "  replay [date]   历史回放 (默认 from 2024-01-02)"
     echo "  backtest-only   只跑回测"
     echo "  backtest-quick  快速回测 (跳过 walk-forward)"
+    echo "  universe        Universe 重评估"
+    echo "  factors         因子 IC 筛选"
+    echo "  xgb             GBM Feature Importance"
     echo "  status          查看模拟盘状态"
     echo "  leaderboard     查看 Mining 排行榜"
     echo "  fetch-only      只下载数据"
