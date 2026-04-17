@@ -62,7 +62,7 @@ _MIN_VOL = 1e-6
 # 默认最大单标的权重（若无 regime 配置时使用）
 _DEFAULT_MAX_SINGLE = 0.35
 # 默认目标年化波动率
-_DEFAULT_TARGET_VOL = 0.15
+_DEFAULT_TARGET_VOL = 0.25
 
 
 class PortfolioConstructor:
