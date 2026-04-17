@@ -1,8 +1,25 @@
 """
 MultiFactorStrategy: composite signal from ranked factor scores.
 
-Combines top factors (low-vol, momentum, quality, price-volume) into a single
-cross-sectional score per day. Selects top_n symbols by composite rank.
+Combines top factors (low-vol, momentum, quality, price-volume, rel-strength,
+market-trend) into a single cross-sectional score per day. Selects top_n
+symbols by composite rank.
+
+Architecture Note (intentional dual-track design):
+  This strategy computes factors INTERNALLY rather than importing from
+  core/factors/factor_generator.py. This is a deliberate design choice:
+
+  - factor_generator.py serves the RESEARCH pipeline: generates 30+ candidate
+    factors for IC screening, XGBoost importance, and factor exploration.
+  - MultiFactorStrategy serves the EXECUTION pipeline: computes only the 6
+    factors it needs, inline, for maximum mining/backtest performance.
+
+  Both compute similar quantities (momentum, vol, quality, etc.) but serve
+  different purposes. Merging them would force every mining trial to compute
+  24 unnecessary factors — a 4x performance penalty.
+
+  If new factors prove valuable in the research pipeline, they should be
+  manually added to this strategy's generate() method after validation.
 
 Key design:
   - Each factor is z-scored cross-sectionally then averaged with weights

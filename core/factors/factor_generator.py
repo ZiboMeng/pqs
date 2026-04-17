@@ -1,15 +1,26 @@
 """
 FactorGenerator: auto-construct candidate factors from OHLCV + macro data.
 
-Generates cross-sectional factor exposures for each trading day.
-Each factor is a DataFrame: index=date, columns=symbols, values=factor exposure.
+This module serves the RESEARCH pipeline: IC screening, XGBoost importance
+analysis, factor candidate evaluation, and new factor exploration.
 
-Factor families:
-  - Momentum (multi-period return, risk-adjusted momentum)
-  - Mean reversion (short-term reversal)
-  - Volatility (realized vol, vol regime, vol-adjusted returns)
+It does NOT feed directly into MultiFactorStrategy (which computes its own
+factors inline for performance). See multi_factor.py docstring for rationale.
+
+New factors validated here should be manually added to MultiFactorStrategy
+after passing the research funnel (IC → OOS → regime → keep/reject).
+
+Factor families (35+):
+  - Momentum (multi-period return, risk-adjusted, 12-1 month)
+  - Mean reversion (short-term reversal, SMA deviation)
+  - Volatility (realized vol, vol regime, drawdown)
   - Volume (volume surge, price-volume divergence)
   - Quality (Sharpe-based, drawdown-based)
+  - Relative strength (vs SPY, cross-sectional rank, acceleration)
+  - Sector rotation (rank momentum change, return-per-risk)
+  - Macro regime (SPY trend, market vol ratio, market drawdown)
+  - Overnight (gap momentum, overnight vs intraday split)
+  - Breadth (cross-section dispersion, advance ratio)
 """
 
 from __future__ import annotations
