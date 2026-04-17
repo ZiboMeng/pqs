@@ -658,12 +658,16 @@ class MiningEvaluator:
         regime_series:    pd.Series,
         benchmark_series: pd.Series,
     ) -> bool:
-        """2× 成本下 net alpha 仍为正。"""
-        from core.execution.cost_model import CostModel, CostModelConfig
-        try:
-            stress_cost = CostModel(self._cost._config, stress_multiplier=self._cost_mult)
-        except Exception:
-            stress_cost = self._cost
+        """Nx 成本下 net alpha 仍为正。"""
+        import copy
+        from core.execution.cost_model import CostModel
+
+        stress_cfg = copy.deepcopy(self._cost._cfg)
+        for tier_name, tier in stress_cfg.tiers.items():
+            tier.commission_bps *= self._cost_mult
+            tier.slippage_interday_bps *= self._cost_mult
+            tier.slippage_intraday_bps *= self._cost_mult
+        stress_cost = CostModel(stress_cfg)
 
         engine = BacktestEngine(cost_model=stress_cost, initial_capital=self._capital)
         bt     = engine.run(signals_df=weights, price_df=price_df, regime_series=regime_series)

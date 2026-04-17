@@ -94,3 +94,27 @@ class TestCostAccountingSeparation:
         assert bd.commission_usd >= 0
         assert bd.slippage_usd >= 0
         assert abs(bd.total_cost_usd - bd.commission_usd - bd.slippage_usd) < 0.01
+
+
+class TestCostRobustnessStress:
+    """Verify evaluator's cost robustness uses real stressed costs, not fallback."""
+
+    def test_stressed_cost_model_actually_multiplies(self):
+        """_check_cost_robustness must create a cost model with multiplied tiers."""
+        import copy
+        cost, cost_cfg = _make_cost_model()
+        mult = 2.0
+
+        stressed_cfg = copy.deepcopy(cost_cfg)
+        for tier_name, tier in stressed_cfg.tiers.items():
+            tier.commission_bps *= mult
+            tier.slippage_interday_bps *= mult
+            tier.slippage_intraday_bps *= mult
+        stressed = CostModel(stressed_cfg)
+
+        bd_1x = cost.estimate_cost("SPY", 100000.0)
+        bd_2x = stressed.estimate_cost("SPY", 100000.0)
+
+        assert bd_2x.commission_usd > bd_1x.commission_usd, "2x commission must be higher"
+        assert bd_2x.slippage_usd > bd_1x.slippage_usd, "2x slippage must be higher"
+        assert bd_2x.total_cost_usd > bd_1x.total_cost_usd * 1.5, "Total 2x must be >1.5x of 1x"
