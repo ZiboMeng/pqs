@@ -125,8 +125,13 @@ class MasterReport:
                 f"| Sharpe | {_fmt_f2(p.get('sharpe'))} |",
                 f"| Sortino | {_fmt_f2(p.get('sortino'))} |",
                 f"| 最大回撤 | {_fmt_pct(p.get('max_drawdown'))} |",
+                f"| 回撤中位数 | {_fmt_pct(p.get('dd_median'))} |",
+                f"| 回撤 5th 分位 | {_fmt_pct(p.get('dd_5th_pct'))} |",
+                f"| 最长回撤天数 | {p.get('max_dd_duration', 'N/A')} |",
+                f"| 平均回撤天数 | {_fmt_f2(p.get('avg_dd_duration'))} |",
                 f"| Calmar | {_fmt_f2(p.get('calmar'))} |",
                 f"| 年化波动率 | {_fmt_pct(p.get('volatility'))} |",
+                f"| 胜率 | {_fmt_pct(p.get('win_rate'))} |",
                 f"| 交易笔数 | {p.get('n_trades', 'N/A')} |",
                 "",
             ]

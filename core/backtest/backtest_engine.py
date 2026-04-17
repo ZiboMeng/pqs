@@ -348,14 +348,44 @@ def compute_metrics(
     max_dd   = float(drawdown.min())
     calmar   = float(cagr / abs(max_dd)) if max_dd != 0 else np.nan
 
+    # Drawdown duration analysis
+    in_dd = drawdown < -0.001
+    dd_periods = []
+    current_dd_len = 0
+    for is_dd in in_dd:
+        if is_dd:
+            current_dd_len += 1
+        else:
+            if current_dd_len > 0:
+                dd_periods.append(current_dd_len)
+            current_dd_len = 0
+    if current_dd_len > 0:
+        dd_periods.append(current_dd_len)
+
+    avg_dd_duration = float(np.mean(dd_periods)) if dd_periods else 0.0
+    max_dd_duration = max(dd_periods) if dd_periods else 0
+    dd_5th = float(np.percentile(drawdown.dropna(), 5)) if len(drawdown.dropna()) > 0 else 0.0
+    dd_median = float(np.median(drawdown.dropna())) if len(drawdown.dropna()) > 0 else 0.0
+
+    # Win/loss day stats
+    win_days = int((returns > 0).sum())
+    loss_days = int((returns < 0).sum())
+    win_rate = win_days / max(win_days + loss_days, 1)
+
     m: Dict[str, float] = {
-        "total_return": total_return,
-        "cagr":         cagr,
-        "sharpe":       sharpe,
-        "sortino":      sortino,
-        "max_drawdown": max_dd,
-        "calmar":       calmar,
-        "volatility":   vol,
+        "total_return":      total_return,
+        "cagr":              cagr,
+        "sharpe":            sharpe,
+        "sortino":           sortino,
+        "max_drawdown":      max_dd,
+        "calmar":            calmar,
+        "volatility":        vol,
+        "avg_dd_duration":   avg_dd_duration,
+        "max_dd_duration":   float(max_dd_duration),
+        "dd_5th_pct":        dd_5th,
+        "dd_median":         dd_median,
+        "win_rate":          win_rate,
+        "n_trading_days":    float(len(returns)),
     }
 
     # 相对基准指标
