@@ -110,6 +110,20 @@ case "$MODE" in
     $PYTHON scripts/run_xgb_importance.py "${@:2}"
     ;;
 
+  check)
+    log "=== PQS 系统健康检查 ==="
+    log "Step 1/3: 运行测试"
+    $PYTHON -m pytest tests/ -q --tb=no || { log "❌ 测试失败"; exit 1; }
+
+    log "Step 2/3: 快速回测冒烟"
+    $PYTHON scripts/run_backtest.py --no-walk-forward 2>&1 | grep -E "CAGR=|SPY \(bench"
+
+    log "Step 3/3: Mining 排行榜"
+    $PYTHON scripts/run_mining.py --leaderboard 2>&1 | tail -5
+
+    log "✓ 健康检查完成"
+    ;;
+
   backtest-only)
     log "=== PQS 回测（跳过数据下载）==="
     $PYTHON scripts/run_backtest.py
@@ -143,6 +157,7 @@ case "$MODE" in
     echo "用法: bash scripts/run_all.sh <mode>"
     echo ""
     echo "可用 mode:"
+    echo "  check           系统健康检查 (测试 + 回测 + 排行榜)"
     echo "  full            完整流程 (下载 + 回测 + 报告)"
     echo "  research        研究流程 (数据 + universe + factors + mining + 回测)"
     echo "  mine            策略挖掘 (1h, 80 trials/type)"
