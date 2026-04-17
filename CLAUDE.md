@@ -91,7 +91,7 @@
 
 ### Current System State (Phase 0 Audit, 2026-04-17) [REVISED]
 
-**Architecture:** config/ → core/ → scripts/ → tests/ with 674 passing unit tests, 51 commits.
+**Architecture:** config/ → core/ → scripts/ → tests/ with 726 passing unit tests, 65 commits.
 
 Evidence levels:
 - `code_verified`: feature exists in code and logic is correct upon inspection
@@ -139,25 +139,42 @@ Evidence levels:
 | left_side_trading config | `claimed_not_verified` | risk.yaml config not consumed | No code reads cfg.risk.left_side_trading |
 | Promoted strategies count | `manual_verified` | No test checks DB state | archive.db promotions table |
 
-#### Missing
+#### Fixed in Phase C (formerly Missing)
 
-| Feature | Impact |
-|---------|--------|
-| MultiFactorStrategy unit tests | **Critical** |
-| Paper-BT consistency automated test | **Critical** |
-| strict_match reconciliation mode | **High** |
-| Intraday live mode execution | **High** |
-| Real XGBoost | **Medium** |
-| QQQ outperformance validation in mining | **Medium** (new requirement) |
-| SHAP attribution | **Medium** |
+| Feature | Status | Iteration |
+|---------|--------|-----------|
+| MultiFactorStrategy unit tests | ✅ `test_verified` (16 tests) | C-1 |
+| Paper-BT consistency test | ✅ `test_verified` (4+1 integration) | C-2, C-8 |
+| Commission double-counting bug | ✅ Fixed + 5 tests | C-3 |
+| Cost robustness silent fallback | ✅ Fixed + 1 test | C-4 |
+| Replay open price bug | ✅ Fixed (real open_df loaded) | C-5 |
+| Left-side config wiring | ✅ `test_verified` | C-6 |
+| QQQ outperformance validation | ✅ `test_verified` (2 integration) | C-7 |
+| strict_match (share_mode configurable) | ✅ `test_verified` | C-8 |
+| Intraday live mode execution | ✅ Uses run_day_daily | C-9 |
+| Real XGBoost | ✅ XGBoost 3.2.0 | C-10 |
+| Permutation importance | ✅ OOS permutation | C-11 |
+| Leakage validation tests | ✅ 3 automated tests | C-12 |
+| Factor candidate schema | ✅ Structured YAML | C-13 |
+| Full funnel walkthrough | ✅ 1 candidate complete | C-13 |
+| New factor families (overnight+breadth) | ✅ 5 new factors | C-14 |
+
+#### Remaining
+
+| Feature | Impact | Notes |
+|---------|--------|-------|
+| strict_match 10bps precision | Medium | Currently 500bps; needs execution path unification |
+| Intraday multi-asset engine | Medium | IntradayBacktestEngine assumes single-asset |
+| SHAP attribution | Low | Permutation importance is functional alternative |
+| QQQ validation in mining evaluator | Low | Validated manually; auto-check in evaluator not wired |
 
 ---
 
 ### Current Best Strategy (real open prices, target_vol=0.25)
-- multi_factor: CAGR 18.9%, Sharpe 0.98, MaxDD -19.7%, IR 0.33
+- multi_factor: CAGR 19.0%, Sharpe 0.98, MaxDD -19.7%, IR 0.33
 - Params: RS=0.30, momentum=0.30, quality=0.25, market_trend=0.10, pv_div=0.05
 - OOS IR=0.40, pass_rate=70%, holdout excess=+14.4% vs SPY
-- **vs QQQ status: must be re-verified under new QQQ hard constraint**
+- **vs QQQ: CAGR 19.0% > QQQ 15.9% ✅ | Holdout 47.7% > QQQ 40.5% ✅ | OOS avg excess +5.3% ✅**
 - All robustness checks pass (regime, cost, param, stress, subperiod, holdout)
 
 ### Key Discoveries (Phase B, Loop 1-50)
@@ -232,6 +249,36 @@ consistency:
 3. Wire left_side_trading config from risk.yaml into LeftSideTrading class
 4. Add open price regression test
 5. **Validate current best strategy against QQQ hard constraint (full period + holdout)**
+
+### 1.3 Known Critical Bugs to Fix First [NEW]
+
+*To avoid wasted iterations, Claude must fix these identified bugs before running consistency tests:*
+
+1. **Replay Open Price Bug**
+   `scripts/run_paper.py:run_replay()` currently builds `open_prices` from a daily price matrix that only loads `close`, so T+1 `close` is being passed as T+1 `open`. This breaks backtest-paper consistency. It must explicitly load and pass true T+1 `open` prices.
+
+2. **Cost Robustness Bug**
+   `core/mining/evaluator.py:_check_cost_robustness()` attempts to initialize `CostModel` with `stress_multiplier`, but `CostModel` currently accepts only a `CostModelConfig`. This likely causes a silent fallback to the base cost model, invalidating the intended 2x cost stress test.
+
+3. **Execution Cost Accounting Inconsistency (likely commission double counting)**
+   `ExecutionSimulator.simulate_fill()` uses `cost_bps()` to shift execution price, while `cost_bps()` currently represents total cost (`commission + slippage`). It then also applies `commission_usd` separately to cash. This likely double-counts commission and should be fixed by enforcing a clear accounting split:
+
+   * **slippage** → execution price
+   * **commission** → cash accounting
+
+#### Required Fix Validation
+
+Before proceeding with broader consistency or mining work, Claude must:
+
+* patch all three issues
+* add or update automated tests covering each bug
+* verify that:
+
+  * replay uses true T+1 open prices
+  * 2x cost stress actually changes results versus 1x
+  * execution accounting no longer mixes total-cost-in-price with separate commission-in-cash
+* summarize the fix, the files changed, and the regression tests added
+
 
 #### Phase 1 Acceptance Criteria [REVISED]
 
