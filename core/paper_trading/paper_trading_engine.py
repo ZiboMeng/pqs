@@ -389,6 +389,65 @@ class PaperTradingEngine:
                 is_replay    INTEGER NOT NULL DEFAULT 0
             )
         """)
+        # Intraday bar-level persistence tables
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS intraday_orders (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id       TEXT    NOT NULL,
+                date         TEXT    NOT NULL,
+                bar_ts       TEXT    NOT NULL,
+                symbol       TEXT    NOT NULL,
+                side         TEXT    NOT NULL,
+                qty          REAL    NOT NULL,
+                signal_source TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS intraday_fills (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id       TEXT    NOT NULL,
+                date         TEXT    NOT NULL,
+                bar_ts       TEXT    NOT NULL,
+                symbol       TEXT    NOT NULL,
+                side         TEXT    NOT NULL,
+                qty          REAL    NOT NULL,
+                price        REAL    NOT NULL,
+                slippage_usd REAL    NOT NULL DEFAULT 0,
+                commission_usd REAL  NOT NULL DEFAULT 0,
+                cash_delta   REAL    NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS intraday_positions (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id       TEXT    NOT NULL,
+                date         TEXT    NOT NULL,
+                bar_ts       TEXT    NOT NULL,
+                symbol       TEXT    NOT NULL,
+                qty          REAL    NOT NULL,
+                avg_cost     REAL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS intraday_equity (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id       TEXT    NOT NULL,
+                date         TEXT    NOT NULL,
+                bar_ts       TEXT    NOT NULL,
+                equity       REAL    NOT NULL,
+                cash         REAL    NOT NULL,
+                portfolio_value REAL NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS bar_checkpoints (
+                run_id       TEXT    PRIMARY KEY,
+                date         TEXT    NOT NULL,
+                last_bar_ts  TEXT    NOT NULL,
+                state_json   TEXT    NOT NULL,
+                updated_at   TEXT    NOT NULL
+            )
+        """)
         conn.commit()
         conn.close()
 
