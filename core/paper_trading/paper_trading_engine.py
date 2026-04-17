@@ -27,6 +27,7 @@ import numpy as np
 
 from core.execution.cost_model import CostModel
 from core.execution.execution_simulator import ExecutionSimulator, Order, OrderSide, Fill
+from core.backtest.backtest_engine import BacktestEngine as _DailyEngine
 from core.backtest.intraday_engine import IntradayBacktestEngine, DayResult
 from core.paper_trading.pnl_tracker import PnLTracker
 from core.risk.kill_switch import KillSwitch, KillSwitchConfig
@@ -164,52 +165,53 @@ class PaperTradingEngine:
         vix:         float = 15.0,
     ) -> DayResult:
         """
-        Daily-mode execution: rebalance to target weights using T+1 open prices.
-        Same execution semantics as BacktestEngine but for paper trading.
+        Daily-mode execution using BacktestEngine's order generation logic.
+        Ensures paper trading and backtest use identical rebalance semantics.
         """
-        sim = ExecutionSimulator(cost_model=self._engine._cost)
+        price_row = pd.Series(prices)
+        open_row = pd.Series(open_prices)
 
         portfolio_value = self._cash + sum(
             self._positions.get(s, 0) * prices.get(s, 0) for s in self._positions
         )
 
-        orders: list = []
-        for sym, target_w in target_wts.items():
-            target_value = portfolio_value * target_w
-            current_value = self._positions.get(sym, 0) * prices.get(sym, 0)
-            diff_value = target_value - current_value
-            op = open_prices.get(sym, 0)
-            if op <= 0:
-                continue
-            diff_shares = diff_value / op
-            if abs(diff_shares) < 0.5:
-                continue
-            side = OrderSide.BUY if diff_shares > 0 else OrderSide.SELL
-            orders.append(Order(
-                symbol=sym, side=side,
-                qty_shares=abs(int(np.floor(abs(diff_shares)))),
-                signal_date=date,
-            ))
+        cur_weights: Dict[str, float] = {}
+        if portfolio_value > 0:
+            for sym, qty in self._positions.items():
+                p = prices.get(sym, 0)
+                if p > 0:
+                    cur_weights[sym] = (qty * p) / portfolio_value
 
-        sells = [o for o in orders if o.side == OrderSide.SELL]
-        buys = [o for o in orders if o.side == OrderSide.BUY]
+        daily_engine = _DailyEngine(
+            cost_model=self._engine._cost,
+            initial_capital=self._initial_capital,
+            integer_shares=True,
+        )
+        orders = daily_engine._generate_orders(
+            cur_weights=cur_weights,
+            tgt_weights=target_wts,
+            portfolio_val=portfolio_value,
+            price_row=price_row,
+            open_row=open_row,
+            signal_date=date,
+        )
 
-        fills: list = []
-        for o in sells:
-            f = sim.simulate_fill(o, open_prices.get(o.symbol, 0), vix, self._cash)
-            if f:
-                self._positions[f.order.symbol] = self._positions.get(f.order.symbol, 0) - f.executed_qty
-                self._cash += f.cash_delta
-                if self._positions.get(f.order.symbol, 0) <= 0:
-                    self._positions.pop(f.order.symbol, None)
-                fills.append(f)
+        fills = daily_engine._sim.simulate_fills(
+            orders=orders,
+            open_prices=open_prices,
+            vix=vix,
+            cash=self._cash,
+        )
 
-        for o in buys:
-            f = sim.simulate_fill(o, open_prices.get(o.symbol, 0), vix, self._cash)
-            if f:
-                self._positions[f.order.symbol] = self._positions.get(f.order.symbol, 0) + f.executed_qty
-                self._cash += f.cash_delta
-                fills.append(f)
+        for fill in fills:
+            prev_qty = self._positions.get(fill.symbol, 0.0)
+            if fill.side == OrderSide.BUY:
+                self._positions[fill.symbol] = prev_qty + fill.executed_qty
+            else:
+                self._positions[fill.symbol] = max(prev_qty - fill.executed_qty, 0.0)
+            self._cash += fill.cash_delta
+
+        self._positions = {s: q for s, q in self._positions.items() if q > 1e-6}
 
         equity = self._cash + sum(
             self._positions.get(s, 0) * prices.get(s, 0) for s in self._positions
