@@ -283,6 +283,7 @@ def main():
             equity_curve=primary_result.equity_curve,
             regime_series=regime_series,
             benchmark_series=spy_close,
+            qqq_series=qqq_close,
         )
 
     # Strategy-level attribution

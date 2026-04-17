@@ -224,8 +224,9 @@ class MasterReportBuilder:
         equity_curve:     pd.Series,
         regime_series:    pd.Series,
         benchmark_series: pd.Series,
+        qqq_series:       Optional[pd.Series] = None,
     ) -> "MasterReportBuilder":
-        """Compute per-regime stratified performance."""
+        """Compute per-regime stratified performance vs SPY and QQQ."""
         from core.backtest.backtest_engine import compute_metrics
 
         if equity_curve.empty or regime_series.empty:
@@ -233,6 +234,7 @@ class MasterReportBuilder:
 
         strat_ret = equity_curve.pct_change().dropna()
         bench_ret = benchmark_series.pct_change().dropna()
+        qqq_ret = qqq_series.pct_change().dropna() if qqq_series is not None else None
         aligned_regime = regime_series.reindex(strat_ret.index, method="ffill")
 
         rows = []
@@ -247,14 +249,20 @@ class MasterReportBuilder:
             b_eq = (1 + b_r).cumprod()
             s_m = compute_metrics(s_eq, initial_capital=1.0)
             b_m = compute_metrics(b_eq, initial_capital=1.0)
-            rows.append({
+            row = {
                 "regime": regime,
                 "n_days": n_days,
                 "cagr": s_m.get("cagr"),
                 "sharpe": s_m.get("sharpe"),
                 "max_dd": s_m.get("max_drawdown"),
                 "excess_vs_spy": (s_m.get("cagr", 0) or 0) - (b_m.get("cagr", 0) or 0),
-            })
+            }
+            if qqq_ret is not None:
+                q_r = qqq_ret.reindex(s_r.index).fillna(0)
+                q_eq = (1 + q_r).cumprod()
+                q_m = compute_metrics(q_eq, initial_capital=1.0)
+                row["excess_vs_qqq"] = (s_m.get("cagr", 0) or 0) - (q_m.get("cagr", 0) or 0)
+            rows.append(row)
 
         self._regime_performance = {"regimes": rows}
         return self

@@ -264,19 +264,22 @@ class MasterReport:
         if self.regime_performance is not None:
             section_idx += 1
             rp = self.regime_performance
-            lines += [
-                "---",
-                f"## {section_idx}. Regime 分层表现",
-                "",
-                "| Regime | 天数 | CAGR | Sharpe | MaxDD | vs SPY |",
-                "|--------|------|------|--------|-------|--------|",
-            ]
+            has_qqq = any("excess_vs_qqq" in row for row in rp.get("regimes", []))
+            header = "| Regime | 天数 | CAGR | Sharpe | MaxDD | vs SPY |"
+            sep = "|--------|------|------|--------|-------|--------|"
+            if has_qqq:
+                header += " vs QQQ |"
+                sep += "--------|"
+            lines += ["---", f"## {section_idx}. Regime 分层表现", "", header, sep]
             for row in rp.get("regimes", []):
-                lines.append(
+                line = (
                     f"| {row['regime']} | {row['n_days']} | "
                     f"{_fmt_pct(row.get('cagr'))} | {_fmt_f2(row.get('sharpe'))} | "
                     f"{_fmt_pct(row.get('max_dd'))} | {_fmt_pct(row.get('excess_vs_spy'))} |"
                 )
+                if has_qqq:
+                    line += f" {_fmt_pct(row.get('excess_vs_qqq'))} |"
+                lines.append(line)
             lines.append("")
 
         # ── Strategy-level 归因 ───────────────────────────────────────────────
