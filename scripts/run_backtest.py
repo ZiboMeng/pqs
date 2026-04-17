@@ -88,9 +88,10 @@ def build_strategies(cfg, price_df: pd.DataFrame, risk_syms: list, def_syms: lis
             risk_assets=risk_syms, defensive_assets=def_syms
         ),
         "multi_factor":         MultiFactorStrategy(
-            symbols=risk_syms, top_n=4, rebalance_monthly=False,
-            factor_weights={"low_vol": 0.05, "momentum": 0.15, "quality": 0.25, "pv_div": 0.30, "rel_strength": 0.25},
-            min_holding_days=3, lookback_mom=189, lookback_quality=63, lookback_vol=42,
+            symbols=risk_syms, top_n=4, rebalance_monthly=False, score_weighted=True,
+            factor_weights={"low_vol": 0.0, "momentum": 0.30, "quality": 0.25,
+                            "pv_div": 0.05, "rel_strength": 0.30, "market_trend": 0.10},
+            min_holding_days=3, lookback_mom=189, lookback_quality=189, lookback_vol=84,
         ),
     }
 
