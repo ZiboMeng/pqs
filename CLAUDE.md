@@ -1,16 +1,16 @@
 # PQS — Personal Quantitative System
 
-## Phase C: Continuous Development PRD
+## Phase C: Continuous Development PRD (v3)
 
 ### System Identity
-个人量化研究与模拟交易系统。目标：长期可持续跑赢 SPY/QQQ，保持低回撤（15%-20%），具备黑天鹅韧性。
+个人量化研究与模拟交易系统。目标：长期可持续跑赢 SPY **和 QQQ**，保持低回撤（15%-20%），具备黑天鹅韧性。
 
 ### Invariant Constraints (NEVER violate without explicit user approval)
 - long-only, no-margin, no-short
 - SQQQ blacklisted; TQQQ/SOXL require stricter risk thresholds
 - No real broker/API integration this phase; paper trading = internal simulation
 - macOS local execution; no AWS/cloud deployment priority
-- Benchmark: SPY primary, QQQ secondary; excess vs QQQ >= -2%
+- Benchmark: SPY primary, QQQ secondary; **strategy must outperform both SPY and QQQ over full evaluation period and holdout** (see QQQ Outperformance Rule) [REVISED]
 - Left-side trading = enhancement module only, never default engine
 - Intraday: 60m/30m primary, 15m research only
 - All thresholds must be configurable (config/*.yaml), never hardcoded
@@ -18,6 +18,74 @@
 - Chinese reporting, English code naming
 - Initial capital ~$10,000, must scale to $1M+
 - Max drawdown target 15%-20%, not worse than SPY in crisis
+- **Outperforming QQQ does not waive drawdown, crisis-resilience, or long-only risk constraints** [NEW]
+
+### QQQ Outperformance Rule [NEW]
+
+**硬目标：策略收益必须跑赢 QQQ，不接受仅仅"接近 QQQ"或"落后不超过 2%"。**
+
+旧标准 `excess vs QQQ >= -2%` 已废止。新标准如下：
+
+| Evaluation Scope | Requirement | Type |
+|-----------------|-------------|------|
+| Full backtest period | Strategy CAGR > QQQ CAGR | **Hard constraint** |
+| Holdout period (last 252d) | Strategy return > QQQ return | **Hard constraint** |
+| OOS walk-forward (average) | Mean excess return vs QQQ > 0 across all windows | **Hard constraint** |
+| Individual OOS window | Excess vs QQQ reported per window | Diagnostic observation |
+| Individual regime period | vs QQQ reported per regime | Diagnostic observation |
+
+**Rationale for tiered approach:**
+- QQQ is tech-concentrated; in pure bull markets (BULL regime), even well-diversified strategies may lag QQQ temporarily
+- Requiring per-window outperformance would force dangerous tech concentration, conflicting with drawdown and diversification goals
+- Full-period + holdout + average-OOS constraints ensure the strategy genuinely outperforms QQQ in aggregate
+
+**Risk guardrail:** Strategies must not achieve QQQ outperformance by:
+- Concentrating in ≤3 symbols
+- Exceeding position limits in config/risk.yaml
+- Accepting MaxDD materially worse than SPY
+- Disabling regime-based risk scaling
+
+**Master report must:**
+- Display `vs QQQ` column in regime-stratified table
+- Display QQQ excess in strategy summary
+- Flag any promoted strategy that fails full-period or holdout QQQ constraint
+
+---
+
+### Pricing and Valuation Semantics [NEW]
+
+#### Raw vs Adjusted Price Rules
+
+| Context | Price Type | Rationale |
+|---------|-----------|-----------|
+| Factor research (IC, screening) | Adjusted (split + dividend) | Factors measure return-based signals; adjusted prices give correct returns |
+| Backtest execution (order fill) | Adjusted (auto_adjust=True from yfinance) | T+1 open is adjusted; consistent with factor signals |
+| Portfolio mark-to-market | Adjusted close | Consistent with execution price basis |
+| Corporate actions | Handled by yfinance auto_adjust | Splits and dividends baked into price series |
+
+**Current implementation:** yfinance `auto_adjust=True` is used everywhere. All price series (open, high, low, close) are split- and dividend-adjusted. This is consistent across backtest, paper trading, and factor research.
+
+**Constraint:** When switching DataProvider in the future, the replacement MUST produce price series with identical adjustment semantics. A price semantics regression test must exist before any vendor swap.
+
+#### Signal, Execution, and Valuation Price Convention
+
+| Stage | Price | Timing |
+|-------|-------|--------|
+| Signal generation | T-day adjusted close (shifted by 1 to prevent lookahead) | End of T |
+| Order generation | Based on T-day portfolio value (using T-day close) | End of T |
+| Execution fill | T+1 adjusted open (real open_df, not close approximation) | Open of T+1 |
+| Portfolio valuation | T+1 adjusted close | Close of T+1 |
+
+#### Halted / Stale / Missing Data Valuation [REVISED]
+
+| Scenario | Order Generation | Valuation |
+|----------|-----------------|-----------|
+| Symbol has no bar today | Do NOT generate new orders | **Mark at last valid price** (stale-flagged) |
+| Symbol halted mid-day | Do NOT generate new orders | Mark at last traded price |
+| Stale > N bars (configurable) | Exclude from order generation | Continue valuation at last price + diagnostic flag |
+| Symbol delisted | Liquidate position at last price | Remove from universe |
+
+**Rule:** Positions in halted/stale assets are NEVER removed from NAV calculation. They are marked at last valid price and flagged as stale in diagnostics.
 
 ---
 
@@ -25,26 +93,26 @@
 
 **Architecture:** config/ → core/ → scripts/ → tests/ with 674 passing unit tests, 51 commits.
 
-Evidence levels used below:
+Evidence levels:
 - `code_verified`: feature exists in code and logic is correct upon inspection
 - `test_verified`: covered by automated unit/integration tests
-- `manual_verified`: verified by manual run (script output, backtest result) but no automated test
-- `claimed_not_verified`: stated in changelog/docs but not independently confirmed in code or test
+- `manual_verified`: verified by manual run but no automated test
+- `claimed_not_verified`: stated in docs but not independently confirmed
 
 #### Confirmed Done
 
-| Feature | Evidence | Notes |
-|---------|----------|-------|
+| Feature | Evidence | Verification Source |
+|---------|----------|-------------------|
 | Daily data 2007-2026 (37 symbols) + 60m intraday (32 symbols) | `code_verified` | data/daily/*.parquet, data/intraday/60m/*.parquet |
-| Real T+1 open price execution (open_df in BacktestEngine.run) | `code_verified` | backtest_engine.py:119,151; run_backtest.py loads open prices |
-| Paper-backtest shared rebalance logic | `code_verified` | paper_trading_engine.py:run_day_daily calls BacktestEngine._generate_orders |
-| Kill switch 3-tier with auto-recovery from risk.yaml | `test_verified` | kill_switch.py states; test_kill_switch.py covers transitions |
+| Real T+1 open price execution | `code_verified` | backtest_engine.py:119,151; run_backtest.py:load_open_prices |
+| Paper-backtest shared rebalance logic | `code_verified` | paper_trading_engine.py:run_day_daily → BacktestEngine._generate_orders |
+| Kill switch 3-tier with auto-recovery | `test_verified` | kill_switch.py; test_kill_switch.py |
 | Cost accounting: separate slippage + commission | `test_verified` | test_cost_model.py, test_execution_simulator.py |
-| Integer share mode in BacktestEngine | `code_verified` | backtest_engine.py:integer_shares param, floor() in _generate_orders |
-| Walk-forward OOS (regime-aware pass criteria) | `test_verified` | test_window_analyzer.py covers walk_forward method |
+| Integer share mode | `code_verified` | backtest_engine.py:integer_shares, _generate_orders floor() |
+| Walk-forward OOS (regime-aware) | `test_verified` | test_window_analyzer.py |
 | Expanding window validation | `code_verified` | window_analyzer.py:expanding_window() |
-| Forward-block holdout (last 252d) | `code_verified` | evaluator.py data isolation in evaluate() |
-| Data isolation (first 70% for quick filter) | `code_verified` | evaluator.py:quick_end_idx |
+| Forward-block holdout (last 252d) | `code_verified` | evaluator.py data isolation |
+| Data isolation (first 70% quick filter) | `code_verified` | evaluator.py:quick_end_idx |
 | 4 stress period tests | `code_verified` | evaluator.py:_check_stress_periods, config/backtest.yaml |
 | Subperiod robustness | `code_verified` | evaluator.py:_check_subperiod_robustness |
 | Cost sensitivity (2x gate) | `code_verified` | evaluator.py:_check_cost_robustness |
@@ -52,45 +120,44 @@ Evidence levels used below:
 | Regime robustness (6 regimes) | `code_verified` | evaluator.py:_check_regime_robustness |
 | OOS/IS Sharpe overfit gate | `code_verified` | evaluator.py:_assign_tier |
 | 5-stage mining pipeline | `code_verified` | evaluator.py:evaluate() stages 1-5 |
-| 30 candidate factors | `code_verified` | factor_generator.py:generate_all_factors |
-| Feature importance analysis | `code_verified` | run_xgb_importance.py (uses sklearn, NOT xgboost) |
-| MultiFactorStrategy (6-factor composite) | `code_verified` | multi_factor.py — BUT 0 unit tests |
-| Left-side trading module | `test_verified` | left_side.py + test_left_side.py (10 tests) |
-| Factor generator | `test_verified` | factor_generator.py + test_factor_generator.py (10 tests) |
-| Master report (regime vs SPY+QQQ, attribution) | `code_verified` | master_report.py, master_report_builder.py |
-| Universe rebalance (PIT) | `code_verified` | run_universe_rebalance.py, universe_manager.py |
+| 30 candidate factors | `test_verified` | factor_generator.py + test_factor_generator.py |
+| Feature importance (sklearn GB) | `code_verified` | run_xgb_importance.py (NOT xgboost) |
+| MultiFactorStrategy | `code_verified` | multi_factor.py — **0 unit tests** |
+| Left-side trading module | `test_verified` | left_side.py + test_left_side.py |
+| Master report (regime vs SPY+QQQ) | `code_verified` | master_report.py, master_report_builder.py |
+| Universe rebalance (PIT) | `code_verified` | run_universe_rebalance.py |
 | Diagnostics suite (4 detectors) | `code_verified` | diagnostics/detectors.py |
 | target_vol=0.25 | `code_verified` | constructor.py:_DEFAULT_TARGET_VOL |
 
-#### Partially Done (needs hardening)
+#### Partially Done
 
-| Feature | Evidence | Gap |
-|---------|----------|-----|
-| Paper-BT consistency < 0.2% | `manual_verified` | Run showed +18.0% vs +18.2% — but NO automated test |
-| Left-side zero-harm | `manual_verified` | Manual backtest showed IR 0.327→0.328 — no automated test |
-| Factor generator → mining integration | `claimed_not_verified` | MFS computes factors internally, factor_generator.py is unused by mining |
-| left_side_trading config consumed | `claimed_not_verified` | risk.yaml has config, but no code reads cfg.risk.left_side_trading |
-| Intraday data readiness | `code_verified` | Data exists but intraday engine not wired for multi-asset |
-| "6 promoted strategies" | `manual_verified` | Archive DB state — not checked by any test |
+| Feature | Evidence | Gap | Verification Source |
+|---------|----------|-----|-------------------|
+| Paper-BT consistency < 0.2% | `manual_verified` | No automated test | Manual run: +18.0% vs +18.2% |
+| Left-side zero-harm | `manual_verified` | No automated test | Manual backtest: IR 0.327→0.328 |
+| Factor generator → mining | `claimed_not_verified` | MFS computes internally | factor_generator.py unused by mining |
+| left_side_trading config | `claimed_not_verified` | risk.yaml config not consumed | No code reads cfg.risk.left_side_trading |
+| Promoted strategies count | `manual_verified` | No test checks DB state | archive.db promotions table |
 
-#### Missing / Not Implemented
+#### Missing
 
 | Feature | Impact |
 |---------|--------|
-| MultiFactorStrategy unit tests | **Critical**: core strategy has 0 tests |
-| Paper-BT consistency automated test | **Critical**: key claim has no test |
-| strict_match reconciliation mode | **High**: no formal mechanism for provable consistency |
-| Intraday live mode execution | **High**: --mode live only prints, doesn't trade |
-| Real XGBoost | **Medium**: script uses sklearn GradientBoosting |
-| SHAP attribution | **Medium**: not implemented |
-| Intraday multi-asset | **Medium**: engine assumes single-asset patterns |
+| MultiFactorStrategy unit tests | **Critical** |
+| Paper-BT consistency automated test | **Critical** |
+| strict_match reconciliation mode | **High** |
+| Intraday live mode execution | **High** |
+| Real XGBoost | **Medium** |
+| QQQ outperformance validation in mining | **Medium** (new requirement) |
+| SHAP attribution | **Medium** |
 
 ---
 
 ### Current Best Strategy (real open prices, target_vol=0.25)
 - multi_factor: CAGR 18.9%, Sharpe 0.98, MaxDD -19.7%, IR 0.33
 - Params: RS=0.30, momentum=0.30, quality=0.25, market_trend=0.10, pv_div=0.05
-- OOS IR=0.40, pass_rate=70%, holdout excess=+14.4%
+- OOS IR=0.40, pass_rate=70%, holdout excess=+14.4% vs SPY
+- **vs QQQ status: must be re-verified under new QQQ hard constraint**
 - All robustness checks pass (regime, cost, param, stress, subperiod, holdout)
 
 ### Key Discoveries (Phase B, Loop 1-50)
@@ -118,9 +185,9 @@ P4. Performance, scalability, data vendor / broker prep
 
 ### Phase 1: Core Consistency Hardening [REVISED]
 
-**Goal:** Ensure backtest, replay, and paper trading are provably consistent via a formal `strict_match` mechanism.
+**Goal:** Ensure backtest, replay, and paper trading are provably consistent via a formal `strict_match` mechanism. Validate QQQ outperformance under new hard constraint.
 
-#### 1.1 strict_match Formal Mechanism [NEW]
+#### 1.1 strict_match Formal Mechanism [REVISED]
 
 **Config location:** `config/backtest.yaml` → `consistency` section
 
@@ -131,20 +198,22 @@ consistency:
     zero_cost: true                   # disable slippage + commission
     deterministic_execution: true     # no randomness in fill logic
     force_shared_path: true           # paper must call BacktestEngine._generate_orders
-    integer_shares: true              # both sides use floor()
+    share_mode: integer               # integer | fractional — BOTH sides must use same mode
     tolerance_equity_bps: 10          # max daily equity divergence (bps)
     tolerance_position_shares: 0      # exact share match required
     tolerance_cash_usd: 0.01          # rounding tolerance
 ```
 
+**Key change:** `share_mode` replaces hardcoded `integer_shares: true`. The requirement is that **both backtest and paper use the same share_mode**, not that integer is always used. [REVISED]
+
 **Behavior in strict_match mode:**
 - Cost model returns zero slippage and zero commission
-- No stochastic components in execution (no partial fills, no random delays)
+- No stochastic components in execution
 - Both backtest and paper MUST use the identical code path for order generation
-- Integer shares enforced on both sides
+- Same share_mode enforced on both sides
 - Same signal → same price → same fills → same positions → same cash → same equity
 
-**Reconciliation products (output of strict_match test):**
+**Reconciliation products:**
 
 | Product | Format | Contents |
 |---------|--------|----------|
@@ -155,19 +224,14 @@ consistency:
 | mismatch_summary | Dict | first_mismatch_date, n_mismatches, max_divergence_bps, pass/fail |
 
 **Automated test:** `tests/integration/test_strict_match_consistency.py`
-- Run backtest and paper on identical 60-day window
-- Assert: fills match exactly (count, symbols, quantities)
-- Assert: positions match at every EOD
-- Assert: cash divergence < tolerance_cash_usd
-- Assert: equity divergence < tolerance_equity_bps at every date
-- On failure: output first mismatch date and details
 
 #### 1.2 Other Phase 1 Tasks
 
-1. Add MultiFactorStrategy unit tests: factor computation, signal generation, regime scaling, min_holding_days, edge cases (empty data, single symbol, NaN prices)
-2. Verify stressed cost actually changes backtest results (parametric test: 1x vs 2x cost → different equity curves)
-3. Wire left_side_trading config from risk.yaml into LeftSideTrading class (read cfg.risk.left_side_trading.*)
-4. Add open price regression test (confirm backtest with open_df ≠ without open_df)
+1. Add MultiFactorStrategy unit tests (≥10): factor computation, signal generation, regime scaling, min_holding_days, edge cases
+2. Verify stressed cost produces directionally correct degradation (see acceptance criteria)
+3. Wire left_side_trading config from risk.yaml into LeftSideTrading class
+4. Add open price regression test
+5. **Validate current best strategy against QQQ hard constraint (full period + holdout)**
 
 #### Phase 1 Acceptance Criteria [REVISED]
 
@@ -177,10 +241,12 @@ consistency:
 | strict_match positions | EOD positions identical for every date in test window |
 | strict_match cash | Daily cash divergence < $0.01 |
 | strict_match equity | Daily equity divergence < 10 bps |
-| First mismatch reporting | On failure, test outputs: date, symbol, expected vs actual |
+| First mismatch reporting | On failure: output date, symbol, expected vs actual |
 | MultiFactorStrategy tests | ≥10 unit tests covering core logic paths |
-| Stressed cost test | 1x and 2x cost produce measurably different CAGR (p < 0.01) |
+| Stressed cost test | 2x cost produces lower CAGR than 1x cost; total trading cost under 2x is higher than under 1x; difference exceeds configured minimum threshold [REVISED] |
 | Left-side config wiring | cfg.risk.left_side_trading values flow to LeftSideTrading constructor |
+| QQQ full-period | Best strategy CAGR > QQQ CAGR over full backtest period [NEW] |
+| QQQ holdout | Best strategy return > QQQ return over holdout period [NEW] |
 
 ---
 
@@ -188,43 +254,39 @@ consistency:
 
 **Goal:** Make intraday backtest + paper trading actually executable, multi-asset, persistent, and recoverable.
 
-#### 2.1 Intraday Data Contract [NEW]
+#### 2.1 Intraday Data Contract [REVISED]
 
 **Canonical representation:**
 ```
 Dict[str, pd.DataFrame]  # symbol → OHLCV DataFrame
 ```
-Rationale: simpler than MultiIndex; each symbol is independent; consistent with daily data loading pattern.
 
 **Bar data minimum fields:**
 
-| Field | Type | Required | Notes |
-|-------|------|----------|-------|
-| open | float | yes | |
-| high | float | yes | |
-| low | float | yes | |
-| close | float | yes | |
-| volume | float | yes | |
-| timestamp | DatetimeIndex | yes | tz-naive ET (see rules below) |
+| Field | Type | Required |
+|-------|------|----------|
+| open | float | yes |
+| high | float | yes |
+| low | float | yes |
+| close | float | yes |
+| volume | float | yes |
+| timestamp | DatetimeIndex | yes |
 
-**Timezone and time rules:**
-- All intraday timestamps are **tz-naive, US/Eastern** (matching yfinance output after `align_intraday_index`)
-- DST transitions: handled by `pandas_market_calendars`; the calendar module already normalizes
-- Half-day sessions (e.g., day before Thanksgiving): detected via market calendar; `min_tradeable_bars_per_day` config skips days with too few bars
-- Timestamp normalization: bar start time (e.g., 09:30 for first 60m bar = 09:30-10:30)
+**Timezone rules:** [REVISED]
+- **Current implementation:** tz-naive, US/Eastern (matching yfinance output after `align_intraday_index`)
+- **Target architecture:** future versions should migrate to tz-aware UTC-normalized internal representation with ET conversion at display/execution boundaries
+- **Migration constraint:** any tz change must be accompanied by a regression test proving identical backtest results before and after
 
-**Missing and anomalous bar handling:**
+**Missing and anomalous bar handling:** [REVISED]
 
-| Scenario | Behavior |
-|----------|----------|
-| Missing bars for a symbol | Skip that symbol for that bar; do not forward-fill OHLCV |
-| Incomplete bar (partial data) | Use available fields; if close missing, skip bar |
-| Halted / sparse asset | Exclude from portfolio valuation for that bar; do not generate orders |
-| Stale data (no update for N bars) | Flag in diagnostics; exclude from order generation after staleness_threshold |
+| Scenario | Order Generation | Valuation |
+|----------|-----------------|-----------|
+| Missing bars for a symbol | Skip order generation for that symbol | **Mark at last valid price** (stale-flagged) |
+| Incomplete bar (partial data) | Skip if close missing | Use available fields for valuation |
+| Halted / sparse asset | Exclude from order generation | **Continue valuation at last valid price** — never remove from NAV |
+| Stale data (no update for N bars) | Exclude from order generation after staleness_threshold | Continue valuation at last valid price + diagnostic flag |
 
-#### 2.2 Intraday Persistence Schema [NEW]
-
-**Tables / objects and their roles:**
+#### 2.2 Intraday Persistence Schema
 
 | Table | Key Fields | Purpose |
 |-------|-----------|---------|
@@ -235,139 +297,150 @@ Rationale: simpler than MultiIndex; each symbol is independent; consistent with 
 | `bar_checkpoints` | run_id, date, last_processed_bar, state_json | Resumption checkpoint |
 
 **Recovery and idempotency:**
-- `run_id`: UUID generated at session start; all records tagged
-- `bar_checkpoints`: after each bar, write last_processed_bar timestamp + serialized state
-- On restart: load latest checkpoint for current run_id; resume from next bar
-- Idempotency: before processing a bar, check if fills already exist for (run_id, bar_timestamp); skip if yes
-- No re-execution of already-processed bars
-
-#### 2.3 Other Phase 2 Tasks
-
-1. Refactor IntradayBacktestEngine for real multi-asset portfolio valuation
-2. Make run_paper.py --mode live execute trades via run_day_daily (or intraday equivalent), not just print
-3. Unify intraday backtest / replay / live to share the same bar processing loop
-4. Handle edge cases listed in data contract
+- `run_id`: UUID generated at session start
+- `bar_checkpoints`: after each bar, write last_processed_bar + serialized state
+- On restart: load latest checkpoint; resume from next bar
+- Before processing a bar: check if fills exist for (run_id, bar_timestamp); skip if yes
 
 #### Phase 2 Acceptance Criteria [REVISED]
 
 | Criterion | Measurable Standard |
 |-----------|-------------------|
-| Multi-asset portfolio valuation | Intraday backtest runs on ≥5 symbols simultaneously with correct portfolio NAV |
+| Multi-asset portfolio valuation | Intraday backtest runs on ≥5 symbols with correct portfolio NAV (sum of position values + cash) |
 | Bar-level persistence | All 5 persistence tables populated during intraday run |
-| Restart recovery | Kill process mid-run → restart → resumes from last checkpoint, no duplicate fills |
-| Incomplete data handling | Engine skips missing bars without crash; diagnostics flag stale assets |
-| Idempotent re-run | Re-running same session produces identical results (no duplicate entries) |
-| Live paper mode | `--mode live` writes fills + positions to DB (not just prints weights) |
+| Restart recovery | Kill process mid-run → restart → resumes from checkpoint, no duplicate fills |
+| Incomplete data handling | Engine skips missing bars without crash; stale assets remain in NAV at last valid price |
+| Idempotent re-run | Re-running same session produces identical results |
+| Live paper mode | `--mode live` writes fills + positions to DB |
 
 ---
 
 ### Phase 3: Factor Research Loop + ML [REVISED]
 
-**Goal:** Close the factor research loop, add real ML, and establish LLM-assisted exploration with strict guardrails.
+**Goal:** Close the factor research loop, add real ML, establish LLM-assisted exploration with strict guardrails.
 
-#### 3.1 Real XGBoost + SHAP
+#### 3.1 Factor Timing and Leakage Rules [REVISED]
 
-1. Install libomp/xgboost properly (conda install -c conda-forge xgboost libomp)
-2. Replace sklearn GradientBoosting in run_xgb_importance.py with real XGBoost
-3. Use time-series-safe split (temporal, not random): train on [0, T), validate on [T, T+V)
-4. Add SHAP or permutation importance for factor attribution
-5. Output reproducible config (hyperparameters, split dates, random seed) alongside results
-6. Save model artifacts (feature importance, SHAP values) to `data/ml/` for downstream use
+Every factor / signal must have explicit timing semantics:
 
-#### 3.2 Expanded Factor Families
+| Attribute | Definition |
+|-----------|-----------|
+| signal_timestamp | The "as-of" time when the signal is considered generated |
+| data_availability_timestamp | The latest real-world time at which all input data would have been available |
+| execution_timestamp | When orders based on this signal would be executed |
+
+**Leakage rules:**
+- A factor must NOT use any data with `data_availability_timestamp > signal_timestamp`
+- A factor must NOT use any field that would not have been observable at `signal_timestamp`
+- Specifically prohibited: using T-day close to generate T-day signal that executes at T-day close (same-bar execution)
+- Specifically required: signal generated from data available at T-day close → execution at T+1 open (minimum 1-bar lag)
+- Leakage checks are based on **temporal availability semantics**, not simplistic `shift()` counting
+
+**Automated leakage validation:**
+- For each factor in factor_generator.py, verify the computation chain includes at least `shift(1)` or equivalent lag
+- Check that no factor accesses `price_df` at index `t` for a signal dated `t` without shifting
+- Flag factors that use aligned/merged data without explicit lag documentation
+
+#### 3.2 Real XGBoost + SHAP
+
+1. Install xgboost + libomp (conda install -c conda-forge xgboost libomp)
+2. Replace sklearn GradientBoosting with XGBRegressor
+3. Time-series-safe split: train [0, T), test [T, T+V) — temporal, never random
+4. SHAP or permutation importance for factor attribution
+5. Reproducible config saved alongside results (hyperparameters, split dates, seed)
+6. Artifacts saved to `data/ml/`
+
+#### 3.3 Expanded Factor Families
 
 Priority additions:
 - Overnight / intraday return split factors
 - Benchmark-relative factors (vs SPY and vs sector ETF)
 - Regime-conditioned factors (factor value × regime indicator)
 - Multi-horizon factors (combine 5d/21d/63d signals)
-- Breadth / dispersion factors (cross-sectional vol, advance-decline ratio proxy)
+- Breadth / dispersion factors (cross-sectional vol, advance-decline proxy)
 - Execution-aware factors (penalize high-spread / low-volume symbols)
 
-Each new factor must:
-- Be registered in factor_generator.py with a unique name
-- Pass NaN / constant / zero-variance safety checks
-- Have IC screening results before entering mining
+Each new factor must: be registered with unique name, pass NaN/constant/zero-variance checks, have IC screening before entering mining.
 
-#### 3.3 LLM-Assisted Factor Exploration Policy [NEW]
+#### 3.4 LLM-Assisted Factor Exploration Policy
 
 **Role boundaries:**
 
 LLM may serve as:
-- Candidate factor generator (propose new factor ideas)
-- Hypothesis expander (suggest variations of existing factors)
-- Factor combiner (propose interaction / composite factors)
-- Factor interpreter (explain what a factor captures economically)
-- Failure mode analyzer (predict when/why a factor might fail)
-- Reverse reviewer (challenge whether a factor is genuinely new)
+- Candidate factor generator
+- Hypothesis expander
+- Factor combiner
+- Factor interpreter
+- Failure mode analyzer
+- Reverse reviewer
 
 LLM must NOT serve as:
-- Final judge of factor validity (only quantitative evidence decides)
-- Final decision-maker on whether to deploy a factor
+- Final judge of factor validity
+- Final decision-maker on deployment
 
 **Structured candidate record:**
 
-Every LLM-generated factor candidate must be recorded with:
-
 ```yaml
-factor_name: "overnight_gap_momentum_21d"
-hypothesis: "Stocks with consistently positive overnight gaps have institutional accumulation"
-formula: "(open[t] / close[t-1] - 1).rolling(21).mean()"
-required_fields: [open, close]
-suitable_horizon: [5, 10, 21]
-suitable_universe: "liquid US equities"
-suitable_regime: [BULL, RISK_ON, NEUTRAL]
-expected_edge: "IC ~0.03-0.05, captures informed pre-market flow"
-expected_risk: "Sensitive to corporate actions, earnings dates"
-possible_failure_modes:
-  - "Pre-market gaps dominated by noise in low-vol regimes"
-  - "Decays quickly if widely adopted"
-novelty_vs_existing: "Differs from mom_21d because isolates overnight component"
+factor_name: ""
+hypothesis: ""
+formula: ""              # pseudocode or pandas expression
+required_fields: []
+suitable_horizon: []
+suitable_universe: ""
+suitable_regime: []
+expected_edge: ""
+expected_risk: ""
+possible_failure_modes: []
+novelty_vs_existing: ""
 ```
 
-**Mandatory research funnel for LLM candidates:**
+**Mandatory research funnel:**
 
 ```
 LLM generates candidate
-  → Dedup: check correlation with existing factors (>0.8 = reject)
-  → Leakage check: verify no future data in formula
-  → Data availability: confirm required fields exist in OHLCV
+  → Dedup: check correlation with existing factors
+  → Leakage check: verify temporal availability (see 3.1)
+  → Data availability: confirm required fields exist
   → IC screen: compute rank IC on full history
   → OOS validation: walk-forward IC stability
   → Regime robustness: IC in each of 6 regimes
-  → Keep / Reject / Archive (with reason)
+  → Keep / Reject / Archive (with logged reason)
 ```
 
-**Mandatory reverse review (anti-overfitting checks):**
+**Correlation review rule:** [REVISED]
+- Correlation > 0.7 with any existing Keep factor triggers **mandatory review**, not automatic rejection
+- Candidate must demonstrate incremental value: better regime robustness, lower turnover, better cost-adjusted alpha, or more stable OOS performance
+- If no incremental value can be demonstrated, reject with documented reason
 
-Before any LLM candidate enters Keep pool, verify:
+**Mandatory reverse review:**
 - [ ] Not a renamed version of an existing factor
-- [ ] Correlation < 0.7 with all existing Keep factors
+- [ ] If correlation > 0.7 with existing factor, incremental value documented
 - [ ] Positive IC in ≥3 out of 6 regimes
 - [ ] Not concentrated in a single time period (>60% of IC from one quartile)
 - [ ] Survives 2x cost stress test
 - [ ] Not overfitting to < 5 symbols
 - [ ] Not exploiting timing bias / selection bias / survivorship bias
 
-#### 3.4 Factor → Mining Integration
+#### 3.5 Factor → Mining Integration
 
-- Option A: Wire factor_generator.py output into MultiFactorStrategy (replace internal computation)
-- Option B: Document that MFS internal computation is architecturally intentional (self-contained strategy)
-- Decision must be made and documented. Current state (both exist independently) is not acceptable long-term.
+Decision required:
+- **Option A:** Wire factor_generator output into MFS (replace internal computation)
+- **Option B:** Document that MFS internal computation is intentional (self-contained strategy)
+- Current state (both exist independently) is not acceptable. Must choose and document.
 
 #### Phase 3 Acceptance Criteria [REVISED]
 
 | Criterion | Measurable Standard |
 |-----------|-------------------|
 | Real XGBoost | `import xgboost` succeeds; model trains and produces feature_importances_ |
-| Time-safe split | Train/test split is temporal (no future leakage); split date recorded in output |
-| Reproducible config | Hyperparameters + split + seed saved alongside results in data/ml/ |
-| SHAP or permutation importance | At least one interpretability method produces per-factor attribution |
-| New factor families | ≥3 new factor families added to factor_generator.py with IC screening |
-| Factor candidate schema | ≥1 candidate fully recorded in structured format (all fields filled) |
-| Full funnel walkthrough | ≥1 candidate completes: candidate → IC screen → OOS → regime check → keep/reject with logged reason |
-| NaN/constant handling | factor_generator gracefully handles all-NaN, constant, zero-variance columns |
-| Leakage test | Automated check that no factor uses shift(0) or future data |
+| Time-safe split | Train/test split is temporal; split date recorded in output |
+| Reproducible config | Hyperparameters + split + seed saved in data/ml/ |
+| SHAP or permutation | At least one interpretability method produces per-factor attribution |
+| New factor families | ≥3 new families added to factor_generator.py with IC screening |
+| Factor candidate schema | ≥1 candidate fully recorded in structured format |
+| Full funnel walkthrough | ≥1 candidate completes: candidate → IC → OOS → regime → keep/reject with logged reason |
+| NaN/constant handling | factor_generator handles all-NaN, constant, zero-variance gracefully |
+| Leakage validation | Automated check verifies temporal lag in factor computation chain |
 
 ---
 
@@ -375,9 +448,9 @@ Before any LLM candidate enters Keep pool, verify:
 
 **Goal:** Remove bottlenecks, prepare for serious research scale and future vendor/broker integration.
 
-#### 4.1 Data Provider and Broker Adapter Separation [NEW]
+#### 4.1 Data Provider and Broker Adapter Separation
 
-**Principle:** Research data sources and broker execution layer MUST be decoupled. Strategy logic must NEVER import broker-specific APIs. Research logic must NOT depend on vendor-specific field naming.
+**Principle:** Research data sources and broker execution MUST be decoupled. Strategy logic must NEVER import broker APIs. Research logic must NOT depend on vendor-specific field naming.
 
 **DataProvider minimum interface:**
 
@@ -385,14 +458,14 @@ Before any LLM candidate enters Keep pool, verify:
 class DataProvider(ABC):
     def fetch_daily(self, symbols, start, end) -> Dict[str, OHLCVFrame]: ...
     def fetch_intraday(self, symbols, freq, start, end) -> Dict[str, OHLCVFrame]: ...
-    def get_metadata(self, symbol) -> SymbolMetadata: ...          # exchange, sector, first_trade_date
-    def get_calendar(self, start, end) -> TradingCalendar: ...     # trading days, half days
-    def get_corporate_actions(self, symbol, start, end) -> List: ... # splits, dividends (optional)
-    def healthcheck(self) -> bool: ...                              # vendor API reachable
-    def fetch_incremental(self, symbol, freq, last_date) -> OHLCVFrame: ...  # delta only
+    def get_metadata(self, symbol) -> SymbolMetadata: ...
+    def get_calendar(self, start, end) -> TradingCalendar: ...
+    def get_corporate_actions(self, symbol, start, end) -> List: ...  # optional
+    def healthcheck(self) -> bool: ...
+    def fetch_incremental(self, symbol, freq, last_date) -> OHLCVFrame: ...
 ```
 
-**BrokerAdapter minimum interface (future, not implemented this phase):**
+**BrokerAdapter minimum interface (future):**
 
 ```python
 class BrokerAdapter(ABC):
@@ -406,47 +479,47 @@ class BrokerAdapter(ABC):
 ```
 
 **Evolution principles:**
-- Swap research data source first (e.g., yfinance → Polygon/Tiingo), then broker later
-- When adding IBKR: use it as broker/execution adapter, NOT as primary research data warehouse
-- DataProvider implementations should normalize to a common schema regardless of vendor
-- Current YFinanceProvider already implements DataProvider ABC — future vendors follow same interface
+- Swap research data source first, broker second
+- IBKR = broker/execution adapter, NOT primary research data warehouse
+- DataProvider swap must pass price semantics regression test (see Pricing and Valuation Semantics)
+- Current YFinanceProvider already implements DataProvider ABC
 
 #### 4.2 Other Phase 4 Tasks
 
-1. Incremental intraday data updates (fetch only since last_date, not full 700-day window)
-2. Mining parallelization (lock archive DB writes, isolate Optuna studies per worker)
-3. Cache expensive computations: regime series, aligned price matrices, factor outputs
-4. Review DataProvider abstraction (yfinance_provider.py) for completeness vs interface above
+1. Incremental intraday data updates
+2. Mining parallelization (lock archive DB writes)
+3. Cache expensive computations
+4. DataProvider interface completeness review
 
-#### Phase 4 Acceptance Criteria [REVISED]
+#### Phase 4 Acceptance Criteria
 
 | Criterion | Measurable Standard |
 |-----------|-------------------|
-| Incremental intraday fetch | Re-run intraday fetch → only downloads missing dates, not full window |
-| Parallel mining safety | 2 concurrent mining processes → no DB corruption, no duplicate trials |
-| Computation caching | Second backtest run on same data completes ≥30% faster |
-| DataProvider interface | Abstract base class defined; YFinanceProvider verified against it |
-| No correctness regression | All 674+ tests pass after performance changes |
+| Incremental intraday fetch | Re-run downloads only missing dates |
+| Parallel mining safety | 2 concurrent processes → no DB corruption |
+| Computation caching | Second run ≥30% faster |
+| DataProvider interface | ABC defined; YFinanceProvider verified against it |
+| No correctness regression | All 674+ tests pass |
 
 ---
 
 ## Autonomous Decision Authority (inherited from Phase B)
 
 Authorized WITHOUT confirmation:
-- Code changes, module splits, local refactors for optimization goals
-- New factor/strategy candidates, experiments, analysis scripts
+- Code changes, module splits, local refactors
+- New factor/strategy candidates, experiments
 - Config enhancements, threshold tuning
 - Test additions, tech debt cleanup
-- Diagnostics/report/validation pipeline improvements
+- Diagnostics/report/validation improvements
 - Strategy/factor demotion, suspension, re-scoring
 - LLM-generated factor candidates (subject to mandatory funnel)
 
 MUST PAUSE for confirmation:
 - Changing core constraints (long-only, no-margin, benchmark logic, etc.)
-- Changing research boundaries (adding 15m to main system, new data sources, etc.)
+- Changing research boundaries (adding 15m, new data sources, etc.)
 - Changing evaluation criteria definitions
 - Repo-level restructuring with direction forks
-- Promoting LLM-generated factor to production without full funnel completion
+- Promoting LLM-generated factor without full funnel
 
 ---
 
@@ -459,7 +532,7 @@ Each iteration:
 4. 剩余风险
 5. 下一步
 
-Maintain TODO checklist. Update CLAUDE.md when work is actually completed (not when planned). Prefer small verifiable patches over large rewrites.
+Maintain TODO checklist. Update CLAUDE.md when work is actually completed. Small verifiable patches over large rewrites.
 
 ---
 
@@ -481,14 +554,14 @@ Maintain TODO checklist. Update CLAUDE.md when work is actually completed (not w
 
 ## Scripts Quick Reference
 ```bash
-bash scripts/run_all.sh research      # full pipeline: data→universe→factors→mining→backtest
+bash scripts/run_all.sh research      # full pipeline
 bash scripts/run_all.sh full          # data + backtest + report
 bash scripts/run_all.sh mine          # Optuna search (1h)
 bash scripts/run_all.sh daily         # daily paper trading
 bash scripts/run_all.sh backtest-quick # skip walk-forward
 bash scripts/run_all.sh universe      # universe rebalance
 bash scripts/run_all.sh factors       # IC screening
-bash scripts/run_all.sh xgb           # GBM importance
+bash scripts/run_all.sh xgb           # feature importance
 bash scripts/run_all.sh leaderboard   # mining rankings
 ```
 
@@ -496,28 +569,35 @@ bash scripts/run_all.sh leaderboard   # mining rankings
 See `reports/loop_changelog.md` for Phase B history (50 iterations).
 
 ## IMPORTANT: Git Safety
-NEVER use `git add -A` or `git add .` — always add specific files. Files have been accidentally deleted multiple times by broad git adds.
+NEVER use `git add -A` or `git add .` — always add specific files.
 
 ---
 
-## Revision Summary (Phase C PRD v2)
+## Revision Summary (v2 → v3)
 
-### What was strengthened:
+### QQQ Constraint Upgrade
+- **旧标准 `excess vs QQQ >= -2%` 已废止**
+- **新标准：策略收益必须跑赢 QQQ**
+  - Full period + holdout: 硬约束（CAGR/return > QQQ）
+  - OOS walk-forward average: 硬约束（mean excess > 0）
+  - Individual window / regime: 诊断观察（不作为 pass/fail）
+- Risk guardrail: 不允许通过恶化回撤或集中度来硬换 QQQ outperformance
+- Current best strategy 需要在新约束下重新验证
 
-1. **[NEW] strict_match formal mechanism** — Config schema, behavioral rules, reconciliation products (fills/positions/cash/equity match tables), automated test spec, measurable acceptance criteria. Replaces vague "concept documentation."
+### Other Revisions
+1. **strict_match:** `integer_shares: true` → `share_mode: integer | fractional`，核心要求是两边一致 [REVISED]
+2. **Stressed cost test:** 从 `p < 0.01` 改为确定性工程标准——2x cost 必须产生更低 CAGR 和更高 total cost [REVISED]
+3. **Intraday timezone:** tz-naive ET 标注为当前实现兼容，非长期架构目标；保留向 tz-aware UTC 演进空间 [REVISED]
+4. **Halted/stale valuation:** 持仓资产不得从 NAV 移除，必须继续按 last valid price 估值 [REVISED]
+5. **Leakage rules:** 从 `shift(0) 检查` 改为基于时间可得性语义的正式规则（signal/data/execution timestamp） [REVISED]
+6. **Factor correlation:** 从 `> 0.7 自动 reject` 改为 `> 0.7 触发强制审查`，需证明增量价值 [REVISED]
+7. **[NEW] Pricing and Valuation Semantics:** raw/adjusted 规则、signal/execution/valuation 三阶段价格约定、stale data 估值规则
+8. **[NEW] QQQ Outperformance Rule:** 分层硬约束定义 + risk guardrail
+9. **Evidence levels:** 关键条目增加 `verification_source` 字段
 
-2. **[NEW] LLM-Assisted Factor Exploration Policy** — Role boundaries (what LLM can/cannot decide), structured candidate record schema (11 fields), mandatory research funnel, mandatory reverse review checklist (7 anti-overfitting checks). Ensures LLM is a hypothesis generator, never a truth oracle.
-
-3. **[NEW] Intraday Data Contract and Persistence Model** — Canonical data representation (Dict[str, DataFrame]), bar minimum fields, timezone rules (tz-naive ET), missing/anomalous bar handling table, 5-table persistence schema, recovery/idempotency design (run_id, bar_checkpoints).
-
-4. **[REVISED] Current System State with evidence levels** — Every feature tagged as `code_verified`, `test_verified`, `manual_verified`, or `claimed_not_verified`. Priority now based on evidence strength, not changelog claims.
-
-5. **[NEW] Data Provider and Broker Adapter Separation** — DataProvider minimum interface (7 methods), BrokerAdapter minimum interface (7 methods), evolution principles (data first, broker second), vendor-neutral schema requirement.
-
-6. **[REVISED] Phase 1/2/3/4 acceptance criteria** — Phase 1: fill match, position match, cash match, daily equity match, first mismatch reporting. Phase 2: multi-asset NAV, bar-level persistence, restart recovery, idempotent re-run. Phase 3: time-safe split, reproducible config, full funnel walkthrough for ≥1 candidate. Phase 4: incremental fetch, parallel safety, caching speedup.
-
-### What still needs code audit to confirm:
-- Whether current BacktestEngine execution is truly deterministic (no hidden randomness)
-- Whether IntradayBacktestEngine can be extended for multi-asset or needs rewrite
-- Whether yfinance_provider.py already implements the full DataProvider interface
-- Exact OpenMP/libomp installation path for real XGBoost on macOS
+### Still needs code audit to confirm:
+- Current strategy vs QQQ full-period and holdout performance under new hard constraint
+- Whether BacktestEngine execution is truly deterministic
+- Whether IntradayBacktestEngine can extend for multi-asset or needs rewrite
+- Whether yfinance_provider.py implements full DataProvider interface
+- XGBoost/libomp installation path on macOS
