@@ -55,6 +55,7 @@ class MultiFactorStrategy:
         lookback_mom:      int   = 252,
         lookback_quality:  int   = 126,
         regime_scale:      Optional[Dict[str, float]] = None,
+        min_holding_days:  int   = 5,
     ):
         self._symbols     = symbols or []
         self._top_n       = top_n
@@ -70,6 +71,7 @@ class MultiFactorStrategy:
         self._mom_lb      = lookback_mom
         self._qual_lb     = lookback_quality
         self._regime_scale = regime_scale or self._DEFAULT_REGIME_SCALE
+        self._min_hold     = min_holding_days
 
     def generate(
         self,
@@ -139,9 +141,12 @@ class MultiFactorStrategy:
             rebal_mask = pd.Series(True, index=pdf.index)
 
         last_selection = pd.Series(0.0, index=price_df.columns)
+        days_since_rebal = self._min_hold
 
         for date in pdf.index:
-            if not rebal_mask.get(date, False):
+            days_since_rebal += 1
+
+            if not rebal_mask.get(date, False) or days_since_rebal < self._min_hold:
                 signals.loc[date] = last_selection
                 continue
 
@@ -151,6 +156,12 @@ class MultiFactorStrategy:
                 continue
 
             top = scores.nlargest(self._top_n)
+            current_held = set(last_selection[last_selection > 0].index)
+            new_held = set(top.index)
+
+            if current_held == new_held:
+                signals.loc[date] = last_selection
+                continue
 
             if self._score_wt and (top > 0).any():
                 pos_scores = top.clip(lower=0)
@@ -168,6 +179,7 @@ class MultiFactorStrategy:
                     row[sym] = wts[sym]
             signals.loc[date] = row
             last_selection = row
+            days_since_rebal = 0
 
         aligned_regime = regime_series.reindex(signals.index, method="ffill")
         for date in signals.index:

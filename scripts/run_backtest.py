@@ -75,6 +75,7 @@ def build_strategies(cfg, price_df: pd.DataFrame, risk_syms: list, def_syms: lis
         "multi_factor":         MultiFactorStrategy(
             symbols=risk_syms, top_n=5, rebalance_monthly=False,
             factor_weights={"low_vol": 0.15, "momentum": 0.45, "quality": 0.25, "pv_div": 0.15},
+            min_holding_days=3,
         ),
     }
 

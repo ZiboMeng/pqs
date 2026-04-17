@@ -223,6 +223,7 @@ class MultiFactorSpace(ParameterSpace):
             "lookback_vol":      trial.suggest_int("lookback_vol", 42, 126, step=21),
             "lookback_mom":      trial.suggest_int("lookback_mom", 126, 252, step=63),
             "lookback_quality":  trial.suggest_int("lookback_quality", 63, 252, step=63),
+            "min_holding_days":  trial.suggest_int("min_holding_days", 3, 21, step=3),
         }
 
     def instantiate(
@@ -245,6 +246,7 @@ class MultiFactorSpace(ParameterSpace):
             lookback_vol      = params["lookback_vol"],
             lookback_mom      = params["lookback_mom"],
             lookback_quality  = params["lookback_quality"],
+            min_holding_days  = params.get("min_holding_days", 5),
         )
 
 
