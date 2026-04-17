@@ -38,7 +38,7 @@ Architecture: config/ → core/ → scripts/ → tests/ with 615 passing unit te
 - TimeframeOptimizer integrated into FeaturePipeline
 - Archive with full audit trail (stress/holdout/overfit columns, DB migration support)
 
-**Completed in Loop 1-44 (46 commits, 654 tests, 87 mining trials):**
+**Completed in Loop 1-49 (50 commits, 674 tests, 99+ mining trials):**
 
 Infrastructure:
 - ✅ Daily data 2007-2026 (35 symbols) + 60m intraday (32 symbols)
@@ -66,6 +66,7 @@ Mining & Factors:
 - ✅ GBM feature importance analysis
 - ✅ MultiFactorStrategy (6-factor composite)
 - ✅ 6 strategies promoted (all Tier B, real open validated, 49% pass rate)
+- ✅ Left-side trading module (overlay, config-driven, backtested — zero harm)
 
 Execution:
 - ✅ Paper trading daily-mode (shared BacktestEngine rebalance logic)
@@ -92,10 +93,9 @@ Reporting:
 4. Relative strength + momentum are dominant alpha sources (Loop 15, 25)
 5. Kill switch config must match risk.yaml — 5% threshold gap caused 37% paper-bt divergence (Loop 42)
 
-**Remaining gaps (minor):**
+**Remaining gaps (minor, all optional extensions):**
 - ML signals used for analysis only, not as trading signal
-- Intraday pipeline not built
-- Left-side trading module implemented (Loop 45) but not yet backtested for impact
+- Intraday pipeline not built (60m data downloaded, engine exists, needs wiring)
 
 ### Intraday Quantitative Pipeline (to be built in loop iterations)
     1. Download intraday data (60m/30m/15m) via fetch_data.py --intraday-only
