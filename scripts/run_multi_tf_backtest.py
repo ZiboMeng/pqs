@@ -125,25 +125,25 @@ def main():
             equity_records.append((date_ts, cash))
             continue
 
-        # Evaluate cross-TF signals for each symbol
+        # Evaluate cross-TF signals — regime-conditional
         adjusted_targets = {}
         ref_bars = next(iter(day_bars.values()))
         if len(ref_bars) < 2:
             equity_records.append((date_ts, cash))
             continue
 
-        mid_bar_ts = ref_bars.index[len(ref_bars) // 2]  # mid-day evaluation point
+        # Cross-TF signal evaluation (soft — all regimes)
+        mid_bar_ts = ref_bars.index[len(ref_bars) // 2]
 
         for sym, base_w in base_targets.items():
             ctx = build_context(multi_bars, sym, mid_bar_ts)
             sig = evaluate_cross_tf_signal(ctx, sym, base_w)
-
             if sig.vetoed:
                 veto_count += 1
             else:
                 adjusted_targets[sym] = base_w * sig.strength
 
-        # Execute via run_multi_day
+        # Execute via intraday engine (unified path for both regimes)
         result = engine.run_multi_day(
             date=date_ts, day_bars=day_bars, target_wts=adjusted_targets,
             positions=positions, cash=cash,
