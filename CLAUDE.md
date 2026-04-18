@@ -122,8 +122,8 @@ Evidence levels:
 | OOS/IS Sharpe overfit gate | `code_verified` | evaluator.py:_assign_tier |
 | 5-stage mining pipeline | `code_verified` | evaluator.py:evaluate() stages 1-5 |
 | 30 candidate factors | `test_verified` | factor_generator.py + test_factor_generator.py |
-| Feature importance (sklearn GB) | `code_verified` | run_xgb_importance.py (NOT xgboost) |
-| MultiFactorStrategy | `code_verified` | multi_factor.py — **0 unit tests** |
+| Feature importance (XGBoost 3.2.0) | `code_verified` | run_xgb_importance.py (real XGBoost + permutation) |
+| MultiFactorStrategy | `test_verified` | multi_factor.py + test_multi_factor.py (16 tests) |
 | Left-side trading module | `test_verified` | left_side.py + test_left_side.py |
 | Master report (regime vs SPY+QQQ) | `code_verified` | master_report.py, master_report_builder.py |
 | Universe rebalance (PIT) | `code_verified` | run_universe_rebalance.py |

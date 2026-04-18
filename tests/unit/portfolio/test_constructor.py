@@ -390,3 +390,9 @@ class TestNaNHandling:
         signals = _make_signals(n, syms)
         result = ctor.build(signals, prices)
         assert not result.isna().any().any()
+
+
+class TestDefaultConfig:
+    def test_default_target_vol_is_025(self):
+        ctor = PortfolioConstructor()
+        assert ctor._target_vol == 0.25
