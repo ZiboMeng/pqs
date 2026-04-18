@@ -129,21 +129,25 @@ class TestCrossTFSignal:
         assert sig.strength >= 0.9
         assert not sig.vetoed
 
-    def test_60m_bearish_vetoes(self):
-        """60m bearish → long-only veto."""
-        ctx = self._make_ctx(dir_60=-1, dir_30=1)
-        sig = evaluate_cross_tf_signal(ctx, "SPY")
-        assert sig.direction == 0
-        assert sig.vetoed
-        assert "longonly" in sig.reason
+    def test_60m_bearish_reduces_not_vetoes(self):
+        """60m bearish → reduces strength but follows daily direction (C-mode)."""
+        ctx_bull = self._make_ctx(dir_60=1, dir_30=1)
+        ctx_bear = self._make_ctx(dir_60=-1, dir_30=1)
+        s_bull = evaluate_cross_tf_signal(ctx_bull, "SPY")
+        s_bear = evaluate_cross_tf_signal(ctx_bear, "SPY")
+        assert s_bear.direction == 1  # still trades (daily decides direction)
+        assert not s_bear.vetoed
+        assert s_bear.strength < s_bull.strength  # but reduced
 
-    def test_30m_contradicts_60m_vetoes(self):
-        """60m bull but 30m bear → cross-TF veto."""
-        ctx = self._make_ctx(dir_60=1, dir_30=-1)
-        sig = evaluate_cross_tf_signal(ctx, "SPY")
-        assert sig.direction == 0
-        assert sig.vetoed
-        assert "contradicts" in sig.reason
+    def test_30m_contradicts_60m_reduces(self):
+        """60m bull but 30m bear → soft reduction (not hard veto)."""
+        ctx_confirmed = self._make_ctx(dir_60=1, dir_30=1)
+        ctx_contradicted = self._make_ctx(dir_60=1, dir_30=-1)
+        s_full = evaluate_cross_tf_signal(ctx_confirmed, "SPY")
+        s_reduced = evaluate_cross_tf_signal(ctx_contradicted, "SPY")
+        assert s_reduced.direction == 1  # still trades (not vetoed)
+        assert not s_reduced.vetoed
+        assert s_reduced.strength < s_full.strength * 0.5  # significantly reduced
 
     def test_no_60m_vetoes(self):
         """No 60m context → veto."""
@@ -152,11 +156,13 @@ class TestCrossTFSignal:
         assert sig.vetoed
 
     def test_neutral_60m_reduces_strength(self):
-        """60m neutral → half strength."""
-        ctx = self._make_ctx(dir_60=0, dir_30=1)
-        sig = evaluate_cross_tf_signal(ctx, "SPY")
-        assert sig.direction == 1
-        assert sig.strength < 0.6
+        """60m neutral → reduced strength (but not half)."""
+        ctx_bull = self._make_ctx(dir_60=1, dir_30=1)
+        ctx_neut = self._make_ctx(dir_60=0, dir_30=1)
+        s_bull = evaluate_cross_tf_signal(ctx_bull, "SPY")
+        s_neut = evaluate_cross_tf_signal(ctx_neut, "SPY")
+        assert s_neut.direction == 1
+        assert s_neut.strength < s_bull.strength
 
     def test_15m_boosts_when_aligned(self):
         """15m bullish → slight boost."""

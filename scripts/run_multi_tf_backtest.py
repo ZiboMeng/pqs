@@ -92,7 +92,8 @@ def main():
 
     # Run multi-TF backtest
     cost = CostModel(cfg.cost_model)
-    engine = IntradayBacktestEngine(cost_model=cost, initial_capital=10000, eod_force_close=True)
+    # C-mode: daily strategy holds positions overnight — no EOD force close
+    engine = IntradayBacktestEngine(cost_model=cost, initial_capital=10000, eod_force_close=False)
 
     cash = 10000.0
     positions = {}

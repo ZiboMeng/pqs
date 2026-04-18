@@ -229,24 +229,20 @@ def evaluate_cross_tf_signal(
                              confirming_tf_dir=0, vetoed=True,
                              reason="no_60m_context")
 
-    # Long-only: 60m bearish → no new long entry
-    if dir_60 == -1:
-        return CrossTFSignal(symbol=symbol, decision_time=ctx.decision_time,
-                             direction=0, strength=0.0, higher_tf_dir=dir_60,
-                             confirming_tf_dir=dir_30 or 0, vetoed=True,
-                             reason="60m_bearish_longonly_veto")
+    # 60m direction modulates strength (C-mode: daily strategy decides direction,
+    # intraday only adjusts timing/sizing — single-bar bearish does NOT veto)
+    if dir_60 == 1:
+        strength = 1.0
+    elif dir_60 == 0:
+        strength = 0.8   # neutral — slight reduction
+    else:
+        strength = 0.5   # 60m bearish — reduce size but still follow daily signal
 
-    # 60m bullish or neutral
-    strength = 1.0 if dir_60 == 1 else 0.5  # neutral = half strength
-
-    # 30m confirmation
+    # 30m confirmation (soft — reduces but does not veto)
     if dir_30 is not None:
         if dir_30 == -1 and dir_60 == 1:
-            # 30m contradicts 60m → VETO
-            return CrossTFSignal(symbol=symbol, decision_time=ctx.decision_time,
-                                 direction=0, strength=0.0, higher_tf_dir=dir_60,
-                                 confirming_tf_dir=dir_30, vetoed=True,
-                                 reason="30m_contradicts_60m_veto")
+            # 30m contradicts 60m → reduce to 40% (soft, not hard veto)
+            strength *= 0.4
         elif dir_30 == 1:
             strength *= 1.0   # full confirmation
         elif dir_30 == 0:
