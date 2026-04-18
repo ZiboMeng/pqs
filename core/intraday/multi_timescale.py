@@ -76,6 +76,20 @@ class MultiTimescaleContext:
             return -1
         return 0
 
+    def get_range_ratio(self, freq: str) -> Optional[float]:
+        """Bar range as fraction of open price. Higher = more conviction."""
+        b = self.bars.get(freq)
+        if b is None or b.open < 1e-10:
+            return None
+        return (b.high - b.low) / b.open
+
+    def get_bar_return(self, freq: str) -> Optional[float]:
+        """Bar return: (close - open) / open."""
+        b = self.bars.get(freq)
+        if b is None or b.open < 1e-10:
+            return None
+        return (b.close - b.open) / b.open
+
     @property
     def available_freqs(self) -> List[str]:
         return list(self.bars.keys())
@@ -229,24 +243,25 @@ def evaluate_cross_tf_signal(
                              confirming_tf_dir=0, vetoed=True,
                              reason="no_60m_context")
 
-    # 60m direction modulates strength (C-mode: daily strategy decides direction,
-    # intraday only adjusts timing/sizing — single-bar bearish does NOT veto)
+    # C-mode: daily strategy decides direction, intraday adjusts sizing.
+    # Note: per-bar IC is negative for direction (mean-reversion at bar level),
+    # but momentum-based sizing works better at daily granularity because
+    # trend-aligned sizing reduces whipsaw. (Validated iter 9: MR signal → -2.8% CAGR)
     if dir_60 == 1:
         strength = 1.0
     elif dir_60 == 0:
-        strength = 0.8   # neutral — slight reduction
+        strength = 0.8
     else:
-        strength = 0.5   # 60m bearish — reduce size but still follow daily signal
+        strength = 0.5
 
     # 30m confirmation (soft — reduces but does not veto)
     if dir_30 is not None:
         if dir_30 == -1 and dir_60 == 1:
-            # 30m contradicts 60m → reduce to 40% (soft, not hard veto)
             strength *= 0.4
         elif dir_30 == 1:
-            strength *= 1.0   # full confirmation
+            strength *= 1.0
         elif dir_30 == 0:
-            strength *= 0.7   # neutral confirmation
+            strength *= 0.7
 
     # 15m fine-tuning (prototype — does not veto, only adjusts)
     if dir_15 is not None:

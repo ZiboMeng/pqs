@@ -135,9 +135,9 @@ class TestCrossTFSignal:
         ctx_bear = self._make_ctx(dir_60=-1, dir_30=1)
         s_bull = evaluate_cross_tf_signal(ctx_bull, "SPY")
         s_bear = evaluate_cross_tf_signal(ctx_bear, "SPY")
-        assert s_bear.direction == 1  # still trades (daily decides direction)
+        assert s_bear.direction == 1
         assert not s_bear.vetoed
-        assert s_bear.strength < s_bull.strength  # but reduced
+        assert s_bear.strength < s_bull.strength
 
     def test_30m_contradicts_60m_reduces(self):
         """60m bull but 30m bear → soft reduction (not hard veto)."""
@@ -145,9 +145,9 @@ class TestCrossTFSignal:
         ctx_contradicted = self._make_ctx(dir_60=1, dir_30=-1)
         s_full = evaluate_cross_tf_signal(ctx_confirmed, "SPY")
         s_reduced = evaluate_cross_tf_signal(ctx_contradicted, "SPY")
-        assert s_reduced.direction == 1  # still trades (not vetoed)
+        assert s_reduced.direction == 1
         assert not s_reduced.vetoed
-        assert s_reduced.strength < s_full.strength * 0.5  # significantly reduced
+        assert s_reduced.strength < s_full.strength * 0.5
 
     def test_no_60m_vetoes(self):
         """No 60m context → veto."""
@@ -156,7 +156,7 @@ class TestCrossTFSignal:
         assert sig.vetoed
 
     def test_neutral_60m_reduces_strength(self):
-        """60m neutral → reduced strength (but not half)."""
+        """60m neutral → reduced strength."""
         ctx_bull = self._make_ctx(dir_60=1, dir_30=1)
         ctx_neut = self._make_ctx(dir_60=0, dir_30=1)
         s_bull = evaluate_cross_tf_signal(ctx_bull, "SPY")
@@ -176,8 +176,8 @@ class TestCrossTFSignal:
         """15m bearish → reduces strength but doesn't veto."""
         ctx = self._make_ctx(dir_60=1, dir_30=1, dir_15=-1)
         sig = evaluate_cross_tf_signal(ctx, "SPY")
-        assert sig.direction == 1  # not vetoed
-        assert sig.strength < 0.7  # but reduced
+        assert sig.direction == 1
+        assert sig.strength < 0.7
 
 
 class TestRealDataAlignment:
