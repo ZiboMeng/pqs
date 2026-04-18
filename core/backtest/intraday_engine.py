@@ -254,9 +254,9 @@ class IntradayBacktestEngine:
             cur_w = {}
             for sym, qty in shares.items():
                 if sym in day_bars and i < len(day_bars[sym]):
-                    p = float(day_bars[sym]["close"].iloc[i])
-                    if p > 0:
-                        cur_w[sym] = (qty * p) / port_val
+                    p = day_bars[sym]["close"].iloc[i]
+                    if not np.isnan(p) and float(p) > 0:
+                        cur_w[sym] = (qty * float(p)) / port_val
 
             open_prices = {}
             for sym in set(list(cur_w) + list(target_wts)):
@@ -320,7 +320,9 @@ class IntradayBacktestEngine:
             if sym in day_bars and len(day_bars[sym]) > 0:
                 idx = bar_idx if bar_idx >= 0 else len(day_bars[sym]) + bar_idx
                 idx = max(0, min(idx, len(day_bars[sym]) - 1))
-                total += qty * float(day_bars[sym]["close"].iloc[idx])
+                p = day_bars[sym]["close"].iloc[idx]
+                if not np.isnan(p):
+                    total += qty * float(p)
         return total
 
     # ── 单日核心逻辑（Paper Trading 同样调用此函数）────────────────────────────

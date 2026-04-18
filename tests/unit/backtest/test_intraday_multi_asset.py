@@ -103,3 +103,94 @@ class TestRunMultiDay:
             cash=100000,
         )
         assert result.n_trades > 0  # should still trade available symbols
+
+
+class TestMultiAssetEdgeCases:
+    """Edge cases: missing bars, stale data, partial day."""
+
+    def test_symbol_with_fewer_bars(self):
+        """One symbol has fewer bars than others — should not crash."""
+        engine = IntradayBacktestEngine(cost_model=_make_zero_cost())
+        np.random.seed(42)
+        idx_full = pd.date_range("2025-01-02 09:30", periods=7, freq="60min")
+        idx_short = pd.date_range("2025-01-02 09:30", periods=3, freq="60min")
+        bars = {
+            "FULL": pd.DataFrame({
+                "open": 100 + np.random.randn(7) * 0.5,
+                "high": 101.0, "low": 99.0,
+                "close": 100 + np.cumsum(np.random.randn(7) * 0.3),
+                "volume": 1e5,
+            }, index=idx_full),
+            "SHORT": pd.DataFrame({
+                "open": 50 + np.random.randn(3) * 0.2,
+                "high": 51.0, "low": 49.0,
+                "close": 50 + np.cumsum(np.random.randn(3) * 0.2),
+                "volume": 1e5,
+            }, index=idx_short),
+        }
+        result = engine.run_multi_day(
+            date=pd.Timestamp("2025-01-02"),
+            day_bars=bars,
+            target_wts={"FULL": 0.5, "SHORT": 0.5},
+            positions={},
+            cash=100000,
+        )
+        assert result.eod_cash > 0
+
+    def test_single_bar_day(self):
+        """Day with only 1 bar — no T+1 to execute, should return no trades."""
+        engine = IntradayBacktestEngine(cost_model=_make_zero_cost())
+        idx = pd.date_range("2025-01-02 09:30", periods=1, freq="60min")
+        bars = {
+            "SYM0": pd.DataFrame({
+                "open": [100], "high": [101], "low": [99], "close": [100], "volume": [1e5],
+            }, index=idx),
+        }
+        result = engine.run_multi_day(
+            date=pd.Timestamp("2025-01-02"),
+            day_bars=bars,
+            target_wts={"SYM0": 0.5},
+            positions={},
+            cash=100000,
+        )
+        assert result.n_trades == 0  # only 1 bar, no next-bar to fill
+
+    def test_positions_from_previous_day(self):
+        """Engine should correctly value and trade with pre-existing positions."""
+        engine = IntradayBacktestEngine(cost_model=_make_zero_cost(), eod_force_close=True)
+        bars = _make_multi_asset_bars(n_syms=2)
+        result = engine.run_multi_day(
+            date=pd.Timestamp("2025-01-02"),
+            day_bars=bars,
+            target_wts={"SYM0": 0.3},
+            positions={"SYM0": 50, "SYM1": 30},
+            cash=20000,
+        )
+        # Should have sells (EOD close) + some rebalancing
+        assert result.n_trades > 0
+        # EOD force close should clear all positions
+        assert len(result.eod_positions) == 0
+
+    def test_nan_close_handled(self):
+        """Bar with NaN close should not crash the engine."""
+        engine = IntradayBacktestEngine(cost_model=_make_zero_cost())
+        idx = pd.date_range("2025-01-02 09:30", periods=4, freq="60min")
+        close_vals = [100.0, np.nan, 101.0, 100.5]
+        bars = {
+            "SYM0": pd.DataFrame({
+                "open": [100, 100, 101, 100],
+                "high": [101, 101, 102, 101],
+                "low": [99, 99, 100, 99],
+                "close": close_vals,
+                "volume": [1e5] * 4,
+            }, index=idx),
+        }
+        # Should not raise
+        result = engine.run_multi_day(
+            date=pd.Timestamp("2025-01-02"),
+            day_bars=bars,
+            target_wts={"SYM0": 0.5},
+            positions={},
+            cash=100000,
+        )
+        assert result.eod_cash > 0
