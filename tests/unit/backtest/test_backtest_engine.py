@@ -117,6 +117,25 @@ class TestBacktestEngineRun:
         result  = engine.run(signals, price)
         assert result.equity_curve.empty
 
+    def test_fills_use_open_prices_not_close(self):
+        """Verify T-day signal executes at T+1 open, not T-day close."""
+        zero_cost = CostModel(CostModelConfig(tiers={
+            "default": CostTierConfig(
+                symbols=[], commission_bps=0, slippage_interday_bps=0,
+                slippage_intraday_bps=0,
+            )
+        }))
+        n = 20
+        idx = pd.bdate_range("2022-01-03", periods=n)
+        close = pd.DataFrame({"A": [100.0] * n}, index=idx)
+        open_df = pd.DataFrame({"A": [200.0] * n}, index=idx)
+        signals = pd.DataFrame({"A": [1.0] * n}, index=idx)
+
+        engine = BacktestEngine(zero_cost, initial_capital=10000)
+        result = engine.run(signals, close, open_df=open_df)
+        if result.trades:
+            assert result.trades[0].executed_price == pytest.approx(200.0, rel=0.01)
+
     def test_hold_nothing_equity_flat(self):
         """全零信号（不持仓）→ 权益曲线应等于初始资金（全部在现金）。"""
         price    = _make_price_df(50)

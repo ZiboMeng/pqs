@@ -128,7 +128,7 @@ Evidence levels:
 | Master report (regime vs SPY+QQQ) | `code_verified` | master_report.py, master_report_builder.py |
 | Universe rebalance (PIT) | `code_verified` | run_universe_rebalance.py |
 | Diagnostics suite (4 detectors) | `test_verified` | diagnostics/detectors.py + test_detectors.py (19 tests) |
-| target_vol=0.25 | `code_verified` | constructor.py:_DEFAULT_TARGET_VOL |
+| target_vol=0.25 | `test_verified` | constructor.py:_DEFAULT_TARGET_VOL + test_constructor.py |
 
 #### Partially Done
 
