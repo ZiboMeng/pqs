@@ -176,6 +176,94 @@ def check_higher_tf_alignment(ctx: MultiTimescaleContext) -> Dict[str, bool]:
     for freq in ["30m", "15m", "5m"]:
         d = ctx.get_direction(freq)
         if d is not None:
-            result[freq] = (d == dir_60) or (d == 0)  # flat is neutral, not conflict
+            result[freq] = (d == dir_60) or (d == 0)
 
     return result
+
+
+# ── Signal Evaluation ────────────────────────────────────────────────────────
+
+@dataclass
+class CrossTFSignal:
+    """Output of multi-timescale signal evaluation."""
+    symbol: str
+    decision_time: pd.Timestamp
+    direction: int          # +1 long, -1 short (unused in long-only), 0 no trade
+    strength: float         # 0.0 to 1.0
+    higher_tf_dir: int      # 60m direction
+    confirming_tf_dir: int  # 30m direction
+    vetoed: bool            # True if cross-TF conflict → no trade
+    reason: str             # human-readable explanation
+
+
+def evaluate_cross_tf_signal(
+    ctx: MultiTimescaleContext,
+    symbol: str,
+    base_weight: float = 0.0,
+) -> CrossTFSignal:
+    """
+    Evaluate a multi-timescale signal for one symbol.
+
+    Protocol:
+      1. 60m provides trend direction (required)
+      2. 30m confirms or vetoes (required for full strength)
+      3. 15m adjusts strength (optional, prototype)
+      4. If 60m and 30m conflict → veto (no trade)
+      5. If 60m neutral → reduced strength
+      6. Long-only: only +1 direction allowed
+
+    Parameters
+    ----------
+    ctx         : MultiTimescaleContext at decision time
+    symbol      : symbol being evaluated
+    base_weight : strategy-level target weight (from daily MFS)
+    """
+    dir_60 = ctx.get_direction("60m")
+    dir_30 = ctx.get_direction("30m")
+    dir_15 = ctx.get_direction("15m") if ctx.has("15m") else None
+
+    # No 60m context → cannot trade
+    if dir_60 is None:
+        return CrossTFSignal(symbol=symbol, decision_time=ctx.decision_time,
+                             direction=0, strength=0.0, higher_tf_dir=0,
+                             confirming_tf_dir=0, vetoed=True,
+                             reason="no_60m_context")
+
+    # Long-only: 60m bearish → no new long entry
+    if dir_60 == -1:
+        return CrossTFSignal(symbol=symbol, decision_time=ctx.decision_time,
+                             direction=0, strength=0.0, higher_tf_dir=dir_60,
+                             confirming_tf_dir=dir_30 or 0, vetoed=True,
+                             reason="60m_bearish_longonly_veto")
+
+    # 60m bullish or neutral
+    strength = 1.0 if dir_60 == 1 else 0.5  # neutral = half strength
+
+    # 30m confirmation
+    if dir_30 is not None:
+        if dir_30 == -1 and dir_60 == 1:
+            # 30m contradicts 60m → VETO
+            return CrossTFSignal(symbol=symbol, decision_time=ctx.decision_time,
+                                 direction=0, strength=0.0, higher_tf_dir=dir_60,
+                                 confirming_tf_dir=dir_30, vetoed=True,
+                                 reason="30m_contradicts_60m_veto")
+        elif dir_30 == 1:
+            strength *= 1.0   # full confirmation
+        elif dir_30 == 0:
+            strength *= 0.7   # neutral confirmation
+
+    # 15m fine-tuning (prototype — does not veto, only adjusts)
+    if dir_15 is not None:
+        if dir_15 == 1:
+            strength = min(strength * 1.1, 1.0)
+        elif dir_15 == -1:
+            strength *= 0.6
+
+    direction = 1 if strength > 0.1 else 0
+
+    return CrossTFSignal(
+        symbol=symbol, decision_time=ctx.decision_time,
+        direction=direction, strength=round(strength, 3),
+        higher_tf_dir=dir_60, confirming_tf_dir=dir_30 or 0,
+        vetoed=False, reason="signal_generated",
+    )

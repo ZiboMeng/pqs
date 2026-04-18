@@ -5,8 +5,9 @@ import pandas as pd
 import pytest
 
 from core.intraday.multi_timescale import (
-    TimescaleBar, MultiTimescaleContext,
+    TimescaleBar, MultiTimescaleContext, CrossTFSignal,
     get_latest_completed_bar, build_context, check_higher_tf_alignment,
+    evaluate_cross_tf_signal,
 )
 
 
@@ -98,6 +99,79 @@ class TestHigherTFAlignment:
         bars = {"30m": TimescaleBar(pd.Timestamp("2025-04-01 10:30"), "30m", 100, 101, 99, 100.5, 1e5)}
         ctx = MultiTimescaleContext(decision_time=pd.Timestamp("2025-04-01 10:30"), bars=bars)
         assert check_higher_tf_alignment(ctx) == {}
+
+
+class TestCrossTFSignal:
+    """Test the cross-timeframe signal evaluation protocol."""
+
+    def _make_ctx(self, dir_60, dir_30=None, dir_15=None):
+        bars = {}
+        ts = pd.Timestamp("2025-04-01 10:30")
+        if dir_60 is not None:
+            o60 = 100
+            c60 = 101.5 if dir_60 == 1 else (98.5 if dir_60 == -1 else 100)
+            bars["60m"] = TimescaleBar(ts, "60m", o60, 102, 98, c60, 1e5)
+        if dir_30 is not None:
+            o30 = 100
+            c30 = 101 if dir_30 == 1 else (99 if dir_30 == -1 else 100)
+            bars["30m"] = TimescaleBar(ts, "30m", o30, 101, 99, c30, 1e5)
+        if dir_15 is not None:
+            o15 = 100
+            c15 = 100.5 if dir_15 == 1 else (99.5 if dir_15 == -1 else 100)
+            bars["15m"] = TimescaleBar(ts, "15m", o15, 101, 99, c15, 1e5)
+        return MultiTimescaleContext(decision_time=ts, bars=bars)
+
+    def test_bullish_confirmed(self):
+        """60m bull + 30m bull → full strength signal."""
+        ctx = self._make_ctx(dir_60=1, dir_30=1)
+        sig = evaluate_cross_tf_signal(ctx, "SPY")
+        assert sig.direction == 1
+        assert sig.strength >= 0.9
+        assert not sig.vetoed
+
+    def test_60m_bearish_vetoes(self):
+        """60m bearish → long-only veto."""
+        ctx = self._make_ctx(dir_60=-1, dir_30=1)
+        sig = evaluate_cross_tf_signal(ctx, "SPY")
+        assert sig.direction == 0
+        assert sig.vetoed
+        assert "longonly" in sig.reason
+
+    def test_30m_contradicts_60m_vetoes(self):
+        """60m bull but 30m bear → cross-TF veto."""
+        ctx = self._make_ctx(dir_60=1, dir_30=-1)
+        sig = evaluate_cross_tf_signal(ctx, "SPY")
+        assert sig.direction == 0
+        assert sig.vetoed
+        assert "contradicts" in sig.reason
+
+    def test_no_60m_vetoes(self):
+        """No 60m context → veto."""
+        ctx = self._make_ctx(dir_60=None, dir_30=1)
+        sig = evaluate_cross_tf_signal(ctx, "SPY")
+        assert sig.vetoed
+
+    def test_neutral_60m_reduces_strength(self):
+        """60m neutral → half strength."""
+        ctx = self._make_ctx(dir_60=0, dir_30=1)
+        sig = evaluate_cross_tf_signal(ctx, "SPY")
+        assert sig.direction == 1
+        assert sig.strength < 0.6
+
+    def test_15m_boosts_when_aligned(self):
+        """15m bullish → slight boost."""
+        ctx_no15 = self._make_ctx(dir_60=1, dir_30=1)
+        ctx_15 = self._make_ctx(dir_60=1, dir_30=1, dir_15=1)
+        s1 = evaluate_cross_tf_signal(ctx_no15, "SPY")
+        s2 = evaluate_cross_tf_signal(ctx_15, "SPY")
+        assert s2.strength >= s1.strength
+
+    def test_15m_reduces_when_opposed(self):
+        """15m bearish → reduces strength but doesn't veto."""
+        ctx = self._make_ctx(dir_60=1, dir_30=1, dir_15=-1)
+        sig = evaluate_cross_tf_signal(ctx, "SPY")
+        assert sig.direction == 1  # not vetoed
+        assert sig.strength < 0.7  # but reduced
 
 
 class TestRealDataAlignment:
