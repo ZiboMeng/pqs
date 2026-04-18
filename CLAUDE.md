@@ -91,8 +91,8 @@
 
 ### Current System State (Phase 0 Audit, 2026-04-17) [REVISED]
 
-**Architecture:** config/ → core/ → scripts/ → tests/ with 726 passing tests, 72 commits.
-**Phase C progress:** 19 iterations, P0✅ P1✅ P2⚠️80% P3✅ P4⚠️60%, 16/19 audit items fixed.
+**Architecture:** config/ → core/ → scripts/ → tests/ with 745 passing tests, 80+ commits.
+**Phase C progress:** 19 iterations + intraday sprint (4 tasks). Intraday pipeline now functional.
 
 Evidence levels:
 - `code_verified`: feature exists in code and logic is correct upon inspection
@@ -160,12 +160,21 @@ Evidence levels:
 | Full funnel walkthrough | ✅ 1 candidate complete | C-13 |
 | New factor families (overnight+breadth) | ✅ 5 new factors | C-14 |
 
+#### Fixed in Intraday Sprint (post Phase C)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Intraday persistence (5 tables) | ✅ `test_verified` (9 tests) | save_intraday_bar, checkpoint, idempotency |
+| Replay uses intraday bar path | ✅ Code verified | 60m bars → run_multi_day; fallback to daily |
+| IntradayBacktestEngine.run_multi_day() | ✅ `test_verified` (10 tests) | Multi-asset, NaN-safe, missing/stale bars handled |
+| Intraday report | ✅ Code verified | fills summary, equity path, drawdown, diagnostics |
+
 #### Remaining (all low-medium priority)
 
 | Feature | Impact | Notes |
 |---------|--------|-------|
 | strict_match 10bps precision | Medium | Currently 500bps; needs BT vectorized→incremental unification |
-| Intraday multi-asset engine | Medium | EOD valuation fixed (C-16), full bar loop still single-asset |
+| True intraday live (盘中实时) | Medium | Needs real-time data feed; currently daily-level live |
 | SHAP attribution | Low | Permutation importance (C-11) is functional alternative |
 | QQQ check in mining evaluator | Low | Validated in tests (C-7), not auto-checked per-trial |
 | Parallel mining | Low | Single-threaded works; parallelism needs DB lock design |
