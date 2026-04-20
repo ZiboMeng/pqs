@@ -213,7 +213,15 @@ def check_higher_tf_alignment(ctx: MultiTimescaleContext) -> Dict[str, bool]:
 
 @dataclass
 class CrossTFSignal:
-    """Output of multi-timescale signal evaluation."""
+    """Output of multi-timescale signal evaluation.
+
+    Per-TF attribution fields (populated by evaluate_cross_tf_signal):
+    - base_strength: strength contributed by 60m alone
+    - mult_30m / mult_15m: multiplicative contribution from 30m / 15m
+      (1.0 when the TF is absent or fully aligned)
+    - confirm_30m / confirm_15m: True = TF agrees with 60m, False = TF
+      contradicts 60m, None = TF absent or neutral
+    """
     symbol: str
     decision_time: pd.Timestamp
     direction: int          # +1 long, -1 short (unused in long-only), 0 no trade
@@ -222,6 +230,11 @@ class CrossTFSignal:
     confirming_tf_dir: int  # 30m direction
     vetoed: bool            # True if cross-TF conflict → no trade
     reason: str             # human-readable explanation
+    base_strength: float = 0.0
+    mult_30m: float = 1.0
+    mult_15m: float = 1.0
+    confirm_30m: Optional[bool] = None
+    confirm_15m: Optional[bool] = None
 
 
 def evaluate_cross_tf_signal(
@@ -262,27 +275,44 @@ def evaluate_cross_tf_signal(
     # but momentum-based sizing works better at daily granularity because
     # trend-aligned sizing reduces whipsaw. (Validated iter 9: MR signal → -2.8% CAGR)
     if dir_60 == 1:
-        strength = 1.0
+        base_strength = 1.0
     elif dir_60 == 0:
-        strength = 0.8
+        base_strength = 0.8
     else:
-        strength = 0.5
+        base_strength = 0.5
+
+    strength = base_strength
 
     # 30m confirmation (soft — reduces but does not veto)
+    mult_30m = 1.0
+    confirm_30m: Optional[bool] = None
     if dir_30 is not None:
         if dir_30 == -1 and dir_60 == 1:
-            strength *= 0.4
+            mult_30m = 0.4
+            confirm_30m = False
         elif dir_30 == 1:
-            strength *= 1.0
+            mult_30m = 1.0
+            confirm_30m = True if dir_60 == 1 else (False if dir_60 == -1 else None)
         elif dir_30 == 0:
-            strength *= 0.7
+            mult_30m = 0.7
+            confirm_30m = None  # neutral — neither confirm nor contradict
+        strength *= mult_30m
 
     # 15m fine-tuning (prototype — does not veto, only adjusts)
+    mult_15m = 1.0
+    confirm_15m: Optional[bool] = None
     if dir_15 is not None:
         if dir_15 == 1:
-            strength = min(strength * 1.1, 1.0)
+            new_strength = min(strength * 1.1, 1.0)
+            mult_15m = new_strength / strength if strength > 1e-12 else 1.0
+            strength = new_strength
+            confirm_15m = (dir_60 == 1)
         elif dir_15 == -1:
-            strength *= 0.6
+            mult_15m = 0.6
+            strength *= mult_15m
+            confirm_15m = False
+        else:
+            confirm_15m = None  # neutral
 
     direction = 1 if strength > 0.1 else 0
 
@@ -291,4 +321,113 @@ def evaluate_cross_tf_signal(
         direction=direction, strength=round(strength, 3),
         higher_tf_dir=dir_60, confirming_tf_dir=dir_30 or 0,
         vetoed=False, reason="signal_generated",
+        base_strength=round(base_strength, 3),
+        mult_30m=round(mult_30m, 3),
+        mult_15m=round(mult_15m, 3),
+        confirm_30m=confirm_30m,
+        confirm_15m=confirm_15m,
     )
+
+
+# ── Attribution aggregator ───────────────────────────────────────────────────
+
+@dataclass
+class AttributionSummary:
+    """Aggregated per-TF contribution counts over a backtest run.
+
+    Fields
+    ------
+    n_signals          : total CrossTFSignal records collected
+    n_vetoed           : vetoed (no-60m-context) count
+    n_active           : not-vetoed count = n_signals - n_vetoed
+    confirm_30m        : (n_confirm, n_contradict, n_neutral_or_absent) triple
+    confirm_15m        : same for 15m
+    avg_base_strength  : mean of base_strength across active signals
+    avg_mult_30m       : mean mult_30m across active signals
+    avg_mult_15m       : mean mult_15m across active signals
+    avg_final_strength : mean strength across active signals
+    """
+    n_signals: int = 0
+    n_vetoed: int = 0
+    confirm_30m_counts: Dict[str, int] = field(default_factory=lambda:
+        {"confirm": 0, "contradict": 0, "neutral_or_absent": 0})
+    confirm_15m_counts: Dict[str, int] = field(default_factory=lambda:
+        {"confirm": 0, "contradict": 0, "neutral_or_absent": 0})
+    avg_base_strength: float = 0.0
+    avg_mult_30m: float = 1.0
+    avg_mult_15m: float = 1.0
+    avg_final_strength: float = 0.0
+
+    @property
+    def n_active(self) -> int:
+        return self.n_signals - self.n_vetoed
+
+
+class AttributionAggregator:
+    """Collect CrossTFSignal records and produce a per-TF summary.
+
+    Usage:
+        agg = AttributionAggregator()
+        for date in dates:
+            for sym in targets:
+                sig = evaluate_cross_tf_signal(ctx, sym)
+                agg.add(sig)
+        summary = agg.summary()
+        print(agg.format_report())
+    """
+
+    def __init__(self) -> None:
+        self._sigs: List[CrossTFSignal] = []
+
+    def add(self, sig: CrossTFSignal) -> None:
+        self._sigs.append(sig)
+
+    def summary(self) -> AttributionSummary:
+        s = AttributionSummary(n_signals=len(self._sigs))
+        if not self._sigs:
+            return s
+
+        s.n_vetoed = sum(1 for x in self._sigs if x.vetoed)
+        active = [x for x in self._sigs if not x.vetoed]
+
+        def _bucket(x: Optional[bool]) -> str:
+            if x is True:
+                return "confirm"
+            if x is False:
+                return "contradict"
+            return "neutral_or_absent"
+
+        for x in active:
+            s.confirm_30m_counts[_bucket(x.confirm_30m)] += 1
+            s.confirm_15m_counts[_bucket(x.confirm_15m)] += 1
+
+        if active:
+            s.avg_base_strength = float(np.mean([x.base_strength for x in active]))
+            s.avg_mult_30m = float(np.mean([x.mult_30m for x in active]))
+            s.avg_mult_15m = float(np.mean([x.mult_15m for x in active]))
+            s.avg_final_strength = float(np.mean([x.strength for x in active]))
+        return s
+
+    def format_report(self) -> str:
+        s = self.summary()
+        if s.n_signals == 0:
+            return "AttributionAggregator: no signals collected"
+
+        lines = []
+        lines.append("=== Multi-TF Attribution Report ===")
+        lines.append(f"Signals: {s.n_signals}  Vetoed: {s.n_vetoed}  "
+                     f"Active: {s.n_active}")
+        lines.append("")
+        lines.append(f"{'TF':<6} {'Confirm':>8} {'Contradict':>11} "
+                     f"{'Neutral':>9} {'AvgMult':>9}")
+
+        def _row(name: str, c: Dict[str, int], mult: float) -> str:
+            return (f"{name:<6} {c['confirm']:>8d} {c['contradict']:>11d} "
+                    f"{c['neutral_or_absent']:>9d} {mult:>9.3f}")
+
+        lines.append(_row("30m", s.confirm_30m_counts, s.avg_mult_30m))
+        lines.append(_row("15m", s.confirm_15m_counts, s.avg_mult_15m))
+        lines.append("")
+        lines.append(f"Avg base (60m): {s.avg_base_strength:.3f}")
+        lines.append(f"Avg final    : {s.avg_final_strength:.3f}")
+        return "\n".join(lines)

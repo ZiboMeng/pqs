@@ -26,6 +26,7 @@ from core.backtest.backtest_engine import BacktestEngine, compute_metrics
 from core.backtest.intraday_engine import IntradayBacktestEngine
 from core.intraday.multi_timescale import (
     load_multi_timescale_bars, build_context, evaluate_cross_tf_signal,
+    AttributionAggregator,
 )
 from core.logging_setup import setup_logging, get_logger
 
@@ -101,6 +102,7 @@ def main():
     trade_count = 0
     veto_count = 0
     regime_log = []  # (date, regime, n_targets, n_adjusted, n_vetoed, strength_avg)
+    attribution = AttributionAggregator()
 
     for date in all_dates:
         date_ts = pd.Timestamp(date)
@@ -142,6 +144,7 @@ def main():
         for sym, base_w in base_targets.items():
             ctx = build_context(multi_bars, sym, mid_bar_ts)
             sig = evaluate_cross_tf_signal(ctx, sym, base_w)
+            attribution.add(sig)
             if sig.vetoed:
                 veto_count += 1
                 day_vetoes += 1
@@ -211,6 +214,10 @@ def main():
             if len(sub) > 0:
                 ann = float(sub.mean() * 252 * 100)
                 print("%-12s %+7.1f%% %8d" % (reg, ann, len(sub)))
+
+    # Per-TF attribution (confirm/contradict/neutral counts + avg multipliers)
+    print()
+    print(attribution.format_report())
 
     # Per-TF IC analysis
     _print_per_tf_ic(multi_bars, mt_symbols)
