@@ -20,6 +20,45 @@ class HighRiskSymbolConfig(BaseModel):
     left_side_trading_multiplier: float = Field(default=0.5, ge=0, le=1.0)
 
 
+class DataSensitivityConfig(BaseModel):
+    """Guard rails for factor computation when data sources have different
+    volume / micro-structure semantics.
+
+    Motivation: trades_backfill ETF bars apply a minimal filter
+    (correction<1 + late-report dedup) while the stocks-only CSV source uses
+    a different volume aggregation rule. Absolute volume values are not
+    apples-to-apples across sources — so factors that depend on volume
+    semantics (VWAP deviation, block-trade rate, exchange share, etc.) should
+    NOT be trusted for tickers in trades_backfill provenance.
+
+    `volume_sensitive_factors` lists factor names (as produced by
+    factor_generator) that should be masked to NaN for trades_backfill
+    tickers. Callers pass the set of backfill tickers (from BarStore
+    provenance) and the generator nulls those cells.
+    """
+
+    volume_sensitive_factors: List[str] = Field(
+        default_factory=lambda: [
+            # Currently produced by factor_generator:
+            "volume_surge_20d",
+            "price_volume_div",
+            # Extras from trades_scanner (not yet computed by factor_generator
+            # but reserved for future):
+            "vwap_deviation",
+            "volume_weighted_skew",
+            "large_trade_intensity",
+            "exch_top1_volume_share",
+            "buy_volume_proxy_ratio",
+            "sell_volume_proxy_ratio",
+            "block_trade_rate",
+        ]
+    )
+    rationale: str = Field(
+        default=("volume semantics unverified for trades_backfill tickers; "
+                 "differs from stocks-only CSV source by ~20-50% at minute level")
+    )
+
+
 class UniverseConfig(BaseModel):
     """
     Four-layer universe:
@@ -40,6 +79,7 @@ class UniverseConfig(BaseModel):
     macro_reference: List[str] = Field(default_factory=list)
     high_risk_symbols: HighRiskSymbolConfig = Field(default_factory=HighRiskSymbolConfig)
     liquidity: UniverseLiquidityConfig = Field(default_factory=UniverseLiquidityConfig)
+    data_sensitivity: DataSensitivityConfig = Field(default_factory=DataSensitivityConfig)
 
     first_trade_dates: Dict[str, str] = Field(default_factory=dict)
 

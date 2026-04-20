@@ -5,8 +5,9 @@ import pandas as pd
 import pytest
 
 from core.factors.factor_generator import (
-    generate_all_factors,
+    apply_data_sensitivity_mask,
     compute_forward_returns,
+    generate_all_factors,
 )
 
 
@@ -143,3 +144,80 @@ class TestComputeForwardReturns:
         prices, _ = _make_price_volume()
         fwd = compute_forward_returns(prices, [5])
         assert pd.isna(fwd[5].iloc[-1].iloc[0])
+
+
+class TestDataSensitivityMask:
+    """Guardrail: volume-sensitive factors must be NaN for backfill tickers."""
+
+    def test_mask_empty_backfill_is_noop(self):
+        prices, volumes = _make_price_volume()
+        factors = generate_all_factors(prices, volumes)
+        out = apply_data_sensitivity_mask(factors, backfill_tickers=set())
+        # Same dict, same values
+        for k, v in factors.items():
+            pd.testing.assert_frame_equal(v, out[k])
+
+    def test_mask_sets_backfill_volume_factors_to_nan(self):
+        prices, volumes = _make_price_volume()
+        factors = generate_all_factors(prices, volumes)
+        assert "volume_surge_20d" in factors
+        backfill = {"SYM0", "SYM2"}
+        out = apply_data_sensitivity_mask(
+            factors, backfill_tickers=backfill,
+            volume_sensitive_factors=["volume_surge_20d", "price_volume_div"],
+        )
+        # Masked tickers NaN for volume factor
+        assert out["volume_surge_20d"]["SYM0"].isna().all()
+        assert out["volume_surge_20d"]["SYM2"].isna().all()
+        # Non-backfill tickers unchanged
+        pd.testing.assert_series_equal(
+            out["volume_surge_20d"]["SYM1"],
+            factors["volume_surge_20d"]["SYM1"],
+        )
+
+    def test_mask_leaves_non_sensitive_factors_alone(self):
+        prices, volumes = _make_price_volume()
+        factors = generate_all_factors(prices, volumes)
+        assert "mom_21d" in factors
+        out = apply_data_sensitivity_mask(
+            factors, backfill_tickers={"SYM0"},
+            volume_sensitive_factors=["volume_surge_20d"],
+        )
+        # momentum factor should be untouched for SYM0
+        pd.testing.assert_series_equal(
+            out["mom_21d"]["SYM0"], factors["mom_21d"]["SYM0"],
+        )
+
+    def test_generate_all_factors_integrates_mask(self):
+        prices, volumes = _make_price_volume()
+        factors = generate_all_factors(
+            prices, volumes,
+            backfill_tickers={"SYM1"},
+            volume_sensitive_factors=["volume_surge_20d"],
+        )
+        assert factors["volume_surge_20d"]["SYM1"].isna().all()
+        assert not factors["volume_surge_20d"]["SYM0"].isna().all()
+
+    def test_mask_ignores_unknown_factor_names(self):
+        prices, volumes = _make_price_volume()
+        factors = generate_all_factors(prices, volumes)
+        # No-op for factors not in dict
+        out = apply_data_sensitivity_mask(
+            factors, backfill_tickers={"SYM0"},
+            volume_sensitive_factors=["nonexistent_factor_xyz"],
+        )
+        for k, v in factors.items():
+            pd.testing.assert_frame_equal(v, out[k])
+
+    def test_mask_original_factors_dict_not_mutated(self):
+        prices, volumes = _make_price_volume()
+        factors = generate_all_factors(prices, volumes)
+        orig_sym0 = factors["volume_surge_20d"]["SYM0"].copy()
+        _ = apply_data_sensitivity_mask(
+            factors, backfill_tickers={"SYM0"},
+            volume_sensitive_factors=["volume_surge_20d"],
+        )
+        # original factors dict's DataFrame untouched
+        pd.testing.assert_series_equal(
+            factors["volume_surge_20d"]["SYM0"], orig_sym0,
+        )

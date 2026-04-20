@@ -40,6 +40,8 @@ def generate_all_factors(
     volume_df: pd.DataFrame | None = None,
     benchmark_col: str = "SPY",
     open_df: pd.DataFrame | None = None,
+    backfill_tickers: set[str] | None = None,
+    volume_sensitive_factors: list[str] | None = None,
 ) -> Dict[str, pd.DataFrame]:
     """
     Generate all candidate factors from price (and optionally volume) data.
@@ -49,6 +51,16 @@ def generate_all_factors(
     price_df      : close prices, index=date, columns=symbols
     volume_df     : daily volume, same shape as price_df (optional)
     benchmark_col : column name for benchmark (used in relative strength)
+    backfill_tickers : set of tickers whose bars come from trades_backfill
+                       pipeline; their volume semantics differ from
+                       stocks-only CSV source. If supplied, the output
+                       values for these tickers in `volume_sensitive_factors`
+                       are set to NaN (prevents volume-sensitive factors
+                       from making decisions on data with unverified volume
+                       semantics).
+    volume_sensitive_factors : list of factor names to mask. Defaults to
+                       `UniverseConfig.data_sensitivity.volume_sensitive_factors`
+                       if None and config is loadable.
 
     Returns
     -------
@@ -69,8 +81,54 @@ def generate_all_factors(
         factors.update(_overnight_factors(price_df, open_df))
     factors.update(_breadth_factors(price_df))
 
+    if backfill_tickers:
+        factors = apply_data_sensitivity_mask(
+            factors, backfill_tickers,
+            volume_sensitive_factors=volume_sensitive_factors,
+        )
+
     logger.info("FactorGenerator: produced %d candidate factors", len(factors))
     return factors
+
+
+def _default_volume_sensitive_factors() -> list[str]:
+    """Load the default volume-sensitive factor list from config.
+    Falls back to a hard-coded list if config not loadable (tests etc.)."""
+    try:
+        from core.config.loader import load_config
+        cfg = load_config()
+        return list(cfg.universe.data_sensitivity.volume_sensitive_factors)
+    except Exception:
+        return ["volume_surge_20d", "price_volume_div"]
+
+
+def apply_data_sensitivity_mask(
+    factors: Dict[str, pd.DataFrame],
+    backfill_tickers: set[str] | list[str],
+    volume_sensitive_factors: list[str] | None = None,
+) -> Dict[str, pd.DataFrame]:
+    """Mask volume-sensitive factor values to NaN for `backfill_tickers`.
+
+    Returns a new dict; original factor DataFrames are unchanged.
+    See DataSensitivityConfig for rationale.
+    """
+    if not backfill_tickers:
+        return factors
+    if volume_sensitive_factors is None:
+        volume_sensitive_factors = _default_volume_sensitive_factors()
+    sensitive = set(volume_sensitive_factors)
+    backfill = set(backfill_tickers)
+    out: Dict[str, pd.DataFrame] = {}
+    for name, df in factors.items():
+        if name in sensitive:
+            cols_to_mask = [c for c in df.columns if c in backfill]
+            if cols_to_mask:
+                df = df.copy()
+                df[cols_to_mask] = np.nan
+                logger.info("FactorGenerator: masked %d backfill tickers in '%s'",
+                            len(cols_to_mask), name)
+        out[name] = df
+    return out
 
 
 def _momentum_factors(price_df: pd.DataFrame) -> Dict[str, pd.DataFrame]:

@@ -47,6 +47,23 @@ macro_reference:
   - "^TNX"    # 10-year Treasury yield
   - "DX-Y.NYB"  # DXY dollar index proxy
 
+# Guard factors that depend on volume semantics. For tickers coming from the
+# trades_backfill pipeline, volume aggregation differs from the stocks-only
+# CSV source — so factors in this list are masked to NaN for those tickers
+# (see DataSensitivityConfig + factor_generator.apply_data_sensitivity_mask).
+data_sensitivity:
+  volume_sensitive_factors:
+    - volume_surge_20d
+    - price_volume_div
+    - vwap_deviation
+    - volume_weighted_skew
+    - large_trade_intensity
+    - exch_top1_volume_share
+    - buy_volume_proxy_ratio
+    - sell_volume_proxy_ratio
+    - block_trade_rate
+  rationale: "volume semantics unverified for trades_backfill tickers"
+
 blacklist:
   - SQQQ
   - SOXS
