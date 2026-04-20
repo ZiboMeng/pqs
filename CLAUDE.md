@@ -607,8 +607,8 @@ Maintain TODO checklist. Update CLAUDE.md when work is actually completed. Small
 - Reporting: `core/reporting/` (master_report, master_report_builder)
 - Paper trading: `core/paper_trading/` (paper_trading_engine, pnl_tracker)
 - Universe: `core/universe/` (universe_manager, asset_scorer)
-- Data: `core/data/` (yfinance_provider, market_data_store, validator, calendar)
-- Scripts: `scripts/` (run_all.sh, fetch_data.py, run_backtest.py, run_mining.py, run_paper.py, generate_report.py, run_factor_screen.py, run_xgb_importance.py, run_universe_rebalance.py)
+- Data: `core/data/` (yfinance_provider, market_data_store, validator, calendar, bar_store)
+- Scripts: `scripts/` (run_all.sh, fetch_data.py, run_backtest.py, run_mining.py, run_paper.py, generate_report.py, run_factor_screen.py, run_xgb_importance.py, run_universe_rebalance.py, build_bars_parquet.py, build_splits_parquet.py, aggregate_bars.py, build_catalog.py, validate_vs_yfinance.py)
 - Intraday report: `core/reporting/intraday_report.py`
 - Tests: `tests/unit/` + `tests/integration/` (745 passing)
 
@@ -773,11 +773,238 @@ Selection priority:
 5. **不破坏核心约束**：long-only, no-margin, risk constraints, QQQ rule, pricing semantics
 
 ### Environment
-- Python: `/opt/miniconda3/envs/kcots/bin/python`
+- Python: `/home/zibo/miniconda3/envs/pqs/bin/python`
 - Tests: 745 passing
-- Key data: daily (37 symbols, 2007-2026), 60m (32 symbols), 30m/15m (32 symbols, 60d)
+- Key data (yfinance provider, legacy): daily (37 symbols, 2007-2026), 60m (32 symbols), 30m/15m (32 symbols, 60d)
+- **Key data (new 1m pipeline):** see "1m Bar Pipeline" section below
+
+### 1m Bar Pipeline [NEW 2026-04-18]
+
+**Source locations (heterogeneous):**
+- 2015-2023: `~/Documents/projects/Data/1m/YYYY/YYYYMM/YYYYMMDD.gz`
+  Polygon flat: `ticker,volume,open,close,high,low,window_start(ns UTC),transactions`
+  Full market including ETFs (~10,679 tickers/day)
+- 2024-01 to 2025-11: `~/Documents/projects/Data/1m/YYYY/YYYYMM/YYYYMMDD/<SYMBOL>.csv`
+  Schema: `exchange,symbol,open,high,low,close,amount,volume,bob,eob,type`
+  **⚠ Stocks only, NO ETFs** (~4,598 tickers/day; only 7/32 universe present:
+  AAPL/MSFT/GOOGL/AMZN/META/NVDA/TSLA)
+- 2025-12 + 2026: `/mnt/c/Users/Admin/Documents/projects/output/{2025,20260M}/...`
+  Same schema as 2024-01 (stocks only)
+
+**Output layout:**
+```
+pqs/data/
+  intraday/1m/<SYMBOL>.parquet     # RAW (unadjusted) DatetimeIndex tz-naive ET
+  intraday/5m/<SYMBOL>.parquet
+  intraday/15m/<SYMBOL>.parquet
+  intraday/30m/<SYMBOL>.parquet
+  intraday/60m/<SYMBOL>.parquet
+  daily/<SYMBOL>.parquet           # RTH-only aggregate, date index
+  ref/splits.parquet               # canonical splits (symbol, date, from, to)
+  .yf_cache/                       # BarStore yfinance fallback cache (1d TTL)
+  _catalog.parquet                 # coverage per (symbol, freq)
+```
+
+**Schema (unified across sources):** `open/high/low/close` float32, `volume` int64,
+`amount` float64 (dollar volume; NaN for 2015-2023). Index = `timestamp`/`date`.
+
+**Splits:** table at `ref/splits.parquet` (4959 rows, 2821 tickers, 1978-2026).
+Applied forward at READ TIME by `BarStore`:
+```
+adj_factor(t) = Π (from_i / to_i) over splits i where date_i > t
+adj_price = raw_price * factor; adj_volume = raw_volume / factor
+```
+(Note: `美股复权计算方法.md` in source describes backward-adjust despite calling
+it 前复权; we use standard forward adjust to match quant convention / yfinance.)
+
+**BarStore API (`core/data/bar_store.py`):**
+```python
+store = BarStore()
+df = store.load("SPY", freq="1m", adjusted=True)              # local + yfinance tail-fill
+df = store.load("SPY", freq="60m", fallback="local")          # local only
+df = store.load("SPY", freq="daily", fallback="yfinance")     # yfinance only (cached)
+raw = store.load("AAPL", freq="1m", adjusted=False)           # pre-split RAW
+```
+
+**ETF gap & yfinance fallback:** Because 2024+ source has stocks only, ETF 1m
+bars stop at 2023-12-31 locally. `BarStore.load(..., fallback="auto")` (default)
+auto-fills the tail from yfinance. yfinance coverage:
+- 1m: last 59 days only
+- 5m/15m/30m/60m: last 720 days
+- daily: full history
+
+**Validated reliability (2015-01 window, apples-to-apples split-only):**
+- Open/High/Low median error: **0.000%** across all 8 test symbols
+- Close median error: 0.000–0.067% (max 0.134%)
+- Tiny close diffs = closing auction (16:00) vs last 15:59 1m bar; not a data bug
+
+**Scripts:**
+```bash
+python scripts/build_splits_parquet.py            # refresh splits.parquet
+python scripts/build_bars_parquet.py --phase all --workers 6   # full ingest + consolidate
+python scripts/build_bars_parquet.py --month-only 202401 --workers 6  # single month
+python scripts/aggregate_bars.py                  # 1m → 5m/15m/30m/60m/daily
+python scripts/aggregate_bars.py --symbols SPY AAPL   # filter to symbols
+python scripts/build_catalog.py                   # build _catalog.parquet
+python scripts/validate_vs_yfinance.py --freq daily --mode split --symbols SPY AAPL
+python scripts/validate_vs_yfinance.py --freq 1m --symbols AAPL  # needs 2026-02+ ingested
+```
+
+**Invariant:** Bars stored RAW (unadjusted). Adjustment is applied only at read
+time by `BarStore.load(adjusted=True)` using splits.parquet. This keeps the
+storage vendor-agnostic — swapping 2024+ source (adding ETFs) requires only
+re-running `build_bars_parquet.py`, not reprocessing splits or downstream code.
+
+### Trades Backfill Pipeline [NEW 2026-04-20]
+
+**Problem:** Upstream 2024-2025/11 source (per-ticker CSV in
+`~/Documents/projects/Data/1m/`) is stocks-only — no ETFs. This created a
+major data gap for SPY/QQQ/XL*/GLD/TLT/etc. 2024+ bars.
+
+**Solution:** separate ingestion pipeline consuming tick-level trade data
+from encrypted zips (`trades_v1_YYYY-MM-DD.csv.gz` / `.csv`):
+
+- Source: `/mnt/c/Users/Admin/Documents/projects/trades/**/YYYYMMDD.zip`
+  (one zip per trading day, ~1.7-4GB, AES-encrypted)
+- Password: `sha256(basename + "vvtr123!@#qwe")` — per-zip dynamic
+- Schema: `ticker,conditions,correction,exchange,id,participant_timestamp,`
+  `price,sequence_number,sip_timestamp,size,tape,trf_id,trf_timestamp`
+- Aggregation: tick-level → 1m bars with extras (n_trades, vwap,
+  buy/sell_volume_proxy, large_trade_volume, block_n, exch_top1_share)
+
+**Strategy B (chosen merge policy):**
+  Trades scanner only writes tickers NOT already present in
+  `.staging/<month>/`. This preserves existing stocks_csv bars unchanged
+  while filling ETF gaps. Avoids volume semantics conflicts between
+  sources.
+
+**Filter rules (`trades_v2_late_report_dedup_2026-04-19`):**
+  - `correction < 1` (drop corrected/cancelled)
+  - Drop trades in `DROP_EXCHANGES = {4}` (FINRA ADF OTC duplicate prints)
+  - Drop trades whose `conditions` include any `LATE_REPORT_CONDS = {14,
+    16, 18, 19, 20, 22, 29, 31, 32, 33, 34, 38, 39, 42, 43, 45, 47-51,
+    54-58}` (late/delayed duplicate reports per vendor's condition table)
+
+**Resilience:**
+  - Atomic parquet writes via tmp + rename (interrupted process leaves
+    clean main file)
+  - Peak memory lock (`/tmp/trades_scanner_peak.lock`, `fcntl.LOCK_EX`)
+    serializes parse+filter+aggregate across parallel scanner instances
+    to prevent OOM on 15GB system
+  - Per-instance state file (`data/trades_scanner_state_<year>.json`) and
+    per-instance `/tmp/scanner_<label>_decrypt.csv` support multi-scanner
+    orchestration
+  - `disk_guard.py` watches `/mnt/c` free space; kills Baidu Netdisk
+    processes if < 30GB to prevent disk fill
+
+**Scripts:**
+```bash
+python scripts/trades_scanner.py --watch [--year-include 2024] \
+    [--state-file ...] [--decrypt-tmp /tmp/...]           # main ingester
+python scripts/scanner_sequential_2026_2025.py --a-pid ... # 2026→2025 chain
+python scripts/scanner_terminator.py --pid ... --year 2025 \
+    --completion-date 20251231                             # year-end gate
+python scripts/disk_guard.py                              # C: drive guard
+python scripts/consolidate_trades.py                      # .staging_trades → root
+python scripts/consolidate_sanity_check.py                # cross-source price sanity
+python scripts/post_processing_pipeline.py [--skip-wait]  # end-to-end orch
+```
+
+**Final state after 2024+2025+2026 ingest (2026-04-20):**
+  - 25,355 symbols across 1m/5m/15m/30m/60m; 25,329 daily
+  - 1m: 4.03B rows, 84.6GB on disk
+  - 0 failed zips after retries
+  - Universe tickers (37) refreshed from yfinance canonical daily (covers
+    2015 polygon_gz gaps on low-volume ETFs like VLUE)
+  - Macro reference (^VIX, ^TNX, DX-Y.NYB) fetched from yfinance
+  - Known issues: ZTST has 2 sentinel bars at $12345 on 2025-11-28 and
+    2025-12-24 (vendor source bug; not systemic — see
+    `reports/known_data_issues/ztst_sentinel.md`)
+
+**Hard rule for future data ingestion:** any new ingestion script MUST
+synchronously write `data/ref/bar_provenance.parquet` rows using the same
+schema as `trades_scanner.update_provenance()` (symbol, freq, source_type,
+rule_version, first_bar_ts, last_bar_ts, n_bars_added, updated_at). This
+keeps the provenance sidecar in sync without migration scripts.
+
+---
+
+### Data Provenance Sidecar [NEW 2026-04-20]
+
+Every (symbol, freq) has explicit source metadata in
+`data/ref/bar_provenance.parquet`. Consumers use this to:
+  - detect cross-source merge artifacts (sanity check)
+  - mask volume-sensitive factors for `trades_backfill` tickers (factor
+    guard — see `DataSensitivityConfig`)
+  - attribute strategy performance by data epoch in reports
+
+**Source types:**
+  - `polygon_gz` — 2015-2023 Polygon flat files (full market)
+  - `stocks_csv` — 2024-01 to 2025-11 per-ticker CSV (stocks only)
+  - `stocks_csv_c_drive` — 2025-12+ per-ticker CSV (stocks only, C: drive)
+  - `trades_backfill` — 2024+ tick-level trades (ETF + stocks not in csv)
+  - `yfinance_daily` — universe ETFs + macro refs (canonical adjusted daily)
+  - `yfinance_fallback` — on-the-fly yfinance fill when BarStore detects
+    a tail gap (fallback='auto')
+
+**API:**
+```python
+from core.data.bar_store import BarStore
+store = BarStore()
+df = store.load("SPY", freq="1m", fallback="auto")
+print(df.attrs["provenance"])  # list of rows
+print(store.get_provenance("SPY", "1m"))
+```
+
+**Factor guard:**
+```yaml
+# config/universe.yaml
+data_sensitivity:
+  volume_sensitive_factors: [volume_surge_20d, price_volume_div, ...]
+```
+```python
+from core.factors.factor_generator import generate_all_factors
+factors = generate_all_factors(price_df, volume_df,
+                               backfill_tickers=backfill_set)
+# volume-sensitive factors get NaN for backfill tickers
+```
+
+---
+
+### Notify Module [NEW 2026-04-20]
+
+Channel-agnostic notifier for paper trading alerts, kill-switch events,
+daily PnL summaries.
+
+Backends:
+  - `wecom_bot` — WeChat Work group-bot webhook (recommended, no rate limit)
+  - `server_chan` — Server 酱 Turbo (5/day free; keep for criticals)
+  - `stdout` — dev / testing
+  - `null` — disabled (default)
+
+API:
+```python
+from core.notify import get_notifier
+n = get_notifier()  # reads config/notify.yaml
+n.info("Daily summary", f"NAV={nav:,.0f}, PnL={pnl:+.0f}")
+n.error("Kill switch stage 2", f"drawdown={dd:.2%}")
+```
+
+All sends return `SendResult` (never raises on transport failure). Rate
+limit + min_level gating built-in. Credentials via env var expansion
+(`${PQS_WECOM_WEBHOOK_URL}`) — never commit secrets.
+
+---
 
 ### Current TODO Checklist
+- [x] Provenance sidecar (trades_scanner + migration + BarStore API)
+- [x] Factor guard (data_sensitivity config + apply_data_sensitivity_mask)
+- [x] Notify module (base + wecom_bot + server_chan + stdout)
+- [ ] Master report / diagnostics: show per-ticker data-epoch contribution
+      (护栏 3 downstream — BarStore.attrs["provenance"] now available)
+- [ ] fetch_data.py equivalent for universe + macro: currently one-off
+      yfinance fetch in `scripts/`; productionize as part of pipeline
+- [ ] validate_vs_yfinance 1m batching (yfinance 1m API limits 8d/req)
 - [ ] Multi-timescale data contract (60m+30m formal, 15m+5m prototype)
 - [ ] Multi-timescale signal protocol implementation
 - [ ] Cross-TF validation / confirmation logic
