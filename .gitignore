@@ -21,12 +21,20 @@ env/
 data/daily/
 data/intraday/
 data/factors/
+data/ref/
+data/.yf_cache/
+data/_catalog.parquet
+data/trades_scanner_state*.json
 data/*.db
 data/*.db-shm
 data/*.db-wal
 
 # Reports output (not committed)
 reports/
+
+# Runtime logs
+logs/
+nohup.out
 
 # Jupyter
 .ipynb_checkpoints/
