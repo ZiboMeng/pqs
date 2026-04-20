@@ -251,6 +251,12 @@ class TestQQQOutperformance:
         self.open_df = pd.DataFrame(of).sort_index()
         self.price_df = self.price_df[self.price_df.index >= "2007-01-02"]
         self.open_df = self.open_df[self.open_df.index >= "2007-01-02"]
+        # Different symbols have different listing dates → union creates
+        # date-level NaN gaps. Apply a pre-engine ffill(limit=2) to bridge
+        # tiny data gaps while keeping large holes as NaN (engine will skip
+        # those orders per post-2026-04-20 strict-no-ffill policy).
+        self.open_df = self.open_df.reindex(self.price_df.index).ffill(limit=2)
+        self.price_df = self.price_df.ffill(limit=2)
 
         if "QQQ" not in self.price_df.columns or len(self.price_df) < 252:
             pytest.skip("Insufficient real data for QQQ validation")

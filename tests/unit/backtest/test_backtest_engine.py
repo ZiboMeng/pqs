@@ -136,6 +136,80 @@ class TestBacktestEngineRun:
         if result.trades:
             assert result.trades[0].executed_price == pytest.approx(200.0, rel=0.01)
 
+    def test_nan_open_skips_order_no_fallback_to_close(self):
+        """NaN T+1 open must cause the order to be skipped — not silently
+        filled at close (previously the code did `open_row.get(sym,
+        price_row.get(sym, 0.0))` creating lookahead)."""
+        zero_cost = CostModel(CostModelConfig(tiers={
+            "default": CostTierConfig(
+                symbols=[], commission_bps=0, slippage_interday_bps=0,
+                slippage_intraday_bps=0,
+            )
+        }))
+        n = 5
+        idx = pd.bdate_range("2022-01-03", periods=n)
+        close = pd.DataFrame({"A": [100.0] * n}, index=idx)
+        open_df = pd.DataFrame({"A": [np.nan] * n}, index=idx)  # no opens ever
+        signals = pd.DataFrame({"A": [1.0] * n}, index=idx)
+
+        engine = BacktestEngine(zero_cost, initial_capital=10000)
+        result = engine.run(signals, close, open_df=open_df)
+        # No fills should execute at close price (100)
+        close_priced_fills = [t for t in result.trades
+                              if abs(t.executed_price - 100.0) < 0.5]
+        assert len(close_priced_fills) == 0, (
+            "Orders should NOT have been filled at close when open is NaN"
+        )
+        # Diagnostic counter should be > 0
+        assert engine._skipped_missing_open > 0, (
+            "Missing-open skip counter should record at least one skipped order"
+        )
+
+    def test_no_ffill_on_reindexed_opens(self):
+        """A date missing from open_df must stay NaN in the reindexed opens
+        (previously `method='ffill'` silently copied prior date's open)."""
+        zero_cost = CostModel(CostModelConfig(tiers={
+            "default": CostTierConfig(
+                symbols=[], commission_bps=0, slippage_interday_bps=0,
+                slippage_intraday_bps=0,
+            )
+        }))
+        idx = pd.bdate_range("2022-01-03", periods=5)
+        close = pd.DataFrame({"A": [100.0] * 5}, index=idx)
+        # Open only on odd-indexed days; even days → NaN (no ffill)
+        open_data = [100.0, np.nan, 100.0, np.nan, 100.0]
+        open_df = pd.DataFrame({"A": open_data}, index=idx)
+        signals = pd.DataFrame({"A": [1.0] * 5}, index=idx)
+
+        engine = BacktestEngine(zero_cost, initial_capital=10000)
+        result = engine.run(signals, close, open_df=open_df)
+        # Some orders skipped (NaN days) but the valid-open days should fill
+        assert engine._skipped_missing_open > 0
+
+    def test_open_df_none_uses_close_not_lookahead(self):
+        """open_df=None → execution price = same-day close (no lookahead) —
+        previously `prices.shift(-1).ffill()` used T+2 close (lookahead)."""
+        zero_cost = CostModel(CostModelConfig(tiers={
+            "default": CostTierConfig(
+                symbols=[], commission_bps=0, slippage_interday_bps=0,
+                slippage_intraday_bps=0,
+            )
+        }))
+        idx = pd.bdate_range("2022-01-03", periods=10)
+        # Make prices unambiguous: 100, 101, 102, ...
+        close = pd.DataFrame({"A": [100.0 + i for i in range(10)]}, index=idx)
+        signals = pd.DataFrame({"A": [1.0] * 10}, index=idx)
+
+        engine = BacktestEngine(zero_cost, initial_capital=10000)
+        result = engine.run(signals, close, open_df=None)
+        # First trade (signal date=T=idx[0], exec at idx[1]) with open=None
+        # should use close.loc[idx[1]] = 101.0 (not 102 or 103).
+        if result.trades:
+            first = result.trades[0]
+            assert first.executed_price == pytest.approx(101.0, rel=0.01), (
+                f"First fill should be at next-day close (101), got {first.executed_price}"
+            )
+
     def test_hold_nothing_equity_flat(self):
         """全零信号（不持仓）→ 权益曲线应等于初始资金（全部在现金）。"""
         price    = _make_price_df(50)

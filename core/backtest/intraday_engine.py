@@ -109,6 +109,10 @@ class IntradayBacktestEngine:
         self._rebal_thr    = rebalance_threshold
         self._conf_no_trade  = conf_no_trade
         self._conf_full_size = conf_full_size
+        # Diagnostic counter: incremented when a symbol is SKIPPED because its
+        # T+1 open is missing / NaN / non-positive. Previously this path fell
+        # back silently to same-bar close → lookahead bias. Expose for reports.
+        self._skipped_missing_open: int = 0
 
     # ── 主入口 ────────────────────────────────────────────────────────────────
 
@@ -381,9 +385,19 @@ class IntradayBacktestEngine:
             port_val = cur_cash + _portfolio_value(shares, day_bars.loc[bar_ts])
             cur_w    = _current_weights(shares, day_bars.loc[bar_ts], port_val)
 
-            # 生成订单（T+1 开盘价成交）
-            open_prices = {sym: float(next_bar.get("open", next_bar.get("close", 0)))
-                           for sym in set(list(cur_w) + list(tgt_w))}
+            # 生成订单（T+1 开盘价成交）。缺失或 NaN open → 跳过该 symbol（
+            # 不再回退到同 bar close，避免同 bar 执行 / lookahead）。
+            open_prices: Dict[str, float] = {}
+            for sym in set(list(cur_w) + list(tgt_w)):
+                op = next_bar.get("open", float("nan")) if hasattr(next_bar, "get") else float("nan")
+                try:
+                    op_f = float(op)
+                except (TypeError, ValueError):
+                    continue
+                if np.isnan(op_f) or op_f <= 0:
+                    self._skipped_missing_open += 1
+                    continue
+                open_prices[sym] = op_f
 
             orders = _generate_orders(
                 cur_weights   = cur_w,

@@ -109,6 +109,11 @@ class BacktestEngine:
         self._min_trade = min_trade_usd
         self._rebal_thr = rebalance_threshold
         self._int_shares = integer_shares
+        # Diagnostic counter: incremented inside _generate_orders when a
+        # symbol's T+1 open is NaN / <=0 and thus skipped. Previously orders
+        # silently fell back to same-day close (lookahead). Now skipped and
+        # counted so researchers can see how often this happens in backtest.
+        self._skipped_missing_open: int = 0
 
     # ── 主入口 ────────────────────────────────────────────────────────────────
 
@@ -146,11 +151,22 @@ class BacktestEngine:
         if regime_series is not None:
             signals = _apply_regime_exposure_cap(signals, regime_series)
 
-        # open_df：若无则 fallback 到 close（T+1 close，轻微 look-ahead 但用于近似）
+        # open_df：明确 fallback 原则。
+        #   - 若 open_df 提供 → reindex 但 NOT ffill（缺失日期的值保持 NaN，
+        #     下游 _generate_orders 对 NaN open 的 symbol 跳过，不用前一日的
+        #     chia停 open 冒充当日 open）。
+        #   - 若 open_df 为 None → 显式 fallback 到**同日** close 作为执行价
+        #     近似（绝不使用 T+1 close 之后的值，避免 lookahead），并警告。
         if open_df is not None:
-            opens = open_df.reindex(dates, method="ffill")
+            opens = open_df.reindex(dates)     # no method="ffill" — keep NaN
+            missing_open = opens.isna().sum().sum()
+            if missing_open > 0:
+                logger.debug("BacktestEngine.run: %d NaN opens — will skip those orders",
+                             int(missing_open))
         else:
-            opens = prices.shift(-1).ffill().bfill()  # T+1 close 近似
+            logger.warning("BacktestEngine.run: open_df 未提供，使用同日 close 作为"
+                           "执行价代理（有小幅偏差但无 lookahead）")
+            opens = prices.copy()
 
         vix = vix_series.reindex(dates, method="ffill").fillna(_DEFAULT_VIX) \
               if vix_series is not None \
@@ -281,9 +297,15 @@ class BacktestEngine:
             if abs(delta_w) < self._rebal_thr and tgt_w > 0:
                 continue
 
-            # 使用开盘价（若可用）否则用收盘价估算数量
-            exec_price = float(open_row.get(sym, price_row.get(sym, 0.0)))
-            if exec_price <= 0:
+            # 执行价：T+1 open。缺失 / NaN / 非正 → 跳过该 symbol 的订单
+            # （不再悄悄 fallback 到 same-day close → 避免 lookahead）。
+            op = open_row.get(sym, float("nan"))
+            try:
+                exec_price = float(op)
+            except (TypeError, ValueError):
+                exec_price = float("nan")
+            if not np.isfinite(exec_price) or exec_price <= 0:
+                self._skipped_missing_open += 1
                 continue
 
             delta_usd = abs(delta_w) * portfolio_val
