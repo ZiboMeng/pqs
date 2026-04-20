@@ -47,6 +47,64 @@ class TestGetLatestCompletedBar:
         assert bar.timestamp <= pd.Timestamp("2025-04-01 11:00")
 
 
+class TestMultiTFLookaheadInvariant:
+    """Build-context must never return a bar whose close time > decision_time.
+    This is the fundamental multi-timescale leakage gate."""
+
+    def _make_right_labeled(self, start, n, freq_minutes):
+        """Make right-labeled bars: index = bar close time."""
+        idx = pd.date_range(start, periods=n, freq=f"{freq_minutes}min")
+        return pd.DataFrame({
+            "open":   [100.0 + i for i in range(n)],
+            "high":   [101.0 + i for i in range(n)],
+            "low":    [99.0 + i for i in range(n)],
+            "close":  [100.5 + i for i in range(n)],
+            "volume": [1e5] * n,
+        }, index=idx)
+
+    def test_build_context_excludes_future_bars(self):
+        bars_60m = self._make_right_labeled("2025-04-01 10:30", 6, 60)
+        bars_15m = self._make_right_labeled("2025-04-01 09:45", 24, 15)
+        multi = {"60m": {"SPY": bars_60m}, "15m": {"SPY": bars_15m}}
+
+        # Decide at 11:30 — 60m bar closed at 11:30 should be included, but
+        # 60m bar at 12:30 (not yet closed) MUST NOT be.
+        ctx = build_context(multi, "SPY", pd.Timestamp("2025-04-01 11:30"))
+        assert ctx.has("60m") and ctx.has("15m")
+        for freq, bar in ctx.bars.items():
+            assert bar.timestamp <= pd.Timestamp("2025-04-01 11:30"), (
+                f"{freq} bar {bar.timestamp} > decision 11:30 — leakage"
+            )
+
+    def test_build_context_at_exact_bar_close_includes_just_closed(self):
+        """Bar closed AT decision_time: include it (data available)."""
+        bars = self._make_right_labeled("2025-04-01 10:30", 5, 60)
+        multi = {"60m": {"SPY": bars}}
+        decision = pd.Timestamp("2025-04-01 12:30")
+        ctx = build_context(multi, "SPY", decision)
+        assert ctx.has("60m")
+        assert ctx.bars["60m"].timestamp == decision
+
+    def test_build_context_empty_when_no_closed_bar(self):
+        """Decision before any bar closes → no context."""
+        bars = self._make_right_labeled("2025-04-01 12:30", 3, 60)
+        multi = {"60m": {"SPY": bars}}
+        ctx = build_context(multi, "SPY", pd.Timestamp("2025-04-01 10:00"))
+        assert not ctx.has("60m")
+
+    def test_decision_mid_bar_excludes_incomplete_bar(self):
+        """Decision at 10:45 (mid 60m bar [09:30, 10:30] already closed at
+        10:30, but bar [10:30, 11:30] not yet closed): only 10:30 bar should
+        be in context, not the 11:30 one."""
+        # Right-labeled: bars close at 10:30, 11:30, 12:30, ...
+        bars = self._make_right_labeled("2025-04-01 10:30", 6, 60)
+        multi = {"60m": {"SPY": bars}}
+        ctx = build_context(multi, "SPY", pd.Timestamp("2025-04-01 10:45"))
+        assert ctx.has("60m")
+        # Should have the 10:30 bar (just closed), not 11:30
+        assert ctx.bars["60m"].timestamp == pd.Timestamp("2025-04-01 10:30")
+
+
 class TestMultiTimescaleContext:
     def test_build_context_multi_freq(self):
         np.random.seed(42)

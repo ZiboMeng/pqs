@@ -21,9 +21,21 @@ import numpy as np
 import pandas as pd
 
 from core.config.loader import load_config
+from core.data.bar_store import BarStore
 from core.data.market_data_store import MarketDataStore
 from core.factors.factor_generator import generate_all_factors, compute_forward_returns
 from core.logging_setup import setup_logging, get_logger
+
+
+def _load_backfill_tickers(symbols) -> set:
+    """Intersect BarStore daily-provenance backfill set with the symbols
+    in our universe (returns the subset whose daily data came from trades
+    backfill; empty if sidecar missing)."""
+    try:
+        backfill = BarStore().list_backfill_tickers(freq="daily")
+    except Exception:
+        return set()
+    return set(symbols) & backfill
 
 setup_logging()
 logger = get_logger("run_xgb")
@@ -64,7 +76,15 @@ def main():
     logger.info("Price matrix: %d x %d", len(price_df), len(price_df.columns))
 
     logger.info("Generating factors...")
-    factors = generate_all_factors(price_df, vol_df)
+    # Factor guard: mask volume-sensitive factors for trades_backfill tickers
+    # (their volume semantics differ from stocks_csv source; see
+    # DataSensitivityConfig in config/universe.yaml).
+    backfill_tickers = _load_backfill_tickers(price_df.columns)
+    if backfill_tickers:
+        logger.info("data sensitivity guard: %d backfill tickers will get NaN "
+                    "for volume-sensitive factors", len(backfill_tickers))
+    factors = generate_all_factors(price_df, vol_df,
+                                    backfill_tickers=backfill_tickers)
     logger.info("Generated %d factors", len(factors))
 
     logger.info("Computing forward returns (H=%d)...", args.horizon)

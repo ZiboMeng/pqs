@@ -196,6 +196,33 @@ class BarStore:
 
     # ── Provenance sidecar ────────────────────────────────────────────────────
 
+    def list_backfill_tickers(self, freq: str = "daily") -> set[str]:
+        """Return set of tickers whose bars for `freq` come (entirely or
+        partially) from source_type='trades_backfill'.
+
+        Why the 1m fallback: the scanner only writes provenance rows for
+        freq='1m' (the canonical source); aggregated freqs (5m/15m/30m/60m/
+        daily) inherit the source identity of their 1m parent. A ticker in
+        the 1m backfill set → its aggregated daily bar is also backfill-
+        sourced. Callers use the returned set to mask volume-sensitive
+        factors (see core/factors/factor_generator.apply_data_sensitivity_mask).
+        """
+        sidecar = self.root / "ref" / "bar_provenance.parquet"
+        if not sidecar.exists():
+            return set()
+        try:
+            df = pd.read_parquet(sidecar)
+        except Exception:
+            return set()
+        # Direct match on the requested freq
+        mask_direct = (df["freq"] == freq) & (df["source_type"] == "trades_backfill")
+        direct = set(df.loc[mask_direct, "symbol"].unique())
+        # Inherit from 1m parent for aggregated freqs
+        if freq != "1m":
+            mask_1m = (df["freq"] == "1m") & (df["source_type"] == "trades_backfill")
+            direct |= set(df.loc[mask_1m, "symbol"].unique())
+        return direct
+
     def get_provenance(self, symbol: str, freq: str) -> list[dict]:
         """Return list of provenance rows for (symbol, freq) from
         `data/ref/bar_provenance.parquet`. Each row: symbol, freq,

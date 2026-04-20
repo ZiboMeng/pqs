@@ -161,7 +161,15 @@ def build_context(
     """
     Build a MultiTimescaleContext for a symbol at a given time.
 
-    For each available timeframe, finds the latest completed bar.
+    For each available timeframe, finds the latest completed bar — i.e. the
+    last bar whose **close timestamp** is <= decision_time. With the
+    right-labeled aggregate convention (see aggregate_bars.py, 2026-04-20)
+    `index` == bar close time, so `index <= decision_time` is the correct
+    predicate.
+
+    Defensive invariant (asserted before return): every bar in the returned
+    context satisfies `bar.timestamp <= decision_time`. Any violation =
+    lookahead bug.
     """
     ctx = MultiTimescaleContext(decision_time=decision_time)
 
@@ -171,6 +179,12 @@ def build_context(
         bar = get_latest_completed_bar(sym_data[symbol], decision_time)
         if bar:
             bar.freq = freq
+            # Hard invariant: no bar with close time > decision_time.
+            assert bar.timestamp <= decision_time, (
+                f"lookahead violation in build_context({symbol}, "
+                f"decision={decision_time}): {freq} bar close "
+                f"{bar.timestamp} > decision_time"
+            )
             ctx.bars[freq] = bar
 
     return ctx

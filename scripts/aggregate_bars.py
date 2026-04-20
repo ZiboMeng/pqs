@@ -6,9 +6,12 @@ Input:  pqs/data/intraday/1m/<SYMBOL>.parquet   (RAW, DatetimeIndex tz-naive ET)
 Output: pqs/data/intraday/{5m,15m,30m,60m}/<SYMBOL>.parquet
         pqs/data/daily/<SYMBOL>.parquet
 
-Conventions:
-- Resample labels = left edge (bar 09:30 covers [09:30, 09:31) for 1m,
-  so 5m bar 09:30 covers [09:30, 09:35)).
+Bar labelling convention [2026-04-20: CHANGED]:
+- Resample labels = RIGHT edge (bar CLOSE time). A 5m bar dated 09:35
+  covers [09:30, 09:35] — i.e. `index==09:35` means "bar closed at 09:35".
+- Previously was left-label; changed because downstream multi-timescale
+  code naturally reasons about "latest completed bar at decision_time T"
+  via `index <= T`, which is correct only when bar timestamp == close time.
 - OHLCV aggregation: open=first, high=max, low=min, close=last, volume=sum, amount=sum.
 - Daily uses Regular Trading Hours only (09:30–16:00 ET) to match yfinance daily convention.
 - Intraday aggregates include extended hours (same coverage as input 1m).
@@ -44,18 +47,21 @@ OHLCV_AGG = {
 
 
 def resample_intraday(df: pd.DataFrame, rule: str) -> pd.DataFrame:
-    """Resample 1m → rule (e.g. '5min'). Preserves tz-naive ET index."""
-    out = df.resample(rule, label="left", closed="left").agg(OHLCV_AGG)
+    """Resample 1m → rule (e.g. '5min') using RIGHT-labeled bars.
+    Bar index = bar CLOSE timestamp. Preserves tz-naive ET index."""
+    out = df.resample(rule, label="right", closed="right").agg(OHLCV_AGG)
     out = out.dropna(subset=["open", "high", "low", "close"], how="all")
     return out
 
 
 def resample_daily(df: pd.DataFrame) -> pd.DataFrame:
-    """Resample 1m → daily using RTH bars only. Index = date (tz-naive)."""
-    rth = df.between_time("09:30", "15:59")
+    """Resample 1m → daily using RTH bars only. Index = date (tz-naive).
+    Bar label convention is moot here since we collapse to date afterwards.
+    RTH filter extended to 16:00 inclusive to capture any closing print."""
+    rth = df.between_time("09:30", "16:00")
     if rth.empty:
         return pd.DataFrame()
-    out = rth.resample("1D", label="left", closed="left").agg(OHLCV_AGG)
+    out = rth.resample("1D", label="right", closed="right").agg(OHLCV_AGG)
     out = out.dropna(subset=["open", "high", "low", "close"], how="all")
     out.index = pd.DatetimeIndex(out.index.date, name="date")
     return out

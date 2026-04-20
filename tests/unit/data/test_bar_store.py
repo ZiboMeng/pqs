@@ -370,3 +370,36 @@ class TestProvenance:
         store = BarStore(tmp_path)
         df = store.load("SPY", freq="1m", fallback="local")
         assert df.attrs.get("provenance") == []
+
+    def test_list_backfill_tickers_1m_direct(self, tmp_path):
+        _write_provenance(tmp_path, [
+            {"symbol": "SPY", "freq": "1m", "source_type": "trades_backfill",
+             "rule_version": "v1",
+             "first_bar_ts": pd.Timestamp("2024-01-02"),
+             "last_bar_ts": pd.Timestamp("2024-12-31")},
+            {"symbol": "AAPL", "freq": "1m", "source_type": "stocks_csv",
+             "rule_version": "v1",
+             "first_bar_ts": pd.Timestamp("2024-01-02"),
+             "last_bar_ts": pd.Timestamp("2024-12-31")},
+        ])
+        store = BarStore(tmp_path)
+        assert store.list_backfill_tickers("1m") == {"SPY"}
+
+    def test_list_backfill_tickers_aggregated_inherits_1m(self, tmp_path):
+        """Daily aggregated from 1m-backfill inherits backfill source even if
+        no direct daily sidecar row exists."""
+        _write_provenance(tmp_path, [
+            {"symbol": "SPY", "freq": "1m", "source_type": "trades_backfill",
+             "rule_version": "v1",
+             "first_bar_ts": pd.Timestamp("2024-01-02"),
+             "last_bar_ts": pd.Timestamp("2024-12-31")},
+        ])
+        store = BarStore(tmp_path)
+        assert store.list_backfill_tickers("daily") == {"SPY"}
+        assert store.list_backfill_tickers("60m") == {"SPY"}
+        assert store.list_backfill_tickers("5m") == {"SPY"}
+
+    def test_list_backfill_tickers_empty_when_no_sidecar(self, tmp_path):
+        store = BarStore(tmp_path)
+        assert store.list_backfill_tickers("1m") == set()
+        assert store.list_backfill_tickers("daily") == set()

@@ -26,10 +26,20 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import pandas as pd
 
 from core.config.loader import load_config
+from core.data.bar_store import BarStore
 from core.data.market_data_store import MarketDataStore
 from core.factors.factor_generator import generate_all_factors, compute_forward_returns
 from core.factors.factor_engine import FactorEngine
 from core.logging_setup import setup_logging, get_logger
+
+
+def _load_backfill_tickers(symbols) -> set:
+    """Intersect BarStore daily-provenance backfill set with universe."""
+    try:
+        backfill = BarStore().list_backfill_tickers(freq="daily")
+    except Exception:
+        return set()
+    return set(symbols) & backfill
 
 setup_logging()
 logger = get_logger("run_factor_screen")
@@ -76,7 +86,12 @@ def main():
     logger.info("价格矩阵: %d 行 × %d 列", len(price_df), len(price_df.columns))
 
     logger.info("生成候选因子...")
-    factors = generate_all_factors(price_df, vol_df)
+    backfill_tickers = _load_backfill_tickers(price_df.columns)
+    if backfill_tickers:
+        logger.info("data sensitivity guard: %d backfill tickers will get NaN "
+                    "for volume-sensitive factors", len(backfill_tickers))
+    factors = generate_all_factors(price_df, vol_df,
+                                    backfill_tickers=backfill_tickers)
     logger.info("生成 %d 个候选因子", len(factors))
 
     logger.info("计算前向收益...")
