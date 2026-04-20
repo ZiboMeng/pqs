@@ -186,3 +186,83 @@ class TestRelativeStrength:
         )
         signals = s.generate(pdf_no_spy, regime)
         assert signals.shape[0] == len(pdf_no_spy)
+
+
+class TestMultiFactorConcentration:
+    """Guardrail: strategy-level soft cap + concentration diagnostic."""
+
+    def test_soft_cap_clips_and_renormalises(self):
+        price_df, regime, _ = _make_data()
+        s = MultiFactorStrategy(
+            symbols=[f"SYM{i}" for i in range(6)],
+            top_n=3,
+            rebalance_monthly=False,
+            min_holding_days=1,
+            score_weighted=True,
+            soft_cap_max_single=0.40,
+        )
+        signals = s.generate(price_df, regime)
+        # After warmup, no single weight should exceed the cap
+        active = signals.iloc[60:]
+        assert active.max().max() <= 0.40 + 1e-9, (
+            f"soft cap violated: max={active.max().max():.4f}"
+        )
+
+    def test_soft_cap_disabled_by_default(self):
+        """Without soft_cap_max_single, individual weights may exceed 0.5."""
+        price_df, regime, _ = _make_data()
+        s = MultiFactorStrategy(
+            symbols=[f"SYM{i}" for i in range(6)],
+            top_n=2,  # only 2 symbols → 50/50 equal weight (or concentrated with score_weighted)
+            rebalance_monthly=False,
+            min_holding_days=1,
+            score_weighted=True,
+        )
+        signals = s.generate(price_df, regime)
+        # Max weight may or may not exceed 0.5 — we just verify no error
+        assert signals.shape[0] == len(price_df)
+
+    def test_concentration_warn_logs(self, caplog):
+        import logging
+        price_df, regime, _ = _make_data()
+        s = MultiFactorStrategy(
+            symbols=[f"SYM{i}" for i in range(6)],
+            top_n=2,
+            rebalance_monthly=False,
+            min_holding_days=1,
+            concentration_warn_threshold=0.30,  # top_n=2 → equal 50% → violates
+        )
+        with caplog.at_level(logging.WARNING, logger="multi_factor"):
+            s.generate(price_df, regime)
+        # Expect at least one warning log for concentration
+        concentrated = [r for r in caplog.records
+                        if "concentration" in r.getMessage().lower()]
+        assert len(concentrated) > 0, (
+            "concentration_warn_threshold should trigger a WARNING log"
+        )
+
+    def test_soft_cap_preserves_total_when_room_exists(self):
+        """When cap × n_active >= target total, redistribution preserves total
+        exposure. If only 1 symbol is active and cap < 1.0, total cannot be
+        preserved — acceptable: the cap is the binding constraint."""
+        price_df, regime, _ = _make_data()
+        s_nocap = MultiFactorStrategy(
+            symbols=[f"SYM{i}" for i in range(6)],
+            top_n=5, rebalance_monthly=False, min_holding_days=1,
+            score_weighted=True,
+        )
+        s_cap = MultiFactorStrategy(
+            symbols=[f"SYM{i}" for i in range(6)],
+            top_n=5, rebalance_monthly=False, min_holding_days=1,
+            score_weighted=True, soft_cap_max_single=0.40,
+        )
+        sig_nocap = s_nocap.generate(price_df, regime)
+        sig_cap = s_cap.generate(price_df, regime)
+        # For rows with enough active symbols, total should be preserved
+        n_active = (sig_nocap > 0).sum(axis=1)
+        room_mask = n_active * 0.40 >= 1.0
+        if room_mask.any():
+            diff = (sig_nocap.sum(axis=1) - sig_cap.sum(axis=1))[room_mask].abs()
+            assert diff.max() < 0.05, (
+                f"total exposure altered by {diff.max():.3f} when redistribution room existed"
+            )

@@ -46,6 +46,45 @@ setup_logging()
 logger = get_logger("run_paper")
 
 
+def apply_kill_switch_to_target(
+    engine: PaperTradingEngine,
+    target: dict,
+) -> tuple[dict, object | None]:
+    """Evaluate kill switch against the engine's equity history and apply the
+    resulting state to `target` weights.
+
+    - SUSPENDED → returns empty dict (force full liquidation to cash next fill)
+    - DEGRADED  → scales every weight by `position_multiplier` (e.g. 0.5)
+    - NORMAL    → returns target unchanged
+
+    Returns (adjusted_target, KillSwitchResult or None).
+
+    Design note: both live and replay flows MUST go through this helper so that
+    DEGRADED actually reduces position size (previously only SUSPENDED was
+    honoured, and only by breaking the replay loop — DEGRADED was silently
+    ignored, undermining the 2-tier risk gate).
+    """
+    ks = getattr(engine, "kill_switch", None)
+    if ks is None:
+        return target, None
+    records = getattr(engine, "_tracker", None)
+    if records is not None and records._records:
+        eq_values = [r["equity"] for r in records._records]
+    else:
+        eq_values = [engine._initial_capital]
+    result = ks.evaluate(pd.Series(eq_values))
+    if result.state == "SUSPENDED":
+        logger.warning("Kill switch SUSPENDED → 清空目标权重 (force cash). "
+                       "rules=%s", ",".join(result.active_rules))
+        return {}, result
+    if result.state == "DEGRADED":
+        mult = result.position_multiplier
+        logger.warning("Kill switch DEGRADED → 目标权重 × %.2f. rules=%s",
+                       mult, ",".join(result.active_rules))
+        return {s: w * mult for s, w in target.items()}, result
+    return target, result
+
+
 def show_status(engine: PaperTradingEngine) -> None:
     """打印模拟盘当前状态。"""
     summary = engine.get_pnl_summary()
@@ -119,24 +158,38 @@ def run_replay(
     for i, date in enumerate(dates):
         date_ts = pd.Timestamp(date)
 
-        eq_data = [r["equity"] for r in engine._tracker._records] if engine._tracker._records else [engine._initial_capital]
-        ks_result = engine.kill_switch.evaluate(pd.Series(eq_data))
-        if ks_result.state == "SUSPENDED":
-            logger.warning("[%s] Kill switch SUSPENDED，停止回放", date.date())
-            break
-
         if date_ts not in weights.index:
             continue
 
         day_wts = weights.loc[date_ts]
         target = {s: float(v) for s, v in day_wts.items() if v > 0.001}
 
+        target, ks_result = apply_kill_switch_to_target(engine, target)
+        if ks_result is not None and ks_result.state == "SUSPENDED":
+            # SUSPENDED: force liquidation today (target={} already), then stop
+            # new orders on subsequent days until engine recovers.
+            logger.warning("[%s] Kill switch SUSPENDED，停止回放", date.date())
+            # Proceed once to flatten positions to zero then break.
+            # (The engine will submit the target={} as sell-everything.)
+
         # Check for intraday bars (Dict[str, DataFrame] per day)
         day_bars_60m = price_df_60m.get(str(date.date()))
 
         if day_bars_60m and isinstance(day_bars_60m, dict) and len(day_bars_60m) > 0:
             # ── Intraday bar-by-bar path ──
-            if engine.has_fill_for_bar(run_id, pd.Timestamp(str(date.date()) + " 09:30")):
+            # Derive first/last bar timestamps from actual bars (half-trading
+            # days and missing bars would invalidate hardcoded 09:30 / 15:30).
+            _sym_with_bars = next(
+                (s for s in day_bars_60m if len(day_bars_60m[s]) > 0), None
+            )
+            if _sym_with_bars is None:
+                logger.debug("[%s] no intraday bars found, skip", date.date())
+                continue
+            _ref_idx = day_bars_60m[_sym_with_bars].index
+            first_bar_ts = pd.Timestamp(_ref_idx[0])
+            last_bar_ts = pd.Timestamp(_ref_idx[-1])
+
+            if engine.has_fill_for_bar(run_id, first_bar_ts):
                 logger.debug("[%s] Skipping (idempotency — fills exist)", date.date())
                 continue
 
@@ -159,13 +212,13 @@ def run_replay(
                 )
                 engine.save_intraday_bar(
                     run_id=run_id, date=date_ts,
-                    bar_ts=pd.Timestamp(str(date.date()) + " 15:30"),
+                    bar_ts=last_bar_ts,
                     orders=[], fills=result.trades,
                     positions=engine._positions, cash=engine._cash, equity=eod_equity,
                 )
                 engine.save_bar_checkpoint(
                     run_id=run_id, date=date_ts,
-                    bar_ts=pd.Timestamp(str(date.date()) + " 15:30"),
+                    bar_ts=last_bar_ts,
                     positions=engine._positions, cash=engine._cash,
                 )
 
@@ -210,6 +263,11 @@ def run_replay(
                 engine.reconcile(next_date, result)
             except Exception as exc:
                 logger.error("[%s] Daily 执行失败: %s", date.date(), exc)
+
+        # After executing this day, stop the replay if KS is SUSPENDED
+        # (flatten-then-halt semantics).
+        if ks_result is not None and ks_result.state == "SUSPENDED":
+            break
 
     # Run diagnostics
     equity = engine.get_equity_curve() if hasattr(engine, 'get_equity_curve') else pd.Series(dtype=float)
@@ -372,6 +430,13 @@ def main():
             target = {s: float(v) for s, v in day_wts.items() if v > 0.001}
             logger.info("目标权重 (基于 %s 信号):\n%s", yesterday.date(),
                         pd.Series(target).sort_values(ascending=False).to_string())
+
+            # Kill switch gate: SUSPENDED → force cash, DEGRADED → scale
+            target, ks_result = apply_kill_switch_to_target(engine, target)
+            if ks_result is not None and ks_result.state != "NORMAL":
+                logger.info("KS 调整后目标权重:\n%s",
+                            pd.Series(target).sort_values(ascending=False).to_string()
+                            if target else "(空 — 全部转现金)")
 
             prices_yd = {s: float(price_df_1d.loc[yesterday, s]) for s in price_df_1d.columns
                          if not pd.isna(price_df_1d.loc[yesterday].get(s))}

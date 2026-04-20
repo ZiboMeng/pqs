@@ -40,6 +40,34 @@ from core.logging_setup import get_logger
 logger = get_logger(__name__)
 
 
+def _cap_and_redistribute(row: pd.Series, cap: float, max_iter: int = 12) -> pd.Series:
+    """Iteratively cap each weight at `cap` and redistribute excess mass to
+    symbols still below cap, preserving row total. If mass cannot fit within
+    the cap (cap * n_nonzero < row.sum), returns best-effort (all at cap).
+
+    Example: row=[0.9, 0.05, 0.05], cap=0.40 → iter 1: [0.40, 0.30, 0.30]
+    (excess 0.5 split proportionally to 0.05+0.05=0.10 room) → no further
+    violations → total preserved at 1.0.
+    """
+    target_sum = float(row.sum())
+    out = row.copy().astype(float)
+    for _ in range(max_iter):
+        violators = out > cap
+        if not violators.any():
+            break
+        excess = float((out[violators] - cap).sum())
+        out[violators] = cap
+        room = (cap - out).clip(lower=0)
+        # Only redistribute to currently non-zero (active) symbols; keep zeros at 0
+        active = (out > 0) & ~violators
+        room_active = room.where(active, 0.0)
+        room_total = float(room_active.sum())
+        if room_total <= 1e-12:
+            break  # no space to redistribute
+        out = out + (excess * room_active / room_total)
+    return out
+
+
 class MultiFactorStrategy:
     """
     Multi-factor composite selection strategy.
@@ -73,7 +101,30 @@ class MultiFactorStrategy:
         lookback_quality:  int   = 126,
         regime_scale:      Optional[Dict[str, float]] = None,
         min_holding_days:  int   = 5,
+        apply_extra_shift: bool  = True,
+        concentration_warn_threshold: Optional[float] = None,
+        soft_cap_max_single: Optional[float] = None,
     ):
+        """
+        apply_extra_shift : if True (legacy default), compute factors from prices
+            up to T close and then `shift(1)` the composite so signals at date T
+            use only T-1 data. Combined with BacktestEngine's T+1 open execution,
+            this is a 2-bar lag (redundant — T-close data is available at T+1
+            open). Set False to drop the extra shift; signal then uses T-close
+            data, execution at T+1 open (standard 1-bar lag). Exposed as a
+            flag so callers can A/B test signal freshness impact without
+            introducing lookahead.
+        concentration_warn_threshold : if set, log a WARNING at end of
+            `generate()` whenever any single symbol's weight across any row
+            exceeds this threshold (purely diagnostic — does not modify
+            signals). Pass e.g. `cfg.risk.max_single_position` to tie to
+            portfolio hard cap. None → no warning.
+        soft_cap_max_single : if set, clip any single-symbol weight to this
+            cap and renormalize to preserve total exposure. This is a
+            STRATEGY-level soft cap that runs BEFORE the PortfolioConstructor
+            hard cap. None → no strategy-level capping (current default;
+            constructor hard cap still applies downstream).
+        """
         self._symbols     = symbols or []
         self._top_n       = top_n
         self._weights     = factor_weights or {
@@ -90,6 +141,9 @@ class MultiFactorStrategy:
         self._qual_lb     = lookback_quality
         self._regime_scale = regime_scale or self._DEFAULT_REGIME_SCALE
         self._min_hold     = min_holding_days
+        self._apply_extra_shift = apply_extra_shift
+        self._concentration_warn = concentration_warn_threshold
+        self._soft_cap_max_single = soft_cap_max_single
 
     def generate(
         self,
@@ -156,7 +210,13 @@ class MultiFactorStrategy:
         if total_w > 0:
             composite = composite / total_w
 
-        composite = composite.shift(1)
+        if self._apply_extra_shift:
+            # Legacy behaviour: signal at T uses T-1 factors. Combined with
+            # BacktestEngine T+1 open execution → 2-bar lag (redundant;
+            # T-close factor is knowable by T+1 open).
+            composite = composite.shift(1)
+        # else: signal at T uses T-close factors (still pre-execution since
+        #       BacktestEngine executes at T+1 open → 1-bar lag, no lookahead).
 
         signals = pd.DataFrame(0.0, index=price_df.index, columns=price_df.columns)
 
@@ -217,5 +277,34 @@ class MultiFactorStrategy:
             scale = self._regime_scale.get(str(r), 0.90)
             if scale < 1.0:
                 signals.loc[date] = signals.loc[date] * scale
+
+        # Strategy-level soft cap (optional, before downstream constructor cap).
+        if self._soft_cap_max_single is not None and self._soft_cap_max_single > 0:
+            cap = self._soft_cap_max_single
+            n_clipped = 0
+            for date in signals.index:
+                row = signals.loc[date]
+                if (row > cap).any():
+                    n_clipped += 1
+                    signals.loc[date] = _cap_and_redistribute(row, cap)
+            if n_clipped > 0:
+                from core.logging_setup import get_logger
+                get_logger("multi_factor").info(
+                    "MultiFactor soft cap applied: %d rows had weights > %.2f",
+                    n_clipped, cap,
+                )
+
+        # Concentration diagnostic (informational only, never modifies signals).
+        if self._concentration_warn is not None and self._concentration_warn > 0:
+            thr = self._concentration_warn
+            max_per_row = signals.max(axis=1)
+            n_violate = int((max_per_row > thr).sum())
+            if n_violate > 0:
+                from core.logging_setup import get_logger
+                get_logger("multi_factor").warning(
+                    "MultiFactor concentration: %d dates have max single weight > %.2f "
+                    "(worst=%.2f). Consider soft_cap_max_single or lowering score_weighted.",
+                    n_violate, thr, float(max_per_row.max()),
+                )
 
         return signals

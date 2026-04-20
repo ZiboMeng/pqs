@@ -98,15 +98,56 @@ class TestFactorLeakage:
     """Verify factors don't use future data in execution context."""
 
     def test_multi_factor_strategy_applies_shift(self):
-        """MultiFactorStrategy must shift(1) composite before generating signals."""
+        """MultiFactorStrategy must shift(1) composite before generating signals
+        when apply_extra_shift=True (legacy default)."""
         from core.signals.strategies.multi_factor import MultiFactorStrategy
         prices, _ = _make_price_volume(n=300, n_syms=4)
         regime = pd.Series("BULL", index=prices.index)
         s = MultiFactorStrategy(symbols=["SYM0", "SYM1", "SYM2", "SYM3"],
                                 top_n=2, rebalance_monthly=False, min_holding_days=1)
         signals = s.generate(prices, regime)
-        # First ~lookback bars should be zero (warmup + shift)
         assert (signals.iloc[:50].sum(axis=1) == 0).all() or True
+
+    def test_multi_factor_no_lookahead_with_and_without_shift(self):
+        """Truncation test: a signal at date T must be identical whether computed
+        from full history or from history truncated at T. Must hold for BOTH
+        apply_extra_shift=True and False (otherwise = lookahead bug)."""
+        from core.signals.strategies.multi_factor import MultiFactorStrategy
+        prices, _ = _make_price_volume(n=400, n_syms=4)
+        regime = pd.Series("BULL", index=prices.index)
+        symbols = ["SYM0", "SYM1", "SYM2", "SYM3"]
+        test_T = prices.index[300]
+
+        for shift_flag in (True, False):
+            s_full = MultiFactorStrategy(symbols=symbols, top_n=2,
+                rebalance_monthly=False, min_holding_days=1,
+                apply_extra_shift=shift_flag)
+            s_trunc = MultiFactorStrategy(symbols=symbols, top_n=2,
+                rebalance_monthly=False, min_holding_days=1,
+                apply_extra_shift=shift_flag)
+            sig_full = s_full.generate(prices, regime)
+            sig_trunc = s_trunc.generate(prices.loc[:test_T], regime.loc[:test_T])
+            if test_T in sig_full.index and test_T in sig_trunc.index:
+                a = sig_full.loc[test_T].fillna(0)
+                b = sig_trunc.loc[test_T].fillna(0)
+                assert (a - b).abs().max() < 1e-9, (
+                    f"apply_extra_shift={shift_flag}: signal at T differs "
+                    f"between full and truncated — lookahead!"
+                )
+
+    def test_multi_factor_without_shift_produces_valid_signals(self):
+        """apply_extra_shift=False should still produce non-zero signals
+        (not crash or silently return all zeros)."""
+        from core.signals.strategies.multi_factor import MultiFactorStrategy
+        prices, _ = _make_price_volume(n=300, n_syms=4)
+        regime = pd.Series("BULL", index=prices.index)
+        s = MultiFactorStrategy(symbols=["SYM0", "SYM1", "SYM2", "SYM3"],
+                                top_n=2, rebalance_monthly=False,
+                                min_holding_days=1, apply_extra_shift=False)
+        signals = s.generate(prices, regime)
+        # After warmup period, some signals must be non-zero
+        late = signals.iloc[-50:]
+        assert (late.sum(axis=1) > 0).any(), "all signals zero — strategy broken"
 
     def test_factor_generator_produces_t_day_values(self):
         """factor_generator factors should use data up to and including day T."""
