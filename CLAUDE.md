@@ -654,6 +654,38 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 2 — Topic LLM-3：首批 3 个 intraday 候选
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-2`
+
+**改动**:
+- 新目录 `research/llm_candidates/round_02/` + 3 候选 YAML + `compute_fns.py`
+- 3 个 intraday 候选覆盖 §3 intraday / path-shape 方向，基于 60m RTH bars（10:00-16:00 ET）:
+  - `first_last_bar_diff_21d` — 最后 60m bar return − 第一 60m bar return
+  - `intraday_cumret_skew_21d` — 日内 7-bar 累积回报路径的 skewness
+  - `late_day_vol_share_21d` — 最后 2 个 RTH bar std / 全天 RTH std
+- `compute_fns.py` 用 `@lru_cache` 避免重复 parquet 读取；所有 feature 都 cross-sectional z-score
+
+**Funnel 结果**:
+
+| factor | verdict | IC mean | IC IR | 备注 |
+|---|---|---:|---:|---|
+| first_last_bar_diff_21d | ARCHIVE | **-0.085** | **-0.24** | 强负信号：下午强的股票 21d 后跑输 → mean-revert |
+| late_day_vol_share_21d | ARCHIVE | -0.024 | -0.08 | 弱负（假设方向对） |
+| intraday_cumret_skew_21d | ARCHIVE | +0.003 | +0.01 | 纯噪声 |
+
+**关键发现**:
+- **`first_last_bar_diff_21d` |IC|=0.085 是本轮最强信号**，但符号是负的。符号反转模式与 Round 1 的 `momentum_quality_interaction`(-0.053) 一致。**形成研究主题**：在当前 top-15 Mag7-heavy universe 上，"动量方向 / 后发强势" 类因子表现为 mean-reversion 而非 trend-continuation
+- Skewness-of-path 无信号（N=7 太少）；如果要测 path shape，可能需要更细时间分辨（5m/15m）
+- LLM-3 completion signal ("≥1 candidate enters keep") **未达成**（0/3 过 IR ≥ 0.3 门槛），但产出了重要的 counter-finding
+
+**PRD §13.2 halt 条件检查**: pytest 1109（无下降）/ 无 promote / 累计候选 8 << 200 / 无 invariant 违反。继续。
+
+**下轮建议**: 
+- **LLM-1 补充** ⭐ — 跟进 Round 1 的 `drawup_from_252d_low`（IC +0.083，最接近通过），对它做 OOS walk-forward + regime 分析；或把 Round 2 的 `first_last_bar_diff_21d` 符号翻转作为 "晨-午差"（仍然是真实特征但方向对齐 mean-revert hypothesis）做同样分析
+- 备选 **LLM-2** — leakage truncation test tool（升级当前文本 heuristic 为计算层面检测）
+
 ### LLM-Round 1 — Topic LLM-1：候选生成管线首批 5 个候选
 
 **时间**: 2026-04-21
