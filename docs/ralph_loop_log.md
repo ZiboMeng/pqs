@@ -650,6 +650,90 @@ Topic G completion signal **达成（NEGATIVE/NEUTRAL finding）**：
 
 ### 11. 本轮 commit 哈希
 - `25e0f8a` — Round 8 (Topic G): 主 commit + 下阶段 LLM PRD
-- （本条 doc commit）— docs: 第 8 轮日志更新
+- `00361b2` — docs: 第 8 轮日志更新
+
+---
+
+## Round 9 — Topic H: Ridge vs XGBoost 特征重要性对比
+
+**日期**: 2026-04-20（22:48 完成）
+**Topic**: H（model comparison — feature importance only）
+**Lineage_tag**: `post-2026-04-20-capital-100k`（无 mining 运行）
+**测试变化**: 1067 → **1071**（+4 smoke tests）
+**主要 commits**: `09cb224`
+
+### 1. 当前阶段
+Ralph-loop 第 9 轮 / Topic H
+
+### 2. 本轮目标
+在同一 feature panel 上对比 Ridge 和 XGBoost 的 OOS permutation importance，产出 side-by-side top-20 leaderboard + rank agreement 度量
+
+### 3. 为什么先做它
+PRD §3.2 Topic H。为即将到来的 LLM factor mining 阶段（30 轮自动启动）提供 baseline：LLM 提出的候选因子必须达到现有 classical factors 的 importance 水平才算增量
+
+### 4. 做了什么
+- 新 `scripts/run_model_comparison.py`（240 行）：
+  - 加载 32 个 classical factors 的完整面板（79966 rows）
+  - **时序** train/test split（按 unique dates，no shuffle）
+  - Ridge + 5-fold TimeSeriesSplit CV 调 alpha
+  - XGBRegressor 200 trees × depth 4
+  - Permutation importance 在 **OOS test set** 上
+  - Spearman rank agreement 度量
+  - Artifacts: `data/ml/model_comparison_*.{json,csv,parquet}`
+- 4 focused smoke tests 守护 helper 契约
+
+### 5. 修改了哪些文件
+- `scripts/run_model_comparison.py`（新）
+- `tests/unit/factors/test_model_comparison_smoke.py`（新，4 tests）
+- `CLAUDE.md`（Round 9 entry）
+- `docs/prd_intraday_mining_loop.md` Appendix A（本日志）
+- `docs/ralph_loop_log.md`（本节）
+
+### 6. 跑了哪些测试
+- `pytest tests/ -q`：**1071 passing**（+4）
+- 真实 comparison 在 79966 rows × 32 factors：
+
+| metric | Ridge | XGBoost |
+|---|---:|---:|
+| OOS R² | **+0.00692** | **-0.14791** |
+| Ridge alpha (CV) | 1000 | — |
+| Rank agreement (ρ) | +0.349 (MODERATE) |
+
+### 7. 当前结果
+Topic H completion signal **达成**（side-by-side leaderboard + rank agreement 都有）。
+
+**核心研究发现**:
+- **XGBoost OOS R² 为负数** —— 比预测均值还差。证据表明：当前 universe + factor set 下非线性模型**过拟合**，不 generalize
+- **Ridge OOS R² = +0.007** —— 线性 signal 也很弱，但稳定正向
+- **两模型共识**: `max_dd_126d` 排名 #1（跨模型共识是最强的 promote 信号）
+- MODERATE rank agreement（+0.349）说明 XGBoost 抓到一些 nonlinear 结构但不泛化
+
+**对 LLM 阶段的指导**:
+- 不要盲目 XGBoost 评估候选（给过乐观的 train-set scores）
+- Ridge importance 当基线更稳
+- 新候选必须能 push `max_dd_126d` 以外的特征进 top-5 才算增量
+- Rank agreement 可作为"因子稳健性"的诊断指标
+
+### 8. 剩余风险
+- XGBoost hyperparams 没调优；但 PRD 明确"feature importance only, 不 hyper-tune"
+- Ridge alpha=1000 意味极强正则，说明 universe 层面 factor signal 真的很弱
+- Permutation importance 在高度共线特征下会低估单个特征；未来或加 orthogonalization
+- Round 1 OOS blocker 仍在
+
+### 9. 下一轮建议
+- **Round 10 = Topic J**（LLM factor system scaffold）⭐ — 为 `docs/prd_llm_factor_mining.md` auto-launch 阶段准备基础设施；不动 production path
+- 备选 K/L（real-time feed / broker adapter）：需外部依赖，可能需用户签核
+- Off-menu：解决 Round 1 OOS blocker（需用户签核 `--trials > 200`）
+
+### 10. TODO checklist（更新后）
+- [x] Round 0-8
+- [x] Round 9: Topic H（ridge vs XGB，XGBoost OOS R² 为负数）
+- [ ] Round 10: Topic J（LLM factor scaffold）— 推荐
+- [ ] Round 11-12: K/L（infra）
+- [ ] Round 13-42 条件触发: LLM factor mining auto-launch
+
+### 11. 本轮 commit 哈希
+- `09cb224` — Round 9 (Topic H): Ridge vs XGBoost permutation importance
+- （本条 doc commit）— docs: 第 9 轮日志更新
 
 ---
