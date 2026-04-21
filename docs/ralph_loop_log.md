@@ -501,6 +501,80 @@ Topic E completion signal **达成**：
 
 ### 11. 本轮 commit 哈希
 - `12fe965` — Round 6 (Topic E): shadowed-factor merge
-- （本条 doc commit）— docs: 第 6 轮日志更新
+- `9025dec` — docs: 第 6 轮日志更新
+
+---
+
+## Round 7 — Topic I: mining 跨 4 种 strategy_type + QQQ gate 类型无关
+
+**日期**: 2026-04-20（23:45 完成）
+**Topic**: I（parameter search expansion across strategy types）
+**Lineage_tag**: `post-2026-04-20-capital-100k`
+**测试变化**: 1053 → **1067**（+14 跨类型 invariant 单测）
+**主要 commits**: `cb47d80`
+
+### 1. 当前阶段
+Ralph-loop 第 7 轮 / Topic I
+
+### 2. 本轮目标
+验证 mining 系统能跨 4 种 strategy_type 一致工作；archive 有 ≥3 non-multi_factor trials；QQQ gate + `_assign_tier` 对所有 strategy_type 应用一致
+
+### 3. 为什么先做它
+PRD §3.2 Topic I。之前 archive 只有 multi_factor trials；其它 3 种 ParameterSpace 虽注册但未实战验证过 pipeline，尤其 QQQ gate 是否 type-agnostic
+
+### 4. 做了什么
+- 真实 mining run：`scripts/run_mining.py --trials 5 --budget 900 --lineage-tag post-2026-04-20-capital-100k`（**不带 --type**）
+- 运行 199s，140 evaluations，**20 unique trials × 4 types 均匀入库**
+- Archive 分布：multi_factor × 37 + dual_momentum × 5 + cross_asset_rotation × 5 + trend_following × 5 + legacy 20 = 72
+- **15 个 non-multi_factor trials**（远超 completion signal 3）
+- 所有 trials tier = D（`trend_following` 0/5 quick；其余 3/5 quick；multi_factor 37/37 quick；全部 0 OOS pass）
+- 新 focused 单测（14 条）守护跨类型 invariants：ALL_SPACES 4 注册 / suggest+instantiate 不 crash / archive 跨类型保留 strategy_type / `_assign_tier` 在 gate fail 时强制 D 不论 strategy_type
+
+### 5. 修改了哪些文件
+- `tests/unit/mining/test_all_strategy_types.py`（新，14 tests）
+- `CLAUDE.md`（Ralph-Loop Findings: Round 7）
+- `docs/prd_intraday_mining_loop.md` Appendix A（本日志）
+- `docs/ralph_loop_log.md`（本节）
+
+### 6. 跑了哪些测试
+- `pytest tests/ -q`：**1067 passing**（+14）
+- Archive 跨类型审计：4 种 strategy_type 全部写入成功，schema 一致，tier 分配一致
+- 轮后 invariant：`tier != 'D' AND passed_qqq_gate = 0` 计数 = 0（无泄漏）
+
+### 7. 当前结果
+Topic I completion signal **达成**：
+- 15 non-multi_factor trials ≥ 3 ✓
+- 4 种类型全部正常走完 pipeline
+- QQQ gate plumbing 跨类型一致（gate 未触发仅因 0 trial 过 OOS，不是 bug）
+
+### 8. 剩余风险
+- **`trend_following` 0/5 quick_pass**：要么该类策略在当前 universe 上本身不工作，要么 ParameterSpace 搜索空间过窄。后续轮可针对性调
+- QQQ gate 仍"未在真实 trial 触发" —— 同 Round 1/4
+- Round 1 OOS blocker 仍在；跨 4 种类型的 mining 也没改变 OOS 通过率 = 0 的结论
+- Optuna 采样 140 evals 只有 20 unique trials（去重明显），但对本轮 invariant 验证不影响
+
+### 9. 下一轮建议
+**Round 8 = Topic G**（cross-TF feature training）⭐
+- 最能帮助理解 Round 5 新 intraday 因子是不是真正有 alpha（用 `validate_timing_value.py` 对比 with/without intraday factor composite）
+- 输出决定下一步是否 promote `realized_vol_60m_21d` 到 `PRODUCTION_FACTORS`
+- 备选 Topic H（ridge vs XGB）：研究工具对比
+- Off-menu：直接攻击 OOS blocker（需用户签核 `--trials > 200`）
+
+### 10. TODO checklist（更新后）
+- [x] Round 0: smoke + audit + NaN fix + capital bump
+- [x] Round 1: Topic A（诊断 OOS 100% 失败率）
+- [x] Round 2: Topic B（leaderboard lineage + QQQ）
+- [x] Round 3: Topic C（stale_counts 进 checkpoint）
+- [x] Round 4: Topic D（factor gate strict mode）→ **§3.1 全关闭**
+- [x] Round 5: Topic F（intraday factor family）
+- [x] Round 6: Topic E（shadow merge）
+- [x] Round 7: Topic I（mining 跨 4 strategy type）
+- [ ] Round 8: Topic G（cross-TF feature training）— 推荐
+- [ ] Round 9: Topic H（ridge vs XGB）
+- [ ] Round 10-12: J/K/L（infra）
+
+### 11. 本轮 commit 哈希
+- `cb47d80` — Round 7 (Topic I): mining 跨 4 种 strategy_type
+- （本条 doc commit）— docs: 第 7 轮日志更新
 
 ---
