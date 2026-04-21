@@ -280,6 +280,80 @@ Topic C completion signal **达成**：
 
 ### 11. 本轮 commit 哈希
 - `5bc3e4e` — Round 3 (Topic C): stale_counts 持久化到 bar_checkpoints
-- （本条 doc commit）— docs: 第 3 轮日志更新
+- `4be37e0` — docs: 第 3 轮日志更新
+
+---
+
+## Round 4 — Topic D: factor gate WARN/ERROR 可配置
+
+**日期**: 2026-04-20（22:30 完成）
+**Topic**: D（factor registry strict mode）
+**Lineage_tag**: `post-2026-04-20-capital-100k`（无方法论变更）
+**测试变化**: 1018 → **1029**（+11 strict mode 测试）
+**主要 commits**: `f4ee30d`
+**里程碑**: **PRD §3.1 Topics A-D 全部关闭**
+
+### 1. 当前阶段
+Ralph-loop 第 4 轮 / Topic D
+
+### 2. 本轮目标
+给 factor registry gate 加 `strict_mode` 配置：ERROR 模式下未注册 factor 名抛 `UnregisteredFactorError`；默认 WARN + drop 保持不变
+
+### 3. 为什么先做它
+PRD §3.1 最后一项。完成后 §3.1 A-D 全关闭，Round 5+ 转入 §3.2 research 菜单或 off-menu OOS blocker
+
+### 4. 做了什么
+- 新 `UnregisteredFactorError(ValueError)` 异常类
+- 新 `enforce_execution_factor_names(weights, *, strict=False)` 统一入口（替换 `MultiFactorStrategy.__init__` 里的 inline 逻辑）
+- 新 pydantic `FactorRegistryConfig(strict_mode: bool = False)` + `config/risk.yaml::factor_registry` 段
+- `MultiFactorStrategy.__init__` 加 `strict_registry: bool = False` kwarg
+- 3 个生产脚本 + `MultiFactorSpace` 从 config 透传
+- `_registry_kwargs()` lazy-load helper（同 `_concentration_kwargs` 模式）
+
+### 5. 修改了哪些文件
+- `core/factors/factor_registry.py`（+60：错误类 + enforce 函数）
+- `core/config/schemas/risk.py`（+20：FactorRegistryConfig）
+- `config/risk.yaml`（+7：factor_registry 段）
+- `core/signals/strategies/multi_factor.py`（+5 / -11：简化 gate 路径）
+- `core/mining/strategy_space.py`（+12：`_registry_kwargs` helper）
+- `scripts/run_backtest.py` / `run_paper.py` / `run_multi_tf_backtest.py`（+2 each：传递 strict_registry）
+- `tests/unit/factors/test_factor_registry_strict_mode.py`（新，11 tests）
+- `CLAUDE.md`（Round 4 entry）
+
+### 6. 跑了哪些测试
+- `pytest tests/ -q`：**1029 passing**（+11）
+- 11 focused 测试：enforce 函数 default/strict/空 / MultiFactorStrategy 三种场景 / Config schema 默认 / mining space 读配置 + fallback
+
+### 7. 当前结果
+- Topic D completion signal **达成**
+- **PRD §3.1 A-D 里程碑 全关闭** —— 接下来转研究或基建主题
+- 默认保持 WARN 不破坏 legacy 脚本；mining/CI 可随时切 strict 防 typo
+
+### 8. 剩余风险
+- 当前生产 default 仍 WARN；mining 里 typo 仍可能静默被 drop。用户可在 config 里随时切 `strict_mode: true` 升级为 error
+- factor_generator 的研究因子没有自动化 promotion check 工具（研究→生产仍需手工改 3 处：`PRODUCTION_FACTORS` + `MultiFactorStrategy.generate` + `MultiFactorSpace.suggest`）。future round 可考虑
+- Round 1 OOS blocker 仍在
+
+### 9. 下一轮建议
+Round 5 候选：
+- **§3.2 Topic F**（intraday factor family）—— 最贴合 PRD 初衷 "intraday mining"，独立于 OOS blocker（IC screen 不需要 OOS pass），有机会发现新 OOS-positive 因子 ⭐
+- §3.2 Topic E（shadowed-factor merge）—— 合并 research↔production 配对；风险：改动会影响 backtest 结果
+- off-menu：用户签核 `--trials > 200` 攻击 OOS blocker
+
+**推荐 Topic F**。
+
+### 10. TODO checklist（更新后）
+- [x] Round 0: smoke + audit + NaN fix + capital bump
+- [x] Round 1: Topic A（诊断 OOS 100% 失败率）
+- [x] Round 2: Topic B（leaderboard lineage + QQQ）
+- [x] Round 3: Topic C（stale_counts 进 checkpoint）
+- [x] Round 4: Topic D（factor gate strict mode）→ **§3.1 全关闭**
+- [ ] Round 5: **Topic F**（intraday factor family）— 推荐
+- [ ] Round 6-9: E/G/H/I（research）
+- [ ] Round 10-12: J/K/L（infra）
+
+### 11. 本轮 commit 哈希
+- `f4ee30d` — Round 4 (Topic D): factor gate WARN/ERROR 可配置
+- （本条 doc commit）— docs: 第 4 轮日志更新
 
 ---
