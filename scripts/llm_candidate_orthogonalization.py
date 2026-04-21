@@ -100,50 +100,70 @@ def _load_panel(cfg, universe_size: int, start: str):
 
 def _orthogonalize_cs(
     candidate: pd.DataFrame, controls: Dict[str, pd.DataFrame],
+    min_controls_per_date: int = 3,
+    min_symbols_per_regression: int = 5,
 ) -> pd.DataFrame:
     """Per-date cross-sectional OLS residualization of candidate on
-    controls. Returns residual DataFrame (same shape as candidate)."""
+    controls. Returns residual DataFrame (same shape as candidate).
+
+    Sparse-controls handling (Round 11 fix): for each date, use only
+    the subset of controls that have non-NaN coverage. A date is
+    processed if:
+      - at least `min_controls_per_date` controls have data
+      - at least `min_symbols_per_regression` symbols have simultaneous
+        non-NaN values on the candidate AND all chosen controls
+    This avoids the Round 10 bug where 32 controls with long warmups
+    (126d / 252d / volume-dependent) nearly guaranteed empty intersection.
+    """
     residuals = pd.DataFrame(
         np.nan, index=candidate.index, columns=candidate.columns, dtype=float,
     )
     control_names = list(controls.keys())
 
+    dates_processed = 0
     for date in candidate.index:
         y = candidate.loc[date]
-        # Build X matrix for this date: (n_symbols × n_controls)
-        rows = []
         valid_syms = y.dropna().index
-        if len(valid_syms) < 5:
+        if len(valid_syms) < min_symbols_per_regression:
             continue
-        for sym in valid_syms:
-            row = []
-            all_ok = True
-            for ctrl_name in control_names:
-                ctrl = controls[ctrl_name]
-                if date in ctrl.index and sym in ctrl.columns:
-                    val = ctrl.loc[date].get(sym)
-                    if pd.isna(val):
-                        all_ok = False
-                        break
-                    row.append(float(val))
-                else:
-                    all_ok = False
-                    break
-            if all_ok:
-                rows.append((sym, row))
-        if len(rows) < len(control_names) + 2:
+
+        # Step 1: per-date, select controls with enough coverage
+        usable_controls = []
+        ctrl_rows_per_name: Dict[str, pd.Series] = {}
+        for ctrl_name in control_names:
+            ctrl = controls[ctrl_name]
+            if date not in ctrl.index:
+                continue
+            ctrl_row = ctrl.loc[date].reindex(valid_syms)
+            n_valid = ctrl_row.notna().sum()
+            if n_valid >= min_symbols_per_regression:
+                ctrl_rows_per_name[ctrl_name] = ctrl_row
+                usable_controls.append(ctrl_name)
+
+        if len(usable_controls) < min_controls_per_date:
             continue
-        syms = [r[0] for r in rows]
-        X = np.array([r[1] for r in rows])
-        y_vals = y.loc[syms].astype(float).values
-        # Add intercept
+
+        # Step 2: common symbols with y + all usable controls non-NaN
+        X_df = pd.concat(
+            {n: ctrl_rows_per_name[n] for n in usable_controls}, axis=1,
+        )
+        y_row = y.reindex(X_df.index)
+        both_ok = y_row.notna() & X_df.notna().all(axis=1)
+        if both_ok.sum() < max(min_symbols_per_regression,
+                               len(usable_controls) + 2):
+            continue
+
+        syms = X_df.index[both_ok].tolist()
+        X = X_df.loc[syms].astype(float).values
+        y_vals = y_row.loc[syms].astype(float).values
+
         X_intercept = np.column_stack([np.ones(len(y_vals)), X])
-        # OLS: β = (X'X)^-1 X'y
         try:
             beta, *_ = np.linalg.lstsq(X_intercept, y_vals, rcond=None)
         except np.linalg.LinAlgError:
             continue
         resid = y_vals - X_intercept @ beta
+        dates_processed += 1
         residuals.loc[date, syms] = resid
     return residuals
 

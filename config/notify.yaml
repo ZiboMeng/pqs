@@ -7,8 +7,8 @@
 #
 # Credentials MUST live in env vars, never committed to this file.
 notify:
-  enabled: false
-  backend: stdout          # wecom_bot | server_chan | stdout | null
+  enabled: true
+  backend: wecom_bot       # wecom_bot | server_chan | stdout | null
   min_level: info          # debug | info | warning | error | critical
   rate_limit:
     max_per_window: 20     # events
