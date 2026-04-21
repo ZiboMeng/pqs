@@ -117,9 +117,12 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
 # keeps the stable form).
 
 RESEARCH_TO_PRODUCTION_MAP: Dict[str, str] = {
-    # Volatility → low_vol
+    # Volatility → low_vol. vol_63d was MERGED out of this map in
+    # Round 6 Topic E (2026-04-20): vol_63d and low_vol now share a
+    # single implementation via core/factors/base_factors.py::
+    # low_vol_factor, so they are no longer a "shadow" pair.
+    # vol_21d is kept because it's a distinct lookback (research-only).
     "vol_21d":                 "low_vol",
-    "vol_63d":                 "low_vol",
     # Momentum → momentum (long minus short)
     "mom_252d":                "momentum",
     "mom_12_1":                "momentum",
@@ -128,8 +131,10 @@ RESEARCH_TO_PRODUCTION_MAP: Dict[str, str] = {
     "return_per_risk_21d":     "quality",
     # Price-volume divergence
     "price_volume_div":        "pv_div",
-    # Relative strength vs SPY
-    "rs_vs_spy_63d":           "rel_strength",
+    # Relative strength vs SPY: rs_vs_spy_63d MERGED out in Round 6
+    # Topic E — shares implementation with `rel_strength` via
+    # base_factors.rel_strength_factor. Other horizons (21/126) kept
+    # as distinct research variants.
     # Market trend
     "spy_trend_200d":          "market_trend",
 }

@@ -169,12 +169,22 @@ def _mean_reversion_factors(price_df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
 
 
 def _volatility_factors(price_df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+    """Volatility factor family.
+
+    `vol_21d` / `vol_63d` go through the shared `low_vol_factor`
+    helper (Round 6 Topic E merge, 2026-04-20) so this path and
+    MultiFactorStrategy's `low_vol` factor share ONE implementation.
+    The shared helper does not annualize; cross-sectional z-score
+    removes the scale difference downstream.
+    """
+    from core.factors.base_factors import low_vol_factor
     factors = {}
     daily_ret = price_df.pct_change()
 
     for window in [21, 63]:
-        vol = daily_ret.rolling(window).std() * np.sqrt(252)
-        factors[f"vol_{window}d"] = -vol
+        factors[f"vol_{window}d"] = low_vol_factor(
+            price_df, lookback=window, min_periods=20,
+        )
 
     vol_short = daily_ret.rolling(21).std()
     vol_long = daily_ret.rolling(126).std()
@@ -222,20 +232,25 @@ def _relative_strength_factors(
     price_df: pd.DataFrame,
     benchmark_col: str = "SPY",
 ) -> Dict[str, pd.DataFrame]:
-    """Relative strength vs benchmark — outperformers tend to keep outperforming."""
+    """Relative strength vs benchmark — outperformers tend to keep outperforming.
+
+    All three horizons (`rs_vs_spy_21d/63d/126d`) now go through
+    `rel_strength_factor` helper (Round 6 Topic E merge, 2026-04-20)
+    so the 63-day variant shares implementation with MultiFactorStrategy's
+    inline `rel_strength`.
+    """
+    from core.factors.base_factors import rel_strength_factor
     factors = {}
     if benchmark_col not in price_df.columns:
         return factors
 
-    bench = price_df[benchmark_col]
     for lookback in [21, 63, 126]:
-        sym_ret = price_df.pct_change(lookback)
-        bench_ret = bench.pct_change(lookback)
-        rs = sym_ret.sub(bench_ret, axis=0)
-        factors[f"rs_vs_spy_{lookback}d"] = rs
-
-    rs_63 = price_df.pct_change(63).sub(bench.pct_change(63), axis=0)
-    rs_21 = price_df.pct_change(21).sub(bench.pct_change(21), axis=0)
+        factors[f"rs_vs_spy_{lookback}d"] = rel_strength_factor(
+            price_df, benchmark_col=benchmark_col, lookback=lookback,
+        )
+    # Acceleration computed from the same helper outputs
+    rs_63 = factors["rs_vs_spy_63d"]
+    rs_21 = factors["rs_vs_spy_21d"]
     factors["rs_acceleration"] = rs_63 - rs_21
 
     return factors

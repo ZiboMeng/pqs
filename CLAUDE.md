@@ -654,6 +654,23 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### Round 6 — Topic E：shadowed-factor merge（`vol_63d ↔ low_vol` 与 `rs_vs_spy_63d ↔ rel_strength`）
+
+**时间**: 2026-04-20
+**改动**:
+- 新模块 `core/factors/base_factors.py` 放共享 factor 计算函数：
+  - `low_vol_factor(price_df, lookback, min_periods)` —— 返回 `-std`（不 annualize）
+  - `rel_strength_factor(price_df, benchmark_col, lookback)` —— return 减 benchmark return
+- `factor_generator._volatility_factors` 调用共享 `low_vol_factor`；`_relative_strength_factors` 调用 `rel_strength_factor`
+- `MultiFactorStrategy.generate` 的 `low_vol` 和 `rel_strength` inline 实现移除，改调共享 helper
+- `RESEARCH_TO_PRODUCTION_MAP` **缩减**：从 9 条 → 7 条（`vol_63d` 和 `rs_vs_spy_63d` 不再算 shadow，因为现在是同一实现）
+- 14 focused 单测 + 1 现有 drift 测试自适应
+- Backtest smoke 验证数值等价（helpers 是纯代码 refactor，z-score 后 annualization 常数相消；`min_periods=20` 两边一致所以 warmup 也一致）
+
+**测试变化**: 1039 → **1053 passing**（+14）
+
+**下次 promote 新因子（如 Round 5 的 `realized_vol_60m_21d`）时，直接加一个 helper 到 `base_factors.py` 即可，两路同时受益**，不再需要维护双实现。
+
 ### Round 5 — Topic F：首个 intraday factor family 引入
 
 **时间**: 2026-04-20

@@ -40,6 +40,7 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from core.factors.base_factors import low_vol_factor, rel_strength_factor
 from core.factors.factor_registry import (
     PRODUCTION_FACTORS,
     check_execution_factor_names,
@@ -191,8 +192,13 @@ class MultiFactorStrategy:
 
         factors = {}
 
-        vol = daily_ret.rolling(self._vol_lb, min_periods=20).std()
-        factors["low_vol"] = -vol
+        # Round 6 Topic E (2026-04-20): low_vol now shares implementation
+        # with factor_generator via base_factors.low_vol_factor. This
+        # removes the `vol_63d ↔ low_vol` shadow pair from
+        # RESEARCH_TO_PRODUCTION_MAP.
+        factors["low_vol"] = low_vol_factor(
+            pdf, lookback=self._vol_lb, min_periods=20,
+        )
 
         mom = pdf.pct_change(self._mom_lb)
         mom_short = pdf.pct_change(21)
@@ -212,9 +218,13 @@ class MultiFactorStrategy:
                 factors["pv_div"] = pv.reindex(columns=syms)
 
         if "SPY" in price_df.columns:
-            spy_ret = price_df["SPY"].pct_change(63)
-            sym_ret = pdf.pct_change(63)
-            factors["rel_strength"] = sym_ret.sub(spy_ret, axis=0)
+            # Round 6 Topic E: rel_strength now shares implementation
+            # with factor_generator's rs_vs_spy_63d via
+            # base_factors.rel_strength_factor.
+            rs_full = rel_strength_factor(
+                price_df, benchmark_col="SPY", lookback=63,
+            )
+            factors["rel_strength"] = rs_full.reindex(columns=syms)
 
             spy = price_df["SPY"]
             spy_ma200 = spy.rolling(200).mean()
