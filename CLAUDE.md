@@ -654,6 +654,28 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### Round 10 — Topic J：LLM factor system scaffold
+
+**时间**: 2026-04-20
+**改动**:
+- 新 `core/factors/llm_candidate.py` 模块（scaffold，**不调 LLM API**）：
+  - `FactorCandidate` dataclass 匹配 `docs/prd_llm_factor_mining.md` §4 YAML schema
+  - `load_candidate_from_yaml()` + shape validation + 命名空间碰撞拒绝（`PRODUCTION_FACTORS` / `RESEARCH_FACTORS` 重名直接抛错）
+  - `leakage_heuristic_check()` 文本层扫描 lookahead 关键字 + lag 关键字缺失
+  - `dedup_check()` Spearman rank correlation vs 现有因子，阈值 0.7
+  - `run_funnel()` orchestrator：shape → leakage → dedup → IC screen；**永不返回 KEEP 判决**（强候选路由到 `NEEDS_HUMAN_REVIEW`，遵守 PRD §2.2 "LLM 不是最终裁判"）
+- 新 `scripts/llm_factor_propose.py` CLI：接 YAML file 或 stdin，跑 funnel，写 artifacts 到 `data/ml/llm_candidates/<name>/`
+- 19 focused 单测覆盖 schema / YAML roundtrip / leakage 启发 / dedup / funnel verdicts（特别是 KEEP 永不返回的契约）
+
+**关键契约**（per PRD §2.2）：
+- LLM 角色仅限候选生成器 / 假设扩展 / 反向审查
+- 最终 promote 决策**必须**由人类审核 OOS + regime + cost stress + QQQ gate 后做出
+- 本 scaffold 的 verdict 是 NEEDS_HUMAN_REVIEW / ARCHIVE / REJECT 三选一
+
+**测试变化**: 1071 → **1090 passing**（+19）
+
+**下阶段就绪**: `docs/prd_llm_factor_mining.md` auto-launch 阶段的底座已经在位。LLM 生成的 YAML 候选可以通过 CLI 直接进入 funnel，不需要新代码
+
 ### Round 9 — Topic H：Ridge vs XGBoost 特征重要性对比
 
 **时间**: 2026-04-20
