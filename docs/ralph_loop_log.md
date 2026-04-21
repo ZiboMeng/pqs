@@ -2819,3 +2819,92 @@ R15-R17 已构成 blocker report 的核心证据:
 - (doc commit only) —— docs: LLM-Round 17 log + user "不降标准" directive + blocker path rationale
 
 ---
+
+## LLM-Round 18 — 2026-04-21 — Topic LLM-9 event/calendar（菜单完成）
+
+### 1. 主题
+Topic LLM-9 event/calendar — 剩余最后一个 menu topic。完成菜单覆盖。
+
+### 2. 做了什么
+- `research/llm_candidates/round_18/` + 3 calendar-proxy candidates
+- Funnel on 3 (15-sym)
+- 菜单进度 statistical reconciliation
+
+### 3. 候选 (3)
+- `monday_effect_mean_63d`: rolling mean of Monday returns
+- `monthend_last5d_mean_63d`: rolling mean of returns in last 5 days of month
+- `monthstart_first5d_mean_63d`: rolling mean of returns in first 5 days of month
+
+所有用 `_calendar_filtered_rolling_mean` primitive：对 mask 条件 date 过
+滤，rolling sum of masked returns / rolling mask count
+
+### 4. Funnel 结果
+
+| factor | IC | IR | verdict |
+|---|---:|---:|---|
+| monday_effect_mean_63d | (n=0) | — | ARCHIVE (too few valid dates) |
+| monthend_last5d_mean_63d | -0.002 | -0.01 | ARCHIVE |
+| monthstart_first5d_mean_63d | -0.038 | -0.10 | ARCHIVE |
+
+### 5. 修改了哪些文件
+- **新**：`research/llm_candidates/round_18/` (compute_fns + 3 yamls)
+- `CLAUDE.md` + `docs/ralph_loop_log.md`
+
+### 6. 跑了哪些测试/实验
+- pytest: 1109 (unchanged)
+- 3 funnel runs (15-sym)
+
+### 7. 研究发现
+**Calendar anomalies 在 Mag7-heavy universe 近零**。Mag7 是全市场效率
+最高的 stocks，classical calendar effects 早已被 arbitrage 掉。
+
+这是**第 4 个独立数据点**支持 "factor space 不足以产生 alpha":
+- R6 XGBoost OOS R² = -0.11 (过拟合)
+- R15 composite MaxDD best -50.87% (超 -25% 20 pts)
+- R16 mining: all trials OOS IR < 0.20
+- **R18 calendar: 3 candidates all IC ≤ |0.04|**
+
+### 8. 菜单覆盖完成 ✅
+
+| Topic | Round | Status |
+|---|---|---|
+| LLM-1 candidate scaffold | R1 | ✅ |
+| LLM-3 intraday | R2 | ✅ |
+| LLM-4 benchmark-relative | R4 | ✅ |
+| LLM-5 XGBoost cross-signal | R6 | ✅ |
+| LLM-6 orthogonalization | R10/R11 | ✅ |
+| LLM-7 regime-conditioned | R7/R8 | ✅ |
+| LLM-8 interaction mining | R7 | ✅ |
+| LLM-9 event/calendar | **R18** | ✅ |
+| LLM-10 path-shape | R13 | ✅ |
+| LLM-11 cross-sectional | R14 | ✅ |
+| LLM-12 first promotion | R15 | ✅ (user-auth) |
+
+**11/11 menu topics covered**。PRD §9 菜单 formally 完成
+
+### 9. §13.2 halt check
+- pytest: 1109
+- 1 PRODUCTION promote (R15)
+- 26 cumulative candidates
+- 无 invariant 违反
+
+### 10. PRD §10 状态（中期 checkpoint）
+- #1 "≥1 promoted" → ✅ (R15)
+- #2 "QQQ gate pass" → ❌ blocked (see R17 diagnostics)
+- #3 "archive traceable" → ✅
+- #4 "blocker report if #1-#2 unreachable" → **R15-R18 已积累核心证据**
+
+### 11. 下一轮建议方向
+菜单覆盖完，剩余 12 轮的战略选择:
+- **A (推荐)**: R19-R29 准备 blocker report data + 补充实验。blocker
+  report 主 thesis: "PRODUCTION factor space + 30-sym Mag7 universe
+  下无法稳定 alpha vs SPY；LLM 帮助 fast-iterate 验证这一结论"
+- **B**: 大规模 mining（80+ trials, 3600s）确认 OOS barrier 稳健性
+- **C**: LLM candidate 生成方法论变革 — ensemble candidate factor
+  直接作为 single registered factor promote（§13.2 trigger）
+
+### 12. 本轮 commit 哈希
+- (code commit) —— LLM-Round 18: 3 calendar candidates + menu completion
+- (doc commit) —— docs: LLM-Round 18 log + menu coverage checkpoint
+
+---

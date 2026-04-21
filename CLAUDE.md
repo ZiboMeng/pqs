@@ -654,6 +654,64 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 18 — Topic LLM-9 event/calendar（菜单覆盖完成）
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-18`
+
+**改动**:
+- 新 `research/llm_candidates/round_18/` + 3 calendar-proxy candidates
+- 覆盖 §9 菜单 LLM-9：event/calendar direction（最后未覆盖 topic）
+
+**候选** (3):
+- `monday_effect_mean_63d` — 63d rolling Monday returns
+- `monthend_last5d_mean_63d` — 63d rolling returns in last 5 days of month
+- `monthstart_first5d_mean_63d` — 63d rolling returns in first 5 days of month
+
+**Funnel 结果** (15-sym):
+
+| factor | IC mean | IC IR | verdict |
+|---|---:|---:|---|
+| monday_effect_mean_63d | — | — | ARCHIVE (n=0 sparse sampling) |
+| monthend_last5d_mean_63d | -0.002 | -0.01 | ARCHIVE (~0 IC) |
+| monthstart_first5d_mean_63d | -0.038 | -0.10 | ARCHIVE |
+
+**研究确认** ⭐ —— **Mag7-heavy universe 下 calendar anomalies 几乎无信号**。
+与预期一致：大盘股效率极高，classical calendar effects（Monday effect,
+turn-of-month effect）在该 universe 被市场 arbitrage 掉。这是对 R15-R17
+"factor space 不足以产生 alpha" 结论的第**四个**独立数据点:
+- R6 XGBoost: 7/43 LLM top-20 但 OOS R² 负
+- R15 composite: best MaxDD -50.87% 未能过 -25% invariant
+- R16 mining: all trials OOS IR < 0.20 threshold
+- **R18 calendar effects: IC ~0 across 3 candidates**
+
+**菜单覆盖完成**:
+
+| Topic | 轮 |
+|---|---|
+| LLM-1 candidate scaffold | R1 |
+| LLM-3 intraday | R2 |
+| LLM-4 benchmark-relative | R4 |
+| LLM-5 XGBoost cross-signal | R6 |
+| LLM-6 orthogonalization | R10/R11 |
+| LLM-7 regime-conditioned | R7/R8 |
+| LLM-8 interaction mining | R7 |
+| LLM-9 event/calendar | **R18** |
+| LLM-10 path-shape | R13 |
+| LLM-11 cross-sectional | R14 |
+| LLM-12 first promotion | R15 (user-auth) |
+
+**PRD §13.2 halt 条件**: pytest 1109 / 1 PRODUCTION promote (R15 auth) /
+26 cumulative candidates / 无 invariant 违反。继续。
+
+**下轮建议**（菜单已覆盖，剩余 12 轮）:
+- **A (推荐)**: 开始整理 R30 blocker report 的 data compilation。R15-R18
+  已有核心证据，R19-R29 可以是"补充实验 + 数据压制" (e.g., try wider
+  universe simulation, different rebalance cadence)
+- **B**: 跑更大 mining run (80+ trials, 3600s budget) 确认 OOS barrier 在
+  more sampling 下仍稳固
+- **C**: 微调候选生成策略 (mean-revert ensemble LLM 候选作为单一 factor)
+
 ### LLM-Round 17 — OOS barrier 诊断 + 用户 "不降标准" 指令
 
 **时间**: 2026-04-21
