@@ -301,6 +301,25 @@ class PaperTradingEngine:
         )
         if resume_from_checkpoint:
             cp = self.load_bar_checkpoint(run_id)
+            if cp is not None:
+                # Round 3 (Topic C, 2026-04-20): always restore
+                # stale_counts when the checkpoint exists, regardless
+                # of date. Rationale: stale_counts is a cumulative
+                # counter for "consecutive halt bars" that spans days.
+                # If the previous process died on day N with a 3-day
+                # halt counter for sym X, day N+1's fresh engine
+                # must keep that counter, otherwise a halted symbol
+                # gets its stale counter reset every day on resume
+                # and ghost cleanup never fires.
+                persisted_stale = cp.get("stale_counts") or {}
+                if persisted_stale:
+                    self._intraday_stale_counts = {
+                        s: int(n) for s, n in persisted_stale.items()
+                    }
+                    logger.info(
+                        "[%s] restored stale_counts from checkpoint: %s",
+                        date.date(), self._intraday_stale_counts,
+                    )
             if cp is not None and cp["date"] == date:
                 self._positions = {s: float(q) for s, q in cp["positions"].items()}
                 self._cash = float(cp["cash"])
@@ -787,8 +806,19 @@ class PaperTradingEngine:
         positions: Dict[str, float],
         cash:     float,
     ) -> None:
-        """Save checkpoint for restart recovery."""
-        state = json.dumps({"positions": positions, "cash": cash})
+        """Save checkpoint for restart recovery.
+
+        Round 3 (Topic C, 2026-04-20): state_json now also includes
+        `stale_counts` = self._intraday_stale_counts so that
+        multi-day halt counters survive process restarts. Without
+        this, a halted-for-3-days symbol resets counter to 0 each
+        day on resume and never triggers ghost cleanup.
+        """
+        state = json.dumps({
+            "positions":    positions,
+            "cash":         cash,
+            "stale_counts": dict(self._intraday_stale_counts),
+        })
         conn = sqlite3.connect(self._db_path)
         conn.execute(
             "INSERT OR REPLACE INTO bar_checkpoints (run_id, date, last_bar_ts, state_json, updated_at) "
@@ -799,7 +829,12 @@ class PaperTradingEngine:
         conn.close()
 
     def load_bar_checkpoint(self, run_id: str) -> Optional[Dict]:
-        """Load latest checkpoint for a run_id. Returns None if not found."""
+        """Load latest checkpoint for a run_id. Returns None if not found.
+
+        Return dict now includes `stale_counts` (default {}) for
+        back-compat with older checkpoints that pre-date Round 3's
+        stale-count persistence.
+        """
         conn = sqlite3.connect(self._db_path)
         row = conn.execute(
             "SELECT date, last_bar_ts, state_json FROM bar_checkpoints WHERE run_id=?",
@@ -810,10 +845,11 @@ class PaperTradingEngine:
             return None
         state = json.loads(row[2])
         return {
-            "date": pd.Timestamp(row[0]),
-            "last_bar_ts": pd.Timestamp(row[1]),
-            "positions": state["positions"],
-            "cash": state["cash"],
+            "date":         pd.Timestamp(row[0]),
+            "last_bar_ts":  pd.Timestamp(row[1]),
+            "positions":    state["positions"],
+            "cash":         state["cash"],
+            "stale_counts": state.get("stale_counts", {}),
         }
 
     def has_fill_for_bar(self, run_id: str, bar_ts: pd.Timestamp) -> bool:

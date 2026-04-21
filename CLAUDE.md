@@ -654,6 +654,23 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### Round 3 — Topic C：stale_counts 持久化到 checkpoint
+
+**时间**: 2026-04-20
+**改动**:
+- `save_bar_checkpoint` 现在把 `self._intraday_stale_counts` 序列化进
+  `state_json`（无需 signature 变更；仍从 instance 读）
+- `load_bar_checkpoint` 返回 dict 里新增 `stale_counts` 字段；老
+  checkpoint（pre-Round-3，state_json 无此键）用默认空 dict，向后兼容
+- `run_day_intraday` 在 resume 路径**总是**从 cp 恢复 `stale_counts`，不
+  依赖 `cp.date == date` 判断。语义上 stale_counts 是跨日累积的，进程
+  重启后 halted 标的的 stale counter 能正确续上
+
+**测试**: `tests/unit/paper_trading/test_stale_counts_checkpoint.py` 6 tests
+覆盖：保存包含 stale_counts / 加载返回 stale_counts / 老 checkpoint 返回
+空 dict / 同日 resume / 跨日 resume / **多日 halt 累积触发 ghost cleanup**
+的端到端集成。全套 1012 → **1018 passing**.
+
 ### Round 2 — Topic B：leaderboard 显示 lineage + QQQ 完成
 
 **时间**: 2026-04-20
