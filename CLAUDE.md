@@ -654,6 +654,69 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 15 — composite ensemble + drawup → PRODUCTION promotion ⭐
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-15`
+**用户授权**: "授权" — drawup → PRODUCTION_FACTORS
+
+**里程碑**: PRD §10 success criterion #1 **in progress** —— 首个 LLM
+generated candidate (`drawup_from_252d_low`) promoted to
+`PRODUCTION_FACTORS`。最终 criterion (QQQ gate pass via evaluator.evaluate)
+需后续 mining run 验证
+
+**两部分改动**:
+
+**Part 1 — Composite ensemble research** (Round 15 前半段，pre-authorization):
+
+| config | CAGR | MaxDD | Pass |
+|---|---:|---:|---|
+| R9 纯 classical baseline | +11.89% | -59.34% | 1/5 |
+| R15 C1 drawup + 5 MR ensemble | +14.91% | -56.96% | 2/5 |
+| R15 C2 pure 5 MR ensemble | +11.76% | **-50.87%** | 3/5 (**MaxDD rel PASS**) |
+| R15 C3 heavy drawup + 2 MR | +16.76% | -55.52% | 2/5 |
+| R15 C4 MR + vol_63d + spy_trend | **+20.57%** | -56.66% | **3/5** (cost + QQQ full + QQQ holdout) |
+
+C4 首次 PASS QQQ full gate（CAGR +20.57% > QQQ +18.39%），证明 mean-revert
+ensemble + risk factors combination 有 aggregate alpha。C2 MaxDD -50.87%
+最好但 CAGR 低。MaxDD abs -25% 仍无法 factor-level tool 达到
+
+**Part 2 — PRODUCTION promotion**:
+- `PRODUCTION_FACTORS`: 从 6 增至 **7**（加 `drawup_from_252d_low`）
+- `MultiFactorStrategy.generate()`: 加 inline computation（与
+  `factor_generator._quality_factors` 数值一致）
+- `MultiFactorStrategy._DEFAULT_WEIGHTS`: rebalance 后
+  low_vol 0.18 / momentum 0.22 / quality 0.18 / pv_div 0.14 /
+  rel_strength 0.18 / **drawup_from_252d_low 0.10** = sum 1.00
+- `MultiFactorSpace._TUNED_FACTORS`: 加 drawup
+- `MultiFactorSpace.suggest()`: 新 `w_drawup_from_252d_low` slot (0.0-0.20, step 0.05)
+- `MultiFactorSpace.instantiate()`: 传递新权重
+- `RESEARCH_TO_PRODUCTION_MAP`: **未改**（drawup 同名 in research 和 production；
+  非 shadow 关系）
+
+**4-method consensus** 支持 promotion:
+- R3 deep_check §5.4 OOS IR **+0.386** PASS
+- R6 Ridge permutation **#1 of 43** (+0.024)
+- R6 XGBoost permutation **#7 of 43** (+0.010)
+- R12 factor_screen IR **+0.291** (**#2 of 33**)
+- R15 composite backtest (作为 ensemble 组件多次出现 top 权重)
+
+**测试**: 1109 passed（`test_shadowed_factor_merge::test_map_shrunk_by_
+exactly_two` 通过 —— drawup 同名非 shadow，map 仍 7 entries）
+
+**PRD §13.2 halt 条件** (post-authorization):
+- pytest 1109 ✓
+- **1 PROMOTED to PRODUCTION_FACTORS** (user-authorized §13.2 satisfied)
+- 23 cumulative candidates + 1 promoted to RESEARCH + 1 promoted to PRODUCTION
+- 无 invariant 违反
+
+**下轮建议**:
+- **A (强推)**: 跑 mining run `run_mining.py --type multi_factor --trials 30
+  --budget 1200 --lineage post-2026-04-20-llm-round-15` 看 drawup 作为 7th
+  PRODUCTION factor 后是否有 trial 过 QQQ gate + MaxDD 约束（这才是真正
+  PRD §10 #1 closure）
+- B: 菜单 LLM-9 event/calendar 因子（剩余未覆盖 topic）
+
 ### LLM-Round 14 — Topic LLM-11 cross-sectional（dedup 全灭）
 
 **时间**: 2026-04-21

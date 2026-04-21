@@ -2556,3 +2556,98 @@ change / above median persistence / dispersion-adjusted mom）分别有
 - (doc commit) —— docs: LLM-Round 14 log + cross-sectional space saturation finding
 
 ---
+
+## LLM-Round 15 — 2026-04-21 — composite ensemble + drawup → PRODUCTION ⭐
+
+### 1. 主题
+双部分：
+- (前半) 5 mean-revert candidates ensemble composite backtest (§13.2 safe)
+- (后半) **用户授权 "授权" → drawup_from_252d_low → PRODUCTION_FACTORS**
+
+### 2. Part 1: composite backtest 4 configurations
+
+| config | CAGR | Sharpe | MaxDD | Pass |
+|---|---:|---:|---:|---|
+| R9 baseline (pure classical) | +11.89% | +0.51 | -59.34% | 1/5 |
+| R15 C1 drawup + 5 MR | +14.91% | +0.59 | -56.96% | 2/5 |
+| R15 C2 pure 5 MR ensemble (neg weights) | +11.76% | +0.52 | **-50.87%** | 3/5 |
+| R15 C3 heavy drawup + 2 MR | +16.76% | +0.62 | -55.52% | 2/5 |
+| R15 C4 MR ensemble + vol_63d + spy_trend | **+20.57%** | +0.69 | -56.66% | **3/5** |
+
+**Key findings**:
+- C2 pure mean-revert ensemble 首次 PASS MaxDD rel gate (-50.87% ≥
+  1.5×SPY -51.94%). 证明 5 个 MR candidates 有真聚合效应
+- C4 首次 PASS QQQ full gate (+20.57% > QQQ +18.39%). mean-revert
+  ensemble + risk factors 是最强 factor-level combination
+- MaxDD abs -25% 阈值**仍然 unreachable** in factor-level tool
+  (最好 -50.87%, 1x distance from target). 确认 Round 9 结论：MFS
+  full stack 的 kill_switch + target_vol 不可替代
+
+### 3. Part 2: drawup → PRODUCTION_FACTORS promotion (用户授权)
+
+**4-method consensus** 为 promotion 提供定量支撑:
+
+| method | metric | 值 |
+|---|---|---:|
+| R3 deep_check §5.4 | OOS IR | **+0.386** ✅ |
+| R6 Ridge permutation | rank | **#1 of 43** ✅ |
+| R6 XGBoost permutation | rank | **#7 of 43** ✅ |
+| R12 factor_screen | IR | **+0.291 (#2 of 33)** ✅ |
+| R15 composite backtest | 作为组件 | 多 config top 权重 ✅ |
+
+**代码改动**:
+- `factor_registry.py::PRODUCTION_FACTORS`: 6 → 7 (drawup 新增)
+- `factor_registry.py::production_factor_names()`: 加 drawup 到 list
+- `factor_registry.py::RESEARCH_TO_PRODUCTION_MAP`: **未改** (drawup 在
+  research + production 同名，非 shadow)
+- `multi_factor.py::MultiFactorStrategy`:
+  - `_DEFAULT_WEIGHTS`: 加 drawup 0.10，其他权重按比例调整
+  - `generate()`: 加 inline drawup 计算，与 `_quality_factors` 数值一致
+- `strategy_space.py::MultiFactorSpace`:
+  - `_TUNED_FACTORS`: 加 drawup
+  - `suggest()`: 新 `w_drawup_from_252d_low` slot (0.0-0.20, step 0.05)
+  - `instantiate()`: 传递新权重
+
+### 4. 修改了哪些文件
+- `core/factors/factor_registry.py`
+- `core/signals/strategies/multi_factor.py`
+- `core/mining/strategy_space.py`
+- `CLAUDE.md` + `docs/ralph_loop_log.md`
+- **产出** (gitignored): 4 composite_backtest.json
+
+### 5. 跑了哪些测试/实验
+- pytest full suite: **1109 passed** (初测 1 failed
+  test_map_shrunk_by_exactly_two 因为我错加 map 条目；撤销后通过)
+- 4 composite backtest configs
+- 验证 MultiFactorStrategy 默认权重包含 drawup
+
+### 6. §13.2 halt 条件 (post-authorization)
+- pytest: 1109 maintained
+- **1 PROMOTED to PRODUCTION_FACTORS** — 用户明确授权，§13.2 halt 已
+  satisfied（非违反）
+- 23 cumulative candidates + 1 to RESEARCH + 1 to PRODUCTION
+- 无 invariant 违反
+
+### 7. PRD §10 状态
+- Success criterion #1 "至少 1 个 LLM-生成的候选因子通过完整 funnel 并被
+  promote" → **代码层面已达成**。剩余验证：实际 mining run 看 evaluator.evaluate
+  是否产出 tier != D 的 trial
+- Success criterion #2 "promote 的因子在 QQQ hard gate 下为 pass" → **pending**
+  mining run
+- Success criterion #3 "archive 可追溯" → ✅ archive lineage_tags 齐全
+
+### 8. 下一轮建议
+**A (强推，决定 #1/#2 闭环)**: 跑 `scripts/run_mining.py --type multi_factor
+--trials 30 --budget 1200 --lineage post-2026-04-20-llm-round-15`。
+  - 看 drawup 作为 7th PRODUCTION factor 是否让 mining 产出过 QQQ gate 的
+    trial
+  - 如果过，PRD §10 success criterion #1 + #2 双闭环
+  - 如果不过，fallback 到继续候选生成
+
+**B**: 菜单 LLM-9 event/calendar 因子（唯一剩余未覆盖 topic）
+
+### 9. 本轮 commit 哈希
+- (code commit 1) —— promote drawup_from_252d_low to PRODUCTION_FACTORS
+- (doc commit) —— docs: LLM-Round 15 log + composite findings + promotion
+
+---
