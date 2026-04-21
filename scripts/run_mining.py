@@ -186,6 +186,10 @@ def main():
         wf_test_bars_by_type = mining_cfg.get("walk_forward_test_bars_by_type", {}),
         min_oos_is_sharpe_ratio = mining_cfg.get("min_oos_is_sharpe_ratio", 0.50),
         defensive_window_dd_mult = mining_cfg.get("defensive_window_dd_multiplier", 1.3),
+        # QQQ hard gate (P0.4) — defaults to 0.0 meaning "must match QQQ"
+        min_cagr_excess_vs_qqq     = mining_cfg.get("min_cagr_excess_vs_qqq", 0.0),
+        min_holdout_excess_vs_qqq  = mining_cfg.get("min_holdout_excess_vs_qqq", 0.0),
+        min_avg_oos_excess_vs_qqq  = mining_cfg.get("min_avg_oos_excess_vs_qqq", 0.0),
     )
     if open_df is not None:
         evaluator.set_open_df(open_df)
@@ -208,6 +212,15 @@ def main():
 
     # ── 启动挖掘 ─────────────────────────────────────────────────────────────
     logger.info("启动策略挖掘循环 (trials=%d, budget=%.0fs)...", args.trials, args.budget)
+    # QQQ series for the hard gate. Load from store alongside SPY.
+    qqq_df = store.read("QQQ", "1d")
+    qqq_series = (qqq_df["close"].reindex(price_df.index, method="ffill")
+                  if qqq_df is not None and not qqq_df.empty else None)
+    if qqq_series is None:
+        logger.warning("QQQ data missing — hard gate will be disabled "
+                       "(all strategies bypass QQQ check). Expected to be "
+                       "available via store.read('QQQ', '1d').")
+
     run_result = miner.run(
         price_df         = price_df,
         regime_series    = regime,
@@ -217,6 +230,7 @@ def main():
         n_trials         = args.trials,
         time_budget      = args.budget,
         verbose          = True,
+        qqq_series       = qqq_series,
     )
 
     # ── 打印结果 ──────────────────────────────────────────────────────────────

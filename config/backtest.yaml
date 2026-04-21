@@ -88,6 +88,14 @@ mining:
   # Diversity filter
   diversity_max_correlation: 0.70  # max return correlation with promoted strategies
 
+  # QQQ hard gate (P0.4, 2026-04-20). Strategies failing any of the 3
+  # window excess checks are demoted to tier "D" and cannot promote.
+  # Thresholds are minimum excess (strategy minus QQQ); 0.0 means
+  # "strategy must at least equal QQQ".
+  min_cagr_excess_vs_qqq:      0.0   # full-period strategy CAGR − QQQ CAGR
+  min_holdout_excess_vs_qqq:   0.0   # holdout strategy return − QQQ return
+  min_avg_oos_excess_vs_qqq:   0.0   # non-holdout excess CAGR (OOS proxy)
+
   # Optuna settings
   n_trials_per_type: 80            # Optuna trials per strategy type per run
   time_budget_seconds: 3600        # max wall-clock time per mining run

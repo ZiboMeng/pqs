@@ -97,6 +97,14 @@ class EvalResult:
     # OOS/IS overfit ratio
     oos_is_sharpe_ratio: float = float("nan")
 
+    # Stage 6: QQQ hard gate (P0.4, 2026-04-20).
+    # Excess CAGR/return vs QQQ across 3 windows — all must clear their
+    # threshold for promotion. None → gate disabled (legacy runs).
+    qqq_full_period_excess: float = float("nan")
+    qqq_holdout_excess:     float = float("nan")
+    qqq_oos_avg_excess:     float = float("nan")
+    passed_qqq_gate:        bool  = True  # True when gate disabled OR cleared
+
     # Overall
     tier:            str   = "D"
     composite_score: float = 0.0
@@ -155,6 +163,13 @@ class MiningEvaluator:
         wf_test_bars_by_type: Optional[Dict[str, int]] = None,
         min_oos_is_sharpe_ratio: float = 0.50,
         defensive_window_dd_mult: float = 1.3,
+        # QQQ hard gate (P0.4, 2026-04-20). When a qqq_series is passed
+        # to evaluate(), strategies must clear all three thresholds or
+        # be demoted to tier "D" (non-promotable). Defaults = 0.0, i.e.
+        # strategy CAGR must be ≥ QQQ on each window.
+        min_cagr_excess_vs_qqq:       float = 0.0,
+        min_holdout_excess_vs_qqq:    float = 0.0,
+        min_avg_oos_excess_vs_qqq:    float = 0.0,
     ) -> None:
         self._cost              = cost_model
         self._capital           = initial_capital
@@ -175,6 +190,9 @@ class MiningEvaluator:
         self._wf_test_bars      = wf_test_bars_by_type or {}
         self._min_oos_is_ratio  = min_oos_is_sharpe_ratio
         self._def_win_dd_mult   = defensive_window_dd_mult
+        self._min_qqq_cagr_exc     = min_cagr_excess_vs_qqq
+        self._min_qqq_holdout_exc  = min_holdout_excess_vs_qqq
+        self._min_qqq_oos_avg_exc  = min_avg_oos_excess_vs_qqq
         self._open_df: Optional[pd.DataFrame] = None
         self._score_w           = score_weights or {
             "oos_ir":             2.0,
@@ -200,6 +218,7 @@ class MiningEvaluator:
         def_universe:      Optional[List[str]] = None,
         promoted_curves:   Optional[Dict[str, pd.Series]] = None,
         stop_after:        str = "full",   # "quick" | "oos" | "full"
+        qqq_series:        Optional[pd.Series] = None,
     ) -> EvalResult:
         """
         运行完整多阶段评估（含数据隔离）。
@@ -363,6 +382,18 @@ class MiningEvaluator:
         else:
             result.passed_holdout = True
             logger.debug("Holdout data too short (%d bars), skipping holdout check", len(holdout_df))
+
+        # ── Stage 6: QQQ hard gate (P0.4, 2026-04-20) ─────────────────────────
+        # When qqq_series provided, compute excess at 3 windows. All
+        # three must meet their threshold or tier is demoted to "D".
+        if qqq_series is not None and result.equity_curve is not None \
+                and not result.equity_curve.empty:
+            result.passed_qqq_gate = self._check_qqq_gate(
+                result, price_df, holdout_df, qqq_series,
+                non_holdout_df, spec, risk_universe, def_universe,
+            )
+        else:
+            result.passed_qqq_gate = True  # gate disabled when no qqq
 
         # ── Tier & score ──────────────────────────────────────────────────────
         result.tier            = self._assign_tier(result)
@@ -746,10 +777,135 @@ class MiningEvaluator:
                 max_corr = max(max_corr, abs(corr))
         return max_corr
 
+    def _check_qqq_gate(
+        self,
+        result,
+        price_df:       pd.DataFrame,
+        holdout_df:     pd.DataFrame,
+        qqq_series:     pd.Series,
+        non_holdout_df: pd.DataFrame,
+        spec:           StrategySpec,
+        risk_universe,
+        def_universe,
+    ) -> bool:
+        """Evaluate the QQQ hard gate on 3 windows (约束: QQQ
+        Outperformance Rule, CLAUDE.md).
+
+        All three must clear their configured threshold for the gate
+        to pass; failure flips tier to "D". Windows:
+
+          1. Full-period (price_df) excess CAGR
+          2. Holdout (last 252 bars) excess return
+          3. Non-holdout (OOS proxy) excess CAGR
+
+        Non-holdout is used as a cheap proxy for the walk-forward
+        "mean OOS excess" metric — running a true per-window excess
+        would require re-running walk-forward against QQQ (expensive).
+        The per-window average and the single non-holdout CAGR
+        differ in practice, but we accept the approximation for now;
+        the net sign (pass/fail) is what matters for gating.
+        """
+        from core.regime.regime_detector import RegimeDetector
+
+        def _cagr(series: pd.Series) -> float:
+            if series is None or series.empty or len(series) < 2:
+                return float("nan")
+            n = len(series)
+            total = float(series.iloc[-1] / series.iloc[0])
+            if total <= 0:
+                return float("nan")
+            years = max(n / 252.0, 1.0 / 252.0)
+            return total ** (1.0 / years) - 1.0
+
+        def _total_return(series: pd.Series) -> float:
+            if series is None or series.empty or len(series) < 2:
+                return float("nan")
+            return float(series.iloc[-1] / series.iloc[0] - 1.0)
+
+        # Prepare regime series that cover the requested dataframes.
+        regime_full = pd.Series("NEUTRAL", index=price_df.index)
+
+        # (1) Full-period backtest
+        try:
+            strat_full = instantiate_strategy(spec, risk_universe, def_universe)
+            signals = strat_full.generate(price_df, regime_full)
+            weights = self._build_weights(signals, price_df, regime_full,
+                                          spec.strategy_type)
+            bt = self._run_backtest(weights, price_df, regime_full, qqq_series)
+            strat_eq = bt.equity_curve
+            qqq_full = qqq_series.reindex(strat_eq.index, method="ffill")
+            strat_cagr = _cagr(strat_eq)
+            qqq_cagr   = _cagr(qqq_full)
+            if not (np.isnan(strat_cagr) or np.isnan(qqq_cagr)):
+                result.qqq_full_period_excess = strat_cagr - qqq_cagr
+        except Exception as exc:
+            logger.warning("QQQ gate: full-period bt failed for %s: %s",
+                           spec.spec_id, exc)
+
+        # (2) Holdout
+        if not holdout_df.empty:
+            try:
+                regime_h = pd.Series("NEUTRAL", index=holdout_df.index)
+                strat_h = instantiate_strategy(spec, risk_universe, def_universe)
+                sig_h = strat_h.generate(holdout_df, regime_h)
+                w_h = self._build_weights(sig_h, holdout_df, regime_h,
+                                          spec.strategy_type)
+                bt_h = self._run_backtest(w_h, holdout_df, regime_h, qqq_series)
+                strat_eq_h = bt_h.equity_curve
+                qqq_h = qqq_series.reindex(strat_eq_h.index, method="ffill")
+                strat_ret_h = _total_return(strat_eq_h)
+                qqq_ret_h   = _total_return(qqq_h)
+                if not (np.isnan(strat_ret_h) or np.isnan(qqq_ret_h)):
+                    result.qqq_holdout_excess = strat_ret_h - qqq_ret_h
+            except Exception as exc:
+                logger.warning("QQQ gate: holdout bt failed for %s: %s",
+                               spec.spec_id, exc)
+
+        # (3) Non-holdout (OOS proxy) — compute excess CAGR
+        if not non_holdout_df.empty:
+            try:
+                regime_nh = pd.Series("NEUTRAL", index=non_holdout_df.index)
+                strat_nh = instantiate_strategy(spec, risk_universe, def_universe)
+                sig_nh = strat_nh.generate(non_holdout_df, regime_nh)
+                w_nh = self._build_weights(sig_nh, non_holdout_df, regime_nh,
+                                           spec.strategy_type)
+                bt_nh = self._run_backtest(w_nh, non_holdout_df, regime_nh,
+                                           qqq_series)
+                strat_eq_nh = bt_nh.equity_curve
+                qqq_nh = qqq_series.reindex(strat_eq_nh.index, method="ffill")
+                strat_cagr_nh = _cagr(strat_eq_nh)
+                qqq_cagr_nh   = _cagr(qqq_nh)
+                if not (np.isnan(strat_cagr_nh) or np.isnan(qqq_cagr_nh)):
+                    result.qqq_oos_avg_excess = strat_cagr_nh - qqq_cagr_nh
+            except Exception as exc:
+                logger.warning("QQQ gate: non-holdout bt failed for %s: %s",
+                               spec.spec_id, exc)
+
+        # Gate decision: every configured threshold must clear.
+        checks = []
+        if not np.isnan(result.qqq_full_period_excess):
+            checks.append(result.qqq_full_period_excess
+                          >= self._min_qqq_cagr_exc)
+        if not np.isnan(result.qqq_holdout_excess):
+            checks.append(result.qqq_holdout_excess
+                          >= self._min_qqq_holdout_exc)
+        if not np.isnan(result.qqq_oos_avg_excess):
+            checks.append(result.qqq_oos_avg_excess
+                          >= self._min_qqq_oos_avg_exc)
+        if not checks:
+            # No window could be computed → conservative: fail gate
+            return False
+        return all(checks)
+
     def _assign_tier(self, r: EvalResult) -> str:
         if not r.passed_oos:
             return "D"
         if not np.isnan(r.oos_is_sharpe_ratio) and r.oos_is_sharpe_ratio < self._min_oos_is_ratio:
+            return "D"
+        # QQQ hard gate (P0.4): strategy that doesn't beat QQQ on full
+        # period + holdout + OOS-proxy is unpromotable regardless of
+        # other metrics. See CLAUDE.md "QQQ Outperformance Rule".
+        if not r.passed_qqq_gate:
             return "D"
         if not r.passed_holdout:
             return "C"

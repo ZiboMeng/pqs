@@ -113,6 +113,7 @@ class StrategyMiner:
         n_trials:          int   = 80,
         time_budget:       float = 3600.0,
         verbose:           bool  = True,
+        qqq_series:        Optional[pd.Series] = None,
     ) -> MiningRunResult:
         """
         执行策略挖掘循环。
@@ -162,6 +163,7 @@ class StrategyMiner:
                     risk_universe    = risk_universe,
                     def_universe     = def_universe,
                     promoted_curves  = promoted_curves,
+                    qqq_series       = qqq_series,
                 )
                 self._archive.save_eval(result)
                 all_results.append(result)
