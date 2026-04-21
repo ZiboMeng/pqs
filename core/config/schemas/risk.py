@@ -99,6 +99,32 @@ class LeftSideTradingConfig(BaseModel):
     auto_disable_on_consecutive_loss: int = Field(default=3, ge=1)
 
 
+class IntradayTimingConfig(BaseModel):
+    """Thresholds and scaling rules for the multi-TF timing layer
+    (core/intraday/multi_timescale.py::decide_timing).
+
+    Migrated from hardcoded module constants (2026-04-20, P1 闭环) so
+    thresholds can be tuned without code change.
+    """
+
+    # Lowest timing_scale allowed under strong higher-TF contradict.
+    # Below this floor, the soft veto becomes a hard veto (execute=False).
+    min_timing_scale: float = Field(default=0.0, ge=0.0, le=1.0)
+
+    # If timing_scale falls below this, defer execution for the bar.
+    execute_threshold: float = Field(default=0.15, ge=0.0, le=1.0)
+
+    # Scaling applied when 60m contradicts a long daily target (soft veto).
+    scale_when_60m_contradict: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    # Scaling applied when 60m is neutral (flat bar).
+    scale_when_60m_neutral: float = Field(default=0.8, ge=0.0, le=1.0)
+
+    # Multiplicative 30m confirmation / contradiction / neutral factors.
+    mult_30m_contradict: float = Field(default=0.5, ge=0.0, le=1.0)
+    mult_30m_neutral:    float = Field(default=0.8, ge=0.0, le=1.0)
+
+
 class RiskConfig(BaseModel):
     """Top-level risk management configuration."""
 
@@ -112,6 +138,7 @@ class RiskConfig(BaseModel):
     position_limits: PositionLimitsConfig = Field(default_factory=PositionLimitsConfig)
     budget: BudgetConfig = Field(default_factory=BudgetConfig)
     left_side_trading: LeftSideTradingConfig = Field(default_factory=LeftSideTradingConfig)
+    intraday_timing: IntradayTimingConfig = Field(default_factory=IntradayTimingConfig)
 
     @model_validator(mode="after")
     def hard_constraints_immutable(self) -> "RiskConfig":

@@ -122,17 +122,22 @@ def _rth_filter_day_bars(day_bars: dict) -> dict:
 
 
 def _execute_day_bar_by_bar(
-    engine:    PaperTradingEngine,
-    run_id:    str,
-    date_ts:   pd.Timestamp,
-    day_bars:  dict,
-    target:    dict,
+    engine:          PaperTradingEngine,
+    run_id:          str,
+    date_ts:         pd.Timestamp,
+    day_bars:        dict,
+    target:          dict,
+    timing_provider = None,
 ) -> object | None:
     """Dispatch one day's bar-by-bar execution via the shared intraday
     runtime. Used by both replay and live. Returns DayResult or None.
 
     Idempotency is handled inside run_day_intraday (has_fill_for_bar per
     bar), so calling this on a day already processed is safe.
+
+    If `timing_provider` is passed (the output of
+    `multi_timescale.make_timing_target_provider`), per-bar targets
+    flow through the multi-TF timing layer.
     """
     day_bars = _rth_filter_day_bars(day_bars)
     if not day_bars:
@@ -142,6 +147,7 @@ def _execute_day_bar_by_bar(
         return engine.run_day_intraday(
             run_id=run_id, date=date_ts,
             day_bars=day_bars, target_wts=target,
+            timing_provider=timing_provider,
         )
     except Exception as exc:
         logger.error("[%s] intraday 执行失败: %s", date_ts.date(), exc, exc_info=True)
@@ -277,6 +283,12 @@ def main():
     parser.add_argument("--to-date",    default=None,         help="replay 结束日期")
     parser.add_argument("--db-path",    default="data/paper_trading/pt.db")
     parser.add_argument("--config-dir", default="config")
+    parser.add_argument("--use-timing", action="store_true",
+                        help="Route per-bar targets through the multi-TF "
+                             "timing layer (decide_timing). Loads 60m+30m"
+                             "+15m bars for timing decisions. Off by default "
+                             "because current timing research shows ~neutral "
+                             "value; only enable with explicit intent.")
     args = parser.parse_args()
 
     cfg   = load_config(Path(args.config_dir))
@@ -470,8 +482,40 @@ def main():
         logger.info("Live run_id=%s bars available for %d symbols",
                     run_id, len(day_bars))
 
+        # Optional multi-TF timing provider. Loads higher/lower TFs and
+        # returns a closure that computes per-bar timed targets.
+        timing_provider = None
+        if args.use_timing:
+            from core.intraday.multi_timescale import (
+                load_multi_timescale_bars, make_timing_target_provider,
+                TimingThresholds,
+            )
+            # Timing needs bars across TFs for the full live day.
+            mt_bars = load_multi_timescale_bars(
+                store, list(target.keys()),
+                freqs=["60m", "30m", "15m"],
+            )
+            # Slice to live_date for the timing provider's context
+            # lookups (build_context walks each TF's full history but
+            # timing on a single day needs only that day's per-symbol
+            # bars across TFs).
+            mt_bars_today = {}
+            for freq, sym_map in mt_bars.items():
+                mt_bars_today[freq] = {}
+                for sym, df in sym_map.items():
+                    day_mask = df.index.normalize() == live_date
+                    if day_mask.any():
+                        mt_bars_today[freq][sym] = df.loc[day_mask]
+            th = TimingThresholds.from_config(cfg.risk.intraday_timing)
+            timing_provider = make_timing_target_provider(
+                mt_bars_today, target, thresholds=th,
+            )
+            logger.info("Timing provider enabled (TFs: %s, threshold=%.2f)",
+                        sorted(mt_bars_today.keys()), th.execute_threshold)
+
         result = _execute_day_bar_by_bar(
             engine, run_id, live_date, day_bars, target,
+            timing_provider=timing_provider,
         )
         if result is not None:
             engine.reconcile(live_date, result)

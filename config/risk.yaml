@@ -51,3 +51,14 @@ left_side_trading:
   loss_stop_pct: -0.08
   profit_target_pct: 0.15
   auto_disable_on_consecutive_loss: 3
+
+# Multi-TF timing layer thresholds (约束 3 / P1 闭环).
+# Controls core/intraday/multi_timescale.py::decide_timing. Tuning lets
+# us evaluate timing aggressiveness without code changes.
+intraday_timing:
+  min_timing_scale: 0.0        # hard-veto floor (scales below → execute=False)
+  execute_threshold: 0.15      # bar-level defer threshold
+  scale_when_60m_contradict: 0.5
+  scale_when_60m_neutral: 0.8
+  mult_30m_contradict: 0.5
+  mult_30m_neutral: 0.8

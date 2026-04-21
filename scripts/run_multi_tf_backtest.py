@@ -25,8 +25,8 @@ from core.portfolio.constructor import PortfolioConstructor
 from core.backtest.backtest_engine import BacktestEngine, compute_metrics
 from core.backtest.intraday_engine import IntradayBacktestEngine
 from core.intraday.multi_timescale import (
-    load_multi_timescale_bars, build_context, evaluate_cross_tf_signal,
-    AttributionAggregator,
+    load_multi_timescale_bars, build_context,
+    decide_timing, TimingAggregator, TimingThresholds,
 )
 from core.logging_setup import setup_logging, get_logger
 
@@ -102,7 +102,10 @@ def main():
     trade_count = 0
     veto_count = 0
     regime_log = []  # (date, regime, n_targets, n_adjusted, n_vetoed, strength_avg)
-    attribution = AttributionAggregator()
+    # TimingAggregator replaces the legacy AttributionAggregator as part
+    # of约束 3 closure — multi-TF is a timing layer, not an alpha voter.
+    timing_agg = TimingAggregator()
+    timing_th = TimingThresholds.from_config(cfg.risk.intraday_timing)
 
     for date in all_dates:
         date_ts = pd.Timestamp(date)
@@ -143,14 +146,17 @@ def main():
 
         for sym, base_w in base_targets.items():
             ctx = build_context(multi_bars, sym, mid_bar_ts)
-            sig = evaluate_cross_tf_signal(ctx, sym, base_w)
-            attribution.add(sig)
-            if sig.vetoed:
+            decision = decide_timing(
+                ctx, sym, base_weight=base_w, daily_side=1,
+                thresholds=timing_th,
+            )
+            timing_agg.add(decision)
+            if not decision.execute:
                 veto_count += 1
                 day_vetoes += 1
             else:
-                adjusted_targets[sym] = base_w * sig.strength
-                day_strengths.append(sig.strength)
+                adjusted_targets[sym] = decision.effective_weight
+                day_strengths.append(decision.timing_scale)
 
         regime_log.append((date_ts, day_regime, len(base_targets), len(adjusted_targets),
                            day_vetoes, np.mean(day_strengths) if day_strengths else 0))
@@ -215,9 +221,11 @@ def main():
                 ann = float(sub.mean() * 252 * 100)
                 print("%-12s %+7.1f%% %8d" % (reg, ann, len(sub)))
 
-    # Per-TF attribution (confirm/contradict/neutral counts + avg multipliers)
+    # Timing report (per-TF confirm/contradict/neutral counts + execute/defer
+    # rates + avg timing_scale). Emphasizes the timing-layer role instead
+    # of alpha-vote accounting.
     print()
-    print(attribution.format_report())
+    print(timing_agg.format_report())
 
     # Per-TF IC analysis
     _print_per_tf_ic(multi_bars, mt_symbols)
@@ -425,9 +433,10 @@ def _print_cost_sensitivity(cfg, all_dates, daily_weights, multi_bars, mt_symbol
             adjusted_targets = {}
             for sym, base_w in base_targets.items():
                 ctx = build_context(multi_bars, sym, mid_bar_ts)
-                sig = evaluate_cross_tf_signal(ctx, sym, base_w)
-                if not sig.vetoed:
-                    adjusted_targets[sym] = base_w * sig.strength
+                decision = decide_timing(ctx, sym, base_weight=base_w,
+                                         daily_side=1)
+                if decision.execute:
+                    adjusted_targets[sym] = decision.effective_weight
 
             result = engine.run_multi_day(
                 date=date_ts, day_bars=day_bars, target_wts=adjusted_targets,
@@ -501,9 +510,10 @@ def _print_walk_forward(cfg, all_dates, daily_weights, multi_bars):
             adjusted = {}
             for sym, base_w in base_targets.items():
                 ctx = build_context(multi_bars, sym, mid_bar_ts)
-                sig = evaluate_cross_tf_signal(ctx, sym, base_w)
-                if not sig.vetoed:
-                    adjusted[sym] = base_w * sig.strength
+                decision = decide_timing(ctx, sym, base_weight=base_w,
+                                         daily_side=1)
+                if decision.execute:
+                    adjusted[sym] = decision.effective_weight
 
             result = engine.run_multi_day(
                 date=date_ts, day_bars=day_bars, target_wts=adjusted,

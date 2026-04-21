@@ -243,6 +243,7 @@ class PaperTradingEngine:
         target_wts:     Dict[str, float],
         vix:            float = 15.0,
         target_wts_fn:  Optional[Callable[[pd.Timestamp, Dict[str, float], float], Dict[str, float]]] = None,
+        timing_provider: Optional[Callable[[pd.Timestamp, Dict[str, float], float], Dict[str, float]]] = None,
         resume_from_checkpoint: bool = True,
     ) -> DayResult:
         """Bar-by-bar intraday execution for paper (live or replay).
@@ -256,17 +257,44 @@ class PaperTradingEngine:
              save_intraday_bar + checkpoint
           5. Update in-memory positions/cash/tracker
 
+        Parameters
+        ----------
+        target_wts       : static target weights (used if no provider
+                           passed). Daily MFS output goes here.
+        target_wts_fn    : generic per-bar target callback (preexisting).
+        timing_provider  : multi-TF timing layer closure (from
+                           `core.intraday.multi_timescale.
+                           make_timing_target_provider`). When provided,
+                           it becomes the per-bar target function —
+                           applies decide_timing() to the daily targets
+                           at each bar. Mutually exclusive with
+                           target_wts_fn (if both passed, timing_provider
+                           wins and a warning is logged).
+
         Shared by live and replay; the ONLY difference is the bar source
         (today's partial day vs a historical day's bars).
         """
+        if timing_provider is not None and target_wts_fn is not None:
+            logger.warning(
+                "run_day_intraday received both target_wts_fn and "
+                "timing_provider; timing_provider takes precedence."
+            )
+        effective_target_fn = timing_provider or target_wts_fn
         if not day_bars:
             return DayResult(date=date, trades=[], eod_positions=dict(self._positions),
                              eod_cash=self._cash, gross_pnl=0.0, net_pnl=0.0,
                              forced_close=False)
 
         cp_last_bar_ts: Optional[pd.Timestamp] = None
-        ref_sym_day = next(iter(day_bars))
-        day_last_bar_ts = day_bars[ref_sym_day].index[-1]
+        # Short-circuit key: do ALL symbols' bars end at or before the
+        # checkpoint's last_bar_ts? Checking only the reference symbol's
+        # last bar broke if day_bars grew across calls (e.g. new bar
+        # arrives between live re-runs) or if the reference symbol
+        # changed due to dict-iteration order. Using max() across all
+        # symbols is stable.
+        day_last_bar_ts = max(
+            df.index[-1] for df in day_bars.values() if len(df) > 0
+        )
         if resume_from_checkpoint:
             cp = self.load_bar_checkpoint(run_id)
             if cp is not None and cp["date"] == date:
@@ -278,10 +306,16 @@ class PaperTradingEngine:
                     date.date(), run_id, cp_last_bar_ts, self._cash,
                     len(self._positions),
                 )
-                # If checkpoint indicates the day was fully completed
-                # (last_bar_ts == final bar), short-circuit — nothing
-                # left to do on this day.
-                if cp_last_bar_ts == day_last_bar_ts:
+                # Short-circuit only when EVERY symbol's last bar is
+                # already at or before the checkpoint — guarantees there
+                # is no new bar to process regardless of which symbol we
+                # pick as reference. If any symbol has new bars past
+                # cp_last_bar_ts, we resume normally and process them.
+                all_bars_covered = all(
+                    df.index[-1] <= cp_last_bar_ts
+                    for df in day_bars.values() if len(df) > 0
+                )
+                if all_bars_covered and cp_last_bar_ts >= day_last_bar_ts:
                     logger.info(
                         "[%s] day already fully processed; skipping",
                         date.date(),
@@ -327,7 +361,7 @@ class PaperTradingEngine:
             positions=self._positions.copy(),
             cash=self._cash,
             vix=vix,
-            target_wts_fn=target_wts_fn,
+            target_wts_fn=effective_target_fn,
             on_bar_complete=_on_bar,
             skip_bar_fn=_skip,
         )

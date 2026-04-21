@@ -44,7 +44,7 @@ Data contract (unchanged):
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -402,13 +402,36 @@ class TimingDecision:
         return (self.base_weight * self.timing_scale) if self.execute else 0.0
 
 
-# Floor for timing scale under contradicting higher TF. Below this, the
-# daily target is effectively flatted — this encodes the "higher TF can
-# VETO lower" rule from CLAUDE.md. Configurable for future tuning.
-_MIN_TIMING_SCALE = 0.0
+@dataclass
+class TimingThresholds:
+    """Timing-layer thresholds. Mirrors
+    `core.config.schemas.risk.IntradayTimingConfig` so decide_timing can
+    be called from tests without loading the full Config tree.
 
-# Minimum timing scale to actually execute (anything below → defer).
-_EXECUTE_THRESHOLD = 0.15
+    Defaults match the original hardcoded constants (pre-P1 closure) so
+    callers that don't pass thresholds see no behavior change.
+    """
+    min_timing_scale:          float = 0.0
+    execute_threshold:         float = 0.15
+    scale_when_60m_contradict: float = 0.5
+    scale_when_60m_neutral:    float = 0.8
+    mult_30m_contradict:       float = 0.5
+    mult_30m_neutral:          float = 0.8
+
+    @classmethod
+    def from_config(cls, cfg) -> "TimingThresholds":
+        """Build from a `RiskConfig.intraday_timing` pydantic object."""
+        return cls(
+            min_timing_scale          = cfg.min_timing_scale,
+            execute_threshold         = cfg.execute_threshold,
+            scale_when_60m_contradict = cfg.scale_when_60m_contradict,
+            scale_when_60m_neutral    = cfg.scale_when_60m_neutral,
+            mult_30m_contradict       = cfg.mult_30m_contradict,
+            mult_30m_neutral          = cfg.mult_30m_neutral,
+        )
+
+
+_DEFAULT_THRESHOLDS = TimingThresholds()
 
 
 def decide_timing(
@@ -416,6 +439,7 @@ def decide_timing(
     symbol:       str,
     base_weight:  float,
     daily_side:   int = 1,
+    thresholds:   Optional[TimingThresholds] = None,
 ) -> TimingDecision:
     """Canonical multi-TF timing API.
 
@@ -434,7 +458,13 @@ def decide_timing(
     daily_side  : +1 (long) — retained for future short support; -1
                   currently rejected with execute=False since system is
                   long-only.
+    thresholds  : TimingThresholds instance (defaults match legacy
+                  hardcoded constants). Pass
+                  `TimingThresholds.from_config(cfg.risk.intraday_timing)`
+                  in production to enable config-driven tuning.
     """
+    th = thresholds or _DEFAULT_THRESHOLDS
+
     if daily_side != 1:
         return TimingDecision(
             symbol=symbol, decision_time=ctx.decision_time,
@@ -471,10 +501,10 @@ def decide_timing(
     elif dir_60 == -1:
         # 60m strongly disagrees with long daily target — soft veto
         votes["60m"] = "contradict"
-        scale = max(0.5, _MIN_TIMING_SCALE)
+        scale = max(th.scale_when_60m_contradict, th.min_timing_scale)
     else:  # dir_60 == 0
         votes["60m"] = "neutral"
-        scale = 0.8
+        scale = th.scale_when_60m_neutral
 
     # 30m vote (secondary confirmation)
     if dir_30 is None:
@@ -483,10 +513,10 @@ def decide_timing(
         votes["30m"] = "confirm"
     elif dir_30 == -1:
         votes["30m"] = "contradict"
-        scale *= 0.5
+        scale *= th.mult_30m_contradict
     else:
         votes["30m"] = "neutral"
-        scale *= 0.8
+        scale *= th.mult_30m_neutral
 
     # 15m trigger — defers but cannot flip.
     execute = True
@@ -511,7 +541,7 @@ def decide_timing(
             votes["5m"] = "neutral"
 
     # Final gate: if timing_scale is below execute threshold, defer
-    if scale < _EXECUTE_THRESHOLD:
+    if scale < th.execute_threshold:
         execute = False
 
     reason = (
@@ -528,6 +558,48 @@ def decide_timing(
         higher_tf_vote=votes,
         reason=reason,
     )
+
+
+def make_timing_target_provider(
+    multi_bars:        Dict[str, Dict[str, pd.DataFrame]],
+    daily_base_weights: Dict[str, float],
+    thresholds:        Optional[TimingThresholds] = None,
+) -> Callable[[pd.Timestamp, Dict[str, float], float], Dict[str, float]]:
+    """Build a `target_wts_fn` closure suitable for
+    `IntradayBacktestEngine.run_multi_day` / `PaperTradingEngine.
+    run_day_intraday`.
+
+    At each bar, the returned closure:
+      1. Builds a multi-TF context for every symbol with a base weight
+      2. Calls decide_timing to get per-symbol TimingDecision
+      3. Returns {symbol: effective_weight} dict — ready as a target
+
+    Symbols whose timing.execute is False are OMITTED from the returned
+    dict (caller interprets missing symbols as "no new orders, hold
+    current position"). Symbols with execute=True but effective_weight
+    < base are included at the reduced level.
+    """
+    th = thresholds or _DEFAULT_THRESHOLDS
+
+    def _provider(
+        bar_ts:    pd.Timestamp,
+        positions: Dict[str, float],
+        cash:      float,
+    ) -> Dict[str, float]:
+        out: Dict[str, float] = {}
+        for sym, bw in daily_base_weights.items():
+            if bw <= 0:
+                continue
+            ctx = build_context(multi_bars, sym, bar_ts)
+            decision = decide_timing(
+                ctx, sym, base_weight=float(bw),
+                daily_side=1, thresholds=th,
+            )
+            if decision.execute:
+                out[sym] = decision.effective_weight
+        return out
+
+    return _provider
 
 
 # ── Attribution aggregator ───────────────────────────────────────────────────
@@ -631,4 +703,119 @@ class AttributionAggregator:
         lines.append("")
         lines.append(f"Avg base (60m): {s.avg_base_strength:.3f}")
         lines.append(f"Avg final    : {s.avg_final_strength:.3f}")
+        return "\n".join(lines)
+
+
+# ── Timing aggregator (约束 3 / P1 闭环) ─────────────────────────────────────
+#
+# TimingDecision-flavored analogue of AttributionAggregator. Produces
+# the timing-role metrics requested by CLAUDE.md: execute rate, defer
+# rate, avg timing_scale, per-TF confirm/contradict/neutral counts.
+
+
+@dataclass
+class TimingSummary:
+    """Aggregated counts over a series of TimingDecision records."""
+    n_decisions:    int = 0
+    n_executed:     int = 0
+    n_deferred:     int = 0
+    avg_scale:      float = 0.0
+    avg_eff_weight: float = 0.0
+    # per-TF vote counts, across ALL decisions (executed + deferred)
+    votes_60m: Dict[str, int] = field(default_factory=lambda:
+        {"confirm": 0, "contradict": 0, "neutral": 0, "absent": 0})
+    votes_30m: Dict[str, int] = field(default_factory=lambda:
+        {"confirm": 0, "contradict": 0, "neutral": 0, "absent": 0})
+    votes_15m: Dict[str, int] = field(default_factory=lambda:
+        {"confirm": 0, "contradict": 0, "neutral": 0, "absent": 0})
+    votes_5m: Dict[str, int] = field(default_factory=lambda:
+        {"confirm": 0, "contradict": 0, "neutral": 0, "absent": 0})
+    reasons: Dict[str, int] = field(default_factory=dict)
+
+    @property
+    def execute_rate(self) -> float:
+        if self.n_decisions == 0:
+            return 0.0
+        return self.n_executed / self.n_decisions
+
+    @property
+    def defer_rate(self) -> float:
+        if self.n_decisions == 0:
+            return 0.0
+        return self.n_deferred / self.n_decisions
+
+
+class TimingAggregator:
+    """Collect TimingDecision records and emit a summary.
+
+    Replaces AttributionAggregator for scripts migrated to decide_timing.
+    AttributionAggregator is kept for legacy callers still using
+    evaluate_cross_tf_signal.
+
+    Usage:
+        tagg = TimingAggregator()
+        for bar_ts in bars:
+            for sym, bw in base.items():
+                d = decide_timing(build_context(...), sym, bw)
+                tagg.add(d)
+        print(tagg.format_report())
+    """
+
+    _VOTE_BUCKETS = ("confirm", "contradict", "neutral", "absent")
+
+    def __init__(self) -> None:
+        self._decisions: List[TimingDecision] = []
+
+    def add(self, decision: TimingDecision) -> None:
+        self._decisions.append(decision)
+
+    def summary(self) -> TimingSummary:
+        s = TimingSummary(n_decisions=len(self._decisions))
+        if not self._decisions:
+            return s
+
+        s.n_executed = sum(1 for d in self._decisions if d.execute)
+        s.n_deferred = s.n_decisions - s.n_executed
+
+        scales = [d.timing_scale for d in self._decisions]
+        effs = [d.effective_weight for d in self._decisions]
+        s.avg_scale = float(np.mean(scales)) if scales else 0.0
+        s.avg_eff_weight = float(np.mean(effs)) if effs else 0.0
+
+        for d in self._decisions:
+            for freq, bucket_map in (
+                ("60m", s.votes_60m), ("30m", s.votes_30m),
+                ("15m", s.votes_15m), ("5m", s.votes_5m),
+            ):
+                v = d.higher_tf_vote.get(freq, "absent")
+                if v in self._VOTE_BUCKETS:
+                    bucket_map[v] += 1
+                else:
+                    bucket_map["absent"] += 1
+            s.reasons[d.reason] = s.reasons.get(d.reason, 0) + 1
+        return s
+
+    def format_report(self) -> str:
+        s = self.summary()
+        if s.n_decisions == 0:
+            return "TimingAggregator: no decisions collected"
+
+        lines = []
+        lines.append("=== Multi-TF Timing Report ===")
+        lines.append(f"Decisions: {s.n_decisions}  "
+                     f"Executed: {s.n_executed} ({s.execute_rate:.1%})  "
+                     f"Deferred: {s.n_deferred} ({s.defer_rate:.1%})")
+        lines.append(f"Avg timing_scale : {s.avg_scale:.3f}")
+        lines.append(f"Avg effective_wt : {s.avg_eff_weight:.4f}")
+        lines.append("")
+        lines.append(f"{'TF':<5} {'Confirm':>8} {'Contradict':>11} "
+                     f"{'Neutral':>9} {'Absent':>8}")
+        for freq, bm in (("60m", s.votes_60m), ("30m", s.votes_30m),
+                         ("15m", s.votes_15m), ("5m",  s.votes_5m)):
+            lines.append(f"{freq:<5} {bm['confirm']:>8d} {bm['contradict']:>11d} "
+                         f"{bm['neutral']:>9d} {bm['absent']:>8d}")
+        lines.append("")
+        lines.append("Reasons: " + ", ".join(
+            f"{k}={v}" for k, v in sorted(
+                s.reasons.items(), key=lambda kv: -kv[1])))
         return "\n".join(lines)
