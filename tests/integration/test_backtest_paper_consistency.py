@@ -276,20 +276,13 @@ class TestQQQOutperformance:
         self.regime = detector.classify_series(spy, vix)
         risk_syms = [s for s in all_syms if s not in ["TLT", "IEF", "GLD", "SHY", "TQQQ", "SOXL"]
                      and s not in uni.blacklist]
-        # R33-calibrated weights (grid-best on R28 expanded universe).
-        # Pre-R28: {low_vol:0, momentum:0.30, quality:0.25, pv_div:0.05,
-        #          rel_strength:0.30, market_trend:0.10}
-        # CAGR 19% > QQQ 16% (old pool)
-        # Post-R28 expanded universe broke that calibration (CAGR 16.25% <
-        # QQQ 17.62%). R33 grid search found 51/156 weight sets beating QQQ;
-        # grid-best CAGR 20.75% vs QQQ 17.62% (+3.13pt). Test uses grid-best.
-        self.strat = MultiFactorStrategy(
-            symbols=risk_syms, top_n=4, rebalance_monthly=False, score_weighted=True,
-            factor_weights={"low_vol": 0.15, "momentum": 0.05, "quality": 0.30,
-                            "pv_div": 0.05, "rel_strength": 0.30,
-                            "market_trend": 0.0,
-                            "drawup_from_252d_low": 0.15},
-            min_holding_days=3, lookback_mom=189, lookback_quality=189, lookback_vol=84)
+        # PRD M1: test uses the same single source of truth as production
+        # entrypoints (config/production_strategy.yaml). Previously this
+        # fixture hardcoded R33 grid-best weights independently of run_paper
+        # / run_backtest, which drifted. Now it just tracks the artifact.
+        from core.config.production_strategy import load_production_strategy, build_strategy_from_config
+        ps_cfg = load_production_strategy()
+        self.strat = build_strategy_from_config(ps_cfg, cfg.risk, risk_syms)
         signals = self.strat.generate(self.price_df, self.regime)
         constructor = PortfolioConstructor(use_vol_parity=False)
         weights = constructor.build(raw_signals=signals, price_df=self.price_df, regime_series=self.regime)

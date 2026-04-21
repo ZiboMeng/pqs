@@ -148,6 +148,7 @@ pqs/
 ├── config/                      ← 所有 YAML 配置
 │   ├── system.yaml              - 资本 / 路径 / 日志
 │   ├── universe.yaml            - 交易 universe 定义（53 symbols）
+│   ├── production_strategy.yaml ⭐ - **生产策略单一真源** (PRD M1)
 │   ├── backtest.yaml            - 回测 + mining 阈值
 │   ├── risk.yaml                - 风险约束（position limits, kill switch 等）
 │   ├── cost_model.yaml          - 交易成本参数
@@ -463,8 +464,10 @@ python scripts/run_universe_rebalance.py
   - `--strategy <name>`: 只跑指定策略（默认跑全部 registered）
   - `--config-dir`: 指定非默认 config 目录
   - `--output-dir`: 覆盖默认 `reports/backtests`
+  - `--production-strategy PATH`: 覆盖 M1 单一真源路径（研究用；不要指向 uncommitted 文件）
 - **产出**: `reports/backtests/backtest/runs/<ts>_backtest/` 下 master_report.md + equity_curve.csv + trades.csv + metrics.json
 - **怎么看结果**: master_report 中文报告包含 CAGR / Sharpe / MaxDD / vs SPY / vs QQQ / regime stratification
+- **baseline strategy**: `multi_factor` 默认来自 `config/production_strategy.yaml`（PRD M1）；硬编码 weights 已移除
 
 #### `run_multi_tf_backtest.py`
 - **作用**: 多时间尺度（60m + 30m + 15m）timing layer 回测
@@ -565,6 +568,7 @@ python scripts/run_universe_rebalance.py
 - **Replay**: `--from-date` / `--to-date` 历史回放，结果**带 bias 警告**仅作 diagnostic
 - **Status**: 只打印当前 DB 里的持仓 / cash / equity
 - **可选**: `--use-timing` 启用 multi-TF timing layer（实验性，默认关）
+- **Strategy source**: 从 `config/production_strategy.yaml`（PRD M1）读；**不接受** `--production-strategy` override — paper trading fail loud on missing / invalid artifact
 
 ### 8.8 报告
 
@@ -838,6 +842,55 @@ notify:
 
 ### 9.8 `reporting.yaml`, `events.yaml`
 风格 / 事件日历，通常不碰。
+
+### 9.9 `production_strategy.yaml` ⭐ (PRD M1 单一真源)
+
+这是**唯一** 的生产策略定义文件。`run_backtest.py` / `run_paper.py` /
+`run_multi_tf_backtest.py` / 集成测试都从这里读，**禁止硬编码
+factor_weights**（CI 会测试拒绝）。
+
+**Lifecycle 三态**:
+- `active` —— 通过 M2 promote CLI 产出，`source.spec_id` 必填，`validation.*`
+  全 true，`fingerprints.*` 全填
+- `conservative_default` —— 当前状态。没有 post-fix validated best，用最好
+  已知手工 calibration（R33 grid-best 权重）。backtest / research 可跑，
+  paper live 跑但 M3 alignment 会 WARN
+- `no_validated_best` —— 更强声明；backtest baseline 直接拒绝运行 `multi_factor`
+  （需 `--strategy X` / `--production-strategy PATH` override）
+
+**关键字段**:
+```yaml
+status: "conservative_default"
+strategy_type: "multi_factor"
+source:
+  mode: "manual"                  # manual | promoted_from_archive
+  spec_id: ""                     # archive.trials.spec_id (active 时必填)
+  lineage_tag: ""
+  promoted_at: ""
+  rationale: "R33 grid-best ..."
+params:                           # MultiFactorStrategy.__init__ 参数
+  top_n: 4
+  rebalance_monthly: false
+  ...
+factor_weights:                   # 必 sum==1.0，名字必在 PRODUCTION_FACTORS
+  low_vol: 0.15
+  ...
+validation:                       # M2 promote 后才会全 true
+  post_fix_validated: false
+  passed_oos_gate: false
+  passed_qqq_gate: false
+  passed_paper_backtest_alignment: false
+fingerprints:                     # M3 runtime alignment check 用
+  universe_hash: ""
+  factor_registry_hash: ""
+  config_hash: ""
+```
+
+**怎么改**:
+- 改权重 / params → 直接编辑 yaml + pytest 验证 schema
+- `conservative_default → active` 必须走 M2 `scripts/promote_strategy.py`，
+  **禁止**手工改 status
+- CI `test_single_source_of_truth.py` 守护不可回退到硬编码
 
 ---
 
@@ -1468,9 +1521,11 @@ model / Transformer research）。
 
 | 常量 | 位置 |
 |---|---|
+| **Production strategy (single source of truth)** | `config/production_strategy.yaml` |
 | PRODUCTION_FACTORS set | `core/factors/factor_registry.py` |
 | RESEARCH_FACTORS set | 同上 |
-| MFS default weights | `core/signals/strategies/multi_factor.py::_DEFAULT_WEIGHTS` |
+| MFS default weights (fallback only) | `core/signals/strategies/multi_factor.py::_DEFAULT_WEIGHTS` |
+| Production strategy loader / builder | `core/config/production_strategy.py` |
 | Mining Optuna space | `core/mining/strategy_space.py::MultiFactorSpace` |
 | QQQ gate thresholds | `config/backtest.yaml::mining::min_*_excess_vs_qqq` |
 | OOS threshold | `config/backtest.yaml::mining::oos_min_ir_vs_benchmark` |

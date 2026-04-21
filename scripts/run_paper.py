@@ -370,25 +370,13 @@ def main():
                  and s not in ["TQQQ", "SOXL"] and s not in uni.blacklist]
 
     constructor = PortfolioConstructor(use_vol_parity=False)
-    strategy    = MultiFactorStrategy(
-        symbols=risk_syms, top_n=4, rebalance_monthly=False, score_weighted=True,
-        factor_weights={"low_vol": 0, "momentum": 0.30, "quality": 0.25,
-                        "pv_div": 0.05, "rel_strength": 0.30, "market_trend": 0.10},
-        min_holding_days=3, lookback_mom=189, lookback_quality=189, lookback_vol=84,
-        apply_extra_shift=False,  # live needs fresh T-1 signals executed at T
-                                  # open; True would use stale T-2 data.
-        # Closeout 2026-04-20: concentration knobs from config
-        soft_cap_max_single=(
-            cfg.risk.strategy_concentration.soft_cap_max_single
-            if cfg.risk.strategy_concentration.enabled else None
-        ),
-        concentration_warn_threshold=(
-            cfg.risk.strategy_concentration.concentration_warn_threshold
-            if cfg.risk.strategy_concentration.enabled else None
-        ),
-        # Round 4 Topic D: config-driven registry gate (default WARN)
-        strict_registry=cfg.risk.factor_registry.strict_mode,
-    )
+    # PRD M1: strategy loaded from config/production_strategy.yaml (single
+    # source of truth). Paper trading does NOT accept --override-production
+    # — if the artifact is misconfigured, fail loud rather than fall back
+    # to a hardcoded default (which was exactly the drift M1 fixes).
+    from core.config.production_strategy import load_production_strategy, build_strategy_from_config
+    ps_cfg = load_production_strategy()
+    strategy = build_strategy_from_config(ps_cfg, cfg.risk, risk_syms)
     diagnostics = DiagnosticSuite()
     left_side_cfg = LeftSideConfig.from_risk_config(cfg.risk)
     left_side = LeftSideTrading(config=left_side_cfg)

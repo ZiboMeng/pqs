@@ -65,26 +65,12 @@ def main():
     detector = RegimeDetector(cfg.regime)
     regime = detector.classify_series(spy, vix)
 
-    # Generate daily MFS target weights
-    strat = MultiFactorStrategy(
-        symbols=risk_syms, top_n=4, rebalance_monthly=False, score_weighted=True,
-        factor_weights={"low_vol": 0, "momentum": 0.30, "quality": 0.25,
-                        "pv_div": 0.05, "rel_strength": 0.30, "market_trend": 0.10},
-        min_holding_days=3, lookback_mom=189, lookback_quality=189, lookback_vol=84,
-        apply_extra_shift=False,  # T-close factors → T+1 open execution (1-bar
-                                  # lag, no lookahead). See MultiFactorStrategy
-                                  # docstring for why True would lag by T-2.
-        soft_cap_max_single=(
-            cfg.risk.strategy_concentration.soft_cap_max_single
-            if cfg.risk.strategy_concentration.enabled else None
-        ),
-        concentration_warn_threshold=(
-            cfg.risk.strategy_concentration.concentration_warn_threshold
-            if cfg.risk.strategy_concentration.enabled else None
-        ),
-        # Round 4 Topic D: config-driven registry gate
-        strict_registry=cfg.risk.factor_registry.strict_mode,
-    )
+    # PRD M1: strategy from config/production_strategy.yaml (single source of
+    # truth). Previously this file had its own hardcoded factor_weights which
+    # drifted from run_paper.py / run_backtest.py. All three now share.
+    from core.config.production_strategy import load_production_strategy, build_strategy_from_config
+    ps_cfg = load_production_strategy()
+    strat = build_strategy_from_config(ps_cfg, cfg.risk, risk_syms)
     signals = strat.generate(price_df, regime)
     constructor = PortfolioConstructor(use_vol_parity=False)
     daily_weights = constructor.build(raw_signals=signals, price_df=price_df, regime_series=regime)

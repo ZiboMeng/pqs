@@ -30,6 +30,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import pandas as pd
 
 from core.config.loader import load_config
+from core.config.production_strategy import (
+    DEFAULT_CONFIG_PATH as PS_YAML_DEFAULT,
+    load_production_strategy,
+    build_strategy_from_config,
+    ProductionStrategyError,
+)
 from core.data.market_data_store import MarketDataStore
 from core.execution.cost_model import CostModel
 from core.regime.regime_detector import RegimeDetector
@@ -79,37 +85,34 @@ def load_open_prices(store: MarketDataStore, symbols: list) -> pd.DataFrame:
     return pd.DataFrame(frames).sort_index()
 
 
-def build_strategies(cfg, price_df: pd.DataFrame, risk_syms: list, def_syms: list) -> dict:
-    """构建默认策略集合 + Mining 晋升策略。"""
+def build_strategies(cfg, price_df: pd.DataFrame, risk_syms: list, def_syms: list,
+                     production_strategy_path: str = PS_YAML_DEFAULT) -> dict:
+    """构建默认策略集合 + Mining 晋升策略。
+
+    PRD M1: `multi_factor` baseline 从 config/production_strategy.yaml 读取，
+    不再硬编码 factor_weights。运行时加载失败会 WARN 并 fallback 到 null
+    baseline（dual_momentum / trend_following / cross_asset_rotation 仍注册）。
+    """
     strategies = {
         "dual_momentum":        DualMomentumStrategy(universe=risk_syms),
         "trend_following":      TrendFollowingStrategy(symbols=risk_syms),
         "cross_asset_rotation": CrossAssetRotationStrategy(
             risk_assets=risk_syms, defensive_assets=def_syms
         ),
-        "multi_factor":         MultiFactorStrategy(
-            symbols=risk_syms, top_n=4, rebalance_monthly=False, score_weighted=True,
-            factor_weights={"low_vol": 0.0, "momentum": 0.30, "quality": 0.25,
-                            "pv_div": 0.05, "rel_strength": 0.30, "market_trend": 0.10},
-            min_holding_days=3, lookback_mom=189, lookback_quality=189, lookback_vol=84,
-            apply_extra_shift=False,  # 1-bar lag (T-close → T+1 open); see
-                                      # MultiFactorStrategy docstring for why
-                                      # True would produce stale T-2 signals.
-            # Closeout 2026-04-20: strategy-level concentration is
-            # sourced from config/risk.yaml::strategy_concentration
-            # (not position_limits — those are portfolio hard caps).
-            soft_cap_max_single=(
-                cfg.risk.strategy_concentration.soft_cap_max_single
-                if cfg.risk.strategy_concentration.enabled else None
-            ),
-            concentration_warn_threshold=(
-                cfg.risk.strategy_concentration.concentration_warn_threshold
-                if cfg.risk.strategy_concentration.enabled else None
-            ),
-            # Round 4 Topic D (2026-04-20): config-driven registry gate
-            strict_registry=cfg.risk.factor_registry.strict_mode,
-        ),
     }
+
+    # multi_factor baseline — single source of truth from artifact
+    try:
+        ps_cfg = load_production_strategy(production_strategy_path)
+        strategies["multi_factor"] = build_strategy_from_config(
+            ps_cfg, cfg.risk, risk_syms
+        )
+    except ProductionStrategyError as exc:
+        logger.warning(
+            "Could not load production strategy from %s: %s. "
+            "multi_factor baseline will be SKIPPED (other strategies still run).",
+            production_strategy_path, exc,
+        )
 
     # 从 Mining 存档加载晋升策略
     mining_cfg  = cfg.backtest.mining or {}
@@ -198,6 +201,12 @@ def main():
     parser.add_argument("--no-walk-forward", action="store_true")
     parser.add_argument("--config-dir",      default="config")
     parser.add_argument("--output-dir",      default="reports/backtests")
+    parser.add_argument("--production-strategy",
+                        default=PS_YAML_DEFAULT,
+                        help="Path to production_strategy.yaml (PRD M1 "
+                             "single source of truth). Override for research "
+                             "/ ad-hoc exploration; do NOT point at uncommitted "
+                             "files in shared repos.")
     args = parser.parse_args()
 
     cfg       = load_config(Path(args.config_dir))
@@ -273,7 +282,10 @@ def main():
     constructor = PortfolioConstructor()
 
     # ── 策略集合 ──────────────────────────────────────────────────────────────
-    strategies = build_strategies(cfg, price_df, risk_syms, def_syms)
+    strategies = build_strategies(
+        cfg, price_df, risk_syms, def_syms,
+        production_strategy_path=args.production_strategy,
+    )
     if args.strategy:
         strategies = {k: v for k, v in strategies.items() if args.strategy in k}
 

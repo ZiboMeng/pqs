@@ -615,7 +615,7 @@ Maintain TODO checklist. Update CLAUDE.md when work is actually completed. Small
 ---
 
 ## Key File Locations
-- Config: `config/*.yaml` (system, backtest, universe, risk, cost_model, reporting, regime, events)
+- Config: `config/*.yaml` (system, backtest, universe, risk, cost_model, reporting, regime, events, **production_strategy** ← PRD M1 SoT)
 - Strategies: `core/signals/strategies/` (dual_momentum, trend_following, cross_asset_rotation, multi_factor)
 - Left-side: `core/signals/left_side.py`
 - Mining: `core/mining/` (miner, evaluator, archive, strategy_space)
@@ -2556,7 +2556,7 @@ limit + min_level gating built-in. Credentials via env var expansion
 **Framework Completion PRD** (`docs/prd_framework_completion.md`) — Critical
 path before resuming `prd_universe_expanded_mining.md` R36+:
 - [x] **M0** research baseline snapshot (`scripts/build_research_baseline_snapshot.py`)
-- [ ] **M1** `config/production_strategy.yaml` single source of truth
+- [x] **M1** `config/production_strategy.yaml` single source of truth (21 unit + 7 integration tests)
 - [ ] **M2** promote CLI + acceptance pack
 - [ ] **M3** runtime alignment check (WARN → FAIL phased)
 - [ ] M4 cross-ticker YAML DSL (P1)
