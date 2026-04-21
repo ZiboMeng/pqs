@@ -243,9 +243,15 @@ def main():
 
     # ── BacktestEngine ────────────────────────────────────────────────────────
     cost_model  = CostModel(cfg.cost_model)
+    # Share mode: config is source of truth (P0.5). BacktestEngine's own
+    # default was `integer_shares=False` (fractional), which contradicted
+    # config/risk.yaml::allow_fractional_shares=false and silently drifted
+    # results vs paper.
+    integer_shares = not cfg.risk.position_limits.allow_fractional_shares
     engine      = BacktestEngine(
         cost_model      = cost_model,
         initial_capital = cfg.system.account.initial_capital_usd,
+        integer_shares  = integer_shares,
     )
     constructor = PortfolioConstructor()
 

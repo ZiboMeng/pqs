@@ -190,6 +190,8 @@ def main():
         min_cagr_excess_vs_qqq     = mining_cfg.get("min_cagr_excess_vs_qqq", 0.0),
         min_holdout_excess_vs_qqq  = mining_cfg.get("min_holdout_excess_vs_qqq", 0.0),
         min_avg_oos_excess_vs_qqq  = mining_cfg.get("min_avg_oos_excess_vs_qqq", 0.0),
+        # Share mode (P0.5): config is source of truth
+        integer_shares             = not cfg.risk.position_limits.allow_fractional_shares,
     )
     if open_df is not None:
         evaluator.set_open_df(open_df)

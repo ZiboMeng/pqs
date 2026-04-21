@@ -170,6 +170,11 @@ class MiningEvaluator:
         min_cagr_excess_vs_qqq:       float = 0.0,
         min_holdout_excess_vs_qqq:    float = 0.0,
         min_avg_oos_excess_vs_qqq:    float = 0.0,
+        # Share mode (P0.5, 2026-04-20). Passed through to every internal
+        # BacktestEngine so mining trials match paper/backtest production
+        # execution. Default False = legacy fractional; production now
+        # passes True from run_mining.py (sourced from config/risk.yaml).
+        integer_shares:               bool  = False,
     ) -> None:
         self._cost              = cost_model
         self._capital           = initial_capital
@@ -193,6 +198,7 @@ class MiningEvaluator:
         self._min_qqq_cagr_exc     = min_cagr_excess_vs_qqq
         self._min_qqq_holdout_exc  = min_holdout_excess_vs_qqq
         self._min_qqq_oos_avg_exc  = min_avg_oos_excess_vs_qqq
+        self._integer_shares       = integer_shares
         self._open_df: Optional[pd.DataFrame] = None
         self._score_w           = score_weights or {
             "oos_ir":             2.0,
@@ -433,6 +439,7 @@ class MiningEvaluator:
         engine = BacktestEngine(
             cost_model      = self._cost,
             initial_capital = self._capital,
+            integer_shares  = self._integer_shares,
         )
         open_slice = self._open_df.reindex(price_df.index) if self._open_df is not None else None
         return engine.run(
@@ -479,7 +486,8 @@ class MiningEvaluator:
         from core.backtest.window_analyzer import WindowAnalyzer
 
         test_bars = self._get_test_bars(spec.strategy_type)
-        engine    = BacktestEngine(cost_model=self._cost, initial_capital=self._capital)
+        engine    = BacktestEngine(cost_model=self._cost, initial_capital=self._capital,
+                                    integer_shares=self._integer_shares)
         analyzer  = WindowAnalyzer(engine=engine)
 
         strategy = instantiate_strategy(spec, risk_universe, def_universe)
@@ -700,7 +708,8 @@ class MiningEvaluator:
             tier.slippage_intraday_bps *= self._cost_mult
         stress_cost = CostModel(stress_cfg)
 
-        engine = BacktestEngine(cost_model=stress_cost, initial_capital=self._capital)
+        engine = BacktestEngine(cost_model=stress_cost, initial_capital=self._capital,
+                                 integer_shares=self._integer_shares)
         bt     = engine.run(signals_df=weights, price_df=price_df, regime_series=regime_series)
         bench  = benchmark_series.pct_change().dropna()
         cagr   = bt.metrics.get("cagr", float("nan"))

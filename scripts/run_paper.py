@@ -305,12 +305,18 @@ def main():
         suspend_dd_ratio=1.00,
     )
     kill_switch = KillSwitch(ks_cfg)
+    # Share mode: config/risk.yaml::position_limits.allow_fractional_shares
+    # is the single source of truth (P0.5). Prior behavior relied on
+    # per-engine defaults happening to match — fragile under future
+    # default flips.
+    integer_shares = not cfg.risk.position_limits.allow_fractional_shares
     engine = PaperTradingEngine(
         cost_model      = cost_model,
         pnl_tracker     = pnl_tracker,
         db_path         = args.db_path,
         initial_capital = cfg.system.account.initial_capital_usd,
         kill_switch     = kill_switch,
+        integer_shares  = integer_shares,
     )
 
     if args.mode == "status":
