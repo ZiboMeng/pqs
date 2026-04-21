@@ -3324,3 +3324,88 @@ sampler 没重采样过去。
 - (doc commit only) —— docs: R30 log + Optuna sampler-dedup diagnosis
 
 ---
+
+## Universe-Mining-Round 31 — 2026-04-21 — dual_momentum on expanded universe ⭐
+
+### 1. 主题
+PRD §3 R29-R32 daily baseline 延续，按 R30 Option B: 跑 **dual_momentum**
+on R28 expanded universe（不同 strategy_type → 独立 Optuna study）。
+
+### 2. 执行
+```
+run_mining.py --trials 40 --budget 1500 --type dual_momentum
+  --lineage-tag post-2026-04-21-universe-mining-round-31
+```
+
+### 3. 结果 — 🎯 首次正 OOS IR
+
+**27 unique trials** archived (vs R29 multi_factor 5 + R30 multi_factor 4).
+Optuna study 新鲜（无 multi_factor 积累 dedup），探索度高。
+
+Top 5 by OOS IR:
+
+| spec | top_n | qk_sh | CAGR | DD | OOS IR | OOS_sh | pass_rate |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **0ed66ed389f6** | 3 | 0.93 | +19.84% | -17.98% | **+0.121** | +0.505 | 0.43 |
+| 6c93793b27c2 | 3 | 0.99 | **+20.67%** | -19.09% | +0.094 | +0.450 | 0.43 |
+| 2bb978b5433f | 3 | 0.81 | +17.41% | -24.39% | +0.084 | +0.412 | **0.71** |
+| 8edccb817272 | 3 | 0.81 | +17.41% | -24.39% | +0.084 | +0.412 | 0.71 |
+| 37fbff77b858 | 3 | 0.56 | +14.19% | -37.68% | +0.024 | +0.309 | 0.71 |
+
+**5/27 trials have OOS IR > 0** (range [-0.765, +0.121])
+
+### 4. 关键诊断 ⭐
+- **OOS barrier is NOT multi_factor-specific** — dual_momentum 在扩容
+  universe 上产生正 OOS IR (5 trials crossed zero line)
+- **Best quick CAGR +20.67%** 跨越任何 pre-R28 历史（首次）
+- **top_n=3 是普遍 winner** — 所有 top-5 都是 3 symbols 集中组合
+- Completion signal **R29-R32 "≥1 trial OOS IR > 0 in new lineage" MET ✓**
+- 但 best OOS IR +0.121 仍未过 **0.20 promote threshold**
+- OOS pass_rate 最高 0.71（2bb978b5 / 37fbff77），全过 0.55 threshold
+
+### 5. §7 stop condition check ✓
+- pytest 1109 unchanged
+- PRODUCTION_FACTORS unchanged
+- 累计 trials: 36 (R29 5 + R30 4 + R31 27) / 200
+- No invariant violation (all tier D, oos_ir < 0.20)
+- universe.yaml unchanged
+
+### 6. R29-R32 topic completion assessment
+
+per PRD §3.1 "Completion signals are exploration-stage progress markers
+only" — 标志 progress 而非 promote success:
+
+| R | 贡献 | OOS best | status |
+|---|---|---:|---|
+| R29 | multi_factor first run | -0.028 | sample 5 |
+| R30 | multi_factor extended budget | -0.280 | regression (Optuna dedup) |
+| R31 | **dual_momentum first run** | **+0.121** | **5 trials > 0** |
+
+Exploration signal 已在 R31 达成；**R32 仍有预算** (1 round remaining
+in R29-R32 topic block).
+
+### 7. 新问题/新机会
+- **dual_momentum 是 R28 expanded universe 的 winning strategy_type**
+  (vs multi_factor). Multi-strategy composite 值得探索
+- **5 OOS-positive trials 中 top 4 都 top_n=3** → 集中 3-symbol 组合是
+  profit region；可以专门围绕 top_n=3 做 param fine-grained search
+- **quick CAGR +20.67% 超 QQQ 17.6%** → "un-xfail opportunity" — 
+  if R32 finds a CAGR > QQQ parameter set that can serve as new
+  MFS default weights (要用户授权改 MFS defaults)
+- OOS barrier 松动（5 trials > 0），下一阶段可以从 exploration 转入
+  **refinement** — fine-tune around best trials
+
+### 8. 下轮 (R32) 建议
+按 R29-R32 topic 最后一轮:
+- **Option A**: trend_following 扩容 universe 测试（完整 4 strategy
+  types 覆盖）
+- **Option B**: Combined run (`--type` 不指定) 覆盖 cross_asset_rotation
+- **Option C**: dual_momentum focused around top_n=3 param region
+  (fine-grained refinement)
+
+推荐 **B**（跨 type 一次跑全覆盖）或 **C**（深化 R31 已发现的 winning region）。
+
+### 9. 本轮 commit 哈希
+- (doc commit only) —— docs: R31 log + dual_momentum OOS breakthrough
+
+---
