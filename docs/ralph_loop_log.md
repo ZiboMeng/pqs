@@ -1363,3 +1363,163 @@ Topic LLM-4 —— benchmark-relative LLM 候选（§3 方向，3 候选）。
 - （doc commit）—— docs: LLM-Round 4 log + LLM reinvention pattern
 
 ---
+
+## LLM-Round 5 — 2026-04-21 — Topic LLM-1 §5.3 收尾: factor_backtest 工具 + MaxDD 发现
+
+### 1. 本轮主题
+Topic LLM-1 §5.3 收尾 —— 建 `scripts/llm_candidate_factor_backtest.py`
+工具，闭合 cost stress + QQQ hard gate 两步，把 `drawup_from_252d_low`
+从 "NEEDS_HUMAN_REVIEW" 推到最终判决。
+
+### 2. 本轮目标
+- Round 3 deep_check 已覆盖 §5.3 的 OOS + regime + quartile
+- 剩余两项（cost stress + QQQ hard gate）需要 portfolio-level 测试而非
+  pure IC 分析
+- 本轮搭建简化 1-factor backtest 工具覆盖剩余两步
+- 在 `drawup_from_252d_low` 上跑完整 funnel，得出最终 ARCHIVE / KEEP 判定
+
+### 3. 为什么这轮优先做它
+- `drawup_from_252d_low` 已悬 2 轮（Round 3 PASS deep_check，Round 4 未动）
+- PRD §10 success criterion #1 "至少 1 个 LLM candidate 通过完整 funnel"
+  要完整 funnel 覆盖才能判断
+- 工具也能用于后续候选；不做现在，后续都卡在 §5.3 剩余两步
+
+### 4. 做了什么
+- 新 `scripts/llm_candidate_factor_backtest.py`（~300 行）:
+  - `_load_universe_prices`: top-N universe panel
+  - `_load_benchmark`: SPY + QQQ reindex 到 panel
+  - `_run_factor_backtest`: long-only top-K equal-weight，monthly rebalance
+    + per-turnover cost
+  - `_perf_stats`: CAGR/Sharpe/MaxDD
+  - Run 1x 和 2x cost，对比 CAGR
+  - Holdout 分析（最后 252 天）vs QQQ
+  - 5-gate verdict: cost_stress, qqq_full, qqq_holdout, max_dd_abs,
+    max_dd_rel
+  - CLI: `--candidate`, `--universe-size`, `--start`, `--top-k`,
+    `--rebalance-days`, `--cost-bps`
+  - Fix float32-serialization bug（np.float32 → float(...) wrap in
+    round())
+- 在 `drawup_from_252d_low` 上跑（30 symbols, 2018-01-01-, top-5, 21d
+  rebal, 10bps cost）
+
+### 5. 修改了哪些文件
+- **新**：`scripts/llm_candidate_factor_backtest.py`
+- `CLAUDE.md` —— LLM-Round 5 段 + `drawup_from_252d_low` 最终判定
+- `docs/ralph_loop_log.md` —— 本段
+- **产出**（gitignored）：`data/ml/llm_factor_backtests/drawup_from_252d_low/factor_backtest.json`
+
+### 6. 跑了哪些测试/实验
+- pytest collection: **1109**（工具是纯脚本，不动现有测试）
+- `drawup_from_252d_low`:
+  - 30 symbols × 2084 days (2018-01-01 to current)
+  - 99 rebalances, total turnover ~75 units
+  - 1x cost: CAGR +22.23%, Sharpe +0.66, MaxDD **-77.79%**
+  - 2x cost: CAGR +22.01%（directionally 正确：更高成本 → 更低 CAGR）
+
+### 7. 结果如何
+
+**5-gate verdict**:
+
+| gate | verdict | 数值 |
+|---|---|---|
+| cost_stress (2x < 1x) | ✅ PASS | Δ = -0.22% |
+| qqq_full_period | ✅ PASS | strategy 22.23% > QQQ 18.39% (+3.84pts) |
+| qqq_holdout_252d | ✅ PASS | strategy +118% > QQQ +44% (+74.39pts) |
+| max_dd_abs (≥ -25%) | ❌ **FAIL** | -77.79% |
+| max_dd_rel (≥ 1.5× SPY) | ❌ **FAIL** | strategy -77.79% vs SPY×1.5=-51.94% |
+| **overall** | ❌ **FAIL (ARCHIVE)** | MaxDD invariant 违反 |
+
+**Holdout 异常值**: 最后 252 天 strategy CAGR +118.48% 异常高。suggestive of
+concentration in a handful of post-trough high-beta names during
+2025 bull run. 深层原因是 simple top-5 策略无 risk management。
+
+**系统性发现** ⭐: IC PASS + QQQ PASS ≠ 整体 PASS。CLAUDE.md invariant
+"Max drawdown target 15%-20%, not worse than SPY in crisis" **必须**
+在 LLM funnel 末端强制把关。我最初的 gate set 只覆盖了 cost + QQQ，漏了
+MaxDD。一旦加上 MaxDD gate，`drawup_from_252d_low` 从 "PASS ready for
+human review" 立即翻转到 "FAIL archive"。
+
+这恰好是 PRD §5 funnel 的设计意图：避免 LLM 在局部指标优秀的候选上"蒙混
+过关"，全局 invariant 才是最后裁判。
+
+### 8. 当前发现的新问题/新机会
+
+**研究价值保留**：`drawup_from_252d_low` 的 IC +0.10 / OOS IR +0.386 / 5/6
+regimes 一致仍然是真实的 predictive signal。只是**作为独立策略**不行。
+**作为 composite 的一个组件**（配合 `low_vol` / `market_trend` / `quality`
+风控类因子）可能有 incremental value。
+
+状态升级路径：**ARCHIVE_WITH_NOTE** 而非 pure ARCHIVE。研究记录里标记"需要
+composite integration"，供未来 `MultiFactorStrategy` 扩展时引用。
+
+**next-step hypothesis**: 把 `drawup_from_252d_low` 加入 MFS 的可选 factor
+slot（启用时默认小权重，如 0.10），跑完整 mining evaluator.evaluate（5-stage
+pipeline），看 composite-level stats 会不会过 QQQ gate + MaxDD 约束。这涉及
+PRODUCTION_FACTORS 变更，触发 §13.2 halt — 必须人审核后才能做。
+
+**Tool 局限**:
+- 只支持 positive-IC 因子（long top-K）。负 IC 因子如 `first_last_bar_diff_21d`
+  需要"long bottom-K" 版本，或者把 factor 反号后再喂入
+- Monthly rebalance 是 hard-coded 默认；短周期候选如 5d-IC factors 需要
+  `--rebalance-days 5`
+- Top-K equal-weight 没有 regime 过滤，因此 CRISIS / RISK_OFF 期间会积累
+  drawdown；实际生产策略会 scale-down
+- cost_bps 是 flat，不考虑 symbol tier 或 vix regime
+
+这些限制说明: 本 tool 是"factor portfolio viability smoke test"，不是
+production-grade backtest 替代品。其判决"FAIL" 对 archive decision 有效；
+"PASS" 仅表示值得进一步用真实 mining pipeline 验证。
+
+### 9. 剩余风险
+- `drawup_from_252d_low` 没有被真正"销毁"——工具只产 archive 判决。下一步
+  若有人决定把它加进 MFS composite 测试，需要代码改动 + 人审核（§13.2 触发）
+- 11 cumulative LLM candidates 只有 1 通过 §5.4 部分验证，全部通过 §5.3
+  完整 funnel 的**还是 0**。LLM phase 10% 进度却还没有实质晋升
+- tool 只跑 1 candidate；没有跑 Round 2-4 的负 IC 候选（需要 sign-flip
+  逻辑 or long-bottom 变体）
+
+### 10. 下一轮建议方向
+
+**A (推荐 - infra)**: LLM-5 XGBoost cross-signal mining
+  - Round 9 的 `run_model_comparison.py` 已经有 Ridge + XGBoost permutation
+    importance
+  - 扩展它把 11 个 LLM candidates + 30 研究因子一起喂，看 LLM 候选的
+    permutation importance 是否进 top-20
+  - 输出 cross-feature interactions（PRD §7 cross-signal）
+  - completion signal: `xgb_importance.parquet` 显示 LLM 候选在 top-20
+
+**B**: LLM-6 orthogonalization gate
+  - 当前 dedup 是 Spearman rank corr > 0.7 直接 flag
+  - §5.1 的"证明 incremental value"需要 orthogonalization：把候选投影到
+    existing factors 正交空间，测 residual IC
+  - Round 4 两个 NEEDS_HUMAN_REVIEW 候选应用这个工具后可以给出具体的
+    incremental value 判断
+
+**C**: 修 factor_backtest 工具加 "negative-IC mode" (long bottom-K)，
+  重跑 Round 2 的 `first_last_bar_diff_21d`。如果负向 factor 作为独立策略
+  能过 MaxDD 约束，就是新数据点
+
+推荐 **A**，因为它：
+(a) 用已有 Round 9 的工具（低新代码 cost）
+(b) 直接对所有 11 个 LLM candidates 产生横向 ranking
+(c) 可能发现 "dedup-ρ 高但 permutation importance 独立" 的 cases
+    （即 factor-interaction 上的 incremental value）
+
+### 11. TODO checklist（LLM phase 更新后）
+- [x] LLM-1 (5 candidates), LLM-3 (3 intraday candidates), LLM-4 (3
+      benchmark-relative)
+- [x] deep_check tool (§5.4)
+- [x] factor_backtest tool (§5.3 cost + QQQ + MaxDD)
+- [x] **drawup_from_252d_low 最终判定**: ARCHIVE（strong IC 但 isolation
+      MaxDD 违规；需要 composite integration）
+- [ ] **下轮推荐**: LLM-5 XGBoost cross-signal import on all 11 candidates
+- [ ] LLM-6 orthogonalization gate
+- [ ] LLM-7..LLM-12 按菜单继续
+- [ ] 把 `drawup_from_252d_low` 作为 MFS optional 7th factor 做真实 mining
+      evaluator.evaluate（涉 PRODUCTION 代码，需人审）
+
+### 12. 本轮 commit 哈希
+- （code commit）—— LLM-Round 5: factor_backtest tool + drawup MaxDD verdict
+- （doc commit）—— docs: LLM-Round 5 log + systemic MaxDD finding
+
+---

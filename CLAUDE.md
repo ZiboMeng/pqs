@@ -654,6 +654,54 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 5 — Topic LLM-1 §5.3 收尾：factor_backtest 工具 + drawup MaxDD FAIL
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-5`
+
+**改动**:
+- 新 `scripts/llm_candidate_factor_backtest.py` —— 简化 1-factor 策略
+  backtest（long-only top-K equal-weighted，monthly rebalance），覆盖
+  §5.3 最后两步：cost stress (1x vs 2x) + QQQ hard gate (full + holdout)
+- **Gate 扩展**：除了 cost/QQQ 之外加入 MaxDD 两项（abs ≥ -25% 绝对下限 +
+  rel ≥ 1.5× SPY MaxDD）。直接执行 CLAUDE.md invariant 约束
+- Artifacts 到 `data/ml/llm_factor_backtests/<name>/factor_backtest.json`
+
+**`drawup_from_252d_low` 完整 §5.3 funnel 结果**:
+
+| Stage | Verdict | 数值 |
+|---|---|---|
+| IC screen (Round 1) | PASS | IC +0.083 (top-15) |
+| Deep check §5.4 (Round 3) | PASS | OOS IR +0.386, 5/6 regimes, quartile stable |
+| Cost stress (Round 5) | PASS | 2x CAGR 22.01% < 1x 22.23% |
+| QQQ hard gate (Round 5) | PASS | Full +3.84%, holdout +74.39% |
+| **MaxDD invariant (Round 5)** | **FAIL** | **-77.79%** vs SPY -34.63%, 2.24× 超标 |
+| **Overall** | **❌ FAIL (ARCHIVE)** | 因 MaxDD 违反 invariant 整体失败 |
+
+**关键系统性 finding**: IC PASS + QQQ PASS ≠ 整体 PASS。CLAUDE.md invariant
+`Max drawdown target 15%-20%, not worse than SPY in crisis` 是硬约束，必须
+在 funnel 末端强制把关。单因子 isolation backtest 容易出现极端集中
+→ 极端回撤。**drawup_from_252d_low 的价值在于作为 composite 的一个组件
+（配合 low_vol / market_trend 等风控因子），不是作为独立策略**。
+
+**LLM-phase 状态升级**：`drawup_from_252d_low` 状态从 NEEDS_HUMAN_REVIEW
+→ **ARCHIVED_WITH_NOTE**（文献值：strong IC & OOS robustness; requires
+risk-managed composite integration before any production use）
+
+**PRD §13.2 halt 条件**: pytest 1109 / 0 promote / 累计候选 11 / 无 invariant
+违反**实际进入代码**（tool 主动捕获风险 — exactly 设计意图）。继续。
+
+**下轮建议**:
+- **A**: LLM-5 XGBoost cross-signal mining —— 把 Round 1-4 所有候选（11 个）
+  和既有 30 research factors 喂给 Round 9 `run_model_comparison.py`（Ridge + 
+  XGBoost + permutation importance），看 LLM 候选是否进 top-20，寻找
+  cross-feature interactions
+- B: LLM-6 orthogonalization gate 实现 —— funnel 当前 dedup 用 Spearman rank
+  correlation，没做 orthogonalization（投影到 existing factors 正交空间后
+  测 residual IC）。dedup-flagged 候选的 incremental value 需要 orthog 才能
+  判断
+- C: LLM-7 regime-conditioned candidates —— 3 个候选在不同 regime 下取不同权
+
 ### LLM-Round 4 — Topic LLM-4：benchmark-relative 候选（dedup 主导）
 
 **时间**: 2026-04-21
