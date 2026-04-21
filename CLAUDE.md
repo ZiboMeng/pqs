@@ -654,6 +654,26 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### Round 11 — Topic L：BrokerAdapter 骨架
+
+**时间**: 2026-04-20
+**改动**:
+- 新 `core/execution/broker_adapter.py`:
+  - `BrokerAdapter` ABC 实现 CLAUDE.md §4.1 所有 7 个抽象方法：`submit_order` / `cancel_order` / `get_positions` / `get_cash` / `get_open_orders` / `get_fills` / `reconcile`
+  - `OrderAck` + `ReconcileResult` 数据类
+  - `SimulatedBrokerAdapter` 实现：wrap 现有 `ExecutionSimulator`，支持 `set_next_fill_price` / `set_default_fill_price` 做确定性测试
+- 12 focused 单测覆盖 PRD 完成信号 "submit → ack → fill → reconcile round-trip"：
+  - ABC 不可实例化
+  - Happy-path BUY / SELL
+  - 未配置价格 → 拒绝
+  - 清洁 reconcile 通过 / 有 mismatch 时标记
+  - Fills 历史按时间过滤
+  - 接口纯度（strategy 层不依赖 broker 具体实现）
+
+**测试变化**: 1090 → **1102 passing**（+12）
+
+**下一步集成路径**: 未来 `PaperTradingEngine` 可以可选地注入 `BrokerAdapter` 替代直接用 `ExecutionSimulator`；接入真实 broker（IBKR / Alpaca）时只需在 `core/execution/brokers/<vendor>.py` 实现 ABC，**strategy 代码不改一行**
+
 ### Round 10 — Topic J：LLM factor system scaffold
 
 **时间**: 2026-04-20
