@@ -249,6 +249,15 @@ class TestQQQOutperformance:
                 if "open" in df.columns: of[sym] = df["open"]
         self.price_df = pd.DataFrame(pf).sort_index()
         self.open_df = pd.DataFrame(of).sort_index()
+        # Guard: if real data is missing (e.g., fresh clone), skip
+        # gracefully instead of crashing on RangeIndex vs str comparison
+        # (see docs/prd_universe_expanded_mining.md §1.3 user review).
+        if (self.price_df.empty
+                or not isinstance(self.price_df.index, pd.DatetimeIndex)):
+            pytest.skip(
+                "Real market data not available (price_df empty or "
+                "non-DatetimeIndex) — TestQQQOutperformance requires data/daily/*.parquet"
+            )
         self.price_df = self.price_df[self.price_df.index >= "2007-01-02"]
         self.open_df = self.open_df[self.open_df.index >= "2007-01-02"]
         # Different symbols have different listing dates → union creates

@@ -242,30 +242,45 @@ def _label_symbol(
     alpha_d_spy_252, beta_spy_252, r2_spy_252 = _ols_beta_alpha(s_aligned_s, m_aligned_s)
     alpha_d_qqq_252, beta_qqq_252, r2_qqq_252 = _ols_beta_alpha(s_aligned_q, m_aligned_q)
 
-    # 504d (full-stability sample)
+    # 504d (full-stability sample) — spec v2.2 §3.2/§3.3 require both
+    # beta_qqq_504d AND alpha_t_stat_504d; R26 user review flagged
+    # these as missing from impl.
     if risk_stable:
-        s_504 = sym_ret.loc[common_s].tail(504).values
-        m_504 = spy_ret.loc[common_s].tail(504).values
-        alpha_d_504, beta_spy_504, r2_spy_504 = _ols_beta_alpha(s_504, m_504)
+        s_504_spy = sym_ret.loc[common_s].tail(504).values
+        m_504_spy = spy_ret.loc[common_s].tail(504).values
+        alpha_d_504, beta_spy_504, r2_spy_504 = _ols_beta_alpha(s_504_spy, m_504_spy)
+
+        s_504_qqq = sym_ret.loc[common_q].tail(504).values
+        m_504_qqq = qqq_ret.loc[common_q].tail(504).values
+        _, beta_qqq_504, r2_qqq_504 = _ols_beta_alpha(s_504_qqq, m_504_qqq)
     else:
         alpha_d_504 = beta_spy_504 = r2_spy_504 = float("nan")
+        beta_qqq_504 = r2_qqq_504 = float("nan")
 
     # Annualize alpha
     alpha_annual_spy_252 = alpha_d_spy_252 * 252 if not np.isnan(alpha_d_spy_252) else float("nan")
     alpha_annual_504 = alpha_d_504 * 252 if not np.isnan(alpha_d_504) else float("nan")
 
-    # Alpha t-stat (rough — t = α / (residual_std / sqrt(n)))
-    if not np.isnan(alpha_d_spy_252) and len(s_aligned_s) > 2:
-        X = np.column_stack([np.ones(len(m_aligned_s)), m_aligned_s])
-        coef = np.array([alpha_d_spy_252, beta_spy_252])
-        resid = s_aligned_s - X @ coef
+    # Alpha t-stat — compute for BOTH 252d and 504d per spec §3.3
+    def _t_stat(alpha_d, beta, s_arr, m_arr):
+        if np.isnan(alpha_d) or len(s_arr) < 3:
+            return float("nan")
+        X = np.column_stack([np.ones(len(m_arr)), m_arr])
+        coef = np.array([alpha_d, beta])
+        resid = s_arr - X @ coef
         s_resid = np.std(resid, ddof=2)
-        if s_resid > 1e-10:
-            alpha_t_stat = float(alpha_d_spy_252 / (s_resid / np.sqrt(len(s_aligned_s))))
-        else:
-            alpha_t_stat = float("nan")
+        if s_resid < 1e-10:
+            return float("nan")
+        return float(alpha_d / (s_resid / np.sqrt(len(s_arr))))
+
+    alpha_t_stat_252 = _t_stat(alpha_d_spy_252, beta_spy_252,
+                                s_aligned_s, m_aligned_s)
+    if risk_stable:
+        alpha_t_stat_504 = _t_stat(
+            alpha_d_504, beta_spy_504, s_504_spy, m_504_spy,
+        )
     else:
-        alpha_t_stat = float("nan")
+        alpha_t_stat_504 = float("nan")
 
     # PRIMARY metric: alpha_positive_rate_rolling
     pos_rate = _alpha_positive_rate(
@@ -307,13 +322,15 @@ def _label_symbol(
         "beta_spy_252d":          round(beta_spy_252, 3) if not np.isnan(beta_spy_252) else None,
         "beta_qqq_252d":          round(beta_qqq_252, 3) if not np.isnan(beta_qqq_252) else None,
         "beta_spy_504d":          round(beta_spy_504, 3) if not np.isnan(beta_spy_504) else None,
+        "beta_qqq_504d":          round(beta_qqq_504, 3) if not np.isnan(beta_qqq_504) else None,
         "r2_spy_252d":            round(r2_spy_252, 3) if not np.isnan(r2_spy_252) else None,
         "r2_qqq_252d":            round(r2_qqq_252, 3) if not np.isnan(r2_qqq_252) else None,
         "r2_max":                 round(r2_max, 3) if not np.isnan(r2_max) else None,
         "alpha_annual_spy_252":   round(alpha_annual_spy_252, 4) if not np.isnan(alpha_annual_spy_252) else None,
         "alpha_annual_spy_504":   round(alpha_annual_504, 4) if not np.isnan(alpha_annual_504) else None,
-        "alpha_t_stat_252":       round(alpha_t_stat, 3) if not np.isnan(alpha_t_stat) else None,
-        "alpha_positive_rate":    round(pos_rate, 3) if not np.isnan(pos_rate) else None,
+        "alpha_t_stat_252d":      round(alpha_t_stat_252, 3) if not np.isnan(alpha_t_stat_252) else None,
+        "alpha_t_stat_504d":      round(alpha_t_stat_504, 3) if not np.isnan(alpha_t_stat_504) else None,
+        "alpha_positive_rate_rolling": round(pos_rate, 3) if not np.isnan(pos_rate) else None,
         "alpha_subperiod_all_same_sign":  bool(sub["all_same_sign"]),
         "alpha_subperiod_positive_frac":  sub["positive_fraction"],
         "alpha_subperiod_n_positive":     sub["n_positive"],
@@ -321,7 +338,7 @@ def _label_symbol(
         "alpha_subperiod_majority_sign":  sub["majority_sign"],
         "n_subperiods":           sub["n_subperiods"],
         "downside_beta_spy":      round(dbeta, 3) if not np.isnan(dbeta) else None,
-        "tail_correlation_spy":   round(tail_corr, 3) if not np.isnan(tail_corr) else None,
+        "tail_correlation_to_spy": round(tail_corr, 3) if not np.isnan(tail_corr) else None,
         "max_dd_3y":              round(max_dd_3y, 4) if not np.isnan(max_dd_3y) else None,
         "max_dd_5y":              round(max_dd_5y, 4) if not np.isnan(max_dd_5y) else None,
         "spread_hl_proxy_bps":    round(spread, 1) if not np.isnan(spread) else None,
@@ -368,14 +385,11 @@ def main():
                    if s not in uni.blacklist and s not in uni.macro_reference]
         logger.info("Config universe: %d symbols", len(symbols))
 
-    # Benchmarks
-    spy_df = store.read("SPY", "1d")
-    qqq_df = store.read("QQQ", "1d")
-    if spy_df is None or qqq_df is None:
-        logger.error("SPY or QQQ data unavailable")
-        sys.exit(2)
-    spy_close = spy_df["close"].loc[spy_df.index >= args.start]
-    qqq_close = qqq_df["close"].loc[qqq_df.index >= args.start]
+    # Benchmarks (validated via shared loader — catches missing data and
+    # empty-DF-with-no-close-column cases that bit R_post_R28 user review)
+    from core.data.panel_loader import load_benchmark_close_or_exit
+    spy_close = load_benchmark_close_or_exit(store, "SPY", args.start, min_days=252)
+    qqq_close = load_benchmark_close_or_exit(store, "QQQ", args.start, min_days=252)
 
     rows = []
     n_total = len(symbols)
@@ -385,7 +399,7 @@ def main():
         rows.append(_label_symbol(sym, store, spy_close, qqq_close, args.start))
 
     df = pd.DataFrame(rows).sort_values(
-        "alpha_positive_rate", ascending=False, na_position="last",
+        "alpha_positive_rate_rolling", ascending=False, na_position="last",
     )
 
     out_dir = Path(args.out_dir)
@@ -402,20 +416,20 @@ def main():
         json.dumps(summary, indent=2, ensure_ascii=False)
     )
 
-    # Print summary (top 20 by alpha_positive_rate)
+    # Print summary (top 20 by alpha_positive_rate_rolling)
     print()
     print("=" * 120)
     print(f"Universe Risk Labels (Layer 2) — {args.out_tag}")
     print(f"  N={n_total} symbols | Start {args.start}")
     print("=" * 120)
-    # Pretty-print top 15 by alpha_positive_rate
+    # Pretty-print top 15 by alpha_positive_rate_rolling
     cols = ["symbol", "beta_spy_252d", "beta_qqq_252d", "r2_max",
-            "alpha_annual_spy_252", "alpha_positive_rate",
+            "alpha_annual_spy_252", "alpha_positive_rate_rolling",
             "alpha_subperiod_positive_frac", "alpha_subperiod_all_same_sign",
             "downside_beta_spy",
-            "tail_correlation_spy", "max_dd_3y"]
+            "tail_correlation_to_spy", "max_dd_3y"]
     print()
-    print("TOP 15 by alpha_positive_rate:")
+    print("TOP 15 by alpha_positive_rate_rolling:")
     print(df.head(15)[cols].to_string(index=False))
     print()
     print(f"Artifacts: {csv_path}")

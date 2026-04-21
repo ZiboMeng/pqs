@@ -81,8 +81,17 @@ def _assign_bucket(row: pd.Series, thresholds: Dict) -> Dict:
     t = thresholds
 
     # Extract metrics (with None safety)
-    alpha_pos = row.get("alpha_positive_rate")
-    alpha_t = row.get("alpha_t_stat_252")
+    # Per v2.2 spec §3.3: alpha_positive_rate_rolling is PRIMARY metric.
+    # Fallback to legacy name for old CSVs.
+    alpha_pos = row.get("alpha_positive_rate_rolling",
+                        row.get("alpha_positive_rate"))
+    # Spec §4.1 Alpha Core requires alpha_t_stat_504d; fall back to 252
+    # if 504 not available (old CSV or risk_estimation_stable=False).
+    alpha_t_504 = row.get("alpha_t_stat_504d")
+    alpha_t_252 = row.get("alpha_t_stat_252d", row.get("alpha_t_stat_252"))
+    alpha_t = (alpha_t_504 if alpha_t_504 is not None
+               and not (isinstance(alpha_t_504, float) and np.isnan(alpha_t_504))
+               else alpha_t_252)
 
     # Subperiod consistency — support ALL-agree (legacy) OR
     # positive_fraction ≥ threshold (R25 relaxation).
@@ -105,7 +114,9 @@ def _assign_bucket(row: pd.Series, thresholds: Dict) -> Dict:
     r2_max = row.get("r2_max")
     beta_spy = row.get("beta_spy_252d")
     beta_qqq = row.get("beta_qqq_252d")
-    tail_corr = row.get("tail_correlation_spy")
+    # Per v2.2 spec §3.4 field name is tail_correlation_to_spy.
+    tail_corr = row.get("tail_correlation_to_spy",
+                        row.get("tail_correlation_spy"))
     alpha_annual = row.get("alpha_annual_spy_252")
 
     notes = []

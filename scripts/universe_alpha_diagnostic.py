@@ -57,6 +57,8 @@ logger = get_logger("universe_alpha_diagnostic")
 
 
 def _load_panel(cfg, start: str, symbols_override: list = None):
+    """Load close panel with validation (fails fast on missing data)."""
+    from core.data.panel_loader import load_close_panel_or_exit
     store = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
     if symbols_override:
         # User-supplied list: keep SPY (required as benchmark); filter dupes
@@ -69,14 +71,9 @@ def _load_panel(cfg, start: str, symbols_override: list = None):
         ))
         symbols = [s for s in all_syms
                    if s not in uni.blacklist and s not in uni.macro_reference]
-    pf = {}
-    for s in symbols:
-        df = store.read(s, "1d")
-        if df is not None and not df.empty and "close" in df.columns:
-            pf[s] = df["close"]
-    price_df = pd.DataFrame(pf).sort_index()
-    price_df = price_df.loc[price_df.index >= start]
-    return price_df
+    return load_close_panel_or_exit(
+        store, symbols, start=start, min_symbols=2, min_days=252,
+    )
 
 
 def _beta_alpha(symbol_ret: pd.Series, spy_ret: pd.Series) -> dict:
