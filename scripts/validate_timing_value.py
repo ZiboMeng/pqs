@@ -169,6 +169,15 @@ def main():
                              "comparison. Default 13 matches config/"
                              "cost_model.yaml default tier (comm 1 + "
                              "slippage_intraday 12).")
+    parser.add_argument("--factor-bucket", default=None,
+                        help="Round 8 Topic G (2026-04-20): bucket "
+                             "events by a daily factor (e.g. "
+                             "'realized_vol_60m_21d') and report "
+                             "per-tercile timing-delta bps. Answers: "
+                             "does this factor add information BEYOND "
+                             "multi-TF timing alone? Requires the "
+                             "factor be produced by factor_generator "
+                             "(built-in or intraday family).")
     args = parser.parse_args()
 
     cfg = load_config(Path(args.config_dir))
@@ -359,6 +368,129 @@ def main():
     # ── Fired reason distribution ─────────────────────────────────────
     print("\n── Fired-reason distribution ──")
     print(df['fired_reason'].value_counts().to_string())
+
+    # ── (7) Round 8 Topic G — factor-bucket analysis ──────────────────
+    # Does a daily intraday factor (e.g. realized_vol_60m_21d) carry
+    # information BEYOND the multi-TF timing layer? Partition events
+    # by per-day cross-sectional factor rank and report bps per bucket.
+    # If top-tercile delta >> bottom-tercile delta → factor + timing
+    # jointly add value (promote-candidate signal). If buckets similar
+    # → factor gives no timing-side edge.
+    if args.factor_bucket:
+        print(f"\n── (7) Factor-bucket analysis: {args.factor_bucket} ──")
+        _print_factor_bucket_analysis(df, store, args.factor_bucket)
+
+
+def _print_factor_bucket_analysis(events_df, store, factor_name: str):
+    """Load the factor, join per-event, bucket by per-day cross-sectional
+    rank, and report per-bucket naive / timed / delta stats."""
+    # Need a daily price_df covering all events' symbols × dates
+    all_syms = sorted(events_df['symbol'].unique())
+    pf = {}
+    for s in all_syms:
+        df = store.read(s, "1d")
+        if df is not None and not df.empty and "close" in df.columns:
+            pf[s] = df["close"]
+    if not pf:
+        print("  (no daily data loaded for factor computation)")
+        return
+    price_df = pd.DataFrame(pf).sort_index()
+
+    # Factor computation: for the intraday family, we also need 60m bars
+    intraday_bars_60m = None
+    if factor_name.startswith(("realized_vol_60m", "intraday_vol", "intraday_autocorr")):
+        from core.intraday.multi_timescale import load_multi_timescale_bars
+        mt = load_multi_timescale_bars(store, all_syms, freqs=["60m"])
+        if "60m" in mt:
+            intraday_bars_60m = mt["60m"]
+
+    from core.factors.factor_generator import generate_all_factors
+    factors = generate_all_factors(price_df,
+                                    intraday_bars_60m=intraday_bars_60m)
+    if factor_name not in factors:
+        print(f"  factor '{factor_name}' not in factor_generator output. "
+              f"available (subset): "
+              f"{sorted(factors.keys())[:10]}...")
+        return
+    fdf = factors[factor_name]
+
+    # Join factor value per event
+    def _lookup(row):
+        d = pd.Timestamp(row['date'])
+        s = row['symbol']
+        try:
+            return float(fdf.loc[d, s])
+        except (KeyError, TypeError, ValueError):
+            return float("nan")
+
+    events_df = events_df.copy()
+    events_df['factor_val'] = events_df.apply(_lookup, axis=1)
+
+    # Per-day cross-sectional rank → percentile
+    events_df['factor_pct'] = events_df.groupby('date')['factor_val'].rank(
+        method='average', pct=True,
+    )
+    valid = events_df.dropna(subset=['factor_val', 'factor_pct'])
+    print(f"  events with valid factor value: {len(valid)}/{len(events_df)}")
+    if valid.empty:
+        print("  no valid factor events — abort bucket analysis")
+        return
+
+    # 3 tercile buckets by cross-sectional rank
+    valid = valid.copy()
+    valid['bucket'] = pd.cut(
+        valid['factor_pct'],
+        bins=[-0.01, 1/3, 2/3, 1.01],
+        labels=["bottom", "middle", "top"],
+    )
+
+    print(f"  {'bucket':<10} {'n':>6} {'naive_net':>12} "
+          f"{'timed_net':>12} {'delta':>10}")
+    bucket_stats = {}
+    for b in ("bottom", "middle", "top"):
+        sub = valid[valid['bucket'] == b]
+        if sub.empty:
+            continue
+        n = len(sub)
+        naive_mean = sub['naive_net_bps'].mean()
+        timed_mean = sub['timed_net_bps'].mean()
+        delta = timed_mean - naive_mean
+        bucket_stats[b] = delta
+        print(f"  {b:<10} {n:>6} {naive_mean:>+11.2f} "
+              f"{timed_mean:>+11.2f} {delta:>+9.2f}")
+
+    # Verdict: does factor ADD timing value?
+    # Honest comparison: top-tercile delta vs SAME-sample overall delta.
+    # This catches "factor meets historical absolute bar but fails
+    # relative-test within current sample" (a classic false positive).
+    if "top" in bucket_stats and "bottom" in bucket_stats:
+        cross_spread = bucket_stats["top"] - bucket_stats["bottom"]
+        sample_overall = float(
+            (valid['timed_net_bps'] - valid['naive_net_bps']).mean()
+        )
+        top_vs_sample = bucket_stats["top"] - sample_overall
+        print(f"\n  top-bottom spread (Δ/event): {cross_spread:+.2f} bps")
+        print(f"  Overall delta_per_event baseline (same sample): "
+              f"{sample_overall:+.2f} bps")
+        print(f"  Top-tercile vs sample overall: {top_vs_sample:+.2f} bps")
+        print()
+        if top_vs_sample > 1.5 and cross_spread > 2.0:
+            print(f"  VERDICT: POSITIVE — '{factor_name}' top-tercile events "
+                  f"produce {bucket_stats['top']:+.2f} bps, "
+                  f"{top_vs_sample:+.2f} bps above sample average, with "
+                  f"positive top-bottom spread {cross_spread:+.2f}. Factor "
+                  "adds timing information (promote candidate).")
+        elif abs(cross_spread) < 2.0 and abs(top_vs_sample) < 1.5:
+            print(f"  VERDICT: NEUTRAL — cross-bucket spread {cross_spread:+.2f} "
+                  f"bps and top-vs-overall {top_vs_sample:+.2f} bps both "
+                  "within noise. Factor does NOT appear to add timing "
+                  "edge beyond multi-TF gate alone. Do not promote on "
+                  "timing grounds.")
+        else:
+            print(f"  VERDICT: NEGATIVE — factor behaves oddly (spread "
+                  f"{cross_spread:+.2f} bps, top-vs-overall "
+                  f"{top_vs_sample:+.2f} bps). May be anti-correlated "
+                  "with timing quality in this sample.")
 
 
 if __name__ == "__main__":

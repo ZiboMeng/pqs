@@ -654,6 +654,28 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### Round 8 — Topic G：cross-TF feature training（factor × timing 联合分析）
+
+**时间**: 2026-04-20
+**改动**:
+- `scripts/validate_timing_value.py` 加 `--factor-bucket <name>` 模式：按日度因子值做 cross-sectional rank → 3 tercile buckets，per-bucket 计算 naive/timed/delta bps
+- 新 `_print_factor_bucket_analysis()` helper：加载因子、per-event lookup、rank 分桶、per-bucket 统计、**诚实的 verdict 逻辑**（比较 top-tercile delta vs 同样本 overall delta，而不是 stale 历史 +3.26）
+- 完整端到端用 Round 5 的 `realized_vol_60m_21d` 因子测试
+
+**真实数据结果**（SPY + QQQ + Mag7，2024-01 至今，4596 events）:
+
+| bucket | n | naive_net bps | timed_net bps | delta bps |
+|---|---:|---:|---:|---:|
+| bottom | 890 | -10.43 | -7.19 | +3.24 |
+| middle | 1334 | -17.80 | -9.99 | +7.81 |
+| top | 1334 | -14.87 | -10.21 | **+4.66** |
+
+Overall (same sample): +5.49 bps/event。Top-tercile 比 overall 少 0.83 bps。Top-bottom spread +1.42 bps。
+
+**Verdict**: **NEUTRAL** — `realized_vol_60m_21d` 虽然单独测 IC_21d ≈ +0.10（Round 5 发现），但**联合 decide_timing 不提供超越 baseline 的增量**。Cross-bucket spread +1.42 bps 在噪声内。明确不推荐 promote 到 PRODUCTION_FACTORS。
+
+**研究含义**: Round 5 的 IC 是"因子对未来回报有预测"，Round 8 的 bucket 分析是"在固定 timing 框架下，高/低因子值事件的 timing 质量有无差异"。两个问题答案可以不同 —— 当前数据下，前者 +0.10，后者 NEUTRAL，说明该因子的 alpha 不来自 timing 层
+
 ### Round 7 — Topic I：mining 扩展到多 strategy type + QQQ gate 一致性
 
 **时间**: 2026-04-20
