@@ -1,4 +1,7 @@
 seed_pool:
+  # ═════════════════════════════════════════════════════════════════
+  # Core Mag7 + benchmarks + leveraged (original pool)
+  # ═════════════════════════════════════════════════════════════════
   - SPY
   - QQQ
   - GLD
@@ -11,6 +14,40 @@ seed_pool:
   - TSLA
   - TQQQ
   - SOXL
+
+  # ═════════════════════════════════════════════════════════════════
+  # R28 v2 universe expansion — user-approved 2026-04-21
+  # 21 symbols added per LLM-Phase Round 27 pipeline
+  # (1 Alpha Core + 12 Diversifier + 8 Tactical bucket assignments)
+  # Lineage: `post-2026-04-20-llm-round-28-v2-expansion`
+  # ═════════════════════════════════════════════════════════════════
+
+  # Alpha Core (1) — borderline β_spy=1.32 (flagged for review)
+  - PWR       # Quanta Services: electrical infrastructure
+
+  # Diversifier (12) — low β_spy AND β_qqq, broad sector coverage
+  - WMT       # staples
+  - GILD      # biotech
+  - JNJ       # pharma
+  - K         # staples
+  - VZ        # telecom
+  - OXY       # energy
+  - GIS       # staples
+  - WEC       # utilities
+  - EA        # gaming
+  - ED        # utilities
+  - DG        # discretionary
+  - CLX       # staples
+
+  # Tactical High-Beta Alpha (8) — high β with consistent alpha
+  - GS        # financials
+  - MS        # financials
+  - C         # financials
+  - LRCX      # semi equipment
+  - KLAC      # semi equipment
+  - CAT       # industrials
+  - MU        # semis
+  - AVGO      # semis
 
 # Sector ETFs (SPDR)
 sector_etfs:

@@ -77,6 +77,12 @@ def main():
                         help="Stamps every archived trial/promotion "
                              "with this tag. Pre-closeout rows default "
                              "to 'pre-2026-04-20' and should not be mixed.")
+    parser.add_argument("--extra-symbols", default=None,
+                        help="Path to newline-separated symbol list file; "
+                             "symbols are ADDED to the current cfg.universe "
+                             "seed_pool for this run only. Used by R28+ "
+                             "universe expansion dry-runs. Does NOT modify "
+                             "config/universe.yaml on disk.")
     parser.add_argument("--lineage-filter", default=None,
                         help="When used with --leaderboard, only show "
                              "trials with this lineage_tag. Omit to "
@@ -164,6 +170,20 @@ def main():
         + list(uni.factor_etfs)
         + list(uni.cross_asset)
     ))
+    # --extra-symbols: in-memory universe expansion for dry-run experiments
+    # (R28+). Does NOT touch config/universe.yaml.
+    if args.extra_symbols:
+        from pathlib import Path as _Path
+        extra_path = _Path(args.extra_symbols)
+        if not extra_path.exists():
+            logger.error("extra-symbols file not found: %s", extra_path)
+            sys.exit(1)
+        extras = [line.strip().upper() for line in extra_path.read_text().splitlines()
+                  if line.strip() and not line.strip().startswith("#")]
+        added = [s for s in extras if s not in all_syms]
+        all_syms = list(dict.fromkeys(all_syms + extras))
+        logger.info("--extra-symbols: added %d new symbols (total=%d)",
+                    len(added), len(all_syms))
     def_syms  = [s for s in ["TLT", "IEF", "GLD", "SHY"] if s in all_syms]
     risk_syms = [s for s in all_syms if s not in def_syms and s not in ["TQQQ", "SOXL"]]
 
