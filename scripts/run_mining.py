@@ -73,6 +73,10 @@ def main():
     parser.add_argument("--reset-archive",  action="store_true", help="清空 Mining 存档重新开始")
     parser.add_argument("--start",          default=None, help="数据起始日期")
     parser.add_argument("--config-dir",     default="config")
+    parser.add_argument("--lineage-tag",    default="post-2026-04-20-closeout",
+                        help="Stamps every archived trial/promotion "
+                             "with this tag. Pre-closeout rows default "
+                             "to 'pre-2026-04-20' and should not be mixed.")
     args = parser.parse_args()
 
     cfg   = load_config(Path(args.config_dir))
@@ -83,7 +87,9 @@ def main():
     archive_db = mining_cfg.get("archive_db",        "data/mining/archive.db")
     optuna_db  = mining_cfg.get("optuna_db",          "data/mining/optuna.db")
     ec_dir     = mining_cfg.get("equity_curve_dir",   "data/mining/equity_curves")
-    archive    = MiningArchive(db_path=archive_db, equity_curve_dir=ec_dir)
+    archive    = MiningArchive(db_path=archive_db, equity_curve_dir=ec_dir,
+                                lineage_tag=args.lineage_tag)
+    logger.info("Archive lineage_tag=%s", args.lineage_tag)
 
     # ── 只打印排行榜 ──────────────────────────────────────────────────────────
     if args.leaderboard:

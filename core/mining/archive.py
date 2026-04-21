@@ -68,7 +68,18 @@ CREATE TABLE IF NOT EXISTS trials (
     passed_diversity     INTEGER NOT NULL DEFAULT 0,
 
     evaluated_at         TEXT    NOT NULL,
-    optuna_value         REAL
+    optuna_value         REAL,
+
+    -- QQQ hard gate (P0.4, 2026-04-20)
+    qqq_full_period_excess  REAL,
+    qqq_holdout_excess      REAL,
+    qqq_oos_avg_excess      REAL,
+    passed_qqq_gate         INTEGER NOT NULL DEFAULT 1,
+
+    -- Lineage (closeout 2026-04-20). Marks which code/config generation
+    -- produced this row. Prevents silent mixing of pre-fix and post-fix
+    -- results when comparing scores across runs.
+    lineage_tag          TEXT    NOT NULL DEFAULT 'pre-2026-04-20'
 )
 """
 
@@ -81,7 +92,10 @@ CREATE TABLE IF NOT EXISTS promotions (
     composite_score  REAL NOT NULL,
     equity_curve_path TEXT,
     promoted_at      TEXT NOT NULL,
-    active           INTEGER NOT NULL DEFAULT 1
+    active           INTEGER NOT NULL DEFAULT 1,
+
+    -- Lineage (closeout 2026-04-20)
+    lineage_tag      TEXT NOT NULL DEFAULT 'pre-2026-04-20'
 )
 """
 
@@ -100,9 +114,18 @@ class MiningArchive:
         self,
         db_path:          str | Path = "data/mining/archive.db",
         equity_curve_dir: str | Path = "data/mining/equity_curves",
+        lineage_tag:      str = "pre-2026-04-20",
     ) -> None:
+        """lineage_tag (closeout 2026-04-20): stamps every save_eval /
+        promote with a tag identifying which code generation wrote it.
+        Pre-fix rows in an existing DB inherit 'pre-2026-04-20' via the
+        ALTER TABLE DEFAULT. Callers running the post-closeout code
+        should pass `post-2026-04-20-closeout` (or later) so leaderboard
+        / analysis can filter or join across generations. Never mix
+        scores across lineage tags without explicit intent."""
         self._db   = Path(db_path)
         self._ec_dir = Path(equity_curve_dir)
+        self._lineage_tag = lineage_tag
         self._db.parent.mkdir(parents=True, exist_ok=True)
         self._ec_dir.mkdir(parents=True, exist_ok=True)
         self._init_db()
@@ -124,8 +147,10 @@ class MiningArchive:
                 holdout_ir, holdout_excess_return, holdout_max_dd, passed_holdout,
                 oos_is_sharpe_ratio,
                 tier, composite_score, diversity_corr, passed_diversity,
-                evaluated_at, optuna_value
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                evaluated_at, optuna_value,
+                qqq_full_period_excess, qqq_holdout_excess, qqq_oos_avg_excess,
+                passed_qqq_gate, lineage_tag
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 result.spec_id,
                 result.strategy_type,
@@ -156,6 +181,11 @@ class MiningArchive:
                 int(result.passed_diversity),
                 result.evaluated_at or datetime.now().isoformat(),
                 result.composite_score,
+                getattr(result, 'qqq_full_period_excess', None),
+                getattr(result, 'qqq_holdout_excess', None),
+                getattr(result, 'qqq_oos_avg_excess', None),
+                int(getattr(result, 'passed_qqq_gate', True)),
+                self._lineage_tag,
             ),
         )
         conn.commit()
@@ -182,8 +212,8 @@ class MiningArchive:
         conn.execute(
             """INSERT OR REPLACE INTO promotions (
                 spec_id, strategy_type, params_json, tier, composite_score,
-                equity_curve_path, promoted_at, active
-            ) VALUES (?,?,?,?,?,?,?,1)""",
+                equity_curve_path, promoted_at, active, lineage_tag
+            ) VALUES (?,?,?,?,?,?,?,1,?)""",
             (
                 result.spec_id,
                 result.strategy_type,
@@ -192,6 +222,7 @@ class MiningArchive:
                 result.composite_score,
                 ec_path,
                 datetime.now().isoformat(),
+                self._lineage_tag,
             ),
         )
         conn.commit()
@@ -253,20 +284,38 @@ class MiningArchive:
                 curves[p["spec_id"]] = df["equity"]
         return curves
 
-    def leaderboard(self, n: int = 20, strategy_type: Optional[str] = None) -> pd.DataFrame:
-        """返回 top-N 策略排行榜 DataFrame。"""
-        conn  = self._connect()
-        where = f"WHERE strategy_type='{strategy_type}'" if strategy_type else ""
+    def leaderboard(self, n: int = 20, strategy_type: Optional[str] = None,
+                    lineage_tag: Optional[str] = None) -> pd.DataFrame:
+        """返回 top-N 策略排行榜 DataFrame.
+
+        `lineage_tag` filters to a single code/config generation
+        (closeout 2026-04-20). Omit to include all lineages (but a
+        'lineage' column is always returned so downstream can spot
+        mixing)."""
+        conn    = self._connect()
+        clauses = []
+        params: list = []
+        if strategy_type:
+            clauses.append("strategy_type=?")
+            params.append(strategy_type)
+        if lineage_tag:
+            clauses.append("lineage_tag=?")
+            params.append(lineage_tag)
+        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
         df    = pd.read_sql_query(
             f"""SELECT spec_id, strategy_type, tier, composite_score,
                        quick_sharpe, oos_ir, oos_pass_rate, oos_excess_return,
                        quick_max_dd, regime_robust, cost_robust, param_robust,
                        stress_passed, holdout_ir, holdout_excess_return,
                        passed_holdout, oos_is_sharpe_ratio,
-                       passed_quick, passed_oos, evaluated_at
+                       passed_quick, passed_oos,
+                       passed_qqq_gate, qqq_full_period_excess,
+                       qqq_holdout_excess, qqq_oos_avg_excess,
+                       lineage_tag,
+                       evaluated_at
                 FROM trials {where}
                 ORDER BY composite_score DESC LIMIT {n}""",
-            conn,
+            conn, params=params,
         )
         conn.close()
         return df
@@ -313,8 +362,23 @@ class MiningArchive:
             ("holdout_max_dd",      "REAL"),
             ("passed_holdout",      "INTEGER NOT NULL DEFAULT 0"),
             ("oos_is_sharpe_ratio", "REAL"),
+            # 2026-04-20 closeout
+            ("qqq_full_period_excess", "REAL"),
+            ("qqq_holdout_excess",     "REAL"),
+            ("qqq_oos_avg_excess",     "REAL"),
+            ("passed_qqq_gate",        "INTEGER NOT NULL DEFAULT 1"),
+            ("lineage_tag",            "TEXT NOT NULL DEFAULT 'pre-2026-04-20'"),
         ]
         for col, typedef in migrations:
             if col not in existing:
                 conn.execute(f"ALTER TABLE trials ADD COLUMN {col} {typedef}")
+
+        # Same lineage migration for promotions table
+        existing_p = {row[1] for row in conn.execute(
+            "PRAGMA table_info(promotions)").fetchall()}
+        if "lineage_tag" not in existing_p:
+            conn.execute(
+                "ALTER TABLE promotions ADD COLUMN lineage_tag TEXT "
+                "NOT NULL DEFAULT 'pre-2026-04-20'"
+            )
         conn.commit()
