@@ -614,7 +614,7 @@ python scripts/run_backtest.py --strategy multi_factor --no-walk-forward
 
 | Milestone | 主要风险 | Mitigation |
 |---|---|---|
-| M1 | `config/production_strategy.yaml` 首版无 validated spec_id | `status: provisional` 标注 + README 明写 "provisional not validated" |
+| M1 | `config/production_strategy.yaml` 首版无 validated spec_id | `status: conservative_default` 标注 + README 明写 "post-fix validated best 尚未存在" |
 | M2 | 当前 archive 无 post-fix trial 能过 acceptance pack | 接受，M2 正是为了把此事实公开化；不降门槛 |
 | M3 | WARN 阶段用户忽视告警 | notify 推送 + baseline snapshot artifact 记录 |
 | M4 | Rule DSL 蠕变变 Python eval | 严格白名单 operator，grep ci 禁止 `eval / exec / compile` |
@@ -635,3 +635,111 @@ python scripts/run_backtest.py --strategy multi_factor --no-walk-forward
 *PRD v1.1 — 2026-04-21, author: Claude; incorporated re-audit revisions
 (status enum triad / schema regrouping / intraday terminology / LLM capability
 statement / conservative_default as legal state).*
+
+---
+
+## 9. M0-M8 Delivery Log (2026-04-21, post-audit)
+
+All 9 milestones shipped in sequence 2026-04-21. Test count grew
+**1109 → 1201 collected** (1200 passed + 1 skipped when torch installed).
+
+| Milestone | Commit | Scope |
+|---|---|---|
+| M0 | `bb90eb6` | `build_research_baseline_snapshot.py` + gitignore for `data/baseline/` |
+| M1 | `8d2deeb` | `config/production_strategy.yaml` + `core/config/production_strategy.py` + 3 entrypoints rewired (+28 tests) |
+| M2 | `868d60f` → `8b59417` | Acceptance pack v1 → **v2** (`full_period_fresh_backtest` gate added after rollback incident, see §10); `promote_strategy.py` CLI; `docs/promotion_flow.md` (+18 tests) |
+| M3 | `df0e7db` | Runtime alignment WARN mode; `core/alignment/alignment_check.py`; wired into `run_backtest.py` + `run_paper.py` (+12 tests) |
+| M4 | `c657175` → `86077e3` | Cross-ticker DSL + safe expression evaluator + 3 rule types; demo script; enabled with 3 example rules (+24 tests) |
+| M5 | `770b453` | Multi-TF execution contract runtime assert; `IntradayBacktestEngine.run_multi_day` clips negative weights (+4 tests) |
+| M6 | `dd4de8b` | LLM proposal Phase 1 — 3 markdown docs (no code) |
+| M7 | `f412147` | `scripts/run_xgb_weight_model.py` — research-only XGB weight model |
+| M8 | `f412147` | `core/ml/transformer_encoder.py` `SmallEncoder` + `scripts/run_transformer_research.py` (+6 tests) |
+| M9 | continuous | README + CLAUDE.md + docs synced each milestone per `README §18.5 maintenance contract` |
+
+**Critical path (M0→M1→M2→M3)** took about 4 hours end-to-end. M4-M8 in
+another 3-4 hours. Pack v2 upgrade (after rollback) added ~2 hours.
+
+---
+
+## 10. Post-M8 Incident Log: Pack v1→v2 Rollback
+
+**2026-04-21, post-M8**: User authorized a real-world test of the M2 promote
+flow. Mining round `post-2026-04-21-framework-m1-m8-done` (30 trials) plus
+existing archive yielded top spec `6d15b735a64c` with all 9 acceptance pack
+v1 gates PASS.
+
+`promote_strategy.py --promote` wrote `config/production_strategy.yaml`
+with `status: active`. BUT subsequent pytest showed:
+```
+FAILED tests/integration/test_backtest_paper_consistency.py::
+  TestQQQOutperformance::test_full_period_cagr_beats_qqq
+  AssertionError: Strategy CAGR 14.0% must exceed QQQ 17.6%
+```
+
+**Root cause**: archive's `quick_cagr=25.6%` and `qqq_full_period_excess=+6.17%`
+were computed on the **first 70% of data** (`quick_data_fraction=0.7`). Pack
+v1 trusted the archive row. Fresh full-period backtest revealed the spec
+overfits to the training window and underperforms QQQ by ~3.6% on full period.
+
+**User decision: A + B**
+- **A (rollback)**: `git checkout HEAD -- config/production_strategy.yaml`
+  (back to `status: conservative_default`)
+- **B (pack v2)**: new gate `full_period_fresh_backtest` re-runs
+  MultiFactorStrategy with spec params on current full price panel and
+  verifies CAGR > QQQ on aligned full window; FAIL if excess ≤ 0 or
+  equity curve contains NaN.
+
+Pack v2 now correctly rejects `6d15b735a64c` (9/10 pass, fresh gate fails
+with strategy 13.0% < QQQ 17.6%, excess -4.6%). Without v2 the flow would
+have silently promoted a bad spec.
+
+**Systemic lessons**:
+1. **Archive row evidence is insufficient.** Historical evaluator flags
+   (`passed_oos`, `passed_qqq_gate`) use mining's internal 70% split.
+   Production deployment uses full period. Pack MUST re-run at least the
+   CAGR-vs-QQQ check on current data.
+2. **Small bugs emerged during v2 bring-up** (documented in commit `8b59417`):
+   - `compute_metrics` returns lowercase `cagr` key not `CAGR`
+   - `BacktestResult` has no `benchmark_equity` attr (pass `benchmark=` to `compute_metrics`)
+   - BacktestEngine may emit NaN on last bar (stale-data edge case); use `.dropna()` before CAGR compute
+   - Pass `open_df` to `engine.run()` for faithful production execution
+   All fixed in pack v2.
+3. **This is exactly what critical path is for.** Without M3 alignment
+   check + M1 single-source enforcement, the drift would have gone
+   unnoticed in production.
+
+**v3 roadmap** (not done; tracked in §11):
+- Paper-BT consistency gate (replay + diff instead of skip-pass)
+- Concentration gate with actual weight-matrix analysis
+- Multi-horizon stress (cost × 3, regime × single-sector)
+
+---
+
+## 11. Open Items (M10+)
+
+Not required for "framework complete" signal, but should be tracked:
+
+| Id | Description | Priority | Estimated effort |
+|---|---|---|---|
+| **M10** | Cross-ticker DSL **production wiring**. Currently only `scripts/demo_cross_ticker_rules.py` consumes the yaml. `run_backtest.py` and `run_paper.py` do NOT apply rules to strategy output. Integration point: weight-matrix post-processor after `PortfolioConstructor.build()` | P1 | 1 day |
+| **M11** | Paper-BT consistency gate in pack v3. Run a short `--mode replay` + diff against fresh backtest equity over same window. Catches engine-level drift that pack v2's static re-run doesn't | P1.5 | 1-2 days |
+| **M12** | Concentration gate real enforcement. Inspect promoted spec's fresh-backtest weight matrix for top-1/top-3 concentration; reject if > threshold (currently skip-pass) | P2 | 0.5 day |
+| **M13** | Alignment FAIL mode rollout. After 2 weeks observation of WARN, flip `config/system.yaml::alignment.mode: fail` for live paper only | P2 | 0.2 day (config flip + docs) |
+| **M14** | BacktestEngine last-bar-NaN edge. Root-cause fix rather than `.dropna()` workaround. Ghost-position cleanup interaction with stale-bar tracker | P2 | 1 day |
+| **M15** | LLM Proposal Phase 2 (actual Anthropic API call). Only triggers when Phase 1 conversation overhead is proven bottleneck | P3 (not planned) | 3-5 days |
+| **M16** | Transformer Phase 1 — real findings. Run on 1650 GPU, record OOS R² head-to-head vs Ridge/XGB, produce `docs/transformer_research_phase1_findings.md` | **✅ DONE 2026-04-21** — Ridge +0.012 / XGB -0.110 / Transformer -0.207; negative finding, recommend park |
+| **M17** | Realtime intraday live-feed infrastructure. Out of framework PRD scope; tracked in `prd_live_feed.md` (future) | P2 | Weeks |
+| **M18** | Cross-ticker DSL: add `ratio()`, `zscore()`, `rank_cs()` safe funcs to DSL evaluator. Demand-driven | P3 | 0.3 day each |
+
+**Critical question**: should any of M10-M14 be pulled forward before
+resuming `prd_universe_expanded_mining.md` R36+? My recommendation:
+- **M10 required** before re-mining — otherwise DSL rules are untested in production
+- **M11, M12, M13 optional** — framework is safe without them because pack v2 + alignment WARN + conservative_default already prevent bad promotes
+- **M14 required** if BacktestEngine NaN shows up in real backtest runs (not just pack fresh)
+- **M16 required** to close M8 deliverable (currently just scaffold)
+
+---
+
+*PRD v1.2 — 2026-04-21, author: Claude; added M0-M8 delivery log,
+post-M8 rollback incident (pack v1→v2), and M10-M18 open items
+tracking.*

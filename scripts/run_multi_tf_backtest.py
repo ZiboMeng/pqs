@@ -20,7 +20,9 @@ from core.config.loader import load_config
 from core.data.market_data_store import MarketDataStore
 from core.execution.cost_model import CostModel
 from core.regime.regime_detector import RegimeDetector
-from core.signals.strategies.multi_factor import MultiFactorStrategy
+# MultiFactorStrategy import removed 2026-04-21 (PRD M1) — builder via
+# core.config.production_strategy.build_strategy_from_config is now the
+# only construction path.
 from core.portfolio.constructor import PortfolioConstructor
 from core.backtest.backtest_engine import BacktestEngine, compute_metrics
 from core.backtest.intraday_engine import IntradayBacktestEngine
@@ -37,6 +39,16 @@ logger = get_logger("multi_tf_backtest")
 def main():
     cfg = load_config(Path("config"))
     store = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
+
+    # PRD M3: runtime alignment check (WARN mode); consistency with
+    # run_backtest.py / run_paper.py (they both do this at startup).
+    from core.alignment import check_alignment, write_alignment_report, AlignmentMode
+    alignment = check_alignment(Path.cwd(), mode=AlignmentMode.WARN)
+    logger.info(alignment.summary_line())
+    try:
+        write_alignment_report(alignment)
+    except Exception as exc:
+        logger.warning("Could not write alignment artifact: %s", exc)
 
     uni = cfg.universe
     all_syms = list(dict.fromkeys(

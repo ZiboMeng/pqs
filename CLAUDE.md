@@ -2553,8 +2553,9 @@ limit + min_level gating built-in. Credentials via env var expansion
 
 ### Current TODO Checklist
 
-**Framework Completion PRD** (`docs/prd_framework_completion.md`) — Critical
-path before resuming `prd_universe_expanded_mining.md` R36+:
+**Framework Completion PRD** (`docs/prd_framework_completion.md` v1.2) —
+All M0-M8 shipped; critical path M0→M1→M2→M3 clean. See PRD §9 delivery
+log + §10 pack v1→v2 rollback incident + §11 open items M10-M18.
 - [x] **M0** research baseline snapshot (`scripts/build_research_baseline_snapshot.py`)
 - [x] **M1** `config/production_strategy.yaml` single source of truth (21 unit + 7 integration tests)
 - [x] **M2** promote CLI + acceptance pack v2 (18 unit tests; `scripts/acceptance_pack.py` + `scripts/promote_strategy.py` + `docs/promotion_flow.md`). v2 added `full_period_fresh_backtest` gate after first promote attempt caught quick-eval-vs-full-period CAGR gap (`6d15b735a64c` was rolled back; pack now re-runs fresh backtest by default)
@@ -2563,7 +2564,7 @@ path before resuming `prd_universe_expanded_mining.md` R36+:
 - [x] **M5** multi-TF execution contract runtime assert (4 integration tests; `IntradayBacktestEngine.run_multi_day` clips + WARN on negative timing_provider weights)
 - [x] **M6** LLM proposal Phase 1 (3 markdown docs: `docs/llm_proposal_prompt_template.md`, `docs/llm_proposal_seed_context.md`, `docs/llm_funnel_checklist.md`; process formalization, no code change)
 - [x] **M7** XGBoost weight research model (`scripts/run_xgb_weight_model.py`; research-only; not wired to production)
-- [x] **M8** Transformer research Phase 1 (`core/ml/transformer_encoder.py` SmallEncoder + `scripts/run_transformer_research.py` head-to-head vs Ridge/XGB; 6 tests 3 pass 3 skip-on-no-torch; `requirements-gpu.txt` optional install)
+- [x] **M8** Transformer research Phase 1 **findings shipped** — `docs/transformer_research_phase1_findings.md`. OOS R²: Ridge +0.012 / XGBoost -0.110 / **Transformer -0.207** (most overfit). Honest negative finding: daily 21d forecasting scope unsuitable for transformer; recommend parking or pivot to intraday / cross-sectional / longer-horizon setup.
 
 **Older TODO (data / intraday / research)**:
 - [x] Provenance sidecar (trades_scanner + migration + BarStore API)

@@ -58,11 +58,14 @@
 
 ### 1.4 当前状态（2026-04-21）
 
-- **生产策略**: MultiFactorStrategy（7 个 production factors，含 R15 user-auth promoted `drawup_from_252d_low`）
+- **生产策略**: `config/production_strategy.yaml` (M1 单一真源，当前 `status: conservative_default`；post-fix validated best **尚未存在** — pack v2 拒绝了首个 candidate)
 - **Universe**: 53 交易标的 = `seed_pool` 33（含 Mag7 + SPY/QQQ/GLD + leveraged + 21 个 R28 扩容 common stocks）+ 11 sector ETFs + 5 factor ETFs + 4 cross-asset。另有 3 个 macro_reference（^VIX/^TNX/DX-Y.NYB）只作 features
 - **Factor registry**: 7 PRODUCTION + 39 RESEARCH，通过 `test_factor_registry.py` 强一致
+- **Alignment**: runtime WARN 模式（M3）；fingerprints hash 对 yaml 匹配
+- **Cross-ticker DSL**: `config/cross_ticker_rules.yaml` **enabled: true**，3 条规则（SPY trend 放大 / RISK_OFF defensive basket / QQQ multi-TF 确认）；仅 demo 脚本消费，run_backtest 尚未 wire
 - **数据**: 日线 2007-2026 / 60m intraday 2015-2026 / 1m 2015-2026（部分）
-- **测试**: 见 `data/baseline/latest.json`（跑 `scripts/build_research_baseline_snapshot.py` 刷新；当前 snapshot = 1109 collected）
+- **测试**: 见 `data/baseline/latest.json`（跑 `scripts/build_research_baseline_snapshot.py` 刷新；当前 snapshot = 1201 collected, 1200 passed + 1 torch-skip）
+- **Framework**: M0-M8 全部交付 (10 commits `bb90eb6`→`8b59417`)。详 `docs/prd_framework_completion.md`
 
 ---
 
@@ -156,7 +159,7 @@ pqs/
 │   ├── reporting.yaml           - 报告风格
 │   ├── events.yaml              - 事件日历
 │   ├── notify.yaml              - 消息推送 (微信 / Server 酱)
-│   └── cross_ticker_rules.yaml  - 跨标的声明式规则 DSL (PRD M4, 默认 disabled)
+│   └── cross_ticker_rules.yaml  - 跨标的声明式规则 DSL (PRD M4, enabled:true, 3 rules)
 ├── core/                        ← 核心业务代码
 │   ├── backtest/                - BacktestEngine / WindowAnalyzer
 │   ├── config/                  - pydantic schemas + loader
@@ -560,6 +563,10 @@ python scripts/run_universe_rebalance.py
 - **作用**: v2.2 Layer 3 bucket 分配（Alpha Core / Diversifier / Tactical / Proxy / Unscored）
 - **注意**: 当前是 **provisional intrinsic-only** 版本（见 spec §4.6）
 
+#### `run_universe_rebalance.py`
+- **作用**: PIT universe rebalance（跑完整 UniverseManager + AssetScorer，产出建议调整）
+- **何时用**: 季度 / 半年度 universe 复审；`bash scripts/run_all.sh universe` 的 entry
+
 #### `r33_weight_grid_search.py`
 - **作用**: 手工 grid 搜 MultiFactorStrategy 权重，找 CAGR > QQQ 组合（R33 解 xfail 时建立）
 
@@ -887,7 +894,45 @@ notify:
 ### 9.8 `reporting.yaml`, `events.yaml`
 风格 / 事件日历，通常不碰。
 
-### 9.9 `production_strategy.yaml` ⭐ (PRD M1 单一真源)
+### 9.9 `cross_ticker_rules.yaml` (PRD M4)
+
+跨标的声明式 DSL。`enabled: true` 时 demo 脚本消费，production path **尚未** 接入（见 §17.8 open items）。
+
+```yaml
+enabled: true
+rules:
+  - name: spy_golden_cross_enables_tech_overweight
+    type: benchmark_trigger      # SPY 50>200 MA → 放大 Mag7/leveraged 权重 1.20x
+    driver: SPY
+    condition: "sma(close, 50) > sma(close, 200)"
+    targets: [QQQ, TQQQ, SOXL, NVDA, AAPL, MSFT, META, GOOGL, AMZN, TSLA]
+    action: allow_overweight
+    weight_multiplier: 1.20
+    regime_scope: [BULL, RISK_ON, NEUTRAL]
+    priority: 10
+  - name: defensive_blend_risk_off
+    type: regime_basket          # RISK_OFF/CRISIS → 50/50 blend defensive
+    regime: [RISK_OFF, CRISIS]
+    basket_weights: {TLT: 0.25, IEF: 0.15, GLD: 0.25, SHY: 0.15, JNJ: 0.10, PG: 0.10}
+    override_strategy: false
+    priority: 20
+  - name: qqq_breakout_confirmed_by_xlk
+    type: multi_tf_confirmation  # QQQ 20d high + XLK 5>20 MA → 1.15x timing scale
+    target: QQQ
+    primary_condition: "close > ref_high(20)"
+    confirmations:
+      - {symbol: XLK, timeframe: daily, condition: "sma(close, 5) > sma(close, 20)"}
+    action: {timing_scale_multiplier: 1.15}
+    priority: 30
+```
+
+**Expression DSL 安全约束**（`core/signals/cross_ticker_rules.py` 白名单）:
+- 函数白名单: `sma / ema / ref_high / ref_low / rsi` — 其他函数 REJECT
+- 字段白名单: `open / high / low / close / volume`
+- 逻辑: `and / or / not`
+- **禁止任何 Python eval 构造**（import / exec / attribute access 直接 REJECT）
+
+### 9.10 `production_strategy.yaml` ⭐ (PRD M1 单一真源)
 
 这是**唯一** 的生产策略定义文件。`run_backtest.py` / `run_paper.py` /
 `run_multi_tf_backtest.py` / 集成测试都从这里读，**禁止硬编码
