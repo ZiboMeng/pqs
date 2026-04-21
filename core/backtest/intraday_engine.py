@@ -384,6 +384,22 @@ class IntradayBacktestEngine:
             else:
                 bar_targets = target_wts
 
+            # PRD M5: long-only invariant — lower TF (15m/5m timing layer)
+            # must never produce negative weight. If timing_provider returned
+            # a dict with any negative value, something broke the contract.
+            # Clip + WARN rather than fail (production resilience) but
+            # surface it clearly in logs.
+            if bar_targets:
+                neg = {s: w for s, w in bar_targets.items() if w < 0}
+                if neg:
+                    logger.warning(
+                        "Multi-TF contract violation at bar %s: negative "
+                        "weights from timing layer: %s. Clipping to 0 "
+                        "(long-only invariant).",
+                        bar_ts, neg,
+                    )
+                    bar_targets = {s: max(0.0, w) for s, w in bar_targets.items()}
+
             cur_w = {}
             for sym, qty in shares.items():
                 if sym in day_bars and i < len(day_bars[sym]):
