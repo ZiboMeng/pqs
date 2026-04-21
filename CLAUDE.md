@@ -654,6 +654,52 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 20 — universe alpha/beta 诊断（empirical audit of user's thesis）
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-20`
+
+**改动**:
+- 新 `scripts/universe_alpha_diagnostic.py` —— CAPM beta + annualized
+  alpha 对每个 universe 符号计算，按 (β, α) 分类为 PURE_BETA /
+  MARKET_LIKE / DIVERSIFIER / ALPHA_GENERATOR / BETA_PLUS_ALPHA
+- 在 32-symbol universe 上跑（2018-01-01 → 2026-04-18）
+- 产出 `data/ml/universe_alpha_diagnostic.csv` + `universe_alpha_summary.json`
+- 更新 `docs/llm_phase_blocker_report.md` §6.1.1 写入 empirical findings
+
+**核心发现** — 用户 R19 direction 得到**定量 validation**:
+
+| Category | Count | Symbols |
+|---|---:|---|
+| **ALPHA_GENERATOR** (β∈[0.7,1.3], α>3%) | **2** | MSFT, QQQ |
+| **BETA_PLUS_ALPHA** (β>1.3, α>3%) | 4 | SOXL, NVDA, TSLA, META |
+| **MARKET_LIKE** (β∈[0.7,1.3], α≈0) | **18** | SPY, AAPL, GOOGL, AMZN, XLK/XLC/XLY/XLF/XLI/XLE/XLB/XLRE/XLV/SCHD/MTUM/QUAL/VLUE/USMV |
+| **DIVERSIFIER** (β<0.7) | 7 | XLU, XLP, SLV, GLD, SHY, IEF, TLT |
+| **PURE_BETA** (β>1.3, α≤0) | 1 | **TQQQ** (α -20%/yr) |
+
+**Summary**: **只 6/32 (19%) 符号产生 α > 3%**，且**全部是 tech/semis**
+（MSFT/QQQ/SOXL/NVDA/TSLA/META）。**56% (18/32) 是 pure market_like**
+—— AAPL/GOOGL/AMZN 尽管是 Mag7 但 α 接近 0，sector ETFs 多数
+r² > 0.7 vs SPY（就是 beta proxy）。**7 个 diversifiers 全是 macro/factor
+ETFs**，个股里没有 low-β 分散源
+
+**Universe redesign 建议** (由 audit 推导，写入 blocker report §6.1.1):
+- 丢弃 TQQQ（α 负）、考虑丢 SPY-proxy ETFs（XLK/XLC/XLY 高 SPY 相关）
+- 扩容行业: healthcare (ABBV/UNH/LLY), staples (PG/KO), industrials
+  (CAT/HON), financials ex-mega (PNC/USB), energy (COP/PSX)
+- Mid-caps 作 alpha 源 (classical factor literature 支持)
+
+**PRD §13.2 halt 条件**: pytest 1109 / 1 PRODUCTION promote (R15 auth) /
+26 candidates / 无 invariant 违反。继续。
+
+**下轮建议**:
+- **A**: 实验性扩容 universe 加 5-10 个非 tech symbols（需 risk.yaml 或
+  universe.yaml 改动 + 用户签核）
+- **B**: 继续 R19 report §8 open questions（wider mining / MR ensemble
+  single-factor promote）
+- **C**: 跑跟 Audit 的 ALPHA_GENERATOR 组合测试（2-factor MSFT+QQQ long
+  or 6-symbol alpha cluster long）
+
 ### LLM-Round 19 — blocker report 草稿 v0.1
 
 **时间**: 2026-04-21

@@ -200,6 +200,39 @@ Expected effects:
   stories
 - Separate alpha sources from concentrated-tech beta
 
+### 6.1.1 Empirical universe audit (R20 result, 2026-04-21)
+
+Ran `scripts/universe_alpha_diagnostic.py` on current 32-symbol
+universe (2018-01-01 to 2026-04-18). Each symbol's CAPM beta +
+annualized alpha vs SPY:
+
+| Category | Count | Symbols |
+|---|---:|---|
+| **ALPHA_GENERATOR** (β∈[0.7,1.3], α>+3%) | 2 | MSFT, QQQ |
+| **BETA_PLUS_ALPHA** (β>1.3, α>+3%) | 4 | SOXL, NVDA, TSLA, META |
+| **MARKET_LIKE** (β∈[0.7,1.3], α weak) | 18 | SPY, AAPL, GOOGL, AMZN, XLK, XLC, XLY, XLF, XLI, XLE, XLB, XLRE, XLV, SCHD, MTUM, QUAL, VLUE, USMV |
+| **DIVERSIFIER** (β<0.7) | 7 | XLU, XLP, SLV, GLD, SHY, IEF, TLT |
+| **PURE_BETA** (β>1.3, α≤0) | 1 | **TQQQ** (α −20%/yr; drop) |
+
+**Finding 1**: **only 6/32 symbols (19%) produce α > +3%/yr**:
+MSFT/QQQ/SOXL/NVDA/TSLA/META. All in tech/semis.
+
+**Finding 2**: **18/32 symbols (56%) are pure market_like** — no alpha,
+just beta. Includes Mag7 names AAPL/GOOGL/AMZN (α near 0 despite being
+"the big names"). These produce passive beta, not differentiated alpha.
+
+**Finding 3**: **Diversifiers (7)** are all macro/factor ETFs
+(XLU/XLP/SLV/GLD/treasuries). No individual stocks are low-beta
+diversifiers in current universe.
+
+**Universe redesign priorities (informed by audit)**:
+- Drop TQQQ (negative alpha, leverage distortion)
+- Consider dropping SPY-proxy ETFs (XLK/XLC/XLY with r² > 0.7 vs SPY)
+- Expand into sectors with active alpha: healthcare (ABBV, UNH, LLY
+  candidates), consumer staples (PG, KO), industrials (CAT, HON),
+  financials ex-mega (PNC, USB), energy (COP, PSX)
+- Add mid-caps as alpha source (classical factor literature supports)
+
 ### 6.2 Data Sources Beyond Close Prices
 
 Current factors use close prices (+ volume for a few). Missing:

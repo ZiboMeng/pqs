@@ -2980,3 +2980,79 @@ Report §8 列了 3 个 open questions 可做为 R20-R29 实验:
 - (doc commit) —— LLM-Round 19: blocker report draft v0.1 + R19 log
 
 ---
+
+## LLM-Round 20 — 2026-04-21 — universe alpha/beta empirical audit
+
+### 1. 主题
+按 R19 用户指令 "universe 偏大科技，需筛选实现 alpha 正值不是纯赚 beta"，
+做 empirical audit 量化当前 32-symbol universe 的 alpha/beta 构成。
+
+### 2. 做了什么
+- 新 `scripts/universe_alpha_diagnostic.py`:
+  - CAPM beta + 年化 alpha 对每符号（vs SPY）
+  - Perf stats (CAGR / Sharpe / MaxDD)
+  - 5-class categorization: ALPHA_GENERATOR / BETA_PLUS_ALPHA /
+    MARKET_LIKE / DIVERSIFIER / PURE_BETA
+  - Retention recommendation
+  - 产出 csv + json
+- Run on 32-sym universe, 2018-01-01 to 2026-04-18
+- Update `docs/llm_phase_blocker_report.md` §6.1.1 with findings
+
+### 3. 诊断结果
+
+**Alpha cluster (α > 3%/yr, β∈[0.7, 1.3]) = 2 symbols**:
+- MSFT: β=1.16, α=+7.6%/yr, Sharpe +0.83
+- QQQ:  β=1.15, α=+4.2%/yr, Sharpe +0.84
+
+**Beta-compensated alpha (β > 1.3, α > 3%) = 4 symbols**:
+- NVDA (β 1.79, α +13.5%), TSLA (β 1.62, α +13.9%), META (β 1.56, α +10.3%),
+  SOXL (β 4.49, α +10.4%)
+
+**Pure market_like (18 symbols)** —— 56% of universe:
+SPY, AAPL, GOOGL, AMZN, XLK, XLC, XLY, XLF, XLI, XLE, XLB, XLRE, XLV,
+SCHD, MTUM, QUAL, VLUE, USMV
+
+**Diversifiers (7)**: XLU, XLP, SLV, GLD, SHY, IEF, TLT
+
+**PURE_BETA (1)**: TQQQ (β 3.47, α **-20%/yr**, Sharpe +0.33)
+
+### 4. 用户 R19 direction 的 quantitative validation
+"当前暴露太偏大科技 需筛选实现 alpha 正值" — 
+- **6/32 (19%) 符号产生 α > 3%/yr**
+- **100% of alpha cluster 在 tech/semis** (MSFT/QQQ/NVDA/TSLA/META/SOXL)
+- **无 non-tech alpha generator**
+- **56% is pure beta pass-through** (market_like)
+
+用户 direction 被数据支持
+
+### 5. 修改了哪些文件
+- **新**：`scripts/universe_alpha_diagnostic.py`
+- `docs/llm_phase_blocker_report.md` — §6.1.1 subsection added
+- `CLAUDE.md` + `docs/ralph_loop_log.md`
+- 产出 (gitignored): `data/ml/universe_alpha_diagnostic.csv` + 
+  `universe_alpha_summary.json`
+
+### 6. 跑了哪些测试/实验
+- pytest: 1109 (unchanged)
+- 1 universe diagnostic run
+
+### 7. §13.2 halt check
+- pytest: 1109
+- 1 PRODUCTION promote
+- 26 candidates
+- 无 invariant 违反
+
+### 8. 下轮建议
+- **A**: 实验性扩容 universe (add 5-10 non-tech candidates)，run mining
+  在 expanded universe 上看 OOS IR 是否能过 0.20。**需要 config 改动 +
+  用户授权**
+- **B**: 构造 ALPHA_GENERATOR-only portfolio backtest (MSFT+QQQ+SOXL+
+  NVDA+TSLA+META long)，确认 alpha cluster 在独立时的 OOS behavior
+- **C**: 用 `scripts/universe_alpha_diagnostic.py` 做 rolling window 分析
+  —— 看哪些 symbols 的 alpha 跨时间 stable 而非某段时期 artifact
+
+### 9. 本轮 commit 哈希
+- (code commit) —— LLM-Round 20: universe alpha/beta diagnostic tool
+- (doc commit) —— docs: LLM-Round 20 log + R20 audit data validates R19 direction
+
+---
