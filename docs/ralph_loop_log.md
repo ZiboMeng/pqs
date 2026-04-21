@@ -969,3 +969,92 @@ Exit criterion 评估：
 - （doc commit）— docs: 第 12 轮日志 + 12 轮 loop 终点说明
 
 ---
+
+# ═══════════════════════════════════════════════════════════════
+# LLM-Phase Loop (PRD: docs/prd_llm_factor_mining.md, 30 rounds)
+# lineage_tag: post-2026-04-20-llm-round-N
+# ═══════════════════════════════════════════════════════════════
+
+## LLM-Round 1 — 2026-04-21 — Topic LLM-1: 候选生成管线首批 5 个候选
+
+### 1. 本轮主题
+Topic LLM-1 —— LLM 候选生成管线 scaffold（首批 5 个结构化候选 YAML 产出）。
+
+### 2. 本轮目标
+Completion signal: `scripts/llm_factor_propose.py` 产出 ≥5 个结构化候选 YAML。以 LLM 身份履行 PRD §2.1 "候选因子生成器"角色，覆盖 §3 探索方向，**严格**经过 §5 funnel（dedup + leakage + IC），不越界做 §2.2 的最终裁判。
+
+### 3. 为什么这轮优先做它
+- §9 菜单 LLM-1 是整个 30 轮的入口；没有真实候选流过 funnel，后续 LLM-2 ~ LLM-12 都没有输入
+- Round 10 的 scaffold（CLI + funnel + 19 测试）已就位，本轮纯粹是"用起来"
+- 真实候选+funnel 验证可以立刻暴露 scaffold 是否在 production universe 上仍然健康
+
+### 4. 做了什么
+- 新目录 `research/llm_candidates/round_01/`（含 __init__.py，跟踪而非 gitignored）
+- 5 个候选 YAML 按 PRD §4 schema 写入：
+  1. `rs_vs_qqq_63d` — benchmark-relative，QQQ 非 SPY
+  2. `vol_term_ratio_5_63` — 非经典变体（短/长 vol 比）
+  3. `drawup_from_252d_low` — path-shape
+  4. `momentum_quality_interaction` — factor 交互（multiplicative）
+  5. `path_accel_21d` — 多周期组合（return 加速度）
+- `compute_fns.py` 实现 5 个函数，所有公式显式用 `.shift()` / `.rolling()` 保证 leakage heuristic 过关
+- 5 个候选全部跑 `scripts/llm_factor_propose.py --input <yaml>`，artifacts 写入 `data/ml/llm_candidates/<name>/`
+
+### 5. 修改了哪些文件
+- **新**：`research/__init__.py`、`research/llm_candidates/__init__.py`、`research/llm_candidates/round_01/__init__.py`
+- **新**：`research/llm_candidates/round_01/compute_fns.py`（5 个函数 + `_zscore_cs` helper）
+- **新**：`research/llm_candidates/round_01/*.yaml`（5 候选）
+- `CLAUDE.md` —— LLM-Round 1 段
+- `docs/ralph_loop_log.md` —— 本段
+- **产出**：`data/ml/llm_candidates/{5 个}/{candidate.yaml,verdict.json}`（gitignored）
+
+### 6. 跑了哪些测试/实验
+- 5 个候选 × 完整 funnel（shape → leakage heuristic → dedup vs 30 RESEARCH factor → IC screen 21-day fwd return）
+- 数据：top-15 universe symbols, 1077 days（2022-01 起），30 既有因子
+- pytest 全 suite：**1109 passed**（无 regression）
+- 19 个 funnel 测试独立验证：全通过
+
+### 7. 结果如何
+
+| factor | verdict | IC mean | IC IR | dedup flag |
+|---|---|---:|---:|---|
+| rs_vs_qqq_63d | **NEEDS_HUMAN_REVIEW** | — | — | rs_vs_spy_63d ρ=+0.78, xsection_rank_63d ρ=+0.94 |
+| drawup_from_252d_low | ARCHIVE | +0.0832 | +0.22 | — |
+| momentum_quality_interaction | ARCHIVE | -0.0527 | -0.18 | — |
+| path_accel_21d | ARCHIVE | +0.0238 | +0.06 | — |
+| vol_term_ratio_5_63 | ARCHIVE | -0.0308 | -0.10 | — |
+
+**完成信号达成** ✓：5 个结构化 YAML 候选产出并全部走完 funnel。
+
+**0 candidate KEEP**（正如 PRD §2.2 设计：funnel 永不返回 KEEP，只路由 REJECT / ARCHIVE / NEEDS_HUMAN_REVIEW）。
+
+### 8. 当前发现的新问题/新机会
+- **`drawup_from_252d_low` IC mean +0.083 是非平凡的正信号**，只因 IR 低于 0.3 门槛被归入 ARCHIVE。本轮最"几乎成功"候选。下轮（LLM-3 或 LLM-13）应补 OOS walk-forward + regime robustness 再决定是否晋升 RESEARCH_FACTORS
+- **`momentum_quality_interaction` IC 符号反转（-0.053）**：假设为正相关，实测是 mean-revert 信号。这是有价值的 counter-finding —— 在本 universe 上，"高 momentum + 低 vol" 是**均值回归**而非 trend 持续。对未来 composite 设计有意义
+- **`rs_vs_qqq_63d` 与 `xsection_rank_63d` ρ=+0.94** 是 scaffold 在 top-15 universe 上的已知局限：当 QQQ ≈ cross-sectional mean 时，RS-vs-QQQ 退化为 xsection rank。需要在更广 universe（40+ symbols）上重测才能判断 incremental value
+- **Funnel 工作正常**：leakage heuristic 对所有 5 个候选都通过（无误报）；dedup 正确捕获 1 个高相关度候选；IC screen 把 5 个正确分到 ARCHIVE 类
+
+### 9. 剩余风险
+- IC screen 基于 21d forward return + 15 symbols 太窄；真正决策需要 OOS walk-forward + regime stratification + cost stress + QQQ gate
+- 本轮 compute_fns 只用 close（no volume, no intraday）；LLM-3 / LLM-5 会扩展
+- `drawup_from_252d_low` 的 IR 低可能是 252-window 在 1077 days 历史里样本较少的结果；长数据重测需要加载更多 symbols/更长历史
+
+### 10. 下一轮建议方向
+三选一（优先级递减）：
+- **LLM-3** —— 扩展到 intraday LLM 候选（基于 60m bars 而非 daily close）；完成信号 ≥1 candidate enters keep
+- **补充 LLM-1** —— 对 `drawup_from_252d_low` 做 OOS + regime 深挖（该候选已经证明 IC +0.08，只差 IR）
+- **LLM-2** —— 升级 leakage heuristic 为带 truncation test 的严格版本（现版是文本关键字；truncation test 是真正的计算性检测）
+
+默认走 LLM-3，因为首批候选全是 daily-close 因子，intraday 候选空间完全未探索，potential upside 最大。
+
+### 11. TODO checklist（LLM phase 更新后）
+- [x] LLM-1 完成信号达成（5 结构化候选 YAML + funnel 全跑通）
+- [ ] **LLM-3（推荐）**: intraday LLM 候选 3 个
+- [ ] **补充 LLM-1**: `drawup_from_252d_low` OOS + regime 深挖
+- [ ] LLM-2: truncation-test leakage tool
+- [ ] LLM-4..LLM-12: 按 PRD §9 菜单继续
+
+### 12. 本轮 commit 哈希
+- （code commit）—— LLM-Round 1: 5 个 LLM factor candidates + compute_fns + funnel run
+- （doc commit）—— docs: LLM-Round 1 log
+
+---

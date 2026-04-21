@@ -654,6 +654,41 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 1 — Topic LLM-1：候选生成管线首批 5 个候选
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-1`
+
+**改动**:
+- 新目录 `research/llm_candidates/round_01/`（源码跟踪，非 gitignored）
+- 5 个结构化 YAML 候选覆盖 §3 探索方向：
+  - `rs_vs_qqq_63d` — benchmark-relative（QQQ 非 SPY）
+  - `vol_term_ratio_5_63` — 非经典变体（short/long vol 比）
+  - `drawup_from_252d_low` — path-shape（距年度低点涨幅）
+  - `momentum_quality_interaction` — factor 交互（mom × inv-vol-rank）
+  - `path_accel_21d` — 多周期组合（回报加速度）
+- 新 `research/llm_candidates/round_01/compute_fns.py` 实现 5 个 `compute_fn`
+- 所有 candidate 全部跑过 `scripts/llm_factor_propose.py` funnel；artifacts 入 `data/ml/llm_candidates/<name>/`
+
+**Funnel 结果**:
+
+| factor | verdict | IC mean | IC IR | 备注 |
+|---|---|---:|---:|---|
+| rs_vs_qqq_63d | **NEEDS_HUMAN_REVIEW** | — | — | dedup 命中 rs_vs_spy_63d (ρ=+0.78) + xsection_rank_63d (ρ=+0.94) |
+| drawup_from_252d_low | ARCHIVE | +0.083 | +0.22 | **非平凡正 IC**，IR 刚好低于 0.3 门槛 |
+| momentum_quality_interaction | ARCHIVE | -0.053 | -0.18 | **反直觉**：假设为正相关，实测 mean-revert |
+| path_accel_21d | ARCHIVE | +0.024 | +0.06 | 弱 |
+| vol_term_ratio_5_63 | ARCHIVE | -0.031 | -0.10 | 弱 |
+
+**关键发现**:
+- `drawup_from_252d_low` IC +0.083 是本轮最强信号，值得下轮做 OOS + regime robustness 分析后再决定 archive 还是晋升 RESEARCH_FACTORS
+- `momentum_quality_interaction` 的**符号反转**是有价值的 counter-signal：说明在我们的 universe 上，"高 momentum + 低 vol" 的组合是 mean-reverter 而非 trender。这对未来 composite 设计有意义
+- `rs_vs_qqq_63d` 与 `xsection_rank_63d` 几乎是同一因子（ρ=+0.94）——在 15 标的 top-universe 下，QQQ 价格接近 cross-sectional mean，所以 RS-vs-QQQ ≈ cross-sectional rank。这类 dedup 提醒必须在更广 universe 上重测
+
+**PRD §13.2 halt 条件检查**: pytest 1109（无下降）/ 无 promote / 候选 5 << 200 / 无 invariant 违反。安全继续。
+
+**下轮建议**: Topic LLM-2（dedup + leakage 自动检查工具 → 当前已有；可以升级成带 truncation test 的更严格版本），或 Topic LLM-3（intraday LLM 候选 3 个，基于 60m bars 而非 daily close）。当前 `drawup_from_252d_low` 作为 "almost there" 候选可以优先补 OOS + regime 验证。
+
 ### Round 12 — 非菜单：PaperTradingEngine ↔ BrokerAdapter mirror
 
 **时间**: 2026-04-20
