@@ -236,7 +236,8 @@ PRD rather than continuing the loop.
 | 5 | 2026-04-20 | Topic F (intraday factor family: realized_vol_60m_21d, intraday_vol_ratio_21d, intraday_autocorr_21d) | post-2026-04-20-capital-100k | factor_generator 加 `intraday_bars_60m` 参数 + 3 个新 research-only 因子; registry 同步; 10 新单测 1029→1039; 真实数据 IC smoke 显示 **realized_vol_60m_21d IC_21d = +0.096** (非平凡), 其余 marginal; 不 promote (`710e8c3`) |
 | 6 | 2026-04-20 | Topic E (shadowed-factor merge: vol_63d↔low_vol, rs_vs_spy_63d↔rel_strength) | post-2026-04-20-capital-100k | 新 `core/factors/base_factors.py` 放共享 `low_vol_factor` + `rel_strength_factor`; factor_generator + MultiFactorStrategy 都调它; MAP 缩减 9→7; 14 新单测 1039→1053; backtest 数值等价 (z-score 相消 annualization, min_periods 一致) (`12fe965`) |
 | 7 | 2026-04-20 | Topic I (mining 跨 4 种 strategy_type) | post-2026-04-20-capital-100k | 真实 mining 199s 跑通 4 种类型; 15 non-multi_factor trials 入库 (≥3 completion); 全部 tier=D (OOS 仍 0 pass); QQQ gate 类型无关验证通过; 14 新单测 1053→1067 (`cb47d80`) |
-| 8 | _pending_ | 推荐 Topic G (cross-TF feature training) | post-2026-04-20-capital-100k | _pending_ |
+| 8 | 2026-04-20 | Topic G (cross-TF factor×timing bucket analysis) | post-2026-04-20-capital-100k | `validate_timing_value.py` 加 `--factor-bucket` 模式; 用 `realized_vol_60m_21d` 在 4596 events 分 3 tercile 分析; **NEUTRAL verdict** (top-bottom spread +1.42 bps 噪声内, top vs sample overall -0.83 bps); Round 5 因子 alpha 不来自 timing 层; 不 promote; 用户睡前指定 LLM factor mining 下阶段 PRD 存入 `docs/prd_llm_factor_mining.md` (`25e0f8a`) |
+| 9 | _pending_ | 推荐 Topic H (ridge vs XGB feature importance) | post-2026-04-20-capital-100k | _pending_ |
 | ... | | | | |
 
 ---

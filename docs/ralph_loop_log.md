@@ -575,6 +575,81 @@ Topic I completion signal **达成**：
 
 ### 11. 本轮 commit 哈希
 - `cb47d80` — Round 7 (Topic I): mining 跨 4 种 strategy_type
-- （本条 doc commit）— docs: 第 7 轮日志更新
+- `64528a5` — docs: 第 7 轮日志更新
+
+---
+
+## Round 8 — Topic G: cross-TF factor × timing bucket 分析 → NEUTRAL
+
+**日期**: 2026-04-20（23:38 完成）
+**Topic**: G（cross-TF feature training）
+**Lineage_tag**: `post-2026-04-20-capital-100k`
+**测试变化**: 1067 → 1067（本轮加分析工具，不加单测）
+**主要 commits**: `25e0f8a`（Round 8 + LLM PRD 合并提交）
+
+### 1. 当前阶段
+Ralph-loop 第 8 轮 / Topic G
+
+### 2. 本轮目标
+用 `decide_timing` 输出 + `factor_generator` 输出联合分析：Round 5 的 `realized_vol_60m_21d` 是否在 timing 层提供增量 alpha？
+
+### 3. 为什么先做它
+PRD §3.2 Topic G；直接决定 Round 5 因子是否 promote；独立于 Round 1 OOS blocker
+
+### 4. 做了什么
+- `scripts/validate_timing_value.py` 扩展 `--factor-bucket <name>` 模式
+- 新 `_print_factor_bucket_analysis()` helper：加载因子 → per-event 查值 → per-day cross-sectional rank → 3 tercile bucket → per-bucket naive/timed/delta 统计
+- **诚实的 verdict**：比较 top-tercile delta vs **同样本** overall delta（避免"通过历史 stale 基线但样本内失败"的 false positive）
+- 完整端到端用 `realized_vol_60m_21d`（Round 5 winner）测试
+- 用户睡前指定 LLM 阶段 PRD 入档：`docs/prd_llm_factor_mining.md`（30 轮 LLM 候选挖掘 + XGBoost cross-signal，严格按现有 funnel 验证）
+
+### 5. 修改了哪些文件
+- `scripts/validate_timing_value.py`（+60：`--factor-bucket` + bucket 分析）
+- `CLAUDE.md`（Round 8 entry，含真实数据表 + NEUTRAL 结论）
+- `docs/prd_llm_factor_mining.md`（新，下阶段规划，含 LLM 角色边界 + funnel 要求 + 30 轮菜单）
+- `docs/prd_intraday_mining_loop.md` Appendix A（本日志）
+- `docs/ralph_loop_log.md`（本节）
+
+### 6. 跑了哪些测试
+- `pytest tests/ -q`：**1067 passing**（基线）
+- 真实 bucket 分析 on SPY+QQQ+Mag7，2024-01 至今，4596 events：
+
+| bucket | n | naive_net bps | timed_net bps | delta bps |
+|---|---:|---:|---:|---:|
+| bottom | 890 | -10.43 | -7.19 | +3.24 |
+| middle | 1334 | -17.80 | -9.99 | +7.81 |
+| top | 1334 | -14.87 | -10.21 | **+4.66** |
+
+Overall delta: +5.49 bps/event。Top vs overall: **-0.83 bps**。Top-bottom spread: +1.42 bps。
+
+### 7. 当前结果
+Topic G completion signal **达成（NEGATIVE/NEUTRAL finding）**：
+- `realized_vol_60m_21d` 单独测 IC_21d ≈ +0.10（Round 5 发现）
+- **但** 联合 `decide_timing` 在 timing 层不提供增量
+- Cross-bucket spread +1.42 bps 在噪声内
+- 明确不推荐 promote 到 `PRODUCTION_FACTORS`
+
+**研究含义**: 因子"对未来回报有 IC" ≠ 因子"在 timing 层有增量"。Round 5 IC 的 alpha 来源不是 timing 质量差异，而是跨样本的 vol risk premium。
+
+### 8. 剩余风险
+- Verdict 逻辑早期硬编码比较 +3.26 (P1.7 时代) 会误判；已改为 same-sample overall，但 future factor 测试仍需警惕
+- Bucket 分析只在 8 symbols × 2 年；全 universe 可能不同结论
+- Round 1 OOS blocker 仍在
+
+### 9. 下一轮建议
+- **Round 9 = Topic H**（ridge vs XGB feature importance）⭐ —— PRD §3.2 顺序，为后续 LLM 阶段的 XGBoost cross-signal 提供 baseline
+- 备选：提前搭 LLM propose 脚本 scaffold 为 auto-launch 做准备
+- Off-menu 可能性：继续合并剩余 shadow pairs（Round 6 建立模板）
+
+### 10. TODO checklist（更新后）
+- [x] Round 0-7
+- [x] Round 8: Topic G（factor × timing bucket → NEUTRAL）
+- [ ] Round 9: Topic H（ridge vs XGB）— 推荐
+- [ ] Round 10-12: J/K/L（infra）
+- [ ] Round 13-42 条件触发: LLM factor mining auto-launch（见 `docs/prd_llm_factor_mining.md`，若 12 轮结束无 promote 自动启 30 轮）
+
+### 11. 本轮 commit 哈希
+- `25e0f8a` — Round 8 (Topic G): 主 commit + 下阶段 LLM PRD
+- （本条 doc commit）— docs: 第 8 轮日志更新
 
 ---
