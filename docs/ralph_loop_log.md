@@ -2735,3 +2735,87 @@ post-fix (`apply_extra_shift=False`) 下 MFS 参数搜索空间里 OOS 集中在
 - (doc commit only) —— docs: LLM-Round 16 log + OOS barrier systemic finding
 
 ---
+
+## LLM-Round 17 — 2026-04-21 — OOS barrier 诊断 + 用户 "不降标准" 指令
+
+### 1. 主题
+- 按 R16 选项 C：诊断 OOS barrier 根因
+- 用户中途指令："不要因为要 promote 降低标准 如果标准是 make sense 的话"
+- 重新解读数据 + 不碰阈值
+
+### 2. 做了什么
+- 读 `core/mining/evaluator.py::_check_oos` 逻辑（line 294-315）
+- 读 `_run_walk_forward` (line 476-540)
+- 读 `config/backtest.yaml` 的 mining section（阈值配置）
+- 从 archive 拉 R15 best trial 的完整 per-metric 数据
+- 评估阈值合理性（user-directed 不降）
+
+### 3. 关键诊断
+
+**`oos_ir` 含义**: per-window IR = `excess return / tracking error` vs
+benchmark (SPY)。不是 raw Sharpe。
+
+**Current config** (`config/backtest.yaml::mining`):
+- `oos_min_pass_rate: 0.55` (from default 0.60)
+- `oos_min_ir_vs_benchmark: 0.20` (from default 0.30)
+- `oos_min_excess_return: 0.02` (from default 0.03)
+
+阈值已经被 **relaxed 约 33%**（从 0.30 到 0.20），**不应再降**。
+
+**R15 best trial 完整数据** (spec 81f5cdaa053e):
+
+| metric | 值 | vs threshold |
+|---|---:|---|
+| quick_cagr | +17.41% | 通过 (min 0.02) |
+| quick_max_dd | -33.36% | 通过 (max 0.40) |
+| quick_sharpe | +0.72 | 通过 (min 0.30) |
+| **oos_sharpe** | **+0.376** | 无此 gate（absolute Sharpe OK） |
+| **oos_ir** | **-0.089** | ❌ FAIL (min 0.20) |
+| **oos_excess_return** | **-0.023** | ❌ FAIL (min 0.02) |
+| oos_pass_rate | 0.57 | 通过 (min 0.55) |
+
+绝对意义上策略是赚钱的（Sharpe +0.38, CAGR 17%），但**每期平均跑输
+SPY 2.3%**。所以 vs-benchmark gate 把它拦截，非常合理
+
+### 4. 用户指令解读
+"不要因为要 promote 降低标准 如果标准是 make sense 的话" — 
+- **标准 make sense**: 要求稳定 alpha vs benchmark 而非仅赚钱，是量化
+  研究的正统准则。passive SPY 就给 0 alpha；promote 条件必须高过 "买
+  SPY"，否则 strategy 没意义
+- **不降**: 不要 relax 已经 relaxed 过的 IR=0.20 或 pass_rate=0.55
+
+### 5. 结论 — PRD §10 blocker report path 正确
+PRD §10 criterion #4（alternate path): "30 轮结束后明确证明'当前 universe
++ factor 空间不足以支撑新增 alpha'，产出一份 blocker 报告"
+
+R15-R17 已构成 blocker report 的核心证据:
+- **drawup promotion 是 LLM phase 最强候选**（4-method consensus）
+- **Promote 到 PRODUCTION 后 MFS composite 改善 OOS 30 pts**（-0.39 → -0.09）
+- **仍跑输 SPY 2.3%/period**，vs benchmark IR 负
+- **阈值合理**（0.20 已从 0.30 relaxed）
+- **结论: 当前 factor space (PRODUCTION_FACTORS × 权重空间) + universe
+  (30 symbols) 下不足以稳定产生 alpha vs SPY**
+
+### 6. 修改了哪些文件
+- `CLAUDE.md` + `docs/ralph_loop_log.md`（仅文档，本轮 read-only 分析）
+
+### 7. 跑了哪些测试/实验
+- pytest collection: 1109 (unchanged)
+- archive SQL query
+
+### 8. §13.2 halt check
+- pytest: 1109
+- 1 PROMOTED (R15 authorized)
+- 23 candidates
+- 无 invariant 违反
+- **用户指令respected**: 阈值未改
+
+### 9. 下一轮建议
+- **A**: LLM-9 event/calendar (最后菜单 topic，R18 收尾 menu)
+- **B**: 开始准备 R30 blocker report 的 data compilation
+  (R15-R17 already has core evidence; R18+ 是补充数据点)
+
+### 10. 本轮 commit 哈希
+- (doc commit only) —— docs: LLM-Round 17 log + user "不降标准" directive + blocker path rationale
+
+---

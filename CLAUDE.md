@@ -654,6 +654,60 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 17 — OOS barrier 诊断 + 用户 "不降标准" 指令
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-17`
+**用户指令**: "不要因为要 promote 降低标准 如果标准是 make sense 的话"
+
+**本轮做了什么**: 诊断 R16 的 OOS barrier 根因 — 读 `core/mining/evaluator.py`
+的 `_check_oos` + `_run_walk_forward` 逻辑，对照 archive 里 R15 trials 的
+per-metric 数据
+
+**关键诊断 — `oos_ir` 是 vs benchmark，不是 raw Sharpe**:
+
+最佳 R15 trial (`81f5cdaa053e`) 完整数据:
+
+| 指标 | 值 | 含义 |
+|---|---:|---|
+| quick_cagr | +17.41% | 全期绝对 CAGR（健康） |
+| quick_max_dd | -33.36% | MaxDD |
+| quick_sharpe | +0.72 | 全期 Sharpe（通过 quick gate 0.30） |
+| **oos_sharpe** | **+0.376** | OOS 绝对 Sharpe **正** |
+| **oos_ir** | **-0.089** | OOS Information Ratio **vs SPY** 负 |
+| **oos_excess_return** | **-2.3%/period** | 跑输 SPY |
+| oos_pass_rate | 0.57 | 57% of OOS windows individually passed |
+
+**标准合理性分析** (用户指令下的 sanity check):
+- `oos_min_ir_vs_benchmark = 0.20` (已从 default 0.30 **relaxed** 过)
+- 要求的是"策略稳定 alpha vs SPY"，不是"策略赚钱"
+- **passive SPY buy-and-hold 给 0 alpha**；能 promote 的策略必须系统性
+  跑赢 benchmark（否则不如直接买 SPY）
+- 这是**合理的量化标准**。**不降**
+
+**drawup promotion 后真实故事**:
+- 策略产生真实绝对回报（Sharpe +0.38, CAGR 17%）
+- 但**没有稳定 alpha vs SPY**（跑输 2.3%/period）
+- PRD §10 criterion #2 "QQQ gate pass" blocked NOT 因为阈值过严，而是
+  当前 factor space 在当前 universe 下**真的不足以产生稳定超额收益**
+
+**PRD §10 alternate path (criterion #4)** 正确出路:
+- "30 轮结束后明确证明'当前 universe + factor 空间不足以支撑新增 alpha'，
+  产出一份 blocker 报告"
+- R15+R16+R17 诊断已提供定量证据（best trial 绝对 Sharpe +0.38 但 vs SPY
+  IR -0.09）
+- 剩余 R18-R30 里应:
+  - (a) 继续菜单未覆盖 topics（LLM-9 event/calendar 是唯一剩余）
+  - (b) 准备 R30 blocker report 的数据
+  - (c) 不再降低 evaluator 标准
+
+**PRD §13.2 halt 条件**: pytest 1109 / 1 PRODUCTION promote (R15 auth) /
+23 candidates / 无 invariant 违反。继续。
+
+**下轮建议**:
+- **A**: LLM-9 event/calendar 候选（最后未覆盖 menu topic）
+- **B**: 准备 R30 blocker report 的 data compilation
+
 ### LLM-Round 16 — mining run with drawup in PRODUCTION（OOS barrier 确认为全系统性）
 
 **时间**: 2026-04-21
