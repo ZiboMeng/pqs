@@ -3168,3 +3168,98 @@ screen
 - (doc commit) —— docs: R21 + R22 logs + v2 framework checkpoint
 
 ---
+
+# ═══════════════════════════════════════════════════════════════
+# Universe-Expanded Mining Phase (PRD: prd_universe_expanded_mining.md)
+# lineage_tag: post-2026-04-21-universe-mining-round-N (N=29..60)
+# 32-round budget
+# ═══════════════════════════════════════════════════════════════
+
+## Universe-Mining-Round 29 — 2026-04-21 — Daily mining baseline (R28 v2 universe)
+
+### 1. 本轮主题
+PRD §3 topic R29-R32: **Daily mining baseline on expanded universe**
+—— 首个 mining run on post-R28 53-symbol universe (vs pre-R28 32-sym).
+
+### 2. 本轮目标
+Completion signal: "≥1 trial OOS IR > 0.0 in new lineage"（exploration
+marker, 非 promote threshold per §3.1）
+
+### 3. Pre-flight audit ✓
+- git clean
+- pytest 1109 collected (1108 passed + 1 xfailed baseline)
+- 0 trials under post-2026-04-21-universe-mining* prefix
+- universe.yaml hash=add0ffd3 (changed from R0 2fcaae99 due to
+  R_post_review P2 comment block only, no data change)
+- factor_registry.py hash=2973a000 (unchanged from R0)
+- multi_factor.py hash=b648f9a4 (unchanged from R0)
+
+### 4. 执行
+```
+scripts/run_mining.py --trials 30 --budget 900 --type multi_factor
+  --lineage-tag post-2026-04-21-universe-mining-round-29
+```
+- 耗时 76.5s；201 evaluations, 93 archived, **5 unique under R29 lineage**
+
+### 5. 结果
+
+| metric | best R29 trial | pre-R28 best multi_factor | delta |
+|---|---:|---:|---:|
+| quick_sharpe | +0.81 | +0.72 (81f5cdaa) | +0.09 |
+| quick_cagr | **+19.58%** | +17.41% | **+2.17pt** |
+| quick_max_dd | -29.80% | -33.36% | +3.56pt (better) |
+| oos_ir | **-0.028** | -0.089 | **+0.061 (70% 改善)** |
+| oos_sharpe | +0.334 | +0.376 | marginal |
+| oos_pass_rate | 0.50 | 0.57 | -0.07 |
+| oos_excess_return | -0.005 | -0.023 | +0.018 (better) |
+
+**R29 best trial params** (tier D but closest to OOS pass ever):
+- w_drawup_from_252d_low=0.05 (一致 R16 finding — drawup 0.05 最佳)
+- w_rel_strength=0.25, w_quality=0.20, w_market_trend=0.15,
+  w_pv_div=0.15, w_low_vol=0.10, w_momentum=0.10
+- top_n=4, lookback_mom=126, lookback_vol=84, min_hold=21, rebal_daily
+
+### 6. 关键发现
+- **Universe expansion produces tangible improvement**: OOS IR from
+  -0.089 → -0.028 (70% closer to zero). 虽未过 +0.20 threshold 但
+  barrier 明显松动
+- **Quick CAGR +19.58% > QQQ 17.6%**: In-sample universe expansion
+  **restores QQQ outperformance** at the trial level. But since
+  `test_full_period_cagr_beats_qqq` uses HARDCODED weights (not
+  R29-optimized), xfail 不 auto-resolve
+- **Small sample (5 trials)**: Optuna 内部 dedup 让 30 trials 只 5 unique
+  on R29 lineage. 需要更大 budget / 更宽参数空间来 explore
+
+### 7. §7 stop condition check ✓ 全 clean
+1. pytest non-xfail failures = 0
+2. PRODUCTION_FACTORS 未变
+3. Trial count 5/200
+4. No invariant violation (all passed_qqq_gate=1, no tier != D with fail)
+5. universe.yaml hash change is from R_post_review P2 docs only
+
+### 8. 新问题/新机会
+- **OOS IR 接近但未过阈值** — 需要 wider exploration（扩 budget /
+  expand 参数 grid）
+- **Completion signal "≥1 trial OOS IR > 0"**: **未达成**（0/5 > 0）
+  但最佳 -0.028 接近。Exploration signal 可在 R30 budget 扩大后达成
+- **Quick-level QQQ outperformance 已经达成**（+19.58% > 17.6%），
+  说明 universe 扩容的效益在 in-sample 明显；OOS consistent 还需
+  weight 更 optimal
+
+### 9. 剩余风险
+- 5 trial 样本过小；R30 建议 budget 1800s + trials 50
+- 当前 multi_factor 只用固定 strategy_type；dual_momentum 或 trend
+  可能在扩容 universe 上有不同 regime
+- MFS default_weights 未被 R29 最佳权重取代（需用户授权）
+
+### 10. 下轮建议
+- **R30**: 更大预算 (budget=1800s, trials=50) on multi_factor 扩大
+  参数探索，目标达 completion signal (OOS IR > 0)
+- 或先 R30 平行测 dual_momentum/trend_following 看 non-MFS 能否打破
+  barrier
+
+### 11. 本轮 commit 哈希
+- (doc commit only) —— docs: Universe-Mining-Round 29 log + daily
+  baseline on R28 universe
+
+---
