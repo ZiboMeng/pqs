@@ -734,6 +734,81 @@ Topic H completion signal **达成**（side-by-side leaderboard + rank agreement
 
 ### 11. 本轮 commit 哈希
 - `09cb224` — Round 9 (Topic H): Ridge vs XGBoost permutation importance
-- （本条 doc commit）— docs: 第 9 轮日志更新
+- `2438f10` — docs: 第 9 轮日志更新
+
+---
+
+## Round 10 — Topic J: LLM factor proposal scaffold + funnel
+
+**日期**: 2026-04-20（23:00 完成）
+**Topic**: J（LLM factor system scaffold）
+**Lineage_tag**: `post-2026-04-20-capital-100k`（scaffold 不动生产路径）
+**测试变化**: 1071 → **1090**（+19 LLM candidate 单测）
+**主要 commits**: `324ebc1` · `2ae0e1d`（轮前 chore）
+
+### 1. 当前阶段
+Ralph-loop 第 10 轮 / Topic J
+
+### 2. 本轮目标
+为 `docs/prd_llm_factor_mining.md` auto-launch 阶段搭建基础：结构化 YAML 候选 schema + validation funnel + 命名空间守护 + 永不 KEEP 契约。**不调 LLM API**
+
+### 3. 为什么先做它
+§3.3 首项。LLM auto-launch 前必须先有 validation/funnel 框架，否则 LLM 生成的候选没验证通道直接影响生产
+
+### 4. 做了什么
+- 新 `core/factors/llm_candidate.py`（270 行）：
+  - `FactorCandidate` dataclass（PRD §4 schema 对齐）
+  - `load_candidate_from_yaml` + shape validation + **命名空间碰撞拒绝**（`PRODUCTION_FACTORS` / `RESEARCH_FACTORS` 重名抛错）
+  - `leakage_heuristic_check` 文本扫描
+  - `dedup_check` Spearman rank correlation 阈值 0.7
+  - `run_funnel` orchestrator
+  - **契约**：`run_funnel` 永不返回 `KEEP`；强候选路由到 `NEEDS_HUMAN_REVIEW`
+- 新 `scripts/llm_factor_propose.py` CLI
+- 19 focused 单测（**含 "永不 KEEP" 契约测试**）
+
+### 5. 修改了哪些文件
+- `core/factors/llm_candidate.py`（新）
+- `scripts/llm_factor_propose.py`（新）
+- `tests/unit/factors/test_llm_candidate_funnel.py`（新）
+- `CLAUDE.md`（Round 10 entry）
+- `.gitignore`（`data/ml/` 和 `data/mining/` 入列）
+- `docs/prd_intraday_mining_loop.md` Appendix A（本日志）
+- `docs/ralph_loop_log.md`（本节）
+
+### 6. 跑了哪些测试
+- `pytest tests/ -q`：**1090 passing**（+19）
+- CLI end-to-end smoke：合成 YAML → funnel → verdict=NEEDS_HUMAN_REVIEW（compute_fn 未提供 → 设计如此）；artifacts 写 `data/ml/llm_candidates/llm_demo_vol_sign_mom/`
+
+### 7. 当前结果
+Topic J completion signal **达成**：
+- 基础设施就位（schema / validation / funnel / CLI / artifacts）
+- PRD §2.2 硬约束（LLM 不是最终裁判）被 `test_strong_candidate_goes_to_review_not_keep` 单测守护
+- **下一阶段 auto-launch 无需额外代码**：LLM 生成 YAML → CLI 接收 → funnel 跑 → 人工审核
+
+### 8. 剩余风险
+- `compute_fn_path` 是 importlib 直接 import，无沙箱；auto-launch 前要加 subprocess 隔离
+- `dedup_check` 是 flat Spearman，没考虑 regime-conditional
+- 文本 leakage heuristic 无法替代 truncation-based leakage 验证
+- Round 1 OOS blocker 仍在；`realized_vol_60m_21d` 未 promote
+
+### 9. 下一轮建议
+Round 11 候选：
+- **Topic K**（real-time feed）或 **Topic L**（broker adapter）—— 都需外部依赖，可能需用户签核
+- Off-menu：攻击 Round 1 OOS blocker（需用户签核 `--trials > 200`）
+- Off-menu：直接进入 `docs/prd_llm_factor_mining.md` auto-launch 阶段（底座就位）
+
+默认按 PRD 顺序走 Topic K，但需先确认是否有真实数据源可接入
+
+### 10. TODO checklist（更新后）
+- [x] Round 0-9
+- [x] Round 10: Topic J（LLM factor scaffold）
+- [ ] Round 11: Topic K（real-time feed）— 可能需用户签核
+- [ ] Round 12: Topic L（broker adapter）— 可能需用户签核
+- [ ] Round 13-42 条件触发: LLM factor mining auto-launch（底座就位）
+
+### 11. 本轮 commit 哈希
+- `2ae0e1d` — chore: gitignore data/ml/ + data/mining/
+- `324ebc1` — Round 10 (Topic J): LLM factor proposal scaffold + funnel
+- （本条 doc commit）— docs: 第 10 轮日志更新
 
 ---
