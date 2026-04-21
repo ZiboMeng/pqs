@@ -186,7 +186,7 @@ Evidence levels:
 |-----------|--------|----------|
 | 约束 1 — intraday live bar-by-bar runtime | ✅ done | `run_paper.py --mode live` now routes through `PaperTradingEngine.run_day_intraday` → `IntradayBacktestEngine.run_multi_day` with per-bar `on_bar_complete` / `skip_bar_fn` / `target_wts_fn` hooks. `run_day_daily` fallback only fires when NO intraday bars for the day. Idempotent: re-running on same (run_id, date) is a no-op. Checkpoint recovery works. Tests: `tests/unit/paper_trading/test_bar_by_bar_runtime.py` (8 tests). Remaining: real-time bar feed (below) |
 | 约束 2 — factor_generator ↔ mining/execution | ✅ done | Single source of truth is now `core/factors/factor_registry.py` (PRODUCTION_FACTORS / RESEARCH_FACTORS / RESEARCH_TO_PRODUCTION_MAP). `MultiFactorStrategy.__init__` gates factor_weights against PRODUCTION_FACTORS (warn + drop on unknown). `MultiFactorSpace.__init__` asserts its tuned factor set equals PRODUCTION_FACTORS (fail fast on drift). factor_generator docstring documents the promotion path. Tests: `tests/unit/factors/test_factor_registry.py` (10 tests) — includes drift detector that compares factor_generator outputs against RESEARCH_FACTORS |
-| 约束 3 — multi-TF timing/execution repositioning | 🚧 pending | Direction-voting still in code; docs still imply alpha role |
+| 约束 3 — multi-TF timing/execution repositioning | ✅ done | Module docstring + new `TimingDecision` dataclass + `decide_timing()` API formalize the contract: 60m/30m = context/direction check, 15m/5m = trigger/defer only (cannot flip direction). Long-only invariant enforced: `effective_weight ≥ 0` for any TF combo. Legacy `evaluate_cross_tf_signal` kept as back-compat shim. New script `scripts/validate_timing_value.py` measures timing VALUE (entry bps vs day mean, defer behavior, scale distribution) instead of direction-voting CAGR. Tests: `tests/unit/intraday/test_timing_decision.py` (14 tests) |
 
 ---
 
@@ -1013,6 +1013,70 @@ Single source of truth: `core/factors/factor_registry.py`
 
 This ends the previous "dual-track, unclear relationship" state. Tests:
 `tests/unit/factors/test_factor_registry.py` (10 tests).
+
+---
+
+### Multi-TF Timing Contract [NEW 2026-04-20, 约束 3]
+
+The multi-timescale framework is **NOT** a standalone alpha system. The
+iter #9/#10/#11 validation sprint proved the naive bar-direction voting
+approach produces strictly lower Sharpe than a 60m-only baseline and
+fails cost-stress at even 0.1× base cost. Multi-TF is repositioned as a
+TIMING / EXECUTION / RISK layer on top of daily MFS.
+
+**Role by TF:**
+
+| TF | Role | Authority |
+|----|------|-----------|
+| 60m | Primary context / regime / direction check | Can VETO a daily target (scale → 0 if contradicts strongly) |
+| 30m | Secondary confirmation / risk state | Confidence penalty on timing_scale |
+| 15m | Execution trigger / timing | DEFER only — cannot flip direction |
+| 5m | Fine execution trigger | DEFER only — cannot flip direction |
+
+**Canonical API:**
+```python
+from core.intraday.multi_timescale import build_context, decide_timing
+
+ctx = build_context(multi_bars, symbol, bar_ts)
+decision = decide_timing(ctx, symbol, base_weight=0.3, daily_side=1)
+# decision.execute         : bool — route orders this bar?
+# decision.timing_scale    : float [0,1] — scale of base_weight
+# decision.effective_weight: base_weight × timing_scale if execute else 0
+# decision.higher_tf_vote  : per-TF {confirm / contradict / neutral / absent}
+# decision.reason          : confirmed / soft_contradict / deferred / ...
+```
+
+**Contract invariants (enforced by `tests/unit/intraday/test_timing_decision.py`):**
+- Lower TF (15m/5m) adverse → `execute=False` (defer), **never** flip
+- `effective_weight ≥ 0` for any TF combo (long-only)
+- No higher context → pass-through (`execute=True, timing_scale=1.0`)
+- Short side (`daily_side=-1`) → `execute=False` (system is long-only)
+- `base_weight=0` → `execute=False` (nothing to time)
+
+**Validation approach (replaces "does multi-TF beat 60m on CAGR?"):**
+`scripts/validate_timing_value.py` measures timing-relevant metrics:
+  - Entry bps vs day mean (timed vs naive first-bar-open execution)
+  - Defer rate (what % of days timing deferred past first bar, to EOD)
+  - Average applied timing_scale
+
+Initial run (5 symbols × 2871 daily events, 2024-01 to current):
+  - naive  entry: mean +0.25 bps vs day mean (median -4.22 bps)
+  - timed  entry: mean -0.33 bps vs day mean (median -3.12 bps)
+  - deferred ≥1 bar: 34.3% of days
+  - deferred to EOD: 0.0% (1/2871)
+  - avg timing_scale: 0.717
+
+Interpretation: timing is approximately a wash on entry bps. Real value
+(if any) must come from compounding over full position path + downstream
+slippage — the current simple "mean vs day close" proxy is too coarse.
+The script is a placeholder that keeps the right questions in view; a
+more sophisticated validation (holding-period tracking, turnover delta)
+is future work.
+
+**Legacy `evaluate_cross_tf_signal` / `CrossTFSignal`:** kept as a back-
+compat shim — do not remove; existing scripts (run_multi_tf_backtest,
+validate_combo_tfs, etc.) still consume it. New code should use
+`decide_timing` / `TimingDecision`.
 
 ---
 

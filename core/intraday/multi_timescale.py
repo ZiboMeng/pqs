@@ -1,21 +1,44 @@
 """
-Multi-timescale data contract and signal alignment.
+Multi-timescale data contract and timing layer.
 
-Provides:
-- MultiTimescaleContext: holds aligned bars across 60m/30m/15m/5m
-- align_timescales(): aligns bar data from multiple timeframes
-- get_higher_tf_context(): extracts latest completed higher-TF bar for a given timestamp
+Role (formalized 约束 3, 2026-04-20):
+  This module is NOT a standalone alpha system. Validation (iter #9/#10/
+  #11, 2026-04-20 sprint) showed the naive bar-direction voting approach
+  produces strictly lower Sharpe than a 60m-only baseline AND fails cost
+  tests at even 0.1× base cost. The multi-timescale framework is
+  repositioned here as a TIMING / EXECUTION / RISK layer on top of the
+  daily MFS, never as a direction authority.
 
-Architecture (Phase D):
-  60m = trend direction, regime context (formal validation)
-  30m = structure confirmation, risk state (formal validation)
-  15m = execution confirmation, signal strength (prototype — 60d data limit)
-  5m  = precise entry/exit/stop timing (prototype — 60d data limit)
+Timeframe roles (formal contract):
+  60m / 30m  → CONTEXT: regime hint, direction check (consistent with
+                daily MFS?), macro confirmation. These may VETO a daily
+                target (force flat if their context strongly contradicts).
+  15m / 5m   → TRIGGER: entry/exit timing, order splitting, risk flags.
+                NEVER initiate a new direction against higher-TF context.
+                May DEFER / SPLIT a trade, not change its direction.
 
-Rules:
-  - Higher TF has VETO power over lower TF
-  - Only CLOSED bars generate signals
-  - No using incomplete higher-TF bars to guide lower-TF trades
+Conflict resolution:
+  - 60m conflict with daily target → soft veto (scale timing weight down
+    toward 0, subject to min_timing_scale floor)
+  - 30m conflict with 60m            → confidence penalty on timing_scale
+  - 15m/5m conflict with 60m         → defer (execute=False for this bar,
+                                       retry next bar) or reduce size
+  - No TF (all absent)               → pass-through, execute as-is
+
+Confirmation / Veto / Neutral semantics:
+  - CONFIRM    : TF direction aligns with higher-level intent → full scale
+  - CONTRADICT : TF direction opposes higher-level intent → scale down or veto
+  - NEUTRAL    : TF is flat OR absent → no contribution (pass-through)
+
+Entry points:
+  - decide_timing(ctx, base_weight) → TimingDecision  [canonical]
+  - evaluate_cross_tf_signal(...)   → CrossTFSignal   [legacy shim, kept
+                                                      for back-compat]
+
+Data contract (unchanged):
+  - MultiTimescaleContext: holds aligned bars across 60m/30m/15m/5m
+  - build_context(): returns latest COMPLETED bar ≤ decision_time per TF
+  - Only closed/completed bars participate in decisions
 """
 
 from __future__ import annotations
@@ -326,6 +349,184 @@ def evaluate_cross_tf_signal(
         mult_15m=round(mult_15m, 3),
         confirm_30m=confirm_30m,
         confirm_15m=confirm_15m,
+    )
+
+
+# ── Timing contracts (约束 3: multi-TF as timing/execution layer) ────────────
+#
+# `TimingDecision` is the canonical output when using multi-TF on top of
+# a daily strategy. It takes the daily base_weight and returns the
+# execution-side timing adjustment. The direction is ALWAYS preserved
+# from the daily strategy's intent — multi-TF never flips direction,
+# only scales magnitude or defers execution.
+
+
+@dataclass
+class TimingDecision:
+    """Canonical output of multi-TF timing evaluation.
+
+    The daily MFS already decided that `symbol` should be held with
+    `base_weight > 0` today. This decision answers: AT THIS BAR, do we
+    execute toward that target at full size, reduced size, or defer
+    until later?
+
+    Fields
+    ------
+    symbol          : symbol being timed
+    decision_time   : decision bar close time (tz-naive ET)
+    base_weight     : daily strategy's target weight for this symbol
+                      (unchanged by multi-TF; echoed here for caller
+                      convenience)
+    timing_scale    : ∈ [0.0, 1.0]. Multiplier applied to base_weight
+                      for THIS bar. 0.0 = defer/veto, 1.0 = full target.
+    execute         : bool. True = route orders this bar. False = hold
+                      off (e.g. lower TF adverse, defer to next bar).
+                      A False here does NOT flip the position — it only
+                      pauses timing adjustments on this bar.
+    higher_tf_vote  : dict {freq → "confirm" / "contradict" / "neutral"}
+                      used by reports to attribute timing value per TF.
+    reason          : short tag (e.g. "confirmed_bullish",
+                      "30m_soft_contradict", "no_higher_context")
+    """
+    symbol:         str
+    decision_time:  pd.Timestamp
+    base_weight:    float
+    timing_scale:   float
+    execute:        bool
+    higher_tf_vote: Dict[str, str] = field(default_factory=dict)
+    reason:         str = ""
+
+    @property
+    def effective_weight(self) -> float:
+        """base_weight × timing_scale if execute else 0."""
+        return (self.base_weight * self.timing_scale) if self.execute else 0.0
+
+
+# Floor for timing scale under contradicting higher TF. Below this, the
+# daily target is effectively flatted — this encodes the "higher TF can
+# VETO lower" rule from CLAUDE.md. Configurable for future tuning.
+_MIN_TIMING_SCALE = 0.0
+
+# Minimum timing scale to actually execute (anything below → defer).
+_EXECUTE_THRESHOLD = 0.15
+
+
+def decide_timing(
+    ctx:          MultiTimescaleContext,
+    symbol:       str,
+    base_weight:  float,
+    daily_side:   int = 1,
+) -> TimingDecision:
+    """Canonical multi-TF timing API.
+
+    Given the daily strategy's (side, base_weight) for one symbol,
+    compute the bar-level timing adjustment using the contract:
+
+      - 60m context provides the primary direction check
+      - 30m confirms / reduces confidence
+      - 15m / 5m are TRIGGERS only — may defer but cannot flip direction
+
+    Parameters
+    ----------
+    ctx         : MultiTimescaleContext at this bar
+    symbol      : symbol being timed
+    base_weight : daily target weight (must be ≥ 0 under long-only)
+    daily_side  : +1 (long) — retained for future short support; -1
+                  currently rejected with execute=False since system is
+                  long-only.
+    """
+    if daily_side != 1:
+        return TimingDecision(
+            symbol=symbol, decision_time=ctx.decision_time,
+            base_weight=base_weight, timing_scale=0.0, execute=False,
+            reason="short_not_supported",
+        )
+    if base_weight <= 0:
+        return TimingDecision(
+            symbol=symbol, decision_time=ctx.decision_time,
+            base_weight=base_weight, timing_scale=0.0, execute=False,
+            reason="zero_base_weight",
+        )
+
+    dir_60 = ctx.get_direction("60m")
+    dir_30 = ctx.get_direction("30m")
+    dir_15 = ctx.get_direction("15m") if ctx.has("15m") else None
+    dir_5  = ctx.get_direction("5m") if ctx.has("5m") else None
+
+    votes: Dict[str, str] = {}
+
+    # Baseline: no higher context → pass through (decision deferred to
+    # daily strategy; timing adds nothing).
+    if dir_60 is None:
+        return TimingDecision(
+            symbol=symbol, decision_time=ctx.decision_time,
+            base_weight=base_weight, timing_scale=1.0, execute=True,
+            higher_tf_vote={}, reason="no_higher_context_passthrough",
+        )
+
+    # 60m vote (primary context)
+    if dir_60 == 1:
+        votes["60m"] = "confirm"
+        scale = 1.0
+    elif dir_60 == -1:
+        # 60m strongly disagrees with long daily target — soft veto
+        votes["60m"] = "contradict"
+        scale = max(0.5, _MIN_TIMING_SCALE)
+    else:  # dir_60 == 0
+        votes["60m"] = "neutral"
+        scale = 0.8
+
+    # 30m vote (secondary confirmation)
+    if dir_30 is None:
+        votes["30m"] = "absent"
+    elif dir_30 == 1:
+        votes["30m"] = "confirm"
+    elif dir_30 == -1:
+        votes["30m"] = "contradict"
+        scale *= 0.5
+    else:
+        votes["30m"] = "neutral"
+        scale *= 0.8
+
+    # 15m trigger — defers but cannot flip.
+    execute = True
+    if dir_15 is not None:
+        if dir_15 == -1:
+            votes["15m"] = "contradict"
+            # Defer THIS bar (execute=False); do not change timing_scale
+            execute = False
+        elif dir_15 == 1:
+            votes["15m"] = "confirm"
+        else:
+            votes["15m"] = "neutral"
+
+    # 5m trigger — finest defer granularity.
+    if dir_5 is not None:
+        if dir_5 == -1:
+            votes["5m"] = "contradict"
+            execute = False
+        elif dir_5 == 1:
+            votes["5m"] = "confirm"
+        else:
+            votes["5m"] = "neutral"
+
+    # Final gate: if timing_scale is below execute threshold, defer
+    if scale < _EXECUTE_THRESHOLD:
+        execute = False
+
+    reason = (
+        "confirmed" if scale >= 0.95 and execute
+        else "soft_contradict" if scale < 0.95 and execute
+        else "deferred"
+    )
+
+    return TimingDecision(
+        symbol=symbol, decision_time=ctx.decision_time,
+        base_weight=base_weight,
+        timing_scale=round(scale, 3),
+        execute=execute,
+        higher_tf_vote=votes,
+        reason=reason,
     )
 
 
