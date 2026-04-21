@@ -1,12 +1,24 @@
 # PRD: Universe-Expanded Mining — 30-Round Ralph-Loop
 
-**Status**: ACTIVE — ready for ralph-loop invocation
-**Date**: 2026-04-21
+**Status**: ACTIVE v1.1 — integrated user R_post_R28 review of v1.0
+**Date**: 2026-04-21 (v1.0) / 2026-04-21 (v1.1 after user critique)
 **Trigger**: User-directed post-R28 universe expansion sign-off
 **Supersedes**: `docs/prd_llm_factor_mining.md` (30-round LLM phase) at the
 factor-discovery level — this phase focuses on **strategy calibration on
 the expanded universe** and further alpha selection exploration
 **Prior-phase findings source**: `docs/llm_phase_blocker_report.md`
+**v1.1 revisions** (integrated from user review):
+- Blocker C reframed as decision blocker (not in-loop resolution)
+- Success criteria split into hard goals vs outcome goals (avoid
+  single-KPI overfit incentive)
+- Topic menu completion signals clarified as exploration markers, not
+  promote signals
+- §4.2 Layer 2 → Layer 3 bucket threshold terminology corrected
+- "trial" operationally defined
+- Cross-reference §8.1→§9 fixed
+- New §2.3 baseline snapshot requirement
+- New §4.4 "bidirectional evidence" minimum definition
+- §3.1 per-round commit policy clarified
 
 ---
 
@@ -26,31 +38,59 @@ the expanded universe** and further alpha selection exploration
 - Spec: `docs/universe_expansion_spec_v2_2.md`
 - R17 "不降标准" 原则严格保留
 
-### 1.3 当前 blockers（本 PRD 要解决）
+### 1.3 当前 blockers
+
+**In-loop resolution (本 PRD 直接解决)**:
 - **Blocker A**: MFS default weights 在扩容 universe 下 CAGR=16.3% < QQQ 17.6%
-  （xfail 于 `test_full_period_cagr_beats_qqq`）—— **需 recalibration**
+  （xfail 于 `test_full_period_cagr_beats_qqq`）—— 需 recalibration
 - **Blocker B**: R16 OOS IR barrier —— 0/83 trials 过 0.20 threshold（pre-R28）
-  —— 扩容 universe 能否打破仍未测试
-- **Blocker C**: Alpha Core 仅 1 symbol (PWR, borderline) ——
-  universe 扩容进 v3 small-cap branch 是否增量（独立 research branch）
+  —— 扩容 universe 能否打破本 loop 测试
+
+**Decision blocker (本 PRD 产出"是否开 v3"的决策证据，不在本 loop 内直接解决)**:
+- **Blocker C**: determine whether current R28 expanded universe (53 symbols)
+  still lacks sufficient Alpha Core density after calibration, AND whether
+  a **separate v3 small-cap research branch** should be opened. 本 loop 只
+  产出数据/分析支持这个决策，**不扩到 v3 small-cap**
 
 ---
 
 ## 2. 目标 (Success Criteria)
 
-### 2.1 硬约束（必达）
-1. 全 suite pytest 回到 **1108 passed + 1 xfailed → 1109 passed 0 xfailed**
-   —— i.e. 找到新 weight set / 新 factor / 新 strategy 让 MFS CAGR > QQQ 在
-   扩容 universe 上
-2. ≥ 1 trial 通过 evaluator.evaluate 完整 funnel（tier ≠ D）在扩容
-   universe 上
-3. PRODUCTION_FACTORS 和 `config/universe.yaml` 未来改动 **必须** 用户签核
+### 2.1 Primary hard goals（全体必须守住）
+1. **No-regression**: 全 suite pytest 不退化 (1108 passed + 1 xfailed
+   baseline 保持；新增测试允许 passed 数上升，但不得有 non-xfail
+   失败)
+2. **Valid research output**: ≥ 1 trial 通过 evaluator.evaluate 完整
+   funnel (tier ≠ D) 在 R28 expanded universe 上，无 invariant 违反
+3. **Change control**: `PRODUCTION_FACTORS` 和 `config/universe.yaml`
+   任何改动必须用户签核
 
-### 2.2 期望（可选）
-4. OOS IR 分布整体右移：新 lineage best OOS IR > pre-R28 best (+0.008 from
-   R1 dual_momentum / -0.089 from R15 multi_factor)
-5. 至少找到 1 个可 promote 的 factor weight 组合，通过 QQQ hard gate
-6. Intraday (60m) 路径至少 1 个 trial 产出 positive OOS IR
+### 2.2 Outcome goals（期望达成；失败 ≠ 研究失败）
+4. **xfail resolution**: 若找到可靠 weight/factor 配置让 MFS CAGR > QQQ
+   在扩容 universe 上，解除 `test_full_period_cagr_beats_qqq` 的 xfail
+   标记。**若未达成，必须给出 blocker-preserving final diagnosis**
+   （e.g., "factor space 不足；universe 需 v3；新 alpha 源需要外部
+   数据"）
+5. **OOS IR distribution shift**: 新 lineage best OOS IR >
+   pre-R28 best (+0.008 from R1 dual_momentum)
+6. **QQQ hard gate pass**: 至少 1 个 trial 通过 QQQ hard gate (all
+   three windows: full / holdout / OOS avg)
+7. **Intraday path**: 60m 路径至少 1 个 trial 产出 positive OOS IR
+
+### 2.3 Baseline snapshot requirement (R0 固化，new)
+
+本 loop 启动前（R29 pre-flight）必须 commit 一份 baseline snapshot
+到 `docs/universe_mining_r0_baseline.md` 包含:
+- Current pytest output (1108 passed + 1 xfailed 预期)
+- Archive leaderboard filtered to `post-2026-04-21-universe-mining%`
+  (预期 empty)
+- Current bucket population (v2 expansion 21 candidates assignment)
+- Config hashes: `git hash-object config/universe.yaml` +
+  `git hash-object core/factors/factor_registry.py`
+- xfail list status (应仅含 `test_full_period_cagr_beats_qqq`)
+
+R58 final report 必须**对照 R0 baseline** 说明"进步从何而来" —— 避免
+attribution confusion.
 
 ---
 
@@ -69,15 +109,37 @@ the expanded universe** and further alpha selection exploration
 | R51-R54 | **Cross-asset rotation expanded** | CAR explored with expanded equity pool |
 | R55-R58 | **Multi-TF timing layer (prior phase tools)** | Timing layer evaluated on expanded universe |
 
-### 3.1 Per-round delivery standards
+### 3.1 Exploration signal contract（new clarification）
+
+**Completion signals in the §3 table are exploration-stage progress
+markers only**. They do NOT:
+- Override promote thresholds (OOS IR ≥ 0.20, QQQ hard gate etc.)
+- Weaken R17 "不降标准" principle
+- Grant authority to alter PRODUCTION_FACTORS or `config/universe.yaml`
+
+Meeting e.g. "R29-R32 OOS IR > 0.0" only signals exploration
+progress — it is NOT a claim of success. Final success is §2 hard
+goals + outcome goals.
+
+### 3.2 Per-round delivery standards
 
 每轮必须:
 1. 使用不同 `--lineage-tag` （按 `post-2026-04-21-universe-mining-round-N`）
 2. 不修改 `config/universe.yaml` 或 `core/factors/factor_registry.py::PRODUCTION_FACTORS`
    without explicit user auth
 3. 保持 pytest green (1108 + 1 xfail, 或 1109 green if xfail resolved)
-4. Commit code + doc updates，最后 invoke `scripts/send_round_summary.py`
-5. 输出 11-part Chinese report to chat
+4. 输出 11-part Chinese report to chat
+
+**Commit policy** (clarified): artifact + archive writes happen every
+round. Git commits on:
+- Every round that changes source code / config / docs
+- Otherwise, commits may be batched at checkpoint rounds (e.g., R32,
+  R38, R46, R58) — but round-N's log entry must always land in
+  `docs/ralph_loop_log.md` via a commit by end of round N+2 latest.
+- **Never** let 5 rounds pass without a git commit.
+
+**WeChat notify**: invoke `scripts/send_round_summary.py` at end of
+every round (best-effort; NullNotifier fallback if webhook unset).
 
 ---
 
@@ -89,15 +151,54 @@ the expanded universe** and further alpha selection exploration
 - 不得重新引入 ETFs 到 seed_pool（v2.2 Layer 1 security type 白名单）
 
 ### 4.2 Spec constraints
-- v2.2 spec 的 Layer 2 阈值（alpha_positive_rate 0.60 / alpha_t_stat 1.5 / r2 0.75）
+- v2.2 spec 的 **Layer 3 bucket classification thresholds**
+  (alpha_positive_rate 0.60 / alpha_t_stat 1.5 / r2 0.75 / β bands 0.7/1.3 etc.)
   **可 calibration**（per v2.2 header note "thresholds are default starting
   points"）但**必须**:
   - 记录校准前后 bucket population 对比
-  - 保留 R17 "不降标准" 原则 —— relaxation 必须**双向证据**支持
+  - 保留 R17 "不降标准" 原则 —— relaxation 必须**双向证据**支持 (see §4.4)
+- **Layer 2 (metadata computation)** 不变 —— metadata is computed and
+  stored regardless of what thresholds downstream apply
 
 ### 4.3 R15 drawup_from_252d_low promotion 不可逆
 - drawup 是 PRODUCTION_FACTORS，不可移除
 - 本 loop 允许调整 weight，但不可删除 inline 计算
+
+### 4.4 "Bidirectional evidence" — minimum operational definition (new)
+
+When relaxing a Layer 3 bucket threshold (e.g., lowering
+`alpha_positive_rate_min` from 0.60 to 0.55), "bidirectional evidence"
+means ALL of:
+
+1. **Bucket-population delta**: pre-relaxation count vs post-relaxation
+   count documented（e.g., "diversifier count 7 → 12"）
+2. **Tri-metric comparison** pre vs post:
+   - OOS IR distribution shift (best, median, worst)
+   - QQQ gate pass rate
+   - Drawdown distribution (worst-case per promote-eligible trial)
+3. **At least one metric improves AND no hard invariant is newly
+   violated** (e.g., no trial goes from `tier != D` to `tier == D`
+   solely due to relaxation)
+
+If any condition fails: relaxation is NOT justified; revert and
+document in round log.
+
+### 4.5 "Trial" — operational definition (new)
+
+A "trial" for stop-condition counting (§7) means:
+
+- A single parameter set that completed `MiningEvaluator.evaluate()`
+  through at least Stage 1 (quick gate) AND is archived to
+  `data/mining/archive.db` under a `post-2026-04-21-universe-mining-*`
+  lineage tag.
+
+**Excluded** from trial count:
+- Pre-filter rejections that never enter `evaluator.evaluate()` (e.g.,
+  Optuna pruning, duplicate spec_id skip)
+- Trials under pre-R28 lineage tags
+- Manually re-run trials on identical spec_id (counted once)
+
+Current R0 post-R28 trial count: **0** (expected).
 
 ---
 
@@ -142,12 +243,15 @@ post-2026-04-21-universe-mining-round-{N}
 
 每轮必须检查、任一触发则 **停下问用户**:
 
-1. **pytest 降至 1108 以下**（加上 1 xfail 算 1109）—— 表示 universe 扩容之外的
-   回归
-2. **PRODUCTION_FACTORS 需变更** —— 涉 hard change, 必须签核
-3. **200 trials 累计仍无 tier ≠ D promote** —— 搜索方向错了
-4. **任一 archive 行 `passed_qqq_gate=False` 但 `tier != 'D'`** —— invariant
-   违反
+1. **pytest non-xfail failures ≥ 1** (baseline: 1108 passed + 1 xfailed;
+   any new non-xfail failure → stop). A new `passed` count above 1108
+   is fine as long as no non-xfail failures.
+2. **`PRODUCTION_FACTORS` 需变更** —— 涉 hard change, 必须签核
+3. **200 trials 累计仍无 tier ≠ D promote** —— "trial" 按 §4.5 定义
+   (archived into `data/mining/archive.db` under `post-2026-04-21-
+   universe-mining-*` lineage, passed at least Stage 1). 搜索方向错了
+4. **任一 archive 行 `passed_qqq_gate=False` 但 `tier != 'D'`** ——
+   invariant 违反
 5. **`config/universe.yaml` 需改动** —— 触发用户签核 workflow
 
 ---
@@ -156,7 +260,7 @@ post-2026-04-21-universe-mining-round-{N}
 
 ### 8.1 Ralph-loop 调用
 
-Use `scripts/start_universe_mining_loop.sh` (see §9).
+Use `scripts/start_universe_mining_loop.sh`.
 
 Key settings:
 - `--max-iterations 30`
