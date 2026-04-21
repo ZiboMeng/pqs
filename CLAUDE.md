@@ -654,6 +654,66 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 12 — deep_check + factor_screen 后处理（drawup 第四方验证）
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-12`
+
+**改动**（只做 research runs，无 code change）:
+- `rs_21d_minus_63d` deep_check (30-sym, 2018-01-01) — 跟进 Round 11 的
+  MEDIUM orthog verdict
+- `run_factor_screen.py` 全 33 factors 排名 — 验证 drawup post-promotion
+  position
+
+**deep_check result `rs_21d_minus_63d`**:
+
+| 检查项 | 值 | 判决 |
+|---|---:|---|
+| OOS walk-forward mean IR | **-0.063** | ❌ FAIL (门槛 0.3) |
+| Regime correct sign | 3/6 | ✅ PASS (恰好门槛) |
+| Quartile max contribution | 0.353 | ✅ PASS |
+| Quartile sign 翻转 | Q1-Q3 负，**Q4 +0.095** | diagnostic |
+| **Overall** | | ❌ **FAIL** |
+
+Round 11 orthog MEDIUM + Round 12 deep_check FAIL 合并 verdict: ARCHIVE。
+残差 IC 比 raw 大但不稳定（regime + time quartile 两头翻符号）。Round
+4 dedup-flag 针对 `rs_acceleration` (ρ=-0.80) 最终判决是正确的 ——
+factor 本质是 sign-flipped rs_acceleration 但 alpha 不稳
+
+**factor_screen 全 33 factors @21d horizon 排名**:
+
+| rank | factor | IR | IC |
+|---:|---|---:|---:|
+| 1 | vol_63d | -0.300 | -0.127 |
+| **2** | **drawup_from_252d_low** | **+0.291** | **+0.108** |
+| 3 | vol_21d | -0.280 | -0.116 |
+| 4 | max_dd_126d | +0.247 | +0.090 |
+| 5 | drawdown_current | -0.161 | -0.051 |
+| 6 | mom_252d | +0.136 | +0.047 |
+| 7 | mom_12_1 | +0.128 | +0.044 |
+| 8 | vol_regime | +0.110 | +0.031 |
+
+drawup 排 #2，仅 vol_63d 差一点。这是第四个独立方法确认 drawup 的研究
+价值:
+- R3 deep_check OOS IR +0.386 ✅
+- R6 Ridge permutation #1 / XGBoost #7 ✅
+- R12 factor_screen IR +0.291 @ #2 of 33 ✅
+- (唯一 blocker: R5 isolated-strategy MaxDD -77%，需 MFS composite 整合)
+
+**最终的 4-method consensus**: drawup 是当前 universe 下最强的 single-factor
+research signal（仅 `vol_63d` 的 low-vol 信号与之相当）。
+
+**PRD §13.2 halt 条件**: pytest 1109 / 0 PRODUCTION promote / 17 candidates
+(1 promoted to RESEARCH, 1 failed deep_check to archive) / 无 invariant
+违反。继续。
+
+**下轮建议**:
+- **A (需新授权)**: drawup promotion to `PRODUCTION_FACTORS` —— 现有
+  4-method 证据全部支持。操作: (1) 加 drawup 到 `MultiFactorStrategy.generate()`
+  的 composite (2) 加到 `PRODUCTION_FACTORS` (3) 加权重 slot 到
+  `MultiFactorSpace.suggest()`。触发 §13.2，需你明确首肯
+- **B (无需授权)**: 继续菜单 LLM-9 event factors / LLM-11 cross-sectional
+
 ### LLM-Round 11 — orthog bug fix + 微信 round summary infra
 
 **时间**: 2026-04-21

@@ -2305,3 +2305,89 @@ days）—— PRD 菜单里仍未开发的方向
 - （doc commit）—— docs: LLM-Round 11 log + orthog-reveals-hidden-alpha finding
 
 ---
+
+## LLM-Round 12 — 2026-04-21 — deep_check rs_21d_minus_63d + factor_screen drawup
+
+### 1. 主题
+Post-Round 11 清理：
+- Round 11 orthog MEDIUM verdict 的 `rs_21d_minus_63d` 跑 deep_check 确定终判
+- Round 10 promotion 的 `drawup_from_252d_low` 跑 factor_screen 拿独立 benchmark
+
+### 2. 做了什么
+(纯 research runs，无 code change)
+- `scripts/llm_candidate_deep_check.py --candidate .../rs_21d_minus_63d.yaml
+  --universe-size 30 --start 2018-01-01`
+- `scripts/run_factor_screen.py --top 15 --horizon 21`
+
+### 3. 结果
+
+**`rs_21d_minus_63d` deep_check**: FAIL
+- OOS walk-forward IR -0.063（严重低于 0.3 阈值）
+- Regime 3/6 符号一致（BULL/CAUTIOUS/RISK_ON 负；CRISIS/NEUTRAL/RISK_OFF 正）
+- Quartile 大幅翻符号（Q1-Q3 -0.04 ~ -0.08，Q4 2024-2026 **+0.095** 反转）
+- 与 rs_acceleration ρ=-0.80 dedup（Round 4）验证：factor 是 unstable
+  sign-flipped variant，orthog MEDIUM 是 noise 被 controls 遮盖；实际
+  信号 regime-non-stationary
+
+Final verdict: **ARCHIVE**
+
+**`drawup_from_252d_low` factor_screen rank**:
+
+| rank | factor | IR | IC |
+|---:|---|---:|---:|
+| 1 | vol_63d | -0.300 | -0.127 |
+| **2** | **drawup_from_252d_low** | **+0.291** | **+0.108** |
+| 3 | vol_21d | -0.280 | -0.116 |
+| 4 | max_dd_126d | +0.247 | +0.090 |
+
+drawup 排第 2 / 33 因子 × 21d horizon。4-method consensus 证据链完整：
+
+| method | metric | 值 | 状态 |
+|---|---|---:|---|
+| R1 IC screen (top-15 panel) | IC mean | +0.083 | passed |
+| R3 deep_check (§5.4) | OOS IR | **+0.386** | **PASS** |
+| R6 Ridge perm importance | rank | **#1** of 43 | strongest linear |
+| R6 XGBoost perm importance | rank | #7 of 43 | top-20 |
+| R12 factor_screen IR | IR | **+0.291** | **#2 of 33** |
+| R5 factor_backtest (isolated) | MaxDD | **-77.99%** | FAIL invariant |
+
+所有**预测力**指标都通过；唯一 blocker 是 **isolated-strategy MaxDD**，
+需 MFS framework（kill_switch + target_vol）化解。
+
+### 4. 修改了哪些文件
+- `CLAUDE.md` + `docs/ralph_loop_log.md`
+- **产出**（gitignored）：
+  - `data/ml/llm_deep_checks/rs_21d_minus_63d/deep_check.json` (刷新)
+
+### 5. §13.2 halt check
+- pytest: 1109 (unchanged, 无 code change)
+- 0 PRODUCTION promote
+- 17 candidates (1 promoted R10, 1 final-archive R12 此轮)
+- 无 invariant 违反
+
+### 6. 下一轮建议
+**A** (**需新授权，重大）**: drawup → PRODUCTION_FACTORS。证据链最完整
+  单因子。操作：
+  1. 新分支加 inline `drawup_from_252d_low` 计算到 `MultiFactorStrategy.generate()`
+  2. `PRODUCTION_FACTORS` frozenset 加 entry
+  3. `MultiFactorSpace.suggest()` 加权重 slot
+  4. `_DEFAULT_WEIGHTS` 或类似位置给 default weight 0.05-0.15
+  5. 全 test suite（1109 tests）通过
+  6. 跑 `run_mining.py --trials 40 --budget 1800 --lineage
+     post-2026-04-20-llm-round-12-drawup-trial --type multi_factor` 看
+     MaxDD 是否 invariant 达标
+  
+  如果 MFS mining 显示 promotion 后 composite 的 MaxDD、QQQ gate、OOS IR
+  都达标，drawup 成为 LLM phase 首个 PRODUCTION 因子，满足 PRD §10
+  success criterion #1
+
+**B** (无需授权): 继续菜单 LLM-9 event factors / LLM-11 cross-sectional
+  候选生成
+
+**C**: 用户 export webhook URL 后，本 round 自动发送微信（当前 fallback
+  到 NullNotifier）
+
+### 7. 本轮 commit 哈希
+- （doc commit only）—— docs: LLM-Round 12 log + drawup 4-method consensus
+
+---
