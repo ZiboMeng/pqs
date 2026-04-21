@@ -2562,8 +2562,8 @@ path before resuming `prd_universe_expanded_mining.md` R36+:
 - [x] **M4** cross-ticker YAML DSL (24 unit tests; `core/signals/cross_ticker_rules.py` + `config/cross_ticker_rules.yaml`; 3 rule types; safe expression eval no Python eval)
 - [x] **M5** multi-TF execution contract runtime assert (4 integration tests; `IntradayBacktestEngine.run_multi_day` clips + WARN on negative timing_provider weights)
 - [x] **M6** LLM proposal Phase 1 (3 markdown docs: `docs/llm_proposal_prompt_template.md`, `docs/llm_proposal_seed_context.md`, `docs/llm_funnel_checklist.md`; process formalization, no code change)
-- [ ] M7 XGBoost weight research model (P2)
-- [ ] M8 Transformer research phase (P2)
+- [x] **M7** XGBoost weight research model (`scripts/run_xgb_weight_model.py`; research-only; not wired to production)
+- [x] **M8** Transformer research Phase 1 (`core/ml/transformer_encoder.py` SmallEncoder + `scripts/run_transformer_research.py` head-to-head vs Ridge/XGB; 6 tests 3 pass 3 skip-on-no-torch; `requirements-gpu.txt` optional install)
 
 **Older TODO (data / intraday / research)**:
 - [x] Provenance sidecar (trades_scanner + migration + BarStore API)

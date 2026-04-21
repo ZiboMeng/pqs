@@ -618,7 +618,22 @@ python scripts/run_universe_rebalance.py
   - `--stdout`: 额外打印到 stdout
 - **读结果**: `jq '.tests, .git, .archive' data/baseline/latest.json`
 
-### 8.10 Multi-TF timing / validation
+### 8.10 ML / Research (PRD M7 / M8)
+
+#### `run_xgb_weight_model.py` (PRD M7, research-only)
+- **作用**: 用 XGBoost 从 factor panel 产生 per-(date,symbol) score，转 top-K 等权 weight，对比 equal-weight baseline
+- **CLI**: `--horizon 21 --top-k 5 --split-frac 0.8 --out-tag mytest`
+- **产出**: `data/ml/xgb_weights/<tag>/` 含 `summary.json` + `xgb_weights.parquet` + `xgb_equity.parquet` + `baseline_equity.parquet`
+- **不进 production**；仅研究 artifact
+
+#### `run_transformer_research.py` (PRD M8 Phase 1, research-only)
+- **作用**: 小 transformer encoder（1-layer, ~50k 参数）vs Ridge vs XGBoost 的 OOS R² head-to-head benchmark
+- **硬限制**: daily horizon only, seq_len ≤ 63, 训练时间 cap 30min，GPU→CPU fallback
+- **依赖**: `pip install -r requirements-gpu.txt`（torch 可选；torch 未装时只跑 Ridge+XGB）
+- **CLI**: `--horizon 21 --seq-len 63 --epochs 5 --cpu`（`--cpu` 强制 CPU）
+- **产出**: `data/ml/transformer/<tag>/summary.json`
+
+### 8.11 Multi-TF timing / validation
 
 #### `validate_timing_value.py`
 - **作用**: 量化 multi-TF timing layer 的入场质量 vs naive baseline（entry bps vs day mean, defer rate, scale distribution）
@@ -630,7 +645,7 @@ python scripts/run_universe_rebalance.py
 #### `compare_multi_factor_shift.py`
 - **作用**: 诊断 `apply_extra_shift` 对 MFS 信号的 T-1 vs T-2 差异（P0.1 fix 后工具）
 
-### 8.11 数据 provenance / QA
+### 8.12 数据 provenance / QA
 
 #### `trades_scanner.py` + `consolidate_trades.py` + `consolidate_sanity_check.py`
 - **作用**: 从 zip'd polygon trades 源数据解密 + tick → 1m bar
