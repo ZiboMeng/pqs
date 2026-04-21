@@ -1,0 +1,32 @@
+factor_name: "first_last_bar_diff_21d"
+hypothesis: >
+  The difference between the last RTH 60m bar return (afternoon / MOC
+  flow) and the first RTH 60m bar return (overnight-info absorption)
+  per day, averaged over 21 days, captures a late-day drift bias.
+  Positive values indicate names with systematic afternoon strength
+  (institutional accumulation); negative values indicate morning-biased
+  drift (overnight news fade). Persistent bias may predict forward
+  returns.
+formula: >
+  first_bar_ret = first_RTH_60m_bar.close / first_RTH_60m_bar.open - 1
+  last_bar_ret  = last_RTH_60m_bar.close  / last_RTH_60m_bar.open  - 1
+  diff          = last_bar_ret - first_bar_ret
+  feat          = diff.rolling(21).mean()
+  cross-sectional z-score per date (uses .rolling() — past only)
+required_fields: [open, close]  # 60m OHLC, RTH 10:00-16:00 only
+suitable_horizon: [5d, 21d]
+suitable_universe: "Mag7 + liquid ETFs (requires clean 60m bars)"
+suitable_regime: [NEUTRAL, CAUTIOUS, BULL]
+expected_edge: "IC ~0.02-0.05 on 21d horizon; stronger in volatile periods where time-of-day flow matters"
+expected_risk: "Noisy factor in low-volume periods; overfitting risk across only 7 RTH bars per day"
+possible_failure_modes:
+  - "sparse for low-liquidity names with patchy 60m bar data"
+  - "sensitive to RTH window definition (9:30 vs 10:00 first bar boundary)"
+  - "may correlate with intraday_autocorr_21d (must check via dedup)"
+novelty_vs_existing_factors: >
+  Existing intraday factors (Round 5): realized_vol_60m_21d (magnitude),
+  intraday_vol_ratio_21d (intraday vs daily vol ratio),
+  intraday_autocorr_21d (serial correlation). None measures TIME-OF-DAY
+  DRIFT (morning vs afternoon bias). This is genuinely novel intraday
+  signal structure.
+compute_fn_path: "research.llm_candidates.round_02.compute_fns:first_last_bar_diff_21d"

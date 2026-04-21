@@ -1,0 +1,32 @@
+factor_name: "late_day_vol_share_21d"
+hypothesis: >
+  The fraction of daily realized variance concentrated in the last
+  two RTH 60m bars (the MOC flow window) relative to the full-day
+  variance. High share indicates news-driven late-day volatility
+  bursts (institutional flow, close-biased price discovery). Low
+  share indicates morning-centric price discovery with a quieter
+  close. Persistent late-day vol share may predict negative forward
+  returns (signal of heavy uninformed close-flow).
+formula: >
+  daily_rets  = 60m_RTH_close.pct_change().dropna()  # 6 intra-day returns
+  full_std    = std(daily_rets)
+  late_std    = std(daily_rets[-2:])
+  share       = late_std / full_std
+  feat        = share.rolling(21).mean()
+  cross-sectional z-score per date (uses .rolling() — past only)
+required_fields: [close]  # 60m close bars, RTH 10:00-16:00
+suitable_horizon: [21d]
+suitable_universe: "Mag7 + liquid ETFs"
+suitable_regime: [NEUTRAL, CAUTIOUS, RISK_OFF]
+expected_edge: "IC ~0.02-0.04 on 21d horizon; negative IC hypothesized (high close-flow → negative drift)"
+expected_risk: "sample size of 2 late bars makes the numerator highly variable; relies on 21d averaging"
+possible_failure_modes:
+  - "high variance in late_std (N=2); denoising via 21d window essential"
+  - "may correlate with intraday_vol_ratio_21d (both touch intraday vol)"
+  - "sensitive to MOC auction volatility spikes on specific days (rebalance, earnings)"
+novelty_vs_existing_factors: >
+  realized_vol_60m_21d = whole-day intraday vol magnitude.
+  intraday_vol_ratio_21d = intraday vol vs daily close-to-close vol.
+  Neither decomposes within-day variance into TIME-OF-DAY BUCKETS. This
+  is a new within-day time-of-day variance decomposition factor.
+compute_fn_path: "research.llm_candidates.round_02.compute_fns:late_day_vol_share_21d"
