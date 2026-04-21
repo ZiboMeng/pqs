@@ -83,7 +83,25 @@ def _assign_bucket(row: pd.Series, thresholds: Dict) -> Dict:
     # Extract metrics (with None safety)
     alpha_pos = row.get("alpha_positive_rate")
     alpha_t = row.get("alpha_t_stat_252")
-    alpha_sub = bool(row.get("alpha_subperiod_consistent", False))
+
+    # Subperiod consistency — support ALL-agree (legacy) OR
+    # positive_fraction ≥ threshold (R25 relaxation).
+    consistency_mode = t.get("consistency_mode", "all_same_sign")
+    if consistency_mode == "all_same_sign":
+        alpha_sub = bool(row.get("alpha_subperiod_all_same_sign",
+                                  row.get("alpha_subperiod_consistent", False)))
+    else:
+        # fraction-based: consistency_min = fraction of subperiods with
+        # alpha same sign as majority (or just positive)
+        frac = row.get("alpha_subperiod_positive_frac")
+        if frac is None or (isinstance(frac, float) and np.isnan(frac)):
+            alpha_sub = False
+        else:
+            # "majority sign fraction" — take max of positive_frac and
+            # (1 - positive_frac), since symmetric stable factors count too
+            majority_frac = max(float(frac), 1.0 - float(frac))
+            alpha_sub = majority_frac >= float(t.get("consistency_min", 0.75))
+
     r2_max = row.get("r2_max")
     beta_spy = row.get("beta_spy_252d")
     beta_qqq = row.get("beta_qqq_252d")
@@ -168,9 +186,20 @@ def _assign_bucket(row: pd.Series, thresholds: Dict) -> Dict:
     }
 
 
-def _build_default_thresholds() -> Dict:
-    """Default v2.2 §4 thresholds. Mirrors v2.2 spec YAML."""
+def _build_default_thresholds(
+    consistency_mode: str = "fraction",
+    consistency_min: float = 0.75,
+) -> Dict:
+    """Default v2.2 §4 thresholds. Mirrors v2.2 spec YAML.
+
+    consistency_mode:
+        "all_same_sign"  - strict v2.2 original (boolean all-agree)
+        "fraction"       - ≥ consistency_min of subperiods same-sign
+                           (default 0.75 per R25 user decision pending)
+    """
     return {
+        "consistency_mode": consistency_mode,
+        "consistency_min":  consistency_min,
         "alpha_core": {
             "alpha_positive_rate_min": 0.60,
             "alpha_t_stat_min":        1.5,
@@ -223,6 +252,13 @@ def main():
     parser.add_argument("--out-tag", default="buckets")
     parser.add_argument("--min-diversifier-count", type=int, default=5,
                         help="Minimum Diversifier candidates to avoid relaxation signal")
+    parser.add_argument("--consistency-mode", choices=["all_same_sign", "fraction"],
+                        default="fraction",
+                        help="Alpha Core consistency rule. 'all_same_sign' is "
+                             "strict v2.2 original; 'fraction' requires "
+                             "majority-sign-frac ≥ consistency-min.")
+    parser.add_argument("--consistency-min", type=float, default=0.75,
+                        help="For 'fraction' mode: min majority-sign fraction")
     parser.add_argument("--out-dir", default="data/ml")
     args = parser.parse_args()
 
@@ -242,7 +278,10 @@ def main():
         unready_df = pd.DataFrame()
     logger.info("risk_estimation_ready: %d / %d", len(ready_df), len(df))
 
-    thresholds = _build_default_thresholds()
+    thresholds = _build_default_thresholds(
+        consistency_mode=args.consistency_mode,
+        consistency_min=args.consistency_min,
+    )
 
     # Apply bucket logic
     assignments = ready_df.apply(_assign_bucket, axis=1, thresholds=thresholds)

@@ -103,15 +103,27 @@ def _alpha_positive_rate(
 def _alpha_subperiod_consistency(
     symbol_ret: pd.Series, bench_ret: pd.Series,
     subperiod_days: int = 252,
-) -> Tuple[bool, int]:
-    """Sign agreement of OLS alpha across non-overlapping
-    `subperiod_days` subperiods. Returns (all_same_sign, n_subperiods)."""
+) -> Dict:
+    """Sign distribution of OLS alpha across non-overlapping
+    `subperiod_days` subperiods. Returns dict with raw counts so
+    downstream can pick ALL / majority / fraction threshold.
+
+    Returns:
+      n_subperiods     : int total subperiods evaluated
+      n_positive       : int count of α > 0 subperiods
+      n_negative       : int count of α < 0
+      all_same_sign    : bool (strict v2.2 interpretation)
+      positive_fraction: float n_positive / n_subperiods
+      majority_sign    : +1 / -1 / 0
+    """
     common = symbol_ret.index.intersection(bench_ret.index)
     s = symbol_ret.loc[common].values
     m = bench_ret.loc[common].values
     n_sub = len(s) // subperiod_days
     if n_sub < 2:
-        return (False, n_sub)
+        return {"n_subperiods": n_sub, "n_positive": 0, "n_negative": 0,
+                "all_same_sign": False, "positive_fraction": float("nan"),
+                "majority_sign": 0}
     signs = []
     for i in range(n_sub):
         a, _, _ = _ols_beta_alpha(
@@ -121,8 +133,22 @@ def _alpha_subperiod_consistency(
         if not np.isnan(a):
             signs.append(np.sign(a))
     if not signs:
-        return (False, 0)
-    return (all(x == signs[0] for x in signs), len(signs))
+        return {"n_subperiods": 0, "n_positive": 0, "n_negative": 0,
+                "all_same_sign": False, "positive_fraction": float("nan"),
+                "majority_sign": 0}
+    n_pos = int(sum(1 for x in signs if x > 0))
+    n_neg = int(sum(1 for x in signs if x < 0))
+    total = len(signs)
+    pos_frac = n_pos / total
+    majority = 1 if n_pos > n_neg else (-1 if n_neg > n_pos else 0)
+    return {
+        "n_subperiods":     total,
+        "n_positive":       n_pos,
+        "n_negative":       n_neg,
+        "all_same_sign":    (n_pos == total or n_neg == total),
+        "positive_fraction": round(pos_frac, 3),
+        "majority_sign":    majority,
+    }
 
 
 def _downside_beta(symbol_ret: pd.Series, spy_ret: pd.Series) -> float:
@@ -248,8 +274,9 @@ def _label_symbol(
         window=63, step=5,
     )
 
-    # Subperiod consistency
-    subperiod_ok, n_sub = _alpha_subperiod_consistency(
+    # Subperiod consistency — now returns detailed counts so downstream
+    # can pick threshold (all_same_sign / ≥75% / ≥2/3)
+    sub = _alpha_subperiod_consistency(
         sym_ret.loc[common_s], spy_ret.loc[common_s], subperiod_days=252,
     )
 
@@ -287,8 +314,12 @@ def _label_symbol(
         "alpha_annual_spy_504":   round(alpha_annual_504, 4) if not np.isnan(alpha_annual_504) else None,
         "alpha_t_stat_252":       round(alpha_t_stat, 3) if not np.isnan(alpha_t_stat) else None,
         "alpha_positive_rate":    round(pos_rate, 3) if not np.isnan(pos_rate) else None,
-        "alpha_subperiod_consistent": bool(subperiod_ok),
-        "n_subperiods":           n_sub,
+        "alpha_subperiod_all_same_sign":  bool(sub["all_same_sign"]),
+        "alpha_subperiod_positive_frac":  sub["positive_fraction"],
+        "alpha_subperiod_n_positive":     sub["n_positive"],
+        "alpha_subperiod_n_negative":     sub["n_negative"],
+        "alpha_subperiod_majority_sign":  sub["majority_sign"],
+        "n_subperiods":           sub["n_subperiods"],
         "downside_beta_spy":      round(dbeta, 3) if not np.isnan(dbeta) else None,
         "tail_correlation_spy":   round(tail_corr, 3) if not np.isnan(tail_corr) else None,
         "max_dd_3y":              round(max_dd_3y, 4) if not np.isnan(max_dd_3y) else None,
@@ -380,7 +411,8 @@ def main():
     # Pretty-print top 15 by alpha_positive_rate
     cols = ["symbol", "beta_spy_252d", "beta_qqq_252d", "r2_max",
             "alpha_annual_spy_252", "alpha_positive_rate",
-            "alpha_subperiod_consistent", "downside_beta_spy",
+            "alpha_subperiod_positive_frac", "alpha_subperiod_all_same_sign",
+            "downside_beta_spy",
             "tail_correlation_spy", "max_dd_3y"]
     print()
     print("TOP 15 by alpha_positive_rate:")
