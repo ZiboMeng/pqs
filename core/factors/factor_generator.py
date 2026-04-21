@@ -225,6 +225,16 @@ def _quality_factors(price_df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
     max_dd_126 = dd.rolling(126, min_periods=21).min()
     factors["max_dd_126d"] = -max_dd_126
 
+    # LLM-Round 10 promotion (2026-04-21, user-authorized):
+    # drawup_from_252d_low = symmetric counterpart of max_dd_126d.
+    # Ranked #1 in Ridge permutation importance + #7 in XGBoost across
+    # 43-feature panel (Round 6), passed §5.4 reverse review (Round 3).
+    # Research-only — NOT in PRODUCTION_FACTORS. Promoted here so
+    # `run_mining.py` + `run_xgb_importance.py` can use it directly.
+    rolling_min = price_df.rolling(252, min_periods=126).min()
+    drawup = (price_df - rolling_min) / rolling_min.replace(0, np.nan)
+    factors["drawup_from_252d_low"] = drawup
+
     return factors
 
 

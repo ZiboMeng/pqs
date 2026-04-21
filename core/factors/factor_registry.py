@@ -84,6 +84,13 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     "volume_surge_20d", "price_volume_div",
     # Quality
     "rolling_sharpe_126d", "return_per_risk_21d",
+    # Path shape (LLM-Round 10 promotion, 2026-04-21, user-authorized):
+    # drawup_from_252d_low is the symmetric counterpart of max_dd_126d
+    # (distance from rolling 252d LOW rather than 252d HIGH). Research-
+    # only — passes §5.4 reverse review (OOS IR +0.386, 5/6 regimes) but
+    # isolated-strategy MaxDD is -77% (Round 5). Use as composite
+    # component inside a risk-managed strategy.
+    "drawup_from_252d_low",
     # Relative strength
     "rs_vs_spy_21d", "rs_vs_spy_63d", "rs_vs_spy_126d",
     "rs_acceleration",
