@@ -234,7 +234,8 @@ PRD rather than continuing the loop.
 | 3 | 2026-04-20 | Topic C (stale_counts 持久化到 bar_checkpoints) | post-2026-04-20-capital-100k | save/load_bar_checkpoint 持久化 stale_counts dict; run_day_intraday 总是从 cp 恢复 counter 支持跨日累积; 6 新单测 1012→1018; 端到端验证 5+6 days halt cumulative 触发 ghost cleanup (`5bc3e4e`) |
 | 4 | 2026-04-20 | Topic D (factor gate WARN/ERROR 可配置) | post-2026-04-20-capital-100k | 新 UnregisteredFactorError + enforce_execution_factor_names(strict=...) + FactorRegistryConfig schema + config/risk.yaml 段; 生产脚本 + mining space 全透传; 11 新单测 1018→1029; **§3.1 A-D 全部关闭** (`f4ee30d`) |
 | 5 | 2026-04-20 | Topic F (intraday factor family: realized_vol_60m_21d, intraday_vol_ratio_21d, intraday_autocorr_21d) | post-2026-04-20-capital-100k | factor_generator 加 `intraday_bars_60m` 参数 + 3 个新 research-only 因子; registry 同步; 10 新单测 1029→1039; 真实数据 IC smoke 显示 **realized_vol_60m_21d IC_21d = +0.096** (非平凡), 其余 marginal; 不 promote (`710e8c3`) |
-| 6 | _pending_ | 推荐 Topic E (shadowed-factor merge) | post-2026-04-20-capital-100k | _pending_ |
+| 6 | 2026-04-20 | Topic E (shadowed-factor merge: vol_63d↔low_vol, rs_vs_spy_63d↔rel_strength) | post-2026-04-20-capital-100k | 新 `core/factors/base_factors.py` 放共享 `low_vol_factor` + `rel_strength_factor`; factor_generator + MultiFactorStrategy 都调它; MAP 缩减 9→7; 14 新单测 1039→1053; backtest 数值等价 (z-score 相消 annualization, min_periods 一致) (`12fe965`) |
+| 7 | _pending_ | 推荐 Topic I (mining 扩展到多 strategy type) | post-2026-04-20-capital-100k | _pending_ |
 | ... | | | | |
 
 ---

@@ -431,6 +431,76 @@ Ralph-loop 第 5 轮 / Topic F
 
 ### 11. 本轮 commit 哈希
 - `710e8c3` — Round 5 (Topic F): 首个 intraday factor family 引入
-- （本条 doc commit）— docs: 第 5 轮日志更新
+- `72d0d7d` — docs: 第 5 轮日志更新
+
+---
+
+## Round 6 — Topic E: shadowed-factor merge（vol_63d↔low_vol, rs_vs_spy_63d↔rel_strength）
+
+**日期**: 2026-04-20（23:20 完成）
+**Topic**: E（shadowed-factor merge，2 对）
+**Lineage_tag**: `post-2026-04-20-capital-100k`（纯代码 refactor，数值等价，不 bump）
+**测试变化**: 1039 → **1053**（+14 merge 单测）
+**主要 commits**: `12fe965`
+
+### 1. 当前阶段
+Ralph-loop 第 6 轮 / Topic E
+
+### 2. 本轮目标
+抽取共享 factor 实现到 `core/factors/base_factors.py`，让 factor_generator 与 MultiFactorStrategy 都调用同一个；消除 2 对 shadow 实现；`RESEARCH_TO_PRODUCTION_MAP` 从 9 条缩到 7 条
+
+### 3. 为什么先做它
+PRD §3.2。Round 5 已引入新 intraday 因子；如果 shadow 不清掉，未来 promote 时无法确定是 promote 研究版还是改生产 inline。本轮一次性清完，后续 promote 只需加 helper，两路同时受益
+
+### 4. 做了什么
+- 新 `core/factors/base_factors.py`：共享 `low_vol_factor` + `rel_strength_factor`（纯函数，无 config 耦合）
+- `factor_generator` 里 `vol_21d/63d`、`rs_vs_spy_21d/63d/126d`、`rs_acceleration` 全走 helper
+- `MultiFactorStrategy.generate` 的 `low_vol` 和 `rel_strength` inline 实现移除，改调 helper
+- `RESEARCH_TO_PRODUCTION_MAP` 删 `vol_63d` 和 `rs_vs_spy_63d` 两条（9 → 7）
+- 14 focused 单测（纯度 / 数值等价 / map 精确减 2 / 向后兼容）
+
+### 5. 修改了哪些文件
+- `core/factors/base_factors.py`（新，80 行）
+- `core/factors/factor_generator.py`（-18, +10：两处改共享 helper）
+- `core/signals/strategies/multi_factor.py`（-5, +12：inline 改 helper）
+- `core/factors/factor_registry.py`（MAP 减 2 + docstring 更新）
+- `tests/unit/factors/test_shadowed_factor_merge.py`（新，14 tests）
+- `CLAUDE.md`（Round 6 entry）
+
+### 6. 跑了哪些测试
+- `pytest tests/ -q`：**1053 passing**（+14）
+- 现有 drift 测试 `test_all_generator_outputs_registered` 无需改动（RESEARCH_FACTORS 集合未变）
+- 8-symbol backtest smoke（SPY + QQQ + Mag7, 2020 至今, $100k）：CAGR +6.32%, Sharpe 0.21，完成无异常
+
+### 7. 当前结果
+Topic E completion signal **达成**：
+- MAP 精确缩减 9 → 7
+- Backtest delta 远小于 50bps CAGR（z-score 之后 annualization 相消；`min_periods=20` 两边一致，warmup 无差异）
+- 代码层面：factor_generator 和 MultiFactorStrategy 共享实现，后续 promote 新因子（如 `realized_vol_60m_21d`）只需加一个 helper 到 `base_factors.py`
+
+### 8. 剩余风险
+- 还有 7 对 shadow 可合并（`mom_252d/mom_12_1` → `momentum`、`rolling_sharpe_126d/return_per_risk_21d` → `quality`、`price_volume_div` → `pv_div`、`spy_trend_200d` → `market_trend`、`vol_21d` → `low_vol`）。未本轮范围。但模式已经确立，后续合并都很轻
+- Round 1 OOS blocker 仍在，不本轮处理
+
+### 9. 下一轮建议
+**Round 7 = Topic I**（mining 扩展到多 strategy type）⭐ —— 最直接暴露 mining 系统扩展性（新 strategy type 过 QQQ gate 一致吗？），独立于 OOS blocker
+- 备选 Topic G（cross-TF feature training）或 Topic H（ridge vs XGB）
+- Off-menu：继续合并剩余 shadow pairs，或 promote `realized_vol_60m_21d`（需用户签核因为涉及 PRODUCTION_FACTORS 变更）
+
+### 10. TODO checklist（更新后）
+- [x] Round 0: smoke + audit + NaN fix + capital bump
+- [x] Round 1: Topic A（诊断 OOS 100% 失败率）
+- [x] Round 2: Topic B（leaderboard lineage + QQQ）
+- [x] Round 3: Topic C（stale_counts 进 checkpoint）
+- [x] Round 4: Topic D（factor gate strict mode）→ **§3.1 全关闭**
+- [x] Round 5: Topic F（intraday factor family，IC_21d +0.096）
+- [x] Round 6: Topic E（shadow merge: 9→7）
+- [ ] Round 7: Topic I（mining 多 strategy type）— 推荐
+- [ ] Round 8-9: G/H（research）
+- [ ] Round 10-12: J/K/L（infra）
+
+### 11. 本轮 commit 哈希
+- `12fe965` — Round 6 (Topic E): shadowed-factor merge
+- （本条 doc commit）— docs: 第 6 轮日志更新
 
 ---
