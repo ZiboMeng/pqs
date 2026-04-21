@@ -5,21 +5,26 @@ Combines top factors (low-vol, momentum, quality, price-volume, rel-strength,
 market-trend) into a single cross-sectional score per day. Selects top_n
 symbols by composite rank.
 
-Architecture Note (intentional dual-track design):
-  This strategy computes factors INTERNALLY rather than importing from
-  core/factors/factor_generator.py. This is a deliberate design choice:
+Architecture (formalized 约束 2, 2026-04-20):
+  This strategy is the EXECUTION pipeline. It computes factors INLINE for
+  performance (avoids the 4× cost of running all 35+ research factors per
+  trial). The set of accepted factor names is enumerated in
+  `core/factors/factor_registry.py::PRODUCTION_FACTORS` — the authoritative
+  single source of truth that ties execution, mining search space, and
+  the research→production promotion contract together.
 
-  - factor_generator.py serves the RESEARCH pipeline: generates 30+ candidate
-    factors for IC screening, XGBoost importance, and factor exploration.
-  - MultiFactorStrategy serves the EXECUTION pipeline: computes only the 6
-    factors it needs, inline, for maximum mining/backtest performance.
+  Passing an unknown factor name via `factor_weights` triggers a warning
+  (not an error, so legacy callers keep working while we migrate) but the
+  weight is dropped from composite computation. See
+  `factor_registry.check_execution_factor_names()`.
 
-  Both compute similar quantities (momentum, vol, quality, etc.) but serve
-  different purposes. Merging them would force every mining trial to compute
-  24 unnecessary factors — a 4x performance penalty.
+  Pipeline relationship (CLAUDE.md → "Factor pipeline contract"):
+    Research (factor_generator) → IC/OOS/regime funnel → promotion
+      → add inline block here + add to PRODUCTION_FACTORS + add to
+         MultiFactorSpace.suggest() → execution
 
-  If new factors prove valuable in the research pipeline, they should be
-  manually added to this strategy's generate() method after validation.
+  Research-only factors never enter execution until promoted. This
+  strategy deliberately does NOT import factor_generator.
 
 Key design:
   - Each factor is z-scored cross-sectionally then averaged with weights
@@ -35,6 +40,9 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from core.factors.factor_registry import (
+    PRODUCTION_FACTORS, check_execution_factor_names,
+)
 from core.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -127,13 +135,27 @@ class MultiFactorStrategy:
         """
         self._symbols     = symbols or []
         self._top_n       = top_n
-        self._weights     = factor_weights or {
+        weights = factor_weights or {
             "low_vol":    0.20,
             "momentum":   0.25,
             "quality":    0.20,
             "pv_div":     0.15,
             "rel_strength": 0.20,
         }
+        # Registry gate: reject any factor name NOT in PRODUCTION_FACTORS
+        # (catches typos, catches research names sneaking into execution,
+        # forces researchers through the promotion flow).
+        unknown = check_execution_factor_names(weights)
+        if unknown:
+            logger.warning(
+                "MultiFactorStrategy: dropping unregistered factor names: %s. "
+                "Known production factors: %s. "
+                "To add a new factor, update core/factors/factor_registry.py "
+                "after passing the research funnel.",
+                unknown, sorted(PRODUCTION_FACTORS),
+            )
+            weights = {k: v for k, v in weights.items() if k in PRODUCTION_FACTORS}
+        self._weights     = weights
         self._monthly     = rebalance_monthly
         self._score_wt    = score_weighted
         self._vol_lb      = lookback_vol

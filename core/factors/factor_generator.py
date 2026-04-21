@@ -1,16 +1,20 @@
 """
 FactorGenerator: auto-construct candidate factors from OHLCV + macro data.
 
-This module serves the RESEARCH pipeline: IC screening, XGBoost importance
-analysis, factor candidate evaluation, and new factor exploration.
+Role: RESEARCH pipeline. Outputs are never consumed by the execution
+strategy directly — `MultiFactorStrategy` computes its own inline factors
+from `core/factors/factor_registry.PRODUCTION_FACTORS` for performance.
 
-It does NOT feed directly into MultiFactorStrategy (which computes its own
-factors inline for performance). See multi_factor.py docstring for rationale.
+Promotion path (see `core/factors/factor_registry.py` for the contract):
+  research candidate (here) → IC screen → OOS walk-forward → regime
+  robustness → manual code addition to MultiFactorStrategy.generate() +
+  registry update → execution.
 
-New factors validated here should be manually added to MultiFactorStrategy
-after passing the research funnel (IC → OOS → regime → keep/reject).
+Every research factor's relationship to production is declared in
+`factor_registry.RESEARCH_TO_PRODUCTION_MAP`. Unmapped factors are
+"research-only" and cannot drive execution until explicitly promoted.
 
-Factor families (35+):
+Factor families (35):
   - Momentum (multi-period return, risk-adjusted, 12-1 month)
   - Mean reversion (short-term reversal, SMA deviation)
   - Volatility (realized vol, vol regime, drawdown)

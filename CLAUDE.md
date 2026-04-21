@@ -185,7 +185,7 @@ Evidence levels:
 | Constraint | Status | Evidence |
 |-----------|--------|----------|
 | 约束 1 — intraday live bar-by-bar runtime | ✅ done | `run_paper.py --mode live` now routes through `PaperTradingEngine.run_day_intraday` → `IntradayBacktestEngine.run_multi_day` with per-bar `on_bar_complete` / `skip_bar_fn` / `target_wts_fn` hooks. `run_day_daily` fallback only fires when NO intraday bars for the day. Idempotent: re-running on same (run_id, date) is a no-op. Checkpoint recovery works. Tests: `tests/unit/paper_trading/test_bar_by_bar_runtime.py` (8 tests). Remaining: real-time bar feed (below) |
-| 约束 2 — factor_generator ↔ mining/execution | 🚧 pending | Still dual-track |
+| 约束 2 — factor_generator ↔ mining/execution | ✅ done | Single source of truth is now `core/factors/factor_registry.py` (PRODUCTION_FACTORS / RESEARCH_FACTORS / RESEARCH_TO_PRODUCTION_MAP). `MultiFactorStrategy.__init__` gates factor_weights against PRODUCTION_FACTORS (warn + drop on unknown). `MultiFactorSpace.__init__` asserts its tuned factor set equals PRODUCTION_FACTORS (fail fast on drift). factor_generator docstring documents the promotion path. Tests: `tests/unit/factors/test_factor_registry.py` (10 tests) — includes drift detector that compares factor_generator outputs against RESEARCH_FACTORS |
 | 约束 3 — multi-TF timing/execution repositioning | 🚧 pending | Direction-voting still in code; docs still imply alpha role |
 
 ---
@@ -976,6 +976,43 @@ factors = generate_all_factors(price_df, volume_df,
                                backfill_tickers=backfill_set)
 # volume-sensitive factors get NaN for backfill tickers
 ```
+
+---
+
+### Factor Pipeline Contract [NEW 2026-04-20, 约束 2]
+
+Single source of truth: `core/factors/factor_registry.py`
+
+| Registry | Contents | Role |
+|----------|----------|------|
+| `PRODUCTION_FACTORS` | 6 names (low_vol, momentum, quality, pv_div, rel_strength, market_trend) | Accepted by `MultiFactorStrategy.factor_weights`; tuned by `MultiFactorSpace.suggest()` |
+| `RESEARCH_FACTORS` | 35 names from `factor_generator.generate_all_factors` | Available for IC / OOS / regime research only |
+| `RESEARCH_TO_PRODUCTION_MAP` | dict: research name → production name | Documents which research factor is already represented by which production factor |
+
+**Gate behavior:**
+- `MultiFactorStrategy.__init__` calls `check_execution_factor_names(weights)`; unknown names logged at WARNING and **dropped** from composite computation — prevents research names (e.g. `price_volume_div`) silently appearing in execution
+- `MultiFactorSpace.__init__` asserts `_TUNED_FACTORS == PRODUCTION_FACTORS` — if registry changes without updating the space, mining fails fast
+
+**Promotion flow (manual, one-way: research → production):**
+```
+1. Add candidate to factor_generator.generate_all_factors + RESEARCH_FACTORS
+2. Run scripts/run_factor_screen.py  → IC + significance
+3. Run scripts/run_xgb_importance.py → OOS attribution
+4. If funnel passes:
+   a. Add inline computation block to MultiFactorStrategy.generate()
+   b. Add name to PRODUCTION_FACTORS + production_factor_names()
+   c. Add weight slot + range to MultiFactorSpace.suggest() and
+      MultiFactorSpace._TUNED_FACTORS
+   d. Add entry to RESEARCH_TO_PRODUCTION_MAP if it shadows a research name
+   e. Re-run full suite (test_factor_registry enforces consistency)
+```
+
+**Research-only vs shadowed-research** (at current registry state):
+- Shadowed (10 factors): e.g. `vol_63d` ↔ `low_vol`; research form kept for granular analysis, production form kept for execution stability
+- Research-only (25 factors): e.g. `reversal_5d`, `overnight_gap_21d`, `advance_ratio_10d`, `rs_acceleration` etc. — available in research but cannot drive execution until promoted
+
+This ends the previous "dual-track, unclear relationship" state. Tests:
+`tests/unit/factors/test_factor_registry.py` (10 tests).
 
 ---
 

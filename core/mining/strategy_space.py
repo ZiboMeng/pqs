@@ -21,6 +21,7 @@ try:
 except ImportError:
     _OPTUNA_AVAILABLE = False
 
+from core.factors.factor_registry import PRODUCTION_FACTORS
 from core.signals.strategies.dual_momentum import DualMomentumStrategy
 from core.signals.strategies.trend_following import TrendFollowingStrategy
 from core.signals.strategies.cross_asset_rotation import CrossAssetRotationStrategy
@@ -203,9 +204,29 @@ class CrossAssetRotationSpace(ParameterSpace):
 # ── MultiFactorSpace ─────────────────────────────────────────────────────────
 
 class MultiFactorSpace(ParameterSpace):
-    """Multi-factor composite strategy search space."""
+    """Multi-factor composite strategy search space.
+
+    Invariant: every factor weight tuned here MUST be a name in
+    PRODUCTION_FACTORS (core/factors/factor_registry.py). Trials with
+    weights for unknown factors would be silently dropped by
+    MultiFactorStrategy and produce misleading OOS stats. The assertion
+    below catches drift — if PRODUCTION_FACTORS changes but this space
+    doesn't, tests fail fast.
+    """
 
     strategy_type = "multi_factor"
+    # Factor weight slots this space tunes. Must equal PRODUCTION_FACTORS.
+    _TUNED_FACTORS = {
+        "low_vol", "momentum", "quality",
+        "pv_div", "rel_strength", "market_trend",
+    }
+
+    def __init__(self) -> None:
+        assert self._TUNED_FACTORS == PRODUCTION_FACTORS, (
+            f"MultiFactorSpace tuned factors {self._TUNED_FACTORS} do not "
+            f"match PRODUCTION_FACTORS {PRODUCTION_FACTORS}. Update "
+            f"_TUNED_FACTORS and suggest() to match the registry."
+        )
 
     def suggest(self, trial: Any) -> Dict[str, Any]:
         w_vol = trial.suggest_float("w_low_vol", 0.0, 0.15, step=0.05)
