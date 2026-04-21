@@ -2492,3 +2492,67 @@ alpha。
 - (doc commit) —— docs: LLM-Round 13 log + distance-vs-time theme
 
 ---
+
+## LLM-Round 14 — 2026-04-21 — Topic LLM-11: cross-sectional candidates
+
+### 1. 主题
+Topic LLM-11 —— cross-sectional / universe-aware factor candidates。
+3 候选覆盖 panel-relative 构造空间。
+
+### 2. 做了什么
+- `rank_change_63d`: CS 63d mom rank 的 21d 变化
+- `above_median_persistence_63d`: 63d 超过 CS 中位数的天数比例
+- `dispersion_adjusted_mom_63d`: mom_63d 除以 panel-level vol dispersion
+- Funnel on 3 (15-sym)
+- Orthog on 2 NEEDS_HUMAN_REVIEW candidates (30-sym)
+
+### 3. 修改了哪些文件
+- **新**：`research/llm_candidates/round_14/` (compute_fns + 3 yamls)
+- `CLAUDE.md` + `docs/ralph_loop_log.md`
+
+### 4. 结果
+3 final-archive; 0 KEEP。所有构造被 existing cross-sectional factors
+explain 掉（`xsection_rank_63d` 是强基线）
+
+| factor | Funnel verdict | Orthog verdict |
+|---|---|---|
+| rank_change_63d | ARCHIVE | — |
+| above_median_persistence_63d | NEEDS_HUMAN_REVIEW (dedup) | LOW (retention 44.8%) |
+| dispersion_adjusted_mom_63d | NEEDS_HUMAN_REVIEW (dedup) | LOW (retention 19.5%) |
+
+**重要确认**: cross-sectional factor space 在本 universe 上几乎饱和。
+`xsection_rank_63d` is a very strong baseline — 与 3 种不同 CS 构造（rank
+change / above median persistence / dispersion-adjusted mom）分别有
+ρ=+0.72/+0.72/+0.94 相关性
+
+### 5. §13.2 halt check
+- pytest: 1109
+- 0 PRODUCTION promote
+- 23 cumulative candidates (1 promoted + 3 final archive R12+R13)
+- 无 invariant 违反
+
+### 6. 菜单进度
+| Topic | Status | Rounds |
+|---|---|---|
+| LLM-1 候选生成 scaffold | ✅ | R1 |
+| LLM-3 intraday 候选 | ✅ | R2 |
+| LLM-4 benchmark-relative | ✅ | R4 |
+| LLM-5 XGBoost cross-signal | ✅ | R6 |
+| LLM-6 orthogonalization | ✅ | R10/R11 |
+| LLM-7 regime-conditioned | ✅ | R7/R8 |
+| LLM-8 interaction mining | ✅ | R7 |
+| LLM-10 path-shape | ✅ | R13 |
+| LLM-11 cross-sectional | ✅ | **R14** |
+| LLM-9 event/calendar | ⬜ | — |
+| LLM-12 first promotion | ⬜ | 需授权 |
+
+### 7. 下一轮建议
+- **A**: LLM-9 event/calendar (剩余菜单)
+- **B** (需授权): drawup → PRODUCTION (§13.2 trigger)
+- **C**: 5 mean-revert candidates ensemble composite backtest (§13.2 safe)
+
+### 8. 本轮 commit 哈希
+- (code commit) —— LLM-Round 14: 3 cross-sectional candidates + orthog (all ARCHIVE)
+- (doc commit) —— docs: LLM-Round 14 log + cross-sectional space saturation finding
+
+---

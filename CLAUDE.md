@@ -654,6 +654,51 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 14 — Topic LLM-11 cross-sectional（dedup 全灭）
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-14`
+
+**改动**:
+- 新 `research/llm_candidates/round_14/` + 3 cross-sectional candidates
+- 覆盖 §9 菜单 LLM-11：universe-aware / cross-sectional direction
+
+**候选** (3):
+- `rank_change_63d` — cross-sectional 63d momentum rank 的 21d 变化
+- `above_median_persistence_63d` — 63 天内 21d 回报超过 panel 中位数的天数比例
+- `dispersion_adjusted_mom_63d` — mom_63d 除以 panel-level dispersion
+
+**Funnel + Orthog 结果** (15-sym funnel, 30-sym orthog):
+
+| factor | Funnel | Orthog | 最终 |
+|---|---|---|---|
+| rank_change_63d | ARCHIVE (IC +0.022) | — | ARCHIVE |
+| above_median_persistence_63d | dedup ρ=+0.72 vs xsection_rank_63d | LOW (retention 44.8%) | ARCHIVE |
+| dispersion_adjusted_mom_63d | dedup ρ=+0.94 vs xsection_rank_63d | LOW (retention 19.5%) | ARCHIVE |
+
+**关键发现** — 3/3 候选被既有 cross-sectional factors（`xsection_rank_63d`,
+`rs_vs_spy_63d`, `rank_momentum_change`）explain 掉。说明 **cross-sectional
+factor space 在本 universe 上几乎饱和**。
+
+`dispersion_adjusted_mom_63d` 的 ρ=+0.94 与 `xsection_rank_63d` 是教科
+书案例：normalize-by-panel-scalar 后 z-score 操作让最终 rank order 几乎
+不变——正如我在 YAML 里预测的 "may degenerate to raw mom_63d after z-score"。
+funnel 正确捕获
+
+**菜单进度**: LLM-1 (R1), LLM-3 (R2), LLM-4 (R4), LLM-5 (R6), LLM-6 (R10/R11),
+LLM-7 (R7/R8), LLM-8 (R7), LLM-10 (R13), LLM-11 (R14) 全部覆盖。剩余
+LLM-9 (event-based) 和 LLM-12 (promote candidate) —— LLM-12 需用户授权
+
+**PRD §13.2 halt 条件**: pytest 1109 / 0 PRODUCTION promote / 23 cumulative
+candidates (1 promoted + 3 final archive via deep_check/orthog) / 无 invariant
+违反。继续。
+
+**下轮建议**:
+- **A**: LLM-9 event/calendar 因子（月末效应 / 季末 / day-of-week）
+- **B** (需授权): drawup → PRODUCTION
+- **C** (研究价值): ensemble 5 个 mean-revert candidates composite
+  backtest，看聚合 alpha 是否超过 single-factor。不触发 §13.2
+
 ### LLM-Round 13 — Topic LLM-10 path-shape（mean-revert 主题再确认）
 
 **时间**: 2026-04-21
