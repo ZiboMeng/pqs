@@ -1144,3 +1144,138 @@ PRD §9 LLM-3 completion signal: ≥1 candidate enters keep。同时覆盖 §3 "
 - （doc commit）—— docs: LLM-Round 2 log + mean-revert theme finding
 
 ---
+
+## LLM-Round 3 — 2026-04-21 — Topic LLM-1/LLM-3 收尾: deep_check 工具 + 首个 PASS
+
+### 1. 本轮主题
+Topic LLM-1 / LLM-3 收尾 —— 实现 §5.3+§5.4 的 OOS + regime + quartile
+验证工具 `scripts/llm_candidate_deep_check.py`，并把 Round 1/2 最强候选
+（`drawup_from_252d_low` 和 `first_last_bar_diff_21d`）走一遍深度检查。
+
+### 2. 本轮目标
+- Round 1/2 的 funnel 只跑到 IC screen 就停了；PRD §5 funnel 还有
+  OOS walk-forward + regime + reverse review 三个阶段没覆盖。本轮
+  把这三个阶段做成可复用的自动化工具
+- 目标给 LLM phase 第一个"非 ARCHIVE verdict" —— i.e. 至少有 1 个
+  Round 1/2 候选通过 §5.4 reverse review，升级为 NEEDS_HUMAN_REVIEW
+
+### 3. 为什么这轮优先做它
+- Round 2 结束时 `drawup_from_252d_low` IC +0.083 / IR +0.22 很接近
+  KEEP 门槛（0.3）；`first_last_bar_diff_21d` IC -0.085 / IR -0.24
+  也接近门槛（符号相反）。两个候选都"几乎成功"
+- 没有 deep_check 工具的话，所有后续候选都只能走 IC screen；真正的
+  PRD §5.3 严格验证（OOS + regime + cost stress + QQQ gate）从来没
+  跑过。本轮把这个 gap 补上 50%（OOS + regime + quartile）
+- 顺便完成 Round 1 `drawup_from_252d_low` 的 verdict 升级
+
+### 4. 做了什么
+- 新 `scripts/llm_candidate_deep_check.py`（280 行）实现：
+  - `_load_universe_prices`: 加载 top-N universe（默认 30），从 start
+    date 开始的 close 价格面板
+  - `_load_macro`: 加载 SPY + VIX + TNX，为 regime 分类用
+  - `_compute_ic_series`: 每日 cross-sectional Spearman rank IC vs
+    21d forward return
+  - `_walk_forward`: 非重叠 3-month 窗口 IC 聚合（mean/std/IR/n 每窗）
+  - `_regime_ic`: `RegimeDetector.classify_series` 按 6 regime 分组
+    计 IC
+  - `_quartile_ic`: 时间四分位（Q1-Q4），检测 >60% IC 是否来自单 quartile
+  - `_reverse_review`: 三项 PASS 才 overall PASS —— OOS mean IR ≥ 0.3
+    (abs) / ≥3 regimes 符号一致 / quartile max contribution < 0.6
+  - CLI: `--candidate <yaml> --universe-size N --start DATE`
+- 在 `drawup_from_252d_low` 和 `first_last_bar_diff_21d` 上跑 deep_check
+- Artifacts 写入 `data/ml/llm_deep_checks/<name>/deep_check.json`
+
+### 5. 修改了哪些文件
+- **新**：`scripts/llm_candidate_deep_check.py`
+- `CLAUDE.md` — LLM-Round 3 段（首个 PASS 候选 celebratory 记录）
+- `docs/ralph_loop_log.md` — 本段
+- **产出**（gitignored）：`data/ml/llm_deep_checks/{drawup_from_252d_low,first_last_bar_diff_21d}/deep_check.json`
+
+### 6. 跑了哪些测试/实验
+- pytest collection: **1109 tests**（tool 是纯 script，不加 test 也不动现有测试）
+- 两个候选 × full deep_check（30-symbol panel，2018-01-01 至今，1916 dates，21d forward）
+  - `drawup_from_252d_low`: 31 walk-forward windows, 6 regime buckets
+  - `first_last_bar_diff_21d`: 32 walk-forward windows, 6 regime buckets
+
+### 7. 结果如何
+
+**`drawup_from_252d_low`** — **首个 LLM phase PASS 候选** ✅
+
+| 检查项 | 值 | 判决 |
+|---|---:|---|
+| Full-period IC mean | +0.101 | — |
+| OOS walk-forward mean IR | **+0.386** | ✅ PASS (≥ 0.3) |
+| Regime correct sign | **5/6** | ✅ PASS (≥ 3) |
+| Quartile max contribution | 0.334 | ✅ PASS (< 0.6) |
+| **Overall** | | **✅ PASS** |
+
+Regime 详情：BULL +0.13 / RISK_ON +0.11 / NEUTRAL +0.11 / CAUTIOUS +0.08 /
+CRISIS +0.11 / RISK_OFF -0.01（唯一接近 0 的 regime）
+
+Quartile 详情：Q1 +0.12 / Q2 +0.05 / Q3 +0.09 / Q4 +0.10（无单 quartile 主导）
+
+**`first_last_bar_diff_21d`** — **FAIL** ❌
+
+| 检查项 | 值 | 判决 |
+|---|---:|---|
+| Full-period IC mean | -0.072 | — |
+| OOS walk-forward mean IR | **-0.211** | ❌ FAIL (|IR| < 0.3) |
+| Regime correct sign | 6/6 | ✅ PASS (unanimous negative!) |
+| Quartile max contribution | 0.426 | ✅ PASS |
+| **Overall** | | **❌ FAIL** |
+
+符号完全稳定（6/6 regimes 都是负 IC）但量级不够过 IR 门槛。是关于"稳定 vs 强度"
+权衡的教学案例。
+
+### 8. 当前发现的新问题/新机会
+- **`drawup_from_252d_low` 值得进 production 化路径**：升级到 RESEARCH_FACTORS
+  (加入 `factor_generator.generate_all_factors` + RESEARCH_FACTORS 列表) 就能
+  被 `scripts/run_factor_screen.py` / `scripts/run_xgb_importance.py` 正式研究
+- 但升级前需要过 §5.3 剩下两个检查（cost stress + QQQ hard gate）。这两个
+  需要跑完整 backtest engine；deep_check 当前只跑 IC 层。下轮工作
+- **LLM-3 严格 completion signal (intraday)**：`first_last_bar_diff_21d`
+  FAIL，`intraday_cumret_skew_21d` 和 `late_day_vol_share_21d` 都弱 IC。LLM-3
+  "intraday ≥1 keep" 仍未达成。可能需要更精细时间分辨率的 intraday 特征
+  （5m/15m bars 而非 60m）
+- Walk-forward 显示 `drawup_from_252d_low` 有 clear 窗口级别 outliers：
+  2019Q4 IR +2.42, 2022Q2 IR -0.85, 2023Q2 IR +2.26, 2025Q2 IR +2.17。
+  这种"非均匀性"暗示因子可能对某种 market cycle 很敏感（bottom fishing
+  效应 post-drawdown？）。进一步诊断值得做
+
+### 9. 剩余风险
+- deep_check 的 regime IC 基于 retrospective regime labels（RegimeDetector
+  在完整 SPY/VIX 历史上推断，不是 as-of-date）。严格 PIT 应按日逐步生成。
+  小偏差，但文档里需要标注
+- `_reverse_review` 的 overall PASS 门槛（OOS IR ≥ 0.3 + 3/6 regimes + 
+  quartile < 60%）是我当前定的。PRD §5.4 的精确数值阈值只规定了 3/6 + 60%，
+  OOS IR 的 0.3 阈值是与 IC screen 一致（继承自 `run_funnel`）。工程决定
+- 30-symbol universe 仍比全 universe（37）小；扩大后数值可能略有漂移
+
+### 10. 下一轮建议方向
+**优先级 A**: 把 `drawup_from_252d_low` 跑完整 `evaluator.evaluate`（§5.3 最后
+两步：cost stress + QQQ hard gate）。如果都过，这个 factor 可以以 NEEDS_HUMAN_REVIEW
+状态等待人审 + promotion 到 RESEARCH_FACTORS
+
+**优先级 B**: LLM-4 benchmark-relative 候选扩展（比如 Round 1 `rs_vs_qqq_63d`
+在更广 universe 下测；新增 sector-relative 候选比如 `rs_vs_xlk_63d` / `rs_vs_xlf_63d`）
+
+**优先级 C**: 5m/15m 时间分辨率的 intraday 候选（LLM-10 path-shape）—— 
+现有 60m bars 对 skewness/path features 样本不够
+
+推荐走 **A**，因为一鸟在手（一个 near-keep candidate 有 tangible value），
+比鸟在林（未探索候选）更重要。
+
+### 11. TODO checklist（LLM phase 更新后）
+- [x] LLM-1 完成信号达成（5 daily 候选 + funnel）
+- [x] LLM-3 部分达成（3 intraday 候选 + funnel，0 KEEP）
+- [x] **deep_check 工具上线** — 补齐 §5.4 reverse review 自动化
+- [x] **首个 LLM phase PASS 候选**: `drawup_from_252d_low` NEEDS_HUMAN_REVIEW
+- [ ] **下轮推荐**: `drawup_from_252d_low` 跑完整 evaluator.evaluate（cost + QQQ gate）
+- [ ] `drawup_from_252d_low` 进 RESEARCH_FACTORS（需代码改动 + 人审核）
+- [ ] LLM-4..LLM-12: 按 PRD §9 菜单继续
+
+### 12. 本轮 commit 哈希
+- （code commit）—— LLM-Round 3: deep_check tool + first PASS candidate
+- （doc commit）—— docs: LLM-Round 3 log + drawup_from_252d_low milestone
+
+---

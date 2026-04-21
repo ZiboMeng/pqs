@@ -654,6 +654,48 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 3 — Topic LLM-1/LLM-3 收尾：deep_check 工具 + 首个 PASS 候选
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-3`
+
+**改动**:
+- 新工具 `scripts/llm_candidate_deep_check.py` —— §5.4 reverse review
+  自动化脚本：OOS walk-forward（3-month 非重叠窗口）+ regime 6-state
+  stratification + 时间 quartile 稳定性，合并为 overall PASS/FAIL verdict
+- 把 Round 1 `drawup_from_252d_low` 和 Round 2 `first_last_bar_diff_21d`
+  跑过 deep_check（30-symbol universe，2018-01-01 至今）
+- Artifacts 写入 `data/ml/llm_deep_checks/<name>/deep_check.json`
+
+**Deep check 结果**:
+
+| factor | overall | OOS IR | regimes correct sign | quartile max frac |
+|---|---|---:|---|---:|
+| **`drawup_from_252d_low`** | **✅ PASS** | +0.386 | 5/6 | 0.334 |
+| `first_last_bar_diff_21d` | ❌ FAIL | -0.211 | 6/6 (unanimous neg) | 0.426 |
+
+**里程碑**：`drawup_from_252d_low` 是 LLM phase 首个通过 §5.4 reverse
+review 的候选。IC mean +0.10（30-sym universe，从 Round 1 的 +0.083
+提升），5/6 regimes 符号一致（RISK_OFF 为 +0/中性），walk-forward
+31 windows 的平均 IR +0.386。**状态从 ARCHIVE 升级为
+NEEDS_HUMAN_REVIEW**（PRD §2.2：LLM 永远不是最终裁判）。
+
+**`first_last_bar_diff_21d` 符号共识**：6/6 regimes 为负 IC，说明"下午
+强势 → 21d 跑输"的 mean-reversion 效应在所有市场状态下都成立。但
+|IR|=0.21 < 0.3 门槛，overall FAIL。这是关于 factor magnitude vs
+signal stability 的教训：稳定但弱的信号不过 §5.4。
+
+**PRD §13.2 halt 条件**: pytest 1109（无下降）/ 无 promote / 累计候选
+8 + 1 深检 tool = 内部候选数 << 200 / 无 invariant 违反。继续。
+
+**下轮建议**:
+- **推荐**: 把 `drawup_from_252d_low` 推进到下一阶段 —— 跑完整
+  `evaluator.evaluate`（QQQ hard gate + 成本 stress + subperiod robust），
+  如果通过可以升级为 RESEARCH_FACTORS entry（需代码改动 + 人审核）
+- 备选: LLM-4 benchmark-relative 候选扩展，在更广 universe 下重测 Round 1
+  的 `rs_vs_qqq_63d`（之前 dedup 命中 xsection_rank_63d ρ=+0.94；在 30
+  symbols 下 ρ 可能下降）
+
 ### LLM-Round 2 — Topic LLM-3：首批 3 个 intraday 候选
 
 **时间**: 2026-04-21
