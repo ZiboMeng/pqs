@@ -138,6 +138,7 @@ def run_strategy(
     engine:           BacktestEngine,
     constructor:      PortfolioConstructor,
     walk_forward:     bool = True,
+    qqq_series:       pd.Series = None,
     open_df:          pd.DataFrame = None,
 ) -> dict:
     """运行单个策略回测，返回结果字典。"""
@@ -172,7 +173,10 @@ def run_strategy(
         if wf_windows:
             oos_check = WindowAnalyzer.oos_consistency_check(wf_windows)
             logger.info("%s OOS consistency: %s", name, oos_check)
-            acceptance = analyzer.acceptance_check(bt_result, benchmark_series)
+            acceptance = analyzer.acceptance_check(
+                bt_result, benchmark_series,
+                qqq_benchmark=qqq_series,
+            )
             logger.info("%s Tier D: %s", name, acceptance)
 
     return {
@@ -285,6 +289,7 @@ def main():
             constructor      = constructor,
             walk_forward     = not args.no_walk_forward,
             open_df          = open_df if not open_df.empty else None,
+            qqq_series       = qqq_close,  # closeout 2026-04-20: QQQ gate
         )
         all_runs[name] = run
 

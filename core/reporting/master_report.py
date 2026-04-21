@@ -190,11 +190,23 @@ class MasterReport:
                 "",
                 "| 指标 | 值 | 要求 |",
                 "|------|------|------|",
-                f"| 超额收益 | {_fmt_pct(a.get('excess_return'))} | > +5% |",
+                f"| 超额收益 (vs SPY) | {_fmt_pct(a.get('excess_return'))} | > +5% |",
                 f"| IR | {_fmt_f2(a.get('ir'))} | > 0.3 |",
                 f"| DD 倍数 | {_fmt_f2(a.get('dd_ratio'))}x | ≤ 1.5x |",
-                "",
             ]
+            # QQQ hard gate row (closeout 2026-04-20). Only shown when
+            # acceptance was computed with a qqq_benchmark.
+            import math
+            qqq_ex = a.get("qqq_excess_return")
+            if qqq_ex is not None and not (
+                isinstance(qqq_ex, float) and math.isnan(qqq_ex)
+            ):
+                qqq_badge = "✅" if a.get("passed_qqq_gate", True) else "❌"
+                lines.append(
+                    f"| 超额收益 (vs QQQ) {qqq_badge} | "
+                    f"{_fmt_pct(qqq_ex)} | ≥ 0% (hard gate) |"
+                )
+            lines.append("")
             if a.get("failed_criteria"):
                 lines += [f"**未通过项**: {', '.join(a['failed_criteria'])}", ""]
 

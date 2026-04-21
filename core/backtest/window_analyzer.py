@@ -93,14 +93,27 @@ class AcceptanceResult:
     ir:                float    # 信息比率
     details:           Dict[str, float] = field(default_factory=dict)
     failed_criteria:   List[str]  = field(default_factory=list)
+    # QQQ hard gate (closeout 2026-04-20). Mirrors the mining
+    # evaluator's gate at the acceptance layer so report + evaluator
+    # cannot disagree. NaN when no qqq_benchmark was passed.
+    qqq_excess_return: float = float("nan")
+    passed_qqq_gate:   bool  = True
 
     def __str__(self) -> str:
         status = "PASS ★" if self.passed else "FAIL ✗"
+        qqq_line = ""
+        if not np.isnan(self.qqq_excess_return):
+            q_status = "✓" if self.passed_qqq_gate else "✗"
+            qqq_line = (
+                f"\n  vs QQQ        = {self.qqq_excess_return:+.2%} "
+                f"(hard gate {q_status})"
+            )
         return (
             f"[{status}] Tier D Acceptance\n"
             f"  excess_return = {self.excess_return:.2%} (需 > 5%)\n"
             f"  IR            = {self.ir:.3f} (需 > 0.3)\n"
-            f"  dd_ratio      = {self.dd_ratio:.2f}x (需 ≤ 1.5x)\n"
+            f"  dd_ratio      = {self.dd_ratio:.2f}x (需 ≤ 1.5x)"
+            f"{qqq_line}\n"
             f"  failed        : {self.failed_criteria or 'None'}"
         )
 
@@ -414,14 +427,22 @@ class WindowAnalyzer:
         self,
         result:    BacktestResult,
         benchmark: pd.Series,
+        qqq_benchmark: Optional[pd.Series] = None,
+        min_qqq_excess: float = 0.0,
     ) -> AcceptanceResult:
         """
         对照 Tier D 标准，判断策略是否达标。
 
         Parameters
         ----------
-        result    : BacktestEngine.run() 的输出
-        benchmark : benchmark 权益曲线（e.g. SPY close price）
+        result         : BacktestEngine.run() 的输出
+        benchmark      : primary benchmark equity curve (usually SPY close)
+        qqq_benchmark  : optional QQQ close series. When supplied, a QQQ
+                         hard gate is evaluated alongside the SPY-based
+                         checks (closeout 2026-04-20). Strategy must
+                         beat QQQ by at least `min_qqq_excess` (default 0).
+        min_qqq_excess : CAGR excess threshold vs QQQ (default 0 =
+                         "strategy must at least match QQQ").
         """
         if result.equity_curve.empty or benchmark.empty:
             return AcceptanceResult(
@@ -467,15 +488,43 @@ class WindowAnalyzer:
         if np.isnan(dd_ratio) or dd_ratio > self.TIER_D_MAX_DD_MULTIPLIER:
             failed.append(f"dd_ratio={dd_ratio:.2f} > {self.TIER_D_MAX_DD_MULTIPLIER}")
 
+        # QQQ hard gate (closeout 2026-04-20). Mirrors the mining-
+        # evaluator gate so report + evaluator stay aligned: a
+        # strategy that loses to QQQ fails acceptance regardless of
+        # SPY outperformance.
+        qqq_excess = float("nan")
+        passed_qqq_gate = True
+        if qqq_benchmark is not None and not qqq_benchmark.empty:
+            qqq_common = strat_eq.index.intersection(qqq_benchmark.index)
+            if len(qqq_common) > 1:
+                qqq_eq = qqq_benchmark.loc[qqq_common]
+                strat_eq_q = strat_eq.loc[qqq_common]
+                qqq_m = compute_metrics(qqq_eq,
+                                         initial_capital=qqq_eq.iloc[0])
+                strat_q_m = compute_metrics(strat_eq_q,
+                                             initial_capital=strat_eq_q.iloc[0])
+                s_cagr = strat_q_m.get("cagr", np.nan)
+                q_cagr = qqq_m.get("cagr", np.nan)
+                if not (np.isnan(s_cagr) or np.isnan(q_cagr)):
+                    qqq_excess = s_cagr - q_cagr
+                    if qqq_excess < min_qqq_excess:
+                        passed_qqq_gate = False
+                        failed.append(
+                            f"qqq_excess={qqq_excess:+.2%} < "
+                            f"{min_qqq_excess:+.2%}"
+                        )
+
         return AcceptanceResult(
-            passed          = len(failed) == 0,
-            excess_return   = excess_return if not np.isnan(excess_return) else 0.0,
-            strategy_dd     = strat_dd,
-            benchmark_dd    = bench_dd,
-            dd_ratio        = dd_ratio if not np.isnan(dd_ratio) else 99.9,
-            ir              = ir if not np.isnan(ir) else 0.0,
-            details         = full_metrics,
-            failed_criteria = failed,
+            passed            = len(failed) == 0,
+            excess_return     = excess_return if not np.isnan(excess_return) else 0.0,
+            strategy_dd       = strat_dd,
+            benchmark_dd      = bench_dd,
+            dd_ratio          = dd_ratio if not np.isnan(dd_ratio) else 99.9,
+            ir                = ir if not np.isnan(ir) else 0.0,
+            details           = full_metrics,
+            failed_criteria   = failed,
+            qqq_excess_return = qqq_excess,
+            passed_qqq_gate   = passed_qqq_gate,
         )
 
     # ── 窗口结果汇总 ──────────────────────────────────────────────────────────

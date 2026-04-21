@@ -125,13 +125,18 @@ class MasterReportBuilder:
 
         if acceptance is not None:
             self._acceptance = {
-                "passed":          acceptance.passed,
-                "excess_return":   acceptance.excess_return,
-                "ir":              acceptance.ir,
-                "dd_ratio":        acceptance.dd_ratio,
-                "strategy_dd":     acceptance.strategy_dd,
-                "benchmark_dd":    acceptance.benchmark_dd,
-                "failed_criteria": list(acceptance.failed_criteria),
+                "passed":            acceptance.passed,
+                "excess_return":     acceptance.excess_return,
+                "ir":                acceptance.ir,
+                "dd_ratio":          acceptance.dd_ratio,
+                "strategy_dd":       acceptance.strategy_dd,
+                "benchmark_dd":      acceptance.benchmark_dd,
+                "failed_criteria":   list(acceptance.failed_criteria),
+                # closeout 2026-04-20 — surface QQQ gate at report layer
+                "qqq_excess_return": getattr(
+                    acceptance, "qqq_excess_return", float("nan")),
+                "passed_qqq_gate":   getattr(
+                    acceptance, "passed_qqq_gate", True),
             }
 
         return self
