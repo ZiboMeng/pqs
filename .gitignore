@@ -61,3 +61,7 @@ htmlcov/
 
 # temp
 x.txt
+
+# Claude Code harness runtime state (not committed)
+.claude/*.local.*
+.claude/ralph-loop.local.md
