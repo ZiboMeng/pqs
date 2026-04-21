@@ -271,6 +271,34 @@ Tradable Universe symbols that fail **all** of Alpha Core, Diversifier,
 and Tactical bucket criteria. Excluded from portfolio; re-evaluated at
 each reconstitution.
 
+### 4.6 Implementation status (R_post_review clarification, 2026-04-21)
+
+The current `scripts/universe_bucket_assign.py` is a **provisional
+intrinsic-only implementation** of this Layer 3 specification:
+
+- **Implemented** (symbol-intrinsic criteria, computable from Layer 2
+  labels alone):
+  - `alpha_positive_rate_rolling`, `alpha_t_stat_504d`,
+    `alpha_subperiod_*`, `r2_max`, `beta_spy`, `beta_qqq`,
+    `tail_correlation_to_spy`, bucket priority order
+- **Deferred** (portfolio-relative criteria — require a
+  portfolio-aware second pass; current output uses `PROVISIONAL_*`
+  prefix on buckets where these criteria would apply):
+  - `cost_adjusted_residual_return` (Alpha Core)
+  - `corr_to_portfolio` (Alpha Core + Diversifier)
+  - `marginal_drawdown_contribution` (Diversifier)
+  - `marginal_sharpe_contribution` (Diversifier)
+
+These deferred criteria will be evaluated at **portfolio construction
+stage** (during MFS composite scoring with active holdings). Full
+v2.2 bucket finalization therefore requires both the provisional
+pass (this tool) and a subsequent portfolio-aware pass (not yet
+implemented; to be built in the universe-expanded mining loop as
+needed).
+
+This is **documented as a known partial implementation**, not a bug —
+portfolio-relative metrics are undefined before a portfolio exists.
+
 ---
 
 ## 5. Layer 4 — Portfolio Constraints

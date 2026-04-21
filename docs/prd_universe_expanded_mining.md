@@ -1,7 +1,8 @@
 # PRD: Universe-Expanded Mining — 30-Round Ralph-Loop
 
-**Status**: ACTIVE v1.1 — integrated user R_post_R28 review of v1.0
-**Date**: 2026-04-21 (v1.0) / 2026-04-21 (v1.1 after user critique)
+**Status**: ACTIVE v1.1 + post-review fixes applied — READY FOR LOOP LAUNCH
+**Date**: 2026-04-21 (v1.0) / 2026-04-21 (v1.1 after user critique) /
+         2026-04-21 (v1.1.1 post-review fixes commit `acb4c4f` + P2 docs)
 **Trigger**: User-directed post-R28 universe expansion sign-off
 **Supersedes**: `docs/prd_llm_factor_mining.md` (30-round LLM phase) at the
 factor-discovery level — this phase focuses on **strategy calibration on
@@ -315,6 +316,8 @@ Key settings:
 
 ## 11. Change log
 
-| 日期 | 变更 |
-|---|---|
-| 2026-04-21 | 初稿，by LLM-phase ralph-loop after user R28 approval |
+| 日期 | 版本 | 变更 |
+|---|---|---|
+| 2026-04-21 | v1.0 | 初稿，by LLM-phase ralph-loop after user R28 approval |
+| 2026-04-21 | v1.1 | User R_post_R28 review integrated: Blocker C reframed decision-only, success criteria split hard/outcome, §3.1 exploration-signal contract, §4.2 L2→L3 terminology fix, §4.4 bidirectional-evidence definition, §4.5 trial operational definition, §2.3 R0 baseline requirement, §8.1 cross-ref fix |
+| 2026-04-21 | v1.1.1 | **Post-review fixes applied** (commit `acb4c4f` + P2 docs). Repo now satisfies PRD pre-flight: empty-data runtime guards added (new `core/data/panel_loader.py`); pytest baseline restored to **1108 passed + 1 xfailed**; R0 baseline snapshot landed at `docs/universe_mining_r0_baseline.md`; launcher `python` hardcode removed; universe metric naming aligned to v2.2 terminology (`alpha_positive_rate_rolling` / `tail_correlation_to_spy` / `alpha_t_stat_504d` / `beta_qqq_504d`); bucket_assign backward-compat + 504d-preferred; `config/universe.yaml` annotated with two-layer universe clarification; v2.2 spec §4.6 notes provisional intrinsic-only bucket_assign implementation. **Ready for loop launch.** |

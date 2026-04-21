@@ -1,3 +1,39 @@
+# ═══════════════════════════════════════════════════════════════════
+# TWO-LAYER UNIVERSE CONCEPT (clarified 2026-04-21 R_post_review)
+# ═══════════════════════════════════════════════════════════════════
+# This file defines the EXECUTION UNIVERSE used by run_backtest.py,
+# run_mining.py, and paper trading — the set of symbols a deployed
+# strategy can actually hold. It may contain ETFs, leveraged
+# products, and macro instruments because those are legitimately
+# tradable.
+#
+# This is SEPARATE from docs/universe_expansion_spec_v2_2.md §2.1's
+# "Layer 1 admission whitelist", which is used by the universe
+# EXPANSION SCREENING pipeline (scripts/universe_admission_screen.py)
+# to identify CANDIDATE common stocks for adding to this execution
+# pool. The admission whitelist rejects ETF / leveraged / ADR etc.
+# because those are not candidates for SELECTION into an equity
+# single-stock universe — they are either already pre-existing tools
+# (sector ETFs for diversification) or undesirable (leveraged
+# products). ETFs are ADMITTED INTO EXECUTION via other config
+# sections (sector_etfs, factor_etfs, cross_asset) that predate the
+# expansion spec.
+#
+# Summary:
+#   Layer        │ File / Tool                        │ Includes ETFs?
+#   ─────────────┼────────────────────────────────────┼──────────────
+#   Execution    │ this file (universe.yaml)          │ Yes (ETFs,
+#                │ run_mining.py, run_backtest.py     │  leveraged,
+#                │                                    │  macro)
+#   ─────────────┼────────────────────────────────────┼──────────────
+#   Admission    │ v2.2 spec + admission_screen tool  │ No (common
+#   (expansion   │ applied ONLY when screening        │  stock only)
+#    screening)  │ CANDIDATES for adding to seed_pool │
+#
+# Never treat these as equivalent; spec 说 reject ETF 是指
+# EXPANSION 场景，不影响已在此 yaml 的 ETFs.
+# ═══════════════════════════════════════════════════════════════════
+
 seed_pool:
   # ═════════════════════════════════════════════════════════════════
   # Core Mag7 + benchmarks + leveraged (original pool)
