@@ -1,0 +1,274 @@
+# PQS universe expansion — candidate input pool v2
+# Expanded from v1 (134) to ~250 with focus on moderate-β mid-caps
+# (to fill Alpha Core β ∈ [0.7, 1.3] band currently empty)
+# 2026-04-21 | LLM-Round 27
+
+# ═══════════════════════════════════════════════════════════════════
+# v1 content (134 large-caps across all GICS sectors)
+# ═══════════════════════════════════════════════════════════════════
+
+# Technology
+AAPL
+MSFT
+NVDA
+GOOGL
+GOOG
+META
+AMZN
+ORCL
+CRM
+ADBE
+AVGO
+CSCO
+INTC
+IBM
+TXN
+QCOM
+AMAT
+MU
+AMD
+KLAC
+LRCX
+NOW
+INTU
+PANW
+SNOW
+PLTR
+
+# Communication Services
+NFLX
+DIS
+CMCSA
+T
+VZ
+TMUS
+
+# Consumer Discretionary
+TSLA
+HD
+MCD
+NKE
+LOW
+SBUX
+TGT
+F
+GM
+BKNG
+LULU
+CMG
+
+# Consumer Staples
+PG
+KO
+PEP
+WMT
+COST
+MDLZ
+CL
+MO
+KHC
+GIS
+K
+
+# Energy
+XOM
+CVX
+COP
+EOG
+SLB
+PSX
+MPC
+VLO
+PXD
+OXY
+
+# Financials
+JPM
+BAC
+WFC
+GS
+MS
+C
+AXP
+V
+MA
+PNC
+USB
+BLK
+SCHW
+SPGI
+CB
+
+# Healthcare
+JNJ
+UNH
+LLY
+ABBV
+PFE
+TMO
+ABT
+MRK
+DHR
+BMY
+CVS
+AMGN
+GILD
+ISRG
+REGN
+VRTX
+MDT
+ZTS
+SYK
+CI
+
+# Industrials
+BA
+CAT
+HON
+GE
+UPS
+FDX
+RTX
+LMT
+DE
+ETN
+EMR
+MMM
+NSC
+CSX
+UNP
+
+# Materials
+LIN
+APD
+FCX
+ECL
+SHW
+DD
+NUE
+DOW
+
+# Real Estate
+PLD
+AMT
+EQIX
+CCI
+SPG
+
+# Utilities
+NEE
+DUK
+SO
+AEP
+D
+EXC
+
+# ═══════════════════════════════════════════════════════════════════
+# v2 additions — moderate-β mid-caps (~120 new)
+# Focus: fill β ∈ [0.7, 1.3] Alpha Core band
+# ═══════════════════════════════════════════════════════════════════
+
+# Mid-cap Technology (non-Mag7, often β ~1.0-1.3 with distinct alpha)
+CDNS
+SNPS
+ADSK
+WDAY
+FTNT
+ANET
+MRVL
+NTAP
+ON
+MCHP
+
+# Mid-cap Healthcare (diverse β, often moderate)
+WST
+COO
+VEEV
+IDXX
+BIO
+ALGN
+HUM
+MTD
+RMD
+DXCM
+
+# Mid-cap Industrials (moderate β, strong cyclical alpha)
+ROK
+PWR
+AME
+CARR
+OTIS
+ITW
+FAST
+ODFL
+PH
+DOV
+
+# Mid-cap Consumer Discretionary (alpha often in sub-industries)
+DG
+ROST
+ULTA
+ORLY
+YUM
+HLT
+MAR
+GPC
+
+# Mid-cap Consumer Staples
+HSY
+STZ
+MKC
+TSN
+CLX
+
+# Mid-cap Financials (non-mega banks and insurance)
+TRV
+AFL
+ALL
+TROW
+MET
+PRU
+STT
+NTRS
+FITB
+HBAN
+RJF
+
+# Mid-cap Materials
+CTAS
+RPM
+IFF
+PPG
+VMC
+MLM
+
+# Mid-cap Energy
+DVN
+HES
+WMB
+KMI
+OKE
+ENPH
+
+# Mid-cap Utilities
+SRE
+PEG
+XEL
+WEC
+ED
+ES
+
+# Mid-cap REITs (v2.2 admit_with_tag)
+DLR
+O
+VICI
+EXR
+WELL
+SBAC
+ARE
+
+# Mid-cap Comm Services
+CHTR
+ROKU
+EA
+TTWO
