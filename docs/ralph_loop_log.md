@@ -3056,3 +3056,115 @@ SCHD, MTUM, QUAL, VLUE, USMV
 - (doc commit) —— docs: LLM-Round 20 log + R20 audit data validates R19 direction
 
 ---
+
+## LLM-Round 21 — 2026-04-21 — 非 tech audit + 筛选标准 v1 + 用户 critique
+
+### 1. 主题
+- 扩 `universe_alpha_diagnostic.py` 加 `--symbols` CLI
+- 在 33 非 tech candidates 上跑 audit 找 alpha cluster
+- 按 R21 用户指令起草 universe 扩容筛选标准 v1 → 用户 critique
+
+### 2. 做了什么 + 结果
+- 扩 `universe_alpha_diagnostic.py` (--symbols, --out-name)
+- Audit on 33 non-tech candidates (2018-01-01 至今)：5 ALPHA_GENERATOR +
+  12 DIVERSIFIER + 15 MARKET_LIKE + 1 PURE_BETA (BA)
+- 关键发现: **LLY α +24.8%/yr Sharpe +1.07** (pharma) / COST α +13.3%
+  Sharpe +1.00 (staples) - 非 tech 可有强 alpha
+- 起草 v1 框架（放在 CLAUDE.md R21 section）
+- 用户 critique: "这版框架方向是对的，但我会改"，指出把 universe
+  definition 和 alpha scoring 混在一起 → survivorship bias
+
+### 3. 用户核心建议 (for R22)
+分 4 layers:
+- Layer 1: Tradable Universe (**只用客观规则**)
+- Layer 2: Risk Exposure Labels (非 filter)
+- Layer 3: Priority Buckets (portfolio 构造层)
+- Layer 4: Portfolio Constraints (weight 层)
+
+逐条指出 v1 7 项需改:
+1. alpha/Sharpe/COVID MaxDD 从 admission 拿出
+2. Liquidity 公式歧义 → ADV dollar volume 明确
+3. blacklist 升级为证券类型白名单
+4. SPY 单 beta 不够 → SPY + QQQ 双 beta
+5. 5y listing history 太严 → ≥ 2y
+6. α > 3% 绝对阈值 → rolling consistency
+7. 数量限制 → 权重/暴露限制
+
+### 4. §13.2 halt check
+- pytest 1109
+- 1 PRODUCTION promote (R15)
+- 26 candidates
+- 无 invariant 违反
+- Universe config 未改（user workflow step 2 pending）
+
+### 5. 本轮 commit 哈希
+- (code commit) —— LLM-Round 21: non-tech universe audit + expansion framework v1
+
+---
+
+## LLM-Round 22 — 2026-04-21 — Layer 1 admission tool v2（按用户 critique）
+
+### 1. 主题
+按 R21 用户 critique 起草 v2 framework（4 layers），实现 Layer 1
+objective-only admission tool，等待 v2 confirmation 后可执行 broader
+screen
+
+### 2. 做了什么
+- **新 `scripts/universe_admission_screen.py`** (~280 行):
+  - v2 Layer 1 规则硬编码（**无 alpha/performance 筛选**）
+  - Security type whitelist via `_KNOWN_NON_COMMON_STOCK` set + 启发式
+    ticker 后缀/格式 flags
+  - ADV60 dollar volume + 60d 持续性 80%
+  - 4-tier: CORE / EXTENDED / WATCH / REJECT
+  - Rejection reasons 字段
+  - CLI: `--input-symbols` / `--all-local` / `--out-tag` / `--start`
+- 2 次 dry-run validation（无 config 改动）:
+  - **Current 32-sym universe**: 25 REJECT (全部 ETF/leveraged) +
+    7 CORE (Mag7 common stocks) —— **确认**正确分离 equity/ETF
+  - **60-sym probe list**: 60/60 CORE —— 无 over-filtering legitimate
+    large-caps
+
+### 3. v1 vs v2 对比表
+见 `CLAUDE.md` R22 section 对比表。核心 7 项修改全部 incorporated:
+1. alpha/Sharpe/COVID MaxDD 移到 Layer 3 ✓
+2. ADV dollar volume 明确公式 ✓
+3. Security type 白名单 ✓
+4. SPY + QQQ 双 beta (labels in Layer 2) ✓
+5. ≥ 504d (2y) admission, ≥ 5y 作 stability tag ✓
+6. Rolling consistency 替代绝对 α 阈值 (labels in Layer 2) ✓
+7. 权重约束在 Layer 4 (Portfolio Constraints) ✓
+
+### 4. 修改了哪些文件
+- **新**：`scripts/universe_admission_screen.py`
+- `CLAUDE.md` — R22 section
+- `docs/ralph_loop_log.md` — R21 + R22 logs
+- 产出 (gitignored): 2 个 universe_admission_<tag>.csv + summary.json
+
+### 5. 跑了哪些测试/实验
+- pytest: 1109 (unchanged)
+- 2 dry-run admission screen validation
+
+### 6. §13.2 halt check
+- pytest: 1109
+- 1 PRODUCTION promote (R15)
+- 26 candidates
+- 无 invariant 违反
+- **universe config 未改** (step 3 等 v2 approval)
+
+### 7. Workflow status (R21 user-prescribed)
+1. ✅ v1 criteria 提案 (R21)
+2. ✅ user critique v1 → v2 guidance
+3. ⏳ **等用户 confirm v2 framework**
+4. [ ] R23+ tooling run on broader list (S&P 500 or all-local 25340)
+5. [ ] user confirm candidate list → config change
+
+### 8. 下轮建议
+- **A**: 等用户 v2 approval 后跑 broader admission screen
+- **B**: §13.2 safe 独立研究 — MR ensemble single-factor test (R19
+  open question #2) 或 rolling alpha stability check
+
+### 9. 本轮 commit 哈希
+- (code commit) —— LLM-Round 22: universe_admission_screen.py v2 Layer 1 tool
+- (doc commit) —— docs: R21 + R22 logs + v2 framework checkpoint
+
+---

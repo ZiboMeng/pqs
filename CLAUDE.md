@@ -654,6 +654,64 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 22 — Layer 1 admission tool + v2 framework（用户 v1 critique 后）
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-22`
+**用户 R21 critique**: 分层错位 —— v1 把 alpha / Sharpe / COVID MaxDD
+塞进 admission，造成 survivorship bias。应分 4 layers:
+(1) Tradable Universe objective admission
+(2) Risk Exposure Labels (非 filter)
+(3) Priority Buckets (portfolio 构造层)
+(4) Portfolio Constraints (weight-level)
+
+**改动**:
+- 新 `scripts/universe_admission_screen.py` (~280 行) 实现 **v2 Layer 1
+  only** —— 完全客观准入规则，**无 alpha/performance-based 筛选**:
+  - Security type 白名单（US common stock; reject 23 known ETF/leveraged
+    tickers）
+  - Listing ≥ 504 trading days (2y); ≥ 252d discovery
+  - Price floor: > $5 extended / > $10 core
+  - Liquidity: ADV60 dollar volume > $20M extended / > $50M core + 60d
+    持续性 80%
+  - Data completeness: SPY overlap ≥ 252d + < 10% 252d NaN
+  - Tier 分级: CORE / EXTENDED / WATCH / REJECT + rejection reasons
+- Dry-run test（未动 config）:
+  - Current 32-symbol universe: 25 REJECT (ETF/leveraged) + 7 CORE
+    (Mag7 common stocks) —— Layer 1 **正确分离** equity 和 ETF
+  - 60-symbol probe list (R21 non-tech + Mag7 + 21 additional large
+    caps): 60/60 CORE —— 无 over-filtering
+
+**R21 v1 vs R22 v2 对比** (用户 critique 集成):
+
+| 项 | v1 | v2 |
+|---|---|---|
+| History | ≥ 5y hard | ≥ 2y hard; ≥ 5y label |
+| Liquidity | "avg volume × price > $50M" (模糊) | ADV60 $20M extended / $50M core + 持续性 |
+| Security type | blacklist (SQQQ) | whitelist US common stock |
+| Alpha admission | `α > 3%` hard gate | **Layer 3 priority bucket, not admission** |
+| Sharpe admission | `> 0.5` hard gate | **Layer 3** |
+| COVID MaxDD filter | `< -60%` drop | **删** (regime-specific hardcode, 过拟合) |
+| Sector count | ≥ 3 每 sector 强制 | target coverage, 非强制 |
+| Single sector | ≤ 8 symbols 数量限 | + **weight limit** 暴露控制 |
+| QQQ exposure | 仅 SPY beta | **SPY + QQQ 双 beta/R²** |
+| 新增 | — | 证券类型白名单 / price floor / mcap floor / rolling consistency |
+
+**Workflow 状态** (R21 user-prescribed 5-step):
+1. ✅ v1 criteria 提案 (R21)
+2. ✅ user critique v1 → 指导 v2
+3. ⏳ **等用户 confirm v2 framework**
+4. [ ] R23 tooling run: broader admission screen (S&P 500 或 all-local 25340 tickers)
+5. [ ] user confirm candidate list → config 改动
+
+**PRD §13.2 halt 条件**: pytest 1109 / 1 PRODUCTION promote (R15 auth) /
+26 candidates / 无 invariant 违反 / **universe config 未改（等 v2 approval）**
+
+**下轮建议**:
+- A: **等用户 v2 approval**（本轮工具已就绪）
+- B: 同时做 R19 report §8 open question #2 (MR ensemble single-factor
+  test)，§13.2 safe 不需新授权
+
 ### LLM-Round 21 — 非 tech alpha 源发现 + universe 筛选标准提案
 
 **时间**: 2026-04-21
