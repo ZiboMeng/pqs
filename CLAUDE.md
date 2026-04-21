@@ -654,6 +654,29 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### Round 2 — Topic B：leaderboard 显示 lineage + QQQ 完成
+
+**时间**: 2026-04-20
+**改动**:
+- `core/mining/archive.py` 新 `lineage_summary()` helper: 返回 per-lineage
+  聚合 DataFrame（含 `n_trials / n_quick_pass / n_oos_pass / n_holdout_pass
+  / n_qqq_gate_pass / n_gate_evaluated / avg_quick_sharpe / worst_oos_ir /
+  best_oos_ir`），关键区分 "gate_evaluated"（Stage 6 被调用）vs "gate_pass"
+  （通过 gate）
+- `scripts/run_mining.py --leaderboard` 现在显示 13 列（原 8 列 + `qqq_ok` +
+  3 个 qqq_*_excess + `lineage_tag`），并在底部追加 "按 Lineage 分组汇总"
+  表格
+- 新增 CLI 参数 `--lineage-filter <tag>` 可只看单一 lineage
+
+**测试**: `tests/unit/mining/test_archive_lineage.py` 加 3 个 focused 测试
+（空 archive / 两 lineage 聚合 / gate_evaluated vs gate_pass 区分）。
+全套 1009 → **1012 passing**.
+
+**Round 1 数据的 CLI 可视化**: 两个 lineage 并排显示 —— `post-2026-04-20-
+capital-100k` (37 trials) 与 `post-2026-04-20-closeout` (20 trials) 的
+quick/OOS 差异一目了然，n_gate_evaluated = 0 明确证实 QQQ gate 未在
+任何 trial 触发。
+
 ### Round 1 — Topic A 实战：post-P0.1-fix OOS 失败率 100%
 
 **时间**: 2026-04-20

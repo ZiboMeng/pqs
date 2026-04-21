@@ -77,6 +77,12 @@ def main():
                         help="Stamps every archived trial/promotion "
                              "with this tag. Pre-closeout rows default "
                              "to 'pre-2026-04-20' and should not be mixed.")
+    parser.add_argument("--lineage-filter", default=None,
+                        help="When used with --leaderboard, only show "
+                             "trials with this lineage_tag. Omit to "
+                             "show all lineages (leaderboard will "
+                             "display a 'lineage' column so mixing "
+                             "is visible).")
     args = parser.parse_args()
 
     cfg   = load_config(Path(args.config_dir))
@@ -93,15 +99,47 @@ def main():
 
     # ── 只打印排行榜 ──────────────────────────────────────────────────────────
     if args.leaderboard:
-        lb = archive.leaderboard(n=30)
+        lb = archive.leaderboard(n=30, lineage_tag=args.lineage_filter)
         if lb.empty:
-            logger.info("存档为空，请先运行挖掘。")
+            if args.lineage_filter:
+                logger.info("指定 lineage_tag='%s' 无记录。", args.lineage_filter)
+            else:
+                logger.info("存档为空，请先运行挖掘。")
         else:
-            print("\n=== 策略挖掘排行榜（Top 30）===")
-            print(lb[["spec_id", "strategy_type", "tier", "composite_score",
-                       "quick_sharpe", "oos_ir", "oos_pass_rate", "quick_max_dd"]].to_string(index=False))
+            header = (
+                f"策略挖掘排行榜 Top 30"
+                + (f"（lineage={args.lineage_filter}）" if args.lineage_filter else "")
+            )
+            print(f"\n=== {header} ===")
+            # 新增列: lineage_tag + QQQ 门槛相关（Round 2 Topic B，closeout
+            # 2026-04-20）。之前 CLI 只显示 8 列，隐藏了 QQQ gate 字段和
+            # lineage_tag，导致混 lineage 看不出来，gate 状态看不出来。
+            lb_disp = lb.copy()
+            lb_disp["qqq_full"]    = lb_disp["qqq_full_period_excess"]
+            lb_disp["qqq_holdout"] = lb_disp["qqq_holdout_excess"]
+            lb_disp["qqq_oos"]     = lb_disp["qqq_oos_avg_excess"]
+            lb_disp["qqq_ok"]      = lb_disp["passed_qqq_gate"].map(
+                {1: "✓", 0: "✗"}
+            )
+            cols = [
+                "spec_id", "strategy_type", "tier", "composite_score",
+                "quick_sharpe", "oos_ir", "oos_pass_rate", "quick_max_dd",
+                "qqq_ok", "qqq_full", "qqq_holdout", "qqq_oos",
+                "lineage_tag",
+            ]
+            print(lb_disp[cols].to_string(index=False))
+
+        # Per-lineage 汇总 —— 暴露跨 lineage 混合状态, 帮诊断 OOS/QQQ gate 分层
+        ls = archive.lineage_summary()
+        if not ls.empty:
+            print("\n=== 按 Lineage 分组汇总 ===")
+            ls_disp = ls.copy()
+            for c in ("avg_quick_sharpe", "worst_oos_ir", "best_oos_ir"):
+                ls_disp[c] = ls_disp[c].round(3)
+            print(ls_disp.to_string(index=False))
+
         stats = archive.stats()
-        print(f"\n存档统计: {stats}")
+        print(f"\n存档统计（跨所有 lineage）: {stats}")
         return
 
     # ── 重置存档 ──────────────────────────────────────────────────────────────

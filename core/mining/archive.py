@@ -337,6 +337,45 @@ class MiningArchive:
             "promoted_active": promo,
         }
 
+    def lineage_summary(self) -> pd.DataFrame:
+        """Per-lineage trial aggregates — used by the CLI leaderboard to
+        visualize pre/post-fix separation and highlight when a lineage
+        contains zero OOS-passers (typical ralph-loop failure signal).
+
+        Added in Ralph-Loop Round 2 (closeout topic B, 2026-04-20).
+
+        Columns
+        -------
+        lineage_tag, n_trials, n_quick_pass, n_oos_pass, n_holdout_pass,
+        n_qqq_gate_pass, n_gate_evaluated (rows where qqq_full_period_excess
+        is NOT NULL — i.e. reached Stage 6), avg_quick_sharpe,
+        worst_oos_ir, best_oos_ir.
+        """
+        conn = self._connect()
+        df = pd.read_sql_query(
+            """
+            SELECT
+                lineage_tag,
+                COUNT(*)                                            AS n_trials,
+                SUM(CASE WHEN passed_quick=1   THEN 1 ELSE 0 END)   AS n_quick_pass,
+                SUM(CASE WHEN passed_oos=1     THEN 1 ELSE 0 END)   AS n_oos_pass,
+                SUM(CASE WHEN passed_holdout=1 THEN 1 ELSE 0 END)   AS n_holdout_pass,
+                SUM(CASE WHEN passed_qqq_gate=1 AND qqq_full_period_excess IS NOT NULL
+                         THEN 1 ELSE 0 END)                         AS n_qqq_gate_pass,
+                SUM(CASE WHEN qqq_full_period_excess IS NOT NULL
+                         THEN 1 ELSE 0 END)                         AS n_gate_evaluated,
+                AVG(quick_sharpe)                                   AS avg_quick_sharpe,
+                MIN(oos_ir)                                         AS worst_oos_ir,
+                MAX(oos_ir)                                         AS best_oos_ir
+            FROM trials
+            GROUP BY lineage_tag
+            ORDER BY lineage_tag
+            """,
+            conn,
+        )
+        conn.close()
+        return df
+
     # ── Internal ──────────────────────────────────────────────────────────────
 
     def _connect(self) -> sqlite3.Connection:
