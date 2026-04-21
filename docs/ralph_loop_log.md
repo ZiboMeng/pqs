@@ -3654,3 +3654,86 @@ R35 = block R33-R35 最后一轮:
 - (doc commit only) —— docs: R34 log + fresh Optuna exploration
 
 ---
+
+## Universe-Mining-Round 35 — 2026-04-21 — Fresh Optuna dual_momentum
+
+### 1. 主题
+PRD §3 R33-R35 block 最后一轮：按 R34 plan fresh Optuna dual_momentum
+尝试突破 R31 best +0.121 OR 达 0.20 promote threshold.
+
+### 2. 执行
+```
+(optuna.db 从 R34 state moved to optuna_r34_multifactor.db)
+run_mining.py --trials 50 --budget 1800 --type dual_momentum
+  --lineage-tag post-2026-04-21-universe-mining-round-35
+```
+
+### 3. 结果 — doubled positive OOS count, 最佳值持平
+
+**35 unique trials**; **10/35 OOS > 0** (R31 是 5/27).
+
+Top 5 by OOS IR:
+
+| spec | top_n | qk_sh | CAGR | OOS IR | pass |
+|---|---:|---:|---:|---:|---:|
+| 36b47eb8f5b0 | 3 | 0.93 | +19.85% | **+0.121** | 0.43 |
+| 7e055b6f68ac | 4 | 0.77 | +17.45% | +0.108 | 0.57 |
+| 07841990b434 | 3 | 0.99 | **+20.67%** | +0.094 | 0.43 |
+| 98670a91015c | 3 | 0.81 | +17.45% | +0.084 | **0.71** |
+| 87add66b1a19 | 5 | 0.62 | +13.16% | +0.031 | 0.57 |
+
+**最佳 OOS IR +0.121**（tied with R31 best）。**0/35 ≥ 0.20 promote threshold**.
+top_n=3 仍是 winner pattern.
+
+### 4. Block R33-R35 summary
+
+| Round | Type | n unique | n OOS>0 | best OOS | 贡献 |
+|---|---|---:|---:|---:|---|
+| R33 | weight grid (in-sample) | 156 | N/A | CAGR +3.13% vs QQQ | **xfail RESOLVED** |
+| R34 | multi_factor fresh | 44 | 0 | -0.218 | weight space sampled |
+| R35 | dual_momentum fresh | 35 | **10** | +0.121 | R31 best tied |
+
+**Block 核心产出**:
+- **xfail resolution**（R33 test weights update + test pass）
+- **dual_momentum OOS > 0 扩大** (R31 5 → R35 10 trials)
+- **multi_factor walk-forward barrier 持续存在**（42+ trials 累计无 OOS > 0 for multi_factor in universe-mining lineage）
+- **R28 universe 上 promote threshold (+0.20) 仍未跨**
+
+### 5. §7 stop condition check
+- pytest 1109 passed 0 xfailed ✓
+- PRODUCTION_FACTORS / universe.yaml unchanged
+- **Cumulative trials 170 / 200** (30 remaining before §7.3 triggers)
+- No invariant violation
+
+### 6. PRD §2 goals 状态更新
+
+**Primary hard goals**:
+- 1 No-regression: ✅ (1109 passed 0 xfailed maintained)
+- 2 ≥1 trial tier ≠ D: ❌ still all D
+- 3 Change control: ✅
+
+**Outcome goals**:
+- 4 xfail resolution: ✅ R33
+- 5 OOS IR shift: ✅ (R31/R35 tied +0.121 > pre-R28 +0.008)
+- 6 QQQ hard gate pass: ❌ (evaluator tier C requires OOS IR ≥ 0.20)
+- 7 Intraday positive OOS: ⏳ R36-R38 next block
+
+### 7. 新问题/新机会
+- **dual_momentum plateau at OOS +0.121**: 2 rounds (R31 + R35) 分别
+  fresh Optuna 都 converge 到同一 best value → 可能是 regime-structure
+  限制而非 sampling 问题
+- **R28 universe + dual_momentum 的 OOS IR 天花板似乎 ~+0.12**，比
+  promote threshold 0.20 仍差 0.08 — 需要 **factor 创新** 或
+  **multi-TF timing** 等 non-mining 增强才能跨越
+- **Intraday baseline (R36-R38) 值得期待**: 60m bars 可能带来不同 OOS
+  分布
+
+### 8. 下轮建议
+按 PRD §3 进入 **block R36-R38 Intraday (60m) mining baseline**。
+- Completion signal: "60m strategy trials archived for expanded universe"
+- 需要 intraday bars available in data/intraday/60m/ (应已备份per R0 baseline)
+
+### 9. 本轮 commit 哈希
+- (doc commit only) —— docs: R35 log + block R33-R35 summary
+
+---
