@@ -272,6 +272,91 @@ class TestYFinanceFallback:
         assert df.loc[pd.Timestamp("2026-04-01"), "close"] == pytest.approx(200.5, abs=1e-3)
 
 
+# ── provenance sidecar (P0.2 fix regression tests) ───────────────────────────
+
+class TestProvenanceFirstBarTs:
+    """Tests for the yfinance_fallback provenance row's `first_bar_ts`.
+
+    Pre-fix bug (2026-04-20 P0.2): the expression
+        `out.index.max() if local_df.empty or local_df.empty else local_df.index.max()`
+    contained a duplicated-condition typo (`local_df.empty or local_df.empty`,
+    always True when empty) AND used `out.index.max()` for the empty
+    branch — semantically wrong. first_bar_ts should point at where the
+    yfinance data STARTS, not ends.
+    """
+
+    def test_local_empty_first_bar_is_yfinance_start(self, tmp_path, monkeypatch):
+        """When local is empty, the yfinance row's first_bar_ts should be
+        the EARLIEST bar yfinance provided (== out.index.min()), not
+        the latest."""
+        _write_splits(tmp_path, [])
+        store = BarStore(tmp_path)
+        fake = FakeYF("2026-04-01", periods=3, price=500.0)
+        import yfinance
+        monkeypatch.setattr(yfinance, "download", fake.download)
+
+        df = store.load("SPY", freq="daily", fallback="auto",
+                        start="2026-04-01", end="2026-04-03")
+        prov = df.attrs.get("provenance", [])
+        yf_rows = [r for r in prov if r["source_type"] == "yfinance_fallback"]
+        assert len(yf_rows) == 1
+        row = yf_rows[0]
+        assert row["first_bar_ts"] == df.index.min(), (
+            f"first_bar_ts {row['first_bar_ts']} != out.index.min() "
+            f"{df.index.min()} — regression of P0.2 typo fix"
+        )
+        assert row["last_bar_ts"] == df.index.max()
+
+    def test_hybrid_first_bar_is_first_after_local(self, tmp_path, monkeypatch):
+        """When local + yfinance are merged, the yfinance row's
+        first_bar_ts should be the FIRST bar in the combined output
+        that lies strictly AFTER the local tail — i.e. where yfinance
+        actually started contributing."""
+        daily = pd.DataFrame({
+            "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.5,
+            "volume": 1000, "amount": np.nan,
+        }, index=pd.DatetimeIndex([pd.Timestamp("2026-03-31")], name="date"))
+        _write_bars(tmp_path, "SPY", "daily", daily)
+        _write_splits(tmp_path, [])
+
+        import yfinance
+        def fake_download(symbol, start, end, interval, auto_adjust, progress, threads):
+            idx = pd.DatetimeIndex(
+                [pd.Timestamp("2026-04-01"), pd.Timestamp("2026-04-02")],
+                name="Date",
+            )
+            return pd.DataFrame({
+                "Open": 200.0, "High": 201.0, "Low": 199.0, "Close": 200.5,
+                "Adj Close": 200.3, "Volume": 2000,
+            }, index=idx)
+        monkeypatch.setattr(yfinance, "download", fake_download)
+
+        store = BarStore(tmp_path)
+        df = store.load("SPY", freq="daily", fallback="auto", end="2026-04-02")
+        prov = df.attrs.get("provenance", [])
+        yf_rows = [r for r in prov if r["source_type"] == "yfinance_fallback"]
+        assert len(yf_rows) == 1
+        row = yf_rows[0]
+        # Local ends 2026-03-31; yfinance starts 2026-04-01 in merged df
+        assert row["first_bar_ts"] == pd.Timestamp("2026-04-01")
+        assert row["last_bar_ts"] == pd.Timestamp("2026-04-02")
+
+    def test_local_only_no_yfinance_row(self, tmp_path, monkeypatch):
+        """fallback='local' must never add a yfinance_fallback
+        provenance row, even if local is empty."""
+        _write_splits(tmp_path, [])
+        store = BarStore(tmp_path)
+        import yfinance
+        monkeypatch.setattr(yfinance, "download",
+                            lambda *a, **k: (_ for _ in ()).throw(
+                                AssertionError("must not call yfinance")))
+        df = store.load("SPY", freq="daily", fallback="local",
+                        start="2026-04-01", end="2026-04-03")
+        prov = df.attrs.get("provenance", [])
+        yf_rows = [r for r in prov if r["source_type"] == "yfinance_fallback"]
+        assert len(yf_rows) == 0
+
+
 # ── misc ──────────────────────────────────────────────────────────────────────
 
 class TestMisc:

@@ -177,13 +177,28 @@ class BarStore:
             if fallback == "yfinance" or (fallback == "auto" and (
                 local_df.empty or out.index.max() > local_df.index.max()
             )):
+                # first_bar_ts = where yfinance data STARTS in the merged
+                # output. Fix (2026-04-20 P0.2): the prior expression
+                # `local_df.empty or local_df.empty` was a typo (both
+                # sides identical) and used `out.index.max()` for the
+                # "empty" branch — conceptually wrong. Correct:
+                #   - local empty → yfinance covers whole range → out.index.min()
+                #   - local non-empty → yfinance fills tail only → first bar
+                #     in `out` strictly AFTER local's last bar.
+                if local_df.empty:
+                    yf_first = out.index.min()
+                else:
+                    after_local = out.index[out.index > local_df.index.max()]
+                    yf_first = (
+                        after_local.min() if len(after_local) > 0
+                        else out.index.max()
+                    )
                 prov = prov + [{
                     "symbol": _safe_symbol(symbol),
                     "freq": freq,
                     "source_type": "yfinance_fallback",
                     "rule_version": "yf_auto_adjust_false",
-                    "first_bar_ts": out.index.max()
-                        if local_df.empty or local_df.empty else local_df.index.max(),
+                    "first_bar_ts": yf_first,
                     "last_bar_ts": out.index.max(),
                 }]
         try:
