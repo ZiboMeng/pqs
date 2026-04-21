@@ -2559,7 +2559,7 @@ path before resuming `prd_universe_expanded_mining.md` R36+:
 - [x] **M1** `config/production_strategy.yaml` single source of truth (21 unit + 7 integration tests)
 - [x] **M2** promote CLI + acceptance pack (13 unit tests; `scripts/acceptance_pack.py` + `scripts/promote_strategy.py` + `docs/promotion_flow.md`)
 - [x] **M3** runtime alignment check WARN mode (12 unit tests; `core/alignment/alignment_check.py`; integrated in `run_backtest.py` + `run_paper.py`)
-- [ ] M4 cross-ticker YAML DSL (P1)
+- [x] **M4** cross-ticker YAML DSL (24 unit tests; `core/signals/cross_ticker_rules.py` + `config/cross_ticker_rules.yaml`; 3 rule types; safe expression eval no Python eval)
 - [ ] M5 multi-TF execution contract formalization (P1)
 - [ ] M6 LLM proposal Phase 1 (template + checklist, no API) (P1.5)
 - [ ] M7 XGBoost weight research model (P2)

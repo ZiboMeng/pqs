@@ -155,7 +155,8 @@ pqs/
 │   ├── regime.yaml              - 市场状态分类阈值
 │   ├── reporting.yaml           - 报告风格
 │   ├── events.yaml              - 事件日历
-│   └── notify.yaml              - 消息推送 (微信 / Server 酱)
+│   ├── notify.yaml              - 消息推送 (微信 / Server 酱)
+│   └── cross_ticker_rules.yaml  - 跨标的声明式规则 DSL (PRD M4, 默认 disabled)
 ├── core/                        ← 核心业务代码
 │   ├── backtest/                - BacktestEngine / WindowAnalyzer
 │   ├── config/                  - pydantic schemas + loader

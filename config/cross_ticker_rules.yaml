@@ -1,0 +1,69 @@
+# config/cross_ticker_rules.yaml (PRD M4) — declarative cross-ticker rule DSL
+#
+# Rules compose on top of strategy outputs (weight dict per bar) to express
+# "when X, do Y" logic without writing a new strategy class.
+#
+# 3 rule types supported:
+#   - benchmark_trigger   : condition on driver symbol gates target symbols
+#   - regime_basket       : regime-conditioned basket preference
+#   - multi_tf_confirmation: timing-layer multiplier for confirmed setups
+#
+# Invariants (enforced by core/signals/cross_ticker_rules.py):
+#   - Long-only: rule action cannot produce negative effective weight
+#   - Priority ordering determines conflict resolution (lower = earlier)
+#   - Unknown rule types are REJECTED at load time (no silent drop)
+#   - Expression parser is whitelist-only (NO Python eval)
+#
+# Usage:
+#   from core.signals.cross_ticker_rules import load_rules, apply_rules
+#   rules = load_rules("config/cross_ticker_rules.yaml")
+#   adjusted_weights = apply_rules(weights, context, rules)
+
+enabled: false   # Off by default; flip to true after validating per-rule behavior
+
+rules: []
+
+# ----------------------------------------------------------------------
+# Example rules (commented out; uncomment to activate)
+# ----------------------------------------------------------------------
+#
+# rules:
+#   # Rule 1: benchmark trigger — SPY 5d-over-200d MA → allow tech overweight
+#   - name: "spy_trend_enables_tech_overweight"
+#     type: benchmark_trigger
+#     driver: SPY
+#     condition: "sma(close, 5) > sma(close, 200)"
+#     action: allow_overweight
+#     targets: [QQQ, TQQQ, NVDA, AAPL, MSFT]
+#     weight_multiplier: 1.25
+#     regime_scope: [BULL, RISK_ON, NEUTRAL]
+#     priority: 1
+#
+#   # Rule 2: regime basket — defensive rotation in risk-off
+#   - name: "defensive_basket_risk_off"
+#     type: regime_basket
+#     regime: [RISK_OFF, CRISIS]
+#     basket_weights:
+#       TLT: 0.30
+#       GLD: 0.30
+#       SHY: 0.20
+#       JNJ: 0.10
+#       PG:  0.10
+#     override_strategy: false   # blend with base strategy vs replace it
+#     priority: 10
+#
+#   # Rule 3: multi-TF confirmation — QQQ breakout requires sector support
+#   - name: "qqq_breakout_sector_confirm"
+#     type: multi_tf_confirmation
+#     target: QQQ
+#     primary_condition: "close > ref_high(20)"
+#     confirmations:
+#       - symbol: XLK
+#         timeframe: daily
+#         condition: "sma(close, 20) > sma(close, 50)"
+#       - symbol: SOXL
+#         timeframe: daily
+#         condition: "close > sma(close, 20)"
+#     action:
+#       timing_scale_multiplier: 1.2
+#     priority: 5
