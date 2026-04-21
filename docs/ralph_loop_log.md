@@ -1819,3 +1819,140 @@ regime gate），下轮可以定量回答
 - （doc commit）—— docs: LLM-Round 7 log + universe sensitivity finding
 
 ---
+
+## LLM-Round 8 — 2026-04-21 — Topic LLM-7: soft-gate regime-conditioned（反证）
+
+### 1. 主题
+Topic LLM-7 regime-conditioned (v2)。软门（tanh 连续值）版本 Round 7 的
+binary-gate 因子，测试 Q4 2024-2026 IC 衰减是否由 binary 门退化导致。
+
+### 2. 目标
+Round 7 假设：在持续 bullish regime 下 binary sign(SPY > EMA) 总输出 +1，
+导致 regime-conditioned 因子退化成 parent。软门 tanh 应该保留 gradient
+信息。如果 soft-gate 版本 Q4 IC 回升，验证假设；否则假设错误。
+
+### 3. 为什么这轮优先做它
+- Round 7 发现了明确的实验假设；不验证就不知道下一步设计方向
+- 低代码成本（只改 gate function），快速反馈
+
+### 4. 做了什么
+- 新 `research/llm_candidates/round_08/{__init__.py,compute_fns.py,3 yamls}`
+- Soft gate `_spy_soft_regime(scale=20)` = tanh((SPY - EMA) / EMA * 20)
+- 3 候选：rs_qqq_soft_regime_63d, mom_soft_regime_63d,
+  drawup_soft_regime_63d（最后一个用 Round 3 最强候选作 parent）
+- 3 候选走 funnel (15-sym)
+- 2 候选跑 deep_check (30-sym)：rs_qqq_soft 和 drawup_soft
+
+### 5. 修改了哪些文件
+- **新**：`research/llm_candidates/round_08/{__init__.py,compute_fns.py,3 yamls}`
+- `CLAUDE.md` — LLM-Round 8 段
+- `docs/ralph_loop_log.md` — 本段
+- **产出**（gitignored）：3 个 verdict.json + 2 个 deep_check.json
+
+### 6. 跑了哪些测试/实验
+- pytest: 1109 (无 code change to tests)
+- Funnel on 3: 15-sym panel, 30 existing factors
+- Deep_check on 2: 30-sym panel, 2018-01-01- span, walk-forward 31 windows
+
+### 7. 结果如何
+
+**Funnel（15-sym）**:
+| factor | IC mean | IC IR |
+|---|---:|---:|
+| mom_soft_regime_63d | +0.0210 | +0.05 |
+| rs_qqq_soft_regime_63d | +0.0200 | +0.05 |
+| drawup_soft_regime_63d | +0.0524 | +0.14 |
+
+mom 和 rs_qqq 的 soft 版本 IC / IR **完全等同于 Round 7 binary 版**（+0.021 vs
++0.021，+0.020 vs +0.020 — 到小数第 4 位）。原因：2022-2026 期间 SPY 几乎
+一直 > 200d EMA，两个 gate 都饱和到 +1，输出等价。
+
+**Deep_check（30-sym, 2018-今）**:
+
+| factor | OOS IR | Q4 IC | 判决 |
+|---|---:|---:|---|
+| **rs_qqq_regime_conditioned (binary, R7)** | +0.239 | +0.0015 | FAIL |
+| **rs_qqq_soft_regime (soft, R8)** | **+0.239** | **+0.0015** | **FAIL (identical)** |
+| drawup_from_252d_low (no gate, R3) | +0.386 | +0.103 | **PASS** |
+| drawup_soft_regime (soft gate, R8) | +0.297 | +0.066 | FAIL |
+
+**核心反证**: soft gate **没有改变 Q4 IC**。rs_qqq 两版本数值完全一致。
+
+### 8. 新问题/新机会
+
+**Finding 1 — Round 7 hypothesis 反证**:
+Round 7 提出两种可能解释 Q4 IC 衰减：
+- (a) binary-gate degeneracy in persistent bull
+- (b) 市场结构变化，parent factor 本身衰减
+
+Round 8 结果证明 (a) **错误**，(b) **成立**。因为 SPY 长期 >> 200d EMA，
+soft-gate tanh 和 binary sign 都饱和到 +1 → 输出等价 → 两版本 Q4 IC 同样归零。
+问题不在 gate 形式，而在 parent factor `rs_vs_qqq_63d` 在 2024-2026 **基础
+预测力衰减**。
+
+**Finding 2 — regime-gating 对强 IC factor 有害**:
+drawup_from_252d_low (no gate) OOS IR **+0.386** (R3 PASS)
+drawup_soft_regime_63d (with gate) OOS IR **+0.297** (R8 FAIL)
+—— 降 0.089，gate 让 factor **更差** 23%。
+
+机制解释：long-only 策略，factor 负值被 rank 在底部、权重为 0。bear stint
+期间 regime<0，factor 全部反号，导致 top-ranked names 变成"距低点最远"的
+股票（反直觉）。bear-to-bull 反弹时，原本应 long 的 "距低点近" names 错过
+反弹，alpha 流失。
+
+这和 **Round 5 系统性发现** 呼应：MaxDD 不能通过单因子 regime gate 解决，
+**composite diversification** 才是真正的 risk management。
+
+**Finding 3 — 累计 LLM 研究主题更新**（5 个 cross-round themes）:
+1. (R1-R4) Direction-of-momentum 因子 mean-revert
+2. (R5) IC PASS ≠ 整体 PASS (MaxDD invariant 把关)
+3. (R6) Univariate IC 与 XGBoost importance 正交
+4. (R7) Interaction mining 必须 incremental-filter
+5. **(R8) Regime-gating 有害；真正 risk management = composite diversification**
+
+### 9. 剩余风险
+- 3 个 Round 8 候选全部 ARCHIVE，0 KEEP。累计 17 候选，仍只 1 过 §5.4（R3
+  drawup）
+- "continue iterating candidates" 的 marginal return 在下降。接下来 30 -
+  8 = 22 轮里如果继续 candidate-generation-only 模式，可能达不到 PRD §10
+  成功条件 1（至少 1 candidate promote）
+- 真正有希望的路径是 composite integration（drawup + low_vol + market_trend
+  分量），但这触发 §13.2 halt（PRODUCTION_FACTORS 改动）
+
+### 10. 下一轮建议方向
+
+**A (最高价值)**: `scripts/llm_composite_backtest.py` —— 跟 Round 5
+factor_backtest 并行，测试多因子 composite。用 drawup_from_252d_low (R3
+PASS) + 既有 `low_vol` / `market_trend` 做 2-3 factor composite，看
+MaxDD 是否回到可接受范围。**这不涉及 PRODUCTION 代码改动**（不加到
+PRODUCTION_FACTORS），只是 research tool。如果 composite 过 MaxDD + QQQ
+gate，则数据支持 drawup 的最终 promotion
+
+**B**: Funnel universe 扩大 15 → 30
+  - 简单改 `scripts/llm_factor_propose.py::_load_price_and_factors`
+    `symbols[:15]` → `symbols[:30]`
+  - 让 funnel 与 deep_check 一致
+  - 所有未来候选在 30-sym 下重测
+
+**C**: LLM-6 orthogonalization gate —— 累计 dedup-flagged 候选 3 个（R1
+rs_vs_qqq_63d, R4 rs_21d_minus_63d, R4 rs_vs_equal_weight_63d）都悬着，
+需要 orthog 工具定量判断 residual IC
+
+**默认 A**：composite 测试是 Round 5 MaxDD finding 的直接下游；如果过了
+就有 data-backed case 推 drawup promotion；如果没过就澄清 composite 也
+救不了。两种结果都有研究价值。
+
+### 11. TODO checklist（更新）
+- [x] LLM-1..LLM-5, LLM-7, LLM-8 部分完成
+- [x] deep_check + factor_backtest + cross_signal_mining + interaction_mine
+      四个 core tools 就位
+- [ ] **下轮推荐**: llm_composite_backtest tool + drawup 复合测试
+- [ ] LLM-6 orthogonalization gate
+- [ ] Funnel universe 15 → 30
+- [ ] LLM-12 候选 promote（需人审）
+
+### 12. 本轮 commit 哈希
+- （code commit）—— LLM-Round 8: 3 soft-gate regime candidates (reject binary hypothesis)
+- （doc commit）—— docs: LLM-Round 8 log + regime-gating hurts strong factors finding
+
+---

@@ -654,6 +654,68 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 8 — Topic LLM-7：soft-gate regime-conditioned 反证
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-8`
+
+**改动**:
+- 新 `research/llm_candidates/round_08/` + 3 soft-regime 候选
+- Soft regime = `tanh((SPY - 200d_EMA) / EMA * 20)` 连续 [-1, +1] 替代
+  Round 7 的 binary `sign(SPY > EMA)`
+
+**候选**:
+- `rs_qqq_soft_regime_63d` = rs_vs_qqq_63d × tanh(regime)
+- `mom_soft_regime_63d` = mom_63d × tanh(regime)
+- `drawup_soft_regime_63d` = drawup_from_252d_low × tanh(regime)
+
+**Funnel 结果（15-sym）**:
+- mom_soft 与 rs_qqq_soft: IC/IR 与 Round 7 binary 版**完全一致**（+0.021 / +0.05 和 +0.020 / +0.05）
+- drawup_soft: IC +0.052（弱于 parent drawup +0.083 in 15-sym）
+
+**Deep_check 结果（30-sym, 2018-今）** — Round 7 vs Round 8:
+
+| factor | OOS IR | Q4 IC | verdict |
+|---|---:|---:|---|
+| rs_qqq_regime_conditioned_63d (binary, R7) | +0.239 | +0.0015 | FAIL |
+| **rs_qqq_soft_regime_63d (soft, R8)** | **+0.239** | **+0.0015** | **FAIL (identical)** |
+| drawup_from_252d_low (no gate, R3) | +0.386 | +0.103 | **PASS** |
+| drawup_soft_regime_63d (soft gate, R8) | +0.297 | +0.066 | FAIL |
+
+**重大反证**: soft vs binary gate **没有差别** — rs_qqq_soft 和 rs_qqq_binary
+数值完全相同（到小数第 4 位）。原因：2024-2026 持续 bull 使 SPY 长期 >>
+200d EMA，两个 gate 都饱和到 +1，退化为同一信号。
+
+**结论**: Round 7 hypothesis (a)（binary degeneracy）**错误**。真正原因是
+hypothesis (b) —— **市场结构本身变化**：2024-2026 期间 `rs_vs_qqq_63d` 基础
+预测力衰减。regime-gating 治标不治本
+
+**第二发现**: **soft gate 对强 IC factor 反而有害**。
+- drawup alone: OOS IR +0.386 (PASS)
+- drawup × soft regime: OOS IR +0.297 (FAIL)
+- 原因：bear 短 stint 期间 regime 反号，long-only 策略在 bear-to-bull
+  recovery 时错过 top-drawup names 的反弹 alpha
+
+**LLM 研究主题累计**:
+1. (R1-R4) Direction-of-momentum 因子是 mean-reverter（4 独立 candidates）
+2. (R5) IC PASS + QQQ PASS ≠ 整体 PASS；MaxDD invariant 必须把关
+3. (R6) Univariate IC 与 cross-feature importance 正交
+4. (R7) Interaction mining 必须 incremental-filter，18/28 pairs destroy alpha
+5. **(R8) Regime-gating 不是万能 risk manager**；强 IC factor 反而被 regime
+   gate 削弱 —— composite diversification 才是真正的 risk management
+
+**PRD §13.2 halt 条件**: pytest 1109 / 0 promote / 17 累计候选 / 无 invariant
+违反。继续。
+
+**下轮建议**:
+- **A**: Funnel universe size bump 15 → 30（降低 funnel 与 deep_check 的
+  universe 不一致性；Round 7 的 4x IC differential 证明这是真的问题）
+- **B**: LLM-6 orthogonalization gate —— Round 4 遗留的 dedup 方法论补完
+- **C**: 回到 drawup_from_252d_low；建 `scripts/llm_composite_backtest.py`
+  把它作为**一个 composite 组件**跟 low_vol / market_trend / mom 组合测试
+  （composite-level MaxDD 应该恢复到可接受范围，这才是 Round 5 说的"真
+  正的用法"）
+
 ### LLM-Round 7 — Topic LLM-8：factor interaction mining
 
 **时间**: 2026-04-21
