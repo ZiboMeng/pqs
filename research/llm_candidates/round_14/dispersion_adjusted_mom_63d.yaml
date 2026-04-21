@@ -1,0 +1,31 @@
+factor_name: "dispersion_adjusted_mom_63d"
+hypothesis: >
+  63-day momentum normalized by cross-sectional dispersion (std of
+  21d rolling vol across symbols). Rationale: in high-dispersion
+  regimes (post-crash, panel spreading out), individual momentum
+  signals are noisier. Normalization dampens raw momentum magnitude
+  in those regimes. In low-dispersion regimes signals are cleaner
+  → higher effective IC.
+formula: >
+  mom_63 = close.pct_change(63)
+  daily_ret = close.pct_change()
+  panel_vol = daily_ret.rolling(21).std()              # per-symbol vol
+  panel_disp = panel_vol.std(axis=1)                    # CS std of vols
+  feat = mom_63 / panel_disp
+  cross-sectional z-score per date (past-only)
+required_fields: [close]
+suitable_horizon: [21d, 63d]
+suitable_universe: "全 universe (≥10 symbols for stable panel dispersion)"
+suitable_regime: [NEUTRAL, CAUTIOUS, RISK_ON]
+expected_edge: "IC ~0.03-0.06 on 21d horizon"
+expected_risk: "Correlated with mom_63d (same numerator); incremental value from denominator only"
+possible_failure_modes:
+  - "dedup with mom_63d; normalization affects only magnitude not rank order"
+  - "panel dispersion = scalar per date — dividing doesn't change cross-sectional rank"
+  - "may degenerate to raw mom_63d after z-score"
+novelty_vs_existing_factors: >
+  risk_adj_mom_63d (existing) = mom_63d / per-symbol vol (time-series).
+  This = mom_63d / cross-sectional panel dispersion. Different
+  denominator — panel-level vs symbol-level. If the panel-level
+  normalization adds stability over time, has incremental value.
+compute_fn_path: "research.llm_candidates.round_14.compute_fns:dispersion_adjusted_mom_63d"

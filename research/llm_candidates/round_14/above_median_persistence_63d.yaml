@@ -1,0 +1,30 @@
+factor_name: "above_median_persistence_63d"
+hypothesis: >
+  Fraction of last 63 trading days where stock's 21-day return was
+  above the cross-sectional median 21-day return. Measures persistent
+  relative outperformance — a stock consistently in the top half of
+  the universe is a durable alpha generator. Different from momentum
+  (magnitude) and xsection_rank (single snapshot) — this is TIME-
+  WEIGHTED cross-sectional persistence.
+formula: >
+  ret_21 = close.pct_change(21)
+  median = ret_21.median(axis=1)
+  above = (ret_21 > median).astype(float)
+  feat = above.rolling(63).mean()
+  cross-sectional z-score per date (past-only)
+required_fields: [close]
+suitable_horizon: [21d, 63d]
+suitable_universe: "全 universe (needs ≥5 symbols for median)"
+suitable_regime: [BULL, RISK_ON, NEUTRAL, CAUTIOUS]
+expected_edge: "IC ~0.04-0.08 on 21d horizon"
+expected_risk: "Highly correlated with raw momentum; may shadow rs_vs_spy"
+possible_failure_modes:
+  - "stocks with consistent outperformance tend to be momentum leaders; correlation with mom_* and xsection_rank_* expected"
+  - "binary above/below signal → 63d smoothing required for stability"
+  - "mean-reversion regime → factor flips sign (R1-R13 pattern warns)"
+novelty_vs_existing_factors: >
+  xsection_rank_21d/63d capture relative rank at a single date.
+  advance_ratio_10d is breadth of universe above MA. This factor
+  combines cross-sectional (above median) with temporal persistence
+  (fraction of 63 days) — a cross-product not in registry.
+compute_fn_path: "research.llm_candidates.round_14.compute_fns:above_median_persistence_63d"

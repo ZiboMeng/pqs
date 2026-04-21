@@ -1,0 +1,28 @@
+factor_name: "rank_change_63d"
+hypothesis: >
+  Change in cross-sectional 63-day momentum rank over the past 21 days.
+  Captures rank-space momentum: stocks moving up in the panel's
+  momentum ranking may continue rising; stocks falling may continue
+  falling. Expected positive IC (persistence of rank changes).
+formula: >
+  mom_63 = close.pct_change(63)
+  rank_today = mom_63.rank(axis=1, pct=True)   # [0, 1] CS rank
+  rank_21d_ago = rank_today.shift(21)
+  feat = rank_today - rank_21d_ago
+  cross-sectional z-score per date (past-only)
+required_fields: [close]
+suitable_horizon: [21d, 63d]
+suitable_universe: "全 universe (≥10 symbols for stable ranking)"
+suitable_regime: [BULL, RISK_ON, NEUTRAL]
+expected_edge: "IC ~0.03-0.06 on 21d horizon"
+expected_risk: "Correlated with rank_momentum_change (existing research factor)"
+possible_failure_modes:
+  - "likely dedup with rank_momentum_change; exact correlation unknown"
+  - "21d shift window introduces recency bias"
+  - "fails in low-dispersion panels (all stocks move together → rank-change near 0)"
+novelty_vs_existing_factors: >
+  rank_momentum_change (existing) uses absolute rank delta; this uses
+  RANK-PERCENTILE delta (normalized to [0, 1]). In a universe with
+  growing size, rank-percentile is scale-invariant; absolute rank isn't.
+  Distinct construction, correlated output — funnel dedup will measure.
+compute_fn_path: "research.llm_candidates.round_14.compute_fns:rank_change_63d"
