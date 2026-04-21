@@ -102,6 +102,7 @@ class BacktestEngine:
         min_trade_usd:         float = 100.0,
         rebalance_threshold:   float = 0.02,
         integer_shares:        bool  = False,
+        stale_days_threshold:  int   = 5,
     ):
         self._cost      = cost_model
         self._sim       = ExecutionSimulator(cost_model, freq="interday", allow_partial=True)
@@ -114,6 +115,13 @@ class BacktestEngine:
         # silently fell back to same-day close (lookahead). Now skipped and
         # counted so researchers can see how often this happens in backtest.
         self._skipped_missing_open: int = 0
+        # P1.6 (2026-04-20) — ghost position cleanup. When a held
+        # position has >= stale_days_threshold consecutive missing
+        # opens, force-liquidate at the last valid close to prevent
+        # permanent ghost positions from delisted/halted symbols.
+        # Diagnostic log of liquidations is exposed via .ghost_liquidations.
+        self._stale_days_threshold: int = int(stale_days_threshold)
+        self.ghost_liquidations: List[Dict] = []
 
     # ── 主入口 ────────────────────────────────────────────────────────────────
 
@@ -181,10 +189,76 @@ class BacktestEngine:
         cash_records:     list = []
         all_fills:        List[Fill] = []
 
+        # Ghost-position cleanup state (P1.6): per-symbol counters for
+        # consecutive days with missing open, plus last known valid
+        # close price used for forced liquidation.
+        stale_days_count: Dict[str, int] = {}
+        last_valid_close: Dict[str, float] = {}
+
         # ── 逐日迭代 ──────────────────────────────────────────────────────────
         for i, date in enumerate(dates):
             # 1. 当日市值计算（用当日 close）
             price_row = prices.loc[date]
+            # Update last_valid_close for ghost-position cleanup
+            for sym in price_row.index:
+                v = price_row.get(sym)
+                if v is not None and not pd.isna(v) and float(v) > 0:
+                    last_valid_close[sym] = float(v)
+
+            # Ghost-position cleanup — scan held positions for stale data
+            # (P1.6, 2026-04-20). If next-day open is missing for a held
+            # symbol on >= threshold consecutive days, force-liquidate at
+            # last known close. This prevents permanent ghost positions
+            # from delisted/halted assets that never see a valid open.
+            if i < len(dates) - 1:
+                _next_date = dates[i + 1]
+                _next_opens = opens.loc[_next_date] if _next_date in opens.index else pd.Series(dtype=float)
+                for sym in list(shares.keys()):
+                    _op = _next_opens.get(sym, float("nan"))
+                    try:
+                        _op_f = float(_op)
+                    except (TypeError, ValueError):
+                        _op_f = float("nan")
+                    if pd.isna(_op_f) or _op_f <= 0:
+                        stale_days_count[sym] = stale_days_count.get(sym, 0) + 1
+                    else:
+                        stale_days_count[sym] = 0
+
+                    if stale_days_count[sym] > self._stale_days_threshold:
+                        qty = shares.pop(sym)
+                        px = last_valid_close.get(sym)
+                        if px is not None and px > 0:
+                            proceeds = qty * px
+                            cash += proceeds
+                            self.ghost_liquidations.append({
+                                "date": date, "symbol": sym,
+                                "qty": qty, "price": px,
+                                "proceeds": proceeds,
+                                "stale_days": stale_days_count[sym],
+                            })
+                            logger.warning(
+                                "[%s] ghost-position cleanup: liquidating %s "
+                                "qty=%.4f @ last_close=%.4f after %d stale days",
+                                date.date() if hasattr(date, "date") else date,
+                                sym, qty, px, stale_days_count[sym],
+                            )
+                        else:
+                            # No valid close ever observed — write off
+                            self.ghost_liquidations.append({
+                                "date": date, "symbol": sym,
+                                "qty": qty, "price": 0.0,
+                                "proceeds": 0.0,
+                                "stale_days": stale_days_count[sym],
+                                "write_off": True,
+                            })
+                            logger.warning(
+                                "[%s] ghost-position cleanup: writing off %s "
+                                "(no valid close ever observed, qty=%.4f)",
+                                date.date() if hasattr(date, "date") else date,
+                                sym, qty,
+                            )
+                        stale_days_count.pop(sym, None)
+
             portfolio_value = cash + sum(
                 shares.get(sym, 0) * price_row.get(sym, 0)
                 for sym in shares
