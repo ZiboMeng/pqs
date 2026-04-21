@@ -1,0 +1,31 @@
+factor_name: "rs_qqq_mom_63d"
+hypothesis: >
+  Product of 63-day momentum and 63-day relative strength vs QQQ.
+  Both factors have modest univariate IC (+0.029 each) but their
+  multiplicative interaction isolates the "genuinely strong" names
+  — those rising absolutely AND outperforming QQQ. Filters false
+  positives where RS vs QQQ looks good because QQQ is falling
+  faster than the stock (common in selloffs). Requires BOTH to be
+  positive (sign-preservation property of multiplication).
+formula: >
+  mom_63 = close.pct_change(63)
+  rs_qqq_63 = mom_63 - QQQ.pct_change(63)
+  feat = mom_63 * rs_qqq_63
+  cross-sectional z-score per date (past-only)
+required_fields: [close]  # needs QQQ in price_df columns
+suitable_horizon: [21d, 63d]
+suitable_universe: "SPY + QQQ + Mag7 + sector ETFs"
+suitable_regime: [BULL, RISK_ON, NEUTRAL]
+expected_edge: "IC ~0.05-0.07 on 21d horizon (Round 7 mining: +0.069)"
+expected_risk: "Squares the sign: both negative → positive score (may pick 'less bad' losers); interpretability lower than linear combination"
+possible_failure_modes:
+  - "double-negative product creates paradoxical 'losers-that-are-less-bad' signals in crashes"
+  - "correlated with Round 1 rs_vs_qqq_63d through mom_63 factor"
+  - "interaction may be XGBoost-detected nonlinearity expressible other ways"
+novelty_vs_existing_factors: >
+  mom_63d × rs_vs_qqq_63d as interaction — neither multiplicative form
+  exists in registry. rs_vs_qqq_63d itself is Round 1 candidate (dedup-
+  flagged); its interaction with mom is novel construction. Whether it
+  adds incremental value vs linear mom + rs_vs_qqq composite is what
+  the funnel must test.
+compute_fn_path: "research.llm_candidates.round_07.compute_fns:rs_qqq_mom_63d"
