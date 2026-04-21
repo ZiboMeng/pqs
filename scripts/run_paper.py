@@ -377,6 +377,15 @@ def main():
         min_holding_days=3, lookback_mom=189, lookback_quality=189, lookback_vol=84,
         apply_extra_shift=False,  # live needs fresh T-1 signals executed at T
                                   # open; True would use stale T-2 data.
+        # Closeout 2026-04-20: concentration knobs from config
+        soft_cap_max_single=(
+            cfg.risk.strategy_concentration.soft_cap_max_single
+            if cfg.risk.strategy_concentration.enabled else None
+        ),
+        concentration_warn_threshold=(
+            cfg.risk.strategy_concentration.concentration_warn_threshold
+            if cfg.risk.strategy_concentration.enabled else None
+        ),
     )
     diagnostics = DiagnosticSuite()
     left_side_cfg = LeftSideConfig.from_risk_config(cfg.risk)

@@ -95,6 +95,17 @@ def build_strategies(cfg, price_df: pd.DataFrame, risk_syms: list, def_syms: lis
             apply_extra_shift=False,  # 1-bar lag (T-close → T+1 open); see
                                       # MultiFactorStrategy docstring for why
                                       # True would produce stale T-2 signals.
+            # Closeout 2026-04-20: strategy-level concentration is
+            # sourced from config/risk.yaml::strategy_concentration
+            # (not position_limits — those are portfolio hard caps).
+            soft_cap_max_single=(
+                cfg.risk.strategy_concentration.soft_cap_max_single
+                if cfg.risk.strategy_concentration.enabled else None
+            ),
+            concentration_warn_threshold=(
+                cfg.risk.strategy_concentration.concentration_warn_threshold
+                if cfg.risk.strategy_concentration.enabled else None
+            ),
         ),
     }
 

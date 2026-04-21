@@ -99,6 +99,33 @@ class LeftSideTradingConfig(BaseModel):
     auto_disable_on_consecutive_loss: int = Field(default=3, ge=1)
 
 
+class StrategyConcentrationConfig(BaseModel):
+    """Strategy-level concentration control (closeout 2026-04-20).
+
+    Deliberately separate from PositionLimitsConfig.max_single_position,
+    which is the portfolio HARD cap enforced by PortfolioConstructor.
+    These are SOFT knobs applied by individual strategies (e.g.
+    MultiFactorStrategy) BEFORE the constructor hard cap:
+
+      soft_cap_max_single   : if a raw per-symbol weight exceeds this,
+                              clip + iteratively redistribute to the
+                              non-violators, preserving total exposure.
+                              None / 0 → disabled (constructor still
+                              enforces hard cap).
+      concentration_warn    : purely diagnostic. Log WARNING whenever
+                              any date's max single weight exceeds this.
+
+    Rationale: keeping these separate means strategies can fail soft
+    (redistribute then log) while the portfolio constructor fails hard
+    (reject or clip without redistribute) — consistent with the
+    'defense in depth' pattern in CLAUDE.md.
+    """
+
+    enabled: bool = True
+    soft_cap_max_single:          Optional[float] = Field(default=0.35, ge=0, le=1.0)
+    concentration_warn_threshold: Optional[float] = Field(default=0.40, ge=0, le=1.0)
+
+
 class IntradayTimingConfig(BaseModel):
     """Thresholds and scaling rules for the multi-TF timing layer
     (core/intraday/multi_timescale.py::decide_timing).
@@ -139,6 +166,9 @@ class RiskConfig(BaseModel):
     budget: BudgetConfig = Field(default_factory=BudgetConfig)
     left_side_trading: LeftSideTradingConfig = Field(default_factory=LeftSideTradingConfig)
     intraday_timing: IntradayTimingConfig = Field(default_factory=IntradayTimingConfig)
+    strategy_concentration: StrategyConcentrationConfig = Field(
+        default_factory=StrategyConcentrationConfig,
+    )
 
     @model_validator(mode="after")
     def hard_constraints_immutable(self) -> "RiskConfig":

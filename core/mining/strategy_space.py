@@ -28,6 +28,26 @@ from core.signals.strategies.cross_asset_rotation import CrossAssetRotationStrat
 from core.signals.strategies.multi_factor import MultiFactorStrategy
 
 
+def _concentration_kwargs() -> Dict[str, Any]:
+    """Lazily load strategy-level concentration knobs from
+    config/risk.yaml. Mining instantiates MultiFactorStrategy per trial
+    without access to a cfg object, so we look it up at instantiate
+    time. Falls back silently to disabled on any config load failure
+    (keeps unit tests that don't load full config working)."""
+    try:
+        from core.config.loader import load_config
+        cfg = load_config()
+        sc = cfg.risk.strategy_concentration
+        if not sc.enabled:
+            return {}
+        return {
+            "soft_cap_max_single":          sc.soft_cap_max_single,
+            "concentration_warn_threshold": sc.concentration_warn_threshold,
+        }
+    except Exception:
+        return {}
+
+
 # ── StrategySpec ──────────────────────────────────────────────────────────────
 
 @dataclass(frozen=True)
@@ -277,6 +297,7 @@ class MultiFactorSpace(ParameterSpace):
             apply_extra_shift = False,  # T+1-open execution already provides
                                         # the 1-bar lag; extra shift only
                                         # produces stale T-2 signals.
+            **_concentration_kwargs(),
         )
 
 

@@ -74,6 +74,14 @@ def main():
         apply_extra_shift=False,  # T-close factors → T+1 open execution (1-bar
                                   # lag, no lookahead). See MultiFactorStrategy
                                   # docstring for why True would lag by T-2.
+        soft_cap_max_single=(
+            cfg.risk.strategy_concentration.soft_cap_max_single
+            if cfg.risk.strategy_concentration.enabled else None
+        ),
+        concentration_warn_threshold=(
+            cfg.risk.strategy_concentration.concentration_warn_threshold
+            if cfg.risk.strategy_concentration.enabled else None
+        ),
     )
     signals = strat.generate(price_df, regime)
     constructor = PortfolioConstructor(use_vol_parity=False)

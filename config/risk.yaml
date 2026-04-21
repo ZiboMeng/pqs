@@ -62,3 +62,13 @@ intraday_timing:
   scale_when_60m_neutral: 0.8
   mult_30m_contradict: 0.5
   mult_30m_neutral: 0.8
+
+# Strategy-level concentration (closeout 2026-04-20).
+# Separate from position_limits.max_single_position (which is the
+# portfolio HARD cap enforced by PortfolioConstructor). These are
+# STRATEGY-level SOFT knobs applied inside MultiFactorStrategy before
+# the constructor enforces the hard cap.
+strategy_concentration:
+  enabled: true
+  soft_cap_max_single: 0.35           # strategy iteratively clips + redistributes
+  concentration_warn_threshold: 0.40  # WARNING log when any row exceeds
