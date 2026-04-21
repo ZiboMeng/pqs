@@ -654,6 +654,76 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 9 — composite backtest：decisive negative finding
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-9`
+
+**改动**:
+- 新 `scripts/llm_composite_backtest.py` —— 复合因子 backtest，支持从
+  `research/llm_candidates/round_*/*.yaml` + `generate_all_factors` 里按
+  名称选 components、加权、z-score composite
+- 5 次配置测试验证 Round 5 的"composite diversification 才是 risk
+  management"假设
+
+**结果** — **假设反证**：
+
+| config | top-K | CAGR | MaxDD | QQQ full |
+|---|---:|---:|---:|---|
+| drawup alone (R5 replica) | 5 | +22.10% | -77.99% | ✅ |
+| A (drawup 0.3 + vol_63d -0.3 + spy_trend 0.4) | 5 | +28.08% | -69.35% | ✅ |
+| A top-K=10 | 10 | +19.38% | -63.53% | ✅ |
+| A top-K=15 | 15 | +16.43% | -54.73% | ❌ (-1.96%) |
+| B (risk-heavy: vol -0.45) | 10 | +18.39% | -64.03% | ❌ (0.00%) |
+| **Benchmark: pure classical composite** | **10** | **+11.89%** | **-59.34%** | **❌ (-6.5%)** |
+
+**决定性发现**: 最后一行（纯 classical composite，无 LLM 候选）**MaxDD
+-59.34% 仍然 FAIL**。问题不在"用哪些因子"，而在**factor-level composite
+backtest 工具本身无法达到 -25% MaxDD 目标**。
+
+**系统性解释**: production MFS 策略（按 CLAUDE.md 记录：CAGR 19%, MaxDD
+-19.7%）达标靠的是：
+- factor composite（本 tool 测的部分）
+- **kill switch（停损）** — tool 没有
+- **target_vol position sizing** — tool 没有
+- **regime-scaled cash allocation** — tool 没有
+- **market_trend 作 zero-out filter** — tool 当成数字因子而非 ex-ante 过滤
+
+缺少这些 risk machinery → 单纯 factor backtest 永远过不了 MaxDD 约束
+
+**路径重新梳理**：
+- R5 findings: IC PASS ≠ 整体 PASS （MaxDD 把关）
+- R6 findings: LLM 候选在 XGBoost top-20 有真实价值
+- R8 findings: regime-gating 不是万能 risk mgmt（伤害强因子）
+- **R9 findings: composite backtest 也不够，真 risk mgmt 在 MFS 框架内**
+
+**结论**：下一步要么
+(a) 给 `llm_composite_backtest.py` 加 kill_switch + target_vol + regime
+    scaling（重复造 MFS 轮子）
+(b) **直接把 drawup_from_252d_low 加到 `core/factors/factor_registry.py`
+    的 `RESEARCH_FACTORS`**（非 PRODUCTION_FACTORS，不触发 §13.2
+    halt）+ `generate_all_factors` 输出 —— 这让 drawup 进入
+    `scripts/run_mining.py` 和 `scripts/run_factor_screen.py` 的
+    正式研究流。下一步 optimizer 才能跑 evaluator.evaluate 跑完整
+    QQQ gate + 5-stage pipeline
+
+(b) 是最低摩擦路径，符合 PRD §12 Appendix 的 promotion 流程（research →
+production 两阶段）。但仍然触及源码 `factor_registry.py`，需用户明确
+授权才做
+
+**PRD §13.2 halt 条件**: pytest 1109 / 0 PRODUCTION promote / 17 累计候选
+/ 无 invariant 违反。继续。
+
+**下轮建议**:
+- **A**: 用户批准后把 `drawup_from_252d_low` 加到 `RESEARCH_FACTORS` +
+  `generate_all_factors` 输出。触发 `llm_factor_propose.py` 的 dedup
+  重新计算（此时新 candidates 会 dedup against drawup）+ `run_xgb_importance.py`
+  能直接用 drawup
+- **B**: 改进 composite tool 加 kill_switch + target_vol 机制（重 MFS 轮子）
+- **C**: 继续菜单 LLM-6 orthogonalization / LLM-9 event factors
+
+默认 **A**，但**需要用户首肯**才做 registry 改动
+
 ### LLM-Round 8 — Topic LLM-7：soft-gate regime-conditioned 反证
 
 **时间**: 2026-04-21

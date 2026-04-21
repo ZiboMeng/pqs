@@ -1956,3 +1956,124 @@ rs_vs_qqq_63d, R4 rs_21d_minus_63d, R4 rs_vs_equal_weight_63d）都悬着，
 - （doc commit）—— docs: LLM-Round 8 log + regime-gating hurts strong factors finding
 
 ---
+
+## LLM-Round 9 — 2026-04-21 — composite backtest tool + decisive negative finding
+
+### 1. 主题
+Composite backtest tool 验证 Round 5 提出的 "drawup_from_252d_low 需要
+composite diversification 恢复 MaxDD" 假设。
+
+### 2. 目标
+- 建 `scripts/llm_composite_backtest.py`（不改 production code）
+- 测试多因子 composite 配置能否让 drawup 基础策略 MaxDD 从 -77.79% 回到
+  PRD invariant -25% ≤ MaxDD ≤ 0 范围
+- 如果通过，drawup 的 promotion 论据充分；如果不通过，澄清 factor-level
+  tools 的根本局限
+
+### 3. 为什么这轮优先做它
+- Round 5-8 累积共识：drawup 的 promotion 路径需要 MaxDD 验证
+- Round 8 反证了 regime-gating 方案，composite diversification 是唯一剩下
+  的 factor-level 选项
+- 实证回答"composite 够不够"是下一步 crucial 决策点
+
+### 4. 做了什么
+- 新 `scripts/llm_composite_backtest.py`（~230 行）:
+  - `_parse_components("name:weight,...")` 简单 CLI 语法
+  - `_build_factor_registry`: classical (32) + LLM (17) = 49 factors 可组合
+  - `_build_composite`: 对每个组件 z-score cross-sectional 后加权求和，
+    再 z-score 得 composite score
+  - Backtest + 5-gate verdict 逻辑同 Round 5 factor_backtest
+  - 负权支持：e.g. `vol_63d:-0.3` 等价于 "low-vol" 成分
+- 5 次配置测试:
+  1. `drawup_from_252d_low:1.0` top-K=5（R5 basline replica）
+  2. A: drawup 0.3 + vol_63d −0.3 + spy_trend_200d 0.4, top-K=5
+  3. A top-K=10
+  4. A top-K=15
+  5. B risk-heavy: drawup 0.15 + vol_63d −0.45 + spy_trend 0.4, top-K=10
+  6. Benchmark: 纯 classical (vol −0.3 + mom 0.2 + spy_trend 0.3 + rs_vs_spy 0.2), top-K=10
+
+### 5. 修改了哪些文件
+- **新**：`scripts/llm_composite_backtest.py`
+- `CLAUDE.md` + `docs/ralph_loop_log.md`
+- **产出**（gitignored）：6 份 `data/ml/llm_composite_backtests/<config>/
+  composite_backtest.json`
+
+### 6. 跑了哪些测试/实验
+- pytest: 1109 (tool 是 script, 不动测试)
+- 6 次独立 composite backtest on 30-sym universe, 2018-01-01- 至今
+
+### 7. 结果如何
+
+| config | top-K | CAGR | Sharpe | MaxDD | 所有 5 gates |
+|---|---:|---:|---:|---:|---|
+| drawup 1.0 (R5 basline) | 5 | +22.10% | +0.66 | -77.99% | FAIL (MaxDD) |
+| A top-K=5 | 5 | +28.08% | +0.72 | -69.35% | FAIL (MaxDD) |
+| A top-K=10 | 10 | +19.38% | +0.66 | -63.53% | FAIL (MaxDD) |
+| A top-K=15 | 15 | +16.43% | +0.64 | -54.73% | FAIL (MaxDD + QQQ full) |
+| B risk-heavy | 10 | +18.39% | +0.63 | -64.03% | FAIL (all) |
+| **纯 classical** | 10 | +11.89% | +0.51 | -59.34% | **FAIL (all)** |
+
+**决定性**：最后一行 "纯 classical composite 无 LLM 候选" MaxDD 仍然 -59%。
+问题**与因子选择无关**，在于 tool 缺少 MFS 的 risk machinery。
+
+### 8. 新问题/新机会
+
+**重大 finding — factor-level tool 的边界**：
+production MFS 的 -19.7% MaxDD 达成靠的是：
+- factor composite（tool 覆盖）
+- **kill_switch** 阈值触发停损（tool 没）
+- **target_vol** position sizing（tool 没）
+- **regime-scaled cash allocation**（tool 没，spy_trend_200d 只作 score
+  component 而非 ex-ante position zero-out）
+- **market_trend 作 filter** 而非 numeric factor（tool 没）
+
+单纯 factor composite 在 2020 COVID crash 所有 top-K names 同时暴跌
+情况下，无法降到 -25% 范围。这**不是 drawup_from_252d_low 的问题**，是
+factor-level tool 的架构局限
+
+**路径选择 (Round 5→R9 演进)**:
+- R5: "drawup 作为 isolated 策略 MaxDD -77%"
+- R8: "regime-gating 治不好"
+- **R9: "composite diversification 也治不好"**
+- 结论 → **真正的验证必须在 production MFS 框架内做**（evaluator.evaluate
+  完整路径）
+
+**Trade-off 清楚了**：
+- 选项 (a) 给 tool 加 kill_switch + target_vol 重 MFS 轮子 — 高代码成本
+- 选项 (b) 把 drawup 加到 RESEARCH_FACTORS + generate_all_factors — 低代码
+  但触及 `factor_registry.py`，**需要用户授权**
+
+### 9. 剩余风险
+- 若用户批 (b) 并运行 `run_mining.py` 测试 drawup in MFS composite，有可能
+  QQQ gate 或 subperiod 仍然失败 → drawup 永远 stuck in research
+- 若用户不批 (b)，LLM phase 剩余 21 轮的成功概率下降：没有新机制跨过
+  factor-level tools 局限
+- tool 的 kill_switch/target_vol 添加（选项 a）需要 300+ 行代码 — 高
+  round-cost，且本质是"重写 MFS"
+
+### 10. 下一轮建议方向
+**A (推荐，需用户首肯)**: 把 `drawup_from_252d_low` 加到 `RESEARCH_FACTORS`
++ `generate_all_factors`。这是 PRD §12 的正常 promotion 步骤，不涉及
+PRODUCTION_FACTORS。下一步 `run_mining.py` 就能把它当 component 跑完整
+evaluator.evaluate
+
+**B (不需首肯)**: 继续 LLM-6 orthogonalization gate — 完成 PRD §9 菜单
+剩余 infrastructure；不会解开 MaxDD 阻塞但有独立价值
+
+**C (大 scope)**: 给 `llm_composite_backtest.py` 加 kill_switch + target_vol
+机制，本质重造 MFS 一部分
+
+### 11. TODO checklist（更新）
+- [x] LLM-1..LLM-8 部分完成；5 个 core tools 就位
+- [x] Composite backtest 工具 + 6 次配置测试
+- [x] **决定性结论**：factor-level tools 无法验证 MaxDD invariant
+- [ ] **下轮推荐，需用户首肯**: 把 drawup 加到 RESEARCH_FACTORS 开放完整
+      evaluator.evaluate 路径
+- [ ] LLM-6 orthogonalization (如不批 A)
+- [ ] LLM-9..LLM-12 菜单继续
+
+### 12. 本轮 commit 哈希
+- （code commit）—— LLM-Round 9: composite backtest tool + 6 configs tested
+- （doc commit）—— docs: LLM-Round 9 log + factor-level-tool-boundary finding
+
+---
