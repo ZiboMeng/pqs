@@ -2557,7 +2557,7 @@ limit + min_level gating built-in. Credentials via env var expansion
 path before resuming `prd_universe_expanded_mining.md` R36+:
 - [x] **M0** research baseline snapshot (`scripts/build_research_baseline_snapshot.py`)
 - [x] **M1** `config/production_strategy.yaml` single source of truth (21 unit + 7 integration tests)
-- [ ] **M2** promote CLI + acceptance pack
+- [x] **M2** promote CLI + acceptance pack (13 unit tests; `scripts/acceptance_pack.py` + `scripts/promote_strategy.py` + `docs/promotion_flow.md`)
 - [ ] **M3** runtime alignment check (WARN → FAIL phased)
 - [ ] M4 cross-ticker YAML DSL (P1)
 - [ ] M5 multi-TF execution contract formalization (P1)

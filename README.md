@@ -194,6 +194,7 @@ pqs/
 │   ├── ralph_loop_log.md        - **逐轮研究日志**（核心）
 │   ├── llm_phase_blocker_report.md
 │   ├── prd_framework_completion.md  - **当前优先 PRD**（M1-M9 框架闭环）
+│   ├── promotion_flow.md             - Mining → production 正式流程 (M2)
 │   ├── prd_universe_expanded_mining.md  - mining 循环 PRD（待 M3 后恢复）
 │   ├── prd_llm_factor_mining.md
 │   ├── prd_intraday_mining_loop.md
@@ -577,6 +578,24 @@ python scripts/run_universe_rebalance.py
 - **默认读**: 最新回测 + archive leaderboard
 
 ### 8.9 工具
+
+#### `acceptance_pack.py` ⭐ (PRD M2)
+- **作用**: 对 archive 中某 spec_id 跑 9-gate acceptance pack，产 JSON artifact
+- **CLI**: `--spec-id <id|prefix> --out-dir <dir> --verbose`
+- **产出**: `artifacts/acceptance_packs/acceptance_<id>_<ts>.json`
+- **Exit code**: 0 if all pass, 1 if any fail
+- **不改** `config/production_strategy.yaml`，只读；见 `promote_strategy.py` 做 promote
+
+#### `promote_strategy.py` ⭐ (PRD M2)
+- **作用**: mining archive 到 production 的显式 promote 入口
+- **CLI**:
+  - `--spec-id <id|prefix>` 指定 candidate
+  - `--dry-run`: 显示 proposed yaml + diff，不写入
+  - `--promote`: 实际写入（acceptance pack 必须 PASS，否则拒绝）
+  - `--force --yes-i-know-what-im-doing`: emergency override（不推荐）
+  - `--rationale "..."`: 记录 promote 原因
+- **产出**: 重写 `config/production_strategy.yaml` 为 `status: active`（需后续 `git commit` 生效）
+- **完整流程**: 见 `docs/promotion_flow.md`
 
 #### `send_round_summary.py`
 - **作用**: 每轮研究总结发微信 / Server 酱
