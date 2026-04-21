@@ -1680,3 +1680,142 @@ XGBoost 发现，又产生新的候选因子，scope 合理
 - （doc commit）—— docs: LLM-Round 6 log + dedup-flagged incremental value finding
 
 ---
+
+## LLM-Round 7 — 2026-04-21 — Topic LLM-8: factor interaction mining
+
+### 1. 主题
+Topic LLM-8 —— factor interaction mining。基于 Round 6 top-K 建 pairwise
+multiplicative interactions，挖真增量 alpha。
+
+### 2. 目标
+- PRD §9 LLM-8 completion signal: "top-K combinations enter archive"
+- 具体：建 interaction mining tool，从 Round 6 top-8 XGBoost features
+  取 28 对，按 incremental IC 排名；top 3 写成 YAML 候选走 funnel + deep_check
+
+### 3. 为什么这轮优先做它
+- Round 6 明确显示 LLM 候选 在 XGBoost top-20 里的 importance 来自
+  interactions，不是 univariate。系统化挖 interactions 是下一步
+- Tool 是可复用资产（future rounds 的 interaction miner）
+
+### 4. 做了什么
+- `scripts/run_factor_interaction_mine.py` (~200 行):
+  - 加载 classical + LLM 全 factor panel
+  - Default top-K 来自 Round 6 排名（hardcoded list `_DEFAULT_TOP_FEATURES`）
+  - Pairwise 组合 C(K, 2) interactions
+  - 每个 interaction = z-score cross-sectional(A × B)
+  - 计算 IC，排序 by "incremental" = |interaction IC| − max(|parent ICs|)
+  - 输出 ranked list + parquet/json artifacts
+- 3 interaction candidates 写 YAMLs + compute_fns（top-3 incremental）
+- 3 candidates 全部走 funnel
+- Top 1 (`rs_qqq_regime_conditioned_63d`) 跑 30-sym deep_check
+
+### 5. 修改了哪些文件
+- **新**：`scripts/run_factor_interaction_mine.py`
+- **新**：`research/llm_candidates/round_07/{__init__.py,compute_fns.py,3 yamls}`
+- `CLAUDE.md` — LLM-Round 7 段
+- `docs/ralph_loop_log.md` — 本段
+- **产出**（gitignored）：`data/ml/factor_interactions/{interactions.parquet,
+  summary.json}`，`data/ml/llm_candidates/{round_07 3 candidates}/verdict.json`，
+  `data/ml/llm_deep_checks/rs_qqq_regime_conditioned_63d/deep_check.json`
+
+### 6. 跑了哪些测试/实验
+- pytest collection: **1109**
+- Interaction mining: 30-sym universe, 28 pairs, 21d horizon
+- Funnel on 3 candidates: 15-sym universe (default CLI)
+- Deep_check on 1 candidate: 30-sym universe
+
+### 7. 结果如何
+
+**Interaction mining top 3**（30-sym）:
+
+| rank | pair | IC | incr |
+|---:|---|---:|---:|
+| 1 | rs_vs_qqq_63d × spy_trend_200d | +0.087 | +0.058 |
+| 2 | spy_trend_200d × mom_63d | +0.087 | +0.058 |
+| 3 | rs_vs_qqq_63d × mom_63d | +0.069 | +0.040 |
+
+10/28 pairs 有正增量 IC，18/28 DESTROY alpha（vol_63d 系列 interactions
+全部负向）。
+
+**Funnel 结果**（15-sym, 3 candidates）:
+- mom_regime_conditioned_63d: IC +0.021, IR +0.05 → ARCHIVE
+- rs_qqq_regime_conditioned_63d: IC +0.020, IR +0.05 → ARCHIVE
+- rs_qqq_mom_63d: IC +0.037, IR +0.10 → ARCHIVE
+
+**Deep_check on rs_qqq_regime_conditioned_63d（30-sym）**:
+
+| 检查项 | 值 | 判决 |
+|---|---:|---|
+| OOS mean IR | +0.239 | ❌ FAIL (< 0.3) |
+| Regime correct sign | 5/6 | ✅ PASS |
+| Quartile max contribution | 0.403 | ✅ PASS |
+| **Overall** | | ❌ **FAIL (ARCHIVE)** |
+
+但差距极小（+0.239 vs 0.3 threshold）。深入：
+- BULL +0.110 / CRISIS +0.234（最强）/ RISK_OFF +0.108 / NEUTRAL -0.009
+- Q1-Q3 IC +0.09~0.13, **Q4 2024-2026 IC 崩到 +0.0015**
+
+### 8. 新问题/新机会
+
+**关键 finding 1 — universe size sensitivity**: 同 factor 15-sym +0.020 vs
+30-sym +0.087 (4x)。Interaction 因子本质依赖 cross-sectional variance；
+Mag7-heavy 15-sym 下 SPY / QQQ / trend-factors 的差异都被压扁。funnel
+CLI 默认 top-15 太窄，应该 bump 到 30+ 才能和 interaction mining /
+deep_check 结论一致
+
+**关键 finding 2 — regime-conditioned factors 有近期衰减**:
+`rs_qqq_regime_conditioned_63d` Q1-Q3 (2018-2024) 都工作（IC +0.09 到
++0.13），Q4 (2024-2026) IC +0.0015 几乎归零。两种可能解释：
+- (a) 2024-2026 市场 spy_trend_200d 长期 bullish → binary regime gate 总
+  输出 +1 → 退化成 mom_63d 或 rs_vs_qqq_63d 本身
+- (b) 市场风格变了，regime-conditioned 机制不再有效
+
+(a) 可以通过连续软门（SPY distance from EMA instead of sign）测试。
+如果软门下 Q4 IC 回升，证实是 (a)，binary gate 丢了信号。
+
+**关键 finding 3 — multiplicative 不总是好**: 28 pairs 里 18 对破坏 alpha。
+vol_63d 特别：alone IC -0.127（强负，low-vol 有 alpha）；与任何 directional
+factor 相乘都变差。说明 "方向性因子 × risk factor" 的乘积往往取消彼此。
+这是 **interaction mining 的 selectivity** 教训：必须看 incremental，全盘收
+一定会引入噪声
+
+### 9. 剩余风险
+- Tool 当前 hardcodes `_DEFAULT_TOP_FEATURES`。如果 Round 6 importance
+  排名变（新 LLM 候选加入 panel 后）需手动更新。改进：动态从
+  `data/ml/llm_xgb_importance.parquet` 读 top-K
+- 只考察了 2 种 interaction：`A * B`。对其他 operator（A - B, A/B,
+  A * sign(B)）没覆盖。如果下轮继续挖 interactions 应扩展
+- Deep_check 门槛（OOS IR ≥ 0.3）是我 Round 3 定的；可能太严。+0.239
+  的因子在很多研究场景下已经是可用信号
+
+### 10. 下一轮建议方向
+
+**A (推荐)**: LLM-7 regime-conditioned v2 — 软门版本
+  - 把 binary `sign(SPY > 200d EMA)` 换成连续 `(SPY / 200d_EMA - 1)` 或
+    `tanh((SPY - EMA) / EMA)`
+  - 重新跑 deep_check on rs_qqq 和 mom 两个 regime-conditioned 因子
+  - 如果 Q4 IC 回升，证实 Round 7 finding 2 (a)
+
+**B**: 改进 llm_factor_propose.py universe size
+  - 默认 top-15 → top-30，使 funnel 和 deep_check 一致
+  - 这个改动影响所有后续 candidates 的 verdict，值得一改
+  - 但会让旧候选的 verdict 历史记录不再可比 — 需 versioned 对比
+
+**C**: LLM-6 orthogonalization gate —— 还是原本在列
+
+默认 **A**，因为 Round 7 揭示了一个明确的实验假设（binary vs soft
+regime gate），下轮可以定量回答
+
+### 11. TODO checklist（更新）
+- [x] LLM-1..LLM-6 (5 tool + 14 candidates)
+- [x] LLM-8 interaction mining tool + 3 candidates
+- [ ] **下轮推荐**: LLM-7 soft-gate version of regime-conditioned
+- [ ] Funnel universe size bump 15 → 30
+- [ ] LLM-6 orthogonalization gate
+- [ ] LLM-12 候选 promote（需人审）
+
+### 12. 本轮 commit 哈希
+- （code commit）—— LLM-Round 7: interaction mining tool + 3 interaction candidates
+- （doc commit）—— docs: LLM-Round 7 log + universe sensitivity finding
+
+---

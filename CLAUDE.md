@@ -654,6 +654,67 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 7 — Topic LLM-8：factor interaction mining
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-7`
+
+**改动**:
+- 新 `scripts/run_factor_interaction_mine.py` —— 系统性挖 top-K factor 两两
+  乘积 interaction，按 "incremental IC vs max(parent ICs)" 排名
+- 新 `research/llm_candidates/round_07/` + 3 interaction candidates（top 3
+  incremental IC pairs）:
+  - `rs_qqq_regime_conditioned_63d` = rs_vs_qqq_63d × spy_trend_200d
+  - `mom_regime_conditioned_63d`    = mom_63d × spy_trend_200d
+  - `rs_qqq_mom_63d`                = rs_vs_qqq_63d × mom_63d
+
+**Interaction mining 结果**（30-sym universe, 28 pairs from top-8 parents）:
+
+| rank | pair | IC | parent max |IC| | incr |
+|---:|---|---:|---:|---:|
+| 1 | rs_vs_qqq_63d × spy_trend_200d | +0.087 | 0.029 | **+0.058** |
+| 2 | spy_trend_200d × mom_63d | +0.087 | 0.029 | **+0.058** |
+| 3 | rs_vs_qqq_63d × mom_63d | +0.069 | 0.029 | **+0.040** |
+| ... | | | | |
+| 10 | spy_trend_200d × drawup_from_252d_low | +0.111 | 0.108 | +0.003 |
+
+**Funnel 结果（15-sym universe）**:
+
+| factor | IC mean | IC IR | verdict |
+|---|---:|---:|---|
+| rs_qqq_regime_conditioned_63d | +0.020 | +0.05 | ARCHIVE |
+| mom_regime_conditioned_63d | +0.021 | +0.05 | ARCHIVE |
+| rs_qqq_mom_63d | +0.037 | +0.10 | ARCHIVE |
+
+**Deep_check on top candidate (30-sym)** — `rs_qqq_regime_conditioned_63d`:
+- OOS mean IR +0.239 (FAIL, < 0.3 门槛但差距小)
+- Regime 5/6 correct sign (CRISIS IC +0.234 最强；NEUTRAL ≈ 0 弱)
+- Quartile: **Q4 2024-2026 IC 崩到 +0.0015** — signal 在最近 2 年衰减
+- Overall: FAIL (ARCHIVE)
+
+**关键 cross-round findings**:
+1. **Universe size sensitivity**：同一因子在 15-sym panel +0.020，30-sym panel
+   +0.087 —— 4x differential。Interactions 需要更宽 universe 才能显现
+   cross-sectional variance。Round 6 的 XGBoost 也是 30-sym 所以检测到了
+2. **Regime-conditioned factors 近期衰减**：`rs_qqq_regime_conditioned_63d`
+   Q1-Q3 IC 各 +0.09 到 +0.13，Q4 突然到 +0.001。2024-2026 市场 spy_trend_200d
+   门限信号变弱/反噪（long bull run）
+3. **Pairwise multiplication 不总是增 alpha**：28 pairs 里只 10 个有正增量；
+   18 对 DESTROYED alpha（e.g., vol_63d 系列所有 interactions 都变差）。
+   Interaction mining 必须筛选，不能全盘收
+
+**PRD §13.2 halt 条件**: pytest 1109 / 0 promote / 14 累计候选 << 200 /
+无 invariant 违反。继续。
+
+**下轮建议**:
+- **A**: LLM-7 regime-conditioned v2 — 用 CONTINUOUS 软门（EMA distance
+  连续值 instead of binary sign）重写 Round 7 的 top-2 interactions，看是否
+  能平滑近期衰减问题
+- **B**: LLM-6 orthogonalization gate — 建 `scripts/
+  llm_candidate_orthogonalization.py` 补完 dedup 方法论
+- **C**: 改进 funnel universe — `llm_factor_propose.py` 当前 top-15 太窄；
+  升到 30-sym 对标 deep_check 会让 funnel 和 deep_check 结论更一致
+
 ### LLM-Round 6 — Topic LLM-5：XGBoost cross-signal mining（7/11 候选进 top-20）
 
 **时间**: 2026-04-21
