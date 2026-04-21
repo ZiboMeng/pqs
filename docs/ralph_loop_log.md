@@ -354,6 +354,83 @@ Round 5 候选：
 
 ### 11. 本轮 commit 哈希
 - `f4ee30d` — Round 4 (Topic D): factor gate WARN/ERROR 可配置
-- （本条 doc commit）— docs: 第 4 轮日志更新
+- `036a054` — docs: 第 4 轮日志更新
+
+---
+
+## Round 5 — Topic F: 首个 intraday factor family 引入（research-only）
+
+**日期**: 2026-04-20（22:55 完成）
+**Topic**: F（intraday factor family introduction）
+**Lineage_tag**: `post-2026-04-20-capital-100k`（无方法论变更）
+**测试变化**: 1029 → **1039**（+10 intraday factor 单测）
+**主要 commits**: `710e8c3`
+
+### 1. 当前阶段
+Ralph-loop 第 5 轮 / Topic F
+
+### 2. 本轮目标
+在 factor_generator.py 加第一个依赖 60m bar 的 factor family；注册为 RESEARCH-only（不进 PRODUCTION_FACTORS）；通过 IC 筛验证有非平凡 IC
+
+### 3. 为什么先做它
+§3.1 全关闭后 §3.2 第一项；最贴合 "intraday mining" 主题；独立于 Round 1 OOS blocker（IC 筛不需要 OOS pass）
+
+### 4. 做了什么
+- `generate_all_factors` 加可选 `intraday_bars_60m: Dict[str, pd.DataFrame]` 参数
+- 新 `_intraday_factors()` helper 产出 3 个因子（RTH 过滤、warmup 处理、NaN 安全）：
+  - `realized_vol_60m_21d` — 21d 滚动 annualized realized vol，从 60m bar returns 计算
+  - `intraday_vol_ratio_21d` — intraday rv / daily close-to-close vol 比值
+  - `intraday_autocorr_21d` — 日内 60m bar lag-1 自相关 21d 滚动均值
+- 3 个新名加入 `RESEARCH_FACTORS`；故意不加 `RESEARCH_TO_PRODUCTION_MAP`（研究-only）
+- 适配 drift 测试：`test_all_generator_outputs_registered` 加合成 60m bars 让新因子参与校验
+
+### 5. 修改了哪些文件
+- `core/factors/factor_generator.py`（+85：`_intraday_factors` helper + 参数）
+- `core/factors/factor_registry.py`（+5：`RESEARCH_FACTORS` 加 3 名）
+- `tests/unit/factors/test_intraday_factor_family.py`（新，10 tests）
+- `tests/unit/factors/test_factor_registry.py`（+25：drift 测试加合成 bars）
+- `CLAUDE.md`（Ralph-Loop Findings: Round 5）
+- `docs/prd_intraday_mining_loop.md` Appendix A（本日志）
+- `docs/ralph_loop_log.md`（本节）
+
+### 6. 跑了哪些测试
+- `pytest tests/ -q`：**1039 passing**（+10）
+- 真实数据 IC smoke：SPY + QQQ + Mag7（8 symbols）× 2020 至今（1582 days）:
+
+  | Factor | IC_5d | IC_21d |
+  |---|---:|---:|
+  | `realized_vol_60m_21d` | +0.054 | **+0.096** ✓ |
+  | `intraday_vol_ratio_21d` | -0.015 | -0.002 |
+  | `intraday_autocorr_21d` | +0.003 | +0.043 |
+
+### 7. 当前结果
+- Topic F completion signal **达成**：`realized_vol_60m_21d` 21d IC ≈ +0.10（远超 trivial 门槛）
+- 研究信号：高日内波动 → 未来回报偏正（vol risk premium 理论一致）
+- 但仍是 research-only，未做 OOS/regime/cost 完整 funnel，**不得直接进生产**
+
+### 8. 剩余风险
+- IC smoke 只在 8 标的 × 6 年，跨 universe / 跨 regime 验证未做
+- `realized_vol_60m_21d` 与已有 `vol_63d` / `vol_21d` 正相关强，promote 前需做 orthogonality check
+- Round 1 OOS blocker 仍未解；下轮可考虑用新因子重跑 mining 看是否改变结果
+
+### 9. 下一轮建议
+- **Round 6 = Topic E（shadowed-factor merge）**⭐ —— 清理 vol_63d ↔ low_vol 等双实现，降低维护成本；可能影响 backtest 数字
+- 备选 Topic G（cross-TF feature training）—— 较大工程
+- Off-menu：手工 promote `realized_vol_60m_21d` 到 `PRODUCTION_FACTORS` 跑 smoke 看 OOS 改善（需用户签核）
+
+### 10. TODO checklist（更新后）
+- [x] Round 0: smoke + audit + NaN fix + capital bump
+- [x] Round 1: Topic A（诊断 OOS 100% 失败率）
+- [x] Round 2: Topic B（leaderboard lineage + QQQ）
+- [x] Round 3: Topic C（stale_counts 进 checkpoint）
+- [x] Round 4: Topic D（factor gate strict mode）→ **§3.1 全关闭**
+- [x] Round 5: Topic F（intraday factor family → IC_21d +0.096）
+- [ ] Round 6: Topic E（shadowed-factor merge）— 推荐
+- [ ] Round 7-9: G/H/I（research）
+- [ ] Round 10-12: J/K/L（infra）
+
+### 11. 本轮 commit 哈希
+- `710e8c3` — Round 5 (Topic F): 首个 intraday factor family 引入
+- （本条 doc commit）— docs: 第 5 轮日志更新
 
 ---
