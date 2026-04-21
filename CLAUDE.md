@@ -2561,7 +2561,7 @@ path before resuming `prd_universe_expanded_mining.md` R36+:
 - [x] **M3** runtime alignment check WARN mode (12 unit tests; `core/alignment/alignment_check.py`; integrated in `run_backtest.py` + `run_paper.py`)
 - [x] **M4** cross-ticker YAML DSL (24 unit tests; `core/signals/cross_ticker_rules.py` + `config/cross_ticker_rules.yaml`; 3 rule types; safe expression eval no Python eval)
 - [x] **M5** multi-TF execution contract runtime assert (4 integration tests; `IntradayBacktestEngine.run_multi_day` clips + WARN on negative timing_provider weights)
-- [ ] M6 LLM proposal Phase 1 (template + checklist, no API) (P1.5)
+- [x] **M6** LLM proposal Phase 1 (3 markdown docs: `docs/llm_proposal_prompt_template.md`, `docs/llm_proposal_seed_context.md`, `docs/llm_funnel_checklist.md`; process formalization, no code change)
 - [ ] M7 XGBoost weight research model (P2)
 - [ ] M8 Transformer research phase (P2)
 

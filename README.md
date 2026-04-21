@@ -1346,6 +1346,14 @@ xfail 解除条件必须文档化在 reason 参数里。
 所有 funnel verdicts 只会是 `REJECT` / `ARCHIVE` / `NEEDS_HUMAN_REVIEW`，
 **永不 auto-KEEP**。最终 promote 决策必须人审核 OOS + regime + cost + QQQ。
 
+**标准化流程 (PRD M6 Phase 1)**:
+- `docs/llm_proposal_prompt_template.md` —— 给 LLM 的 system prompt + YAML schema
+- `docs/llm_proposal_seed_context.md` —— 每轮开始前要注入的 5 段 repo state
+- `docs/llm_funnel_checklist.md` —— 6 步 mandatory funnel
+
+**Phase 2 (未来)**: 若 Phase 1 conversation overhead 真成瓶颈，再建
+`scripts/llm_propose_round.py` 程序化 API 调用；**不提前做**。
+
 ---
 
 ## 16. 故障排查
