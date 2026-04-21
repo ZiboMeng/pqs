@@ -2227,3 +2227,81 @@ days）—— PRD 菜单里仍未开发的方向
 - （doc commit）—— docs: LLM-Round 10 log + promotion milestone + MaxDD response
 
 ---
+
+## LLM-Round 11 — 2026-04-21 — orthog bug fix + 微信 round summary
+
+### 1. 主题
+- 回应用户指令 "每轮训练总结发到微信"
+- 修 Round 10 遗留的 orthogonalization sparse-controls bug
+- 用修复工具回测 3 个 dedup-flagged 候选
+
+### 2. 做了什么
+
+**用户指令应答（每轮微信总结）**:
+- 新 `scripts/send_round_summary.py`：从 markdown 文件/stdin 读总结，经
+  `core.notify` 发送
+- `config/notify.yaml` 翻到 `enabled: true, backend: wecom_bot`
+- Backend 在 `PQS_WECOM_WEBHOOK_URL` 未设时 fallback 到 `NullNotifier`
+  而非 crash（优雅降级）
+- **用户需 export `PQS_WECOM_WEBHOOK_URL`**（webhook URL 从企业微信群
+  机器人管理页面获取）。设后 Claude 下轮结束自动推送
+
+**orthog bug fix**:
+- 旧实现：每个 (date, sym) 要求 32 controls 都非 NaN → 交集几乎空
+- 新实现 (`min_controls_per_date=3`, `min_symbols_per_regression=5`):
+  1. 对每 date 独立挑选有 ≥5 symbol 覆盖的 controls
+  2. 仅对那些 usable controls 跑 regression
+  3. 至少 3 个 controls 的 dates 进入 residualization
+- 结果：3 candidates 现在有 ~60 dates 残差（之前 n=0）
+
+### 3. 修改了哪些文件
+- `scripts/llm_candidate_orthogonalization.py` —— `_orthogonalize_cs` 重写
+- **新**：`scripts/send_round_summary.py`
+- `config/notify.yaml` —— enabled true + backend wecom_bot
+- `CLAUDE.md` + `docs/ralph_loop_log.md`
+- **产出**（gitignored）：刷新 3 个 `data/ml/llm_orthog/<name>/orthog_report.json`
+
+### 4. 结果
+
+**Orthogonalization (post-fix)**:
+
+| candidate | raw IC | residual IC | retention | verdict |
+|---|---:|---:|---:|---|
+| rs_vs_qqq_63d | +0.036 | -0.016 | 43.6% | LOW |
+| rs_vs_equal_weight_63d | +0.036 | -0.019 | 53.6% | LOW |
+| **rs_21d_minus_63d** | -0.020 | **-0.034** | **172.6%** | **MEDIUM** |
+
+**关键发现**: `rs_21d_minus_63d` 残差 IC 绝对值 (0.034) 比 raw (0.020) **大
+72%**。通常 orthogonalization REDUCE 因子强度；这里 raw factor 的 alpha
+被 correlated controls **掩盖**，剥离后显现 independent signal。注意符号
+一致（都是负 IC），且 mean-revert direction 主题与 Round 1-4 累计 findings
+一致。
+
+**Notify test**:
+- stdout backend: SUCCESS (消息打印到 console)
+- wecom_bot backend (webhook 未配): 正确 WARN + fallback NullNotifier
+
+### 5. 新发现
+- `rs_21d_minus_63d` 作为 "掩藏的 mean-revert signal" 值得 deep_check 跟进
+- Notify infra 完成但等待用户 webhook URL 才能真发送
+
+### 6. §13.2 halt check
+- pytest: 1109 unchanged
+- 0 PRODUCTION promote
+- 16 pending + 1 promoted << 200
+- 无 invariant 违反
+
+### 7. 下一轮建议
+- **A**: 给 `rs_21d_minus_63d` 跑 deep_check（30-sym, OOS walk-forward +
+  regime）看 §5.4 reverse review 是否通过
+- **B**: `run_factor_screen.py --factors drawup_from_252d_low`（post-promotion
+  独立 IC/OOS 报告，natural follow-up to R10）
+- **C**: 如果用户 export webhook URL，发一次 "Round 11 完整总结" 验证
+  pipeline（目前微信 fallback 到 NullNotifier）
+
+### 8. 本轮 commit 哈希
+- （code commit）—— LLM-Round 11: orthog sparse-controls fix + send_round_summary tool
+- （config commit）—— enable notify wecom_bot backend (needs PQS_WECOM_WEBHOOK_URL)
+- （doc commit）—— docs: LLM-Round 11 log + orthog-reveals-hidden-alpha finding
+
+---

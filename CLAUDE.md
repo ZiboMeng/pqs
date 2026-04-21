@@ -654,6 +654,53 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 11 — orthog bug fix + 微信 round summary infra
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-11`
+**用户指令**: "每轮训练总结发到微信"
+
+**改动**:
+
+1. **orthog bug 修复** (`scripts/llm_candidate_orthogonalization.py`):
+   - 旧 logic: 对每 (date, symbol)，要求所有 32 controls 都非 NaN → 早期
+     长 warmup 基本交集为空 → residual n=0
+   - 新 logic: 每 date 独立挑选有足够覆盖的 controls（`min_controls_per_date=3`
+     + 每 control `min_symbols_per_regression=5`）。然后 y 和选中的 controls
+     都非 NaN 的 symbols 进入 regression
+   - Post-fix 3 候选 residual IC:
+     - rs_vs_qqq_63d: retention 43.6%, **LOW**
+     - rs_vs_equal_weight_63d: retention 53.6%, **LOW**
+     - rs_21d_minus_63d: retention **172.6%** (!), **MEDIUM** — residual 比
+       raw 更强，signal 被既有 controls 掩盖
+
+2. **微信 round summary infra**:
+   - `scripts/send_round_summary.py` —— 从 markdown file 或 stdin 读摘要，
+     通过 `core.notify` 发送
+   - `config/notify.yaml` 翻成 `enabled: true, backend: wecom_bot`
+   - `--stdout` flag 可强制用 stdout backend（测试/降级）
+   - **需用户 export `PQS_WECOM_WEBHOOK_URL`** 环境变量；未设时自动
+     fallback 到 NullNotifier（优雅降级，不 crash）
+
+**PRD §13.2 halt 条件**: pytest 1109 / 0 PRODUCTION promote / 16 pending
+candidates + 1 promoted << 200 / 无 invariant 违反。继续。
+
+**用户操作 TODO**:
+- 要真正收到微信推送，需要:
+  ```bash
+  export PQS_WECOM_WEBHOOK_URL="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=XXXX"
+  ```
+  然后 Claude 下轮结束会自动 call `send_round_summary.py` 把总结推过来
+
+**下轮建议**:
+- 运行 `run_factor_screen.py` 给 `drawup_from_252d_low` 一个独立的 IC/OOS
+  自动化报告（postR10 promotion 后 natural follow-up）
+- 或运行 `run_mining.py --type multi_factor` 看 MFS composite 是否 surface
+  drawup（虽然 drawup 不是 PRODUCTION_FACTOR，但 `generate_all_factors`
+  包含它，可以用作 research 信号）
+- orthogonalization tool MEDIUM verdict（rs_21d_minus_63d）值得 deep_check
+  跟进
+
 ### LLM-Round 10 — 用户授权 drawup promotion + orthogonalization gate
 
 **时间**: 2026-04-21
