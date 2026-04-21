@@ -3575,3 +3575,82 @@ R34-R35 (block 剩 2 rounds):
 - (code commit) —— R33 grid_search tool + test update removing xfail
 
 ---
+
+## Universe-Mining-Round 34 — 2026-04-21 — Fresh Optuna multi_factor mining
+
+### 1. 主题
+PRD §3 block R33-R35 续 — R34: 新 Optuna study (reset 持久化历史)
+探索 multi_factor 参数空间，验证 R33 grid-best 是否 walk-forward stable.
+
+### 2. 执行
+```
+# Reset Optuna state (backup saved to optuna_backup_r33.db)
+mv data/mining/optuna.db data/mining/optuna_r29_to_r33.db
+
+run_mining.py --trials 50 --budget 1800 --type multi_factor
+  --lineage-tag post-2026-04-21-universe-mining-round-34
+```
+
+### 3. 结果 — fresh Optuna 效果显著 but OOS 仍负
+
+**44 unique trials** archived (vs R29 5, R30 4, R32 2) — fresh Optuna
+让 sampling 有效扩大。
+
+Top 5 by OOS IR:
+
+| spec | qk_sh | CAGR | OOS IR | w_drawup | w_qual | w_rel |
+|---|---:|---:|---:|---:|---:|---:|
+| de196ee5ddad | 0.63 | +15.15% | -0.218 | 0.15 | 0.35 | 0.10 |
+| ead29589de8a | 0.62 | +15.32% | -0.248 | 0.00 | 0.35 | 0.25 |
+| 71b00585b032 | 0.77 | +16.94% | -0.291 | 0.20 | 0.30 | 0.20 |
+| 02787b6a032e | 0.84 | +18.20% | -0.328 | 0.20 | 0.30 | 0.20 |
+| ac0a6c9ddb23 | 0.63 | +15.72% | -0.331 | 0.15 | 0.30 | 0.25 |
+
+**0/44 trials 有 OOS IR > 0**, range [-0.683, -0.218].
+
+### 4. 关键 finding — in-sample CAGR ≠ walk-forward OOS IR
+- R33 grid-best weights (drawup=0.15, qual=0.30, rel=0.30 etc.)
+  CAGR +3.13% vs QQQ (full-period one-shot backtest)
+- R34 mining 探索 drawup=0.15-0.20 + qual=0.30-0.35 区域 **确实 sample
+  到了**（top 5 里几乎都在该范围内）
+- **但 walk-forward OOS IR 仍负** (-0.22 到 -0.68)
+
+这意味着：
+- R33's xfail fix 在 full-period CAGR 测试层 valid（没 overfit 那个 test）
+- R28 expanded universe 的 "MFS CAGR > QQQ" 可达，**但 walk-forward
+  rolling OOS IR ≥ 0.20** 还是没能跨过
+- R17 "不降标准" 原则保护了完整 promote 路径 - 避免 sample-based
+  cagr-only 误用为 promote 证据
+
+### 5. §7 stop condition check
+- pytest 1109 passed 0 xfailed ✓
+- PRODUCTION_FACTORS unchanged
+- universe.yaml unchanged
+- **Cumulative trials 135 / 200** ← 需关注 approach threshold
+- No invariant violation (all tier D with oos < 0.20)
+
+### 6. 新问题/新机会
+- Fresh Optuna (R34) vs accumulated Optuna (R29-R33) 对比:
+  accumulated 反而快速卡死，fresh 立即 44 trials；说明 run_mining.py 的
+  Optuna 持久化在长时间使用后**退化为 "重复 top params" mode**，不产生
+  new exploration
+- **dual_momentum R31 best OOS +0.121 仍是 post-R28 lineage 最佳**；
+  multi_factor R34 虽 44 trials 但都负 OOS
+- **R28 expanded universe 下 multi_factor 的 OOS IR "天花板" 似乎在 ~-0.22**
+  — 需测 dual_momentum fresh Optuna 看能否突破 R31 +0.121
+
+### 7. 下轮 (R35) 建议
+R35 = block R33-R35 最后一轮:
+- **Option A**: 跑 dual_momentum fresh Optuna (~40 trials) 看能否
+  突破 R31 +0.121 + 达 0.20 promote threshold
+- **Option B**: propose user authorize update MFS `_DEFAULT_WEIGHTS` 到
+  R33 grid-best (touches production) — production benefit 但 R34 证据说
+  walk-forward 不 stable，不建议
+- **Option C**: intraday (60m) baseline 提前开跑（block R36-R38 开头）
+
+推荐 **A** - 用 R31 已证明的 dual_momentum 方向 + fresh Optuna 继续扩大.
+
+### 8. 本轮 commit 哈希
+- (doc commit only) —— docs: R34 log + fresh Optuna exploration
+
+---
