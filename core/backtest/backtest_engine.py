@@ -365,7 +365,16 @@ class BacktestEngine:
         for sym in all_syms:
             cur_w = cur_weights.get(sym, 0.0)
             tgt_w = tgt_weights.get(sym, 0.0)
+            # Guard against NaN weights BEFORE arithmetic (closeout
+            # post-smoke 2026-04-20). Without this, NaN tgt_w → NaN
+            # delta_w → NaN delta_usd → NaN qty → int(NaN) raises in
+            # integer_shares mode and kills the whole trial. This was
+            # the #1 failure mode in the first smoke mining run.
+            if not np.isfinite(cur_w) or not np.isfinite(tgt_w):
+                continue
             delta_w = tgt_w - cur_w
+            if not np.isfinite(delta_w):
+                continue
 
             # 绝对偏差小于阈值 且 不是清仓 → 跳过
             if abs(delta_w) < self._rebal_thr and tgt_w > 0:
@@ -387,6 +396,8 @@ class BacktestEngine:
                 continue
 
             qty = delta_usd / exec_price
+            if not np.isfinite(qty):
+                continue
             if self._int_shares:
                 qty = float(int(qty))
             if qty < 1e-6:
