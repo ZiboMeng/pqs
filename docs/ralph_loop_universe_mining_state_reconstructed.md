@@ -61,7 +61,8 @@ Loop was **paused at R35** per user request (2026-04-21 afternoon).
 - Best OOS IR: **+0.121** (dual_momentum, tied R31 / R35)
 - Best full-period CAGR vs QQQ: **+3.13pt** (R33 grid, in-sample only)
 - **xfail resolved** — test_full_period_cagr_beats_qqq now passes
-- pytest: **1109 passed 0 xfailed**
+- pytest: 1109 passed 0 xfailed (snapshot at pause time; regenerate via
+  `scripts/build_research_baseline_snapshot.py`)
 
 ---
 

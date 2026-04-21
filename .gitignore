@@ -26,6 +26,7 @@ data/ml/
 data/mining/
 data/.yf_cache/
 data/_catalog.parquet
+data/baseline/
 data/trades_scanner_state*.json
 data/*.db
 data/*.db-shm
@@ -67,3 +68,7 @@ x.txt
 # Claude Code harness runtime state (not committed)
 .claude/*.local.*
 .claude/ralph-loop.local.md
+.claude/scheduled_tasks.lock
+
+# Codex CLI scratchpad (not committed)
+.codex
