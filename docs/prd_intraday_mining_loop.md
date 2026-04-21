@@ -231,7 +231,8 @@ PRD rather than continuing the loop.
 | 0.5 (config) | 2026-04-20 | initial_capital 10k → 100k | — | methodology change; bump lineage_tag for all subsequent rounds |
 | 1 | 2026-04-20 | Topic A (full smoke 80/1800 @ $100k) | post-2026-04-20-capital-100k | 37 trials, 56/57 quick pass, **0 OOS pass** → QQQ gate 未触发; completion signal 未达; plumbing 在单测层已充分覆盖; 研究 blocker: post-P0.1 口径下 80 trials 不足; Phase B "current best" 参数已标注为旧口径 (`07d51e5`) |
 | 2 | 2026-04-20 | Topic B (leaderboard lineage + QQQ + per-lineage summary) | post-2026-04-20-capital-100k | 新 `lineage_summary()` + CLI 13 列 + `--lineage-filter` 参数; 3 新单测 1009→1012; Round 1 研究发现在 CLI 里一目了然 (`add1f80`) |
-| 3 | _pending_ | 推荐 Topic C (stale_counts 进 checkpoint) | post-2026-04-20-capital-100k | _pending_ |
+| 3 | 2026-04-20 | Topic C (stale_counts 持久化到 bar_checkpoints) | post-2026-04-20-capital-100k | save/load_bar_checkpoint 持久化 stale_counts dict; run_day_intraday 总是从 cp 恢复 counter 支持跨日累积; 6 新单测 1012→1018; 端到端验证 5+6 days halt cumulative 触发 ghost cleanup (`5bc3e4e`) |
+| 4 | _pending_ | 推荐 Topic D (factor gate strict mode) | post-2026-04-20-capital-100k | _pending_ |
 | ... | | | | |
 
 ---

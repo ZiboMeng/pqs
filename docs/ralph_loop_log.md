@@ -219,6 +219,67 @@ Topic B completion signal **达成**：
 
 ### 11. 本轮 commit 哈希
 - `add1f80` — Round 2 (Topic B): leaderboard 显示 lineage + QQQ + per-lineage 汇总
-- （本条 doc commit）— docs: 第 2 轮日志更新
+- `96f0784` — docs: 第 2 轮日志更新
+
+---
+
+## Round 3 — Topic C: stale_counts 持久化到 bar_checkpoints
+
+**日期**: 2026-04-20（22:02 完成）
+**Topic**: C（stale_counts 跨进程持久化）
+**Lineage_tag**: `post-2026-04-20-capital-100k`（无方法论变更）
+**测试变化**: 1012 → **1018**（+6 stale_counts 持久化测试）
+**主要 commits**: `5bc3e4e`
+
+### 1. 当前阶段
+Ralph-loop 第 3 轮 / Topic C
+
+### 2. 本轮目标
+把 `PaperTradingEngine._intraday_stale_counts` 持久化到 `bar_checkpoints` 表，进程重启后能恢复，让多日 halt 的 ghost cleanup 能正确跨天累积触发
+
+### 3. 为什么先做它
+PRD §3.1 第三优先级。Closeout 1/4 commit 里就标过"stale_counts 跨进程不持久化"是遗留风险。生产 live 场景：标的被 halt 跨天、engine 重启之后 counter 清零，threshold 永远不触发
+
+### 4. 做了什么
+- `save_bar_checkpoint` 的 `state_json` 里额外写 `stale_counts` 字段（不改 signature，直接读 `self._intraday_stale_counts`）
+- `load_bar_checkpoint` 返回 dict 新增 `stale_counts` 字段；老 checkpoint 缺此 key 时返回 `{}`（向后兼容）
+- `run_day_intraday` 的 resume 路径：**总是**从 cp 恢复 `stale_counts`，**不依赖** `cp.date == date` 判断。语义：stale_counts 是跨日累积量，不是"当日状态"。Positions/cash 仍只在同日 resume 时恢复
+
+### 5. 修改了哪些文件
+- `core/paper_trading/paper_trading_engine.py`（+30：`save/load_bar_checkpoint` + `run_day_intraday` 恢复路径）
+- `tests/unit/paper_trading/test_stale_counts_checkpoint.py`（新，6 tests）
+- `CLAUDE.md`（Round 3 entry in Ralph-Loop Findings）
+- `docs/prd_intraday_mining_loop.md` Appendix A（本日志）
+- `docs/ralph_loop_log.md`（本节）
+
+### 6. 跑了哪些测试
+- `pytest tests/ -q`：**1018 passing**（+6）
+- 6 focused 测试覆盖完整：save 写入 / load 读回 / 老格式兼容 / 同日 resume / 跨日 resume / **多日 halt 端到端累积触发 ghost cleanup**（5 天 halt + 重启 + 6 天 halt，cumulative 11 > threshold 8）
+
+### 7. 当前结果
+Topic C completion signal **达成**：
+- 关键测试 `test_cumulative_halt_across_two_days_triggers_cleanup` 直接验证"杀 engine mid-day halt → 重启 → 新 engine 续上 counter → 累积到 threshold → 正确触发 ghost cleanup"
+- 老格式 checkpoint 向后兼容 (`test_legacy_checkpoint_without_stale_counts_returns_empty_dict`)
+
+### 8. 剩余风险
+- `save_bar_checkpoint` 现在写整个 `stale_counts` dict 到 JSON。大 universe 场景下 checkpoint 体积会增长。目前可接受（生产 top_n=4-6）
+- checkpoint 里 `date` 仍 `str(date.date())`，时间诊断不如 ISO datetime 精确（留给 future round）
+- Round 1 的 OOS 研究 blocker 仍未解决，非本轮范围
+
+### 9. 下一轮建议
+**Round 4 = Topic D**（factor gate WARN/ERROR 可配置），PRD §3.1 最后一项。完成后 §3.1 全关闭，Round 5+ 转入 §3.2 research 菜单或 off-menu OOS blocker
+
+### 10. TODO checklist（更新后）
+- [x] Round 0: smoke + audit + NaN fix + capital bump
+- [x] Round 1: Topic A（诊断 OOS 100% 失败率）
+- [x] Round 2: Topic B（leaderboard lineage + QQQ）
+- [x] Round 3: Topic C（stale_counts 进 checkpoint）
+- [ ] Round 4: Topic D（factor gate strict mode）
+- [ ] Round 5-9: E/F/G/H/I（research，含 OOS 诊断）
+- [ ] Round 10-12: J/K/L（infra）
+
+### 11. 本轮 commit 哈希
+- `5bc3e4e` — Round 3 (Topic C): stale_counts 持久化到 bar_checkpoints
+- （本条 doc commit）— docs: 第 3 轮日志更新
 
 ---
