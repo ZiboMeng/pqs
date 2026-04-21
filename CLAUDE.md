@@ -654,6 +654,71 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 21 — 非 tech alpha 源发现 + universe 筛选标准提案
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-21`
+**用户新指令**: "可以给config授权 进行universe扩容 首先跟我确认扩容的筛选
+标准 然后执行之后 扩容的candidate要给我确认"
+
+**改动**:
+- 扩展 `universe_alpha_diagnostic.py` 加 `--symbols` CLI flag 接受自定义
+  list + `--out-name` 定制 artifact 名称
+- 在 33 个非 tech candidates 上跑 audit（ABBV/UNH/LLY/JNJ/REGN/VRTX/
+  ISRG/PG/KO/COST/WMT/PEP/JPM/V/MA/BAC/PNC/USB/BRK-B/CAT/HON/GE/BA/
+  LMT/RTX/XOM/COP/PSX/NEE/DUK/DIS/NFLX/CMCSA）
+- 写 universe 扩容筛选标准提案（本段）
+
+**R21 audit 结果**（非 tech universe, 2018-01-01 至今）:
+
+| Category | Count | Notable symbols |
+|---|---:|---|
+| **ALPHA_GENERATOR** | **5** | MA(+3.7% α), **CAT (+9.9%)**, GE, RTX (+12%), VRTX (+7.7%) |
+| **DIVERSIFIER** | 12 | **LLY (α +24.8% Sharpe 1.07)**, **COST (+13.3% Sharpe 1.00)**, REGN, ABBV, LMT, PEP, KO, WMT, PG, DUK, JNJ, NEE |
+| MARKET_LIKE | 15 | — |
+| PURE_BETA | 1 | BA (α -12%) |
+
+**重大发现**:
+- **LLY α +24.8%/yr Sharpe +1.07** (pharma, β=0.66) — **比任何 Mag7 还强**
+- COST α +13.3% Sharpe +1.00 (staples, β=0.69)
+- 多数 Mag7（AAPL/GOOGL/AMZN）α ≈ 0 而 non-tech 里有 17 个 KEEP
+  candidates
+
+**累计 alpha 候选池** (R20 + R21): 6 tech + 17 non-tech = **23 symbols**
+应进最终 expanded universe
+
+**用户 R21 workflow** (5-step):
+1. ✅ 筛选标准提案（本轮）
+2. ⏳ **待用户确认标准**
+3. 执行完整 broader audit → candidate list
+4. ⏳ 待用户确认 candidate list
+5. config 改动（risk.yaml / universe.yaml）
+
+**提议筛选标准** (see also ralph_loop_log.md §R21):
+
+Primary filters: daily data ≥5y / avg daily ADV > $50M / 不在 blacklist /
+β 可计算
+
+Alpha 准入（满足 ONE）:
+- ALPHA_GENERATOR: β∈[0.7,1.3] AND α>3%
+- BETA_PLUS_ALPHA: β>1.3 AND α>3%
+- HIGH_SHARPE_DIVERSIFIER: β<0.7 AND Sharpe>0.5 AND α>0
+
+排除: PURE_BETA / 高 r² vs SPY 无 alpha / 2020 COVID MaxDD < -60% 但非
+ALPHA_GENERATOR
+
+Sector diversification: 每个 GICS ≥3 symbols, 单一最多 8 ；targetsize 60-80
+
+**PRD §13.2 halt 条件**: pytest 1109 / 1 PRODUCTION promote (R15 auth) /
+26 LLM candidates / 无 invariant 违反。**待用户确认 universe 扩容标准后
+方可进入实际 config 改动**
+
+**下轮待做**:
+- 用户确认上述标准后: R22 执行 broader audit （~100 candidates across
+  all sectors/cap tiers）产出 candidate list
+- 否则: R22 做 report §8 open question #2（MR ensemble single-factor
+  test，不需新授权）
+
 ### LLM-Round 20 — universe alpha/beta 诊断（empirical audit of user's thesis）
 
 **时间**: 2026-04-21

@@ -56,15 +56,19 @@ setup_logging()
 logger = get_logger("universe_alpha_diagnostic")
 
 
-def _load_panel(cfg, start: str):
+def _load_panel(cfg, start: str, symbols_override: list = None):
     store = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
-    uni = cfg.universe
-    all_syms = list(dict.fromkeys(
-        list(uni.seed_pool) + list(uni.sector_etfs) +
-        list(uni.factor_etfs) + list(uni.cross_asset)
-    ))
-    symbols = [s for s in all_syms
-               if s not in uni.blacklist and s not in uni.macro_reference]
+    if symbols_override:
+        # User-supplied list: keep SPY (required as benchmark); filter dupes
+        symbols = list(dict.fromkeys(["SPY"] + symbols_override))
+    else:
+        uni = cfg.universe
+        all_syms = list(dict.fromkeys(
+            list(uni.seed_pool) + list(uni.sector_etfs) +
+            list(uni.factor_etfs) + list(uni.cross_asset)
+        ))
+        symbols = [s for s in all_syms
+                   if s not in uni.blacklist and s not in uni.macro_reference]
     pf = {}
     for s in symbols:
         df = store.read(s, "1d")
@@ -150,10 +154,21 @@ def main():
     parser.add_argument("--start", default="2018-01-01")
     parser.add_argument("--config-dir", default="config")
     parser.add_argument("--out-dir", default="data/ml")
+    parser.add_argument("--symbols", default=None,
+                        help="Comma-separated list of symbols. Overrides "
+                             "config universe. SPY auto-included as "
+                             "benchmark.")
+    parser.add_argument("--out-name", default="universe_alpha_diagnostic",
+                        help="Output file stem (default covers current "
+                             "universe; use to distinguish experiments)")
     args = parser.parse_args()
 
     cfg = load_config(Path(args.config_dir))
-    price_df = _load_panel(cfg, args.start)
+    symbols_override = (
+        [s.strip() for s in args.symbols.split(",") if s.strip()]
+        if args.symbols else None
+    )
+    price_df = _load_panel(cfg, args.start, symbols_override=symbols_override)
     logger.info("Price panel: %s", price_df.shape)
 
     if "SPY" not in price_df.columns:
@@ -195,7 +210,7 @@ def main():
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    df.to_csv(out_dir / "universe_alpha_diagnostic.csv", index=False)
+    df.to_csv(out_dir / f"{args.out_name}.csv", index=False)
 
     # Summary
     counts = df["category"].value_counts().to_dict()
@@ -214,7 +229,7 @@ def main():
         "drop_symbols":    df.loc[df["category"] == "PURE_BETA", "symbol"].tolist(),
         "review_symbols":  df.loc[df["category"] == "MARKET_LIKE", "symbol"].tolist(),
     }
-    (out_dir / "universe_alpha_summary.json").write_text(
+    (out_dir / f"{args.out_name}_summary.json").write_text(
         json.dumps(summary, indent=2, ensure_ascii=False)
     )
 
