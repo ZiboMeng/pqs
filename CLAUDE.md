@@ -654,6 +654,76 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 16 — mining run with drawup in PRODUCTION（OOS barrier 确认为全系统性）
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-15` (mining trials 继续使用 R15 lineage 集中测试 drawup 促销效果)
+
+**目标**: 验证 R15 promotion 后 `drawup_from_252d_low` 作为 7th PRODUCTION
+factor 是否能让 MFS mining 产出通过 QQQ gate + MaxDD 约束的 trial，闭环
+PRD §10 success criteria #1 + #2
+
+**Mining run**:
+- `scripts/run_mining.py --trials 30 --budget 1200 --type multi_factor
+  --lineage-tag post-2026-04-20-llm-round-15`
+- 耗时 121s，155 evaluated，83 unique archived，**11** 标注 lineage R15
+- 72/83 passed quick，**0 passed OOS**，0 promoted，全部 tier D
+
+**Drawup weight sweep 结果** (best top 10 R15 trials):
+
+| spec_id | w_drawup | OOS IR | quick_sharpe | pass_rate |
+|---|---:|---:|---:|---:|
+| 81f5cdaa053e | **0.05** | **-0.089** | 0.72 | 0.57 |
+| b63ca5d817f6 | 0.10 | -0.364 | 0.62 | 0.50 |
+| 18d79c98fc92 | 0.15 | -0.328 | 0.64 | 0.57 |
+| b576f47258ef | **0.00** (baseline) | -0.391 | 0.59 | 0.57 |
+| afe1ed3d86b0 | 0.20 | -0.383 | 0.60 | 0.57 |
+
+关键：**w_drawup=0.05 的 OOS IR (-0.089) 比 w_drawup=0.00 (-0.391) 好 30 pts**
+— drawup 作为 production component 有改善效果，最佳权重比 R15 default (0.10)
+更小 (0.05)。但**所有 trial OOS 仍为负，未能过 0.3 阈值**
+
+**Lineage 对比**:
+
+| lineage | n | quick_pass | oos_pass | best_oos |
+|---|---:|---:|---:|---:|
+| R1 capital-100k (pre-promotion, 52 trials) | 52 | 43 | 0 | +0.008 (边缘) |
+| **R15 (drawup in PROD, 11 trials)** | 11 | 10 | 0 | -0.089 |
+| closeout baseline | 20 | 19 | 0 | -0.325 |
+
+**系统性发现** ⭐: OOS IR 问题是**跨 lineage** 全系统性 —— post-P0.1-fix
+(apply_extra_shift=False) 的 codebase 在现有 universe + MFS 参数搜索空间下
+OOS IR 集中在 [-0.5, +0.01] 区间，**从未达到 +0.3 门槛**。drawup promotion
+在此 constraint 下做了边缘改善（-0.39 → -0.09）但 OOS 仍不能过门槛
+
+**这意味着 PRD §10 success criteria 状态**:
+- #1 "至少 1 个 LLM candidate 通过完整 funnel 并被 promote" —— ✅ **代码层
+  达成** (R15)
+- #2 "promoted 的因子在 QQQ hard gate 下为 pass" —— ❌ **blocked**（OOS barrier
+  让 evaluator 永远不到 stage 6 QQQ gate）
+- #3 "archive 可追溯" —— ✅
+
+**PRD §10 alternate path** (criterion #4): "30 轮结束后明确证明'当前 universe
++ factor 空间不足以支撑新增 alpha'，产出一份 blocker 报告" —— **R15+R16
+给了实证：drawup 是最强可 promote LLM 候选；其 PRODUCTION integration
+只能把 OOS IR 改善 30 pts 但不能翻正**。值得在 R17-R30 里继续尝试，
+或 R30 时产出 blocker report
+
+**PRD §13.2 halt 条件**: pytest 1109 / 1 PROMOTED (drawup, user-authorized)
+/ 23 LLM candidates + 1 promoted / 无 invariant 违反。继续
+
+**下轮建议**:
+- **A**: 扩大 mining 预算到 3600s + 80 trials，看更宽 parameter space 下
+  有无 trial 过 OOS。确认"OOS barrier 真是 systemic"的假设
+- **B**: 尝试 topic LLM-9 event/calendar candidates（唯一剩余未覆盖菜单 topic）
+- **C**: **研究 WHY OOS is systemically negative** —— 可能是 evaluator.evaluate
+  的 walk-forward window 配置 / stress test 过严 / post-fix 数据口径问题。
+  这是**跨 LLM phase scope** 的问题，但如果 30 轮结束前不解决，success
+  criterion #2 永远 blocked
+
+默认推 **C**，因为它是唯一能解开 #2 的路径。具体任务：查 
+`core/mining/evaluator.py` 的 OOS 判决逻辑，看是不是阈值设置过严
+
 ### LLM-Round 15 — composite ensemble + drawup → PRODUCTION promotion ⭐
 
 **时间**: 2026-04-21

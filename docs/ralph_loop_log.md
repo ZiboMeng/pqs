@@ -2651,3 +2651,87 @@ change / above median persistence / dispersion-adjusted mom）分别有
 - (doc commit) —— docs: LLM-Round 15 log + composite findings + promotion
 
 ---
+
+## LLM-Round 16 — 2026-04-21 — mining with drawup in PRODUCTION
+
+### 1. 主题
+Run mining with 7-factor PRODUCTION space (post-R15 promotion) 验证
+drawup promotion 是否闭环 PRD §10 success criteria #1 + #2
+
+### 2. 做了什么
+- `scripts/run_mining.py --trials 30 --budget 1200 --type multi_factor
+  --lineage-tag post-2026-04-20-llm-round-15`
+- 分析 11 R15-lineage trials 的 drawup weight distribution
+- 跨 lineage 对比 (R1 capital-100k vs R15 vs closeout baseline)
+
+### 3. 结果
+
+**Mining stats**: 155 evaluated, 83 archived, 72 passed quick, **0 passed OOS**,
+0 promoted, 全部 tier D。耗时 121s。
+
+**Drawup weight sweep** (best top 10 R15):
+
+| spec_id | w_drawup | OOS IR | quick_sh | pass_rate |
+|---|---:|---:|---:|---:|
+| 81f5cdaa053e | **0.05** | **-0.089** | 0.72 | 0.57 |
+| b63ca5d817f6 | 0.10 | -0.364 | 0.62 | 0.50 |
+| 18d79c98fc92 | 0.15 | -0.328 | 0.64 | 0.57 |
+| b576f47258ef | 0.00 (baseline) | -0.391 | 0.59 | 0.57 |
+| 9e65ffd8c96a | 0.00 | -0.449 | 0.59 | 0.57 |
+| afe1ed3d86b0 | 0.20 | -0.383 | 0.60 | 0.57 |
+| a0b214372436 | 0.00 | -0.491 | 0.57 | 0.57 |
+| 2b3af8e4dfff | 0.15 | -0.420 | 0.59 | 0.57 |
+| 9f5c4310b01a | 0.10 | -0.455 | 0.57 | 0.57 |
+
+**关键**: w_drawup=0.05 的 OOS IR (-0.089) 比 w_drawup=0.0 (-0.39 ~ -0.49) 
+**好 30 pts**。drawup promotion 有正面效果，只是还不够过 OOS 门槛
+
+**Cross-lineage 对比**:
+
+| lineage | n | quick_pass | oos_pass | best_oos |
+|---|---:|---:|---:|---:|
+| R1 (pre-promotion) | 52 | 43 | 0 | +0.008 |
+| R15 (drawup PROD) | 11 | 10 | 0 | -0.089 |
+| closeout | 20 | 19 | 0 | -0.325 |
+
+### 4. 系统性发现
+**OOS IR barrier 是 post-P0.1-fix 全系统性问题**，不是 drawup 特定：
+- R1 capital-100k 52 trials 最佳 OOS +0.008 (边缘)
+- R15 11 trials 最佳 OOS -0.089
+- closeout 20 trials 最佳 OOS -0.325
+
+post-fix (`apply_extra_shift=False`) 下 MFS 参数搜索空间里 OOS 集中在
+[-0.5, +0.01]，**从未到 0.3 门槛**。增加 drawup 作为 7th factor 只能
+边缘改善 30 pts，不能翻正
+
+### 5. PRD §10 status
+- #1 代码层达成 ✅ (R15 promotion committed)
+- #2 blocked — OOS barrier 让 evaluator 永远进不到 stage 6 QQQ gate
+- #3 ✅ archive lineage 齐全
+- #4 alternate path "blocker report" — R15+R16 已给了定量证据；30 轮后可
+  产出正式 report
+
+### 6. 修改了哪些文件
+- `CLAUDE.md` + `docs/ralph_loop_log.md` (只动 doc)
+- **产出**: 83 新 archive entries (其中 11 R15-lineage)
+- 1 composite_backtest 运行中间产物
+
+### 7. §13.2 halt check
+- pytest: 1109 (unchanged)
+- 1 PROMOTED (drawup, R15 user-authorized) — 仍 within §13.2 budget
+- 23 LLM candidates
+- 无 invariant 违反
+
+### 8. 下一轮建议方向
+- **A**: 扩大 mining 预算（3600s + 80 trials）+ 更宽 strategy_type 搜索
+  看有无 trial 过 OOS
+- **B**: LLM-9 event/calendar 候选（剩余菜单 topic）
+- **C** (**高价值，跨 LLM phase scope**): 诊断 OOS barrier 根因。看
+  `core/mining/evaluator.py::_check_oos` 的 IR 阈值、walk-forward window
+  大小、regime 过滤是否过严。如果 OOS barrier 是 evaluator bug 或过严
+  config，修了之后 drawup 可能立即 satisfy criterion #2
+
+### 9. 本轮 commit 哈希
+- (doc commit only) —— docs: LLM-Round 16 log + OOS barrier systemic finding
+
+---
