@@ -22,6 +22,8 @@ data/daily/
 data/intraday/
 data/factors/
 data/ref/
+data/ml/
+data/mining/
 data/.yf_cache/
 data/_catalog.parquet
 data/trades_scanner_state*.json
