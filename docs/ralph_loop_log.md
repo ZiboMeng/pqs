@@ -3409,3 +3409,85 @@ in R29-R32 topic block).
 - (doc commit only) —— docs: R31 log + dual_momentum OOS breakthrough
 
 ---
+
+## Universe-Mining-Round 32 — 2026-04-21 — Combined all-types mining
+
+### 1. 主题
+PRD §3 R29-R32 daily baseline 最后一轮 — Option B combined run (所有
+4 strategy types 一次跑).
+
+### 2. 执行
+```
+run_mining.py --trials 25 --budget 2400 (no --type)
+  --lineage-tag post-2026-04-21-universe-mining-round-32
+```
+运行约 40min，总 55 trials archived 跨 4 types.
+
+### 3. 结果 — 0 OOS-positive
+
+| strategy_type | n | best OOS | n OOS>0 |
+|---|---:|---:|---:|
+| cross_asset_rotation | 19 | -0.346 | 0 |
+| dual_momentum | 16 | -0.125 | 0 |
+| multi_factor | 2 | -0.376 | 0 |
+| trend_following | 18 | NULL | 0 |
+| **总** | **55** | **-0.125** | **0** |
+
+Top 5 by OOS IR:
+- 29047625cae6 dual_momentum qk=0.56 cagr=+11.90% oos=-0.125
+- 752994860e8d dual_momentum qk=0.90 cagr=+15.94% oos=-0.132
+- 9153e0cfb67c dual_momentum qk=0.74 cagr=+13.55% oos=-0.132
+- ff87c30fd232 dual_momentum (dup)
+- 41b5517cc588 dual_momentum qk=0.86 cagr=+15.23% oos=-0.176
+
+**R31's 5 positive OOS trials 区域没被 R32 重访** —— Optuna samplers (现
+已跨 type 共 Optuna 存储) dedup 排除了 R31 的 winning params.
+
+### 4. R29-R32 block summary
+
+| Round | Type | n | best OOS | Note |
+|---|---|---:|---:|---|
+| R29 | multi_factor | 5 | -0.028 | 第一信号 |
+| R30 | multi_factor | 4 | -0.280 | regression (Optuna dedup) |
+| R31 | dual_momentum | 27 | **+0.121** | **5 trials OOS > 0** ⭐ |
+| R32 | all 4 types | 55 | -0.125 | 0 positive |
+
+Block total: **91 trials** across R29-R32 universe-mining lineage.
+Block completion signal "≥1 trial OOS > 0" MET by R31.
+
+### 5. Trend_following NULL OOS 调查
+18 trends all NULL — 很可能被 quick gate pruned 或 walk_forward 失败.
+下轮 (R33 off-block) 若 trend_following 仍要用，需查 quick gate log.
+
+### 6. §7 stop condition check ✓
+- pytest 1109 unchanged
+- PRODUCTION_FACTORS unchanged
+- universe.yaml unchanged
+- Cumulative trials 91 / 200
+- No invariant violation (all tier D with oos < 0.20)
+
+### 7. 新问题
+- **Optuna 跨 type 共 study 导致 dedup 干扰** — R31's dual_momentum 好
+  区域在 R32 里没 revisit；多 type 共存一个 Optuna study 可能需
+  per-type storage
+- **Trend_following OOS NULL 需诊断** —— 可能 quick gate 过严 for
+  trend on 扩 universe
+- Block signal 达成但**最佳 OOS +0.121 仍 < 0.20** promote threshold
+
+### 8. 下轮 (R33 进入 block R33-R35 MFS factor weight grid search)
+
+Per PRD §3: R33-R35 = "MFS factor weight grid search"，完成信号 "Find
+weight set where CAGR > QQQ (un-xfail test)"
+
+Approach:
+- Manual grid around R29 best: w_drawup∈[0.0, 0.20], w_rel_strength
+  ∈[0.15, 0.30] 等
+- 小心: spec R17 "不降标准"，不能降 IR 门槛，但可以 exhaust weight
+  space 更 thoroughly
+- 如果找到 CAGR > QQQ + OOS IR > 0.20 的组合，提议 user 授权改 MFS
+  defaults
+
+### 9. 本轮 commit 哈希
+- (doc commit only) —— docs: R32 log + R29-R32 block summary
+
+---
