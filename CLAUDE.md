@@ -654,6 +654,55 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 13 — Topic LLM-10 path-shape（mean-revert 主题再确认）
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-13`
+
+**改动**:
+- 新 `research/llm_candidates/round_13/` + 3 path-shape candidates
+- 覆盖 §9 菜单 LLM-10：path-shape / rolling pattern factors
+
+**候选** (3):
+- `breakout_20d_persistence_63d` — fraction of 63 days close > prior 20d max
+- `vol_compression_21_63` — 21d vol / 63d vol 比（低 = compression）
+- `days_since_252d_high` — 距上次 52w peak 的天数（取负号）
+
+**Funnel 结果** (15-sym):
+
+| factor | IC mean | IC IR | verdict |
+|---|---:|---:|---|
+| breakout_20d_persistence_63d | -0.016 | -0.05 | ARCHIVE（近噪声） |
+| days_since_252d_high | **-0.057** | -0.18 | ARCHIVE |
+| vol_compression_21_63 | -0.038 | -0.12 | ARCHIVE |
+
+`days_since_252d_high` 是**第 5 个 mean-revert direction-of-momentum 候选**
+（累计主题再确认：R1 `momentum_quality_interaction`, R2 `first_last_bar_diff_21d`,
+R4 `non_tech_rs_63d`, R12 `rs_21d_minus_63d`）。方向含义："最近 52w 高 →
+21d 跑输"，符合本 universe 短期 mean-revert pattern
+
+**Deep_check on `days_since_252d_high` (30-sym)**: FAIL
+- OOS walk-forward IR +0.042（几乎零）
+- Regime 4/6 正确 (BULL/RISK_OFF/CAUTIOUS/CRISIS 正；NEUTRAL/RISK_ON 负)
+- Quartile 符号翻转：Q1 -0.006, Q2 +0.061, Q3 +0.058, Q4 -0.028
+- 不稳定 factor, ARCHIVE
+
+与 drawup_from_252d_low 对比（30-sym 都测过）:
+- drawup: IC +0.108, OOS IR +0.386, **stable across quartiles** → PASS
+- days_since: IC 近零, OOS IR 近零, quartile flip → FAIL
+
+同样都是"52w 极值 path shape"类，但 distance-based 稳，time-based 不稳。
+证实 R1-R4 主题 #1："distance-from-trough 强，direction-of-momentum 弱"
+
+**PRD §13.2 halt 条件**: pytest 1109 / 0 PRODUCTION promote / 20 candidates
+(1 promoted to RESEARCH + 2 final archive through deep_check) / 无 invariant
+违反。继续。
+
+**下轮建议**:
+- 继续菜单 LLM-9 (event-based — proxy via calendar patterns) 或 LLM-11
+  (cross-sectional，比如 cross-section dispersion variants)
+- 或 (需授权) drawup → PRODUCTION 让 §13.2 halt 正式开始
+
 ### LLM-Round 12 — deep_check + factor_screen 后处理（drawup 第四方验证）
 
 **时间**: 2026-04-21
