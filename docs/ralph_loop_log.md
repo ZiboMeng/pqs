@@ -809,6 +809,74 @@ Round 11 候选：
 ### 11. 本轮 commit 哈希
 - `2ae0e1d` — chore: gitignore data/ml/ + data/mining/
 - `324ebc1` — Round 10 (Topic J): LLM factor proposal scaffold + funnel
-- （本条 doc commit）— docs: 第 10 轮日志更新
+- `b41569a` — docs: 第 10 轮日志更新
+
+---
+
+## Round 11 — Topic L: BrokerAdapter ABC + SimulatedBrokerAdapter
+
+**日期**: 2026-04-20（23:38 完成）
+**Topic**: L（broker adapter skeleton）
+**Lineage_tag**: `post-2026-04-20-capital-100k`（不动生产路径）
+**测试变化**: 1090 → **1102**（+12 broker adapter 单测）
+**主要 commits**: `168ae14`
+
+### 1. 当前阶段
+Ralph-loop 第 11 轮 / Topic L
+
+### 2. 本轮目标
+按 CLAUDE.md §4.1 建 `BrokerAdapter` ABC + `SimulatedBrokerAdapter` 实现；PRD 完成信号：submit → ack → fill → reconcile round-trip 接口测试
+
+### 3. 为什么先做它
+§3.3 Topic L，不需要外部真实 broker 账户；Topic K（real-time feed）需 vendor API 密钥不能无签核做；Topic L 为未来接真实 broker 打基础
+
+### 4. 做了什么
+- 新 `core/execution/broker_adapter.py`（230 行）：
+  - `BrokerAdapter` ABC + 7 抽象方法（按 CLAUDE.md §4.1）
+  - `OrderAck` + `ReconcileResult` dataclasses
+  - `SimulatedBrokerAdapter` wrap `ExecutionSimulator`（`set_next_fill_price` / `set_default_fill_price` 做确定性测试）
+- 12 focused 单测覆盖 submit → ack → fill → reconcile 全链路
+
+### 5. 修改了哪些文件
+- `core/execution/broker_adapter.py`（新）
+- `tests/unit/execution/test_broker_adapter.py`（新，12 tests）
+- `CLAUDE.md`（Round 11 entry）
+- `docs/prd_intraday_mining_loop.md` Appendix A（本日志）
+- `docs/ralph_loop_log.md`（本节）
+
+### 6. 跑了哪些测试
+- `pytest tests/ -q`：**1102 passing**（+12）
+- round-trip 单测: 下单 → ACCEPTED ack → 立即 fill → cash/position 更新 → reconcile 通过
+
+### 7. 当前结果
+Topic L completion signal **达成**：
+- ABC 定义 7 个抽象方法
+- SimulatedBrokerAdapter 全部实现
+- round-trip 端到端 pass
+- strategy 代码未来可 target BrokerAdapter 接口，真实 broker 接入时 strategy 代码**不改**
+
+### 8. 剩余风险
+- SimulatedBrokerAdapter 即时 fill（无 latency / partial / reject）；真实 broker 行为更复杂，后续可加 `LatencyInjectingAdapter` 做 stress test
+- `PaperTradingEngine` 未接入 `BrokerAdapter`；下轮可以做这个接入
+- Round 1 OOS blocker 仍在
+
+### 9. 下一轮建议
+**Round 12（off-menu）= PaperTradingEngine 接入 BrokerAdapter** ⭐
+- Round 11 的自然延续
+- 不需外部依赖
+- 验证 adapter 接口在真实 paper run 中也工作
+- 完成后 PRD §3 菜单只剩 Topic K 需外部签核
+
+备选：继续 Topic K（real-time feed，需用户签核）或直接进入 LLM auto-launch（底座从 Round 10 就已就位）
+
+### 10. TODO checklist（更新后）
+- [x] Round 0-10
+- [x] Round 11: Topic L（BrokerAdapter skeleton）
+- [ ] Round 12: off-menu PaperTradingEngine 接 BrokerAdapter — 推荐
+- [ ] Round 13-42 条件触发: LLM factor mining auto-launch
+
+### 11. 本轮 commit 哈希
+- `168ae14` — Round 11 (Topic L): BrokerAdapter ABC + SimulatedBrokerAdapter
+- （本条 doc commit）— docs: 第 11 轮日志更新
 
 ---
