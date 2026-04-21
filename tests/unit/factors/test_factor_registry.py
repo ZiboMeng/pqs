@@ -75,7 +75,30 @@ class TestFactorGeneratorAlignsWithRegistry:
             index=idx, columns=syms,
         )
         open_df = price.shift(1).bfill()
-        factors = generate_all_factors(price, volume, open_df=open_df)
+        # Synthetic 60m RTH bars so intraday factor family (Round 5
+        # Topic F, 2026-04-20) participates in the drift check.
+        intraday_bars_60m = {}
+        bar_times = []
+        for d in idx[:120]:  # 4 months of intraday bars is enough
+            for h, m in [(10, 30), (11, 30), (12, 30), (13, 30),
+                         (14, 30), (15, 30), (16, 0)]:
+                bar_times.append(d.replace(hour=h, minute=m))
+        bar_idx = pd.DatetimeIndex(bar_times)
+        for sym in syms:
+            ret = np.random.normal(0, 0.004, len(bar_idx))
+            close = 100 * np.exp(np.cumsum(ret))
+            intraday_bars_60m[sym] = pd.DataFrame({
+                "open":  close * 0.999,
+                "high":  close * 1.001,
+                "low":   close * 0.999,
+                "close": close,
+                "volume": np.random.randint(1e4, 1e5, len(bar_idx)),
+            }, index=bar_idx)
+
+        factors = generate_all_factors(
+            price, volume, open_df=open_df,
+            intraday_bars_60m=intraday_bars_60m,
+        )
 
         produced = set(factors.keys())
         missing_from_registry = produced - RESEARCH_FACTORS

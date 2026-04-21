@@ -96,6 +96,11 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     "overnight_gap_5d", "overnight_gap_21d", "overnight_vs_intraday",
     # Breadth
     "cross_section_dispersion_21d", "advance_ratio_10d",
+    # Intraday (Round 5 Topic F, 2026-04-20). Research-only — computed
+    # from 60m bars via generate_all_factors(intraday_bars_60m=...). NOT
+    # promoted to PRODUCTION_FACTORS yet; awaiting IC/OOS/regime funnel.
+    "realized_vol_60m_21d", "intraday_vol_ratio_21d",
+    "intraday_autocorr_21d",
 })
 
 

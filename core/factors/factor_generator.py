@@ -46,6 +46,7 @@ def generate_all_factors(
     open_df: pd.DataFrame | None = None,
     backfill_tickers: set[str] | None = None,
     volume_sensitive_factors: list[str] | None = None,
+    intraday_bars_60m: Dict[str, pd.DataFrame] | None = None,
 ) -> Dict[str, pd.DataFrame]:
     """
     Generate all candidate factors from price (and optionally volume) data.
@@ -84,6 +85,8 @@ def generate_all_factors(
     if open_df is not None:
         factors.update(_overnight_factors(price_df, open_df))
     factors.update(_breadth_factors(price_df))
+    if intraday_bars_60m is not None:
+        factors.update(_intraday_factors(price_df, intraday_bars_60m))
 
     if backfill_tickers:
         factors = apply_data_sensitivity_mask(
@@ -276,6 +279,112 @@ def _overnight_factors(
     factors["overnight_vs_intraday"] = (
         overnight_ret.rolling(21).mean() - intraday_ret.rolling(21).mean()
     )
+
+    return factors
+
+
+def _intraday_factors(
+    price_df: pd.DataFrame,
+    intraday_bars_60m: Dict[str, pd.DataFrame],
+) -> Dict[str, pd.DataFrame]:
+    """First intraday factor family (Round 5 Topic F, 2026-04-20).
+
+    Computes daily-indexed factor values from within-day 60m bar
+    granularity — information that CAN'T be captured from daily OHLC.
+
+    Current factors (RESEARCH-only, not in PRODUCTION_FACTORS):
+
+    - `realized_vol_60m_21d` — 21d rolling annualized realized vol
+      computed from 60m bar returns. More precise than daily
+      close-to-close vol in capturing within-day variance.
+
+    - `intraday_vol_ratio_21d` — ratio of intraday realized vol to
+      daily close-to-close vol. > 1 = intraday noise dominates
+      (mean-reversion regime proxy); < 1 = overnight drift dominates
+      (trending regime proxy).
+
+    - `intraday_autocorr_21d` — 21-day mean of lag-1 autocorrelation
+      of within-day 60m bar returns. Negative = intraday mean-
+      reversion; positive = intraday momentum continuation.
+
+    RTH-only: bars outside (09:30, 16:00] ET are filtered out so
+    the signals reflect session-time price action only.
+    """
+    factors: Dict[str, pd.DataFrame] = {}
+    index = price_df.index
+    symbols = list(price_df.columns)
+
+    # Results: symbol → Series indexed by business date
+    rv_series: Dict[str, pd.Series] = {}
+    ratio_series: Dict[str, pd.Series] = {}
+    ac_series: Dict[str, pd.Series] = {}
+
+    # Daily close-to-close vol (for ratio denominator), reuse price_df
+    daily_ret = price_df.pct_change()
+    daily_vol_21 = daily_ret.rolling(21, min_periods=10).std() * np.sqrt(252)
+
+    for sym, bars in intraday_bars_60m.items():
+        if sym not in symbols or bars is None or bars.empty:
+            continue
+        # RTH-filter: bars closing in (09:30, 16:00] ET
+        mins = bars.index.hour * 60 + bars.index.minute
+        rth = bars.loc[(mins > 9 * 60 + 30) & (mins <= 16 * 60)]
+        if len(rth) < 20:
+            continue
+
+        # 60m bar log returns — close-to-close within the session
+        close = rth["close"].astype(float)
+        bar_ret = close.pct_change()
+
+        # Group by trading date: within-day realized vol + autocorr
+        date_idx = rth.index.normalize()
+        by_day = pd.DataFrame({
+            "ret": bar_ret.values,
+            "sq":  (bar_ret ** 2).values,
+            "day": date_idx,
+        })
+        # Daily RV = sqrt(sum bar_ret^2) * annualization
+        # With ~7 60m RTH bars/day, annualization = sqrt(252)
+        daily_sq_sum = by_day.groupby("day")["sq"].sum()
+        daily_rv_raw = np.sqrt(daily_sq_sum.clip(lower=0)) * np.sqrt(252)
+
+        # Daily lag-1 autocorrelation of bar_ret within the day
+        def _day_ac(group):
+            r = group["ret"].dropna().values
+            if len(r) < 3:
+                return np.nan
+            r1 = r[:-1]
+            r2 = r[1:]
+            if r1.std() < 1e-10 or r2.std() < 1e-10:
+                return np.nan
+            return float(np.corrcoef(r1, r2)[0, 1])
+
+        daily_ac_raw = by_day.groupby("day").apply(_day_ac, include_groups=False)
+
+        # Align to business-date index used by price_df
+        daily_rv = daily_rv_raw.reindex(index)
+        daily_ac = daily_ac_raw.reindex(index)
+
+        # Rolling 21d smoothing
+        rv_series[sym] = daily_rv.rolling(21, min_periods=10).mean()
+        ac_series[sym] = daily_ac.rolling(21, min_periods=10).mean()
+
+        if sym in daily_vol_21.columns:
+            denom = daily_vol_21[sym].replace(0, np.nan)
+            ratio_series[sym] = rv_series[sym] / denom
+
+    if rv_series:
+        factors["realized_vol_60m_21d"] = pd.DataFrame(rv_series).reindex(
+            index=index, columns=symbols,
+        )
+    if ratio_series:
+        factors["intraday_vol_ratio_21d"] = pd.DataFrame(ratio_series).reindex(
+            index=index, columns=symbols,
+        )
+    if ac_series:
+        factors["intraday_autocorr_21d"] = pd.DataFrame(ac_series).reindex(
+            index=index, columns=symbols,
+        )
 
     return factors
 

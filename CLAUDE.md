@@ -654,6 +654,26 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### Round 5 — Topic F：首个 intraday factor family 引入
+
+**时间**: 2026-04-20
+**改动**:
+- `core/factors/factor_generator.py` 新 `_intraday_factors()` helper + `generate_all_factors(intraday_bars_60m=...)` 可选参数
+- 3 个新 RESEARCH-only 因子:
+  - `realized_vol_60m_21d` — 21 日滚动 annualized realized vol，从 60m bar returns 计算（比 close-to-close vol 更精细）
+  - `intraday_vol_ratio_21d` — intraday realized vol / daily close-to-close vol ratio
+  - `intraday_autocorr_21d` — 日内 60m bar 间 lag-1 自相关滚动均值
+- 三个名字加入 `RESEARCH_FACTORS`，**不在 `PRODUCTION_FACTORS`**（待 funnel 通过才 promote）
+- 10 focused 单测 + 1 drift 测试适配（传入合成 60m bars）
+- 真实数据 IC smoke（SPY/QQQ/Mag7/AAPL/MSFT/NVDA/META/GOOGL/AMZN，2020-今，N=8 symbols, 1582 days）:
+  - `realized_vol_60m_21d`: IC_5d = +0.054, **IC_21d = +0.096** ← 非平凡
+  - `intraday_vol_ratio_21d`: IC_5d = -0.015, IC_21d = -0.002 ← trivial
+  - `intraday_autocorr_21d`: IC_5d = +0.003, IC_21d = +0.043 ← 边缘
+
+**研究信号**: `realized_vol_60m_21d` 21d IC 约 +0.10，暗示"高日内波动 → 未来回报偏正"的 vol risk premium 关系。尚未通过完整 funnel（OOS / regime / cost stress），**不得直接进生产**。
+
+**测试变化**: 1029 → **1039 passing**（+10）
+
 ### Round 4 — Topic D：factor gate WARN/ERROR 可配置
 
 **时间**: 2026-04-20
