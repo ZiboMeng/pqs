@@ -654,6 +654,40 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 4 — Topic LLM-4：benchmark-relative 候选（dedup 主导）
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-4`
+
+**改动**:
+- 新 `research/llm_candidates/round_04/` + `compute_fns.py` + 3 候选 YAML
+- 3 候选均为 benchmark-relative 类（§3 方向）:
+  - `non_tech_rs_63d` — (RS vs QQQ) × sign(RS_qqq − RS_spy)，rotation-resistance 度量
+  - `rs_vs_equal_weight_63d` — 相对于 cross-sectional EW mean（非 cap-weighted）
+  - `rs_21d_minus_63d` — term-structure of RS（短-长周期差）
+
+**Funnel 结果**:
+
+| factor | verdict | IC mean | IC IR | dedup |
+|---|---|---:|---:|---|
+| `non_tech_rs_63d` | ARCHIVE | -0.074 | -0.19 | — |
+| `rs_21d_minus_63d` | NEEDS_HUMAN_REVIEW | — | — | rs_acceleration ρ=**-0.80**, xsection_rank_63d ρ=-0.75, rank_momentum_change ρ=-0.71 |
+| `rs_vs_equal_weight_63d` | NEEDS_HUMAN_REVIEW | — | — | rs_vs_spy_63d ρ=+0.78, xsection_rank_63d ρ=+0.94 |
+
+**关键发现**:
+- **2/3 NEEDS_HUMAN_REVIEW 是 dedup 命中**（non-incremental），非真正的新 alpha。PRD §5.1 规定 ρ>0.7 触发 mandatory review 而非 auto-reject，但人审查后大概率归入 ARCHIVE
+- `rs_21d_minus_63d` 与 `rs_acceleration` ρ=**-0.80** —— 实际上是符号翻转的同一因子。LLM 在未见既有 registry 时"重新发明"了已有因子
+- `non_tech_rs_63d` IC = -0.074 —— **第 4 个 mean-revert direction-of-momentum 候选**（前三：`momentum_quality_interaction` -0.053，`first_last_bar_diff_21d` -0.085，`rs_acceleration` 本身也是负 IC 相关）。研究主题进一步强化：**在本 universe 上，动量方向特征普遍是 mean-reverters**
+- `rs_vs_equal_weight_63d` dedup 符合预期：15 symbols 里 Mag7 占比过高，EW mean 接近 SPY
+
+**LLM-4 completion signal (≥1 candidate enters keep)**: 形式上达成（2 NEEDS_HUMAN_REVIEW），但都是 dedup-path 非 IC-path；实质 incremental alpha 未新增
+
+**PRD §13.2 halt 条件**: pytest 1109 / 0 promote / 11 累计候选（8+3）<< 200 / 无 invariant 违反。继续。
+
+**下轮建议**:
+- **A (推荐)**: 把 Round 3 的 `drawup_from_252d_low`（已 PASS §5.4）推进到完整 `evaluator.evaluate`（cost stress + QQQ hard gate），搭建 `scripts/llm_candidate_factor_backtest.py` skeleton
+- B: 更 granular universe（40+ symbols）重测 Round 4 两个 dedup 候选，看 dedup 是否在 wider universe 下松弛
+
 ### LLM-Round 3 — Topic LLM-1/LLM-3 收尾：deep_check 工具 + 首个 PASS 候选
 
 **时间**: 2026-04-21
