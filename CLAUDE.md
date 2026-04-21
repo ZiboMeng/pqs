@@ -654,6 +654,37 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### Round 9 — Topic H：Ridge vs XGBoost 特征重要性对比
+
+**时间**: 2026-04-20
+**改动**:
+- 新 `scripts/run_model_comparison.py` 在同一 feature panel 上训练 Ridge + XGBoost，对 OOS 用 permutation importance 给出 side-by-side top-20
+- 严格时序 train/test split（no shuffle）；Ridge 用 5-fold TimeSeriesSplit CV 调 alpha
+- 产出 artifacts 进 `data/ml/`：`model_comparison_config.json` / `model_comparison_top20.csv` / `ridge_perm_importance.parquet` / `xgb_perm_importance_comparison.parquet`
+- 4 focused smoke test
+
+**真实数据结果**（panel 79966 rows × 32 factors，train till 2023-02-23 / test 24609 rows）：
+
+| metric | Ridge | XGBoost |
+|---|---:|---:|
+| OOS R² | **+0.00692** | **-0.14791** |
+| Ridge alpha (CV) | 1000.000 | — |
+| Rank agreement (Spearman ρ) | +0.349 | (moderate) |
+
+**Top features**（两模型对比）:
+- **#1 `max_dd_126d`** — 两模型 PER 都把它排 #1
+- #11 `mom_252d` — 两模型一致
+- Ridge top-5: max_dd_126d, risk_adj_mom_63d, drawdown_current, xsection_rank_63d, rs_vs_spy_126d
+- XGBoost top-5: max_dd_126d, mom_126d, vol_63d, spy_trend_200d, mom_63d
+
+**研究含义**:
+- **XGBoost OOS R² 为负数** — 比"预测均值"还差，明显过拟合。在当前 universe + 特征集下，非线性模型不 generalize
+- **Ridge OOS R² 只有 +0.007** — 线性信号本身也很弱，但至少正
+- 两模型排 #1 都是 `max_dd_126d`，这是跨模型共识（promote 候选的强信号）
+- MODERATE 的 rank agreement（+0.349）说明 XGBoost 在抓一些 Ridge 看不到的 nonlinear structure，但这些结构不 generalize OOS
+
+**测试变化**: 1067 → **1071 passing**（+4 smoke tests）
+
 ### Round 8 — Topic G：cross-TF feature training（factor × timing 联合分析）
 
 **时间**: 2026-04-20
