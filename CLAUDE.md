@@ -174,11 +174,19 @@ Evidence levels:
 | Feature | Impact | Notes |
 |---------|--------|-------|
 | strict_match 10bps precision | Medium | Currently 500bps; needs BT vectorized→incremental unification |
-| True intraday live (盘中实时) | Medium | Needs real-time data feed; currently daily-level live |
+| True **realtime** intraday live (盘中实时) | Medium | Live now runs bar-by-bar against cached store data (约束 1 done); real-time feed still missing |
 | SHAP attribution | Low | Permutation importance (C-11) is functional alternative |
 | QQQ check in mining evaluator | Low | Validated in tests (C-7), not auto-checked per-trial |
 | Parallel mining | Low | Single-threaded works; parallelism needs DB lock design |
 | Computation caching | Low | Regime/factor outputs recalculated each run |
+
+#### Constraint Completion Sprint (2026-04-20)
+
+| Constraint | Status | Evidence |
+|-----------|--------|----------|
+| 约束 1 — intraday live bar-by-bar runtime | ✅ done | `run_paper.py --mode live` now routes through `PaperTradingEngine.run_day_intraday` → `IntradayBacktestEngine.run_multi_day` with per-bar `on_bar_complete` / `skip_bar_fn` / `target_wts_fn` hooks. `run_day_daily` fallback only fires when NO intraday bars for the day. Idempotent: re-running on same (run_id, date) is a no-op. Checkpoint recovery works. Tests: `tests/unit/paper_trading/test_bar_by_bar_runtime.py` (8 tests). Remaining: real-time bar feed (below) |
+| 约束 2 — factor_generator ↔ mining/execution | 🚧 pending | Still dual-track |
+| 约束 3 — multi-TF timing/execution repositioning | 🚧 pending | Direction-voting still in code; docs still imply alpha role |
 
 ---
 

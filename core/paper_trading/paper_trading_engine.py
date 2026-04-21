@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 import pandas as pd
 
@@ -28,7 +28,7 @@ import numpy as np
 from core.execution.cost_model import CostModel
 from core.execution.execution_simulator import ExecutionSimulator, Order, OrderSide, Fill
 from core.backtest.backtest_engine import BacktestEngine as _DailyEngine
-from core.backtest.intraday_engine import IntradayBacktestEngine, DayResult
+from core.backtest.intraday_engine import IntradayBacktestEngine, DayResult, BarUpdate
 from core.paper_trading.pnl_tracker import PnLTracker
 from core.risk.kill_switch import KillSwitch, KillSwitchConfig
 from core.logging_setup import get_logger
@@ -232,6 +232,142 @@ class PaperTradingEngine:
         logger.info(
             "[%s] daily: equity=%.2f  pnl=%.2f  trades=%d",
             date.date(), equity, net_pnl, len(fills),
+        )
+        return result
+
+    def run_day_intraday(
+        self,
+        run_id:         str,
+        date:           pd.Timestamp,
+        day_bars:       Dict[str, pd.DataFrame],
+        target_wts:     Dict[str, float],
+        vix:            float = 15.0,
+        target_wts_fn:  Optional[Callable[[pd.Timestamp, Dict[str, float], float], Dict[str, float]]] = None,
+        resume_from_checkpoint: bool = True,
+    ) -> DayResult:
+        """Bar-by-bar intraday execution for paper (live or replay).
+
+        Flow per bar:
+          1. skip_bar_fn: if a fill already exists for this bar (same run_id),
+             skip → idempotent re-run
+          2. Generate orders at bar T close using current positions + cash
+          3. Simulate fills at bar T+1 open
+          4. Persist orders/fills/positions/equity for the bar via
+             save_intraday_bar + checkpoint
+          5. Update in-memory positions/cash/tracker
+
+        Shared by live and replay; the ONLY difference is the bar source
+        (today's partial day vs a historical day's bars).
+        """
+        if not day_bars:
+            return DayResult(date=date, trades=[], eod_positions=dict(self._positions),
+                             eod_cash=self._cash, gross_pnl=0.0, net_pnl=0.0,
+                             forced_close=False)
+
+        cp_last_bar_ts: Optional[pd.Timestamp] = None
+        ref_sym_day = next(iter(day_bars))
+        day_last_bar_ts = day_bars[ref_sym_day].index[-1]
+        if resume_from_checkpoint:
+            cp = self.load_bar_checkpoint(run_id)
+            if cp is not None and cp["date"] == date:
+                self._positions = {s: float(q) for s, q in cp["positions"].items()}
+                self._cash = float(cp["cash"])
+                cp_last_bar_ts = cp["last_bar_ts"]
+                logger.info(
+                    "[%s] resumed run_id=%s from bar_ts=%s (cash=%.2f, %d positions)",
+                    date.date(), run_id, cp_last_bar_ts, self._cash,
+                    len(self._positions),
+                )
+                # If checkpoint indicates the day was fully completed
+                # (last_bar_ts == final bar), short-circuit — nothing
+                # left to do on this day.
+                if cp_last_bar_ts == day_last_bar_ts:
+                    logger.info(
+                        "[%s] day already fully processed; skipping",
+                        date.date(),
+                    )
+                    return DayResult(
+                        date=date, trades=[],
+                        eod_positions=dict(self._positions),
+                        eod_cash=self._cash,
+                        gross_pnl=0.0, net_pnl=0.0, forced_close=False,
+                    )
+
+        def _skip(bar_ts: pd.Timestamp) -> bool:
+            # Skip bars already processed — either seen by checkpoint or
+            # have persisted fills.
+            if cp_last_bar_ts is not None and bar_ts <= cp_last_bar_ts:
+                return True
+            return self.has_fill_for_bar(run_id, bar_ts)
+
+        # Track fills emitted through the per-bar hook so any remaining
+        # fills (e.g. EOD force-close, which happens OUTSIDE the per-bar
+        # loop in run_multi_day) can be persisted separately below.
+        bar_fill_ids: set[int] = set()
+
+        def _on_bar(upd: BarUpdate) -> None:
+            # Update in-memory state from the runtime's per-bar snapshot.
+            self._positions = dict(upd.positions)
+            self._cash = upd.cash
+            for f in upd.fills:
+                bar_fill_ids.add(id(f))
+            self.save_intraday_bar(
+                run_id=run_id, date=upd.date, bar_ts=upd.bar_ts,
+                orders=upd.orders, fills=upd.fills,
+                positions=upd.positions, cash=upd.cash, equity=upd.equity,
+            )
+            self.save_bar_checkpoint(
+                run_id=run_id, date=upd.date, bar_ts=upd.bar_ts,
+                positions=upd.positions, cash=upd.cash,
+            )
+
+        result = self._engine.run_multi_day(
+            date=date, day_bars=day_bars,
+            target_wts=target_wts,
+            positions=self._positions.copy(),
+            cash=self._cash,
+            vix=vix,
+            target_wts_fn=target_wts_fn,
+            on_bar_complete=_on_bar,
+            skip_bar_fn=_skip,
+        )
+
+        self._positions = result.eod_positions
+        self._cash = result.eod_cash
+
+        # Day-level equity record (for pnl_tracker + pt_history)
+        port_val = 0.0
+        for sym, qty in self._positions.items():
+            if sym in day_bars and len(day_bars[sym]) > 0:
+                port_val += qty * float(day_bars[sym]["close"].iloc[-1])
+        equity = self._cash + port_val
+
+        # Persist any fills not emitted by the per-bar hook (i.e. EOD
+        # force-close fills that happen after the bar loop in
+        # run_multi_day). Bucket them onto the last bar timestamp and
+        # guard with has_fill_for_bar to keep re-runs idempotent.
+        residual_fills = [f for f in result.trades if id(f) not in bar_fill_ids]
+        if residual_fills:
+            ref_sym = next(iter(day_bars))
+            last_bar_ts = day_bars[ref_sym].index[-1]
+            if not self.has_fill_for_bar(run_id, last_bar_ts):
+                self.save_intraday_bar(
+                    run_id=run_id, date=date, bar_ts=last_bar_ts,
+                    orders=[], fills=residual_fills,
+                    positions=self._positions, cash=self._cash, equity=equity,
+                )
+                # Final checkpoint reflects post-EOD state so a re-run
+                # doesn't re-trigger EOD force-close.
+                self.save_bar_checkpoint(
+                    run_id=run_id, date=date, bar_ts=last_bar_ts,
+                    positions=self._positions, cash=self._cash,
+                )
+        self._tracker.record(result, equity)
+        self._save_state(date, result, equity)
+
+        logger.info(
+            "[%s] intraday: equity=%.2f  pnl=%.2f  trades=%d",
+            date.date(), equity, result.net_pnl, result.n_trades,
         )
         return result
 

@@ -29,7 +29,7 @@ BacktestEngine.run() 和 Paper Trading 都调用这同一个函数，
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -71,6 +71,26 @@ class DayResult:
     @property
     def total_cost(self) -> float:
         return sum(f.cost_breakdown.total_cost_usd for f in self.trades)
+
+
+@dataclass
+class BarUpdate:
+    """Per-bar state emitted by the intraday runtime.
+
+    Fired once per bar processed by run_multi_day() when on_bar_complete
+    is set. Gives callers (live paper engine, replay persistence, UI) a
+    uniform view of what happened on this bar.
+    """
+    date:            pd.Timestamp
+    bar_ts:          pd.Timestamp
+    bar_index:       int
+    is_last_bar:     bool
+    orders:          List[Order]
+    fills:           List[Fill]
+    positions:       Dict[str, float]
+    cash:            float
+    portfolio_value: float
+    equity:          float
 
 
 # ── IntradayBacktestEngine ────────────────────────────────────────────────────
@@ -218,6 +238,9 @@ class IntradayBacktestEngine:
         positions:   Dict[str, float],
         cash:        float,
         vix:         float = 15.0,
+        target_wts_fn: Optional[Callable[[pd.Timestamp, Dict[str, float], float], Dict[str, float]]] = None,
+        on_bar_complete: Optional[Callable[["BarUpdate"], None]] = None,
+        skip_bar_fn: Optional[Callable[[pd.Timestamp], bool]] = None,
     ) -> DayResult:
         """
         Execute one trading day across multiple assets using intraday bars.
@@ -225,10 +248,22 @@ class IntradayBacktestEngine:
         Parameters
         ----------
         day_bars   : {symbol → DataFrame with OHLCV columns} for this day
-        target_wts : {symbol → target weight} from strategy signal
+        target_wts : {symbol → target weight} from strategy signal (static)
         positions  : {symbol → shares held} at start of day
         cash       : cash at start of day
         vix        : VIX value for cost model
+
+        Optional per-bar hooks (enables live / replay / persistence):
+        target_wts_fn  : called at each bar as fn(bar_ts, positions, cash) →
+                         dict; overrides static `target_wts` when provided.
+                         Return None or {} to hold current allocation.
+        on_bar_complete: called AFTER fills are booked on each bar with a
+                         BarUpdate snapshot (bar index, orders, fills,
+                         positions, cash, equity). Used by paper engine for
+                         persistence + checkpoint.
+        skip_bar_fn    : called at the start of each bar as fn(bar_ts) →
+                         bool. True = skip this bar entirely (no order gen,
+                         no fills, no hook). Used for idempotent re-runs.
 
         Returns DayResult with fills, eod_positions, eod_cash.
         """
@@ -251,9 +286,23 @@ class IntradayBacktestEngine:
             bar_ts = bar_times[i]
             next_idx = i + 1
 
+            if skip_bar_fn is not None and skip_bar_fn(bar_ts):
+                continue
+
             port_val = cur_cash + self._multi_portfolio_value(shares, day_bars, i)
             if port_val <= 0:
                 continue
+
+            # Per-bar target weight refresh hook (live mode uses this to
+            # re-compute signals as new bars close).
+            if target_wts_fn is not None:
+                tw = target_wts_fn(bar_ts, dict(shares), cur_cash)
+                if tw is None:
+                    bar_targets = target_wts
+                else:
+                    bar_targets = tw
+            else:
+                bar_targets = target_wts
 
             cur_w = {}
             for sym, qty in shares.items():
@@ -263,14 +312,14 @@ class IntradayBacktestEngine:
                         cur_w[sym] = (qty * float(p)) / port_val
 
             open_prices = {}
-            for sym in set(list(cur_w) + list(target_wts)):
+            for sym in set(list(cur_w) + list(bar_targets)):
                 if sym in day_bars and next_idx < len(day_bars[sym]):
                     op = day_bars[sym]["open"].iloc[next_idx]
                     if not np.isnan(op) and op > 0:
                         open_prices[sym] = float(op)
 
             orders = _generate_orders(
-                cur_weights=cur_w, tgt_weights=target_wts,
+                cur_weights=cur_w, tgt_weights=bar_targets,
                 portfolio_val=port_val, open_prices=open_prices,
                 signal_date=bar_ts, min_trade_usd=self._min_trade,
                 rebal_thr=self._rebal_thr,
@@ -289,6 +338,22 @@ class IntradayBacktestEngine:
                 fills.append(f)
 
             shares = {s: q for s, q in shares.items() if q > 1e-6}
+
+            if on_bar_complete is not None:
+                port_val_post = self._multi_portfolio_value(shares, day_bars, next_idx)
+                equity_post = cur_cash + port_val_post
+                on_bar_complete(BarUpdate(
+                    date=date,
+                    bar_ts=bar_ts,
+                    bar_index=i,
+                    is_last_bar=(i == n_bars - 2),
+                    orders=list(orders),
+                    fills=list(new_fills),
+                    positions=dict(shares),
+                    cash=cur_cash,
+                    portfolio_value=port_val_post,
+                    equity=equity_post,
+                ))
 
         if self._eod_close and shares:
             eod_prices = {}

@@ -108,6 +108,46 @@ def show_status(engine: PaperTradingEngine) -> None:
         print("\n  当前无持仓（全仓现金）")
 
 
+def _rth_filter_day_bars(day_bars: dict) -> dict:
+    """Keep only RTH (09:30-16:00 ET) bars for each symbol."""
+    out = {}
+    for sym, df in day_bars.items():
+        if df is None or df.empty:
+            continue
+        mins = df.index.hour * 60 + df.index.minute
+        rth = df.loc[(mins > 9 * 60 + 30) & (mins <= 16 * 60)]
+        if not rth.empty:
+            out[sym] = rth
+    return out
+
+
+def _execute_day_bar_by_bar(
+    engine:    PaperTradingEngine,
+    run_id:    str,
+    date_ts:   pd.Timestamp,
+    day_bars:  dict,
+    target:    dict,
+) -> object | None:
+    """Dispatch one day's bar-by-bar execution via the shared intraday
+    runtime. Used by both replay and live. Returns DayResult or None.
+
+    Idempotency is handled inside run_day_intraday (has_fill_for_bar per
+    bar), so calling this on a day already processed is safe.
+    """
+    day_bars = _rth_filter_day_bars(day_bars)
+    if not day_bars:
+        logger.debug("[%s] no RTH bars available", date_ts.date())
+        return None
+    try:
+        return engine.run_day_intraday(
+            run_id=run_id, date=date_ts,
+            day_bars=day_bars, target_wts=target,
+        )
+    except Exception as exc:
+        logger.error("[%s] intraday 执行失败: %s", date_ts.date(), exc, exc_info=True)
+        return None
+
+
 def run_replay(
     engine:         PaperTradingEngine,
     price_df_1d:    pd.DataFrame,
@@ -120,6 +160,7 @@ def run_replay(
     spy_benchmark:  pd.Series,
     from_date:      str,
     to_date:        str = None,
+    run_id:         str = None,
 ) -> None:
     """
     历史数据回放（伪 track record）。
@@ -151,8 +192,9 @@ def run_replay(
         regime_series = regime,
     )
 
-    import uuid
-    run_id = str(uuid.uuid4())[:8]
+    if run_id is None:
+        import uuid
+        run_id = str(uuid.uuid4())[:8]
     logger.info("Replay run_id: %s", run_id)
 
     for i, date in enumerate(dates):
@@ -166,75 +208,22 @@ def run_replay(
 
         target, ks_result = apply_kill_switch_to_target(engine, target)
         if ks_result is not None and ks_result.state == "SUSPENDED":
-            # SUSPENDED: force liquidation today (target={} already), then stop
-            # new orders on subsequent days until engine recovers.
             logger.warning("[%s] Kill switch SUSPENDED，停止回放", date.date())
-            # Proceed once to flatten positions to zero then break.
-            # (The engine will submit the target={} as sell-everything.)
 
-        # Check for intraday bars (Dict[str, DataFrame] per day)
         day_bars_60m = price_df_60m.get(str(date.date()))
 
         if day_bars_60m and isinstance(day_bars_60m, dict) and len(day_bars_60m) > 0:
-            # ── Intraday bar-by-bar path ──
-            # Derive first/last bar timestamps from actual bars (half-trading
-            # days and missing bars would invalidate hardcoded 09:30 / 15:30).
-            _sym_with_bars = next(
-                (s for s in day_bars_60m if len(day_bars_60m[s]) > 0), None
+            result = _execute_day_bar_by_bar(
+                engine, run_id, date_ts, day_bars_60m, target,
             )
-            if _sym_with_bars is None:
-                logger.debug("[%s] no intraday bars found, skip", date.date())
-                continue
-            _ref_idx = day_bars_60m[_sym_with_bars].index
-            first_bar_ts = pd.Timestamp(_ref_idx[0])
-            last_bar_ts = pd.Timestamp(_ref_idx[-1])
-
-            if engine.has_fill_for_bar(run_id, first_bar_ts):
-                logger.debug("[%s] Skipping (idempotency — fills exist)", date.date())
-                continue
-
-            try:
-                result = engine._engine.run_multi_day(
-                    date=date_ts,
-                    day_bars=day_bars_60m,
-                    target_wts=target,
-                    positions=engine._positions.copy(),
-                    cash=engine._cash,
-                )
-                engine._positions = result.eod_positions
-                engine._cash = result.eod_cash
-
-                # Persist bar-level data
-                eod_equity = engine._cash + sum(
-                    engine._positions.get(s, 0) * float(
-                        day_bars_60m[s]["close"].iloc[-1]) for s in engine._positions
-                    if s in day_bars_60m and len(day_bars_60m[s]) > 0
-                )
-                engine.save_intraday_bar(
-                    run_id=run_id, date=date_ts,
-                    bar_ts=last_bar_ts,
-                    orders=[], fills=result.trades,
-                    positions=engine._positions, cash=engine._cash, equity=eod_equity,
-                )
-                engine.save_bar_checkpoint(
-                    run_id=run_id, date=date_ts,
-                    bar_ts=last_bar_ts,
-                    positions=engine._positions, cash=engine._cash,
-                )
-
-                engine._tracker.record(result, eod_equity)
-                engine._save_state(date_ts, result, eod_equity)
+            if result is not None:
                 engine.reconcile(date_ts, result)
-
-            except Exception as exc:
-                logger.error("[%s] Intraday 执行失败: %s", date.date(), exc)
         else:
-            # ── Daily fallback path ──
+            # Daily fallback — only when NO intraday bars exist for the day
             next_idx = i + 1
             if next_idx >= len(dates):
                 break
             next_date = dates[next_idx]
-
             prices_today = {}
             open_next = {}
             for sym in price_df_1d.columns:
@@ -251,10 +240,8 @@ def run_replay(
                     o = price_df_1d.loc[next_date, sym]
                     if not pd.isna(o):
                         open_next[sym] = float(o)
-
             if not prices_today or not open_next:
                 continue
-
             try:
                 result = engine.run_day_daily(
                     date=next_date, target_wts=target,
@@ -264,8 +251,6 @@ def run_replay(
             except Exception as exc:
                 logger.error("[%s] Daily 执行失败: %s", date.date(), exc)
 
-        # After executing this day, stop the replay if KS is SUSPENDED
-        # (flatten-then-halt semantics).
         if ks_result is not None and ks_result.state == "SUSPENDED":
             break
 
@@ -410,54 +395,86 @@ def main():
         )
 
     elif args.mode == "live":
-        logger.info("Live 模式：运行当日模拟盘...")
-        today = pd.Timestamp.today().normalize()
-        yesterday = price_df_1d.index[price_df_1d.index < today][-1] if len(price_df_1d.index[price_df_1d.index < today]) > 0 else None
+        logger.info("Live 模式：bar-by-bar intraday runtime ...")
 
+        # Load intraday 60m bars for all tradeable symbols. Live path MUST
+        # process whichever bars are already closed — never fall back to
+        # daily run_day_daily (that would collapse the bar loop).
+        intraday_by_sym: dict = {}
+        for sym in all_tradeable:
+            try:
+                df = store.read(sym, "60m")
+                if df is not None and not df.empty:
+                    intraday_by_sym[sym] = df
+            except Exception:
+                pass
+        if not intraday_by_sym:
+            logger.error("无 60m 行情数据；live 模式必须有 intraday bars")
+            show_status(engine)
+            return
+
+        # Determine the "live day" — latest date present in intraday data
+        # that is ≤ today. In production this will be today as of each
+        # call. Using the store's latest date lets live run on cached
+        # historical EOD data until a real-time feed arrives.
+        all_dates = set()
+        for df in intraday_by_sym.values():
+            all_dates.update(df.index.normalize().unique())
+        today = pd.Timestamp.today().normalize()
+        live_date_candidates = sorted(d for d in all_dates if d <= today)
+        if not live_date_candidates:
+            logger.error("无 today≤ 的 intraday bars")
+            show_status(engine)
+            return
+        live_date = live_date_candidates[-1]
+        logger.info("Live day resolved to %s", live_date.date())
+
+        # Target weights come from the daily MFS decided on the PRIOR close
+        # (no look-ahead: bars closing today use signals generated at the
+        # previous daily close).
         signals = strategy.generate(price_df_1d, regime)
         weights = constructor.build(
             raw_signals   = signals,
             price_df      = price_df_1d,
             regime_series = regime,
         )
+        daily_idx = price_df_1d.index[price_df_1d.index < live_date]
+        if daily_idx.empty or daily_idx[-1] not in weights.index:
+            logger.warning("无足够历史信号 (live_date=%s)", live_date.date())
+            show_status(engine)
+            return
+        signal_date = daily_idx[-1]
+        day_wts = weights.loc[signal_date]
+        target = {s: float(v) for s, v in day_wts.items() if v > 0.001}
+        logger.info("目标权重 (源自 %s 收盘信号):\n%s", signal_date.date(),
+                    pd.Series(target).sort_values(ascending=False).to_string()
+                    if target else "(empty)")
 
-        if yesterday is None or yesterday not in weights.index:
-            logger.warning("无足够历史数据生成信号 (today=%s)", today.date())
-        elif today not in price_df_1d.index and today not in open_df_1d.index:
-            logger.warning("当日 (%s) 无价格数据，请先运行 fetch_data.py 更新", today.date())
-        else:
-            day_wts = weights.loc[yesterday]
-            target = {s: float(v) for s, v in day_wts.items() if v > 0.001}
-            logger.info("目标权重 (基于 %s 信号):\n%s", yesterday.date(),
-                        pd.Series(target).sort_values(ascending=False).to_string())
+        target, ks_result = apply_kill_switch_to_target(engine, target)
+        if ks_result is not None and ks_result.state != "NORMAL":
+            logger.info("KS 调整后目标权重:\n%s",
+                        pd.Series(target).sort_values(ascending=False).to_string()
+                        if target else "(空 — 全部转现金)")
 
-            # Kill switch gate: SUSPENDED → force cash, DEGRADED → scale
-            target, ks_result = apply_kill_switch_to_target(engine, target)
-            if ks_result is not None and ks_result.state != "NORMAL":
-                logger.info("KS 调整后目标权重:\n%s",
-                            pd.Series(target).sort_values(ascending=False).to_string()
-                            if target else "(空 — 全部转现金)")
+        # Build day_bars dict for live_date (one DataFrame per symbol).
+        day_bars = {}
+        for sym, df in intraday_by_sym.items():
+            mask = df.index.normalize() == live_date
+            if mask.any():
+                day_bars[sym] = df.loc[mask]
 
-            prices_yd = {s: float(price_df_1d.loc[yesterday, s]) for s in price_df_1d.columns
-                         if not pd.isna(price_df_1d.loc[yesterday].get(s))}
-            opens_today = {}
-            if today in open_df_1d.index:
-                opens_today = {s: float(open_df_1d.loc[today, s]) for s in open_df_1d.columns
-                               if not pd.isna(open_df_1d.loc[today].get(s))}
-            elif today in price_df_1d.index:
-                opens_today = {s: float(price_df_1d.loc[today, s]) for s in price_df_1d.columns
-                               if not pd.isna(price_df_1d.loc[today].get(s))}
+        # run_id scheme: deterministic per (YYYY-MM-DD live) so that a
+        # restarted `--mode live` on the same day resumes from checkpoint
+        # instead of double-filling.
+        run_id = f"live-{live_date.date().isoformat()}"
+        logger.info("Live run_id=%s bars available for %d symbols",
+                    run_id, len(day_bars))
 
-            if opens_today:
-                result = engine.run_day_daily(
-                    date=today, target_wts=target,
-                    prices=prices_yd, open_prices=opens_today,
-                )
-                logger.info("Live 执行完成: %d trades, equity=%.2f",
-                            result.n_trades, engine._cash + sum(
-                                engine._positions.get(s,0) * prices_yd.get(s,0) for s in engine._positions))
-            else:
-                logger.warning("无当日 open 价格，跳过执行")
+        result = _execute_day_bar_by_bar(
+            engine, run_id, live_date, day_bars, target,
+        )
+        if result is not None:
+            engine.reconcile(live_date, result)
 
         show_status(engine)
 
