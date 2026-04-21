@@ -221,8 +221,10 @@ def main():
                 price_df.index[0].date(), price_df.index[-1].date())
 
     # ── VIX & benchmark ───────────────────────────────────────────────────────
-    vix_df     = store.read("^VIX", "1d") if store.get_last_date("^VIX", "1d") is not None else None
-    vix_series = vix_df["close"].reindex(price_df.index, method="ffill") if vix_df is not None and not vix_df.empty else None
+    # Backtest is research context — lenient mode is acceptable
+    # (long history; occasional gaps diagnostic-logged). Live path
+    # uses strict mode in run_paper.py.
+    from core.data.vix_loader import load_vix_series
 
     spy_df    = store.read("SPY", "1d")
     spy_close = spy_df["close"].reindex(price_df.index, method="ffill") if spy_df is not None and not spy_df.empty else price_df.get("SPY")
@@ -233,7 +235,9 @@ def main():
     logger.info("计算 regime 序列...")
     detector = RegimeDetector(cfg.regime)
     spy_for_regime = price_df.get("SPY", pd.Series(dtype=float))
-    vix_for_regime = vix_series if vix_series is not None else pd.Series(20.0, index=spy_for_regime.index)
+    vix_for_regime = load_vix_series(
+        store, spy_for_regime.index, mode="lenient",
+    )
     regime_series  = detector.classify_series(spy_for_regime, vix_for_regime)
     logger.info("Regime 分布:\n%s", regime_series.value_counts().to_string())
 

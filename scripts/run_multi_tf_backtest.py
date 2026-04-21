@@ -60,7 +60,8 @@ def main():
     open_df = open_df.reindex(price_df.index)
 
     spy = price_df["SPY"]
-    vix = store.read("^VIX", "1d")["close"].reindex(price_df.index, method="ffill").fillna(20)
+    from core.data.vix_loader import load_vix_series
+    vix = load_vix_series(store, price_df.index, mode="lenient")
     detector = RegimeDetector(cfg.regime)
     regime = detector.classify_series(spy, vix)
 

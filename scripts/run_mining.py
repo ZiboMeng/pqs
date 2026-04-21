@@ -152,12 +152,13 @@ def main():
                 price_df.index[0].date(), price_df.index[-1].date())
 
     # ── VIX & Regime ──────────────────────────────────────────────────────────
-    vix_df     = store.read("^VIX", "1d") if store.get_last_date("^VIX", "1d") is not None else None
-    vix_series = vix_df["close"].reindex(price_df.index, method="ffill") if vix_df is not None and not vix_df.empty else None
+    # Mining is research context — lenient mode (logs warning on any
+    # fallback fill). Live path uses strict mode in run_paper.py.
+    from core.data.vix_loader import load_vix_series
 
     spy_close      = price_df.get("SPY", pd.Series(dtype=float))
     detector       = RegimeDetector(cfg.regime)
-    vix_for_regime = vix_series if vix_series is not None else pd.Series(20.0, index=spy_close.index)
+    vix_for_regime = load_vix_series(store, spy_close.index, mode="lenient")
     regime         = detector.classify_series(spy_close, vix_for_regime)
 
     spy_prices = price_df.get("SPY", pd.Series(dtype=float))

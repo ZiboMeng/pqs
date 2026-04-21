@@ -339,13 +339,22 @@ def main():
     price_df_1d = pd.DataFrame(frames).sort_index() if frames else pd.DataFrame()
     open_df_1d = pd.DataFrame(open_frames).sort_index() if open_frames else pd.DataFrame()
 
-    # Regime
-    vix_df     = store.read("^VIX", "1d") if store.get_last_date("^VIX", "1d") is not None else None
-    vix_series = vix_df["close"].reindex(price_df_1d.index, method="ffill") if vix_df is not None and not vix_df.empty else None
-    spy_close      = price_df_1d.get("SPY", pd.Series(dtype=float))
-    detector       = RegimeDetector(cfg.regime)
-    vix_for_regime = vix_series if vix_series is not None else pd.Series(20.0, index=spy_close.index)
-    regime         = detector.classify_series(spy_close, vix_for_regime)
+    # Regime. VIX mode depends on what we're doing: live/paper must
+    # fail-closed if VIX is missing (trading against a 20.0 stub in a
+    # black-swan day would mis-size catastrophically); replay/status
+    # can stay lenient (historical gaps are bounded and diagnostic).
+    from core.data.vix_loader import load_vix_series, VixDataMissingError
+    vix_mode = "strict" if args.mode == "live" else "lenient"
+    spy_close = price_df_1d.get("SPY", pd.Series(dtype=float))
+    detector  = RegimeDetector(cfg.regime)
+    try:
+        vix_for_regime = load_vix_series(
+            store, spy_close.index, mode=vix_mode,
+        )
+    except VixDataMissingError as exc:
+        logger.error("Refusing to run live without fresh VIX: %s", exc)
+        return
+    regime = detector.classify_series(spy_close, vix_for_regime)
 
     # Strategy
     all_tradeable = list(dict.fromkeys(
