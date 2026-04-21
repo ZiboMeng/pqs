@@ -194,6 +194,14 @@ Evidence levels:
 ---
 
 ### Current Best Strategy (real open prices, target_vol=0.25)
+
+⚠️ **以下数字产出于 P0.1 fix 前（`apply_extra_shift=True` 时代）。** 修复
+double-lag bug 之后信号对应的数据窗口变了，同参数在当前 codebase
+下不再复现这些 OOS 数字。Round 1 Ralph-loop mining（80 trials ×
+1800s，capital=$100k，`post-2026-04-20-capital-100k` lineage）得到的
+OOS IR 分布是 -0.709 到 -0.113，无一 trial 过 OOS 门槛。需要重新
+搜索参数空间后才能获得 post-fix 下的"current best"。
+
 - multi_factor: CAGR 19.0%, Sharpe 0.98, MaxDD -19.7%, IR 0.33
 - Params: RS=0.30, momentum=0.30, quality=0.25, market_trend=0.10, pv_div=0.05
 - OOS IR=0.40, pass_rate=70%, holdout excess=+14.4% vs SPY
@@ -644,7 +652,35 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ---
 
-## Revision Summary (v2 → v3)
+## Ralph-Loop Findings (2026-04-20+)
+
+### Round 1 — Topic A 实战：post-P0.1-fix OOS 失败率 100%
+
+**时间**: 2026-04-20
+**参数**: `run_mining.py --trials 80 --budget 1800 --lineage-tag post-2026-04-20-capital-100k --type multi_factor`
+**结果**: 120 evaluated, 37 unique trials written to archive, 56 passed_quick, **0 passed_oos**, 0 promoted
+**QQQ gate 触发**: **0**（gate gated on passed_oos，无 trial 到 Stage 6）
+**OOS IR 区间**: -0.709 到 -0.113（全部负）
+**Quick Sharpe 区间**: 0.424 到 0.774（多数过 quick 门槛 0.30）
+**-999 崩溃**: 0（post-smoke NaN 护栏在 80 trials 规模下稳定）
+
+**诊断**：`apply_extra_shift` 默认从 `True` 改为 `False`（P0.1 fix）后，原先
+Phase B 文档记录的"current best"参数（RS=0.30, momentum=0.30 等）在当前
+codebase 上不再复现历史 OOS 数字。这不是 bug —— 是修正 double-lag 后
+数据口径变了。Phase B 的"best"本质上是旧口径下的局部最优。
+
+**这意味着**：整个策略参数空间需要在 post-fix 口径下重新搜索。80 trials /
+1800s 不足以发现新的最优。
+
+**对 ralph-loop 的直接影响**：
+- Topic A（让 QQQ gate 在 Stage 6 触发）按字面 completion signal **未达成**
+- 但 80-trial mining 本身验证了：lineage 隔离、NaN 护栏、archive 写入、
+  `_assign_tier` 降级逻辑在大规模下都正常
+- QQQ gate 的 plumbing 在单测层已充分覆盖（`test_qqq_hard_gate.py` + 
+  `test_acceptance_qqq.py` + `test_archive_lineage.py`），只是生产
+  archive 里现在还没有真实值
+
+
 
 ### QQQ Constraint Upgrade
 - **旧标准 `excess vs QQQ >= -2%` 已废止**
