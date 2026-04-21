@@ -1,0 +1,26 @@
+factor_name: "monthend_last5d_mean_63d"
+hypothesis: >
+  Rolling 63-day mean return on the last 5 trading days of each month.
+  Proxy for month-end institutional flow effects — rebalancing,
+  window dressing, quarter-end positioning. If such flows produce
+  systematic drift, per-symbol exposure varies and factor has IC.
+formula: >
+  mask = (date is among last 5 trading days of its month)
+  ret = close.pct_change()
+  masked_ret = ret * mask
+  feat = masked_ret.rolling(63).sum() / mask.rolling(63).sum()
+  cross-sectional z-score per date (past-only)
+required_fields: [close]
+suitable_horizon: [21d]
+suitable_universe: "全 universe"
+suitable_regime: [NEUTRAL, BULL, RISK_ON, CAUTIOUS]
+expected_edge: "IC ~0.01-0.03 on 21d horizon; possibly stronger near calendar inflection points"
+expected_risk: "Quarter-end effects may dominate over month-end; confounds"
+possible_failure_modes:
+  - "Mag7 universe: month-end flows too broad-market to differentiate by symbol"
+  - "flow-based anomalies fade post-MiFID / tighter spreads"
+  - "63d window covers only ~3 month-end samples → noisy"
+novelty_vs_existing_factors: >
+  No existing factor captures intra-month position effects. Different
+  from overnight_gap factors (which capture session-close vs -open).
+compute_fn_path: "research.llm_candidates.round_18.compute_fns:monthend_last5d_mean_63d"
