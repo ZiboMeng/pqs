@@ -1,0 +1,33 @@
+factor_name: "rs_qqq_soft_regime_63d"
+hypothesis: >
+  Continuous regime-gated variant of Round 7's
+  rs_qqq_regime_conditioned_63d. Replaces binary sign(SPY > 200d EMA)
+  with tanh((SPY - EMA) / EMA * 20), giving continuous [-1, +1]
+  regime strength. Hypothesis: Round 7's Q4 2024-2026 IC collapse
+  (+0.0015) was due to persistent bull regime making binary gate
+  always output +1 — degenerates to rs_vs_qqq_63d alone. Soft gate
+  preserves gradient information in saturated regimes.
+formula: >
+  ret_63 = close.pct_change(63)
+  rs_qqq = ret_63 - QQQ.pct_change(63)
+  spy_ema = SPY.ewm(span=200).mean()
+  regime = tanh((SPY - spy_ema) / spy_ema * 20)   # continuous [-1, 1]
+  feat = rs_qqq * regime
+  cross-sectional z-score per date (past-only)
+required_fields: [close]
+suitable_horizon: [21d, 63d]
+suitable_universe: "SPY + QQQ + Mag7 + sector ETFs"
+suitable_regime: [BULL, RISK_ON, NEUTRAL, CAUTIOUS, RISK_OFF]
+expected_edge: "IC ~0.06-0.09 on 21d horizon; hopefully less Q4 decay than Round 7 binary version"
+expected_risk: "Soft gate's magnitude introduces scale dependency; scale=20 is hyperparameter"
+possible_failure_modes:
+  - "if Q4 decay is due to genuine factor weakness not binary-gate degeneracy, soft-gate also fails"
+  - "tanh saturates — very extreme regimes produce same score as 'strong'"
+  - "scale=20 chosen a priori; could be tuned"
+novelty_vs_existing_factors: >
+  Round 7's rs_qqq_regime_conditioned_63d uses binary sign. This uses
+  continuous tanh. Mathematically distinct: binary gate loses magnitude
+  information (only direction), tanh preserves graded strength. If
+  signal comes from regime MAGNITUDE (e.g., "deep bull" vs "mild bull"),
+  only soft gate captures it.
+compute_fn_path: "research.llm_candidates.round_08.compute_fns:rs_qqq_soft_regime_63d"

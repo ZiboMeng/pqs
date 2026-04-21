@@ -1,0 +1,25 @@
+factor_name: "mom_soft_regime_63d"
+hypothesis: >
+  Soft-gate variant of Round 7's mom_regime_conditioned_63d. Same
+  Q4-decay test for momentum factor — if binary gate caused the
+  observed decay, soft-gate should recover Q4 IC.
+formula: >
+  mom_63 = close.pct_change(63)
+  spy_ema = SPY.ewm(span=200).mean()
+  regime = tanh((SPY - spy_ema) / spy_ema * 20)
+  feat = mom_63 * regime
+  cross-sectional z-score per date
+required_fields: [close]
+suitable_horizon: [21d, 63d]
+suitable_universe: "全 universe with SPY benchmark"
+suitable_regime: [BULL, RISK_ON, NEUTRAL, CAUTIOUS, RISK_OFF]
+expected_edge: "IC ~0.06-0.09 on 21d horizon"
+expected_risk: "If Round 7 finding is true (binary-gate degeneracy), soft version should pass; if not, this also fails"
+possible_failure_modes:
+  - "mom_63d itself has modest IC +0.029; multiplication may add cross-sectional variance but not alpha"
+  - "scale=20 sensitivity — tuning may be needed"
+novelty_vs_existing_factors: >
+  Analogous to Round 7 mom_regime_conditioned but with continuous gate.
+  Tests same hypothesis for a different parent factor (mom_63d vs
+  rs_vs_qqq_63d). Two independent tests of same gate-form hypothesis.
+compute_fn_path: "research.llm_candidates.round_08.compute_fns:mom_soft_regime_63d"

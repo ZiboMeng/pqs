@@ -1,0 +1,31 @@
+factor_name: "drawup_soft_regime_63d"
+hypothesis: >
+  Round 1 & Round 3-5 candidate drawup_from_252d_low has IC +0.10 and
+  passes deep_check but Round 5 factor-backtest showed MaxDD -77.79%
+  (isolated-strategy FAIL). Regime-gating should reduce drawdown
+  exposure: in bear regimes (SPY < EMA) factor score goes negative,
+  shrinking the long-only portfolio position. Tests whether regime-
+  conditioning is the missing risk management for this factor.
+formula: >
+  rolling_min = close.rolling(252).min()
+  drawup = (close - rolling_min) / rolling_min
+  spy_ema = SPY.ewm(span=200).mean()
+  regime = tanh((SPY - spy_ema) / spy_ema * 20)
+  feat = drawup * regime
+  cross-sectional z-score per date (past-only)
+required_fields: [close]
+suitable_horizon: [21d, 63d]
+suitable_universe: "全 universe with SPY benchmark"
+suitable_regime: [BULL, RISK_ON, NEUTRAL, CAUTIOUS, RISK_OFF]
+expected_edge: "IC ~0.08-0.11 on 21d horizon (parent drawup +0.10); goal is better risk profile not higher IC"
+expected_risk: "May reduce alpha in bull (parent IC highest there) in exchange for lower bear drawdown"
+possible_failure_modes:
+  - "in bear regimes regime score negative → factor picks NEGATIVE-drawup names (stocks NEAR their lows). Unclear semantic: long-only strategy would exclude them"
+  - "long-only constraint means regime inversion doesn't produce short signal — just reduces long exposure"
+  - "may correlate too highly with existing market_trend factor"
+novelty_vs_existing_factors: >
+  drawup_from_252d_low alone has strong signal but bad risk. Product
+  with soft regime gate is a novel risk-managed version. Closest
+  existing is market_trend (regime) as a standalone factor in MFS
+  composite; this is regime × drawup as a single factor.
+compute_fn_path: "research.llm_candidates.round_08.compute_fns:drawup_soft_regime_63d"
