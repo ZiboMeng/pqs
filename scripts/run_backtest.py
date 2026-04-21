@@ -207,11 +207,28 @@ def main():
                              "single source of truth). Override for research "
                              "/ ad-hoc exploration; do NOT point at uncommitted "
                              "files in shared repos.")
+    parser.add_argument("--ignore-alignment-check", action="store_true",
+                        help="Skip PRD M3 runtime alignment check. Use only "
+                             "for explicit research runs where you know the "
+                             "yaml fingerprint will not match.")
     args = parser.parse_args()
 
     cfg       = load_config(Path(args.config_dir))
     store     = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
     artifacts = ArtifactManager(reports_dir=Path(args.output_dir))
+
+    # PRD M3: runtime alignment check (WARN-only in phase 1)
+    from core.alignment import check_alignment, write_alignment_report, AlignmentMode
+    alignment = check_alignment(
+        Path(__file__).resolve().parent.parent,
+        mode=AlignmentMode.WARN,
+        ignore=args.ignore_alignment_check,
+    )
+    logger.info(alignment.summary_line())
+    try:
+        write_alignment_report(alignment)
+    except Exception as exc:  # never block startup on artifact write
+        logger.warning("Could not write alignment artifact: %s", exc)
 
     # ── 收集所有 symbol ──────────────────────────────────────────────────────
     uni     = cfg.universe

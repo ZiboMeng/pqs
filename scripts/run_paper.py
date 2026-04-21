@@ -283,6 +283,11 @@ def main():
     parser.add_argument("--to-date",    default=None,         help="replay 结束日期")
     parser.add_argument("--db-path",    default="data/paper_trading/pt.db")
     parser.add_argument("--config-dir", default="config")
+    parser.add_argument("--ignore-alignment-check", action="store_true",
+                        help="Skip PRD M3 runtime alignment check. In live "
+                             "mode, only use this if you know what you're "
+                             "doing — the check is designed to catch silent "
+                             "strategy/universe drift.")
     parser.add_argument("--use-timing", action="store_true",
                         help="Route per-bar targets through the multi-TF "
                              "timing layer (decide_timing). Loads 60m+30m"
@@ -293,6 +298,20 @@ def main():
 
     cfg   = load_config(Path(args.config_dir))
     store = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
+
+    # PRD M3: runtime alignment check (WARN-only in phase 1; skipped for 'status' mode)
+    if args.mode != "status":
+        from core.alignment import check_alignment, write_alignment_report, AlignmentMode
+        alignment = check_alignment(
+            Path(__file__).resolve().parent.parent,
+            mode=AlignmentMode.WARN,
+            ignore=args.ignore_alignment_check,
+        )
+        logger.info(alignment.summary_line())
+        try:
+            write_alignment_report(alignment)
+        except Exception as exc:
+            logger.warning("Could not write alignment artifact: %s", exc)
 
     # ── 初始化 PaperTradingEngine ─────────────────────────────────────────────
     cost_model  = CostModel(cfg.cost_model)

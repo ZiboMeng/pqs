@@ -466,9 +466,11 @@ python scripts/run_universe_rebalance.py
   - `--config-dir`: 指定非默认 config 目录
   - `--output-dir`: 覆盖默认 `reports/backtests`
   - `--production-strategy PATH`: 覆盖 M1 单一真源路径（研究用；不要指向 uncommitted 文件）
+  - `--ignore-alignment-check`: 跳过 M3 runtime alignment 检查（仅研究；live paper 勿用）
 - **产出**: `reports/backtests/backtest/runs/<ts>_backtest/` 下 master_report.md + equity_curve.csv + trades.csv + metrics.json
 - **怎么看结果**: master_report 中文报告包含 CAGR / Sharpe / MaxDD / vs SPY / vs QQQ / regime stratification
 - **baseline strategy**: `multi_factor` 默认来自 `config/production_strategy.yaml`（PRD M1）；硬编码 weights 已移除
+- **启动 log**: 打印 alignment summary + production strategy summary（M3）
 
 #### `run_multi_tf_backtest.py`
 - **作用**: 多时间尺度（60m + 30m + 15m）timing layer 回测
@@ -570,6 +572,7 @@ python scripts/run_universe_rebalance.py
 - **Status**: 只打印当前 DB 里的持仓 / cash / equity
 - **可选**: `--use-timing` 启用 multi-TF timing layer（实验性，默认关）
 - **Strategy source**: 从 `config/production_strategy.yaml`（PRD M1）读；**不接受** `--production-strategy` override — paper trading fail loud on missing / invalid artifact
+- **Alignment check (M3)**: 启动时比对 yaml fingerprints 与当前 universe/factor_registry/config hashes，WARN 模式（非 status mode 都会跑）；`--ignore-alignment-check` 跳过
 
 ### 8.8 报告
 
