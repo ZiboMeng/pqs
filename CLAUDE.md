@@ -654,6 +654,22 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### Round 7 — Topic I：mining 扩展到多 strategy type + QQQ gate 一致性
+
+**时间**: 2026-04-20
+**改动**:
+- 真实 mining run（`--trials 5 --budget 900 --lineage post-2026-04-20-capital-100k`，**不带 --type**）跑完全部 4 种 ParameterSpace
+- 运行时间 199 秒，140 evaluations，20 unique trials 分 4 种 strategy_type 均匀入库
+- Archive 现在分布：multi_factor × 37 + dual_momentum × 5 + cross_asset_rotation × 5 + trend_following × 5 + legacy 20
+- **15 个 non-multi_factor trials**（completion signal ≥ 3 达成）
+- 所有 trials tier = D（`trend_following` 0/5 quick；`dual_momentum` / `cross_asset_rotation` 3/5 quick；multi_factor 37/37 quick；全部 OOS=0，与 Round 1 发现一致）
+- QQQ gate 对所有 strategy_type 表现一致（gate 只在 passed_oos 后触发，当前没 OOS 通过所以 gate 未被调用）
+- 新 focused 单测 `tests/unit/mining/test_all_strategy_types.py` 14 条，守护跨类型 invariant：`ALL_SPACES` 含 4 个注册类型；每个 `space.suggest()` + `space.instantiate()` 返回带 `.generate()` 的 strategy；archive schema 跨类型保留 `strategy_type`；`_assign_tier` 在 `passed_qqq_gate=False` 时强制 D 不论 strategy_type
+
+**测试变化**: 1053 → **1067 passing**（+14）
+
+**研究观察**: `trend_following` 在当前 universe × 当前参数范围下 quick_pass=0/5，意味着它的 quick 阈值（Sharpe ≥ 0.30）对该类策略过严或参数搜索空间过窄。后续轮可以针对性调搜索空间
+
 ### Round 6 — Topic E：shadowed-factor merge（`vol_63d ↔ low_vol` 与 `rs_vs_spy_63d ↔ rel_strength`）
 
 **时间**: 2026-04-20
