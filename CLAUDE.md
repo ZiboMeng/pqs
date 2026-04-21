@@ -629,7 +629,7 @@ Maintain TODO checklist. Update CLAUDE.md when work is actually completed. Small
 - Data: `core/data/` (yfinance_provider, market_data_store, validator, calendar, bar_store)
 - Scripts: `scripts/` (run_all.sh, fetch_data.py, run_backtest.py, run_mining.py, run_paper.py, generate_report.py, run_factor_screen.py, run_xgb_importance.py, run_universe_rebalance.py, build_bars_parquet.py, build_splits_parquet.py, aggregate_bars.py, build_catalog.py, validate_vs_yfinance.py)
 - Intraday report: `core/reporting/intraday_report.py`
-- Tests: `tests/unit/` + `tests/integration/` (745 passing)
+- Tests: `tests/unit/` + `tests/integration/` (current count: see `data/baseline/latest.json`)
 
 ## Scripts Quick Reference
 ```bash
@@ -642,6 +642,10 @@ bash scripts/run_all.sh universe      # universe rebalance
 bash scripts/run_all.sh factors       # IC screening
 bash scripts/run_all.sh xgb           # feature importance
 bash scripts/run_all.sh leaderboard   # mining rankings
+
+# PRD M0 (2026-04-21): baseline snapshot replaces hardcoded test counts
+python scripts/build_research_baseline_snapshot.py
+jq '.tests, .git, .archive' data/baseline/latest.json
 ```
 
 ## Iteration Log
@@ -2548,6 +2552,20 @@ limit + min_level gating built-in. Credentials via env var expansion
 ---
 
 ### Current TODO Checklist
+
+**Framework Completion PRD** (`docs/prd_framework_completion.md`) — Critical
+path before resuming `prd_universe_expanded_mining.md` R36+:
+- [x] **M0** research baseline snapshot (`scripts/build_research_baseline_snapshot.py`)
+- [ ] **M1** `config/production_strategy.yaml` single source of truth
+- [ ] **M2** promote CLI + acceptance pack
+- [ ] **M3** runtime alignment check (WARN → FAIL phased)
+- [ ] M4 cross-ticker YAML DSL (P1)
+- [ ] M5 multi-TF execution contract formalization (P1)
+- [ ] M6 LLM proposal Phase 1 (template + checklist, no API) (P1.5)
+- [ ] M7 XGBoost weight research model (P2)
+- [ ] M8 Transformer research phase (P2)
+
+**Older TODO (data / intraday / research)**:
 - [x] Provenance sidecar (trades_scanner + migration + BarStore API)
 - [x] Factor guard (data_sensitivity config + apply_data_sensitivity_mask)
 - [x] Notify module (base + wecom_bot + server_chan + stdout)
