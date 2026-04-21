@@ -1,0 +1,32 @@
+factor_name: "non_tech_rs_63d"
+hypothesis: >
+  Stocks whose 63-day outperformance vs QQQ exceeds their 63-day
+  outperformance vs SPY are relatively LESS tech-tilted — they track
+  the broad market better than the tech-concentrated benchmark.
+  The interaction captures rotation resistance: names that beat QQQ
+  specifically on non-tech terms. In tech reversals these names win;
+  in tech-led rallies they lag. The signed product of RS vs QQQ and
+  the sign of (RS_qqq - RS_spy) constructs a per-symbol alpha metric
+  not expressible as any single benchmark RS.
+formula: >
+  rs_qqq = close.pct_change(63) - QQQ.pct_change(63)
+  rs_spy = close.pct_change(63) - SPY.pct_change(63)
+  sign_term = sign(rs_qqq - rs_spy)
+  tech_tilt = rs_qqq * sign_term
+  cross-sectional z-score per date (past-only, uses .pct_change())
+required_fields: [close]  # needs both QQQ and SPY in price_df columns
+suitable_horizon: [21d, 63d]
+suitable_universe: "SPY + QQQ + Mag7 + sector ETFs (requires both benchmarks)"
+suitable_regime: [NEUTRAL, CAUTIOUS, RISK_OFF]
+expected_edge: "IC ~0.03-0.05 on 21d horizon; stronger in tech-rotation regimes (2022 H1, 2024 Q3)"
+expected_risk: "Collapses to near-zero when SPY≈QQQ returns (no divergence); sign-term discontinuity at crossover may add noise"
+possible_failure_modes:
+  - "correlated with rs_vs_spy_63d when stocks have small residual to both benchmarks"
+  - "sign discontinuity injects noise; smoothing (rolling mean) may improve signal"
+  - "universe must include both SPY and QQQ"
+novelty_vs_existing_factors: >
+  rs_vs_spy_21d/63d/126d benchmark against SPY only. xsection_rank_*
+  measure within-universe rank. No existing factor uses BOTH SPY and QQQ
+  in a per-symbol differential construction. Directly addresses the
+  QQQ-SPY rotation dynamic that drives our dual-benchmark gate.
+compute_fn_path: "research.llm_candidates.round_04.compute_fns:non_tech_rs_63d"

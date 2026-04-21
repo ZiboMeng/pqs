@@ -1,0 +1,31 @@
+factor_name: "rs_21d_minus_63d"
+hypothesis: >
+  Term-structure of relative strength vs SPY per symbol. If short-horizon
+  RS (21d) exceeds long-horizon RS (63d), the symbol's relative
+  performance is ACCELERATING — recent outperformance surpasses the
+  longer-term average. Positive values forecast continued outperformance
+  (persistence) or imminent mean reversion (peak RS). Distinct from
+  rs_acceleration (which is defined over short-window deltas) by using
+  stable 21d/63d horizons.
+formula: >
+  rs_21 = close.pct_change(21) - SPY.pct_change(21)
+  rs_63 = close.pct_change(63) - SPY.pct_change(63)
+  feat = rs_21 - rs_63
+  cross-sectional z-score per date (past-only, uses .pct_change())
+required_fields: [close]  # needs SPY in price_df columns
+suitable_horizon: [5d, 21d]
+suitable_universe: "全 universe with SPY benchmark"
+suitable_regime: [NEUTRAL, CAUTIOUS, RISK_ON]
+expected_edge: "IC ~0.02-0.05 on 21d horizon; direction uncertain (persist vs revert)"
+expected_risk: "May exhibit sign inversion depending on regime (momentum continuation vs mean reversion) — like Round 1 momentum_quality finding"
+possible_failure_modes:
+  - "correlated with rs_vs_spy_21d and rs_vs_spy_63d (must check via dedup)"
+  - "noisy at RS crossover points; 21d rolling smoothing may help"
+  - "sign may invert across bull/bear regimes — prior LLM rounds show this pattern"
+novelty_vs_existing_factors: >
+  rs_vs_spy_21d / rs_vs_spy_63d / rs_vs_spy_126d measure RS at each
+  horizon independently. rs_acceleration measures rate-of-change of
+  raw price momentum over short windows. rs_21d_minus_63d measures
+  the DIFFERENCE between two fixed-horizon RS values — a within-symbol
+  term-structure feature that captures whether RS is rising or falling.
+compute_fn_path: "research.llm_candidates.round_04.compute_fns:rs_21d_minus_63d"
