@@ -1,0 +1,30 @@
+factor_name: "days_since_252d_high"
+hypothesis: >
+  Number of trading days since the last 252-day rolling maximum was
+  made (negated for positive-IC convention). A stock that recently
+  hit a 52-week high (low days-since) has strong momentum; a stock
+  whose 52w high was many months ago has faded. This is a TIME-BASED
+  path shape measure — distinct from max_dd (distance-based) and
+  momentum (return-based). Expected: negative correlation between
+  raw days_since and forward return → sign-flipped factor has positive IC.
+formula: >
+  rolling_argmax_pos = rolling(252).argmax()   # 0 = oldest, 251 = newest
+  days_since = (252 - 1) - rolling_argmax_pos
+  feat = -days_since
+  cross-sectional z-score per date (past-only via rolling window)
+required_fields: [close]
+suitable_horizon: [21d, 63d]
+suitable_universe: "全 universe (needs 126d+ history)"
+suitable_regime: [BULL, RISK_ON, NEUTRAL]
+expected_edge: "IC ~0.03-0.07 on 21d horizon; stronger in trending regimes"
+expected_risk: "Highly correlated with max_dd_126d and drawup_from_252d_low (all track 52w extrema recency)"
+possible_failure_modes:
+  - "likely dedup with max_dd_126d and drawup_from_252d_low"
+  - "discrete integer values make it non-smooth at rebalance boundaries"
+  - "argmax is a single-point estimator; vulnerable to noisy single-bar spikes"
+novelty_vs_existing_factors: >
+  max_dd_126d and drawup_from_252d_low measure DISTANCE from extrema.
+  mom_* measures RETURN magnitude. This measures TIME since last 52w
+  high — fundamentally a temporal path-shape feature. Whether it adds
+  incremental value to existing extrema factors is what the funnel tests.
+compute_fn_path: "research.llm_candidates.round_13.compute_fns:days_since_252d_high"

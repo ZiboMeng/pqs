@@ -1,0 +1,33 @@
+factor_name: "vol_compression_21_63"
+hypothesis: >
+  21-day realized vol divided by 63-day realized vol. Low values
+  (< 1) indicate recent volatility has dropped below the longer-term
+  average — "compression" or "consolidation" pattern in technical
+  analysis. Such compressed periods often resolve with directional
+  breakouts. Expected sign uncertain: compression can precede
+  upside (momentum resumption) or downside (breakdown). Net direction
+  must be measured in-sample.
+formula: >
+  daily_ret = close.pct_change()
+  vol_21 = daily_ret.rolling(21).std()
+  vol_63 = daily_ret.rolling(63).std()
+  feat = vol_21 / vol_63
+  cross-sectional z-score per date (past-only)
+required_fields: [close]
+suitable_horizon: [21d]
+suitable_universe: "全 universe"
+suitable_regime: [NEUTRAL, CAUTIOUS, RISK_ON, BULL]
+expected_edge: "IC |value| ~0.02-0.05 on 21d horizon; sign uncertain"
+expected_risk: "Non-stationary sign; compression can precede either direction; regime-dependent"
+possible_failure_modes:
+  - "related to Round 2's vol_term_ratio_5_63 (ρ unclear; expect moderate overlap)"
+  - "fundamentally confounded with regime: in CRISIS everything has high vol"
+  - "21/63 ratio near 1.0 = noise; signal only in extremes"
+novelty_vs_existing_factors: >
+  Round 2 vol_term_ratio_5_63 (5/63 ratio) uses short noisy 5d
+  numerator. vol_regime (existing research) is 21d / 126d. This 21/63
+  variant sits between. distinct by WINDOW CHOICE — 21d + 63d are
+  standard monthly / quarterly horizons. If all three pairs have similar
+  IC this becomes archive; if this one dominates in certain regimes it
+  has incremental value.
+compute_fn_path: "research.llm_candidates.round_13.compute_fns:vol_compression_21_63"
