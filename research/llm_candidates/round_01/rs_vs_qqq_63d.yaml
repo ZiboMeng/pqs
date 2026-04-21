@@ -1,0 +1,25 @@
+factor_name: "rs_vs_qqq_63d"
+hypothesis: >
+  Stocks whose 63-day return exceeds QQQ's 63-day return have
+  idiosyncratic momentum relative to the tech-concentrated benchmark
+  and may continue to outperform. This is distinct from rs_vs_spy_63d
+  because QQQ weighting differs materially from SPY (tech-heavy vs
+  broad market).
+formula: >
+  close.pct_change(63) minus qqq_close.pct_change(63),
+  then cross-sectional z-score per date (uses .pct_change() — past only)
+required_fields: [close]
+suitable_horizon: [21d, 63d]
+suitable_universe: "SPY + Mag7 + sector ETFs (requires QQQ in panel)"
+suitable_regime: [BULL, RISK_ON, NEUTRAL]
+expected_edge: "IC ~0.03-0.06 on 21d horizon; may diverge from rs_vs_spy in tech-dispersion regimes"
+expected_risk: "High overlap with rs_vs_spy_63d when SPY/QQQ move together; diversification benefit only in tech-specific regimes"
+possible_failure_modes:
+  - "fails when SPY and QQQ have near-identical returns (no incremental signal)"
+  - "momentum-class factor — subject to sharp reversals"
+  - "cost-sensitive due to 21-63d rebalance cadence"
+novelty_vs_existing_factors: >
+  rs_vs_spy_21d/63d/126d exist for SPY benchmarking. No QQQ-benchmarked
+  RS factor exists. Per QQQ hard gate rule, QQQ is co-primary benchmark;
+  an RS factor pegged to it should expose alpha not captured by SPY RS.
+compute_fn_path: "research.llm_candidates.round_01.compute_fns:rs_vs_qqq_63d"

@@ -1,0 +1,27 @@
+factor_name: "path_accel_21d"
+hypothesis: >
+  Stocks whose recent short-window return rate has accelerated above
+  their longer-window return rate show new-catalyst-driven momentum.
+  This captures return ACCELERATION rather than level, complementing
+  existing momentum factors which measure magnitude alone.
+formula: >
+  short_ret = close.pct_change(5).rolling(21).mean()
+  long_ret  = close.pct_change(21).rolling(63).mean()
+  accel = short_ret - long_ret
+  cross-sectional z-score per date (uses .pct_change, .rolling — past only)
+required_fields: [close]
+suitable_horizon: [5d, 21d]
+suitable_universe: "全 universe"
+suitable_regime: [BULL, RISK_ON, NEUTRAL]
+expected_edge: "IC ~0.02-0.05 on 5-21d horizon; stronger in regime transitions"
+expected_risk: "High turnover (5d window); cost-sensitive; subject to reversals at acceleration peaks"
+possible_failure_modes:
+  - "high turnover raises cost sensitivity — must pass 2x cost stress"
+  - "mean reversion dominates after strong acceleration → negative edge"
+  - "low signal-to-noise ratio in sideways markets"
+novelty_vs_existing_factors: >
+  mom_5d/21d/63d/126d/252d measure return MAGNITUDE at various horizons.
+  rank_momentum_change measures CHANGE in cross-sectional rank. Neither
+  captures the slope/rate-of-change of returns within a single name.
+  path_accel is a within-name second-order momentum feature.
+compute_fn_path: "research.llm_candidates.round_01.compute_fns:path_accel_21d"
