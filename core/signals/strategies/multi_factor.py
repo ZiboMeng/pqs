@@ -148,11 +148,12 @@ class MultiFactorStrategy:
         self._symbols     = symbols or []
         self._top_n       = top_n
         weights = factor_weights or {
-            "low_vol":    0.20,
-            "momentum":   0.25,
-            "quality":    0.20,
-            "pv_div":     0.15,
-            "rel_strength": 0.20,
+            "low_vol":    0.18,
+            "momentum":   0.22,
+            "quality":    0.18,
+            "pv_div":     0.14,
+            "rel_strength": 0.18,
+            "drawup_from_252d_low": 0.10,  # R15 promotion (user-auth 2026-04-21)
         }
         # Registry gate: reject any factor name NOT in PRODUCTION_FACTORS.
         # strict_registry=False (default): WARN + drop (legacy).
@@ -232,6 +233,17 @@ class MultiFactorStrategy:
             factors["market_trend"] = pd.DataFrame(
                 {s: trend for s in syms}, index=pdf.index
             )
+
+        # drawup_from_252d_low (R15 promotion, user-authorized 2026-04-21).
+        # Strongest single-factor LLM research result:
+        # - R3 deep_check OOS IR +0.386 PASS §5.4
+        # - R6 Ridge perm #1 of 43 features
+        # - R6 XGBoost perm #7 of 43 features
+        # - R12 factor_screen IR +0.291 → #2 of 33 factors
+        # Shared computation with factor_generator._quality_factors.
+        rolling_min = pdf.rolling(252, min_periods=126).min()
+        drawup = (pdf - rolling_min) / rolling_min.replace(0, np.nan)
+        factors["drawup_from_252d_low"] = drawup
 
         def _zscore(df):
             mu = df.mean(axis=1)

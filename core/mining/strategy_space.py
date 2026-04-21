@@ -251,6 +251,7 @@ class MultiFactorSpace(ParameterSpace):
     _TUNED_FACTORS = {
         "low_vol", "momentum", "quality",
         "pv_div", "rel_strength", "market_trend",
+        "drawup_from_252d_low",  # R15 promotion (user-auth 2026-04-21)
     }
 
     def __init__(self) -> None:
@@ -266,7 +267,12 @@ class MultiFactorSpace(ParameterSpace):
         w_qual = trial.suggest_float("w_quality", 0.15, 0.35, step=0.05)
         w_rs = trial.suggest_float("w_rel_strength", 0.10, 0.30, step=0.05)
         w_mt = trial.suggest_float("w_market_trend", 0.0, 0.15, step=0.05)
-        w_pv = max(0.0, round(1.0 - w_vol - w_mom - w_qual - w_rs - w_mt, 2))
+        w_drawup = trial.suggest_float(
+            "w_drawup_from_252d_low", 0.0, 0.20, step=0.05,
+        )
+        w_pv = max(0.0, round(
+            1.0 - w_vol - w_mom - w_qual - w_rs - w_mt - w_drawup, 2,
+        ))
         return {
             "top_n":             trial.suggest_int("top_n", 4, 6),
             "w_low_vol":         w_vol,
@@ -275,6 +281,7 @@ class MultiFactorSpace(ParameterSpace):
             "w_pv_div":          round(w_pv, 2),
             "w_rel_strength":    w_rs,
             "w_market_trend":    w_mt,
+            "w_drawup_from_252d_low": w_drawup,
             "rebalance_monthly": trial.suggest_categorical("rebalance_monthly", [False]),
             "score_weighted":    trial.suggest_categorical("score_weighted", [True, False]),
             "lookback_vol":      trial.suggest_int("lookback_vol", 42, 126, step=21),
@@ -299,6 +306,9 @@ class MultiFactorSpace(ParameterSpace):
                 "pv_div":        params["w_pv_div"],
                 "rel_strength":  params.get("w_rel_strength", 0.0),
                 "market_trend":  params.get("w_market_trend", 0.0),
+                "drawup_from_252d_low": params.get(
+                    "w_drawup_from_252d_low", 0.0,
+                ),
             },
             rebalance_monthly = params["rebalance_monthly"],
             score_weighted    = params["score_weighted"],

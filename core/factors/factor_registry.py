@@ -61,6 +61,9 @@ PRODUCTION_FACTORS: FrozenSet[str] = frozenset({
     "pv_div",        # price-volume divergence (short-window correlation)
     "rel_strength",  # 63d excess return vs SPY
     "market_trend",  # SPY vs 200d MA (broadcast across symbols)
+    "drawup_from_252d_low",  # R15 promotion (user-auth 2026-04-21):
+                     # distance from rolling 252d min; 4-method consensus
+                     # (deep_check PASS, Ridge #1, XGB #7, factor_screen #2)
 })
 
 
@@ -144,6 +147,13 @@ RESEARCH_TO_PRODUCTION_MAP: Dict[str, str] = {
     # as distinct research variants.
     # Market trend
     "spy_trend_200d":          "market_trend",
+    # Note: drawup_from_252d_low is NOT in this map. It uses the SAME
+    # name in both RESEARCH_FACTORS and PRODUCTION_FACTORS (not a
+    # "shadow" — the research-facing and production-facing names are
+    # identical). The two implementations (factor_generator.
+    # _quality_factors and MultiFactorStrategy.generate) must stay
+    # numerically identical; formula is documented in both sites:
+    # `(close - close.rolling(252).min()) / close.rolling(252).min()`.
 }
 
 
@@ -224,4 +234,5 @@ def production_factor_names() -> list[str]:
     return [
         "low_vol", "momentum", "quality", "pv_div",
         "rel_strength", "market_trend",
+        "drawup_from_252d_low",  # R15 promotion
     ]
