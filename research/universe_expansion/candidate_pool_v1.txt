@@ -1,0 +1,171 @@
+# PQS universe expansion — candidate input pool v1
+# Curated for Layer 1-3 pipeline screening (v2.2 spec)
+# 2026-04-21 | LLM-Round 25
+#
+# Sources:
+# - S&P 100 (OEX) large-cap common stocks spanning all 11 GICS sectors
+# - Non-tech mid-caps identified via R21 audit (CAT, LLY, COST, RTX, VRTX, etc.)
+# - Additional sector depth for healthcare, staples, industrials, financials,
+#   materials, utilities (where R20 audit showed Mag7-bias)
+#
+# Intentionally EXCLUDED:
+# - All ETFs / ETNs / leveraged products (Layer 1 security type filter)
+# - TQQQ / SQQQ (blacklist)
+# - Pure market-cap large caps with near-zero alpha from R20 audit
+#   (still included for Layer 1 screening to let tools decide)
+
+# Technology
+AAPL
+MSFT
+NVDA
+GOOGL
+GOOG
+META
+AMZN
+ORCL
+CRM
+ADBE
+AVGO
+CSCO
+INTC
+IBM
+TXN
+QCOM
+AMAT
+MU
+AMD
+KLAC
+LRCX
+NOW
+INTU
+PANW
+SNOW
+PLTR
+
+# Communication Services
+NFLX
+DIS
+CMCSA
+T
+VZ
+TMUS
+
+# Consumer Discretionary
+TSLA
+HD
+MCD
+NKE
+LOW
+SBUX
+TGT
+F
+GM
+BKNG
+LULU
+CMG
+
+# Consumer Staples
+PG
+KO
+PEP
+WMT
+COST
+MDLZ
+CL
+MO
+KHC
+GIS
+K
+
+# Energy
+XOM
+CVX
+COP
+EOG
+SLB
+PSX
+MPC
+VLO
+PXD
+OXY
+
+# Financials
+JPM
+BAC
+WFC
+GS
+MS
+C
+AXP
+V
+MA
+PNC
+USB
+BLK
+SCHW
+SPGI
+CB
+
+# Healthcare
+JNJ
+UNH
+LLY
+ABBV
+PFE
+TMO
+ABT
+MRK
+DHR
+BMY
+CVS
+AMGN
+GILD
+ISRG
+REGN
+VRTX
+MDT
+ZTS
+SYK
+CI
+
+# Industrials
+BA
+CAT
+HON
+GE
+UPS
+FDX
+RTX
+LMT
+DE
+ETN
+EMR
+MMM
+NSC
+CSX
+UNP
+
+# Materials
+LIN
+APD
+FCX
+ECL
+SHW
+DD
+NUE
+DOW
+
+# Real Estate (REITs — tagged per v2.2 admit_with_tag)
+PLD
+AMT
+EQIX
+CCI
+SPG
+
+# Utilities
+NEE
+DUK
+SO
+AEP
+D
+EXC
