@@ -153,6 +153,72 @@ PRD §3.1 第一优先级。Smoke v2 时 0 OOS 通过导致 gate 从未触发，
 ### 11. 本轮 commit 哈希
 - `6f2a437` — chore: gitignore ralph-loop runtime state（轮前清理）
 - `07d51e5` — Round 1 (Topic A): 实战 smoke + post-P0.1 口径下 OOS 失败率 100% 的研究信号
-- （本条 doc commit）— docs: 第 1 轮日志更新
+- `3b5f6b4` — docs: 第 1 轮日志更新
+
+---
+
+## Round 2 — Topic B: leaderboard 显示 lineage + QQQ + per-lineage 汇总
+
+**日期**: 2026-04-20（21:37 完成）
+**Topic**: B（leaderboard UX 升级）
+**Lineage_tag**: `post-2026-04-20-capital-100k`（无方法论变更）
+**测试变化**: 1009 → **1012**（+3 lineage_summary 单测）
+**主要 commits**: `add1f80`（主体改动）
+
+### 1. 当前阶段
+Ralph-loop 第 2 轮 / Topic B
+
+### 2. 本轮目标
+`run_mining.py --leaderboard` 输出必须显示 `lineage_tag` / `passed_qqq_gate` / `qqq_*_excess` 列 + 按 lineage 分组汇总块
+
+### 3. 为什么先做它
+PRD §3.1 第二优先级。Round 1 在 archive 留了跨 2 个 lineage 的 57 行数据，正好是 Topic B 的真实测试用例。独立于 OOS 研究 blocker
+
+### 4. 做了什么
+- `core/mining/archive.py` 新 `lineage_summary()` helper：返回 per-lineage 聚合 DataFrame（`n_trials / n_quick_pass / n_oos_pass / n_holdout_pass / n_qqq_gate_pass / n_gate_evaluated / avg_quick_sharpe / worst_oos_ir / best_oos_ir`）。关键区分 `n_gate_evaluated`（Stage 6 被调用过）vs `n_qqq_gate_pass`（通过 gate 判定）
+- `scripts/run_mining.py --leaderboard` 从 8 列扩到 13 列：加 `qqq_ok` ✓/✗ + 3 个 qqq_*_excess + `lineage_tag`。底部追加"按 Lineage 分组汇总"表格
+- 新增 CLI 参数 `--lineage-filter <tag>`：可只看单一 lineage 的排行榜
+- CLAUDE.md Ralph-Loop Findings 添加 Round 2 entry
+
+### 5. 修改了哪些文件
+- `core/mining/archive.py`（+40：`lineage_summary` 方法）
+- `scripts/run_mining.py`（+45：CLI 重构 + `--lineage-filter`）
+- `tests/unit/mining/test_archive_lineage.py`（+73：3 个新测试）
+- `CLAUDE.md`（Ralph-Loop Findings: Round 2）
+- `docs/prd_intraday_mining_loop.md` Appendix A（本日志更新）
+- `docs/ralph_loop_log.md`（本节新增）
+
+### 6. 跑了哪些测试
+- `pytest tests/ -q`：**1012 passing**（+3）
+- `scripts/run_mining.py --leaderboard`：13 列全显示；by-lineage 汇总显示 2 个 lineage（37 + 20），`n_gate_evaluated=0` 清楚证实 QQQ gate 未触发
+- `scripts/run_mining.py --leaderboard --lineage-filter post-2026-04-20-closeout`：验证过滤器工作
+
+### 7. 当前结果
+Topic B completion signal **达成**：
+- 默认输出含 `lineage_tag` + 全部 QQQ 列 ✓
+- By-lineage breakdown 已存在 ✓
+- Round 1 发现（0 gate 触发）在 CLI 里一目了然（`n_gate_evaluated=0`）
+- 新 `--lineage-filter` 为"只看新 lineage"提供便利
+
+### 8. 剩余风险
+- Round 1 的研究 blocker 仍未解决：OOS 失败率 100% 是研究侧 blocker，本轮未碰（按 PRD "严禁合并两主题"）
+- CLI 输出 13 列比较宽，窄终端可能折行。建议未来加 `--brief` 选项
+- `qqq_full_period_excess` 等列在当前 archive 全 NULL，意料之中（gate 未触发）；新 lineage 如能跑出 OOS 通过的 trial，这些列才会有值
+
+### 9. 下一轮建议
+**Round 3 = Topic C**（stale_counts 进 checkpoint）按 PRD §3.1 顺序。或继续考虑 off-menu 解决 OOS blocker（需用户签核才能提 `--trials > 200`）。默认走 Topic C
+
+### 10. TODO checklist（更新后）
+- [x] Round 0: smoke + audit + NaN fix + capital bump
+- [x] Round 1: Topic A（诊断 OOS 100% 失败率）
+- [x] Round 2: Topic B（leaderboard lineage + QQQ + per-lineage 汇总）
+- [ ] Round 3: Topic C（stale_counts 进 checkpoint）
+- [ ] Round 4: Topic D（factor gate strict mode）
+- [ ] Round 5-9: E/F/G/H/I（research，含 OOS 诊断）
+- [ ] Round 10-12: J/K/L（infra）
+
+### 11. 本轮 commit 哈希
+- `add1f80` — Round 2 (Topic B): leaderboard 显示 lineage + QQQ + per-lineage 汇总
+- （本条 doc commit）— docs: 第 2 轮日志更新
 
 ---
