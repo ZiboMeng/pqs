@@ -654,6 +654,69 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 10 — 用户授权 drawup promotion + orthogonalization gate
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-10`
+
+**用户授权动作** (Round 9 选项 A):
+- `drawup_from_252d_low` 升级到 `RESEARCH_FACTORS` (`core/factors/factor_registry.py`)
+- `_quality_factors` 在 `core/factors/factor_generator.py` 加入计算
+  （`(close - rolling 252d min) / rolling 252d min`，跟 `max_dd_126d`
+  作 symmetric counterpart）
+- `research/llm_candidates/round_01/drawup_from_252d_low.yaml` 重命名为
+  `.yaml.promoted`，防止 LLM funnel 工具误认为仍是 candidate
+
+**里程碑**: LLM phase **首个 factor 成功 promote 到 research registry**，
+满足 PRD §10 success criterion #3（"archive 可追溯：lineage_tag + candidate YAML"）
+的部分。distinct 于 PRD §10 criterion #1（promote 到 `PRODUCTION_FACTORS`
++ QQQ gate PASS），那还需要未来 `evaluator.evaluate` 验证
+
+**改动**:
+- `core/factors/factor_registry.py`: `RESEARCH_FACTORS` 加 `drawup_from_252d_low`
+- `core/factors/factor_generator.py`: `_quality_factors` 加 drawup 计算
+- `research/llm_candidates/round_01/drawup_from_252d_low.yaml` → `.yaml.promoted`
+- 新 `scripts/llm_candidate_orthogonalization.py` —— per-date cross-sectional
+  OLS residualization 工具；对 dedup-flagged 候选定量判断 incremental value
+
+**Orthogonalization 首跑** (3 个 dedup-flagged 候选):
+
+| candidate | raw IC | residual IC | verdict |
+|---|---:|---:|---|
+| rs_vs_qqq_63d | +0.036 | N/A (n=0) | **BUG** |
+| rs_vs_equal_weight_63d | +0.036 | N/A (n=0) | **BUG** |
+| rs_21d_minus_63d | -0.020 | N/A (n=0) | **BUG** |
+
+**Tool bug 待修 (下轮)**: `_orthogonalize_cs` 对每个 (date, symbol) 要求
+所有 32 controls 都非 NaN，导致 long-warmup factor (126d/252d) + volume
+factor 任一 NaN 都丢掉样本。Intersection 几乎为空。修复方式：对缺失
+control 允许 drop that control per-date（而不是丢整个 symbol）
+
+**Post-promotion cross-signal mining rerun**:
+- **8 LLM candidates in XGBoost top-20** (R6 原 7 个；drawup 从 LLM 集变
+  classical 集后，另一个 LLM 候选补位)
+- classical `drawup_from_252d_low` 仍是 Ridge **#1** / XGB **#8**
+- 新 Ridge top-5 里 `rs_21d_minus_63d` (#3), `rs_qqq_mom_63d` (#4), 
+  `first_last_bar_diff_21d` (#5) 全是 LLM
+
+**用户提醒**: "MaxDD 也太大了收益风险不成正比啊" 已在 Round 9 回应：
+factor-level tool 的 -59% 到 -77% MaxDD 是 tool 局限不是真实表现。
+production MFS 用 kill_switch + target_vol + regime scaling 实现 -19.7%
+MaxDD（见 CLAUDE.md Phase B 记录）。接下来让 drawup 进 `run_mining.py`
+evaluator.evaluate 路径跑**完整** MaxDD 检验才是 authoritative 判决
+
+**PRD §13.2 halt 条件**: pytest **1109 (maintained)** / 0 PRODUCTION
+promote (only RESEARCH_FACTORS change) / 16 pending candidates + 1 promoted
+<< 200 / 无 invariant 违反。继续。
+
+**下轮建议**:
+- **A**: 跑 `run_mining.py --trials 20 --budget 900 --lineage
+  post-2026-04-20-llm-round-10 --type multi_factor` 看能否发现 drawup
+  作为 composite 组件在 MFS 框架下是否通过 QQQ gate + MaxDD 约束。如果
+  pass，drawup 进 `PRODUCTION_FACTORS` promotion 有数据支撑
+- **B**: 修 orthogonalization tool bug（sparse-controls handling）
+- **C**: 继续菜单 LLM-9/10/11 候选生成
+
 ### LLM-Round 9 — composite backtest：decisive negative finding
 
 **时间**: 2026-04-21

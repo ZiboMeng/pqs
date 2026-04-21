@@ -2077,3 +2077,153 @@ evaluator.evaluate
 - （doc commit）—— docs: LLM-Round 9 log + factor-level-tool-boundary finding
 
 ---
+
+## LLM-Round 10 — 2026-04-21 — 用户授权 drawup promotion + orthogonalization
+
+### 1. 主题
+- 执行用户 "给批准" 指令，把 `drawup_from_252d_low` 加到 `RESEARCH_FACTORS`
+- 回应用户 "MaxDD 太大了收益风险不成正比" 关切
+- 新增 `scripts/llm_candidate_orthogonalization.py` 补 LLM-6 方法论空缺
+
+### 2. 用户授权与 MaxDD 关切应答
+- **授权**: Round 9 方案 A — 把 drawup 加到 `RESEARCH_FACTORS`（非
+  PRODUCTION_FACTORS），不触发 §13.2 halt
+- **MaxDD 关切**: Round 9 发现 factor-level tool 的 MaxDD (-59% ~ -77%)
+  是**tool 局限**而非真实表现。production MFS 在 full stack 下（kill_switch
+  + target_vol + regime scaling + cash allocation）达到 -19.7% MaxDD。
+  promoting 到 RESEARCH_FACTORS 开放的正是 `run_mining.py evaluator.evaluate`
+  完整验证路径，那里会有真实 MaxDD 判决
+
+### 3. 为什么这轮做它
+- 用户明确授权，不做不对
+- Round 9 建立的"升级到 RESEARCH_FACTORS 作为通往完整 evaluator.evaluate
+  的必要步骤"逻辑现在可以闭环
+- 顺带填 LLM-6 orthogonalization 基础设施空缺
+
+### 4. 做了什么
+
+**Promotion work**:
+- `core/factors/factor_registry.py::RESEARCH_FACTORS` 加 `drawup_from_252d_low`
+- `core/factors/factor_generator.py::_quality_factors` 加:
+  ```python
+  rolling_min = price_df.rolling(252, min_periods=126).min()
+  drawup = (price_df - rolling_min) / rolling_min.replace(0, np.nan)
+  factors["drawup_from_252d_low"] = drawup
+  ```
+  （与 max_dd_126d 作 symmetric counterpart）
+- `research/llm_candidates/round_01/drawup_from_252d_low.yaml` 重命名为
+  `.yaml.promoted`，避免 `_discover_llm_candidates` 继续 load（促发
+  `CandidateValidationError` 因为 registry 有同名）
+
+**Orthogonalization tool**:
+- `scripts/llm_candidate_orthogonalization.py` (~220 行):
+  - `_orthogonalize_cs`: per-date OLS residualization
+    `candidate[t,:] = α_t + β_t @ controls[t,:] + ε[t,:]`
+  - Residual IC vs 21d forward return
+  - Verdict 3-tier: HIGH (|resid_mean|≥0.03 & |IR|≥0.2) / MEDIUM / LOW
+- 对 3 个 Round 1/4 dedup-flagged 候选跑：rs_vs_qqq_63d,
+  rs_vs_equal_weight_63d, rs_21d_minus_63d
+
+### 5. 修改了哪些文件
+- `core/factors/factor_registry.py` — RESEARCH_FACTORS 加 drawup entry
+- `core/factors/factor_generator.py` — _quality_factors 加 drawup 计算
+- `research/llm_candidates/round_01/drawup_from_252d_low.yaml` → `.yaml.promoted`
+- **新**：`scripts/llm_candidate_orthogonalization.py`
+- `CLAUDE.md` + `docs/ralph_loop_log.md`
+- **产出**（gitignored）：3 份 `data/ml/llm_orthog/<name>/orthog_report.json`
+
+### 6. 跑了哪些测试/实验
+- pytest (factors 子集): 139 passed
+- pytest full suite: **1109 passed**（无 regression）
+- 3 次 orthogonalization run — **全部有 bug**（n=0 residuals）
+- Post-promotion `run_llm_cross_signal_mining.py`: 8 LLM candidates in
+  XGBoost top-20（was 7 in R6；drawup 转 classical 后另一 LLM 顶位）
+
+### 7. 结果如何
+
+**Factor promotion 验证**:
+```
+drawup_from_252d_low in RESEARCH_FACTORS: True
+generate_all_factors() 产出: shape (1582, 5) 正常值
+  2026-04-18: SPY=0.365  AAPL=0.399  MSFT=0.185  NVDA=1.081  GOOGL=1.315
+```
+
+Namespace 保护 works:
+```
+load_candidate_from_yaml('drawup_from_252d_low.yaml') →
+  CandidateValidationError: factor_name collides with RESEARCH_FACTORS
+```
+
+**Post-promotion ranking** (43-feature panel, 11 LLM → 10 LLM since drawup
+promoted):
+- XGBoost top-20 LLM count: **8** (was 7)
+- Ridge top-10 LLM count: 5 (drawup 仍 Ridge #1 + 其他 4 个 LLM)
+
+**Orthogonalization bug**: 3 candidates all return n=0 residuals.
+
+根因分析：`_orthogonalize_cs` for (date, sym) 要求 32 controls 都非 NaN。
+控制集包含长 warmup（126d、252d）+ volume 相关 factors。在 2018-01-01
+早期 rolling 尚未 warmup + backfill_tickers 等，交集近 0。
+
+修复思路（next round）:
+(a) 对每个 date，只用当天所有有 data 的 controls（drop NaN controls 而非
+    drop NaN rows）
+(b) 限定默认 controls 为 short-warmup 子集（比如 21d mom + RS factors）
+(c) 让 CLI 默认 `--controls` 是一个小子集（e.g., top-5 correlated）而非全集
+
+### 8. 新问题/新机会
+
+**Promotion enables evaluator.evaluate path**:
+现在 drawup_from_252d_low 是 generate_all_factors 输出之一。意味着
+`scripts/run_mining.py --type multi_factor` 的 mining space 理论上可以
+把它加入 composite 测试（需要额外 code 改动才真正让它 tunable，但
+generate_all_factors 层已经 available）
+
+**Orthogonalization infra gap**:
+Tool builds 后发现 bug。需要下轮修。同时记录：**orthogonalization 作为
+dedup 替代是有用的，但 implementation detail 很重要**。32-control full
+orthogonalization 过严；curated 3-5 control subset 更实用
+
+**XGBoost Q4 衰减是全局现象**:
+Round 7 发现的 Q4 IC 衰减不只是 regime-conditioned factors，可能是
+2024-2026 整个 Mag7 universe 的 cross-sectional IC dispersion
+塌缩。值得专门 diagnose
+
+### 9. 剩余风险
+- Promotion 只做了 RESEARCH_FACTORS 层面；实际 mining evaluator.evaluate
+  是否 surface drawup 还是 open question。需要下轮 run_mining 测试
+- orthogonalization bug 让 Round 4 的 2 个 dedup-flagged 候选仍悬
+- `drawup` 的 inline 计算在 factor_generator 和 research YAML compute_fn
+  模块里**两个独立实现**；虽然 schema 保护了 registry 冲突，但实际数值
+  计算得一致。快速 sanity check: 两个都是 `(price - rolling_min) / rolling_min`
+  形式，等价
+
+### 10. 下一轮建议方向
+**A (推荐)**: `run_mining.py --trials 20 --budget 900 --lineage
+post-2026-04-20-llm-round-10 --type multi_factor` 看 composite 层面
+drawup 价值。结果告诉我们：是否值得再触发一次 §13.2 halt 把 drawup
+加到 `PRODUCTION_FACTORS`
+
+**B**: 修 `_orthogonalize_cs` sparse-control bug
+  - 让 missing control 被逐 date drop 而非 drop 整 row
+  - 或默认 controls 减小到 5-10 个已知强相关的
+
+**C**: LLM-9 event/regime-based factors 新批（earnings window, Fed
+days）—— PRD 菜单里仍未开发的方向
+
+默认推 **A** 跑 mining；如果结果不好再走 B/C
+
+### 11. TODO checklist（更新）
+- [x] LLM-1..LLM-9 部分完成；5 core tools + 1 orthog tool (buggy)
+- [x] **drawup_from_252d_low → RESEARCH_FACTORS**（用户授权）
+- [x] LLM-6 orthogonalization gate 骨架（有 bug 待修）
+- [ ] **下轮推荐**: run_mining 测试 composite-level drawup
+- [ ] 修 orthogonalization sparse-controls bug
+- [ ] drawup → PRODUCTION_FACTORS（需新授权）
+
+### 12. 本轮 commit 哈希
+- （code commit 1）—— promote drawup_from_252d_low to RESEARCH_FACTORS
+- （code commit 2）—— LLM-Round 10: orthogonalization gate tool (buggy v1)
+- （doc commit）—— docs: LLM-Round 10 log + promotion milestone + MaxDD response
+
+---
