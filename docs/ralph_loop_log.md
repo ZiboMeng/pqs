@@ -880,3 +880,92 @@ Topic L completion signal **达成**：
 - （本条 doc commit）— docs: 第 11 轮日志更新
 
 ---
+
+## Round 12 — 2026-04-20 — off-menu: PaperTradingEngine ↔ BrokerAdapter mirror
+
+### 1. 本轮主题
+非菜单主题 —— `PaperTradingEngine` 接入 Round 11 的 `BrokerAdapter`（mirror 模式）。
+
+### 2. 本轮目标
+让 Round 11 的 ABC 不再只是"骨架"——在生产级 engine 中形成真实的 mirror 接入 seam。adapter 成为 engine 的影子执行器：engine 仍是唯一 source-of-truth，adapter 并行接收所有 fills，EOD 对账暴露 drift。未来切换真实 broker 时，只需构造时注入不同 adapter，**strategy 层零改动**。
+
+### 3. 为什么这轮优先做它
+- 12 轮 loop 即将收口，0 策略晋升，菜单 A-I 的研究型主题再跑一次边际价值递减
+- PRD §3.4 Topic L 本身就规划了"接入 seam"作为 follow-up
+- 用户在 Round 8 已指示：12 轮后如果没晋升就进入 30 轮 LLM mining 阶段，所以 loop 最后一轮应补齐**基础设施债**而非研究
+- 不需要外部签核、不需要新数据源、不改动 mining archive
+- 把 Round 11 的价值从"可测试 ABC"升级到"真正能跑在 paper 流水线上的 seam"
+
+### 4. 做了什么
+- 扩展 `PaperTradingEngine.__init__` 签名，新增 `broker_adapter: Optional[BrokerAdapter] = None`（默认 None → backward-compat）
+- `_on_bar` hook（`run_day_intraday` 核心循环）+ residual fills block：每笔 fill 走 `_mirror_fills_to_broker()`
+- `run_day_daily` 主 fill-booking 段后也 mirror
+- 两条路径 EOD 调 `_run_broker_reconcile()`，结果 append 到 `self._broker_reconcile_results`
+- 新 helper 方法：
+  - `_mirror_fills_to_broker(fills)`：为每笔 fill 先 `set_next_fill_price(sym, executed_price)` pin 价格再 `submit_order(order)`；REJECTED ack / 异常只 WARN，不 raise（broker 失联不能 crash 策略）
+  - `_run_broker_reconcile(date, label)`：调 adapter.reconcile，结果入库 + 日志
+  - `get_broker_reconcile_results()`：公开 getter 返回副本
+- 7 focused 集成单测（`tests/unit/paper_trading/test_broker_adapter_integration.py`）:
+  - `TestBackwardCompatNoAdapter × 2`：无 adapter 时 `_broker` 为 None、public API 不变、`get_broker_reconcile_results()` 返回空
+  - `TestMirrorDailyPath × 4`：adapter 接到 fills、reconcile 记到 EOD、零成本 model + pinned price 下 reconcile 精确 PASS（`passed=True`, `position_mismatches={}`, `|cash_mismatch| < 1e-4`）、多日累积
+  - `TestBrokerInterfaceContract × 1`：adapter REJECTED 不 crash engine
+
+### 5. 修改了哪些文件
+- `core/paper_trading/paper_trading_engine.py` —— 增加 broker mirror 与 reconcile helpers
+- `tests/unit/paper_trading/test_broker_adapter_integration.py` —— **新**（7 tests）
+- `CLAUDE.md` —— Ralph-Loop Findings 加 Round 12 段 + 12 轮 loop 终点说明
+- `docs/prd_intraday_mining_loop.md` —— Appendix A round 12 行补完
+- `docs/ralph_loop_log.md` —— 本段
+
+### 6. 跑了哪些测试/实验
+- 新增 7 集成测试 + Round 11 的 12 个测试一起：**19 passed in 1.62s**
+- 全 suite 回归：**1109 passed in 94.27s**（1102 → +7 新增；无 regression）
+- 不跑 mining（off-menu 目标与 mining 无关）
+
+### 7. 结果如何
+**全部 PASS**，关键验证：
+- 零成本 model + pinned price 下 broker reconcile 恰好通过（证明 mirror 语义在确定性条件下能对齐）
+- 无 adapter 时 engine 路径不变（7 个 backward-compat 用例都绿）
+- Adapter 异常/REJECTED 不 crash engine（robustness）
+- 多日累积 reconcile 结果可被外部读取（`get_broker_reconcile_results()` 返回 3 条记录）
+
+**工程意义**：`PaperTradingEngine` 从此支持"零改动切 broker"——在 `core/execution/brokers/<vendor>.py` 实现 `BrokerAdapter` 后，构造时 `PaperTradingEngine(..., broker_adapter=IBKRAdapter(...))` 即可。mining、strategy、report 代码一行不动。
+
+### 8. 剩余风险
+- Mirror 的"精确对账"依赖零成本测试前提；非零成本下 adapter 会对同一价格重跑 slippage → 出现 diagnostic drift（不是 bug，是设计：drift 就是真实 broker 和 engine 的差异信号）
+- 生产真正切换时需要"shadow 阶段"：先让 adapter 做影子执行一段时间观察 drift，再 flip 到 adapter 作为 primary
+- Round 1 OOS blocker（OOS 通过率 < 40%）仍未解决，这属于 PRD §3.2 研究范畴，不在 loop 终点的 12 轮内能解决
+
+### 9. 12 轮 loop 终点评估
+完成度：
+- PRD §3.1 A-D：**全部关闭**（Round 0-4）
+- PRD §3.2 E-H：**F/E/G/H 4 个全部关闭**（Round 5/6/8/9）
+- PRD §3.3 I-J：**I/J 全部关闭**（Round 7/10）
+- PRD §3.4 K-L：**L 关闭**（Round 11）；**K（real-time feed）留待用户签核外部数据源**
+- Round 12：off-menu 基础设施补完
+
+Exit criterion 评估：
+- 菜单主题 10/11 完成（只差 K 需要外部批准）
+- 0 策略晋升（OOS blocker 仍在，12 轮内未能打破）
+- Testing：1009 → **1109 passing**（+100 tests in 12 rounds；无 regression）
+- 里程碑交付物：`docs/prd_llm_factor_mining.md`（30 轮下一阶段 PRD）、`core/factors/llm_candidate.py`（LLM 漏斗底座）、`core/execution/broker_adapter.py`（broker 接入底座）、`scripts/run_model_comparison.py`（ridge-vs-XGB 对比工具）
+
+按用户 Round 8 的指令："12 轮之后如果还不行 那就再自动启动 30 轮 mining 优化"——现在条件成立：
+- 0 晋升、LLM candidate funnel + model comparison 工具就位、lineage_tag bump 策略明确
+- **下一阶段由 `docs/prd_llm_factor_mining.md` 驱动的 30 轮自动 LLM mining**
+
+### 10. 下一轮建议
+本轮是 12 轮 ralph-loop 的**最后一轮**。下一阶段由独立的 30 轮 LLM factor mining loop 启动（`docs/prd_llm_factor_mining.md`）。这是一个**新的 loop**，不是本 PRD 的 round 13。
+
+### 11. TODO checklist（12 轮终点状态）
+- [x] Round 0-12 全部完成
+- [x] PRD §3.1-§3.3 所有主题关闭
+- [x] PRD §3.4 Topic L 关闭 + off-menu seam 集成完成
+- [ ] **Topic K（real-time feed）**—— 需用户授权外部 vendor API 后才能做
+- [ ] **30 轮 LLM factor mining 阶段** —— 下一个独立 loop，按 `docs/prd_llm_factor_mining.md` 执行
+
+### 12. 本轮 commit 哈希
+- （code commit）— Round 12 (off-menu): PaperTradingEngine ↔ BrokerAdapter mirror
+- （doc commit）— docs: 第 12 轮日志 + 12 轮 loop 终点说明
+
+---

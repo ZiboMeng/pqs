@@ -240,7 +240,7 @@ PRD rather than continuing the loop.
 | 9 | 2026-04-20 | Topic H (ridge vs XGB 特征重要性) | post-2026-04-20-capital-100k | 新 `scripts/run_model_comparison.py` + 4 smoke tests; 真实 run 79966 rows × 32 factors: **Ridge R²=+0.007, XGBoost R²=-0.148 (过拟合)**; rank agreement +0.349 (MODERATE); 两模型都把 `max_dd_126d` 排 #1; 关键研究信号 - 简单线性模型胜出非线性 (`09cb224`) |
 | 10 | 2026-04-20 | Topic J (LLM factor scaffold) | post-2026-04-20-capital-100k | 新 `core/factors/llm_candidate.py` (FactorCandidate + funnel) + `scripts/llm_factor_propose.py` CLI + 19 新单测 1071→1090; **"永不 KEEP" 契约被测试守护** (LLM 永远不是最终裁判); auto-launch 阶段底座就位; 不动 production (`324ebc1`) |
 | 11 | 2026-04-20 | Topic L (BrokerAdapter 骨架) | post-2026-04-20-capital-100k | 新 `core/execution/broker_adapter.py` ABC + SimulatedBrokerAdapter (wrap ExecutionSimulator); 12 新单测 1090→1102; submit→ack→fill→reconcile round-trip 通过; 为未来真实 broker 接入准备 (`168ae14`) |
-| 12 | _pending_ | 建议 off-menu: PaperTradingEngine 接入 BrokerAdapter | post-2026-04-20-capital-100k | _pending_ |
+| 12 | 2026-04-20 | off-menu: PaperTradingEngine 接入 BrokerAdapter (mirror 模式) | post-2026-04-20-capital-100k | `__init__` 增可选 `broker_adapter`；`run_day_intraday` / `run_day_daily` mirror fills → `submit_order`；EOD 调 `reconcile` 入 `_broker_reconcile_results`；公开 `get_broker_reconcile_results()`；adapter REJECTED/异常只 WARN 不 raise；7 新单测 1102→**1109**；**12 轮 loop 终点** → 进入 PRD §13.0 30 轮 LLM mining 阶段 |
 | ... | | | | |
 
 ---

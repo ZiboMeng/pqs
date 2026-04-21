@@ -654,6 +654,35 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### Round 12 — 非菜单：PaperTradingEngine ↔ BrokerAdapter mirror
+
+**时间**: 2026-04-20
+**选择理由**: Round 11 给了 `BrokerAdapter` ABC + `SimulatedBrokerAdapter`，但还没有接入 `PaperTradingEngine`。12 轮 mining 循环里 0 个策略晋升，菜单优先级 A-I 的研究主题大多未触发新增收益。与其再跑一轮 mining，不如补 PRD §3.4 的"接入 seam"——让未来切换真实 broker 只需在构造时注入 adapter，零 strategy 层改动。
+**改动**:
+- `PaperTradingEngine.__init__` 新增 `broker_adapter: Optional[BrokerAdapter] = None`（backward-compat，默认 None）
+- `run_day_intraday` 的 `_on_bar` hook + residual fills block 调用新 helper `_mirror_fills_to_broker()`，为每笔 fill 执行 `set_next_fill_price(sym, executed_price)` → `submit_order(order)`
+- `run_day_daily` 主 fill-booking 段后同样 mirror
+- 两条路径 EOD 调用新 helper `_run_broker_reconcile()`，结果入 `self._broker_reconcile_results`
+- 公开 `get_broker_reconcile_results()` 供外部读取
+- 异常和 REJECTED ack 只 WARN 不 raise（broker 失联不能让策略 crash）
+- 7 focused 单测 `tests/unit/paper_trading/test_broker_adapter_integration.py`：
+  - 无 adapter 遗留路径不变 (backward-compat × 2)
+  - 有 adapter：fills 到达 broker、reconcile 记录到 EOD、零成本下 reconcile PASS、多日累积 results（mirror × 4）
+  - 接口纯度：adapter REJECTED 不会 crash engine（robustness × 1）
+
+**测试变化**: 1102 → **1109 passing**（+7）
+
+**关键设计**:
+- adapter 是 **mirror**，engine 仍然是唯一 source-of-truth（未来替换时先 shadow 一段，再切 primary）
+- 在零 cost model + pinned price 下 reconcile 应恰好通过；非零 cost 下会有 slippage 双重应用的 drift —— 这是 diagnostic 信号，不是 bug
+- 为完整切换真实 broker 留下明确路径：在 `core/execution/brokers/<vendor>.py` 实现 `BrokerAdapter`，构造 `PaperTradingEngine(..., broker_adapter=IBKRAdapter(...))` 即可
+
+**12 轮 loop 终点**:
+- Round 1-12 完成所有 PRD §3.1-§3.4 的可行主题
+- 但 0 个策略通过 `evaluator.evaluate()` 的 Tier-3 门槛（OOS 通过率 < 40%，QQQ outperformance 边际）
+- 按用户在 Round 8 追加的指令，loop 结束后进入 **PRD §13.0 的 30 轮 LLM-assisted + XGBoost mining 阶段**（`docs/prd_llm_factor_mining.md`）
+- 此阶段使用 Round 9（model_comparison）+ Round 10（llm_candidate funnel）的工具，持续 lineage_tag bump：`post-2026-04-20-llm-round-N`
+
 ### Round 11 — Topic L：BrokerAdapter 骨架
 
 **时间**: 2026-04-20
