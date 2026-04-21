@@ -72,3 +72,11 @@ strategy_concentration:
   enabled: true
   soft_cap_max_single: 0.35           # strategy iteratively clips + redistributes
   concentration_warn_threshold: 0.40  # WARNING log when any row exceeds
+
+# Factor registry gate policy (Round 4 Topic D, 2026-04-20).
+# Controls MultiFactorStrategy response to unknown factor names:
+#   - false (default): WARN + drop; legacy scripts degrade gracefully
+#   - true: raise UnregisteredFactorError; use in mining / CI for
+#           research-integrity checks
+factor_registry:
+  strict_mode: false

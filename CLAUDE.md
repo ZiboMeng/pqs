@@ -654,6 +654,19 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### Round 4 — Topic D：factor gate WARN/ERROR 可配置
+
+**时间**: 2026-04-20
+**改动**:
+- 新 `UnregisteredFactorError(ValueError)` + `enforce_execution_factor_names(weights, *, strict)` API 统一 gate 路径
+- `MultiFactorStrategy.__init__` 新 kwarg `strict_registry: bool = False`（默认保持 legacy WARN+drop 不变）
+- 新 `FactorRegistryConfig(strict_mode: bool = False)` pydantic schema + `config/risk.yaml::factor_registry`
+- 3 个生产脚本（`run_backtest` / `run_paper` / `run_multi_tf_backtest`）从 config 透传
+- `MiningSpace._registry_kwargs()` 新 helper 走同 concentration 的 lazy-load 模式
+- 11 focused 单测全通过：strict raise / default warn / 空输入 no-op / config schema 默认 False / mining space 集成
+
+**PRD §3.1 Topics A-D 至此全部关闭**。从 Round 5 开始转入 §3.2 research 菜单（E/F/G/H/I）或 off-menu OOS blocker
+
 ### Round 3 — Topic C：stale_counts 持久化到 checkpoint
 
 **时间**: 2026-04-20

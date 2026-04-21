@@ -386,6 +386,8 @@ def main():
             cfg.risk.strategy_concentration.concentration_warn_threshold
             if cfg.risk.strategy_concentration.enabled else None
         ),
+        # Round 4 Topic D: config-driven registry gate (default WARN)
+        strict_registry=cfg.risk.factor_registry.strict_mode,
     )
     diagnostics = DiagnosticSuite()
     left_side_cfg = LeftSideConfig.from_risk_config(cfg.risk)

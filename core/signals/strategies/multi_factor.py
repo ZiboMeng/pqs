@@ -41,7 +41,9 @@ import numpy as np
 import pandas as pd
 
 from core.factors.factor_registry import (
-    PRODUCTION_FACTORS, check_execution_factor_names,
+    PRODUCTION_FACTORS,
+    check_execution_factor_names,
+    enforce_execution_factor_names,
 )
 from core.logging_setup import get_logger
 
@@ -112,6 +114,7 @@ class MultiFactorStrategy:
         apply_extra_shift: bool  = False,
         concentration_warn_threshold: Optional[float] = None,
         soft_cap_max_single: Optional[float] = None,
+        strict_registry:   bool  = False,
     ):
         """
         apply_extra_shift : controls signal freshness.
@@ -150,19 +153,17 @@ class MultiFactorStrategy:
             "pv_div":     0.15,
             "rel_strength": 0.20,
         }
-        # Registry gate: reject any factor name NOT in PRODUCTION_FACTORS
-        # (catches typos, catches research names sneaking into execution,
-        # forces researchers through the promotion flow).
-        unknown = check_execution_factor_names(weights)
-        if unknown:
-            logger.warning(
-                "MultiFactorStrategy: dropping unregistered factor names: %s. "
-                "Known production factors: %s. "
-                "To add a new factor, update core/factors/factor_registry.py "
-                "after passing the research funnel.",
-                unknown, sorted(PRODUCTION_FACTORS),
-            )
-            weights = {k: v for k, v in weights.items() if k in PRODUCTION_FACTORS}
+        # Registry gate: reject any factor name NOT in PRODUCTION_FACTORS.
+        # strict_registry=False (default): WARN + drop (legacy).
+        # strict_registry=True: raise UnregisteredFactorError — use in
+        # mining / CI / production where silent name drift is a hazard.
+        # Round 4 Topic D (2026-04-20): gating now routes through
+        # enforce_execution_factor_names so both paths go through one
+        # code site that's testable directly.
+        weights = enforce_execution_factor_names(
+            weights, strict=strict_registry,
+        )
+        self._strict_registry = strict_registry
         self._weights     = weights
         self._monthly     = rebalance_monthly
         self._score_wt    = score_weighted

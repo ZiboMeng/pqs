@@ -82,6 +82,8 @@ def main():
             cfg.risk.strategy_concentration.concentration_warn_threshold
             if cfg.risk.strategy_concentration.enabled else None
         ),
+        # Round 4 Topic D: config-driven registry gate
+        strict_registry=cfg.risk.factor_registry.strict_mode,
     )
     signals = strat.generate(price_df, regime)
     constructor = PortfolioConstructor(use_vol_parity=False)

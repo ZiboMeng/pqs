@@ -126,6 +126,26 @@ class StrategyConcentrationConfig(BaseModel):
     concentration_warn_threshold: Optional[float] = Field(default=0.40, ge=0, le=1.0)
 
 
+class FactorRegistryConfig(BaseModel):
+    """Factor-registry gate policy (Round 4 Topic D, 2026-04-20).
+
+    Controls how MultiFactorStrategy responds when factor_weights
+    contains a name not present in
+    `core/factors/factor_registry.PRODUCTION_FACTORS`.
+
+    Default (strict_mode=False) — WARN and silently drop the
+    unregistered weight. Preserves back-compat: legacy scripts
+    accidentally passing a research name (e.g. `vol_63d` instead of
+    `low_vol`) degrade gracefully.
+
+    Strict (strict_mode=True) — raise UnregisteredFactorError. Use
+    in CI / mining runs / pre-production sanity checks where silent
+    name drift is a research-integrity hazard.
+    """
+
+    strict_mode: bool = False
+
+
 class IntradayTimingConfig(BaseModel):
     """Thresholds and scaling rules for the multi-TF timing layer
     (core/intraday/multi_timescale.py::decide_timing).
@@ -168,6 +188,9 @@ class RiskConfig(BaseModel):
     intraday_timing: IntradayTimingConfig = Field(default_factory=IntradayTimingConfig)
     strategy_concentration: StrategyConcentrationConfig = Field(
         default_factory=StrategyConcentrationConfig,
+    )
+    factor_registry: FactorRegistryConfig = Field(
+        default_factory=FactorRegistryConfig,
     )
 
     @model_validator(mode="after")

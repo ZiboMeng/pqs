@@ -48,6 +48,18 @@ def _concentration_kwargs() -> Dict[str, Any]:
         return {}
 
 
+def _registry_kwargs() -> Dict[str, Any]:
+    """Lazily load factor registry gate policy from config/risk.yaml
+    for mining trials (Round 4 Topic D, 2026-04-20). Falls back to
+    strict=False on config load failure to preserve legacy behavior."""
+    try:
+        from core.config.loader import load_config
+        cfg = load_config()
+        return {"strict_registry": bool(cfg.risk.factor_registry.strict_mode)}
+    except Exception:
+        return {}
+
+
 # ── StrategySpec ──────────────────────────────────────────────────────────────
 
 @dataclass(frozen=True)
@@ -298,6 +310,7 @@ class MultiFactorSpace(ParameterSpace):
                                         # the 1-bar lag; extra shift only
                                         # produces stale T-2 signals.
             **_concentration_kwargs(),
+            **_registry_kwargs(),
         )
 
 

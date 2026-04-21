@@ -106,6 +106,8 @@ def build_strategies(cfg, price_df: pd.DataFrame, risk_syms: list, def_syms: lis
                 cfg.risk.strategy_concentration.concentration_warn_threshold
                 if cfg.risk.strategy_concentration.enabled else None
             ),
+            # Round 4 Topic D (2026-04-20): config-driven registry gate
+            strict_registry=cfg.risk.factor_registry.strict_mode,
         ),
     }
 

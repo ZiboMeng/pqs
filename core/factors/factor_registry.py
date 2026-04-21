@@ -149,6 +149,58 @@ def check_execution_factor_names(factor_weights: Dict[str, float]) -> list[str]:
     return [name for name in factor_weights if name not in PRODUCTION_FACTORS]
 
 
+class UnregisteredFactorError(ValueError):
+    """Raised when strict registry gate sees an unregistered factor name.
+
+    Round 4 Topic D (2026-04-20). Strict mode turns the legacy WARN+drop
+    silent-failure into a loud, CI-visible ValueError. Use in mining
+    runs, pre-production sanity checks, or any context where silent
+    factor-name drift is a research-integrity hazard.
+    """
+
+
+def enforce_execution_factor_names(
+    factor_weights: Dict[str, float],
+    *,
+    strict: bool = False,
+) -> Dict[str, float]:
+    """Gate factor_weights against PRODUCTION_FACTORS.
+
+    Parameters
+    ----------
+    factor_weights : dict of name → weight (input)
+    strict         : False (default) = warn + drop unknown names, return
+                     filtered dict. True = raise UnregisteredFactorError
+                     on any unknown name.
+
+    Returns filtered dict where every key is in PRODUCTION_FACTORS.
+    Strict mode never returns — either raises or passes through unchanged.
+
+    Unifies the old inline logic in MultiFactorStrategy.__init__ so both
+    the default (warn) and strict paths route through a single code path
+    that tests can exercise directly.
+    """
+    from core.logging_setup import get_logger as _get_logger
+    unknown = check_execution_factor_names(factor_weights)
+    if not unknown:
+        return dict(factor_weights)
+    if strict:
+        raise UnregisteredFactorError(
+            f"Unregistered factor name(s) in factor_weights: {unknown}. "
+            f"Known production factors: {sorted(PRODUCTION_FACTORS)}. "
+            f"To add a new factor, update core/factors/factor_registry.py "
+            f"after passing the research funnel."
+        )
+    _get_logger("factor_registry").warning(
+        "Dropping unregistered factor names: %s. Known production: %s. "
+        "Add new factors via core/factors/factor_registry.py after the "
+        "research funnel. (To upgrade this to a hard error set "
+        "config/risk.yaml::factor_registry.strict_mode=true.)",
+        unknown, sorted(PRODUCTION_FACTORS),
+    )
+    return {k: v for k, v in factor_weights.items() if k in PRODUCTION_FACTORS}
+
+
 def production_factor_names() -> list[str]:
     """Stable ordered list of production factor names. Order matches
     MultiFactorStrategy._DEFAULT_WEIGHTS iteration intent."""
