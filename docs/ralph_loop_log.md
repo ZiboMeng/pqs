@@ -3263,3 +3263,64 @@ scripts/run_mining.py --trials 30 --budget 900 --type multi_factor
   baseline on R28 universe
 
 ---
+
+## Universe-Mining-Round 30 — 2026-04-21 — Daily baseline expand (R29 follow-up)
+
+### 1. 主题
+PRD §3 R29-R32 daily baseline 延续 — 按 R29 plan 扩 budget (900s→1800s)
++ trials (30→50) 目标 crossing OOS IR > 0.
+
+### 2. 执行
+```
+run_mining.py --trials 50 --budget 1800 --type multi_factor
+  --lineage-tag post-2026-04-21-universe-mining-round-30
+```
+
+### 3. 结果 — R30 regression vs R29
+
+| metric | R30 best | R29 best | delta |
+|---|---:|---:|---:|
+| quick_sharpe | 0.71 | 0.81 | -0.10 |
+| quick_cagr | +17.43% | **+19.58%** | -2.15pt |
+| oos_ir | **-0.280** | -0.028 | **-0.252 (wrose)** |
+| w_drawup | 0.00 | 0.05 | different region |
+
+R30 unique trials: **4**（即使 budget 加倍）。R30 探索参数区不重叠 R29 的
+好区；w_drawup=0.05 + R29 best params 组合被 archive dedup 挡住，Optuna
+sampler 没重采样过去。
+
+### 4. 关键诊断 — Optuna sampler + archive dedup 互动问题
+- R29 best spec_id `6d15b735a64c` 在 R30 mining stdout 历史 leaderboard 出现
+  (tier C, oos +0.292), 说明 archive 还存着；但 R30 新 unique spec_ids
+  全部是不同参数组合
+- Optuna 的 TPE sampler 不能"回头"到已存档参数 — 只探索新组合
+- 连续 Optuna 运行需要**手动注入** R29 best 附近的变体探索，或重置
+  Optuna study
+
+### 5. §7 stop condition check ✓
+- pytest 1109 unchanged
+- PRODUCTION_FACTORS unchanged
+- 累计 trials: 9 (R29 5 + R30 4) / 200
+- No invariant violation
+- universe.yaml unchanged from R29
+
+### 6. 新问题/新机会
+- **R29 -0.028 可能是 lucky local optimum** — R30 未能复现
+- **Optuna storage 跨 run 没带来收敛**，反而让 dedup 压缩 unique 数
+- R29/R30 累计 9 unique trials，best OOS IR -0.028 (R29 6d15b735a64c)
+
+### 7. 下轮 (R31) 建议
+- **Option A**: 重置 Optuna study（删 `data/mining/optuna.db`) +
+  manual seed 注入 R29 best params 附近变体
+- **Option B**: 换 strategy_type — 跑 dual_momentum on expanded
+  universe (可能不同参数空间 + 不同 Optuna study)
+- **Option C**: 跑 combined mining (--type 不指定，all 4 types)，看
+  non-multi_factor 是否能打破 barrier
+
+默认走 **B** — dual_momentum 上 expanded universe 首测，不扰动 multi_factor
+的 Optuna study。
+
+### 8. 本轮 commit 哈希
+- (doc commit only) —— docs: R30 log + Optuna sampler-dedup diagnosis
+
+---
