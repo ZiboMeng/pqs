@@ -35,6 +35,9 @@ data/*.db-wal
 # Reports output (not committed)
 reports/
 
+# Acceptance pack artifacts (M2); regenerable from mining archive
+artifacts/
+
 # Runtime logs
 logs/
 nohup.out
