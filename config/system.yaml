@@ -16,6 +16,14 @@ logging:
   backup_count: 5
 
 account:
-  initial_capital_usd: 10000.0
+  initial_capital_usd: 100000.0   # raised from 10_000 (2026-04-20):
+                                   # $10k + integer_shares + $700 SPY =
+                                   # ~14 shares per rebalance, 1 symbol
+                                   # ends up 100% of portfolio. Integer
+                                   # rounding noise dominates mining
+                                   # metrics. $100k gives realistic
+                                   # position sizes across the universe
+                                   # and actually exposes rebalancing +
+                                   # concentration + cost issues.
   currency: USD
   timezone: America/New_York

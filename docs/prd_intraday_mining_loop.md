@@ -228,7 +228,8 @@ PRD rather than continuing the loop.
 | Round | Date | Topic | lineage_tag | Outcome |
 |---|---|---|---|---|
 | 0 (smoke) | 2026-04-20 | smoke + audit + NaN fix | post-2026-04-20-closeout | 19/20 quick pass, 0 OOS pass, NaN blocker found+fixed (`d562934`) |
-| 1 | _pending_ | topic A (full smoke w/ QQQ fire) | post-2026-04-20-closeout | _pending_ |
+| 0.5 (config) | 2026-04-20 | initial_capital 10k → 100k | — | methodology change; bump lineage_tag for all subsequent rounds |
+| 1 | _pending_ | topic A (full smoke w/ QQQ fire) | **post-2026-04-20-capital-100k** | _pending_ |
 | ... | | | | |
 
 ---
