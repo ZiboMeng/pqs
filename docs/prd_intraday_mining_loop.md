@@ -229,7 +229,8 @@ PRD rather than continuing the loop.
 |---|---|---|---|---|
 | 0 (smoke) | 2026-04-20 | smoke + audit + NaN fix | post-2026-04-20-closeout | 19/20 quick pass, 0 OOS pass, NaN blocker found+fixed (`d562934`) |
 | 0.5 (config) | 2026-04-20 | initial_capital 10k → 100k | — | methodology change; bump lineage_tag for all subsequent rounds |
-| 1 | _pending_ | topic A (full smoke w/ QQQ fire) | **post-2026-04-20-capital-100k** | _pending_ |
+| 1 | 2026-04-20 | Topic A (full smoke 80/1800 @ $100k) | post-2026-04-20-capital-100k | 37 trials, 56/57 quick pass, **0 OOS pass** → QQQ gate 未触发; completion signal 未达; plumbing 在单测层已充分覆盖; 研究 blocker: post-P0.1 口径下 80 trials 不足; Phase B "current best" 参数已标注为旧口径 (`07d51e5`) |
+| 2 | _pending_ | 推荐 Topic B (leaderboard 显示 lineage + QQQ) | post-2026-04-20-capital-100k | _pending_ |
 | ... | | | | |
 
 ---

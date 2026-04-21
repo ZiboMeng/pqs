@@ -71,3 +71,88 @@ Round 1 执行 Topic A：`--trials 80 --budget 1800 --lineage-tag post-2026-04-2
 - [ ] Round 10-12 — J/K/L（infra）
 
 ---
+
+## Round 1 — Topic A: 全预算 smoke + 研究 blocker 诊断
+
+**日期**: 2026-04-20（21:11 完成）
+**Topic**: A（full-budget smoke，QQQ gate 触发）
+**Lineage_tag**: `post-2026-04-20-capital-100k`
+**测试变化**: 1009 → 1009（未新增单测；本轮交付物是真实 mining 数据 + 研究信号）
+**主要 commits**: `6f2a437`（清理 ralph-loop 状态 track）· `07d51e5`（研究发现写入 CLAUDE.md）
+
+### 1. 当前阶段
+Ralph-loop 第 1 轮 / Topic A
+
+### 2. 本轮目标
+让 archive 至少 1 行有非 NULL `qqq_full_period_excess`，证明 Stage 6 QQQ gate 在真实 mining 中被调用
+
+### 3. 为什么先做它
+PRD §3.1 第一优先级。Smoke v2 时 0 OOS 通过导致 gate 从未触发，这是收口结束后最大的未验证缺口
+
+### 4. 做了什么
+- 真实 mining run：`scripts/run_mining.py --trials 80 --budget 1800 --lineage-tag post-2026-04-20-capital-100k --type multi_factor`
+- 运行 677 秒，120 evaluations，37 唯一 trials 写入 archive
+- 审计 archive:
+  - Lineage 分布 `post-2026-04-20-capital-100k` × 37 + `post-2026-04-20-closeout` × 20
+  - `score=-999` 行数：**0**
+  - 缺 `lineage_tag` 行数：0
+  - `qqq_full_period_excess` 非 NULL：**0**
+- OOS 分布诊断：`oos_ir` 区间 **-0.709 到 -0.113**（全部负值），quick_sharpe 0.424 到 0.774
+- 在 CLAUDE.md 加新 section "Ralph-Loop Findings"，正式记录 Round 1 研究信号
+- 在 "Current Best Strategy" 段加 ⚠️ 警告，明确那些数字来自 P0.1-fix 之前
+
+### 5. 修改了哪些文件
+- `CLAUDE.md`（⚠️ 标注 + 新 Ralph-Loop Findings 节）
+- `.gitignore`（untrack `.claude/ralph-loop.local.md`）
+- `docs/prd_intraday_mining_loop.md`（Appendix A Round 1 行）
+- `docs/ralph_loop_log.md`（本节新增）
+
+### 6. 跑了哪些测试
+- `pytest tests/ -q`：**1009 passing**（轮前审计）
+- `scripts/run_mining.py` 80 × 1800s 真实 smoke（677 秒）
+- Archive 审计查询：lineage 分布、-999 行、缺 lineage 行、qqq 非 NULL 行、OOS IR 区间
+
+### 7. 当前结果
+- **Topic A 字面 completion signal（archive ≥1 非 NULL qqq_full_period_excess）未达成**
+  - 根因：0 个 trial 通过 OOS → gate 从未被调用
+- **但多项非目标验证通过**：
+  - NaN 护栏在 80 trials 规模下稳定（0 crash）
+  - Lineage tagging 跨 run 一致（37 new + 20 legacy 独立）
+  - Archive schema 所有 QQQ 列正确写入（只是值是 NULL）
+  - `_assign_tier` 正确把 100% trials 降级到 D
+- QQQ gate 的 plumbing 在单测层已被 3 个文件充分覆盖
+
+### 8. 剩余风险
+- **研究 blocker**（新发现，本轮最重要产出）：post-P0.1-fix 口径下，当前策略参数空间在 80 trials / 1800s 预算内无法产生 OOS 正值。Phase B 文档记录的"current best"参数产自旧 shift=True 口径，本质是历史局部最优
+- Ralph-loop 硬规则 7（`--trials > 200` 需用户签核）限制了 Round 2 通过加 trials 快速解决
+- Legacy 20 行 `post-2026-04-20-closeout` lineage 在 $10k capital 下产生，与新 37 行已经隔离；Topic B 的 leaderboard 改动需要明确显示这个分层
+
+### 9. 下一轮建议
+**推荐 Round 2 = Topic B**（leaderboard 显示 lineage + QQQ），理由：
+- 按 PRD §3.1 顺序
+- 当前 archive 有 57 rows 跨 2 个 lineage，恰好是 Topic B 的测试用例
+- 独立于 OOS 研究 blocker
+- 完成后能更好地可视化 Round 1 发现的"历史 vs 当前"对比
+
+**备选（off-menu，需用户签核）**：先解决 OOS 失败率 100% 的研究 blocker，选项：
+- 扩搜索空间（加 `rebalance_monthly=True`、放宽 lookback）
+- 调低 `oos_min_ir`（0.20 → 0.10）观察是否门槛问题
+- 增加 trial 预算（需用户签核超 200）
+
+默认按 PRD 顺序走 Topic B。
+
+### 10. TODO checklist（更新后）
+- [x] Round 0: smoke + audit + NaN fix + capital bump
+- [x] Round 1: Topic A 真实 smoke → 诊断研究 blocker（post-P0.1 口径下 OOS 失败率 100%）
+- [ ] Round 2: 推荐 Topic B（leaderboard 显示 lineage + QQQ）
+- [ ] Round 3: Topic C（stale_counts 进 checkpoint）
+- [ ] Round 4: Topic D（factor gate strict mode）
+- [ ] Round 5-9: E/F/G/H/I（research，含新增的 OOS 诊断）
+- [ ] Round 10-12: J/K/L（infra）
+
+### 11. 本轮 commit 哈希
+- `6f2a437` — chore: gitignore ralph-loop runtime state（轮前清理）
+- `07d51e5` — Round 1 (Topic A): 实战 smoke + post-P0.1 口径下 OOS 失败率 100% 的研究信号
+- （本条 doc commit）— docs: 第 1 轮日志更新
+
+---
