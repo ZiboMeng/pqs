@@ -618,6 +618,12 @@ python scripts/run_universe_rebalance.py
   - `--stdout`: 额外打印到 stdout
 - **读结果**: `jq '.tests, .git, .archive' data/baseline/latest.json`
 
+#### `demo_cross_ticker_rules.py` (PRD M4 demo)
+- **作用**: 把 `config/cross_ticker_rules.yaml` 的规则应用到当前生产策略产出的权重上，展示 before/after 差异
+- **CLI**: `--start 2024-01-02 --end 2024-12-31 --rules-file <path>`
+- **Demo 观测**: 2022 年窗口 66/251 dates 被规则触发（26%），2024 年全 BULL 触发率低
+- **不修改生产**；研究演示 tool
+
 ### 8.10 ML / Research (PRD M7 / M8)
 
 #### `run_xgb_weight_model.py` (PRD M7, research-only)
