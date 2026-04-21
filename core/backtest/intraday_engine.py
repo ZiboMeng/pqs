@@ -119,6 +119,7 @@ class IntradayBacktestEngine:
         rebalance_threshold:   float = 0.02,
         conf_no_trade:         float = _DEFAULT_CONF_NO_TRADE,
         conf_full_size:        float = _DEFAULT_CONF_FULL_SIZE,
+        stale_bars_threshold:  int   = 13,
     ):
         self._cost         = cost_model
         self._sim          = ExecutionSimulator(cost_model, freq="intraday", allow_partial=True)
@@ -133,6 +134,14 @@ class IntradayBacktestEngine:
         # T+1 open is missing / NaN / non-positive. Previously this path fell
         # back silently to same-bar close → lookahead bias. Expose for reports.
         self._skipped_missing_open: int = 0
+        # Ghost-position cleanup for intraday (2026-04-20 closeout).
+        # After `stale_bars_threshold` consecutive bars where a held
+        # symbol has a missing or non-positive next-bar open, force-
+        # liquidate at last observed valid close. Default 13 ≈ 2 RTH
+        # trading days of 60m bars — conservative enough to not
+        # prematurely exit a trading halt.
+        self._stale_bars_threshold: int = int(stale_bars_threshold)
+        self.ghost_liquidations: List[Dict] = []
 
     # ── 主入口 ────────────────────────────────────────────────────────────────
 
@@ -241,6 +250,7 @@ class IntradayBacktestEngine:
         target_wts_fn: Optional[Callable[[pd.Timestamp, Dict[str, float], float], Dict[str, float]]] = None,
         on_bar_complete: Optional[Callable[["BarUpdate"], None]] = None,
         skip_bar_fn: Optional[Callable[[pd.Timestamp], bool]] = None,
+        stale_counts: Optional[Dict[str, int]] = None,
     ) -> DayResult:
         """
         Execute one trading day across multiple assets using intraday bars.
@@ -282,12 +292,82 @@ class IntradayBacktestEngine:
 
         init_val = cur_cash + self._multi_portfolio_value(shares, day_bars, 0)
 
+        # Ghost-position cleanup state (intraday, 2026-04-20 closeout).
+        # Track consecutive bars where each held symbol has a bad
+        # next-bar open. If caller passes `stale_counts`, counters
+        # persist across days; otherwise scoped to this call.
+        stale_tracker: Dict[str, int] = (
+            stale_counts if stale_counts is not None else {}
+        )
+        last_valid_close: Dict[str, float] = {}
+
         for i in range(n_bars - 1):
             bar_ts = bar_times[i]
             next_idx = i + 1
 
             if skip_bar_fn is not None and skip_bar_fn(bar_ts):
                 continue
+
+            # Refresh last_valid_close for any sym with a good current
+            # close (used for ghost liquidation if the sym goes stale).
+            for sym in list(shares):
+                if sym in day_bars and i < len(day_bars[sym]):
+                    c = day_bars[sym]["close"].iloc[i]
+                    if not pd.isna(c) and float(c) > 0:
+                        last_valid_close[sym] = float(c)
+
+            # Ghost-position cleanup — evaluate BEFORE order generation.
+            # A held symbol with N consecutive missing next-bar opens
+            # is force-liquidated at last_valid_close.
+            for sym in list(shares.keys()):
+                _has_next = (sym in day_bars
+                             and next_idx < len(day_bars[sym]))
+                _bad_open = True
+                if _has_next:
+                    _op = day_bars[sym]["open"].iloc[next_idx]
+                    try:
+                        _op_f = float(_op)
+                        _bad_open = pd.isna(_op_f) or _op_f <= 0
+                    except (TypeError, ValueError):
+                        _bad_open = True
+                if _bad_open:
+                    stale_tracker[sym] = stale_tracker.get(sym, 0) + 1
+                else:
+                    stale_tracker[sym] = 0
+
+                if stale_tracker[sym] > self._stale_bars_threshold:
+                    qty = shares.pop(sym)
+                    px = last_valid_close.get(sym)
+                    if px is not None and px > 0:
+                        proceeds = qty * px
+                        cur_cash += proceeds
+                        self.ghost_liquidations.append({
+                            "date": date, "bar_ts": bar_ts,
+                            "symbol": sym, "qty": qty, "price": px,
+                            "proceeds": proceeds,
+                            "stale_bars": stale_tracker[sym],
+                        })
+                        logger.warning(
+                            "[%s] intraday ghost cleanup: liquidating %s "
+                            "qty=%.4f @ %.4f after %d stale bars",
+                            date.date() if hasattr(date, "date") else date,
+                            sym, qty, px, stale_tracker[sym],
+                        )
+                    else:
+                        self.ghost_liquidations.append({
+                            "date": date, "bar_ts": bar_ts,
+                            "symbol": sym, "qty": qty, "price": 0.0,
+                            "proceeds": 0.0,
+                            "stale_bars": stale_tracker[sym],
+                            "write_off": True,
+                        })
+                        logger.warning(
+                            "[%s] intraday ghost cleanup: writing off %s "
+                            "(no valid close observed, qty=%.4f)",
+                            date.date() if hasattr(date, "date") else date,
+                            sym, qty,
+                        )
+                    stale_tracker.pop(sym, None)
 
             port_val = cur_cash + self._multi_portfolio_value(shares, day_bars, i)
             if port_val <= 0:

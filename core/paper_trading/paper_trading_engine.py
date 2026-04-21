@@ -92,6 +92,10 @@ class PaperTradingEngine:
         # 运行时状态
         self._positions: Dict[str, float] = {}
         self._cash:      float             = initial_capital
+        # Stale-bars tracker persists across successive run_day_intraday
+        # invocations so that a multi-day halt accumulates correctly
+        # toward the intraday ghost-cleanup threshold (closeout 2026-04-20).
+        self._intraday_stale_counts: Dict[str, int] = {}
 
         if replay_mode:
             logger.warning(_REPLAY_BIAS_WARNING)
@@ -364,6 +368,7 @@ class PaperTradingEngine:
             target_wts_fn=effective_target_fn,
             on_bar_complete=_on_bar,
             skip_bar_fn=_skip,
+            stale_counts=self._intraday_stale_counts,
         )
 
         self._positions = result.eod_positions
