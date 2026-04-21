@@ -654,6 +654,53 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 19 — blocker report 草稿 v0.1
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-19`
+
+**改动**:
+- 新 `docs/llm_phase_blocker_report.md` (~250 行) —— PRD §10 criterion
+  #4 要求的 blocker report 初稿（`reports/` 是 gitignore，移到 `docs/`）
+- **用户 R19 指令** (2026-04-21): "后面对于universe肯定要进行优化和扩充
+  当前的暴露太偏大科技 需要进行筛选 来实现alpha正值 而不是纯赚beta" ——
+  确认 §6.1 是 primary blocker resolution path；report §1 Executive
+  Summary + §6.1 已更新为 **USER-VALIDATED, HIGHEST PRIORITY**
+- 草稿 v0.1 整理 R1-R18 证据链，列 4 lines of evidence + drawup deep-dive
+  + 6.1-6.4 推荐的 post-LLM-phase 下一步（universe expansion / 新数据源
+  / 非线性 ensemble / pairs/arb 策略）+ 8 个 R20-R30 待解 open questions
+
+**Blocker report 结构**:
+1. Executive Summary
+2. PRD §10 goals status
+3. 4 lines of evidence:
+   - R6 XGBoost cross-signal (OOS R² 负)
+   - R15 composite MaxDD (best -50.87% 超过 -20% invariant)
+   - R16 mining post-promotion (0/83 trials pass OOS)
+   - R18 calendar anomalies (IC ~0)
+4. Best candidate deep-dive: drawup 4-method consensus + 最终 mining 结果
+5. Why thresholds should NOT be lowered (per user R17 指令)
+6. Recommended next steps (out of LLM-phase scope)
+7. LLM phase deliverables (7 tools + 26 candidates + 1 promoted)
+8. Open questions for R20-R30
+9. Appendix: 全候选列表
+
+**PRD §10 midpoint (R19 / 30)**:
+- #1 ✅ (R15 promotion)
+- #2 ❌ blocked (0/83 trials pass OOS threshold)
+- #3 ✅ (lineage_tag + YAML archive)
+- **#4 草稿 v0.1 就位** (R19) — 剩余 R20-R29 迭代修订 + R30 finalize
+
+**PRD §13.2 halt 条件**: pytest 1109 / 1 PRODUCTION promote (R15 auth) /
+26 candidates / 无 invariant 违反。继续。
+
+**下轮建议**:
+- **A**: 运行 R19 report §8 open question #1 的实验 (80+ trial wider mining
+  run, budget 3600s) 看 OOS barrier 在更大 sampling 下是否松动
+- **B**: 做 R19 report §8 open question #2 实验 (MR ensemble 作为 single
+  registered factor 直接 promote 测试)
+- **C**: 现在 compile 本 report 到 final 版 (premature — 应该等 R29 再 finalize)
+
 ### LLM-Round 18 — Topic LLM-9 event/calendar（菜单覆盖完成）
 
 **时间**: 2026-04-21
