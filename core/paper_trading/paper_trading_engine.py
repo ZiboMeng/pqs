@@ -389,6 +389,7 @@ class PaperTradingEngine:
                     run_id=run_id, date=date, bar_ts=last_bar_ts,
                     orders=[], fills=residual_fills,
                     positions=self._positions, cash=self._cash, equity=equity,
+                    is_eod=True,  # P1.8: flag EOD residuals for attribution
                 )
                 # Final checkpoint reflects post-EOD state so a re-run
                 # doesn't re-trigger EOD force-close.
@@ -584,9 +585,21 @@ class PaperTradingEngine:
                 price        REAL    NOT NULL,
                 slippage_usd REAL    NOT NULL DEFAULT 0,
                 commission_usd REAL  NOT NULL DEFAULT 0,
-                cash_delta   REAL    NOT NULL
+                cash_delta   REAL    NOT NULL,
+                is_eod       INTEGER NOT NULL DEFAULT 0
             )
         """)
+        # P1.8 (2026-04-20): migration for DBs created before is_eod
+        # column existed. ALTER will no-op when the column already
+        # exists; failure silenced because older SQLite reports an
+        # error we treat as "already migrated."
+        try:
+            conn.execute(
+                "ALTER TABLE intraday_fills ADD COLUMN is_eod INTEGER "
+                "NOT NULL DEFAULT 0"
+            )
+        except sqlite3.OperationalError:
+            pass  # column exists
         conn.execute("""
             CREATE TABLE IF NOT EXISTS intraday_positions (
                 id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -709,11 +722,19 @@ class PaperTradingEngine:
         positions: Dict[str, float],
         cash:      float,
         equity:    float,
+        is_eod:    bool = False,
     ) -> None:
-        """Persist one bar's orders, fills, positions, and equity snapshot."""
+        """Persist one bar's orders, fills, positions, and equity snapshot.
+
+        is_eod (P1.8, 2026-04-20): when True, fills for this call are
+        flagged as EOD residual (force-close). Downstream attribution
+        can filter these out so "bar N fills" aren't conflated with
+        end-of-day flatten trades parked on the last bar_ts.
+        """
         conn = sqlite3.connect(self._db_path)
         date_str = str(date.date())
         bar_str = str(bar_ts)
+        is_eod_int = 1 if is_eod else 0
 
         for o in orders:
             conn.execute(
@@ -726,11 +747,13 @@ class PaperTradingEngine:
         for f in fills:
             conn.execute(
                 "INSERT INTO intraday_fills (run_id, date, bar_ts, symbol, side, qty, price, "
-                "slippage_usd, commission_usd, cash_delta) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                "slippage_usd, commission_usd, cash_delta, is_eod) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                 (run_id, date_str, bar_str, f.order.symbol,
                  f.order.side.value if hasattr(f.order.side, 'value') else str(f.order.side),
                  f.executed_qty, f.executed_price,
-                 f.cost_breakdown.slippage_usd, f.cost_breakdown.commission_usd, f.cash_delta),
+                 f.cost_breakdown.slippage_usd, f.cost_breakdown.commission_usd, f.cash_delta,
+                 is_eod_int),
             )
 
         for sym, qty in positions.items():
