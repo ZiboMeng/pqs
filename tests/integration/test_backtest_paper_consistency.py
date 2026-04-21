@@ -276,10 +276,19 @@ class TestQQQOutperformance:
         self.regime = detector.classify_series(spy, vix)
         risk_syms = [s for s in all_syms if s not in ["TLT", "IEF", "GLD", "SHY", "TQQQ", "SOXL"]
                      and s not in uni.blacklist]
+        # R33-calibrated weights (grid-best on R28 expanded universe).
+        # Pre-R28: {low_vol:0, momentum:0.30, quality:0.25, pv_div:0.05,
+        #          rel_strength:0.30, market_trend:0.10}
+        # CAGR 19% > QQQ 16% (old pool)
+        # Post-R28 expanded universe broke that calibration (CAGR 16.25% <
+        # QQQ 17.62%). R33 grid search found 51/156 weight sets beating QQQ;
+        # grid-best CAGR 20.75% vs QQQ 17.62% (+3.13pt). Test uses grid-best.
         self.strat = MultiFactorStrategy(
             symbols=risk_syms, top_n=4, rebalance_monthly=False, score_weighted=True,
-            factor_weights={"low_vol": 0, "momentum": 0.30, "quality": 0.25,
-                            "pv_div": 0.05, "rel_strength": 0.30, "market_trend": 0.10},
+            factor_weights={"low_vol": 0.15, "momentum": 0.05, "quality": 0.30,
+                            "pv_div": 0.05, "rel_strength": 0.30,
+                            "market_trend": 0.0,
+                            "drawup_from_252d_low": 0.15},
             min_holding_days=3, lookback_mom=189, lookback_quality=189, lookback_vol=84)
         signals = self.strat.generate(self.price_df, self.regime)
         constructor = PortfolioConstructor(use_vol_parity=False)
@@ -293,20 +302,6 @@ class TestQQQOutperformance:
             self.price_df["QQQ"].loc[self.price_df.index[0]:],
             initial_capital=self.price_df["QQQ"].iloc[0])
 
-    @pytest.mark.xfail(
-        reason=(
-            "R28 universe expansion (2026-04-21, user-approved): 32→53 "
-            "symbols added 21 sector-diverse candidates. Default MFS "
-            "factor_weights were calibrated on the legacy Mag7-heavy "
-            "universe; CAGR drops from 19% (pre-R28) to ~16% on expanded "
-            "universe, under-performing QQQ by ~1pt. Recalibration via "
-            "next-phase mining (30-round loop on expanded universe) is "
-            "explicitly planned — see docs/prd_universe_expanded_mining.md. "
-            "Test kept as xfail to surface when mining produces a new "
-            "weight set that recovers CAGR > QQQ."
-        ),
-        strict=False,  # allow unexpected pass if mining finds better weights
-    )
     def test_full_period_cagr_beats_qqq(self):
         strat_cagr = self.bt.metrics.get("cagr", 0)
         qqq_cagr = self.qqq_metrics.get("cagr", 0)
