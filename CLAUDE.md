@@ -654,6 +654,70 @@ NEVER use `git add -A` or `git add .` — always add specific files.
 
 ## Ralph-Loop Findings (2026-04-20+)
 
+### LLM-Round 6 — Topic LLM-5：XGBoost cross-signal mining（7/11 候选进 top-20）
+
+**时间**: 2026-04-21
+**lineage_tag**: `post-2026-04-20-llm-round-6`
+
+**改动**:
+- 新 `scripts/run_llm_cross_signal_mining.py` —— 扩展 Round 9 的
+  `run_model_comparison.py` 骨架，自动发现 `research/llm_candidates/
+  round_*/*.yaml` 并将所有 LLM compute_fn 产出并入 feature panel，
+  跑 Ridge + XGBoost + permutation importance
+- Artifacts: `data/ml/llm_xgb_importance.parquet` + `data/ml/
+  llm_cross_signal_summary.json`
+
+**XGBoost Top-20 分布**（43 features = 32 classical + 11 LLM，
+panel 79966 rows, split 2023-02-23）:
+
+| XGB Rank | Factor | Perm Imp | Source |
+|---:|---|---:|---|
+| 1 | max_dd_126d | +0.146 | classical |
+| 2 | mom_126d | +0.047 | classical |
+| **3** | **rs_vs_qqq_63d** | **+0.037** | **LLM** |
+| 4 | vol_63d | +0.029 | classical |
+| 5 | spy_trend_200d | +0.022 | classical |
+| 6 | mom_252d | +0.017 | classical |
+| **7** | **drawup_from_252d_low** | **+0.010** | **LLM** |
+| ... | ... | | |
+| **11-18** | rs_21d_minus_63d / intraday_cumret_skew_21d / non_tech_rs_63d / momentum_quality_interaction / vol_term_ratio_5_63 | 各 +0.001 ~ +0.006 | **LLM** |
+
+**PRD §9 LLM-5 completion signal**: **✅ MET** — 7 LLM candidates in XGBoost top-20.
+
+**Ridge Top-20 分布**：`drawup_from_252d_low` 排 **#1**（+0.024，单因子
+最强线性 signal），`first_last_bar_diff_21d` #3，`rs_21d_minus_63d` #6，
+`intraday_cumret_skew_21d` #7，`momentum_quality_interaction` #15，
+`rs_vs_equal_weight_63d` #20。 Ridge 共 6/11 LLM 候选进 top-20。
+
+**关键 cross-round findings**:
+1. **`drawup_from_252d_low` 的价值被 XGBoost 再次确认**：Ridge #1 + XGB #7。
+   Round 5 MaxDD FAIL 是 *isolated-strategy* 的问题；**作为 composite 组件**
+   它是最强的 LLM 候选
+2. **`rs_vs_qqq_63d` (XGB #3)** 推翻了 Round 1 的 dedup-reject 直觉：虽然与
+   `xsection_rank_63d` Spearman ρ=+0.94，但在 XGBoost full panel 下有
+   **independent importance +0.037**。PRD §5.1 "dedup-flagged candidates
+   must prove incremental value" 的教科书案例 —— 这里的 incremental value
+   来自 nonlinear interactions 而非 residual linear IC
+3. **Univariate-IC-weak 候选也有 interaction 价值**：`intraday_cumret_skew_21d`
+   Round 2 测 IC ≈ 0，但 XGB #12。`momentum_quality_interaction` Round 1
+   IC=-0.05 (archived)，但 XGB #14。说明 "univariate IC" 和 "cross-feature
+   importance" 是两个正交的测度。LLM 候选筛选的 funnel 需要双验证
+4. **XGBoost OOS R² = -0.107（过拟合）**但 perm importance 排序仍有诊断价值
+   （类似 Round 9 findings）
+
+**PRD §13.2 halt 条件**: pytest 1109 / 0 promote / 11 累计候选 << 200 /
+无 invariant 违反。继续。
+
+**下轮建议**:
+- **A**: LLM-8 factor interaction mining —— 基于 Round 6 的 XGBoost top-20，
+  挖掘具体的 factor × factor 交互项，产出新的 interaction factors
+- **B**: LLM-6 orthogonalization gate —— 补完 dedup 的 residual IC 分析
+  （Round 4 两个 NEEDS_HUMAN_REVIEW 候选用它可以定量判断 incremental value）
+- **C**: LLM-12 第一个 LLM 候选 promote funnel —— 把 `rs_vs_qqq_63d` 或
+  `drawup_from_252d_low` 作为 MFS 的 7th factor slot 加进 composite，跑
+  完整 mining evaluator.evaluate。**这会触发 §13.2 halt**（涉 PRODUCTION
+  代码改动），必须用户批准后才能做
+
 ### LLM-Round 5 — Topic LLM-1 §5.3 收尾：factor_backtest 工具 + drawup MaxDD FAIL
 
 **时间**: 2026-04-21
