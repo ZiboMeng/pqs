@@ -2557,7 +2557,7 @@ limit + min_level gating built-in. Credentials via env var expansion
 path before resuming `prd_universe_expanded_mining.md` R36+:
 - [x] **M0** research baseline snapshot (`scripts/build_research_baseline_snapshot.py`)
 - [x] **M1** `config/production_strategy.yaml` single source of truth (21 unit + 7 integration tests)
-- [x] **M2** promote CLI + acceptance pack (13 unit tests; `scripts/acceptance_pack.py` + `scripts/promote_strategy.py` + `docs/promotion_flow.md`)
+- [x] **M2** promote CLI + acceptance pack v2 (18 unit tests; `scripts/acceptance_pack.py` + `scripts/promote_strategy.py` + `docs/promotion_flow.md`). v2 added `full_period_fresh_backtest` gate after first promote attempt caught quick-eval-vs-full-period CAGR gap (`6d15b735a64c` was rolled back; pack now re-runs fresh backtest by default)
 - [x] **M3** runtime alignment check WARN mode (12 unit tests; `core/alignment/alignment_check.py`; integrated in `run_backtest.py` + `run_paper.py`)
 - [x] **M4** cross-ticker YAML DSL (24 unit tests; `core/signals/cross_ticker_rules.py` + `config/cross_ticker_rules.yaml`; 3 rule types; safe expression eval no Python eval)
 - [x] **M5** multi-TF execution contract runtime assert (4 integration tests; `IntradayBacktestEngine.run_multi_day` clips + WARN on negative timing_provider weights)

@@ -92,8 +92,13 @@ def _build_promoted_yaml(
     params = dict(pack.params)
     factor_weights = params.pop("factor_weights", None)
     if factor_weights is None:
-        # some archives use 'weights' key
+        # Some archives use 'weights' key
         factor_weights = params.pop("weights", None)
+    if factor_weights is None:
+        # MultiFactorSpace.suggest() stores weights as w_<factor_name>
+        w_keys = [k for k in list(params.keys()) if k.startswith("w_")]
+        if w_keys:
+            factor_weights = {k[2:]: params.pop(k) for k in w_keys}
     if not factor_weights:
         raise AcceptancePackError(
             f"spec_id {pack.spec_id} has no factor_weights in archive params; "
@@ -102,6 +107,8 @@ def _build_promoted_yaml(
 
     # Keep only canonical params (drop mining-specific keys)
     canonical_params = {k: params[k] for k in _MFS_PARAM_KEYS if k in params}
+    # Fill defaults for keys not in archive (older mining rows may lack these)
+    canonical_params.setdefault("apply_extra_shift", False)
 
     fingerprints = _compute_fingerprints()
     now = datetime.now(timezone.utc).isoformat()
@@ -162,6 +169,8 @@ def main() -> int:
                         help="Allow promote even if acceptance pack FAILS (requires --yes-i-know-what-im-doing)")
     parser.add_argument("--yes-i-know-what-im-doing", action="store_true",
                         dest="confirm_force")
+    parser.add_argument("--skip-fresh-backtest", action="store_true",
+                        help="Skip pack v2 gate 10. Debug only; not for real promote.")
     args = parser.parse_args()
 
     if not args.dry_run and not args.promote:
@@ -170,7 +179,10 @@ def main() -> int:
 
     # Run acceptance pack
     try:
-        pack = run_acceptance_pack(args.spec_id, archive_db=args.archive_db)
+        pack = run_acceptance_pack(
+            args.spec_id, archive_db=args.archive_db,
+            run_fresh_backtest=not args.skip_fresh_backtest,
+        )
     except AcceptancePackError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2

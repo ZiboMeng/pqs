@@ -115,15 +115,32 @@ config hash) against the yaml's `fingerprints.*`. Mismatches will WARN
 (phase 1) or FAIL live paper (phase 2). If you change factor registry or
 universe after promoting, re-run the promote flow.
 
-## Acceptance pack v1 limitations (to be addressed)
+## Acceptance pack v2 (2026-04-21 — post first-promote rollback)
 
-- Reads archive row as historical evidence; does not re-run full backtest
-  against current codebase
-- `concentration` gate is skip-pass (runtime soft_cap enforced at execution)
-- `paper_backtest_alignment` gate is skip-pass (M1 single-source-of-truth
-  enforces equivalence by construction)
+**History**: v1 trusted archive row as authoritative evidence. A real
+promote attempt on `6d15b735a64c` showed the archive's `quick_cagr`
+(25.6%) and `qqq_full_period_excess` (+6.17%) came from the **quick
+70% data fraction**, not full-period. When the production test ran a
+fresh backtest it showed CAGR 14.0% < QQQ 17.6% (-3.6% excess). The
+yaml was reverted and pack v1 upgraded to v2.
 
-For highest-confidence promotion, supplement with manual:
+**v2 additions**:
+- New gate 10 `full_period_fresh_backtest` — re-runs MultiFactorStrategy
+  with spec params on current full price panel, computes actual CAGR vs
+  QQQ, fails if excess ≤ 0
+- `run_acceptance_pack(..., run_fresh_backtest=True)` by default
+- CLI `--skip-fresh-backtest` for debug only
+
+**Still skip-pass in v2** (enforced elsewhere):
+- `concentration` — runtime `soft_cap_max_single` in risk.yaml
+- `paper_backtest_alignment` — M1 single-source-of-truth by construction
+
+**v3 roadmap** (still open):
+- Run paper-BT consistency check during promote (daily + intraday replay diff)
+- Multi-horizon stress test (cost × 3, regime × single-sector)
+- Per-regime CAGR vs QQQ (diagnostic, not hard gate)
+
+For highest-confidence promotion, supplement v2 with manual:
 
 ```bash
 python scripts/run_backtest.py --strategy multi_factor

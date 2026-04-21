@@ -124,18 +124,54 @@ def _create_archive(tmp_path: Path, rows: list[dict]) -> Path:
 
 
 def test_perfect_trial_all_gates_pass():
-    gates = _build_gates(_PERFECT_TRIAL)
-    assert len(gates) == 9
+    # Pack v2: gate 10 fresh_backtest = skip-PASS when fresh_check=None
+    gates = _build_gates(_PERFECT_TRIAL, fresh_check=None)
+    assert len(gates) == 10
     assert all(g.passed for g in gates), f"expected all pass, got: {[(g.name, g.passed) for g in gates]}"
 
 
 def test_failing_trial_multiple_gates_fail():
-    gates = _build_gates(_FAILING_TRIAL)
+    gates = _build_gates(_FAILING_TRIAL, fresh_check=None)
     names_failing = [g.name for g in gates if not g.passed]
     assert "oos_walk_forward" in names_failing
     assert "robustness" in names_failing
     assert "holdout" in names_failing
-    assert "qqq_hard_gate" in names_failing
+    assert "qqq_hard_gate_archive" in names_failing
+
+
+def test_fresh_backtest_gate_passes_when_positive_excess():
+    """Gate 10 passes when fresh_check.passed=True."""
+    fresh = {"strategy_cagr": 0.22, "qqq_cagr": 0.18, "excess": 0.04, "passed": True}
+    gates = _build_gates(_PERFECT_TRIAL, fresh_check=fresh)
+    fresh_gate = next(g for g in gates if g.name == "full_period_fresh_backtest")
+    assert fresh_gate.passed
+    assert fresh_gate.values["excess"] == pytest.approx(0.04)
+
+
+def test_fresh_backtest_gate_fails_when_negative_excess():
+    """Gate 10 catches specs where fresh run shows CAGR < QQQ, even if
+    archive claimed otherwise — this is the v2 enhancement."""
+    fresh = {"strategy_cagr": 0.14, "qqq_cagr": 0.176, "excess": -0.036, "passed": False}
+    gates = _build_gates(_PERFECT_TRIAL, fresh_check=fresh)
+    fresh_gate = next(g for g in gates if g.name == "full_period_fresh_backtest")
+    assert not fresh_gate.passed
+
+
+def test_fresh_backtest_gate_fails_on_error():
+    """If fresh backtest errors, fail-closed rather than skip-pass."""
+    fresh = {"error": "some import failure"}
+    gates = _build_gates(_PERFECT_TRIAL, fresh_check=fresh)
+    fresh_gate = next(g for g in gates if g.name == "full_period_fresh_backtest")
+    assert not fresh_gate.passed
+    assert "error" in fresh_gate.values
+
+
+def test_fresh_backtest_gate_skip_pass_when_none():
+    """When run_fresh_backtest=False, gate 10 is skip-pass (green)."""
+    gates = _build_gates(_PERFECT_TRIAL, fresh_check=None)
+    fresh_gate = next(g for g in gates if g.name == "full_period_fresh_backtest")
+    assert fresh_gate.passed
+    assert fresh_gate.values.get("skipped") is True
 
 
 def test_gate_values_populated():
@@ -174,42 +210,50 @@ def test_diversity_gate_defaults_pass_when_missing():
 
 def test_run_pack_exact_match(tmp_path):
     db = _create_archive(tmp_path, [_PERFECT_TRIAL])
-    result = run_acceptance_pack("perfect_trial_123", archive_db=db)
+    # run_fresh_backtest=False to avoid expensive real-data backtest in unit test
+    result = run_acceptance_pack("perfect_trial_123", archive_db=db, run_fresh_backtest=False)
     assert result.spec_id == "perfect_trial_123"
     assert result.overall_passed is True
-    assert len(result.gates) == 9
+    assert len(result.gates) == 10  # 9 archive gates + 1 fresh_backtest (skip-pass)
 
 
 def test_run_pack_prefix_match(tmp_path):
     db = _create_archive(tmp_path, [_PERFECT_TRIAL])
-    result = run_acceptance_pack("perfect_trial_", archive_db=db)
+    result = run_acceptance_pack("perfect_trial_", archive_db=db, run_fresh_backtest=False)
     assert result.spec_id == "perfect_trial_123"
 
 
 def test_run_pack_missing_spec_raises(tmp_path):
     db = _create_archive(tmp_path, [_PERFECT_TRIAL])
     with pytest.raises(AcceptancePackError) as exc_info:
-        run_acceptance_pack("nonexistent", archive_db=db)
+        run_acceptance_pack("nonexistent", archive_db=db, run_fresh_backtest=False)
     assert "not found" in str(exc_info.value).lower()
 
 
 def test_run_pack_missing_db_raises(tmp_path):
     with pytest.raises(AcceptancePackError) as exc_info:
-        run_acceptance_pack("any", archive_db=tmp_path / "nonexistent.db")
+        run_acceptance_pack("any", archive_db=tmp_path / "nonexistent.db", run_fresh_backtest=False)
     assert "not found" in str(exc_info.value).lower()
 
 
 def test_run_pack_params_roundtrip(tmp_path):
     db = _create_archive(tmp_path, [_PERFECT_TRIAL])
-    result = run_acceptance_pack("perfect_trial_123", archive_db=db)
+    result = run_acceptance_pack("perfect_trial_123", archive_db=db, run_fresh_backtest=False)
     assert result.params["top_n"] == 4
     assert result.params["factor_weights"] == {"low_vol": 0.5, "momentum": 0.5}
 
 
 def test_run_pack_failing_overall_false(tmp_path):
     db = _create_archive(tmp_path, [_FAILING_TRIAL])
-    result = run_acceptance_pack("failing_trial_xyz", archive_db=db)
+    result = run_acceptance_pack("failing_trial_xyz", archive_db=db, run_fresh_backtest=False)
     assert result.overall_passed is False
+
+
+def test_run_pack_archive_evidence_only_flag(tmp_path):
+    """archive_evidence_only=True when fresh backtest skipped; False otherwise."""
+    db = _create_archive(tmp_path, [_PERFECT_TRIAL])
+    r_skip = run_acceptance_pack("perfect_trial_123", archive_db=db, run_fresh_backtest=False)
+    assert r_skip.archive_evidence_only is True
 
 
 # ---------------------------------------------------------------------------
@@ -219,20 +263,20 @@ def test_run_pack_failing_overall_false(tmp_path):
 
 def test_write_artifact_json_roundtrip(tmp_path):
     db = _create_archive(tmp_path, [_PERFECT_TRIAL])
-    result = run_acceptance_pack("perfect_trial_123", archive_db=db)
+    result = run_acceptance_pack("perfect_trial_123", archive_db=db, run_fresh_backtest=False)
     out = tmp_path / "acceptance.json"
     write_acceptance_artifact(result, out)
     assert out.exists()
     loaded = json.loads(out.read_text())
     assert loaded["spec_id"] == "perfect_trial_123"
     assert loaded["overall_passed"] is True
-    assert len(loaded["gates"]) == 9
+    assert len(loaded["gates"]) == 10  # 9 archive + 1 fresh skip-pass
 
 
 def test_summary_line_format(tmp_path):
     db = _create_archive(tmp_path, [_PERFECT_TRIAL])
-    result = run_acceptance_pack("perfect_trial_123", archive_db=db)
+    result = run_acceptance_pack("perfect_trial_123", archive_db=db, run_fresh_backtest=False)
     line = result.summary_line()
     assert "perfect_tria" in line  # first 12 chars
     assert "PASS" in line
-    assert "9/9" in line
+    assert "10/10" in line  # v2: 10 gates total

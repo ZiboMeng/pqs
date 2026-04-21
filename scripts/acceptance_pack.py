@@ -36,10 +36,16 @@ def main() -> int:
                         help="Directory to write the pack JSON")
     parser.add_argument("--verbose", action="store_true",
                         help="Print full gate breakdown to stdout")
+    parser.add_argument("--skip-fresh-backtest", action="store_true",
+                        help="Skip v2 gate 10 (fresh full-period backtest). "
+                             "Faster but less strict; for debugging only.")
     args = parser.parse_args()
 
     try:
-        result = run_acceptance_pack(args.spec_id, archive_db=args.archive_db)
+        result = run_acceptance_pack(
+            args.spec_id, archive_db=args.archive_db,
+            run_fresh_backtest=not args.skip_fresh_backtest,
+        )
     except AcceptancePackError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
