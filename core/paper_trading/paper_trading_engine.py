@@ -75,6 +75,7 @@ class PaperTradingEngine:
         kill_switch:        Optional[KillSwitch] = None,
         replay_mode:        bool               = False,
         integer_shares:     bool               = True,
+        broker_adapter:     Optional["BrokerAdapter"] = None,
     ):
         self._engine = IntradayBacktestEngine(
             cost_model         = cost_model,
@@ -96,6 +97,18 @@ class PaperTradingEngine:
         # invocations so that a multi-day halt accumulates correctly
         # toward the intraday ghost-cleanup threshold (closeout 2026-04-20).
         self._intraday_stale_counts: Dict[str, int] = {}
+        # BrokerAdapter integration (Round 12, 2026-04-20 off-menu).
+        # When provided, every fill booked by run_day_intraday is ALSO
+        # mirrored to the adapter via submit_order (set_next_fill_price
+        # first to pin the fill price). At EOD, reconcile() compares
+        # engine state to adapter state. For SimulatedBrokerAdapter
+        # both sides should match exactly; for real brokers, mismatches
+        # surface slippage / reject / partial-fill discrepancies.
+        # engine remains source-of-truth for positions/cash; adapter
+        # is a MIRROR that will later become primary when a real
+        # broker replaces ExecutionSimulator.
+        self._broker = broker_adapter
+        self._broker_reconcile_results: List["ReconcileResult"] = []
 
         if replay_mode:
             logger.warning(_REPLAY_BIAS_WARNING)
@@ -219,6 +232,10 @@ class PaperTradingEngine:
 
         self._positions = {s: q for s, q in self._positions.items() if q > 1e-6}
 
+        # Mirror fills to broker adapter (Round 12 off-menu).
+        if self._broker is not None and fills:
+            self._mirror_fills_to_broker(fills)
+
         equity = self._cash + sum(
             self._positions.get(s, 0) * prices.get(s, 0) for s in self._positions
         )
@@ -229,6 +246,10 @@ class PaperTradingEngine:
             eod_positions=dict(self._positions), eod_cash=self._cash,
             gross_pnl=net_pnl, net_pnl=net_pnl, forced_close=False,
         )
+
+        # EOD broker reconcile (diagnostic only).
+        if self._broker is not None:
+            self._run_broker_reconcile(date=date, label="daily")
 
         self._tracker.record(result, equity)
         self._save_state(date, result, equity)
@@ -368,6 +389,11 @@ class PaperTradingEngine:
             self._cash = upd.cash
             for f in upd.fills:
                 bar_fill_ids.add(id(f))
+            # Mirror fills to BrokerAdapter when wired (Round 12 off-menu).
+            # Pin the price so the adapter books at the same price the
+            # engine used; any drift surfaces in EOD reconcile.
+            if self._broker is not None:
+                self._mirror_fills_to_broker(upd.fills)
             self.save_intraday_bar(
                 run_id=run_id, date=upd.date, bar_ts=upd.bar_ts,
                 orders=upd.orders, fills=upd.fills,
@@ -421,6 +447,12 @@ class PaperTradingEngine:
                     run_id=run_id, date=date, bar_ts=last_bar_ts,
                     positions=self._positions, cash=self._cash,
                 )
+        # Mirror residual (EOD force-close) fills to broker, then reconcile.
+        if self._broker is not None:
+            if residual_fills:
+                self._mirror_fills_to_broker(residual_fills)
+            self._run_broker_reconcile(date=date, label="intraday")
+
         self._tracker.record(result, equity)
         self._save_state(date, result, equity)
 
@@ -429,6 +461,66 @@ class PaperTradingEngine:
             date.date(), equity, result.net_pnl, result.n_trades,
         )
         return result
+
+    # ── BrokerAdapter mirror helpers (Round 12) ───────────────────────────────
+
+    def _mirror_fills_to_broker(self, fills: List[Fill]) -> None:
+        """Forward engine fills to the BrokerAdapter mirror.
+
+        Pins the fill price so the adapter books at the same price the
+        engine used. Any drift (cost model, vix, cash constraint) surfaces
+        later in `_run_broker_reconcile`.
+        """
+        if self._broker is None or not fills:
+            return
+        for f in fills:
+            try:
+                self._broker.set_next_fill_price(f.symbol, f.executed_price)
+                ack = self._broker.submit_order(f.order)
+                if ack.status != "ACCEPTED":
+                    logger.warning(
+                        "broker mirror rejected fill for %s: %s",
+                        f.symbol, ack.reject_reason,
+                    )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "broker mirror submit_order failed for %s: %s",
+                    f.symbol, exc,
+                )
+
+    def _run_broker_reconcile(
+        self, date: pd.Timestamp, label: str = "",
+    ) -> Optional["ReconcileResult"]:
+        """Run reconcile between engine state and broker mirror; store
+        result in `_broker_reconcile_results`. Safe to call with no broker
+        wired (returns None)."""
+        if self._broker is None:
+            return None
+        try:
+            res = self._broker.reconcile(
+                expected_positions=dict(self._positions),
+                expected_cash=float(self._cash),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("broker reconcile raised: %s", exc)
+            return None
+        self._broker_reconcile_results.append(res)
+        if not res.passed:
+            logger.warning(
+                "[%s] broker reconcile FAILED (%s): %s",
+                date.date(), label, res.details,
+            )
+        else:
+            logger.info(
+                "[%s] broker reconcile PASSED (%s): %s",
+                date.date(), label, res.details,
+            )
+        return res
+
+    def get_broker_reconcile_results(self) -> List["ReconcileResult"]:
+        """Return a copy of all reconcile results from this engine's
+        lifetime. Empty list when no broker is wired."""
+        return list(self._broker_reconcile_results)
 
     # ── 状态查询 ──────────────────────────────────────────────────────────────
 
