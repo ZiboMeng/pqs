@@ -92,6 +92,9 @@ def build_strategies(cfg, price_df: pd.DataFrame, risk_syms: list, def_syms: lis
             factor_weights={"low_vol": 0.0, "momentum": 0.30, "quality": 0.25,
                             "pv_div": 0.05, "rel_strength": 0.30, "market_trend": 0.10},
             min_holding_days=3, lookback_mom=189, lookback_quality=189, lookback_vol=84,
+            apply_extra_shift=False,  # 1-bar lag (T-close → T+1 open); see
+                                      # MultiFactorStrategy docstring for why
+                                      # True would produce stale T-2 signals.
         ),
     }
 

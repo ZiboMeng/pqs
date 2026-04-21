@@ -70,6 +70,9 @@ def main():
         factor_weights={"low_vol": 0, "momentum": 0.30, "quality": 0.25,
                         "pv_div": 0.05, "rel_strength": 0.30, "market_trend": 0.10},
         min_holding_days=3, lookback_mom=189, lookback_quality=189, lookback_vol=84,
+        apply_extra_shift=False,  # T-close factors → T+1 open execution (1-bar
+                                  # lag, no lookahead). See MultiFactorStrategy
+                                  # docstring for why True would lag by T-2.
     )
     signals = strat.generate(price_df, regime)
     constructor = PortfolioConstructor(use_vol_parity=False)

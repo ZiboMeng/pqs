@@ -360,6 +360,8 @@ def main():
         factor_weights={"low_vol": 0, "momentum": 0.30, "quality": 0.25,
                         "pv_div": 0.05, "rel_strength": 0.30, "market_trend": 0.10},
         min_holding_days=3, lookback_mom=189, lookback_quality=189, lookback_vol=84,
+        apply_extra_shift=False,  # live needs fresh T-1 signals executed at T
+                                  # open; True would use stale T-2 data.
     )
     diagnostics = DiagnosticSuite()
     left_side_cfg = LeftSideConfig.from_risk_config(cfg.risk)

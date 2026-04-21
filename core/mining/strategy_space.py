@@ -274,6 +274,9 @@ class MultiFactorSpace(ParameterSpace):
             lookback_mom      = params["lookback_mom"],
             lookback_quality  = params["lookback_quality"],
             min_holding_days  = params.get("min_holding_days", 5),
+            apply_extra_shift = False,  # T+1-open execution already provides
+                                        # the 1-bar lag; extra shift only
+                                        # produces stale T-2 signals.
         )
 
 

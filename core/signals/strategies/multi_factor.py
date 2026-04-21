@@ -109,19 +109,27 @@ class MultiFactorStrategy:
         lookback_quality:  int   = 126,
         regime_scale:      Optional[Dict[str, float]] = None,
         min_holding_days:  int   = 5,
-        apply_extra_shift: bool  = True,
+        apply_extra_shift: bool  = False,
         concentration_warn_threshold: Optional[float] = None,
         soft_cap_max_single: Optional[float] = None,
     ):
         """
-        apply_extra_shift : if True (legacy default), compute factors from prices
-            up to T close and then `shift(1)` the composite so signals at date T
-            use only T-1 data. Combined with BacktestEngine's T+1 open execution,
-            this is a 2-bar lag (redundant — T-close data is available at T+1
-            open). Set False to drop the extra shift; signal then uses T-close
-            data, execution at T+1 open (standard 1-bar lag). Exposed as a
-            flag so callers can A/B test signal freshness impact without
-            introducing lookahead.
+        apply_extra_shift : controls signal freshness.
+            False (default, 2026-04-20 onward): signal at T uses T-close
+            factors; execution at T+1 open = standard 1-bar lag. No
+            lookahead — T-close data is observable AT T-close, executable
+            at T+1 open. This is the correct production default.
+
+            True (legacy): signals shift(1) after factor compute, so
+            signal at T uses T-1 factors, executed at T+1 open = 2-bar
+            lag (redundant and stale). Kept as a flag for A/B research
+            and reproducibility of historical backtests. Do NOT use in
+            live paper trading — signals lag the market by an extra day.
+
+            Bug history: all production paths (run_backtest, run_paper,
+            run_mining, run_multi_tf_backtest) previously inherited the
+            legacy True default, so live execution used T-2 close data.
+            Fixed 2026-04-20 (P0.1 收口闭环).
         concentration_warn_threshold : if set, log a WARNING at end of
             `generate()` whenever any single symbol's weight across any row
             exceeds this threshold (purely diagnostic — does not modify
