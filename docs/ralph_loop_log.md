@@ -5382,3 +5382,74 @@ Comprehensive acceptance pack 跑 all lineage top specs. 这是 track G
 
 ### Commit
 - `93af21f` Deep-mining R48
+
+## Deep-Mining R49 — Comprehensive acceptance pack cross-lineage
+
+### 做了什么
+查 archive 所有 12 lineage，筛出 top spec per lineage。只有 **1 个 spec**
+在整个 archive (302 trials) 里通过 OOS + holdout + QQQ gate：`6d15b735a64c`
+(lineage `post-2026-04-20-llm-round-28-expanded`)。其他 301 trials 全部
+tier=D (no OOS pass).
+
+Re-ran `scripts/acceptance_pack.py --spec-id 6d15b735a64c` on latest
+codebase 以 audit trail。
+
+### 结果 — 9/10 gates PASS, fresh backtest FAIL
+
+| Gate | Status | Values |
+|---|:---:|---|
+| quick | ✅ | Sharpe 0.959, MaxDD -0.22, CAGR +25.6% (archive quick_eval, 70% data) |
+| oos_walk_forward | ✅ | OOS IR +0.292, pass_rate 64.3%, excess +6.92% |
+| robustness | ✅ | regime/cost/param/stress all pass |
+| diversity | ✅ | corr N/A |
+| holdout | ✅ | holdout IR +1.15, MaxDD -0.10 |
+| max_drawdown | ✅ | MaxDD -22% (floor -25%) |
+| concentration | ✅ | runtime-enforced |
+| paper_backtest_alignment | ✅ | contract-enforced |
+| qqq_hard_gate_archive | ✅ | full +6.18%, OOS avg +5.15% (archive based) |
+| **full_period_fresh_backtest** | **❌** | **Strategy CAGR +7.31% vs QQQ CAGR +17.64% = excess -10.33pt** |
+
+### 根因 (fresh backtest 差异)
+Archive 的 `quick_cagr` 使用 first 70% 数据 (2007-2022 约)，在那窗口
+strategy +25.6% CAGR vs QQQ ~+19% CAGR = excess positive。但 fresh full-
+period backtest (2018-01 - 2026-04 full) 包含 holdout + latest +
+strategy 在 late window 跟不上 QQQ 的速度 → CAGR 掉到 +7.31%，QQQ
+涨到 +17.64%，excess -10.33pt。
+
+**Acceptance pack v2 的 `full_period_fresh_backtest` gate 正好把
+这类 "archive 指标虚高" 的 spec 拦下来**，validating 用户早先 rollback
+incident 的 fix (archive quick_eval 用 truncated data 的问题)。
+
+### 12 lineages 总览
+
+| Lineage | n_trials | n_quick | n_oos_pass | n_qqq_gate_pass | best_oos_ir |
+|---|---:|---:|---:|---:|---:|
+| post-2026-04-20-capital-100k | 52 | 43 | **0** | 0 | +0.008 |
+| post-2026-04-20-closeout | 20 | 19 | 0 | 0 | -0.325 |
+| post-2026-04-20-llm-round-15 | 11 | 10 | 0 | 0 | -0.089 |
+| **post-2026-04-20-llm-round-28-expanded** | **5** | **5** | **1** | **1** | **+0.292** |
+| post-2026-04-21-framework-m1-m8-done | 18 | 18 | 0 | 0 | -0.299 |
+| post-2026-04-21-universe-mining-round-29 | 5 | 5 | 0 | 0 | -0.028 |
+| post-2026-04-21-universe-mining-round-30 | 4 | 3 | 0 | 0 | -0.280 |
+| post-2026-04-21-universe-mining-round-31 | 27 | 24 | 0 | 0 | +0.121 |
+| post-2026-04-21-universe-mining-round-32 | 55 | 24 | 0 | 0 | -0.125 |
+| post-2026-04-21-universe-mining-round-34 | 44 | 44 | 0 | 0 | -0.218 |
+| post-2026-04-21-universe-mining-round-35 | 35 | 31 | 0 | 0 | +0.121 |
+| post-2026-04-22-deep-R01 | 26 | 26 | 0 | 0 | -0.313 |
+
+**总结**: 1/302 pass archive OOS (0.33%)，0/302 pass full v2 acceptance
+pack。
+
+### Artifacts
+- `artifacts/acceptance_6d15b735a64c_20260422T234314Z.json` (latest)
+- 5 个先前 acceptance artifacts 对同 spec ID (不同时间戳)
+
+### 下一轮 → R50
+**Final promote attempt + decision doc**:
+- 候选: `6d15b735a64c` (唯一 pass OOS + QQQ archive gate)
+- v2 pack 最终失败在 `full_period_fresh_backtest` (excess -10.33pt vs QQQ)
+- Per PRD §11.6: 无通过 full pack 的 spec → **honest "no validated best yet" conclusion**
+- **不改** `config/production_strategy.yaml` (维持 conservative_default 状态)
+
+### Commit
+- `<TBD>` Deep-mining R49
