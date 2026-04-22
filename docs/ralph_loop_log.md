@@ -5381,4 +5381,4 @@ Comprehensive acceptance pack 跑 all lineage top specs. 这是 track G
 的 first of 2 rounds (R49-R50) 做 final synthesis + promote attempt.
 
 ### Commit
-- `<TBD>` Deep-mining R48
+- `93af21f` Deep-mining R48
