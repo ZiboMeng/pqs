@@ -106,6 +106,11 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     # +0.332, 6/6 regimes correct sign). Dedup ρ=+0.87 vs mom_63d but
     # incremental IC +0.0458 in R5 interaction mine.
     "spy_trend_gated_mom_63d",
+    # Weak-market conditional (R10 deep-mining 2026-04-22, Codex-seeded).
+    # Deep check PASS (OOS IR -0.402 ABS, 6/6 regimes, quartile stable).
+    # NEGATIVE direction: factor predicts LOW forward returns for
+    # defensive/weak-market-outperformers; use with flipped sign.
+    "weak_market_relative_strength_63d",
     # Overnight
     "overnight_gap_5d", "overnight_gap_21d", "overnight_vs_intraday",
     # Breadth

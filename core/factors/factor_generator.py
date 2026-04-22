@@ -83,6 +83,7 @@ def generate_all_factors(
     factors.update(_sector_rotation_factors(price_df))
     factors.update(_macro_regime_factors(price_df, benchmark_col))
     factors.update(_regime_gated_factors(price_df, benchmark_col))
+    factors.update(_weak_market_factors(price_df, benchmark_col))
     if open_df is not None:
         factors.update(_overnight_factors(price_df, open_df))
     factors.update(_breadth_factors(price_df))
@@ -490,6 +491,44 @@ def _regime_gated_factors(
     gated_mom = mom_63d.mul(gate, axis=0)
     factors["spy_trend_gated_mom_63d"] = gated_mom.shift(1)
 
+    return factors
+
+
+def _weak_market_factors(
+    price_df: pd.DataFrame, benchmark_col: str = "SPY",
+) -> Dict[str, pd.DataFrame]:
+    """Weak-market conditional factors (R10 2026-04-22, Codex-seeded).
+
+    Measures stock behavior on SPY-weak vs SPY-strong days.
+    weak_market_relative_strength_63d = mean(stock_ret | SPY_weak) - mean(stock_ret | SPY_strong)
+    Stocks that hold up on weak days but don't outperform on strong days
+    are defensive names; those that outperform both ways are all-weather.
+
+    R10 deep_check: OOS walk-forward mean IR -0.402 (ABS passes 0.30 gate,
+    but NEGATIVE direction — factor predicts LOW forward returns for the
+    defensive behavior; use with flipped sign in MFS composite).
+    Regime 6/6 correct sign, quartile stable.
+    """
+    factors: Dict[str, pd.DataFrame] = {}
+    if benchmark_col not in price_df.columns:
+        return factors
+    ret = price_df.pct_change()
+    spy_ret = ret[benchmark_col]
+    # Define "weak" and "strong" SPY days by rolling median
+    spy_median_63 = spy_ret.rolling(63, min_periods=20).median()
+    weak_mask = spy_ret.lt(spy_median_63).astype(float)
+    strong_mask = spy_ret.gt(spy_median_63).astype(float)
+
+    # Masked rolling mean: sum(ret * mask) / sum(mask) over 63d window
+    weak_sum = ret.mul(weak_mask, axis=0).rolling(63, min_periods=15).sum()
+    weak_cnt = weak_mask.rolling(63, min_periods=15).sum().replace(0, np.nan)
+    weak_mean = weak_sum.div(weak_cnt, axis=0)
+
+    strong_sum = ret.mul(strong_mask, axis=0).rolling(63, min_periods=15).sum()
+    strong_cnt = strong_mask.rolling(63, min_periods=15).sum().replace(0, np.nan)
+    strong_mean = strong_sum.div(strong_cnt, axis=0)
+
+    factors["weak_market_relative_strength_63d"] = (weak_mean - strong_mean).shift(1)
     return factors
 
 

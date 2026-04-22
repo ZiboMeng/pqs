@@ -157,6 +157,26 @@ class TestFactorLeakage:
         for name, fdf in factors.items():
             assert fdf.index.equals(prices.index), f"{name}: index mismatch"
 
+    def test_weak_market_relative_strength_63d_produces_finite_values(self):
+        """R10 Codex-seeded factor: weak_market_relative_strength_63d."""
+        n = 400
+        idx = pd.date_range("2020-01-02", periods=n, freq="B")
+        rng = np.random.default_rng(42)
+        # Build with SPY + 2 stocks having varied daily returns
+        spy_ret = rng.normal(0.0005, 0.01, n)
+        prices = pd.DataFrame({
+            "SPY": 300 * (1 + spy_ret).cumprod(),
+            "SYM0": 100 * (1 + rng.normal(0.0003, 0.015, n)).cumprod(),
+            "SYM1": 100 * (1 + rng.normal(0.0004, 0.012, n)).cumprod(),
+        }, index=idx)
+        factors = generate_all_factors(prices, volume_df=None)
+        assert "weak_market_relative_strength_63d" in factors, (
+            "new factor missing from output"
+        )
+        fdf = factors["weak_market_relative_strength_63d"]
+        tail = fdf.iloc[-100:]
+        assert tail.notna().any().any(), "all NaN after warmup"
+
     def test_spy_trend_gated_mom_63d_produces_finite_values(self):
         """R7 deep-mining new factor: spy_trend_gated_mom_63d should produce
         finite non-NaN values for at least some (date, symbol) pairs after

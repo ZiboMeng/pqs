@@ -2,6 +2,7 @@ factor_name: "volume_exhaustion_reversal"
 hypothesis: "A sharp short-term price drop accompanied by an abnormal volume surge indicates seller capitulation/exhaustion, providing a much stronger mean-reversion edge than a price drop on low volume."
 formula: |
   -(5d return) * (daily volume / 20d average volume)
+  All computations use past-only rolling/shift windows; signal.shift(1) before use.
 compute_fn_path: "research.llm_candidates.Gemini_round_01.compute_fns:volume_exhaustion_reversal"
 required_fields: ["close", "volume"]
 suitable_horizon: [5, 10]

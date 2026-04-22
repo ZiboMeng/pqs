@@ -2,6 +2,7 @@ factor_name: "volatility_squeeze_20d_gemini"
 hypothesis: "Stocks experiencing extremely low recent volatility relative to their long-term average (consolidation) that still maintain positive short-term returns are primed for upward breakouts."
 formula: |
   z-score(20d return) / (20d realized volatility / 126d realized volatility)
+  All computations use past-only rolling/shift windows; signal.shift(1) before use.
 compute_fn_path: "research.llm_candidates.Gemini_round_01.compute_fns:volatility_squeeze_20d_gemini"
 required_fields: ["close"]
 suitable_horizon: [5, 10, 21]

@@ -4249,3 +4249,64 @@ PRD §2 R10: LLM proposals via **Gemini/Codex** via M15 handoff。19 candidates
 
 ### Commit
 - `89f645b` Deep-mining R9
+
+## Deep-Mining R10 — Gemini/Codex LLM funnel (19 candidates)
+
+### 做了什么
+R10 Track A PRD §2 M15 handoff: 对 f93af13 提交的 19 个外部 LLM candidates
+跑 funnel + deep_check。
+
+### Funnel 分类
+- **3 REJECT (leakage false positive, Gemini)**: 全部缺 "shift"/"rolling"
+  关键词。修 YAML 后 2/3 re-funnel 通过
+- **7 ARCHIVE (IC 太弱, |IR| < 0.20)**:
+  rank_stability_21d_63d / recovery_speed_126d / down_up_beta_spread_126d /
+  breadth_participation_gap_63d / downside_gap_ratio_21d /
+  relative_drawdown_vs_spy_63d / trend_stall_score_21_63
+- **9 NEEDS_HUMAN_REVIEW (dedup ρ+0.70-0.93)**:
+  rs_qqq_corr_adjusted_63d / trend_efficiency_63d / downside_resilience_63d /
+  weak_breadth_resilience_63d / **weak_market_relative_strength_63d** /
+  rebound_asymmetry_63d / regime_adjusted_quality_63d_codex /
+  return_path_fragmentation_63d / volatility_squeeze_20d_codex
+
+### Deep check 5 最有 novelty 的候选
+| # | Candidate | OOS IR | Regime | Verdict |
+|---|---|---:|---:|---|
+| 1 | rs_qqq_corr_adjusted_63d | +0.103 | 4/6 | **FAIL** (IR < 0.30) |
+| 2 | trend_efficiency_63d | +0.123 | 4/6 | **FAIL** |
+| 3 | downside_resilience_63d | -0.351 | **6/6** | PASS (负方向) |
+| 4 | weak_market_relative_strength_63d | **-0.402** | **6/6** | PASS (负方向) |
+| 5 | weak_breadth_resilience_63d | -0.379 | **6/6** | PASS (负方向) |
+
+**Codex round_02 "weak-market" 主题** 3/3 PASS deep_check — novel theme
+（factor_registry 里没有 weak-market conditional 类因子）。**3 个都是负方向**
+predictor: defensive/resilient stocks predict LOW forward returns (use with
+flipped sign in MFS composite).
+
+### §11.3 Decision
+Add **1 factor** to RESEARCH_FACTORS (最强 IR, 最代表性):
+- `weak_market_relative_strength_63d` IR -0.402, 6/6 regime, quartile 0.314 stable
+
+**不加**: `downside_resilience_63d`, `weak_breadth_resilience_63d` (相关同 theme；
+RESEARCH_FACTORS 避免 3 个近似方向)
+
+### 代码改动
+- `core/factors/factor_generator.py` + `_weak_market_factors()` helper
+- `core/factors/factor_registry.py::RESEARCH_FACTORS` 40 → **41**
+- 单测 `test_weak_market_relative_strength_63d_produces_finite_values`
+
+### 新问题
+1. R10 结果 + R7-R9 总结: **40 candidates → 2 added** (spy_trend_gated_mom_63d
+   + weak_market_relative_strength_63d)
+2. 2 个新 added 都是 post-framework 第一次进入 registry 的新 factor family
+   (regime-gated + weak-market-conditional)。这是 R1-R10 实质产出。
+3. R10 Gemini REJECT 的 false positive 仍需 fix (core/factors/llm_candidate.py
+   leakage heuristic 过敏感) — 记入 M19 相邻 item，R49 synthesis 处理
+
+### 下一轮 → R11
+R11: 继续 Gemini/Codex handoff — 新 candidates via dump_llm_handoff_context.py
+更新 seed context + 用户喂给 Gemini 产新 YAMLs。但用户 "已休息"，无法新 seed。
+R11 跳到 Track A R12 multi-horizon composite。
+
+### Commit
+- `<待填>`
