@@ -5069,3 +5069,67 @@ R38 proposal 使用 category 分类作主信号；不依赖 sharpe/maxdd filter
 
 ### Commit
 - `a83edd9` Deep-mining R38 (proposal doc only)
+
+## Deep-Mining R42 — XGBoost TimeSeriesSplit CV (5-fold) on expanded factor registry
+
+### 做了什么
+`run_xgb_cv.py --horizon 21 --n-splits 5 --out-tag R42_expanded_registry`
+使用 post-promotion 42-factor registry（含 R15 drawup + R7 spy_trend_gated
++ R10 weak_market_relative_strength），跑 5-fold TimeSeriesSplit + 
+permutation importance。
+
+### 5-fold OOS R² — 严重不稳定
+| Fold | Test window | OOS R² |
+|---:|---|---:|
+| 1 | 2017-10 → 2019-07 | **+0.343** ✅ |
+| 2 | 2019-07 → 2021-03 | **+0.390** ✅ (COVID 年) |
+| 3 | 2021-03 → 2022-11 | **-0.809** ❌ |
+| 4 | 2022-11 → 2024-07 | -0.200 ❌ |
+| 5 | 2024-07 → 2026-03 | -0.076 ❌ |
+
+- **Mean OOS R² = -0.070** (std 0.43, range [-0.81, +0.39])
+- **2/5 folds positive** — early period (2017-2021) model 有预测力；
+  2021 以后 relationship 基本失效
+- 与 Phase B iter 1 mining 的 "OOS IR 全负" 发现一致
+
+### Top-15 mean permutation importance
+| Rank | Feature | Mean imp | Notes |
+|---:|---|---:|---|
+| 1 | mom_252d | +0.529 | 高 but std 1.11 (极不稳定) |
+| 2 | max_dd_126d | +0.227 | 高 but std 1.20 |
+| 3 | mean_rev_sma20 | +0.212 | **mean-reversion 信号** |
+| 4 | drawdown_current | +0.140 | risk-off 信号 |
+| 5 | mom_12_1 | +0.046 | |
+| 6 | mom_63d | +0.041 | |
+| 7 | xsection_rank_63d | +0.022 | |
+| **8** | **weak_market_relative_strength_63d** | **+0.011** | **LLM R10 promoted factor** |
+| 9 | reversal_10d | +0.009 | |
+| 10 | mean_rev_sma50 | +0.009 | |
+| 11 | reversal_5d | +0.006 | |
+| **12** | **spy_trend_gated_mom_63d** | **+0.004** | **LLM R7 promoted factor** |
+| 13 | rs_vs_spy_126d | +0.003 | |
+
+### LLM-promoted factors post-validation
+- **weak_market_relative_strength_63d (R10 promoted): Rank #8** ✓
+  modest but non-trivial contribution
+- **spy_trend_gated_mom_63d (R7 promoted): Rank #12** ✓ marginal
+- **drawup_from_252d_low (R15 promoted to PRODUCTION): Rank #27/35 MEAN -0.004** ⚠
+  permutation importance NEGATIVE under proper 5-fold CV — in R6 single-split
+  was #1 Ridge. This is cross-validation counter-evidence against R15
+  production promotion.
+
+### 经典 factor 表现
+- **mom_126d (historically strongest): Rank #35/35, mean -0.168** ❌
+  post-P0.1-fix 下 mom_126d 完全失去预测力
+- 表明 post-fix codebase 上 factor space 发生系统性重排
+
+### Artifacts
+- `data/ml/xgb_cv/R42_expanded_registry/summary.json`
+- `data/ml/xgb_cv/R42_expanded_registry/aggregated_importance.parquet`
+- `data/ml/xgb_cv/R42_expanded_registry/per_fold_importance.parquet`
+
+### 下一轮 → R43
+`run_xgb_cv.py --shap --out-tag R43_expanded_shap` 启动 SHAP attribution。
+
+### Commit
+- `<TBD>` Deep-mining R42
