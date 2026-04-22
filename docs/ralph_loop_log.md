@@ -4641,4 +4641,4 @@ Track B R21: Intraday cost sensitivity (1x / 2x / 3x). Quick test:
 existing intraday composite under different cost multipliers.
 
 ### Commit
-- `<待填>`
+- `4c589fd` Deep-mining R19+R20
