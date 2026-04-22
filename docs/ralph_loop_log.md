@@ -5019,4 +5019,4 @@ R38 proposal 使用 category 分类作主信号；不依赖 sharpe/maxdd filter
 **不改 `config/universe.yaml`**。
 
 ### Commit
-- `<TBD>` Deep-mining R37
+- `b698f3e` Deep-mining R37
