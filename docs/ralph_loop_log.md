@@ -4856,4 +4856,4 @@ R34 `fetch_sp500_pool.py` 刷新 S&P 500 池 → R35 alpha/beta audit →
 R36 admission screen。
 
 ### Commit
-- `<待填>`
+- `426f0dd` Deep-mining R25
