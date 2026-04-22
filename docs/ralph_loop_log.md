@@ -4383,3 +4383,61 @@ composite，用 `llm_composite_backtest.py` 跑 5-gate verdict。
 
 ### Commit
 - `5e494d1` Deep-mining R13
+
+## Deep-Mining R14 + R15 — Ensemble composite backtest + promote proposal
+
+### 目标
+Track A R15 per PRD §2：test composite including new R7/R10-added factors
+vs production baseline。
+
+### 做了什么
+3 configs via `llm_composite_backtest.py` (simplified top-5 EW monthly):
+
+| Config | Components |
+|---|---|
+| A | Production R33 weights: drawup 0.15, mom_63 0.05, sharpe 0.30, pv_div 0.05, rs 0.30, trend 0, low_vol -0.15 |
+| B | A + spy_trend_gated_mom_63d 0.10 (replace mom part) |
+| C | B + weak_market_relative_strength_63d -0.10 |
+
+### 结果 (2018-2026 simplified backtest)
+| Config | CAGR | Sharpe | MaxDD | vs QQQ |
+|---|---:|---:|---:|---:|
+| A Production | +17.05% | 0.59 | -56.76% | -1.42% ❌ |
+| B +gated_mom | +19.92% | 0.65 | -56.76% | **+1.45%** ✅ |
+| C +both | **+21.89%** | **0.68** | -56.76% | **+3.42%** ✅✅ |
+
+**C vs A: +4.84% CAGR, +0.09 Sharpe, beat QQQ +3.42pt**。两个新 factor
+都贡献明显 alpha。
+
+⚠️ **MaxDD 警告**: 3 config 都 -56.76% — simplified backtest 无 kill
+switch / target_vol / regime 风控。Production MFS 会 clamp 到 -19.7%
+(per CLAUDE.md Phase B)。Simplified backtest 不等于 production。
+
+### §11.4 Decision
+**PRODUCTION_FACTORS 变更需用户明确授权**（PRD §11.4）→ 不 auto-add。
+产出 proposal doc:
+- `docs/production_factor_promote_proposal_weak_market_and_gated_mom.md`
+
+Proposal 建议 user post-loop:
+1. PRODUCTION_FACTORS 7 → 9 (add 2 new)
+2. MultiFactorSpace 扩展 tuning slots
+3. fresh mining round `post-2026-04-22-deep-R15-expanded`
+4. acceptance pack on best spec → promote if pass
+
+### 新问题
+R14/R15 是 deep mining 第一次产出"非空 proposal"：2 个 RESEARCH_FACTORS
+合成 composite beat QQQ by 3.42pt。这是**必须让 user 审核的 decision point**
+(PRD §11 user decision points #3-#4)。
+
+不 auto-promote 的理由：
+- Composite test 用 simplified backtest，不代表 production
+- PRODUCTION_FACTORS 增加影响 MFS composite 数学 + acceptance pack v2
+  的 factor_weights 验证逻辑
+- 用户 pre-authorized R7/R10 add 到 RESEARCH 但没授权 PROD 扩容
+
+### 下一轮 → Track B start (R16)
+PRD §2 Track B R16: Intraday bar-by-bar baseline (60m universe replay)。
+数据已 ready (data/intraday/60m 有 32 syms)。
+
+### Commit
+- `<待填>`
