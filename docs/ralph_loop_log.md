@@ -3871,7 +3871,7 @@ TimeSeriesSplit CV + permutation importance on full factor panel.
 所有后续 rounds per §11 自主决策。
 
 ### 11. 本轮 commit 哈希
-- (本条目与 R3 一起 commit)
+- `6107d3d` Deep-mining R2 + R3: baseline variance check + XGBoost 5-fold CV
 
 ## Deep-Mining Phase R3 — XGBoost 5-fold TimeSeriesSplit CV
 
@@ -3955,4 +3955,4 @@ R4 加 SHAP）。Command: `run_xgb_cv.py --n-splits 5 --shap --out-tag R4_with_s
 预计 ~5 min（SHAP 会额外 ~2 min）。
 
 ### 11. 本轮 commit 哈希
-- (与 R2 一起 commit)
+- `6107d3d` Deep-mining R2 + R3
