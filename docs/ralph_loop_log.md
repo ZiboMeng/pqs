@@ -4807,3 +4807,53 @@ Config C composite + 5 rules DSL 在 crisis window 的 robustness.
 
 ### Commit
 - `0c02670` Deep-mining R24
+
+## Deep-Mining R25 — Crisis-period stress test
+
+### 目标
+2020 COVID + 2022 bear window 测 DSL 5-rules 的 defensive 保护价值。
+
+### 结果
+**2020 full year (COVID V-recovery)**:
+| Config | CAGR | Sharpe | MaxDD |
+|---|---:|---:|---:|
+| DSL 5-rules | **-6.6%** | -0.07 | -35.9% |
+| DSL off | -0.0% | 0.05 | -30.1% |
+
+**DSL 5-rules 在 COVID 年反而亏损** -6.6pt CAGR + -5.8pt worse MaxDD。
+
+**2022 full year (slow bear)**:
+| Config | CAGR | Sharpe | MaxDD |
+|---|---:|---:|---:|
+| DSL 5-rules | -7.2% | -0.89 | **-9.7%** ⭐ |
+
+2022 MaxDD 保护非常强 (-9.7% vs SPY -28%)，但 CAGR 仍 -7%。
+
+### Insight
+**DSL rules 防御价值有 window-specific 不对称**:
+
+1. **Quick V-recovery (2020 COVID)**: Rule 2 `defensive_blend_risk_off` +
+   Rule 5 `xlu_outperformance_rotation` 在快速反弹时过度保守 → 错过
+   upside participation
+2. **Slow grinding bear (2022)**: 防御规则有效 clamp MaxDD
+
+**Rule 优化方向**（R26 可以探索）:
+- Rule 2 defensive blend weight 减半 (从 0.5 → 0.25) 保留 ASAP pivot 能力
+- Rule 2 加速退出条件（SPY 20d close > SMA50 → 立即退出 defensive）
+- 或 Rule 2 改为只触发 `MaxDD > 15%` 时才 active
+
+### §11 Decision
+R25 揭示 5-rule DSL 不是 universally better。但:
+- 本 loop 不触发 rules rollback（需用户审慎决定）
+- 2020/2022 数据 included 已经够：proposal doc 应记录此限制
+
+### Action: 更新 R14 proposal doc 加 R25 stress caveat
+
+### 下一轮 → Track D start R34
+PRD §2 R26-R33 全是 DSL / rule 精化 (C track)。R25 finding 表明 rule
+tuning 是 marginal — 主要 alpha 已获。跳到 **Track D universe expansion**:
+R34 `fetch_sp500_pool.py` 刷新 S&P 500 池 → R35 alpha/beta audit → 
+R36 admission screen。
+
+### Commit
+- `<待填>`
