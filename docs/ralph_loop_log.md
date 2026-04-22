@@ -4710,3 +4710,50 @@ simplified tool 不走 DSL 路径）。
 
 ### Commit
 - `9a6d801` Deep-mining R22
+
+## Deep-Mining R23 — DSL on/off A/B backtest
+
+### 目标
+M10 cross-ticker DSL wrapper 在 run_backtest.py 生产路径的实际 alpha 贡献。
+
+### 做了什么
+`run_backtest.py --strategy multi_factor --start 2023-01-01 --end 2025-12-31`
+两次: 一次默认 DSL ON, 一次 `--no-cross-ticker-rules`。
+
+### 结果 (3-year window)
+| Config | CAGR | Sharpe | MaxDD | IR vs SPY |
+|---|---:|---:|---:|---:|
+| **DSL ON** | **19.4%** | **0.59** | -54.8% | 0.09 |
+| DSL OFF | 17.1% | 0.53 | -53.5% | 0.02 |
+| SPY b&h (ref) | 21.9% | 1.13 | -18.9% | — |
+
+**DSL delta: +2.3pt CAGR, +0.06 Sharpe, +0.07 IR**
+
+DSL applied to 70.7% dates (531/751) — 3 rules 每一天至少一个 fire。
+
+⚠️ MaxDD -55% 是因 `run_backtest.py` 默认未应用 kill_switch + target_vol
+全部 risk machinery (Integration is different from production live mode).
+用此数字判断 MaxDD 不准确；应通过 `acceptance_pack.py` fresh backtest 或
+`run_paper.py --mode replay` 得到完整 production-equivalent MaxDD。
+
+### Insight
+1. M10 DSL **确实贡献 +2.3pt CAGR** — 这是 R10 M10 wiring 的量化价值
+2. 然而 strategy 总 CAGR 仍 < SPY (19.4% < 21.9% in this 3yr)，说明当前
+   conservative_default MFS config 不足以 beat passive 在此窗口
+3. 若加 R14 提的 2 new factors (gated_mom + weak_market)，+3pt more CAGR
+   可期 → 若 R14 proposal accepted 后 DSL + new factors 合在一起，
+   潜在 total 19.4 + ~3 = **~22% CAGR**（估算）会 beat SPY 21.9%
+
+### §11 Decision
+R23 确认 DSL integration alpha positive。不触发 promote (research finding)，
+但增强 R14 proposal doc (DSL + new factors 组合值得 user 审核)。
+
+### 下一轮 → R24
+PRD §2 R24: DSL 加新 intraday confirmation rules。
+但 R14 已是 composite peak, R23 已确认 DSL alpha positive。R24 新规则
+可能:
+- SPY 50/200 EMA cross 变成 EMA (smooth) vs SMA (sharp)
+- 加 sector ETF confirmation rules
+
+### Commit
+- `<待填>`
