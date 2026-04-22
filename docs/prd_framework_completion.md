@@ -721,7 +721,7 @@ Not required for "framework complete" signal, but should be tracked:
 
 | Id | Description | Priority | Estimated effort |
 |---|---|---|---|
-| **M10** | Cross-ticker DSL **production wiring**. Currently only `scripts/demo_cross_ticker_rules.py` consumes the yaml. `run_backtest.py` and `run_paper.py` do NOT apply rules to strategy output. Integration point: weight-matrix post-processor after `PortfolioConstructor.build()` | P1 | 1 day |
+| **M10** | Cross-ticker DSL **production wiring** | **✅ DONE 2026-04-21** — `core/signals/cross_ticker_wrapper.py::apply_rules_to_weight_matrix` + integrated into run_backtest.py / run_paper.py; 9 unit tests; smoke 2024 H1 shows 62.9% dates changed under SPY golden cross rule |
 | **M11** | Paper-BT consistency gate in pack v3. Run a short `--mode replay` + diff against fresh backtest equity over same window. Catches engine-level drift that pack v2's static re-run doesn't | P1.5 | 1-2 days |
 | **M12** | Concentration gate real enforcement. Inspect promoted spec's fresh-backtest weight matrix for top-1/top-3 concentration; reject if > threshold (currently skip-pass) | P2 | 0.5 day |
 | **M13** | Alignment FAIL mode rollout. After 2 weeks observation of WARN, flip `config/system.yaml::alignment.mode: fail` for live paper only | P2 | 0.2 day (config flip + docs) |

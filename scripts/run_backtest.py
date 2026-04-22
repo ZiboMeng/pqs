@@ -246,11 +246,16 @@ def main():
     store     = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
     artifacts = ArtifactManager(reports_dir=Path(args.output_dir))
 
-    # PRD M3: runtime alignment check (WARN-only in phase 1)
+    # PRD M3/M13: runtime alignment check (mode from config/system.yaml)
+    # Backtest is never blocked by FAIL mode (live_only_fail=True default);
+    # research/backtest always use WARN regardless of yaml mode.
     from core.alignment import check_alignment, write_alignment_report, AlignmentMode
+    ac = cfg.system.alignment
+    # Backtest semantic: always WARN; FAIL applies only to live paper
+    mode = AlignmentMode.FAIL if (ac.mode == "fail" and not ac.live_only_fail) else AlignmentMode.WARN
     alignment = check_alignment(
         Path(__file__).resolve().parent.parent,
-        mode=AlignmentMode.WARN,
+        mode=mode,
         ignore=args.ignore_alignment_check,
     )
     logger.info(alignment.summary_line())

@@ -2566,6 +2566,13 @@ log + §10 pack v1→v2 rollback incident + §11 open items M10-M18.
 - [x] **M7** XGBoost weight research model (`scripts/run_xgb_weight_model.py`; research-only; not wired to production)
 - [x] **M8** Transformer research Phase 1 **findings shipped** — `docs/transformer_research_phase1_findings.md`. OOS R²: Ridge +0.012 / XGBoost -0.110 / **Transformer -0.207** (most overfit). Honest negative finding: daily 21d forecasting scope unsuitable for transformer; recommend parking or pivot to intraday / cross-sectional / longer-horizon setup.
 
+**Post-M8 blockers** (PRD v1.2 §11):
+- [x] **M10** cross-ticker DSL production wiring (`core/signals/cross_ticker_wrapper.py` + `run_backtest.py` / `run_paper.py` integration; 9 unit tests; `--no-cross-ticker-rules` CLI flag to disable per-run)
+- [ ] M11 paper-BT consistency gate in pack v3 (P1.5)
+- [ ] M12 concentration gate real enforcement (P2, 0.5d)
+- [ ] M13 alignment FAIL mode rollout (P2, 0.2d; needs 2-week WARN soak first)
+- [ ] M14 BacktestEngine NaN root-cause fix (P2, 1d; conditional)
+
 **Older TODO (data / intraday / research)**:
 - [x] Provenance sidecar (trades_scanner + migration + BarStore API)
 - [x] Factor guard (data_sensitivity config + apply_data_sensitivity_mask)

@@ -40,10 +40,12 @@ def main():
     cfg = load_config(Path("config"))
     store = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
 
-    # PRD M3: runtime alignment check (WARN mode); consistency with
-    # run_backtest.py / run_paper.py (they both do this at startup).
+    # PRD M3/M13: runtime alignment check (WARN in backtest scope regardless
+    # of yaml mode, same as run_backtest.py)
     from core.alignment import check_alignment, write_alignment_report, AlignmentMode
-    alignment = check_alignment(Path.cwd(), mode=AlignmentMode.WARN)
+    ac = cfg.system.alignment
+    mode = AlignmentMode.FAIL if (ac.mode == "fail" and not ac.live_only_fail) else AlignmentMode.WARN
+    alignment = check_alignment(Path.cwd(), mode=mode)
     logger.info(alignment.summary_line())
     try:
         write_alignment_report(alignment)

@@ -62,7 +62,7 @@
 - **Universe**: 53 交易标的 = `seed_pool` 33（含 Mag7 + SPY/QQQ/GLD + leveraged + 21 个 R28 扩容 common stocks）+ 11 sector ETFs + 5 factor ETFs + 4 cross-asset。另有 3 个 macro_reference（^VIX/^TNX/DX-Y.NYB）只作 features
 - **Factor registry**: 7 PRODUCTION + 39 RESEARCH，通过 `test_factor_registry.py` 强一致
 - **Alignment**: runtime WARN 模式（M3）；fingerprints hash 对 yaml 匹配
-- **Cross-ticker DSL**: `config/cross_ticker_rules.yaml` **enabled: true**，3 条规则（SPY trend 放大 / RISK_OFF defensive basket / QQQ multi-TF 确认）；仅 demo 脚本消费，run_backtest 尚未 wire
+- **Cross-ticker DSL**: `config/cross_ticker_rules.yaml` **enabled: true**，3 条规则（SPY trend 放大 / RISK_OFF defensive basket / QQQ multi-TF 确认）；M10 完成 production 集成（`core/signals/cross_ticker_wrapper.py`），`run_backtest.py` + `run_paper.py` 启动时默认应用；`--no-cross-ticker-rules` 可关闭
 - **数据**: 日线 2007-2026 / 60m intraday 2015-2026 / 1m 2015-2026（部分）
 - **测试**: 见 `data/baseline/latest.json`（跑 `scripts/build_research_baseline_snapshot.py` 刷新；当前 snapshot = 1201 collected, 1200 passed + 1 torch-skip）
 - **Framework**: M0-M8 全部交付 (10 commits `bb90eb6`→`8b59417`)。详 `docs/prd_framework_completion.md`

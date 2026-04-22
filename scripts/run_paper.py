@@ -316,12 +316,16 @@ def main():
     cfg   = load_config(Path(args.config_dir))
     store = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
 
-    # PRD M3: runtime alignment check (WARN-only in phase 1; skipped for 'status' mode)
+    # PRD M3/M13: runtime alignment check (mode from config/system.yaml;
+    # FAIL mode in paper live blocks startup on hash mismatch)
     if args.mode != "status":
         from core.alignment import check_alignment, write_alignment_report, AlignmentMode
+        ac = cfg.system.alignment
+        # Paper trading (live + replay) respects fail mode directly
+        mode = AlignmentMode.FAIL if ac.mode == "fail" else AlignmentMode.WARN
         alignment = check_alignment(
             Path(__file__).resolve().parent.parent,
-            mode=AlignmentMode.WARN,
+            mode=mode,
             ignore=args.ignore_alignment_check,
         )
         logger.info(alignment.summary_line())

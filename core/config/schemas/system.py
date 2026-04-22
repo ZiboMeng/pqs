@@ -50,6 +50,20 @@ class AccountConfig(BaseModel):
     timezone: str = "America/New_York"
 
 
+class AlignmentConfig(BaseModel):
+    """Runtime alignment check mode (PRD M3 / M13).
+
+    mode='warn' (default): hash mismatch logs WARN but does not block
+    mode='fail': hash mismatch raises AlignmentCheckError; live paper blocked
+    live_only_fail=True: FAIL mode only applies to live paper; backtest /
+        research always WARN even in fail mode. Recommended default for
+        safety.
+    """
+
+    mode: str = Field(default="warn", pattern="^(warn|fail)$")
+    live_only_fail: bool = True
+
+
 class SystemConfig(BaseModel):
     """Global system settings."""
 
@@ -60,3 +74,4 @@ class SystemConfig(BaseModel):
     paths: PathsConfig = Field(default_factory=PathsConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     account: AccountConfig = Field(default_factory=AccountConfig)
+    alignment: AlignmentConfig = Field(default_factory=AlignmentConfig)
