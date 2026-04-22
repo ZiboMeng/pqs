@@ -4857,3 +4857,23 @@ R36 admission screen。
 
 ### Commit
 - `426f0dd` Deep-mining R25
+
+## Deep-Mining R34 — S&P 500 pool freshness sync
+
+### 做了什么
+`fetch_sp500_pool.py --save-list data/sp500_tickers_latest.txt --incremental --batch-size 40`
+
+### 结果
+- 513/513 S&P 500 tickers 同步成功
+- 74,233 new rows 入 library (追补 2026-04-18 → 2026-04-22)
+- 30/30 sample 全 fresh to 2026-04-22
+- 2 symbol delisted (SCANA, TSYS), 无需 action
+
+### §11 Decision
+Pool 就绪 → R35 alpha/beta audit 可以启动。
+
+### 下一轮 → R35
+`universe_alpha_diagnostic.py --symbols data/sp500_tickers_latest.txt --out-name sp500_R35_audit`
+
+### Commit
+- `<待填>`
