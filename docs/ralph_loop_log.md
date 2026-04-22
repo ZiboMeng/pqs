@@ -5199,3 +5199,76 @@ R44 work 是 "integrate R6 data into R46 findings synthesis"。
 
 ### Commit
 - `195ab88` Deep-mining R43
+
+## Deep-Mining R44 — XGB weight model stricter OOS (60/40 split)
+
+### 做了什么
+`run_xgb_weight_model.py --horizon 21 --top-k 5 --split-frac 0.6
+--out-tag R44_strict_oos` 用更严格 60/40 split (train end 2022-02) 重跑
+weight model。
+
+### 结果 — OOS R² 灾难性负值
+- Train R² = +0.73, **Test OOS R² = -4.56** (catastrophic)
+- CAGR/Sharpe 数字（+969%, Sharpe 1.14）来自 backtest engine 未加 capital
+  constraint 的 synthetic 计算，**不可用作真实业绩**
+- 确认 R42 CV 的 finding：XGB 在 2021+ 数据上完全失去预测力
+
+### Artifacts
+- `data/ml/xgb_weights/R44_strict_oos/summary.json`
+- `data/ml/xgb_weights/R44_strict_oos/xgb_weights.parquet`
+- `data/ml/xgb_weights/R44_strict_oos/xgb_equity.parquet`
+- `data/ml/xgb_weights/R44_strict_oos/baseline_equity.parquet`
+
+### 下一轮 → R46
+R45 ensemble (MFS + XGB blend) 需要 code not yet written；跳过。
+R46 findings doc 是 decision gate：写 `docs/xgboost_weight_model_R46_
+findings.md` 综合 R3/R4/R6/R42/R43/R44 evidence 给 user 决策建议。
+
+### Commit
+- `<TBD>` Deep-mining R44
+
+## Deep-Mining R46 — XGBoost weight model FINDINGS doc
+
+### 做了什么
+新建 `docs/xgboost_weight_model_R46_findings.md` 综合 6 rounds XGB
+evidence (R3 baseline, R4 SHAP, R6 weight model pilot, R42 5-fold CV,
+R43 SHAP on CV, R44 strict OOS) 并给出 **R46 verdict: PARK**。
+
+### 核心结论
+XGBoost 是**有价值的 research 工具** (factor attribution + SHAP + 重要
+性排名) 但**不 production-ready** 作为 MFS 替代:
+- 5 folds 只 2/5 positive, mean OOS R² -0.07
+- R44 60/40 split test R² -4.56 (灾难)
+- Permutation vs SHAP 排名显著不一致 → predictions 不稳定
+- R15 promoted drawup_from_252d_low 在 5-fold CV 下 rank #27/35 with
+  MEAN NEG importance — 对 R15 promotion 是 counter-evidence
+
+### 6 Pass criteria 表
+| Gate | R42-R44 status | Required | Pass? |
+|---|---|---|---|
+| 3+ folds positive | 2/5 | ≥3/5 | ❌ |
+| Mean OOS R² ≥+0.03 | -0.07 | +0.03 | ❌ |
+| SHAP ↔ perm agree | moderate | ρ≥0.6 | ❌ |
+| CAGR delta > +2pt sustained | R6 +3.13pt but unstable | sustained | ❌ |
+| Sharpe delta ≥0 | R6 -0.07 | ≥0 | ❌ |
+| 2x cost passes | not tested | pass | N/A |
+
+### 4 User Decision Options
+- **A** (recommended): Park XGB weight model. Continue MFS
+- **B**: Demote drawup from PRODUCTION based on R42/R43 counter-evidence
+- **C**: R45 ensemble test (50/50 MFS + XGB blend)
+- **D**: Richer feature engineering + retry R42
+
+### 对 LLM R15 promotion 的影响
+**R42/R43 counter-evidence 不足以要求 demote drawup**: R15 依据是
+5-sym panel deep_check + 30-sym OOS walk-forward + factor_screen #2，
+单独不同 method 的独立验证。XGB CV 只是 ensemble-ranking 的第五个方法，
+rank 排名低不等同于 demote 理由。**但 R46 把这个 counter-evidence
+记录在案给 user 审核**。
+
+### 下一轮 → R47 (Track F Transformer) 或 R49 (synthesis)
+Track E 完成。剩余 R45 ensemble test 按 §11.6 user decision path 决定
+是否做。继续 PRD §2 track menu。
+
+### Commit
+- `<TBD>` Deep-mining R46 (findings doc)
