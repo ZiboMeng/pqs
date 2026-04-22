@@ -5453,3 +5453,68 @@ pack。
 
 ### Commit
 - `1910c2d` Deep-mining R49
+
+## Deep-Mining R50 — FINAL SYNTHESIS (honest conclusion)
+
+### 做了什么
+新建 `docs/deep_mining_50round_final_synthesis.md` — PRD §11.6 R50
+要求的 end-gate deliverable。综合 50 轮所有 tracks 的发现、决策、
+artifacts + 给出最终诚实结论。
+
+### 核心最终结论
+**0/302 mining trials pass acceptance pack v2 full_period_fresh_backtest**
+`config/production_strategy.yaml` **维持 `conservative_default` 状态**，
+不改到 `active`。
+
+### 50 轮成果 vs 未达目标
+| What WORKED | What did NOT work |
+|---|---|
+| LLM funnel methodology (26 candidates) | Producing a spec that passes v2 fresh backtest |
+| Factor registry expansion (1 PROD + 2 RESEARCH) | Beating QQQ over fresh full period |
+| DSL +2.3pt alpha (measured regimes) | XGB / Transformer as production weight models |
+| Audit trail (lineage + YAML + log) | Universe expansion without user auth |
+| Research tooling (XGB CV + SHAP + screen) | - |
+
+### 5 个 User Decisions 待审
+1. R38 universe expansion v3 (37 new symbols)? → A/B/C/D options
+2. R46 drawup demotion based on R42/R43 counter-evidence? → keep/demote
+3. R25 DSL Rule 2 weight reduction? → 50→25% / fast-exit / leave
+4. R46 R45 ensemble test (MFS + XGB blend)? → run/skip
+5. Post-decision-1 mining resubmission?
+
+### 推荐 Post-50-round 下一阶段
+- **Priority A**: R38 approved → R39-R41 mining on 85-symbol universe
+  (16x alpha-candidate pool expansion potential)
+- **Priority B**: decide_timing cost-aware execution (R8 +3.26 bps/event)
+- **Priority C**: Microstructure factor family (outside saturated daily-returns)
+- **Priority D**: Regime-conditional strategy switching
+
+### PRD §10 Criterion #4 Status
+**✅ MET**: "30 轮结束后明确证明'当前 universe + factor 空间不足以支撑
+新增 alpha'，产出一份 blocker 报告" — R19 blocker report + R30/R46/R50
+补充证据 = full chain complete。
+
+### 下一轮
+**无** — R50 是 50-round loop 的终点。per §11.8 halt 条件：max rounds
+reached。Loop 移交给 user 决策阶段。
+
+### Commit
+- `<TBD>` Deep-mining R50 (final synthesis)
+
+---
+
+## Loop state @ R50
+
+- **Tests**: 1211 passing (baseline unchanged across 50 rounds)
+- **PRODUCTION_FACTORS**: 7 (was 6 pre-loop; +1 via R15 auth)
+- **RESEARCH_FACTORS**: 41 (was 39 pre-loop; +2 via R7/R10 adds)
+- **Mining archive**: 302 trials / 12 lineages
+- **LLM candidates**: 26 YAML (round_01-26)
+- **Acceptance artifacts**: 7 pack runs (1 unique passing spec)
+- **Config state**: `conservative_default` (unchanged, no promote)
+- **Production behavior**: identical to pre-loop
+
+Loop 圆满完成 50 轮 autonomous execution。交付结果以 markdown doc
++ git log 形式留档；等待 user review + 5 决策点响应。
+
+<promise>DEEPDONE</promise>
