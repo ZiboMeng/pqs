@@ -5020,3 +5020,52 @@ R38 proposal 使用 category 分类作主信号；不依赖 sharpe/maxdd filter
 
 ### Commit
 - `b698f3e` Deep-mining R37
+
+## Deep-Mining R38 — Universe expansion proposal v3 (doc only)
+
+### 做了什么
+新建 `docs/universe_expansion_proposal_v3.md` 整合 R34-R37 产出
+（S&P 500 pool + alpha audit + admission screen + risk labels），
+产出 user-reviewable 扩容提案文档。**不改 `config/universe.yaml`**。
+
+### 提案结构
+- Executive summary (当前 universe 52 syms, 新增 163 alpha 候选)
+- R35/R36/R37 evidence stack (表格汇总)
+- Staged expansion:
+  - **Stage 1** (11): Diversifier Premium (β<0.7, strong sharpe) —
+    BRK-B, TER, TJX, TKO, TRGP, TRV, TSN, TT, TXN, UNP, VICI
+  - **Stage 2** (16): Alpha-generator curated —
+    COST, AXP, BKNG, APD, ABT, CMG, COP, UNH, LLY, ISRG, NEE, MCK,
+    CME, TMO, A, ACGL
+  - **Stage 3** (10): Beta-plus-alpha curated —
+    AMD, AMAT, ADI, AVGO, CRWD, INTU, KKR, BX, CDNS, PLTR
+- **Total: 37 new symbols** → universe 52 → **~85**
+- Invariant compliance table (所有 CLAUDE.md 约束 preserved)
+- Data-quality caveats (panel outliers / sharpe NaN 处理)
+- 4 decision options for user (A: full / B: Stage 1 only / C: revise / D: decline)
+- Specific `config/universe.yaml` patch (YAML block, ready to paste)
+- Validation plan R39-R41 (mining + regime test + acceptance pack)
+
+### 关键 Design Choices
+1. **不激进** — 37 new (71% 增加) 比 user R28 (21 增加) 规模大一倍但
+   仍保守；R35 alpha pool 有 177 候选可选，我只选了最高 confidence 的
+   37 个
+2. **Sector diversity** — Stage 2 刻意跨 health/staples/financials/
+   industrials/utilities/tech 分布
+3. **Leveraged ETF 不新增** — 保持 CLAUDE.md "TQQQ/SOXL 严格阈值" 约束
+4. **Benchmark 不变** — SPY primary, QQQ secondary 保持
+5. **Risk guardrails** — Stage 3 (β>1.3) 仅在 kill_switch + target_vol
+   + regime scaling 全部启用时进入
+
+### 下一轮授权分岔
+- 如 user 选 A/B/C：进 R39 (mining on expanded universe via
+  `--extra-symbols`)
+- 如 user 选 D 或暂不回复：转去其他 track (E XGBoost rigor R42-R46
+  或 B intraday R16-R25 残余项)
+
+### 下一轮 → R39 (conditional)
+先等待 user 对 v3 proposal 的决定；若无回复（autonomous 模式按 §11
+不等待），切 track E 做 XGB CV 的剩余工作 (R42-R46) 以不停摆。
+
+### Commit
+- `<TBD>` Deep-mining R38 (proposal doc only, no code change)
