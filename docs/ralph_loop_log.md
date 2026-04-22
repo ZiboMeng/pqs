@@ -5499,7 +5499,7 @@ artifacts + 给出最终诚实结论。
 reached。Loop 移交给 user 决策阶段。
 
 ### Commit
-- `<TBD>` Deep-mining R50 (final synthesis)
+- `bf0c461` Deep-mining R50 (final synthesis)
 
 ---
 
