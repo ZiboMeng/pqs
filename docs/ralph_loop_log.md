@@ -5578,4 +5578,4 @@ input，无法继续产生 incremental 研究价值 without 越界 (e.g., 自行
 edit config/universe.yaml 违反 §11.2)。
 
 ### Commit
-- `<TBD>` Deep-mining R51 (post-50 sanity validation)
+- `6c35dfd` Deep-mining R51 (post-50 sanity validation)
