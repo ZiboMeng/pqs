@@ -4032,4 +4032,4 @@ top-k features。使用 `run_factor_interaction_mine.py` 但 seed 可根据
 R4 SHAP top-10 锁定。
 
 ### 11. 本轮 commit 哈希
-- (待 commit)
+- `4d965f4` Deep-mining R4: XGBoost CV + SHAP
