@@ -22,8 +22,11 @@ if [[ ! -f "$PRD_PATH" ]]; then
     exit 1
 fi
 
-# Single-line ASCII-only prompt
-PROMPT='Execute one round per docs/prd_deep_mining_50round.md section 2 track menu. lineage_tag=post-2026-04-22-deep-R<NN>. Do NOT modify PRODUCTION_FACTORS or config/universe.yaml outside round R38 without explicit user auth. Halt on any section 5 stop condition. Write per-round 11-part Chinese report to chat and docs/ralph_loop_log.md.'
+# Single-line ASCII-only prompt.
+# AUTONOMOUS MODE: user pre-authorized all decisions per PRD section 11
+# Autonomous Decision Rules (2026-04-22). Do NOT pause to ask questions.
+# Follow section 11 rules exactly; halt only on section 11.8 stop conditions.
+PROMPT='Execute one round per docs/prd_deep_mining_50round.md section 2 track menu. lineage_tag=post-2026-04-22-deep-R<NN>. AUTONOMOUS MODE: follow section 11 Autonomous Decision Rules pre-authorized by user; DO NOT pause to ask any questions. Halt only on section 11.8 stop conditions. Do not modify PRODUCTION_FACTORS or config/universe.yaml outside authorized rounds per section 11. Write per-round 11-part Chinese report to chat and docs/ralph_loop_log.md.'
 
 cat <<EOF
 ================================================================================

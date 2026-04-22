@@ -369,23 +369,133 @@ stop condition hit).
 
 ---
 
-## 11. Decision Points for User
+## 11. Autonomous Decision Rules (user pre-authorized 2026-04-22)
 
-These are explicitly flagged for USER approval during the loop (not
-automatic):
+User cannot respond during loop ("已经休息了"). All 7 decision points are
+pre-resolved per the rules below. Loop MUST follow these exactly. If an
+edge case falls outside these rules, **park with doc** rather than ask.
 
-| Round | Decision |
-|---|---|
-| After any round | Promote a specific spec_id to production (must see acceptance pack output + dry-run diff first) |
-| R38 | Approve universe.yaml change (expanded seed_pool from admission screen) |
-| R7 / R10 / R14 | Approve any new factor to `RESEARCH_FACTORS` (after funnel pass) |
-| R7 / R10 / R14 (rare) | Approve any new factor to `PRODUCTION_FACTORS` (after second funnel pass + composite integration) |
-| R30 | Approve new DSL functions (`ratio`, `zscore`, `rank_cs`) addition to whitelist |
-| R46 | Approve XGBoost weight model promote / park |
-| R50 | Final promote or park decision |
+### 11.1 Promote a spec_id (any round)
+
+**Rule**: Auto-promote via `scripts/promote_strategy.py --promote` IFF
+all of:
+  - pack v2 ALL 10 gates PASS (including `full_period_fresh_backtest`)
+  - OOS IR ≥ **0.25** (safety margin above the 0.20 gate floor)
+  - fresh backtest excess vs QQQ ≥ **+2%** (safety margin above 0% gate)
+  - max single-symbol weight ≤ 0.35
+  - post-promote pytest full suite still passes (if regression → git revert the yaml)
+
+Promote is a SEPARATE commit (reviewable). Write rationale into
+`source.rationale` citing OOS IR / excess / gate passes. Continue the
+loop after promote; do not pause.
+
+### 11.2 R38 universe.yaml change
+
+**Rule**: DO NOT auto-edit `config/universe.yaml`. R38 produces a
+PROPOSAL document `docs/universe_expansion_proposal_R38_<ts>.md` with:
+  - Current 52 symbols diff vs admission-screen output
+  - Bucket assignment table (Alpha Core / Diversifier / Tactical / ...)
+  - Risk labels summary
+  - Recommended seed_pool addition list (max 30 new symbols)
+  - Explicit disclaimer: "USER MUST REVIEW before executing git add/commit"
+
+R39-R41 use `run_mining.py --extra-symbols <proposal.txt>` to mine with
+proposed universe **without** modifying the yaml. This exercises the
+expanded universe in archive but leaves production yaml intact until
+user approves post-loop.
+
+### 11.3 R7 / R10 / R14 new factor → RESEARCH_FACTORS
+
+**Rule**: Auto-add to `core/factors/factor_registry.py::RESEARCH_FACTORS`
+IFF:
+  - Funnel passes: `llm_factor_propose.py` → NEEDS_HUMAN_REVIEW (never
+    REJECT/ARCHIVE)
+  - `llm_candidate_deep_check.py` PASS (OOS IR ≥ 0.30, regime 4/6+ correct
+    sign, quartile stable)
+  - Optional: `llm_candidate_factor_backtest.py` 5-gate (cost/QQQ/MaxDD)
+    best-effort (not required for RESEARCH_FACTORS — only for PRODUCTION)
+  - Unit test added verifying the factor produces finite non-NaN values
+  - `core/factors/factor_generator.py::generate_all_factors` includes it
+
+Also update `RESEARCH_TO_PRODUCTION_MAP` with placeholder entry if the
+factor shadows an existing production factor.
+
+### 11.4 R7 / R10 / R14 new factor → PRODUCTION_FACTORS
+
+**Rule**: DO NOT auto-add to `PRODUCTION_FACTORS`. This touches
+`MultiFactorStrategy.generate()` inline composite. Instead produce
+`docs/production_factor_promote_proposal_<name>_<ts>.md` with:
+  - Full funnel evidence (all 5 gates cost/QQQ/holdout/MaxDD/dup)
+  - Composite integration test results
+  - Post-loop user will review + explicitly authorize (R15 drawup pattern)
+
+### 11.5 R30 new DSL functions
+
+**Rule**: Auto-add `ratio(sym_a, sym_b)`, `zscore(col, N)`, `rank_cs(col)`,
+`breakout(N)` to `core/signals/cross_ticker_rules.py` whitelist IFF:
+  - Each function has ≥ 2 unit tests (valid behavior + eval-inject rejection)
+  - Evaluator `_eval_expression` correctly routes the new funcs
+  - Commit regression passes (full pytest)
+  - Add 1 example rule using each new func to
+    `config/cross_ticker_rules.yaml` (commented, `enabled: false` for that
+    rule only via a disabled flag or just not added to live `rules:` block)
+
+Per-function unit test template already in
+`tests/unit/signals/test_cross_ticker_rules.py`; follow the pattern.
+
+### 11.6 R46 XGBoost weight model decision
+
+**Rule**: Auto-park as research-only. Write
+`docs/xgboost_weight_model_R46_findings.md` with:
+  - Fresh vs Ridge vs equal-weight CAGR / Sharpe / MaxDD comparison
+  - Per-fold CV stability (R42 data)
+  - SHAP top factors (R43 data)
+  - Ensemble blend findings (R45 data)
+  - Recommendation: **promote to production-candidate** ONLY if XGB
+    CAGR > conservative_default CAGR AND MaxDD ≤ -25% AND OOS IR > 0.30
+    (these are HIGH bars and unlikely to be cleared in 50-round research;
+    default is "park + document" per historical M7/M8 experience)
+
+### 11.7 R50 final promote / park
+
+**Rule**:
+  - If any spec passed 11.1 rules during R1-R49: ensure it's promoted +
+    noted in final report
+  - If no spec passed: write comprehensive blocker report
+    `docs/deep_mining_phase_final_report.md` covering:
+    - Lineage-level statistics (all `post-2026-04-22-deep-R*` rounds)
+    - Best-of-the-best candidates and why they fell short
+    - Factor / universe / data-frequency gap analysis
+    - Next-phase recommendation (intraday focus / new data source / etc)
+  - Final state summary with:
+    - `config/production_strategy.yaml::status`
+    - New RESEARCH_FACTORS added (count + names)
+    - New DSL rules added (count)
+    - Universe proposal for user (R38 doc pointer)
+    - Test count + regression status
+
+### 11.8 Stop conditions that REQUIRE loop halt (not auto-resolve)
+
+Even under autonomous mode, the loop MUST halt on:
+  - pytest regression > 5 tests (investigate before continuing)
+  - Any `core/` module import failure (framework broken)
+  - Disk space < 10GB
+  - `config/universe.yaml` or `config/production_strategy.yaml` unexpectedly
+    modified outside authorized rounds (implies bug or race)
+  - Archive DB corruption
+  - Third `--force` promote attempt in a single loop (means
+    auto-promote logic is broken; investigate before more rounds)
+
+On halt: write `docs/deep_mining_halt_R<N>_<reason>.md` explaining state
++ next-action recommendation, then output completion promise `DEEPDONE`
+with status note.
 
 ---
 
 *PRD v1.0 — 2026-04-22, author: Claude; post-framework comprehensive
 50-round mining plan. Covers daily + intraday + ML + rule-based +
 DSL + transformer hyperparameter + XGBoost rigor + LLM handoff.*
+
+*PRD v1.1 — 2026-04-22, author: Claude; §11 rewritten as "Autonomous
+Decision Rules" — user pre-authorized all 7 decision points so loop can
+run unattended. §11.8 stop-only conditions added.*

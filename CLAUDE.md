@@ -2553,11 +2553,25 @@ limit + min_level gating built-in. Credentials via env var expansion
 
 ### Current TODO Checklist
 
-**Deep Mining Phase PRD** (`docs/prd_deep_mining_50round.md` v1.0) —
-50-round active phase. 7 tracks: daily+ML (R1-R15), intraday (R16-R25),
-DSL (R26-R33), universe expansion (R34-R41), XGBoost rigor (R42-R46),
-transformer hyperparameter (R47-R48), final synthesis (R49-R50). Hard
-goal: ≥1 spec passes pack v2 all 10 gates and promotes to status=active.
+**Deep Mining Phase PRD** (`docs/prd_deep_mining_50round.md` v1.1) —
+50-round **AUTONOMOUS** active phase. 7 tracks: daily+ML (R1-R15),
+intraday (R16-R25), DSL (R26-R33), universe expansion (R34-R41),
+XGBoost rigor (R42-R46), transformer hyperparameter (R47-R48), final
+synthesis (R49-R50). Hard goal: ≥1 spec passes pack v2 all 10 gates and
+promotes to status=active.
+
+**Autonomous Decision Rules** (PRD §11, user pre-authorized 2026-04-22):
+- **Auto-promote** when pack v2 ALL 10 gates PASS + OOS IR ≥ 0.25 + QQQ
+  excess ≥ +2% + max single weight ≤ 0.35
+- **R38 universe**: produce proposal doc only, DO NOT edit yaml
+- **R7/R10/R14 factor → RESEARCH_FACTORS**: auto-add if funnel + deep_check
+  PASS; **→ PRODUCTION_FACTORS**: proposal doc only
+- **R30 DSL funcs**: auto-add `ratio/zscore/rank_cs/breakout` with tests
+- **R46 XGB**: auto-park as research-only + findings doc
+- **R50 final**: promote if anything passed 11.1; else blocker report
+- Halt only on §11.8 stop conditions (pytest regression > 5, core import
+  failure, disk < 10GB, unexpected config edits, archive corruption,
+  3rd --force promote in one loop)
 
 **Framework Completion PRD** (`docs/prd_framework_completion.md` v1.2) —
 All M0-M8 + M10 + M13 + M15 + M16 shipped; critical path clean. Open:
