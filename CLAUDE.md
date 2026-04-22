@@ -2570,7 +2570,7 @@ log + §10 pack v1→v2 rollback incident + §11 open items M10-M18.
 - [x] **M10** cross-ticker DSL production wiring (`core/signals/cross_ticker_wrapper.py` + `run_backtest.py` / `run_paper.py` integration; 9 unit tests; `--no-cross-ticker-rules` CLI flag to disable per-run)
 - [ ] M11 paper-BT consistency gate in pack v3 (P1.5)
 - [ ] M12 concentration gate real enforcement (P2, 0.5d)
-- [ ] M13 alignment FAIL mode rollout (P2, 0.2d; needs 2-week WARN soak first)
+- [x] **M13** alignment FAIL mode config-driven rollout (`config/system.yaml::alignment::{mode, live_only_fail}`; defaults WARN + live_only_fail=true; operator flip without code change)
 - [ ] M14 BacktestEngine NaN root-cause fix (P2, 1d; conditional)
 
 **Older TODO (data / intraday / research)**:
