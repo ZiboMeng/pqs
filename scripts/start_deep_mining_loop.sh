@@ -23,7 +23,7 @@ if [[ ! -f "$PRD_PATH" ]]; then
 fi
 
 # Single-line ASCII-only prompt
-PROMPT='Execute one round per docs/prd_deep_mining_50round.md section 2 track menu. lineage_tag=post-2026-04-22-deep-R<NN>. Do NOT modify PRODUCTION_FACTORS or config/universe.yaml outside round R38 without explicit user auth. Halt on any section 5 stop condition. Write per-round 11-part Chinese report to chat and docs/ralph_loop_log.md. Attempt send_round_summary.py notification at end of each round if PQS_WECOM_WEBHOOK_URL is set.'
+PROMPT='Execute one round per docs/prd_deep_mining_50round.md section 2 track menu. lineage_tag=post-2026-04-22-deep-R<NN>. Do NOT modify PRODUCTION_FACTORS or config/universe.yaml outside round R38 without explicit user auth. Halt on any section 5 stop condition. Write per-round 11-part Chinese report to chat and docs/ralph_loop_log.md.'
 
 cat <<EOF
 ================================================================================
@@ -48,8 +48,8 @@ PRE-FLIGHT CHECKLIST (run before pasting the command below):
        python scripts/fetch_data.py --daily-only
 4. Alignment check on current artifact:
        python -c "from core.alignment import check_alignment; from pathlib import Path; print(check_alignment(Path('.')).summary_line())"
-5. (Optional) WeChat webhook for per-round summaries:
-       export PQS_WECOM_WEBHOOK_URL="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=XXXX"
+5. (Optional intraday refresh, only needed before Track B rounds R16-R25):
+       python scripts/fetch_data.py --intraday-only
 
 --------------------------------------------------------------------------------
 PASTE THIS INTO CLAUDE CODE:
