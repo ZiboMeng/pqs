@@ -2566,12 +2566,16 @@ log + §10 pack v1→v2 rollback incident + §11 open items M10-M18.
 - [x] **M7** XGBoost weight research model (`scripts/run_xgb_weight_model.py`; research-only; not wired to production)
 - [x] **M8** Transformer research Phase 1 **findings shipped** — `docs/transformer_research_phase1_findings.md`. OOS R²: Ridge +0.012 / XGBoost -0.110 / **Transformer -0.207** (most overfit). Honest negative finding: daily 21d forecasting scope unsuitable for transformer; recommend parking or pivot to intraday / cross-sectional / longer-horizon setup.
 
-**Post-M8 blockers** (PRD v1.2 §11):
+**Post-M8 items** (PRD v1.2 §11):
 - [x] **M10** cross-ticker DSL production wiring (`core/signals/cross_ticker_wrapper.py` + `run_backtest.py` / `run_paper.py` integration; 9 unit tests; `--no-cross-ticker-rules` CLI flag to disable per-run)
-- [ ] M11 paper-BT consistency gate in pack v3 (P1.5)
-- [ ] M12 concentration gate real enforcement (P2, 0.5d)
+- [ ] **M11** paper-BT consistency gate in pack v3 (P1.5, 1-2d). New gate: replay spec over recent 126d window, diff equity vs fresh backtest, fail if > 10 bps drift. Currently skip-PASS; M1 single-source already covers constructor layer but engine-level drift not verified.
+- [ ] **M12** concentration gate real enforcement (P2, 0.5d). Currently skip-PASS; runtime `soft_cap_max_single` + `PortfolioConstructor` hard cap cover production. M12 would inspect fresh-backtest weight matrix for per-date top-1/top-3 concentration and reject if > threshold (e.g. top-1 > 0.40 or top-3 > 0.70).
 - [x] **M13** alignment FAIL mode config-driven rollout (`config/system.yaml::alignment::{mode, live_only_fail}`; defaults WARN + live_only_fail=true; operator flip without code change)
-- [ ] M14 BacktestEngine NaN root-cause fix (P2, 1d; conditional)
+- [ ] **M14** BacktestEngine NaN root-cause fix (P2, 1d; conditional). Ghost-cleanup + NaN last-price can produce NaN as equity last bar. Pack v2 workaround uses `.dropna()` before CAGR. Fix: skip ghost-liquidation when last_close is NaN, or fillna last-valid in equity aggregation. Promote to blocker if user complains about NaN in `reports/backtests/.../equity_curve.csv`.
+- [x] **M15** LLM Proposal multi-LLM context pack (see `docs/llm_external_llm_handoff.md`). **Reframed** from "Anthropic API call" to "provide context doc that user feeds to Gemini/Codex; those LLMs produce YAML candidates; user manually places in research/llm_candidates/round_NN/; Claude funnel picks up." Fully automated Phase 2 (API) is NOT planned.
+- [x] **M16** Transformer Phase 1 findings (done, see above)
+- [ ] **M17** Realtime intraday live-feed infra. Out of framework PRD scope; independent PRD `prd_live_feed.md` when needed. Gate: do not start until validated best strategy exists and is stable (no point live-tracking a provisional strategy).
+- [ ] **M18** Cross-ticker DSL function expansion (P3, 0.3d per function). Candidate new funcs: `ratio(sym_a, sym_b)`, `zscore(col, N)`, `rank_cs(col)`, `breakout(N)`. Add ONLY when a specific rule yaml demands them; don't pre-add.
 
 **Older TODO (data / intraday / research)**:
 - [x] Provenance sidecar (trades_scanner + migration + BarStore API)

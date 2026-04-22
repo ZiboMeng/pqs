@@ -38,6 +38,10 @@ reports/
 # Acceptance pack artifacts (M2); regenerable from mining archive
 artifacts/
 
+# External LLM handoff seed dumps (M15); regenerable via
+# scripts/dump_llm_handoff_context.py
+docs/llm_handoff_seed_*.md
+
 # Runtime logs
 logs/
 nohup.out

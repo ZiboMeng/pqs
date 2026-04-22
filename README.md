@@ -616,6 +616,18 @@ python scripts/run_universe_rebalance.py
 #### `start_universe_mining_loop.sh`
 - **作用**: 打印 ralph-loop 启动命令（便于拷贝到 Claude Code）
 
+#### `dump_llm_handoff_context.py` ⭐ (PRD M15 reframed)
+- **作用**: 产出"喂给外部 LLM（Gemini/Codex/任意）的 context pack"markdown 文件
+- **内容**: PRODUCTION_FACTORS + RESEARCH_FACTORS + 最近 candidates + universe + regime 分布 + YAML schema + 使用指南
+- **CLI**: `--out path.md --lookback-days 252 --n-recent-candidates 10`
+- **产出**: `docs/llm_handoff_seed_<ts>.md`（gitignored，每次 fresh dump）
+- **用法**:
+  1. 跑此脚本
+  2. 打开产出 .md，复制 `--- PASTE TO LLM BELOW ---` 到 `ABOVE` 之间的内容
+  3. 粘到 Gemini / Codex 对话，要求 "生成 N 个 candidates YAMLs"
+  4. 手动落盘到 `research/llm_candidates/round_NN/<name>.yaml`（见 `docs/llm_external_llm_handoff.md` 规则）
+  5. `git commit` —— Claude 下次 session 会自动 funnel 这些 candidates
+
 #### `build_research_baseline_snapshot.py` ⭐ (PRD M0, 新增)
 - **作用**: 生成 `data/baseline/snapshot_<ts>.json` + `latest.json`，含 git SHA / pytest count / archive lineage 统计 / config hash / factor registry hash / universe hash / production strategy status
 - **何时用**: 每次研究前/后对比；PR 前跑；替代文档里硬写的测试数
@@ -1412,13 +1424,19 @@ xfail 解除条件必须文档化在 reason 参数里。
 所有 funnel verdicts 只会是 `REJECT` / `ARCHIVE` / `NEEDS_HUMAN_REVIEW`，
 **永不 auto-KEEP**。最终 promote 决策必须人审核 OOS + regime + cost + QQQ。
 
-**标准化流程 (PRD M6 Phase 1)**:
-- `docs/llm_proposal_prompt_template.md` —— 给 LLM 的 system prompt + YAML schema
+**Phase 1 — Claude 对话式（默认）**:
+- `docs/llm_proposal_prompt_template.md` —— Claude 自用 system prompt + YAML schema
 - `docs/llm_proposal_seed_context.md` —— 每轮开始前要注入的 5 段 repo state
 - `docs/llm_funnel_checklist.md` —— 6 步 mandatory funnel
 
-**Phase 2 (未来)**: 若 Phase 1 conversation overhead 真成瓶颈，再建
-`scripts/llm_propose_round.py` 程序化 API 调用；**不提前做**。
+**Phase 1.5 — Multi-LLM Handoff (PRD M15 reframed)** — 通过 Gemini / Codex / 任意 LLM 参与，无需 API:
+- `docs/llm_external_llm_handoff.md` —— 完整 workflow 说明
+- `scripts/dump_llm_handoff_context.py` —— 自动 dump 当前 repo state 为 markdown context pack（copy-paste 即喂任意 LLM）
+- 用户手动落盘 LLM 产出到 `research/llm_candidates/round_NN/*.yaml`；Claude funnel 自动拾取
+- 无 API 依赖 / 无成本 / 无可重复性风险
+
+**Phase 2 (未来，不推荐)**: 程序化 Anthropic API 调用。Phase 1/1.5 当前
+未成瓶颈，无计划启动。
 
 ---
 
