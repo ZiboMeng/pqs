@@ -3956,3 +3956,80 @@ R4 加 SHAP）。Command: `run_xgb_cv.py --n-splits 5 --shap --out-tag R4_with_s
 
 ### 11. 本轮 commit 哈希
 - `6107d3d` Deep-mining R2 + R3
+
+## Deep-Mining Phase R4 — XGBoost CV + SHAP
+
+### 1. 本轮主题
+Track A R4 per PRD §2/§R43：同 R3 的 5-fold TS CV 设置，但启用 SHAP
+作 feature attribution。R3 用 permutation importance，R4 补 SHAP — 两者
+捕捉不同信号类型。
+
+### 2. 本轮目标
+- 得到 per-fold SHAP values，聚合 across 5 folds
+- 对比 SHAP vs permutation importance 识别 interaction-dependent features
+- 为 R5 (factor interaction mine) 和 R45 (XGB ensemble) 提供 signal
+
+### 3. 为什么优先
+Permutation importance 只捕"独立预测力"，SHAP 捕"含交互的总贡献"。两者
+差别大的 feature 表明其 alpha 依赖于与其他 factor 的组合。R45 ensemble 应
+倾向选 SHAP-high / permutation-high 双方都 high 的 stable factors。
+
+### 4. 做了什么
+`run_xgb_cv.py --horizon 21 --n-splits 5 --shap --out-tag R4_with_shap`
+- 复用 R3 的 CV 框架 + SHAP TreeExplainer
+- 每 fold 对 test set 前 1000 samples 跑 SHAP（速度控制）
+- 产出 per_fold_shap.parquet + 聚合
+
+### 5. 修改了哪些文件
+- `data/ml/xgb_cv/R4_with_shap/{summary.json, aggregated_importance.parquet, per_fold_importance.parquet, per_fold_shap.parquet}`
+- `docs/ralph_loop_log.md` (本条目)
+
+### 6. 跑了哪些测试/实验
+- 5-fold TS CV 同 R3（deterministic，per-fold OOS R² 相同）
+- SHAP TreeExplainer on 1000 test samples per fold × 5 folds
+
+### 7. 结果如何
+**Per-fold OOS R²**: 与 R3 完全一致（-0.18 mean, 0/5 positive, Fold 3 最差
+-0.37）。XGBoost 模型本身确定性 + SHAP 是解释不改模型，故 R² 相同。
+
+**Aggregated SHAP top-15** (mean abs across 5 folds):
+| Feature | Mean |abs SHAP| | Std |
+|---|---:|---:|
+| spy_trend_200d | 0.01210 | 0.0095 |
+| **market_vol_ratio** | 0.01134 | 0.0066 |
+| drawup_from_252d_low | 0.00742 | 0.0051 |
+| **cross_section_dispersion_21d** | 0.00592 | 0.0036 |
+| max_dd_126d | 0.00563 | 0.0025 |
+| market_drawdown | 0.00471 | 0.0052 |
+| drawdown_current | 0.00362 | 0.0015 |
+| mom_252d | 0.00297 | 0.0019 |
+| mom_126d | 0.00281 | 0.0019 |
+
+**SHAP vs permutation diff** (revealing):
+- `market_vol_ratio`: SHAP #2, perm 排 >15 → **强交互贡献**，独立 IC 弱
+- `cross_section_dispersion_21d`: SHAP #4, perm 排 >15 → 同上
+- `mom_63d`: perm #3, SHAP #11 → **独立预测力强，但 XGB 用它的交互少**
+- `vol_63d`: perm #5, SHAP #13 → 同上
+- 稳定 top-3 (全在两方法都入 top 5): `spy_trend_200d`, `drawup_from_252d_low`, `max_dd_126d`
+
+### 8. 新问题/新机会
+1. `market_vol_ratio` + `cross_section_dispersion_21d` 是 SHAP 发现的"暗黑
+   alpha"——独立 IC 弱但在 XGB 交互中有价值。**R5 factor_interaction_mine**
+   该把这两个作为交互 miner 的 seed。
+2. `mom_63d` SHAP 低，permutation 高——它是**加法性** factor（MFS 已经以
+   线性 composite 使用它，XGB 能用的信息少）。
+3. R46 ensemble 建议: Ridge 主 + XGB 作 non-linear 残差捕获。但 XGB OOS R²
+   仍负，组合时 XGB 的 weight 应较小（比如 0.1-0.2）。
+
+### 9. 剩余风险
+- SHAP 只用 1000 test samples per fold，可能欠稳。R42 可以跑 full test set
+  （5000+ samples）做确认。
+- SHAP 对 shuffled data invariant，不是"alpha" evidence，仅 interpretation。
+
+### 10. 下一轮建议 → R5
+Track A R5 per PRD §2: Factor interaction mining (pairwise + triplet) on
+top-k features。使用 `run_factor_interaction_mine.py` 但 seed 可根据
+R4 SHAP top-10 锁定。
+
+### 11. 本轮 commit 哈希
+- (待 commit)
