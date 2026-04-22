@@ -4877,3 +4877,41 @@ Pool 就绪 → R35 alpha/beta audit 可以启动。
 
 ### Commit
 - `1b651dd` Deep-mining R34
+
+## Deep-Mining R35 — S&P 500 alpha/beta audit
+
+### 做了什么
+`universe_alpha_diagnostic.py --symbols sp500_list --start 2018-01-01`
+对 513 个 S&P 500 成分股 CAPM alpha/beta + Sharpe 计算 + 分类。
+
+### 结果
+| Category | Count | % |
+|---|---:|---:|
+| ALPHA_GENERATOR (β∈[0.7,1.3] + α>3%) | **134** | 26% |
+| BETA_PLUS_ALPHA (β>1.3 + α>3%) | 43 | 8% |
+| DIVERSIFIER (β<0.7 + Sharpe>0.5) | 185 | 36% |
+| MARKET_LIKE (β mid, α ≈ 0) | 113 | 22% |
+| PURE_BETA (β>1.3 + α≤0) | 33 | 6% |
+| UNKNOWN (data issue) | 6 | 1% |
+
+**KEEP**: 362 / 513 (71%)
+**REVIEW**: 113 (22%)
+**DROP**: 33 (6%)
+
+Artifacts:
+- `data/ml/universe_alpha_diagnostic.csv`
+- `data/ml/universe_alpha_summary.json`
+
+### Insight vs current universe (52 syms)
+- S&P 500 pool 提供 **134 ALPHA_GENERATOR + 43 BETA_PLUS_ALPHA** = 177
+  个候选 α > 3% 的 symbols — 远超当前 52-symbol universe 里大概
+  10-12 个 alpha generators
+- 扩容潜在 alpha discovery 空间 ~15x
+- R38 user 审核时建议 core universe 从 362 KEEP 池中选 100-150
+
+### 下一轮 → R36
+`universe_admission_screen.py --input-symbols sp500_list --out-tag R36`
+Layer 1 objective criteria (liquidity, history, price floor)。
+
+### Commit
+- `<待填>`
