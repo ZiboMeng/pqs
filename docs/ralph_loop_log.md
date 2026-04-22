@@ -4582,3 +4582,63 @@ factors。
 
 ### Commit
 - `2ff9403` Deep-mining R18
+
+## Deep-Mining R19 skipped + R20 — overnight factors
+
+### R19 skipped
+15m/5m 数据只 60 天历史，不足 deep check。跳到 R20。
+
+### R20 overnight factors IC + regime
+Existing: `overnight_gap_5d`, `overnight_gap_21d`, `overnight_vs_intraday`
+全已在 RESEARCH_FACTORS (LLM phase era)。
+
+**Pooled IC (2015-2026, 15-sym, 2757 dates)**:
+| Factor | H=5d IC/IR | H=21d IC/IR |
+|---|---|---|
+| overnight_gap_5d | -0.001/-0.00 | +0.023/+0.06 |
+| overnight_gap_21d | +0.024/+0.06 | +0.028/+0.07 |
+| overnight_vs_intraday | +0.009/+0.03 | -0.004/-0.01 |
+
+整体 pooled 信号**都很弱**。
+
+**Regime-stratified 发现** — `overnight_gap_21d @ H=21d` in BULL:
+  **IC +0.119, IR +0.329** ⭐ — 达 §11.3 deep_check 阈值 (0.30)
+  
+其他 regime 较弱或 sign flip:
+  NEUTRAL -0.03, CAUTIOUS +0.01, RISK_OFF -0.06, CRISIS +0.03
+
+**Insight**: Overnight gap 21d 只在 BULL regime 有效 — classic "gap
+persistence in uptrend" pattern。在下行市场反转。
+
+### §11.3 Decision
+`overnight_gap_21d` 已在 RESEARCH_FACTORS。不新 add。
+
+**可选候选**（未实施，记 for later rounds）: `bull_gated_overnight_gap_21d`
+— `overnight_gap_21d × (regime ∈ BULL)`。Regime gating 架构和 R7 的 
+`spy_trend_gated_mom_63d` 同思路。但：
+- Regime gating 已有 R7 pattern 覆盖
+- BULL 占 size 30% (818/2757 dates)，gated factor 大部分时候 = 0
+- 加多个 regime-gated 变种会稀释 optimizer 探索空间
+
+**Decision**: 本轮只记录 finding，不 add 新 candidate。
+
+### 新问题
+R16-R20 intraday/overnight 轮累计 finding:
+1. `realized_vol_60m_21d` pooled IR +0.25, CRISIS IR +0.79 (R17)
+2. `overnight_gap_21d` BULL IR +0.329 (R20)  
+3. `intraday_vol_ratio_21d` 跨 regime sign flip (R17)
+4. Multi-TF timing +4.28 bps/event (R18)
+
+共同点: **几乎所有 intraday/overnight factors 是 regime-conditional**，
+pooled IC 都 < 0.15。线性 composite 用它们会 sign-flip 抵消；需要
+regime-aware composite architecture。
+
+**R22-R23 intraday composite** (Track B) 应该优先用 regime-conditional
+composite 思路，不是简单线性 blend。
+
+### 下一轮 → R21
+Track B R21: Intraday cost sensitivity (1x / 2x / 3x). Quick test:
+existing intraday composite under different cost multipliers.
+
+### Commit
+- `<待填>`
