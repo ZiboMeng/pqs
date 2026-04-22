@@ -1,0 +1,20 @@
+# Source: Claude (deep-mining R8 per PRD)
+# Round: 23
+# Submitted: 2026-04-22
+# Seed: R4 SHAP interaction-heavy features (market_vol_ratio, cross_section_dispersion_21d)
+factor_name: "rs_dispersion_amplified_63d"
+hypothesis: "Cross-sectional dispersion amplifies RS signal: when stocks move differently, RS has meaning; when all move together RS is noise."
+formula: |
+  See research.llm_candidates.round_23.compute_fns:rs_dispersion_amplified_63d
+  Signal shift(1) is applied to avoid same-bar execution.
+compute_fn_path: "research.llm_candidates.round_23.compute_fns:rs_dispersion_amplified_63d"
+required_fields: ["close"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: [all]
+expected_edge: "positive, IC 0.03-0.06"
+expected_risk: "scaling factor may destabilize during regime shifts"
+possible_failure_modes:
+  - "Regime transition lags"
+  - "Interaction effect may be picked up by MFS composite already"
+novelty_vs_existing_factors: "R4 SHAP-high / R5 perm-low features as seed; R5 did not explore these interactions"

@@ -4162,3 +4162,49 @@ R8: continue Track A LLM proposals via Claude，target SHAP-high interaction-hea
 
 ### 11. Commit
 - `992aa0b` Deep-mining R7
+
+## Deep-Mining R8 — Claude LLM proposals (SHAP-seeded)
+
+### 目标 / 做了什么
+R4 SHAP top-but-R5-missing seed: `market_vol_ratio`, `cross_section_dispersion_21d`。
+3 candidates:
+1. `mom_63d_scaled_by_market_calm` — mom × calm factor
+2. `rs_dispersion_amplified_63d` — RS × cross-sectional dispersion
+3. `vol_ratio_gated_drawup` — drawup gated by calm market
+
+### 结果
+| # | Verdict | Dedup 最高 ρ | 动作 |
+|---|---|---|---|
+| 1 | NEEDS_HUMAN_REVIEW | +0.918 (risk_adj_mom_63d), +0.887 (spy_trend_gated_mom_63d R7 added) | 跳过 deep_check — dedup 太高，非新信号 |
+| 2 | **ARCHIVE** | IC +0.034 / IR +0.09 太弱 | 不进 funnel 下一步 |
+| 3 | NEEDS_HUMAN_REVIEW | +0.977 with drawup_from_252d_low | 跳过 deep_check — 基本是 drawup 本身 |
+
+**Per §11.3**: 0 added to RESEARCH_FACTORS。3 candidates archive 到
+`research/llm_candidates/round_23/`。
+
+### 新问题
+SHAP 指出的 `market_vol_ratio` / `cross_section_dispersion_21d` interaction
+在我 seed 的 3 candidates 里转成 "single factor × market signal"，但这些
+market-wide 信号乘以 cross-sectional factor 后，效果近同 raw cross-sectional
+factor（因为 market 信号 time-variant 但每日对 all symbols 相同，乘完仅改变
+时间维度缩放）。
+
+**真正的 interaction** 需要是 cross-sectional × cross-sectional，例：
+- 同 symbol 不同时间 lookback 的 mom 相乘 (mom_63 × mom_252)
+- 两 cross-sectional factor 相乘 (vol × rs, drawup × mom)
+
+R4 SHAP 看到的 interaction 可能是 **cross_section_dispersion × individual factor** 
+但 dispersion 是 market-level scalar，不是 cross-sectional vector。
+理论上 SHAP over multiple symbols 在 market dispersion 高 days 对特定 feature 权重不同
+即 dispersion-conditional feature importance。这个 pattern 不能通过 simple 乘积捕获。
+
+### 下一轮 → R9
+继续 Track A Claude LLM proposals，切换思路：**cross-sectional × cross-sectional interaction**
+而非 market-wide 乘 cross-sectional。R5 top pairs 里 cross-cross interactions 都已试过
+(mom × mom, dd × drawup)，新方向:
+- rs_vs_spy × (1/vol) — risk-adjusted RS
+- (mom - reversal) — momentum-reversal differential
+- quality × path-shape composites
+
+### Commit
+- `<待填>`
