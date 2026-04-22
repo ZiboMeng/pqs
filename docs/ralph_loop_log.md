@@ -4309,4 +4309,4 @@ R11: 继续 Gemini/Codex handoff — 新 candidates via dump_llm_handoff_context
 R11 跳到 Track A R12 multi-horizon composite。
 
 ### Commit
-- `<待填>`
+- `d55d425` Deep-mining R10
