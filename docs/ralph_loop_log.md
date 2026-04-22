@@ -4581,4 +4581,4 @@ PRD §2 R19: 15m/5m timing layer experiments。但我们 60m bar data 本身就
 factors。
 
 ### Commit
-- `<待填>`
+- `2ff9403` Deep-mining R18
