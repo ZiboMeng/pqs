@@ -2553,9 +2553,16 @@ limit + min_level gating built-in. Credentials via env var expansion
 
 ### Current TODO Checklist
 
+**Deep Mining Phase PRD** (`docs/prd_deep_mining_50round.md` v1.0) —
+50-round active phase. 7 tracks: daily+ML (R1-R15), intraday (R16-R25),
+DSL (R26-R33), universe expansion (R34-R41), XGBoost rigor (R42-R46),
+transformer hyperparameter (R47-R48), final synthesis (R49-R50). Hard
+goal: ≥1 spec passes pack v2 all 10 gates and promotes to status=active.
+
 **Framework Completion PRD** (`docs/prd_framework_completion.md` v1.2) —
-All M0-M8 shipped; critical path M0→M1→M2→M3 clean. See PRD §9 delivery
-log + §10 pack v1→v2 rollback incident + §11 open items M10-M18.
+All M0-M8 + M10 + M13 + M15 + M16 shipped; critical path clean. Open:
+M11 (paper-BT consistency), M12 (concentration real gate), M14 (NaN),
+M17 (live feed), M18 (DSL funcs). See PRD §9-11.
 - [x] **M0** research baseline snapshot (`scripts/build_research_baseline_snapshot.py`)
 - [x] **M1** `config/production_strategy.yaml` single source of truth (21 unit + 7 integration tests)
 - [x] **M2** promote CLI + acceptance pack v2 (18 unit tests; `scripts/acceptance_pack.py` + `scripts/promote_strategy.py` + `docs/promotion_flow.md`). v2 added `full_period_fresh_backtest` gate after first promote attempt caught quick-eval-vs-full-period CAGR gap (`6d15b735a64c` was rolled back; pack now re-runs fresh backtest by default)

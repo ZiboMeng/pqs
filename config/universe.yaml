@@ -65,7 +65,7 @@ seed_pool:
   - WMT       # staples
   - GILD      # biotech
   - JNJ       # pharma
-  - K         # staples
+  # - K       # REMOVED 2026-04-21: Kellanova delisted (Mars acquisition 2025)
   - VZ        # telecom
   - OXY       # energy
   - GIS       # staples

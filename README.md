@@ -197,8 +197,10 @@ pqs/
 ├── docs/                        ← 研究文档 + PRD + 报告
 │   ├── ralph_loop_log.md        - **逐轮研究日志**（核心）
 │   ├── llm_phase_blocker_report.md
-│   ├── prd_framework_completion.md  - **当前优先 PRD**（M1-M9 框架闭环）
+│   ├── prd_framework_completion.md  - 框架闭环 PRD v1.2（M0-M16 done）
+│   ├── prd_deep_mining_50round.md   - **当前 active PRD**（50 轮深度 mining）
 │   ├── promotion_flow.md             - Mining → production 正式流程 (M2)
+│   ├── llm_external_llm_handoff.md  - Gemini/Codex 等外部 LLM 参与 (M15)
 │   ├── prd_universe_expanded_mining.md  - mining 循环 PRD（待 M3 后恢复）
 │   ├── prd_llm_factor_mining.md
 │   ├── prd_intraday_mining_loop.md
@@ -1604,6 +1606,26 @@ df = store.load("SPY", freq="1m", fallback="auto")  # 自动尾部补全
 ### 17.7 未解 blockers
 - **OOS IR ≥ 0.20 promote threshold 仍未跨过**（best +0.121）
 - 需要 factor 创新 / multi-TF timing / 新数据源
+
+### 17.9 Deep Mining Phase (2026-04-22+, 50 轮)
+
+详 `docs/prd_deep_mining_50round.md`
+
+框架就绪后的综合 mining phase，涵盖：
+
+| Track | Rounds | 主题 |
+|---|---|---|
+| A | R1-R15 | Daily factor mining + ML (XGBoost / Claude LLM / Gemini via M15) |
+| B | R16-R25 | Intraday mining (60m / multi-TF / 15m 5m timing) |
+| C | R26-R33 | Rule-based DSL exploration (3 rule types + new functions) |
+| D | R34-R41 | Universe expansion (S&P 500 pool → admission filter → re-mine) |
+| E | R42-R46 | XGBoost rigor (CV + SHAP + weight model) |
+| F | R47-R48 | Transformer hyperparameter sweep |
+| G | R49-R50 | Final synthesis + promote attempt |
+
+**硬目标**：至少 1 个 spec 过 pack v2 所有 10 gates 并 promote 到 `status: active`。
+
+**Launch**: `/ralph-loop:ralph-loop ... --max-iterations 50 --completion-promise DEEPDONE`
 
 ### 17.8 Framework Completion (2026-04-21+，优先级高于恢复 mining)
 
