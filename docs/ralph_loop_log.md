@@ -4052,4 +4052,4 @@ R4 SHAP top-10 锁定。
   - **R7 建议重试**（post-framework + pack v2 可能结果不同）
 
 ### Commit
-- `<待填>`
+- `2606823` Deep-mining R5

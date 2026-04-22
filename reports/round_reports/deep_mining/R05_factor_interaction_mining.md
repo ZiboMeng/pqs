@@ -138,7 +138,7 @@ PRD §2 R6: XGBoost weight model on current universe。
 
 ## 11. Commit hash
 
-`<待填>` (fill after commit)
+`2606823`
 
 ---
 
