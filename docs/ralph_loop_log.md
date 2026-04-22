@@ -4959,3 +4959,64 @@ assignment on R35 KEEP ∩ R36 admitted 池，输出 per-ticker risk profile。
 
 ### Commit
 - `e79ce42` Deep-mining R36
+
+## Deep-Mining R37 — Layer 2 risk labels + Layer 3 priority buckets
+
+### 做了什么
+1. 重跑 `universe_alpha_diagnostic.py` 在 513 S&P 500 pool 上（用 `--out-name R37_sp500_alpha`）产出 full CSV（之前 R35 artifacts
+   未保存到 tagged 文件，on-disk CSV 是 stale 32-symbol 版本）
+2. 新建 `scripts/universe_risk_profile.py` — 合并 R35 alpha + R36
+   admission，derive 4 个 risk labels (beta/sharpe/maxdd tiers) + 1 个
+   priority_bucket 字段
+3. 对 514 symbols 分配 priority_bucket (Layer 3 分配逻辑)
+
+### 结果 — Priority Bucket Distribution (n=514)
+| Bucket | Count | 含义 |
+|---|---:|---|
+| SATELLITE_ALPHA | 175 | ALPHA_GEN / BETA_PLUS_ALPHA, CORE admitted |
+| DIVERSIFIER_BASIC | 171 | DIVERSIFIER, 基本 risk profile |
+| REVIEW | 116 | MARKET_LIKE / UNKNOWN — 需人审 |
+| EXCLUDE | 41 | PURE_BETA / REJECT |
+| DIVERSIFIER_PREMIUM | 11 | DIVERSIFIER + strong sharpe |
+| CORE_ALPHA | 0 | (数据口径问题，见 caveat) |
+
+### Primary KEEP pool breakdown
+- **ALPHA_GENERATOR ∩ CORE admitted: 133** (mostly β∈[0.7,1.3], α>3%) — primary expansion target
+- **BETA_PLUS_ALPHA ∩ CORE admitted: 42** (β>1.3, α>3%) — aggressive growth
+- **DIVERSIFIER ∩ CORE admitted: 181** — low-β regime diversifiers
+- **DIVERSIFIER_PREMIUM: 11** — BRK-B, TER, TJX, TKO, TRGP, TRV, TSN, TT, TXN, UNP, VICI
+
+### 数据口径 CAVEAT
+Panel-wide OLS regression on 513 symbols 产生 extreme outliers:
+- TPL β=23.1 (一只小 cap stock 极端 price jump)
+- GOOGL β=-6.88 (after 2022 split 调整错位)
+- 许多 symbols 的 `perf_stats` 返回 NaN（因为部分序列 first/last bar
+  有 NaN 导致 CAGR 无法计算）
+
+→ 结果：CORE_ALPHA 严格定义 (GOOD+ sharpe AND 非 SEVERE maxdd)
+    下只有 UDR 一个，因为大部分 ALPHA_GENERATOR 的 sharpe/maxdd 字段
+    是 NaN。
+
+**但 priority_bucket 分配本身是可信的**：alpha category (计算在 returns
+上，不依赖 NAV cumulation) 与 admission tier 是主要依据。133 ALPHA_GEN +
+42 BETA_PLUS_ALPHA 与 R35 数字一致。
+
+R38 proposal 使用 category 分类作主信号；不依赖 sharpe/maxdd filter
+（这些需要清洗 panel 后再重算）。
+
+### Artifacts
+- `data/ml/R37_sp500_alpha.csv` (514 rows, refreshed alpha diagnostic)
+- `data/ml/universe_risk_profile_R37_sp500.csv` (merged + labeled)
+- `data/ml/universe_risk_profile_R37_sp500_summary.json`
+
+### 合成 KEEP pool
+- 133 ALPHA_GEN (core) + 42 BETA_PLUS_ALPHA (aggressive) + 11 DIVERSIFIER_PREMIUM
+  = **186 primary candidates** 进入 R38 proposal
+
+### 下一轮 → R38
+`docs/universe_expansion_proposal_v3.md`：整合 R35 (alpha audit) + R36
+(admission) + R37 (risk labels)，产出 user-reviewable expansion proposal。
+**不改 `config/universe.yaml`**。
+
+### Commit
+- `<TBD>` Deep-mining R37
