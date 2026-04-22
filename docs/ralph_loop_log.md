@@ -3737,3 +3737,94 @@ top_n=3 仍是 winner pattern.
 - (doc commit only) —— docs: R35 log + block R33-R35 summary
 
 ---
+
+## Deep-Mining Phase R1 — Track A baseline re-mining
+
+### 1. 本轮主题
+Track A R1：Baseline re-mining on current (post-M10, post-K-removal) universe。
+建立 `post-2026-04-22-deep-R01` lineage 作为 50 轮 deep mining 的起点。
+
+### 2. 本轮目标
+- 用当前 codebase (7 PROD factors, 52 tradable universe, pack v2 active)
+  对 multi_factor 参数空间做 30-trial baseline
+- 确认 post-framework state 下 mining 的实际产出分布
+- 若有 OOS IR ≥ 0.25 candidate → 走 pack v2 + auto-promote (§11.1)
+
+### 3. 为什么优先
+PRD §2 R1 优先级明确。无 R1 baseline 就无法衡量后续 round 的增量贡献。
+且 R1 是 50 轮中唯一纯 baseline round，数据必须干净。
+
+### 4. 做了什么
+- Pre-flight: baseline snapshot + git clean check + alignment verify
+- Mining: `run_mining.py --trials 30 --budget 900 --type multi_factor
+  --lineage-tag post-2026-04-22-deep-R01`
+- 296.7s 完成，61 evaluations（含部分 dedup），26 unique trials 入 R01 lineage
+- Archive 总数 276 → 302
+- Passed_oos: 1 (across all lineages — 即历史 `6d15b735a64c`)，**R01 lineage 自身 0**
+
+### 5. 修改了哪些文件
+- `.gitignore`: 加 `data/paper_trading/`（runtime state 不 commit）
+- `data/mining/archive.db`（mining 副作用，未 commit）
+- `data/mining/optuna.db`（mining 副作用，未 commit）
+
+### 6. 跑了哪些测试/实验
+- `build_research_baseline_snapshot.py` pre-R1
+- `run_mining.py` 30 trials × 15min budget
+- 分析 R01 lineage 子集的 OOS IR 分布
+
+### 7. 结果如何
+**R01 lineage 26 trials 全 tier D，0 OOS pass**：
+- Max OOS IR: **-0.3128**
+- Min OOS IR: -0.6696
+- Mean OOS IR: -0.4574
+- 所有 trials OOS IR 均为负
+
+对比 pre-framework lineages:
+- `post-2026-04-20-llm-round-28-expanded`: 5 trials, best OOS +0.292 (pack v2 fail)
+- `post-2026-04-21-universe-mining-round-35`: 35 trials, best +0.121 (pack v2 fail)
+- `post-2026-04-21-framework-m1-m8-done`: 18 trials, best -0.299
+- **R01 (new)**: 26 trials, best **-0.3128** — 比前任 baseline 更差
+
+**可能原因**（R2 要确认）:
+1. K removed（52 syms vs 53）— 可能抽掉了 diversifier
+2. Optuna persistent study 累积后 sampler 陷入坏区域（276 → 302，大量 dedup）
+3. DSL **未接入** MiningEvaluator（见 §8），所以 R01 并非"post-M10 DSL active"实测
+
+### 8. 新问题/新机会
+⚠️ **关键发现**: Mining 路径（`MiningEvaluator`）不调用 cross-ticker DSL wrapper。
+M10 集成只在 `run_backtest.py` / `run_paper.py`。
+
+grep 确认 `core/mining/evaluator.py` 和 `core/mining/miner.py` 都没有
+`cross_ticker` / `apply_rules_to_weight_matrix` 的引用。
+
+**影响**:
+- R1 的 "post-M10 DSL active" 不成立；mining 走纯 MFS 权重路径
+- Production backtest（用 DSL）与 mining 评估（无 DSL）之间有 **gap**
+- 一个 spec 在 mining pass 但 production backtest 可能表现不同
+- 同时也意味着：如果未来 mining 产 validated best，pack v2 的 fresh backtest
+  会应用 DSL —— 可能改变 validation 结论
+
+**记入 PRD §11 open items（新 M19）**:
+- M19: 将 cross-ticker DSL 接入 MiningEvaluator（要么 eval 阶段就 apply，要么
+  acceptance pack 的 fresh backtest 保持 apply + mining pure，然后文档化这是
+  intentional gap）
+- 优先级 P1.5（不 blocking R2-R50，但 R49/R50 synthesis 前应明确）
+
+### 9. 剩余风险
+1. R01 出现 baseline 比历史更差，如果 R2-R50 都在此 baseline 上做增量，
+   一切"改善"都可能只是回到之前的水平，不等于真实进步。R2 建议换 fresh optuna
+   DB 排除 sampler stuck 嫌疑。
+2. DSL-mining gap 真实存在，但范围小（DSL 当前只 3 rules，影响有限）。
+3. K 删除影响 universe 组成多样性；R34-R41 扩 universe 会解决。
+
+### 10. 下一轮建议
+R2 — 继续 Track A baseline re-mining（PRD §2 指定 R1-R2 两轮 baseline）:
+- **Reset Optuna DB** 排除累积 sampler 问题（backup 存档，新 study 重启）
+- 相同 30 trials × 900s budget
+- 对比 R01 vs R02 的 OOS IR 分布确认是否 Optuna-persistent 问题
+
+如果 R02 与 R01 分布相似（都 100% 负）→ 确认是 universe / factor space 瓶颈，
+不是 sampler。R02 之后可以 straight to R3 XGBoost CV。
+
+### 11. 本轮 commit 哈希
+（待本条目 commit 后填入）

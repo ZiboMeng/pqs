@@ -40,6 +40,11 @@ promote when pack v2 passes; we need mining to generate one.
 - **M14** BacktestEngine NaN root-cause fix (conditional blocker)
 - **M17** Realtime intraday live-feed (independent PRD)
 - **M18** Cross-ticker DSL function expansion (demand-driven)
+- **M19** (new, from R1 finding 2026-04-22) MiningEvaluator does NOT invoke
+  cross-ticker DSL; production backtest applies DSL to weight matrix but
+  mining evaluator searches pure factor space. Options: (a) integrate
+  DSL into MiningEvaluator, (b) document intentional DSL-as-post-layer.
+  Decision deferred to R49 synthesis. P1.5.
 
 **Rule**: if any of M11/M12/M14 emerges as an actual blocker during this
 mining phase, pause mining loop and fix that first. Otherwise defer.
