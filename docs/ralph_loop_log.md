@@ -4480,4 +4480,4 @@ Test IR within each regime (BULL/NEUTRAL/RISK_OFF/CRISIS/etc) to see if intraday
 signal is regime-conditional.
 
 ### Commit
-- `<待填>`
+- `4eaa2da` Deep-mining R16
