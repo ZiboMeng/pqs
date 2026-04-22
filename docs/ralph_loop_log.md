@@ -4382,4 +4382,4 @@ composite，用 `llm_composite_backtest.py` 跑 5-gate verdict。
 - 包括 R7/R10 新加的 spy_trend_gated_mom_63d + weak_market_relative_strength_63d
 
 ### Commit
-- `<待填>`
+- `5e494d1` Deep-mining R13
