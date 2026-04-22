@@ -1,0 +1,20 @@
+# Source: Claude (deep-mining R9 per PRD)
+# Round: 24
+# Submitted: 2026-04-22
+# Seed: R8 insight — cross-sectional × cross-sectional (not market × cross-sectional)
+factor_name: "mom_minus_reversal_21d"
+hypothesis: "63d trend minus 21d recent move. Identifies sustained uptrends with recent pullbacks (buy-the-dip)."
+formula: |
+  See research.llm_candidates.round_24.compute_fns:mom_minus_reversal_21d
+  Uses rolling windows (shift / rolling mean/std) on past data only; final signal.shift(1) applied.
+compute_fn_path: "research.llm_candidates.round_24.compute_fns:mom_minus_reversal_21d"
+required_fields: ["close"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: [all]
+expected_edge: "positive, IC 0.04-0.08"
+expected_risk: "may correlate with existing composites"
+possible_failure_modes:
+  - "Division by near-zero vol (handled via replace(0, NaN))"
+  - "Short horizons get whipsawed in vol transitions"
+novelty_vs_existing_factors: "Cross-sectional ratios/differences rather than market-wide scalar × factor"

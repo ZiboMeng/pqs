@@ -4208,3 +4208,44 @@ R4 SHAP 看到的 interaction 可能是 **cross_section_dispersion × individual
 
 ### Commit
 - `a94f32c` Deep-mining R8
+
+## Deep-Mining R9 — Claude LLM proposals (cross-sectional × cross-sectional)
+
+### 目标
+Per R8 insight: cross-sectional × cross-sectional 替代 market × cross-sectional。
+
+### Candidates (3):
+1. `rs_vs_spy_risk_adj_63d` — RS / vol (risk-adjusted)
+2. `mom_minus_reversal_21d` — 63d trend - 21d recent (buy-the-dip)
+3. `quality_survivor_63d` — rolling_sharpe × drawup (post-stress quality)
+
+### Funnel 结果
+| # | Verdict | Dedup (top ρ) | 动作 |
+|---|---|---|---|
+| 1 | NEEDS_REVIEW | +0.95 rs_vs_spy_63d / +0.85 xsection_rank_63d | Not add — near-identical to existing |
+| 2 | NEEDS_REVIEW | +0.87 rs_acceleration / +0.78 mom_63d | Not add — dup |
+| 3 | NEEDS_REVIEW | +0.94 mom_126d / +0.91 rolling_sharpe_126d | Not add — dup |
+
+**Per §11.3**: 0 added to RESEARCH_FACTORS。虽然 deep_check 可能 PASS，但
+incremental novelty 不够（ρ>0.7 with 4+ existing factors each）。
+
+### 新问题
+R7-R9 共 **9 candidates**（3+3+3），**只 1 added** (spy_trend_gated_mom_63d)。
+其余 8 基本在已有 factor space 附近。这验证 R1/R3/R4 的 "factor space flat"
+观察：现有 40 个 RESEARCH_FACTORS 已密集覆盖可构造的低阶 combinations。
+
+**真正 novel** factor 需要:
+- 新 data dimension（intraday sequence → R16+、overnight full panel → R20）
+- Event-based / news / earnings proxy（R20 有 overnight_gap 但浅）
+- 宏观经济数据（未纳入）
+
+Track A LLM 轮次 (R7-R9) 已尽力；Track B (intraday) + Track D (expanded universe)
+更可能带来新信号。
+
+### 下一轮 → R10
+PRD §2 R10: LLM proposals via **Gemini/Codex** via M15 handoff。19 candidates
+已 committed in research/llm_candidates/{Gemini_round_01, codex_round_01-03}/
+（earlier commit `f93af13`）。R10 跑 funnel 这 19 个。
+
+### Commit
+- `<待填>`
