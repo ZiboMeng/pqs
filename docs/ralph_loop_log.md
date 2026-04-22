@@ -5068,4 +5068,4 @@ R38 proposal 使用 category 分类作主信号；不依赖 sharpe/maxdd filter
 不等待），切 track E 做 XGB CV 的剩余工作 (R42-R46) 以不停摆。
 
 ### Commit
-- `<TBD>` Deep-mining R38 (proposal doc only, no code change)
+- `a83edd9` Deep-mining R38 (proposal doc only)
