@@ -4346,4 +4346,4 @@ cross-sectional rank-change factor (PRD §2 R14 提前到 R13 位置)。
 候选: rank_change_21d_63d, rank_persistence_126d (不同 rank-based features)。
 
 ### Commit
-- `<待填>`
+- `f1c9a6d` Deep-mining R11+R12
