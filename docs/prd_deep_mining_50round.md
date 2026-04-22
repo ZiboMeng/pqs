@@ -140,10 +140,18 @@ possible (A/C can proceed while D is running data downloads).
 
 ### Track D — Universe Expansion (8 rounds)
 
+**Pre-existing state (discovered 2026-04-21)**: `data/daily/` already
+contains **25,340 parquets** (basically full US market from prior polygon
+batch ingest). Of current S&P 500 constituents: **511/513 accessible**
+via MarketDataStore (BF-B + BRK-B added via yfinance this session; MBIA
++ SCANA are delisted). Freshness: most non-universe symbols at 2026-04-18
+(3 days behind current universe). R34 is therefore a LIGHT sync, not a
+full download.
+
 | R# | Topic | Deliverable |
 |---|---|---|
-| R34 | S&P 500 constituent list + yfinance daily download (~500 syms) | `data/daily/sp500_<ts>.parquet` bulk; catalog per-symbol freshness |
-| R35 | Universe alpha/beta audit on S&P 500 pool | `universe_alpha_diagnostic.py --symbols sp500.txt` — categorize |
+| R34 | S&P 500 incremental freshness sync via `scripts/fetch_sp500_pool.py` (5-10 min; picks up missing bars post-2026-04-18) | `data/sp500_tickers_latest.txt` + all 511 sync'd to today |
+| R35 | Universe alpha/beta audit on S&P 500 pool | `universe_alpha_diagnostic.py --symbols data/sp500_tickers_latest.txt` — categorize |
 | R36 | Admission screening on pool (v2.2 Layer 1 objective criteria) | `universe_admission_screen.py` produces CORE/EXTENDED list |
 | R37 | Risk labels + bucket assignment | `universe_risk_labels.py` + `universe_bucket_assign.py` |
 | R38 | User review + manual curation down to expanded 100-150 syms | User checkpoint; commit `config/universe.yaml` update |

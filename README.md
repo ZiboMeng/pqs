@@ -239,7 +239,16 @@ conda install -c conda-forge libomp   # XGBoost 需要
 首次启动需拉 yfinance 数据:
 
 ```bash
-python scripts/fetch_data.py          # 获取 config/universe.yaml 中全部 symbols 的日线
+# 1. Universe 日线（config/universe.yaml 里的 53 个 symbols）
+python scripts/fetch_data.py --daily-only
+
+# 2. Mining pool（S&P 500 级别）—— PRD deep mining R34 用
+#    注：data/daily/ 已预有 25340 parquets（全美股 polygon batch）；
+#    此命令只做 S&P 500 511 个的增量 freshness sync
+python scripts/fetch_sp500_pool.py   # 5-10 min 增量
+
+# 3. Intraday（可选；若要跑 track B intraday mining）
+python scripts/fetch_data.py --intraday-only
 ```
 
 **已有本地 1m 数据的可选升级**（见 CLAUDE.md `1m Bar Pipeline` 段）：
@@ -455,6 +464,18 @@ python scripts/run_universe_rebalance.py
   - `--no-macro`: 跳过 ^VIX/^TNX/DX-Y.NYB 宏观指标
   - `--config-dir`: 指定非默认 config
 - **产出**: `data/daily/<SYMBOL>.parquet` + `data/intraday/60m/<SYMBOL>.parquet`
+
+#### `fetch_sp500_pool.py` ⭐ (PRD deep mining R34)
+- **作用**: 拉 S&P 500 全体（511 个 active 成分，2 个 delisted 忽略）日线作为 mining candidate pool
+- **何时用**: PRD `prd_deep_mining_50round.md` R34；universe 扩容 sourcing
+- **注意**: `data/daily/` 已预有 25340 parquets（polygon batch）；此脚本是 S&P 500 specifically 的增量 freshness sync
+- **关键参数**:
+  - `--incremental` (默认): 只增量 append 新 bars（5-10 min）
+  - `--full`: 全量从 2015-01-01 重下
+  - `--skip-existing`: 跳过已有 parquet
+  - `--limit N`: 测试用，只跑前 N 个
+  - `--ticker-list FILE`: 自定义 list（否则从 Wikipedia 拉 S&P 500）
+  - `--save-list FILE`: 保存 wiki 拉到的 ticker list 作 reproducibility
 
 #### `build_splits_parquet.py` / `build_bars_parquet.py` / `aggregate_bars.py`
 - **作用**: 从本地 polygon 源数据构建 intraday bars

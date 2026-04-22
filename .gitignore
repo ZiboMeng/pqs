@@ -42,6 +42,11 @@ artifacts/
 # scripts/dump_llm_handoff_context.py
 docs/llm_handoff_seed_*.md
 
+# S&P 500 ticker list snapshots (regenerable from Wikipedia via
+# scripts/fetch_sp500_pool.py --save-list)
+data/sp500_tickers_latest.txt
+data/sp500_tickers_*.txt
+
 # Runtime logs
 logs/
 nohup.out
