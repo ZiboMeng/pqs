@@ -4033,3 +4033,23 @@ R4 SHAP top-10 锁定。
 
 ### 11. 本轮 commit 哈希
 - `4d965f4` Deep-mining R4: XGBoost CV + SHAP
+
+## Deep-Mining R5 — Factor Interaction Mining
+
+**详细报告**: `reports/round_reports/deep_mining/R05_factor_interaction_mining.md`
+
+### 摘要
+- Pairwise IC mine on top-8 parents, 28 combinations
+- **Top 3 interactions** (incremental |IC|): 
+  - `rs_vs_qqq_63d × spy_trend_200d` +0.0458 (regime-gated RS)
+  - `spy_trend_200d × mom_63d` +0.0458 (regime-gated momentum)
+  - `rs_vs_qqq_63d × mom_63d` +0.0339
+- **Top pair IC +0.070** > 任何单一 PRODUCTION_FACTOR 独立 IC
+- **18/28 pairs DESTROY alpha**（incremental 负值）—— 交互必须筛不能全收
+- 关键 insight: `spy_trend_200d` 独立 IC ≈ 0 但作 "regime gate" 乘以 RS/mom 显著增 IC
+  - 即 CLAUDE.md LLM Round 7 `rs_qqq_regime_conditioned_63d` 思路
+  - Historical verdict 是 deep_check fail (IR 0.24 < 0.30)
+  - **R7 建议重试**（post-framework + pack v2 可能结果不同）
+
+### Commit
+- `<待填>`
