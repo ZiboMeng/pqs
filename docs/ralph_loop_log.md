@@ -4958,4 +4958,4 @@ Risk labels (sector / market cap tier / high-beta flag) + priority bucket
 assignment on R35 KEEP ∩ R36 admitted 池，输出 per-ticker risk profile。
 
 ### Commit
-- `<TBD>` Deep-mining R36
+- `e79ce42` Deep-mining R36
