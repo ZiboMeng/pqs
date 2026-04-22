@@ -24,6 +24,7 @@ scripts/run_backtest.py — 端到端全量回测 + 报告生成。
 import argparse
 import sys
 from pathlib import Path
+from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -133,6 +134,18 @@ def build_strategies(cfg, price_df: pd.DataFrame, risk_syms: list, def_syms: lis
     return strategies
 
 
+def _build_ohlcv_frames(store, symbols: list) -> dict:
+    """Load OHLCV DataFrames per symbol for cross-ticker DSL context."""
+    frames = {}
+    for sym in symbols:
+        df = store.read(sym, "1d")
+        if df is not None and not df.empty:
+            cols = [c for c in ("open", "high", "low", "close", "volume") if c in df.columns]
+            if cols:
+                frames[sym] = df[cols]
+    return frames
+
+
 def run_strategy(
     name:             str,
     strategy,
@@ -145,6 +158,8 @@ def run_strategy(
     walk_forward:     bool = True,
     qqq_series:       pd.Series = None,
     open_df:          pd.DataFrame = None,
+    ohlcv_frames:     Optional[dict] = None,
+    enable_cross_ticker_rules: bool = True,
 ) -> dict:
     """运行单个策略回测，返回结果字典。"""
     logger.info("=== 回测策略: %s ===", name)
@@ -157,6 +172,16 @@ def run_strategy(
         price_df      = price_df,
         regime_series = regime_series,
     )
+
+    # PRD M10: cross-ticker DSL applied to production weight matrix
+    # (skip if disabled by --no-cross-ticker-rules or if ohlcv_frames
+    # not available, e.g. for non-MFS strategies tested without OHLCV).
+    cross_ticker_stats = {"applied": False, "reason": "not requested"}
+    if enable_cross_ticker_rules and ohlcv_frames is not None:
+        from core.signals.cross_ticker_wrapper import apply_rules_to_weight_matrix
+        weights, cross_ticker_stats = apply_rules_to_weight_matrix(
+            weights, regime_series, ohlcv_frames,
+        )
 
     bt_result = engine.run(
         signals_df       = weights,
@@ -211,6 +236,10 @@ def main():
                         help="Skip PRD M3 runtime alignment check. Use only "
                              "for explicit research runs where you know the "
                              "yaml fingerprint will not match.")
+    parser.add_argument("--no-cross-ticker-rules", action="store_true",
+                        help="Disable PRD M10 cross-ticker DSL wrapper. "
+                             "Overrides config/cross_ticker_rules.yaml::enabled. "
+                             "Use for clean strategy-only backtest.")
     args = parser.parse_args()
 
     cfg       = load_config(Path(args.config_dir))
@@ -306,6 +335,10 @@ def main():
     if args.strategy:
         strategies = {k: v for k, v in strategies.items() if args.strategy in k}
 
+    # PRD M10: preload OHLCV frames for cross-ticker DSL context (once,
+    # outside the per-strategy loop)
+    ohlcv_frames = _build_ohlcv_frames(store, all_tradeable)
+
     # ── 逐策略回测 ────────────────────────────────────────────────────────────
     all_runs = {}
     for name, strategy in strategies.items():
@@ -321,6 +354,8 @@ def main():
             walk_forward     = not args.no_walk_forward,
             open_df          = open_df if not open_df.empty else None,
             qqq_series       = qqq_close,  # closeout 2026-04-20: QQQ gate
+            ohlcv_frames     = ohlcv_frames,
+            enable_cross_ticker_rules = not args.no_cross_ticker_rules,
         )
         all_runs[name] = run
 

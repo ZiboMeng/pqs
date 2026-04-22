@@ -198,6 +198,23 @@ def run_replay(
         regime_series = regime,
     )
 
+    # PRD M10: apply cross-ticker DSL rules on production weight matrix
+    try:
+        from core.signals.cross_ticker_wrapper import apply_rules_to_weight_matrix
+        # Build OHLCV frames on-the-fly from price_df_1d (close-only);
+        # DSL rules referencing high/low/open/volume will degrade gracefully
+        ohlcv_frames = {
+            sym: pd.DataFrame({"close": price_df_1d[sym]}).dropna()
+            for sym in price_df_1d.columns
+        }
+        weights, ct_stats = apply_rules_to_weight_matrix(
+            weights, regime, ohlcv_frames,
+        )
+        if ct_stats.get("applied"):
+            logger.info("Cross-ticker DSL replay stats: %s", ct_stats)
+    except Exception as exc:
+        logger.warning("Cross-ticker DSL wrapper failed (non-fatal): %s", exc)
+
     if run_id is None:
         import uuid
         run_id = str(uuid.uuid4())[:8]
@@ -485,6 +502,21 @@ def main():
             price_df      = price_df_1d,
             regime_series = regime,
         )
+
+        # PRD M10: cross-ticker DSL on live weights
+        try:
+            from core.signals.cross_ticker_wrapper import apply_rules_to_weight_matrix
+            ohlcv_frames = {
+                sym: pd.DataFrame({"close": price_df_1d[sym]}).dropna()
+                for sym in price_df_1d.columns
+            }
+            weights, ct_stats = apply_rules_to_weight_matrix(
+                weights, regime, ohlcv_frames,
+            )
+            if ct_stats.get("applied"):
+                logger.info("Cross-ticker DSL live stats: %s", ct_stats)
+        except Exception as exc:
+            logger.warning("Cross-ticker DSL wrapper failed (non-fatal): %s", exc)
         daily_idx = price_df_1d.index[price_df_1d.index < live_date]
         if daily_idx.empty or daily_idx[-1] not in weights.index:
             logger.warning("无足够历史信号 (live_date=%s)", live_date.date())
