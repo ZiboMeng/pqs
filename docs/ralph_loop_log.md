@@ -4756,4 +4756,4 @@ PRD §2 R24: DSL 加新 intraday confirmation rules。
 - 加 sector ETF confirmation rules
 
 ### Commit
-- `<待填>`
+- `2cb037f` Deep-mining R23
