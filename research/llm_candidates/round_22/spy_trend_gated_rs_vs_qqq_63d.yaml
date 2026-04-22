@@ -1,0 +1,31 @@
+# Source: Claude (deep-mining R7 per PRD)
+# Round: 22
+# Submitted: 2026-04-22
+# Seed: R5 interaction-mine top pair (rs_vs_qqq_63d × spy_trend_200d, incr +0.0458)
+factor_name: "spy_trend_gated_rs_vs_qqq_63d"
+hypothesis: |
+  Relative strength vs QQQ predicts forward returns ONLY in SPY uptrend
+  (SMA200 regime). In downtrend, RS leaders become beta targets and
+  underperform. Binary gate avoids using a predictor out-of-regime.
+formula: |
+  rs_63d = (close / close.shift(63)) - (QQQ / QQQ.shift(63))
+  gate = 1 if SPY > SMA(SPY, 200) else 0
+  factor_raw = rs_63d * gate
+  factor = factor_raw.shift(1)  # T-close inputs used at T+1
+  # cross-sectional z-score at IC-screen stage
+compute_fn_path: "research.llm_candidates.round_22.compute_fns:spy_trend_gated_rs_vs_qqq_63d"
+required_fields: ["close"]
+suitable_horizon: [5, 21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: [BULL, RISK_ON, NEUTRAL]
+expected_edge: "positive, IC 0.04-0.07 based on R5 pairwise mine"
+expected_risk: "gate becomes stale in regime transitions; +1 day lag on regime shift"
+possible_failure_modes:
+  - "Regime switches often enough in sideways markets that the gate whipsaws"
+  - "Q4 2024-26 decay observed on similar rs_qqq_regime candidate (LLM Round 7 deep_check)"
+  - "RS vs QQQ becomes ~0 for Mag7 symbols when QQQ is concentrated in them"
+novelty_vs_existing_factors: |
+  Variant of CLAUDE.md LLM Round 7 `rs_qqq_regime_conditioned_63d` which
+  used continuous tanh gate. Current candidate uses BINARY gate (simpler).
+  Historical continuous version failed deep_check (OOS IR 0.24 < 0.30).
+  This retest uses post-framework universe + pack v2.

@@ -102,6 +102,10 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     "xsection_rank_21d", "xsection_rank_63d",
     # Macro regime
     "spy_trend_200d", "market_vol_ratio", "market_drawdown",
+    # Regime-gated (R7 deep-mining 2026-04-22). Deep check PASS (OOS IR
+    # +0.332, 6/6 regimes correct sign). Dedup ρ=+0.87 vs mom_63d but
+    # incremental IC +0.0458 in R5 interaction mine.
+    "spy_trend_gated_mom_63d",
     # Overnight
     "overnight_gap_5d", "overnight_gap_21d", "overnight_vs_intraday",
     # Breadth

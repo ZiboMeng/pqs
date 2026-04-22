@@ -157,6 +157,26 @@ class TestFactorLeakage:
         for name, fdf in factors.items():
             assert fdf.index.equals(prices.index), f"{name}: index mismatch"
 
+    def test_spy_trend_gated_mom_63d_produces_finite_values(self):
+        """R7 deep-mining new factor: spy_trend_gated_mom_63d should produce
+        finite non-NaN values for at least some (date, symbol) pairs after
+        warmup period."""
+        # Need SPY as benchmark for gate; build synthetic with SPY column
+        n = 400
+        idx = pd.date_range("2020-01-02", periods=n, freq="B")
+        prices = pd.DataFrame({
+            "SPY": np.linspace(300, 450, n),  # uptrend
+            "SYM0": np.linspace(100, 140, n) * (1 + 0.001 * np.arange(n)),
+            "SYM1": np.linspace(100, 120, n) * (1 - 0.0005 * np.arange(n)),
+        }, index=idx)
+        factors = generate_all_factors(prices, volume_df=None)
+        assert "spy_trend_gated_mom_63d" in factors, "new factor missing from output"
+        fdf = factors["spy_trend_gated_mom_63d"]
+        # Skip warmup (first 200d for SMA200 + 63 mom + 1 shift)
+        tail = fdf.iloc[-100:]
+        # At least some non-NaN values expected
+        assert tail.notna().any().any(), "all NaN after warmup"
+
     def test_forward_returns_are_shifted_forward(self):
         """Forward returns at T should represent T → T+h return, shifted back."""
         prices, _ = _make_price_volume(n=100)

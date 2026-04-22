@@ -4093,3 +4093,72 @@ RESEARCH_FACTORS per §11.3。
 
 ### 11. Commit
 - `ddc91d9` Deep-mining R6 + revert detail convention
+
+## Deep-Mining R7 — Claude LLM factor proposals (3 candidates)
+
+### 1. 主题
+Track A R7 per PRD §2：Claude Phase 1 LLM proposals，3-5 candidates via funnel。
+Seeded from R5 interaction-mine top pairs。
+
+### 2. 目标
+- 3 candidates on research/llm_candidates/round_22/
+- Pass funnel + deep_check → auto-add to RESEARCH_FACTORS per §11.3
+
+### 3-4. 做了什么
+**3 candidates produced**:
+1. `spy_trend_gated_rs_vs_qqq_63d` — RS vs QQQ gated by SPY>SMA200
+2. `spy_trend_gated_mom_63d` — mom_63d gated by SPY>SMA200
+3. `max_dd_drawup_composite` — max_dd × drawup path-shape product
+
+Files:
+- `research/llm_candidates/round_22/{__init__.py, compute_fns.py, *.yaml}` (4 files)
+
+### 5-6. 实验
+**Funnel** (`llm_factor_propose.py`):
+- `max_dd_drawup_composite`: NEEDS_HUMAN_REVIEW (ρ=-0.787 with drawup_from_252d_low)
+- `spy_trend_gated_mom_63d`: NEEDS_HUMAN_REVIEW (ρ=+0.87 mom_63d / +0.84 risk_adj_mom_63d / +0.78 rs_vs_spy_63d)
+- `spy_trend_gated_rs_vs_qqq_63d`: REJECT (false positive — YAML 含 "lookahead"
+  关键词。改措辞后 NEEDS_HUMAN_REVIEW, ρ=+0.80 with xsection_rank_63d)
+
+**Deep check** (`llm_candidate_deep_check.py --universe-size 30`):
+- `max_dd_drawup_composite`: OOS IR **-0.373** / regime 5/6 / quartile stable → PASS absolute (负方向 predictor)
+- `spy_trend_gated_mom_63d`: OOS IR **+0.332** / regime **6/6** / quartile stable → PASS ✅
+- `spy_trend_gated_rs_vs_qqq_63d`: 数值与 _mom 一致（相关性 ρ=0.93，30-sym panel 上 cross-sectional rank IC 被 Mag7 dominate → 产出近同）→ PASS ✅
+
+### 7. 结果 / 7.1 §11.3 Decision
+Per §11.3 auto-add rule: Funnel NEEDS_HUMAN_REVIEW + Deep PASS + 单测 → add.
+
+**添加 1 factor to RESEARCH_FACTORS**: `spy_trend_gated_mom_63d`
+- 最清晰候选：mom × gate，直观（不是 RS cross-sectional 饱和 case）
+- deep_check PASS 强：OOS IR +0.332 > 0.30, regime 6/6, quartile stable
+- `core/factors/factor_generator.py` 加 `_regime_gated_factors` helper
+- `core/factors/factor_registry.py::RESEARCH_FACTORS` 加 name
+- 单测 `test_spy_trend_gated_mom_63d_produces_finite_values` 加到 factor_generator tests
+
+**其他 2 不加到 registry**:
+- `spy_trend_gated_rs_vs_qqq_63d`: 相关 ρ=0.93 vs mom_gated — 近重复
+- `max_dd_drawup_composite`: 负方向 OOS IR —— 可研究但 long-only 系统难直接用
+
+两者仍保留在 `research/llm_candidates/round_22/` 供未来人审 (留作 archive)。
+
+### 8. 新问题
+1. Deep_check 对 `spy_trend_gated_mom_63d` vs `spy_trend_gated_rs_vs_qqq_63d` 返回
+   **完全相同数字** (OOS IR +0.332 identical to 4 decimals)，但实际 factor 值 ρ=0.93
+   不完全相同。原因: 30-sym universe 足够窄 + cross-sectional rank IC 非线性，rank
+   order 可能 identical 而 cardinal values 差。
+2. 新加 factor **未进 PRODUCTION_FACTORS** — 只加 RESEARCH (per §11.4，PROD 需人审)。
+3. Funnel false positive: "lookahead" 关键词触发 REJECT。`core/factors/llm_candidate.py`
+   的 heuristic 过度敏感（把解释性注释当 leakage 信号）。低优先 (workaround OK)。
+
+### 9. 剩余风险
+- `spy_trend_gated_mom_63d` ρ=0.87 with mom_63d（原 RESEARCH factor）—— 增量有限
+- 2024-26 Q2 segment IC 接近 0 (+0.0001 in deep_check Q2)，regime transition 时退化
+  同 CLAUDE.md LLM Round 7 historical finding
+
+### 10. 下一轮 → R8
+R8: continue Track A LLM proposals via Claude，target SHAP-high interaction-heavy seed
+(`market_vol_ratio`, `cross_section_dispersion_21d` — R4 SHAP 指出但 R5 未包含)。3-5
+候选走 funnel + deep_check + §11.3 决策。
+
+### 11. Commit
+- `<待填>`

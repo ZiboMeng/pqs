@@ -1,0 +1,29 @@
+# Source: Claude (deep-mining R7 per PRD)
+# Round: 22
+# Submitted: 2026-04-22
+# Seed: R5 interaction-mine pair (spy_trend_200d × mom_63d, incr +0.0458)
+factor_name: "spy_trend_gated_mom_63d"
+hypothesis: |
+  Momentum factor in long-only setting is asymmetric: strong in uptrend,
+  reversal in downtrend (CLAUDE.md Phase B finding). Gating by
+  SPY>SMA200 keeps the uptrend signal and zeros out bear periods when
+  momentum is punished.
+formula: |
+  mom_63d = (close / close.shift(63)) - 1
+  gate = 1 if SPY > SMA(SPY, 200) else 0
+  factor_raw = mom_63d * gate
+  factor = factor_raw.shift(1)
+compute_fn_path: "research.llm_candidates.round_22.compute_fns:spy_trend_gated_mom_63d"
+required_fields: ["close"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: [BULL, RISK_ON, NEUTRAL]
+expected_edge: "positive, IC 0.04-0.07"
+expected_risk: "correlated with existing mom_63d (shift during gated-on periods). Incremental value hinges on regime-off periods filtering."
+possible_failure_modes:
+  - "Regime shift lags; mom_63d lookback itself contains some regime info (partial double-count)"
+  - "Binary gate causes weight flip on single-day SPY dip through SMA"
+novelty_vs_existing_factors: |
+  MFS composite already uses momentum + market_trend separately (linearly).
+  This candidate multiplies them. Novelty hinges on whether XGB-style
+  interaction captured here beats MFS linear sum. R5 says yes (incr +0.046).

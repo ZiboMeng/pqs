@@ -1,0 +1,35 @@
+# Source: Claude (deep-mining R7 per PRD)
+# Round: 22
+# Submitted: 2026-04-22
+# Seed: R5 interaction-mine pair (max_dd_126d × drawup_from_252d_low, incr +0.0102)
+factor_name: "max_dd_drawup_composite"
+hypothesis: |
+  A stock that has recovered significantly (high drawup from 252d low)
+  AFTER suffering a deep 126d drawdown is a "post-stress survivor".
+  Multiplicative combination of max_dd (negative) and drawup (positive)
+  gives a regime-sensitive measure of resilience.
+formula: |
+  rolling_peak_126d = close.rolling(126).max()
+  drawdown = (close - rolling_peak_126d) / rolling_peak_126d
+  max_dd_126d = drawdown.rolling(126).min()  # most negative value
+
+  rolling_low_252d = close.rolling(252).min()
+  drawup = (close - rolling_low_252d) / rolling_low_252d
+
+  factor_raw = max_dd_126d * drawup
+  factor = factor_raw.shift(1)
+compute_fn_path: "research.llm_candidates.round_22.compute_fns:max_dd_drawup_composite"
+required_fields: ["close"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: [all]
+expected_edge: "moderate positive, IC 0.09 based on R5 unconditional IC"
+expected_risk: "path-shape factors correlate with momentum; incremental alpha vs mom_126d unclear"
+possible_failure_modes:
+  - "Both drawup + max_dd depend on trailing window; regime shifts reset both simultaneously"
+  - "Post-2020 deep-v-recovery regime may have made both signals strong simultaneously without independent info"
+novelty_vs_existing_factors: |
+  drawup_from_252d_low is already PRODUCTION_FACTOR (R15 promoted). max_dd_126d
+  is RESEARCH_FACTOR. Product of two correlated path-shape factors may
+  double-count the post-recovery effect. R5 incremental +0.010 is small;
+  marginal alpha vs independent use.
