@@ -4806,4 +4806,4 @@ Mar 2020). 用 `run_backtest.py --start 2020-01-01 --end 2020-06-30` 测
 Config C composite + 5 rules DSL 在 crisis window 的 robustness.
 
 ### Commit
-- `<待填>`
+- `0c02670` Deep-mining R24
