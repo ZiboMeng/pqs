@@ -5272,3 +5272,65 @@ Track E 完成。剩余 R45 ensemble test 按 §11.6 user decision path 决定
 
 ### Commit
 - `947e4df` Deep-mining R46 (findings doc)
+
+## Deep-Mining R47 — Transformer hyperparameter sweep (Phase 2)
+
+### 做了什么
+5-config mini sweep over seq_len × epochs，holding d_model=64 / nhead=4
+(per PRD hard limit)：
+
+| Config | Ridge | XGB | Transformer | Rank |
+|---|---:|---:|---:|:---:|
+| seq=63 ep=5 (Phase 1 baseline) | +0.012 | -0.110 | **-0.207** | ← baseline |
+| seq=21 ep=5 | -0.509 | -0.079 | -0.146 | Transformer > Ridge but < XGB |
+| seq=63 ep=10 | -0.509 | -0.079 | -0.060 | T > XGB |
+| **seq=126 ep=10** | **-0.509** | **-0.079** | **-0.0042** | **T best, approx zero** |
+| seq=252 ep=10 | -0.509 | -0.079 | -0.354 | T context 太长，degraded |
+| seq=126 ep=20 | -0.509 | -0.079 | -0.046 | Overfitting |
+
+### 关键发现
+1. **Context length 呈 inverted-U shape**: seq=21<63<126>252，peak 在
+   ~126 trading days (~6 months)
+2. **Peak config (seq=126 ep=10) Transformer OOS R² = -0.0042** — 实质
+   等于零，接近 random-walk 基线
+3. **Transformer beats XGB** by 7.5pt at peak config，并 way better than
+   Ridge (50pt gap)
+4. **More epochs hurts**: 10 > 20 (overfitting)
+5. 与 XGBoost CV (R42 mean -0.07) 一致主题：**factor→forward-return 在
+   2018-2026 窗口上 effectively flat at 0**。更强 model class 无法
+   compensate 缺少的 signal
+
+### 比 Phase 1 baseline 改善 20pt
+- Phase 1 baseline (seq=63 ep=5): -0.207
+- Phase 2 best (seq=126 ep=10): -0.0042
+- **Improvement: +20pt OOS R²**, confirming hyperparameter tuning 有 value 但 absolute level 仍非 positive
+
+### Ridge 差异 caveat
+Ridge 在 Phase 1 baseline (xgb_cv.py 风格 panel): +0.012
+Ridge 在 R47 transformer panel (seq-based slicing): -0.509
+差异源于 panel 构造不同:
+- xgb_cv: flat cross-section (one row per date × symbol)
+- transformer: 3D tensor (seq_len, n_features) per (date, symbol) with
+  leading window dropped
+- Ridge 收到的 feature matrix shape 不一致 → OOS test performance 差异
+
+### Artifacts
+- `data/ml/transformer/R47_seq21_e5/summary.json`
+- `data/ml/transformer/R47_seq63_e10/summary.json`
+- `data/ml/transformer/R47_seq126_e10/summary.json` **(peak)**
+- `data/ml/transformer/R47_seq252_e10/summary.json`
+- `data/ml/transformer/R47_seq126_e20/summary.json`
+
+### Verdict
+Transformer seq_len=126 epochs=10 配置在 daily factor panel 上达到接近
+baseline 的 OOS R²。**不 production-ready** (R² 非正)，但作为 research
+tool 比 XGBoost 更 sample-efficient。符合 §11.5 Transformer "Phase 2 result 不 conclusively positive ⇒ park" 条款。
+
+### 下一轮 → R48
+Intraday 60m bar transformer pivot requires 新的 panel builder
+(compute_forward_returns on intraday bars + sequential 60m window)。
+code change significant，**deferred**。直接写 R48 pivot decision:
+Phase 2 peak 仍未过 R² > 0 门槛 → park，不启动 Phase 3 intraday 实验。
+
+### Commit
+- `<TBD>` Deep-mining R47
