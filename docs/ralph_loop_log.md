@@ -5518,3 +5518,64 @@ Loop 圆满完成 50 轮 autonomous execution。交付结果以 markdown doc
 + git log 形式留档；等待 user review + 5 决策点响应。
 
 <promise>DEEPDONE</promise>
+
+## Deep-Mining R51 — Post-50 sanity validation
+
+### 做了什么
+R50 是 PRD §2 track menu 的 final round，但 ralph-loop 运行时基于
+§11.8 halt 条件触发而非 PRD round count。因此额外做**state validation**
+sanity round 确认 loop 交接状态干净。
+
+### §11.8 halt conditions 全部检查
+| Condition | Status |
+|---|:---:|
+| pytest regression > 5 tests | ✅ **1211 passed, 1 skipped** (vs R50 claim 1211 — match) |
+| Core module import failure | ✅ `core.mining.evaluator/archive/factors/backtest` import clean |
+| Disk space < 10GB | ✅ **801GB free** on /, 510GB on /mnt/c |
+| Config/universe.yaml unexpected edits | ✅ git status clean (no unauthorized changes) |
+| Archive DB corruption | ✅ leaderboard query returns 302 trials normally |
+| 3+ `--force` promote attempts | ✅ 0 promote attempts this loop |
+
+**No §11.8 condition met. Loop halt authority defaults to PRD §2 max-rounds
+(R50 reached).**
+
+### Test suite regression 
+1211 passed, 1 skipped — identical to baseline claimed in R50 synthesis.
+Confirms no regression introduced by R36-R50 work.
+
+### Artifacts 整理 on disk
+- `docs/deep_mining_50round_final_synthesis.md` — R50 deliverable (committed)
+- `docs/universe_expansion_proposal_v3.md` — R38 user-review doc (committed)
+- `docs/xgboost_weight_model_R46_findings.md` — Track E verdict (committed)
+- `docs/ralph_loop_log.md` — 50 rounds of Chinese 11-part logs
+- `research/llm_candidates/round_01-26/` — 26 LLM candidates
+- `data/ml/xgb_cv/R{3,4,42,43}/` — CV artifacts
+- `data/ml/transformer/{phase1,R47_*}/` — Phase 1 + R47 sweep
+- `data/ml/universe_admission_R36_*.csv` — R36 admission
+- `data/ml/R37_sp500_alpha.csv` + `universe_risk_profile_R37_sp500.csv`
+- `artifacts/acceptance_packs/*.json` — 7 pack runs
+
+### 状态最终 summary (unchanged from R50)
+- `config/production_strategy.yaml::status` = `conservative_default`
+- `PRODUCTION_FACTORS` = 7 (drawup_from_252d_low added R15)
+- `RESEARCH_FACTORS` = 41 (+R7 spy_trend_gated_mom_63d, +R10 weak_market_relative_strength_63d)
+- Mining archive: 302 trials / 12 lineages
+- DSL rules: 5 (+R24 leveraged_etfs_dual_confirmation, +R24 xlu_outperformance)
+- LLM candidates: 26 YAML files (audit trail intact)
+
+### 5 User Decisions 仍待回应 (per R50 synthesis)
+1. R38 universe expansion v3 (37 new symbols) → A/B/C/D
+2. R46 drawup demotion (R42/R43 counter-evidence) → keep/demote
+3. R25 DSL Rule 2 weight reduction → 50→25% / fast-exit / leave
+4. R46 R45 ensemble test (MFS + XGB blend) → run/skip
+5. Post-decision-1 mining resubmission → conditional
+
+### 下一轮
+**无有效 track menu 剩余**。R50 是 §2 PRD 最后一 round。继续运行的唯一
+autonomous 路径需要 user 决策 (§11.1-§11.4 authorization requests)，
+但按 prompt 规则"DO NOT pause to ask any questions" — 无法请求 user
+input，无法继续产生 incremental 研究价值 without 越界 (e.g., 自行
+edit config/universe.yaml 违反 §11.2)。
+
+### Commit
+- `<TBD>` Deep-mining R51 (post-50 sanity validation)
