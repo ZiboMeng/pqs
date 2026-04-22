@@ -5132,4 +5132,70 @@ permutation importance。
 `run_xgb_cv.py --shap --out-tag R43_expanded_shap` 启动 SHAP attribution。
 
 ### Commit
-- `<TBD>` Deep-mining R42
+- `047f6c1` Deep-mining R42
+
+## Deep-Mining R43 — SHAP attribution (5-fold CV, same folds as R42)
+
+### 做了什么
+`run_xgb_cv.py --horizon 21 --n-splits 5 --shap --out-tag R43_expanded_shap`
+在 R42 相同 CV splits 上启动 SHAP，per-fold 保存 |SHAP| 值。
+
+### Top-20 mean |SHAP| across 5 folds — 与 R42 permutation 差异显著
+
+| Rank | Feature | mean \|SHAP\| | R42 perm rank |
+|---:|---|---:|---:|
+| **1** | **mean_rev_sma20** | **0.130** | #3 |
+| **2** | **drawdown_current** | **0.070** | #4 |
+| 3 | reversal_5d | 0.018 | #11 |
+| 4 | mean_rev_sma50 | 0.011 | #10 |
+| 5 | vol_21d | 0.011 | #22 ↑↑ |
+| 6 | mom_63d | 0.009 | #6 |
+| 7 | volume_surge_20d | 0.009 | #31 ↑↑↑ |
+| 8 | price_volume_div | 0.008 | #28 ↑↑ |
+| 9 | mom_126d | 0.008 | #35 ↑↑↑ |
+| 10 | reversal_10d | 0.007 | #8 |
+| 11 | **mom_252d** | **0.007** | **#1 ↓↓↓** |
+| **12** | **weak_market_relative_strength_63d** | **0.0068** | **#8** |
+| 13 | rs_vs_spy_21d | 0.006 | #14 |
+| 14 | rolling_sharpe_126d | 0.006 | #13 |
+| 15 | max_dd_126d | 0.006 | **#2 ↓↓↓** |
+| 16 | vol_63d | 0.006 | #23 ↑↑ |
+| 17 | mom_12_1 | 0.006 | #5 ↓ |
+| 18 | **spy_trend_gated_mom_63d** | **0.0055** | **#12** |
+| 19 | vol_regime | 0.005 | #32 ↑↑↑ |
+| 20 | rank_momentum_change | 0.005 | #24 ↑↑ |
+
+### 关键发现：SHAP ≠ Permutation Importance
+- **SHAP 把 mean-reversion + risk 信号推到最顶** (sma20/drawdown/reversal)
+- **momentum 信号被大幅下调** (mom_252d 从 permutation #1 → SHAP #11)
+- **vol + volume 信号被大幅上调** (volume_surge #31→#7, mom_126d #35→#9)
+
+解读：**permutation importance 测量的是"随机打乱后 R² 下降"；SHAP 测量的是
+"每个样本的贡献绝对值"**。两者不同:
+- permutation 对 unstable/noisy features 给低分 (即使个样本贡献大)
+- SHAP 对一些样本有大贡献的 features 也记分 (不必稳定)
+
+所以 SHAP 告诉我们："在做 prediction 时，XGBoost 真实依赖的是 mean-
+reversion + vol-based 信号"；permutation 告诉我们："但这些 signal 不
+稳定 enough 来保证 OOS generalization"。
+
+### LLM-promoted factors
+- **weak_market_relative_strength_63d**: SHAP 0.0068 rank **#12** ✓
+- **spy_trend_gated_mom_63d**: SHAP 0.0055 rank **#18** ✓
+- **drawup_from_252d_low**: SHAP 0.0033 rank ~#30 ✗ (SHAP 确认 permutation 负分)
+
+### Artifacts
+- `data/ml/xgb_cv/R43_expanded_shap/per_fold_shap.parquet` (175 rows = 35 × 5)
+- `data/ml/xgb_cv/R43_expanded_shap/aggregated_importance.parquet` 
+- `data/ml/xgb_cv/R43_expanded_shap/per_fold_importance.parquet`
+- `data/ml/xgb_cv/R43_expanded_shap/summary.json`
+
+### 下一轮 → R44
+XGBoost 作 production WEIGHT model。R6 已用 80/20 single-split 跑
+（CAGR +6.88%, Sharpe 0.50, MaxDD -28%）；可以直接用 R6 artifact，
+R44 work 是 "integrate R6 data into R46 findings synthesis"。
+或 re-run with stricter OOS discipline (e.g., forward-only eval after
+2023)。暂跳过，R45 做 ensemble test。
+
+### Commit
+- `<TBD>` Deep-mining R43
