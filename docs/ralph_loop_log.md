@@ -4673,3 +4673,40 @@ intraday vol signal, 在 BULL 时 overweight overnight gap signal。
 
 ### Commit
 - `75dca75` Deep-mining R21
+
+## Deep-Mining R22 — composite variants (intraday blend blocked by tool)
+
+### 发现: llm_composite_backtest.py 不支持 intraday/overnight factors
+Tool 调用 `generate_all_factors(price_df, vol_df)` 无 `open_df` 无
+`intraday_bars_60m` → realized_vol_60m_21d, overnight_gap_21d 等都不在
+registry。
+
+Error: `component 'realized_vol_60m_21d' not in registry — aborting`
+
+### 转向: 3 daily-only variants vs R14 Config C benchmark
+| Config | 1x CAGR | 2x CAGR | Sharpe | vs QQQ 1x |
+|---|---:|---:|---:|---:|
+| **R14 Config C** (reference) | **21.89%** | 21.39% | **0.68** | **+3.42** |
+| G_mom126 (add mom_126) | 17.96% | 17.50% | 0.60 | -0.51 |
+| H_mom252 (add mom_252) | 16.91% | 16.47% | 0.58 | -1.56 |
+| I_min_mom (remove mom, heavier defensive) | 15.68% | 15.18% | 0.56 | -2.79 |
+
+All 3 variants **WORSE** than Config C。Manual grid 已 peak at R14.
+
+### Insight
+1. Config C 2 new factors (gated_mom + weak_market_rs) 是 manual-optimal:
+   加更多 momentum dilutes; 减少 momentum 削弱 alpha
+2. 改进 only 通过 Optuna auto-search 或 intraday/overnight 引入 — 都需要
+   PRODUCTION_FACTORS 扩张 (§11.4 user auth)
+3. R14 proposal doc 是 post-loop user decision 的主要 artifact
+
+### §11 Decision
+无变化。R14 Config C 仍是 loop 内最强 composite。
+
+### 下一轮 → R23
+R23: 尝试用 M10 cross-ticker DSL 改善 R14 Config C 在 intraday entry 质量。
+用 `run_backtest.py --strategy multi_factor` 测 DSL on/off 的差异（R14
+simplified tool 不走 DSL 路径）。
+
+### Commit
+- `<待填>`
