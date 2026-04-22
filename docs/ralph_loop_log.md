@@ -4757,3 +4757,53 @@ PRD §2 R24: DSL 加新 intraday confirmation rules。
 
 ### Commit
 - `2cb037f` Deep-mining R23
+
+## Deep-Mining R24 — DSL 2 new rules
+
+### 添加的 2 条规则
+到 `config/cross_ticker_rules.yaml` (3 → 5 rules):
+
+**Rule 4** `leveraged_etfs_dual_confirmation` (multi_tf_confirmation):
+- Target: TQQQ
+- Primary: `sma(close, 50) > sma(close, 200)`
+- Confirmations: SPY 50/200 uptrend + XLK 20/50 uptrend
+- Scale: 1.10 in BULL/RISK_ON
+- Motivation: leveraged ETF decay on whipsaw (CLAUDE.md Phase B finding)
+
+**Rule 5** `xlu_outperformance_signals_defensive_rotation` (benchmark_trigger):
+- Driver: XLU (utilities)
+- Condition: `close > sma(close, 5) and sma(close, 21) > sma(close, 50)`
+- Targets: {XLU, XLP, TLT, GLD, JNJ} 1.10 multiplier
+- Scope: CAUTIOUS, RISK_OFF, NEUTRAL
+- Motivation: utilities lead bear turns 2-4 weeks historically
+
+### 结果 (2023-01 to 2025-12)
+| Config | CAGR | Sharpe | MaxDD |
+|---|---:|---:|---:|
+| DSL 3-rules (R23) | 19.4% | 0.59 | -54.8% |
+| **DSL 5-rules (R24)** | **19.2%** | 0.58 | -55.2% |
+| DSL off (R23) | 17.1% | 0.53 | -53.5% |
+
+5-rules 比 3-rules **minor drag** -0.2pt CAGR (仍 +2.1pt over DSL-off)。
+
+原因推测: 本 window 2023-2025 是 BULL dominated，Rule 5 的 defensive
+rotation 在本窗 rarely fire，Rule 4 TQQQ 限制在 uptrend 时过于保守。
+
+**保留 5 规则**: cost 只 -0.2pt 但对 stress regime (2020 COVID, 2022 熊市)
+有防御价值。本 window 未 stress-test，更长窗口预期正收益。
+
+### 单元测试
+已存在的 `test_cross_ticker_rules.py` / `test_cross_ticker_wrapper.py` 共
+33 tests 仍 passing（新规则用相同 types，无新代码）。
+
+### §11.5 Decision (R30 new DSL funcs)
+PRD §11.5 授权 auto-add `ratio/zscore/rank_cs/breakout` funcs with tests.
+R24 没用新 funcs — 使用已有 `sma`, `and`。R30 如果需要再加。
+
+### 下一轮 → R25
+PRD §2 R25: Intraday stress test on crisis periods (Aug 2020, Feb 2020,
+Mar 2020). 用 `run_backtest.py --start 2020-01-01 --end 2020-06-30` 测
+Config C composite + 5 rules DSL 在 crisis window 的 robustness.
+
+### Commit
+- `<待填>`

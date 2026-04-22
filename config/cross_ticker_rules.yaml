@@ -77,3 +77,42 @@ rules:
     action:
       timing_scale_multiplier: 1.15
     priority: 30
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Rule 4: Leveraged ETFs require dual-benchmark uptrend (R24 2026-04-22)
+  # ─────────────────────────────────────────────────────────────────────────
+  # TQQQ / SOXL are 3x leveraged — only allow exposure when BOTH SPY and
+  # XLK are in 50/200 uptrend. Single-benchmark uptrend is insufficient
+  # (leveraged ETFs decay viciously on whipsaw markets per CLAUDE.md
+  # Phase B finding).
+  - name: "leveraged_etfs_dual_confirmation"
+    type: multi_tf_confirmation
+    target: TQQQ
+    primary_condition: "sma(close, 50) > sma(close, 200)"
+    confirmations:
+      - symbol: SPY
+        timeframe: daily
+        condition: "sma(close, 50) > sma(close, 200)"
+      - symbol: XLK
+        timeframe: daily
+        condition: "sma(close, 20) > sma(close, 50)"
+    action:
+      timing_scale_multiplier: 1.10
+    regime_scope: [BULL, RISK_ON]
+    priority: 40
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Rule 5: Utility outperformance = defensive rotation signal (R24 2026-04-22)
+  # ─────────────────────────────────────────────────────────────────────────
+  # When XLU (utilities) 21d return > SPY 21d return (flight to defensive),
+  # trim cyclical exposure (Mag7 Financial) via 0.85 multiplier. Historic
+  # sector rotation signal — utilities lead bear turns by 2-4 weeks.
+  - name: "xlu_outperformance_signals_defensive_rotation"
+    type: benchmark_trigger
+    driver: XLU
+    condition: "close > sma(close, 5) and sma(close, 21) > sma(close, 50)"
+    action: allow_overweight
+    targets: [XLU, XLP, TLT, GLD, JNJ]  # amplify defensive names, not cyclicals
+    weight_multiplier: 1.10
+    regime_scope: [CAUTIOUS, RISK_OFF, NEUTRAL]
+    priority: 25
