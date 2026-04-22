@@ -4092,4 +4092,4 @@ regime-gated candidate 作主 proposal。产出 YAML 入 research/llm_candidates
 RESEARCH_FACTORS per §11.3。
 
 ### 11. Commit
-- `<待填>`
+- `ddc91d9` Deep-mining R6 + revert detail convention
