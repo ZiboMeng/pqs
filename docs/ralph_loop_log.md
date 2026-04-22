@@ -5225,7 +5225,7 @@ R46 findings doc 是 decision gate：写 `docs/xgboost_weight_model_R46_
 findings.md` 综合 R3/R4/R6/R42/R43/R44 evidence 给 user 决策建议。
 
 ### Commit
-- `<TBD>` Deep-mining R44
+- `947e4df` Deep-mining R44
 
 ## Deep-Mining R46 — XGBoost weight model FINDINGS doc
 
@@ -5271,4 +5271,4 @@ Track E 完成。剩余 R45 ensemble test 按 §11.6 user decision path 决定
 是否做。继续 PRD §2 track menu。
 
 ### Commit
-- `<TBD>` Deep-mining R46 (findings doc)
+- `947e4df` Deep-mining R46 (findings doc)
