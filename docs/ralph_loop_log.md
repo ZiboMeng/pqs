@@ -4248,4 +4248,4 @@ PRD §2 R10: LLM proposals via **Gemini/Codex** via M15 handoff。19 candidates
 （earlier commit `f93af13`）。R10 跑 funnel 这 19 个。
 
 ### Commit
-- `<待填>`
+- `89f645b` Deep-mining R9
