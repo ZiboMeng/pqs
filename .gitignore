@@ -32,9 +32,8 @@ data/*.db
 data/*.db-shm
 data/*.db-wal
 
-# Reports output (not committed — except per-round deep_mining reports
-# re-included below)
-reports/*
+# Reports output (not committed)
+reports/
 
 # Acceptance pack artifacts (M2); regenerable from mining archive
 artifacts/
@@ -89,9 +88,3 @@ x.txt
 # Codex CLI scratchpad (not committed)
 .codex
 
-# But DO track per-round detailed reports (R<NN>_<topic>.md).
-# `reports/` is blanket-ignored above; these negations re-include the
-# subtree. Order matters — must come AFTER the `reports/` line.
-!reports/round_reports/
-!reports/round_reports/*
-!reports/round_reports/**/*

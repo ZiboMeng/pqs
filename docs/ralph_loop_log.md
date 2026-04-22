@@ -4053,3 +4053,43 @@ R4 SHAP top-10 锁定。
 
 ### Commit
 - `2606823` Deep-mining R5
+
+## Deep-Mining R6 — XGBoost Weight Model (research-only)
+
+### 1-4. 主题 / 目标 / 做了什么
+Track A R6 per PRD §2: XGBoost → per-(date, symbol) score → top-5 portfolio weight，
+对比 equal-weight top-5 (by quality) baseline。
+
+`run_xgb_weight_model.py --horizon 21 --top-k 5 --split-frac 0.8 --rebalance-days 21 --out-tag R6_daily_weight`
+
+### 5-7. 结果
+- Panel: 131,376 rows × 33 features
+- Train R² +0.3773 / **Test R² -0.1167** (与 R3/R4 一致，XGB 无 OOS 泛化能力)
+- Portfolio comparison (split_date=2024-03-05, 2 年 OOS window):
+
+| Config | CAGR | Sharpe | MaxDD |
+|---|---:|---:|---:|
+| **XGB-weighted** top-5 | +6.88% | 0.50 | -28.32% |
+| Equal-weight top-5 (by quality) | +3.75% | 0.56 | -17.27% |
+| delta | +3.13% | -0.06 | -11.05% |
+
+XGB CAGR +3.13% 高，但 MaxDD **-11.05% worse**（-28% vs -17%）。Sharpe 低。
+→ **XGB weight 不是净 improvement**，以牺牲下行换上行。
+
+### 8. 新问题
+XGB 在此 setup 下是 "higher beta" 而非 "better risk-adjusted"。
+R45 ensemble 时要注意: XGB 做主权重会放大下行。只适合做 minor blend (10-20% weight)。
+
+### 9. 剩余风险
+- split_frac=0.8 给 OOS 2 年，偏短。R44 full pilot 可 rerun with longer holdout。
+- MaxDD -28% **超过 -25% 硬约束**，此 XGB-weighted strategy 如果做 production candidate
+  会被 acceptance pack v2 gate 6 (max_drawdown) reject。
+
+### 10. 下一轮 → R7
+R7: LLM factor proposal via Claude (Phase 1)。R5 发现的 `spy_trend × rs_vs_qqq`
+regime-gated candidate 作主 proposal。产出 YAML 入 research/llm_candidates/round_22/，
+走完整 funnel (propose → deep_check → factor_backtest)，成功则 auto-add to
+RESEARCH_FACTORS per §11.3。
+
+### 11. Commit
+- `<待填>`
