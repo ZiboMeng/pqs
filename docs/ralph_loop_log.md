@@ -4161,4 +4161,4 @@ R8: continue Track A LLM proposals via Claude，target SHAP-high interaction-hea
 候选走 funnel + deep_check + §11.3 决策。
 
 ### 11. Commit
-- `<待填>`
+- `992aa0b` Deep-mining R7
