@@ -4672,4 +4672,4 @@ regime-aware composite: PRODUCTION factors + 在 CRISIS 时 overweight
 intraday vol signal, 在 BULL 时 overweight overnight gap signal。
 
 ### Commit
-- `<待填>`
+- `75dca75` Deep-mining R21

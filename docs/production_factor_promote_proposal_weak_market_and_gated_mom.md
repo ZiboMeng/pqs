@@ -89,7 +89,7 @@ kill switch + target_vol in production should clamp.
 - C_weak_market config: +21.89% CAGR, +3.42% vs QQQ
 - **NOT yet tested through production MFS + acceptance pack v2**
 
-### R21 cost sensitivity (commit `4c589fd` ... ` TBD`)
+### R21 cost sensitivity (commit `4c589fd` ... ``75dca75`)
 - Composite C (same as R14) under different cost_bps × 1x/2x stress:
 
 | cost_bps | 1x CAGR | 2x CAGR | vs QQQ 2x |
