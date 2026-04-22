@@ -4347,3 +4347,39 @@ cross-sectional rank-change factor (PRD §2 R14 提前到 R13 位置)。
 
 ### Commit
 - `f1c9a6d` Deep-mining R11+R12
+
+## Deep-Mining R13 — cross-sectional rank-change factors
+
+### 目标 / 做了什么
+3 candidates on cross-sectional rank dynamics:
+- `rank_change_21_vs_63` — rank_21 - rank_63 (momentum acceleration via rank)
+- `rank_persistence_126d` — rank stability (low std of rank × mean rank)
+- `rank_acceleration_21d` — rank today - rank 21d ago
+
+### 结果
+| # | Candidate | Verdict | 原因 |
+|---|---|---|---|
+| 1 | rank_change_21_vs_63 | NEEDS_REVIEW | ρ=**-0.874** with rank_momentum_change (sign-flipped same factor) |
+| 2 | rank_persistence_126d | ARCHIVE | IC -0.0485 太弱 |
+| 3 | rank_acceleration_21d | ARCHIVE | IC +0.008 噪声 |
+
+**Per §11.3**: 0 added。#1 是现有 `rank_momentum_change` 的 sign-flipped dup.
+
+### Insight
+RESEARCH_FACTORS 里已有 `rank_momentum_change`, `xsection_rank_21d`,
+`xsection_rank_63d`。在 52-sym universe 上，low-order rank variants 都已
+覆盖或 trivially overlap。Rank-based 新 alpha 需要非平凡的组合（例如
+rank × 其他 factor class），在 R14 interaction 试过了。
+
+### 下一轮 → R14
+PRD §2 R14: cross-sectional rank (已 R13 覆盖) → 实际 R14 推进到
+**R15 factor ensemble backtest**: 把所有已通过 funnel 的 candidates 作
+composite，用 `llm_composite_backtest.py` 跑 5-gate verdict。
+
+候选 composite (42 factors total):
+- 7 PRODUCTION (inline MFS)
+- 42 RESEARCH (generate_all_factors out)
+- 包括 R7/R10 新加的 spy_trend_gated_mom_63d + weak_market_relative_strength_63d
+
+### Commit
+- `<待填>`

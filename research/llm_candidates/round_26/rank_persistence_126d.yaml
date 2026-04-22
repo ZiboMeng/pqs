@@ -1,0 +1,21 @@
+# Source: Claude (deep-mining R13 per PRD)
+# Round: 26
+# Submitted: 2026-04-22
+# Seed: PRD Track A R14 cross-sectional rank-change (brought forward)
+factor_name: "rank_persistence_126d"
+hypothesis: "Cross-sectional rank dynamics capture alpha beyond individual returns."
+formula: |
+  See research.llm_candidates.round_26.compute_fns:rank_persistence_126d
+  Uses rolling pct_change, .rank(axis=1, pct=True), rolling std/mean;
+  signal shift(1) applied before use.
+compute_fn_path: "research.llm_candidates.round_26.compute_fns:rank_persistence_126d"
+required_fields: ["close"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: [all]
+expected_edge: "moderate positive, IC 0.03-0.07"
+expected_risk: "narrow universe limits rank resolution"
+possible_failure_modes:
+  - "Rank at N=52 symbols has granular gaps; top-bottom quintiles dominated by tech clustering"
+  - "Rank change is noisy on short windows"
+novelty_vs_existing_factors: "rank_momentum_change exists but compares different horizons; these are variants"
