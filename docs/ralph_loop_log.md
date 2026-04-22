@@ -5333,4 +5333,52 @@ code change significant，**deferred**。直接写 R48 pivot decision:
 Phase 2 peak 仍未过 R² > 0 门槛 → park，不启动 Phase 3 intraday 实验。
 
 ### Commit
-- `<TBD>` Deep-mining R47
+- `3ee0668` Deep-mining R47
+
+## Deep-Mining R48 — Transformer intraday pivot decision (Phase 3 NO-GO)
+
+### 做了什么 (decision-only round, no code run)
+根据 R47 Phase 2 findings 和 PRD §11.5 Transformer park criterion，做
+R48 pivot decision。
+
+### R47 Evidence summary
+Phase 2 best config (seq=126 ep=10): OOS R² **-0.0042** ≈ 0
+- 比 Phase 1 (-0.207) 改进 20pt
+- 但仍未达到 **R² > 0** 门槛
+
+### R48 Decision tree
+
+**Phase 3 option A**: pivot to intraday 60m bars
+- 需要：new panel builder for 60m bars + compute_forward_returns_intraday
+  + 60m-resampled factors + tz-aware indexing
+- 代码量：~200-300 LOC 新脚本 + modifications to transformer_encoder
+- 训练时间：~5x (更多 bars per day × same n_days)
+- 价值假设：intraday sequence 可能 capture 日内 patterns daily missed
+
+**Phase 3 option B**: park transformer，进 R49 综合阶段
+- Phase 2 evidence 已足够 conclude "transformer 不是 alpha 瓶颈的 unlock"
+- R42 CV 独立确认 factor→forward-return 关系在 2021+ 已 degraded
+- 多个 model class (Ridge/XGB/Transformer) 在同 panel 上都达不到 R² > 0
+- **问题在 factor space，不在 model class**
+
+### Verdict: PARK (option B)
+按 PRD §11.5: "Phase 3 pivot only if R47 shows R² > 0 in any config."
+R47 best R² = -0.0042 (not positive) → **Phase 3 pivot NOT triggered**.
+
+Phase 3 intraday transformer 实验推迟至:
+- 重大 universe expansion 后 (如 R38 v3 proposal 被 user approve 且 R39-R41 新 universe 展示 fresh alpha signal)
+- 或 new factor family 加入 registry (e.g., microstructure / orderbook / sentiment)
+- 或 post-2026 窗口 available 后重新评估
+
+### Alternate value from Transformer work
+- Phase 1-2 tooling (run_transformer_research.py + transformer_encoder
+  module) 保留可用，任何 future researcher 可 rerun on expanded
+  universe / new factor families
+- Phase 2 best config doc'd for future reference
+
+### 下一轮 → R49 (Track G synthesis)
+Comprehensive acceptance pack 跑 all lineage top specs. 这是 track G
+的 first of 2 rounds (R49-R50) 做 final synthesis + promote attempt.
+
+### Commit
+- `<TBD>` Deep-mining R48
