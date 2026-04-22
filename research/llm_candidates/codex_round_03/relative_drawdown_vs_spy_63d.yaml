@@ -1,0 +1,27 @@
+# Source: Codex (external LLM handoff per docs/llm_external_llm_handoff.md)
+# Round: 21
+# Submitted: 2026-04-21
+factor_name: "relative_drawdown_vs_spy_63d"
+hypothesis: >
+  Stocks that sit closer to their own 63-day highs than SPY does to its
+  63-day high may exhibit relative structural strength that is not fully
+  captured by raw return-based relative strength.
+formula: |
+  rolling_peak_63 = close.rolling(63).max()
+  dd_63 = close / rolling_peak_63 - 1
+  feat_raw = dd_63 - SPY_dd_63
+  feat = cross-sectional z-score(feat_raw.shift(1))
+compute_fn_path: "research.llm_candidates.codex_round_03.compute_fns:relative_drawdown_vs_spy_63d"
+required_fields: ["close"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: [NEUTRAL, CAUTIOUS, RISK_ON]
+expected_edge: "positive, IC 0.02-0.04 if drawdown-relative strength is more robust than endpoint return"
+expected_risk: "Can converge toward ordinary relative strength in strong uptrends"
+possible_failure_modes:
+  - "degenerates to RS when most names are near highs"
+  - "sensitive to recent peak resets"
+  - "can reward defensive laggards in weak tapes if SPY falls faster"
+novelty_vs_existing_factors: >
+  This uses relative distance-from-peak rather than relative return,
+  making it a drawdown-geometry factor instead of a plain benchmark-relative factor.

@@ -1,0 +1,15 @@
+factor_name: "volume_exhaustion_reversal"
+hypothesis: "A sharp short-term price drop accompanied by an abnormal volume surge indicates seller capitulation/exhaustion, providing a much stronger mean-reversion edge than a price drop on low volume."
+formula: |
+  -(5d return) * (daily volume / 20d average volume)
+compute_fn_path: "research.llm_candidates.Gemini_round_01.compute_fns:volume_exhaustion_reversal"
+required_fields: ["close", "volume"]
+suitable_horizon: [5, 10]
+suitable_universe: "expanded_53"
+suitable_regime: ["BULL", "RISK_ON", "NEUTRAL", "CAUTIOUS"]
+expected_edge: "positive, IC 0.02-0.04 (highly effective at short horizons)"
+expected_risk: "Catching a falling knife: the stock is crashing due to devastating fundamental news (e.g., earnings miss, bankruptcy) where volume indicates smart money exiting."
+possible_failure_modes:
+  - "Earnings gap downs where the trend continues downwards for weeks."
+  - "CRISIS regime liquidations where mean-reversion completely breaks down."
+novelty_vs_existing_factors: "Explicitly interacts 'reversal_5d' with 'volume_surge_20d' via multiplication to isolate capitulation events, filtering out low-conviction drift."

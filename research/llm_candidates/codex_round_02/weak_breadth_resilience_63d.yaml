@@ -1,0 +1,30 @@
+# Source: Codex (external LLM handoff per docs/llm_external_llm_handoff.md)
+# Round: 20
+# Submitted: 2026-04-21
+factor_name: "weak_breadth_resilience_63d"
+hypothesis: >
+  Stocks that keep performing when the panel's breadth is weak may have
+  more robust idiosyncratic demand than names that only rise when the
+  whole universe is going up together.
+formula: |
+  ret = close.pct_change()
+  breadth = mean(ret > 0 across symbols)
+  weak_breadth_mask = (breadth < 0.4)
+  feat_raw = rolling_mean(ret where weak_breadth_mask, window=63, min_periods=15)
+  feat = cross-sectional z-score(feat_raw.shift(1))
+compute_fn_path: "research.llm_candidates.codex_round_02.compute_fns:weak_breadth_resilience_63d"
+required_fields: ["close"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: [NEUTRAL, CAUTIOUS, RISK_OFF]
+expected_edge: "positive, IC 0.02-0.04 if weak-breadth leadership persists"
+expected_risk: "Sensitive to panel composition and may become noisy when breadth clusters near threshold"
+possible_failure_modes:
+  - "threshold dependence at breadth=0.4"
+  - "few weak-breadth days in strong bull runs"
+  - "can overlap with defensive crowding"
+novelty_vs_existing_factors: >
+  advance_ratio_10d captures market-wide breadth as a scalar regime
+  signal; this candidate instead asks which individual symbols hold up
+  best conditional on weak breadth. That conditional cross-sectional
+  angle is new.

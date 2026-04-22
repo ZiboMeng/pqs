@@ -1,0 +1,28 @@
+# Source: Codex (external LLM handoff per docs/llm_external_llm_handoff.md)
+# Round: 21
+# Submitted: 2026-04-21
+factor_name: "rebound_asymmetry_63d"
+hypothesis: >
+  Some stocks exhibit a favorable balance between average upside capture
+  and downside damage. A higher upside/downside asymmetry ratio may
+  identify cleaner compounding paths than simple Sharpe alone.
+formula: |
+  daily_ret = close.pct_change()
+  up_capture = rolling_mean(max(daily_ret, 0), 63)
+  down_capture = rolling_mean(abs(min(daily_ret, 0)), 63)
+  feat_raw = up_capture / down_capture
+  feat = cross-sectional z-score(feat_raw.shift(1))
+compute_fn_path: "research.llm_candidates.codex_round_03.compute_fns:rebound_asymmetry_63d"
+required_fields: ["close"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: [all]
+expected_edge: "positive, IC 0.015-0.03 if asymmetry matters beyond standard quality"
+expected_risk: "Can overlap with rolling Sharpe / quality family"
+possible_failure_modes:
+  - "degenerates toward quality"
+  - "unstable when downside capture is very small"
+  - "can over-favor low-vol defensives in bull markets"
+novelty_vs_existing_factors: >
+  Related to quality but uses upside/downside capture asymmetry instead
+  of mean/std Sharpe. It measures payoff shape, not just volatility-adjusted return.

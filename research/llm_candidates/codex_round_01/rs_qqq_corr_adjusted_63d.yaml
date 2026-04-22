@@ -1,0 +1,30 @@
+# Source: Codex (external LLM handoff per docs/llm_external_llm_handoff.md)
+# Round: 19
+# Submitted: 2026-04-21
+factor_name: "rs_qqq_corr_adjusted_63d"
+hypothesis: >
+  Outperformance versus QQQ is more valuable when it comes from stocks
+  that are not simply high-correlation QQQ shadows; relative strength
+  adjusted by benchmark correlation may isolate more idiosyncratic alpha.
+formula: |
+  ret = close.pct_change()
+  rs_63 = close.pct_change(63) - QQQ_close.pct_change(63)
+  corr_63 = ret.rolling(63, min_periods=40).corr(ret["QQQ"])
+  feat_raw = rs_63 * (1 - corr_63.clip(-1, 1))
+  feat = cross-sectional z-score(feat_raw.shift(1))
+compute_fn_path: "research.llm_candidates.codex_round_01.compute_fns:rs_qqq_corr_adjusted_63d"
+required_fields: ["close"]
+suitable_horizon: [21, 63]
+suitable_universe: "tech_heavy"
+suitable_regime: [BULL, RISK_ON, NEUTRAL]
+expected_edge: "positive, IC 0.02-0.04 if idiosyncratic QQQ outperformance is more persistent than pure beta exposure"
+expected_risk: "Depends on QQQ presence and may over-penalize genuine leaders during broad tech momentum phases"
+possible_failure_modes:
+  - "high collinearity with rs_vs_qqq_63d"
+  - "correlation penalty may suppress legitimate tech leadership"
+  - "fails outside tech-heavy subpanels where QQQ linkage is weak"
+novelty_vs_existing_factors: >
+  Existing candidates include rs_vs_qqq_63d and regime-conditioned QQQ
+  relative strength, but none explicitly discount benchmark-relative
+  strength by rolling correlation to QQQ. This adds a benchmark-relative
+  idiosyncrasy filter rather than a raw relative-return signal.

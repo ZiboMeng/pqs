@@ -1,0 +1,28 @@
+# Source: Codex (external LLM handoff per docs/llm_external_llm_handoff.md)
+# Round: 21
+# Submitted: 2026-04-21
+factor_name: "return_path_fragmentation_63d"
+hypothesis: >
+  Two names can post the same 63-day return, but the one with fewer
+  sign flips in daily returns may represent a more coherent trend and a
+  stronger forward continuation profile.
+formula: |
+  daily_ret = close.pct_change()
+  net_ret_63 = close.pct_change(63)
+  fragmentation = rolling_mean(sign(daily_ret) changes, 63)
+  feat_raw = net_ret_63 / (1 + fragmentation)
+  feat = cross-sectional z-score(feat_raw.shift(1))
+compute_fn_path: "research.llm_candidates.codex_round_03.compute_fns:return_path_fragmentation_63d"
+required_fields: ["close"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: [BULL, RISK_ON, NEUTRAL]
+expected_edge: "positive, IC 0.02-0.05 if smoother trends persist longer"
+expected_risk: "Can reward overextended monotonic runs right before reversal"
+possible_failure_modes:
+  - "late-stage trends reverse sharply"
+  - "fragmentation metric can be noisy when returns cluster near zero"
+  - "can correlate with low-vol / momentum hybrids"
+novelty_vs_existing_factors: >
+  Distinct from endpoint momentum and path acceleration because it uses
+  path fragmentation, not return magnitude or slope change.

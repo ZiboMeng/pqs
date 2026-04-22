@@ -1,0 +1,15 @@
+factor_name: "volatility_squeeze_20d_gemini"
+hypothesis: "Stocks experiencing extremely low recent volatility relative to their long-term average (consolidation) that still maintain positive short-term returns are primed for upward breakouts."
+formula: |
+  z-score(20d return) / (20d realized volatility / 126d realized volatility)
+compute_fn_path: "research.llm_candidates.Gemini_round_01.compute_fns:volatility_squeeze_20d_gemini"
+required_fields: ["close"]
+suitable_horizon: [5, 10, 21]
+suitable_universe: "expanded_53"
+suitable_regime: ["BULL", "RISK_ON", "NEUTRAL"]
+expected_edge: "positive, IC 0.015-0.03"
+expected_risk: "Whipsaws in choppy, directionless markets (NEUTRAL regimes) where breakouts fail."
+possible_failure_modes:
+  - "Breakout traps: Price drops sharply immediately after the squeeze phase."
+  - "Low-volatility anomalies in inherently dead/illiquid assets."
+novelty_vs_existing_factors: "Combines return with a volatility RATIO (short-term vs long-term) to detect consolidation, unlike existing risk-adjusted momentum which uses pure recent volatility."

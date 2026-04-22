@@ -1,0 +1,29 @@
+# Source: Codex (external LLM handoff per docs/llm_external_llm_handoff.md)
+# Round: 20
+# Submitted: 2026-04-21
+factor_name: "downside_resilience_63d"
+hypothesis: >
+  Stocks that lose less, or even stay positive, on recent SPY-down days
+  may reflect hidden demand and institutional sponsorship that is not
+  visible in plain 63-day endpoint momentum.
+formula: |
+  ret = close.pct_change()
+  spy_down_mask = (SPY_ret < 0)
+  feat_raw = rolling_mean(ret where spy_down_mask, window=63, min_periods=15)
+  feat = cross-sectional z-score(feat_raw.shift(1))
+compute_fn_path: "research.llm_candidates.codex_round_02.compute_fns:downside_resilience_63d"
+required_fields: ["close"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: [CAUTIOUS, RISK_OFF, NEUTRAL]
+expected_edge: "positive, IC 0.02-0.05 if downside defense is rewarded cross-sectionally"
+expected_risk: "Can drift toward low-beta defensives and lag badly in strong risk-on melt-ups"
+possible_failure_modes:
+  - "collapses in momentum-led bull phases"
+  - "few SPY-down observations in very calm regimes"
+  - "can overweight crowded defensive names"
+novelty_vs_existing_factors: >
+  Existing factors measure momentum, drawdown, and relative strength in
+  unconditional form. This candidate isolates performance specifically
+  on market-down days, which is not directly represented in the current
+  registry.

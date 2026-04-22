@@ -1,0 +1,33 @@
+# Source: Codex (external LLM handoff per docs/llm_external_llm_handoff.md)
+# Round: 20
+# Submitted: 2026-04-21
+factor_name: "weak_market_relative_strength_63d"
+hypothesis: >
+  Relative strength that appears specifically when the market is weak
+  may be more informative than unconditional relative strength, because
+  it identifies names with asymmetric leadership rather than broad
+  beta-driven participation.
+formula: |
+  ret = close.pct_change()
+  spy_median_63 = rolling_median(SPY_ret, 63)
+  weak_mask = (SPY_ret < spy_median_63)
+  strong_mask = (SPY_ret > spy_median_63)
+  weak_mean = rolling_mean(ret where weak_mask, 63)
+  strong_mean = rolling_mean(ret where strong_mask, 63)
+  feat_raw = weak_mean - strong_mean
+  feat = cross-sectional z-score(feat_raw.shift(1))
+compute_fn_path: "research.llm_candidates.codex_round_02.compute_fns:weak_market_relative_strength_63d"
+required_fields: ["close"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: [NEUTRAL, CAUTIOUS, RISK_OFF]
+expected_edge: "positive, IC 0.02-0.04 if asymmetric strength in weak tapes persists"
+expected_risk: "May underperform in strong bull regimes because it downweights pure upside beta"
+possible_failure_modes:
+  - "degenerates toward defensive tilt"
+  - "median split can be unstable in low-vol periods"
+  - "overlaps with downside resilience if weak days dominate the window"
+novelty_vs_existing_factors: >
+  Unlike rs_vs_spy_63d or rs_vs_qqq_63d, this factor conditions strength
+  on market-state subsets and compares weak-market behavior directly to
+  strong-market behavior. That conditional contrast is new to the repo.

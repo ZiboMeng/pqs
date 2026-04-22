@@ -1,0 +1,14 @@
+factor_name: "regime_adjusted_quality_63d_gemini"
+hypothesis: "Quality (Sharpe ratio) is a defensive factor. Its alpha generation is weak in risk-on/bull regimes where speculative high-beta stocks rally, but highly valuable in cautious/risk-off regimes."
+formula: |
+  rolling_sharpe_63d * regime_multiplier (CRISIS:1.5, RISK_OFF:1.2, CAUTIOUS:1.0, BULL:0.5)
+compute_fn_path: "research.llm_candidates.Gemini_round_01.compute_fns:regime_adjusted_quality_63d_gemini"
+required_fields: ["close", "regime"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: ["all"]
+expected_edge: "positive, IC 0.015-0.03"
+expected_risk: "Underperformance during rapid V-shaped recoveries where the regime is still classified as cautious but speculative stocks are already rallying."
+possible_failure_modes:
+  - "Lag in regime detection causes the factor to overweight defensive stocks too late into a crash."
+novelty_vs_existing_factors: "Applies a dynamic regime overlay to the standard rolling Sharpe quality factor, ensuring the portfolio naturally rotates to high-quality assets when the macro environment deteriorates."
