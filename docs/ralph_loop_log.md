@@ -4481,3 +4481,51 @@ signal is regime-conditional.
 
 ### Commit
 - `4eaa2da` Deep-mining R16
+
+## Deep-Mining R17 — intraday factor regime-stratified IC
+
+### 目标
+R16 realized_vol_60m_21d 整体 IR +0.248 < 0.30 阈值。检查是否 regime-conditional
+(某些 regime 里强信号，其他弱)。
+
+### 结果 (2015-2026, 15-sym universe, 21d forward return)
+**realized_vol_60m_21d**:
+| Regime | n | IC | IR |
+|---|---:|---:|---:|
+| BULL | 818 | +0.110 | +0.279 |
+| RISK_ON | 489 | +0.086 | +0.185 |
+| NEUTRAL | 399 | +0.131 | +0.313 ⭐ |
+| CAUTIOUS | 559 | +0.107 | +0.227 |
+| RISK_OFF | 330 | +0.023 | +0.046 |
+| **CRISIS** | 162 | **+0.321** | **+0.792** ⭐⭐ |
+
+**intraday_autocorr_21d**: 只 RISK_OFF 有用 (IR +0.281)，CRISIS 里 sign flip
+
+**intraday_vol_ratio_21d**: 跨 regime 完全翻符号 (BULL -0.22, CRISIS +0.21)
+— 不可用作稳定 factor
+
+### Insight
+1. `realized_vol_60m_21d` 是 **regime-conditional factor**: NEUTRAL + CRISIS
+   最强，RISK_OFF 几乎无信号
+2. CRISIS IR 0.792 极强但样本 n=162 稀疏，需慎用
+3. 可构造 **regime-gated intraday vol** 候选: 仅在 {BULL, NEUTRAL, CRISIS}
+   regime 里 active
+4. intraday_vol_ratio sign flip 说明 **市场阶段决定信号方向** — 不适合线性
+   composite，需 regime-conditional 结构
+
+### §11.3 Decision
+realized_vol_60m_21d 已在 RESEARCH_FACTORS。本轮发现不触发新 auto-add
+（是现有 factor 的 regime attribution，非新 factor）。
+
+**为未来轮次**: 如要新候选，应构造
+`realized_vol_60m_21d_regime_gated` — `realized_vol_60m × (regime ∈ {BULL, NEUTRAL, CRISIS})`.
+本轮不实施（regime handling 在 generate_all_factors 里需要显式 regime 参数，改动大）。
+记入 open item 作为 R18 multi-TF timing 研究的 input。
+
+### 下一轮 → R18
+PRD §2 R18: Multi-TF timing threshold sweep (60m/30m/15m confirmation thresholds).
+`config/risk.yaml::intraday_timing` 的 `execute_threshold` / `min_timing_scale`
+参数 grid search 对 paper trading 效果的影响。
+
+### Commit
+- `<待填>`
