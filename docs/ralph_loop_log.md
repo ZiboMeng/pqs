@@ -4914,4 +4914,4 @@ Artifacts:
 Layer 1 objective criteria (liquidity, history, price floor)。
 
 ### Commit
-- `<待填>`
+- `9d87569` Deep-mining R35
