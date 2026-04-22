@@ -4441,3 +4441,43 @@ PRD §2 Track B R16: Intraday bar-by-bar baseline (60m universe replay)。
 
 ### Commit
 - `a9dd04b` Deep-mining R14+R15
+
+## Deep-Mining R16 — Track B intraday baseline
+
+### 目标
+PRD §2 Track B R16: intraday bar-by-bar baseline + 确认 intraday factors
+有可用信号。
+
+### 做了什么
+Generate_all_factors(intraday_bars_60m=...) on 15-sym universe (Mag7 + 
+leveraged + sector ETFs), 2015-2026 window. IC screen on 3 intraday-specific
+factors.
+
+### 结果 (11 年 panel, 2757 dates)
+| Factor | Mean IC | IR | 备注 |
+|---|---:|---:|---|
+| **realized_vol_60m_21d** | **+0.1101** | **+0.248** | 11yr panel 上强于 LLM Round 5 first-look (+0.10) |
+| intraday_autocorr_21d | +0.027 | +0.089 | 弱 |
+| intraday_vol_ratio_21d | -0.009 | -0.027 | 噪声 |
+
+### §11.3 Decision
+`realized_vol_60m_21d` 已在 RESEARCH_FACTORS (since LLM Round 5)。
+
+**Novelty check**: IR +0.248 低于 0.30 阈值 → **不满足 §11.3 deep_check PASS
+criterion**（需 OOS IR >= 0.30）。加上此 factor 现有 RESEARCH 身份，无需
+新 register 动作。
+
+### 新问题
+Intraday factor signal **alive but marginal**。在 daily horizon (21d forward return)
+上用 60m intraday 特征只够 IR +0.25。要用更多 intraday signal 需：
+- 更短 horizon（5d, 10d forward）
+- Per-bar mining（非 daily aggregate）
+- 多 TF 组合 (60m + 30m + 15m 联合，PRD R18 覆盖)
+
+### 下一轮 → R17
+PRD §2 Track B R17: realized vol + intraday autocorr research (regime stratification).
+Test IR within each regime (BULL/NEUTRAL/RISK_OFF/CRISIS/etc) to see if intraday
+signal is regime-conditional.
+
+### Commit
+- `<待填>`
