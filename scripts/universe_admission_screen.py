@@ -121,11 +121,13 @@ def _check_liquidity(
     """ADV60 dollar volume + persistence check."""
     if df.empty or "volume" not in df.columns:
         return {"ok_extended": False, "ok_core": False, "adv60": 0.0,
-                "persistence_ok": False, "reason": "missing_volume"}
+                "persistence": 0.0, "persistence_ok": False,
+                "reason": "missing_volume"}
     recent = df.tail(60)
     if len(recent) < 60:
         return {"ok_extended": False, "ok_core": False, "adv60": 0.0,
-                "persistence_ok": False, "reason": "insufficient_history"}
+                "persistence": 0.0, "persistence_ok": False,
+                "reason": "insufficient_history"}
     # ADV20 per-day dollar volume
     per_day_dv = (recent["close"] * recent["volume"]).values
     adv60 = float(np.mean(per_day_dv))

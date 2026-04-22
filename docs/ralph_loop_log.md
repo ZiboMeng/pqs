@@ -4915,3 +4915,47 @@ Layer 1 objective criteria (liquidity, history, price floor)。
 
 ### Commit
 - `9d87569` Deep-mining R35
+
+## Deep-Mining R36 — Layer 1 objective admission screen on S&P 500
+
+### 做了什么
+修复 `universe_admission_screen.py` 的 `persistence` KeyError（早期返回
+分支缺字段）。对 513 S&P 500 pool 跑 Layer 1 客观准入筛选：security
+type / listing history ≥ 504d / price floor / ADV60 + 持续性 / data
+completeness + SPY overlap。
+
+### 结果
+| Tier | Count | % |
+|---|---:|---:|
+| **CORE** (adv60≥$50M, price≥$10, history≥2y) | **495** | 96.5% |
+| EXTENDED (adv60≥$20M) | 5 | 1.0% |
+| WATCH (history <2y, discovery ok) | 4 | 0.8% |
+| REJECT (data/history/liquidity fail) | 9 | 1.8% |
+
+- CORE + EXTENDED = **500 admitted** out of 513
+- WATCH (4): EXE / SNDK / SW / XYZ — all recent IPOs/spin-offs (291-449d history)
+- REJECT (9): CSRA / GGP / MBIA / MRSH / NXP / PSKY / Q / SCANA / TSYS — delisted / merged / failed liquidity
+- EXTENDED (5): ADT / ERIE / L / NWS / SAIC — marginal liquidity ($30-65M ADV)
+- CORE median adv60 = **$349M**, min = $56M
+
+### 跑了哪些验证
+- R36 admission CSV 513 rows, tier split matches prior R35 alpha audit pool
+- Fix verified: no more `KeyError: 'persistence'` after adding default in
+  both early-return branches of `_check_liquidity`
+
+### Insight
+S&P 500 pool 在 Layer 1 objective filters 下 **500/513 = 97.5%** 通过 —
+liquidity/history 基本不是 bottleneck。真实筛选必须由 R37 risk labels +
+R35 alpha classification 组合完成。
+
+### 合成 KEEP 池（为 R37/R38 建底）
+- R35 KEEP (alpha/sharpe): 362
+- R36 CORE+EXTENDED (admission): 500
+- 交集即可直接用于 R38 universe expansion proposal
+
+### 下一轮 → R37
+Risk labels (sector / market cap tier / high-beta flag) + priority bucket
+assignment on R35 KEEP ∩ R36 admitted 池，输出 per-ticker risk profile。
+
+### Commit
+- `<TBD>` Deep-mining R36
