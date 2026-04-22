@@ -4440,4 +4440,4 @@ PRD §2 Track B R16: Intraday bar-by-bar baseline (60m universe replay)。
 数据已 ready (data/intraday/60m 有 32 syms)。
 
 ### Commit
-- `<待填>`
+- `a9dd04b` Deep-mining R14+R15
