@@ -4528,4 +4528,4 @@ PRD §2 R18: Multi-TF timing threshold sweep (60m/30m/15m confirmation threshold
 参数 grid search 对 paper trading 效果的影响。
 
 ### Commit
-- `<待填>`
+- `649e522` Deep-mining R17
