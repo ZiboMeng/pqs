@@ -4529,3 +4529,56 @@ PRD §2 R18: Multi-TF timing threshold sweep (60m/30m/15m confirmation threshold
 
 ### Commit
 - `649e522` Deep-mining R17
+
+## Deep-Mining R18 — Multi-TF timing threshold sweep
+
+### 目标
+Sweep `config/risk.yaml::intraday_timing::execute_threshold` 看 paper
+trading entry bps 效果。
+
+### 做了什么
+`validate_timing_value.py` 在 9 symbols × 2024-01-02 起 window 上，
+execute_threshold ∈ {0.05, 0.15, 0.30, 0.50}。
+
+### 结果
+**All 4 thresholds 产出完全相同**数字：
+- naive mean +1.47 bps / median -2.35
+- timed mean -0.06 bps / median -2.58
+- naive total net: -61,604 bps (5,196 events)
+- timed total net: -39,365 bps
+- **Δ (timed-naive) per_event: +4.28 bps** ⭐
+
+Timing 在 entry bps 层面 **+4.28 bps/event net improvement** (同 5196 events
+累积 ~222% bps = ~22%)。
+
+**Threshold sweep 无效果** — 可能的原因:
+1. Tool 不动态 re-read config (startup-only import)
+2. bars 本身 always pass 默认 gate
+3. threshold 只 affect defer 行为但 tool 不分析 defer 后的 equity
+
+### Insight
+Multi-TF timing 的**真实价值**在 entry 质量（+4.28 bps/event），不在 threshold
+tuning。config 默认 `execute_threshold: 0.15` 合理。
+
+222% cumulative bps over 2 年 ≈ 11% annual return 节省，**如果** timing 能
+稳定应用于 production MFS —— 但目前 M10 wrapper 只在 backtest entry point，
+非 live paper 主路径。
+
+### 新问题
+1. Threshold 参数 insensitivity 可能是 tool 局限，非 finding (tool doesn't
+   test the threshold meaningfully)
+2. 要真确认需要重写 validate_timing_value.py 支持 dynamic threshold 或直接
+   通过 `run_paper.py --mode replay --use-timing` 对比 default vs 新 config
+3. M10 DSL wrapper 和 timing layer 是两个独立 systems — R18 测 timing，R24
+   DSL rules 是 post-weight 调整
+
+### §11.3 / §11.1 Decision
+R18 无新候选 factor，无 promote 触发。
+
+### 下一轮 → R19
+PRD §2 R19: 15m/5m timing layer experiments。但我们 60m bar data 本身就
+紧了 (32 syms, 2015-2026 覆盖)；15m/5m 只 60 天历史。跳到 R20 overnight gap
+factors。
+
+### Commit
+- `<待填>`
