@@ -4310,3 +4310,40 @@ R11 跳到 Track A R12 multi-horizon composite。
 
 ### Commit
 - `d55d425` Deep-mining R10
+
+## Deep-Mining R11 + R12 — multi-horizon composite (R11 skipped)
+
+### R11 跳过
+R11 PRD 原为 "continue Gemini/Codex"，但用户休息无法新 seed。跳到 R12。
+
+### R12 目标 / 做了什么
+Track A R12 PRD §2: multi-horizon composite factors 3 candidates。
+
+- `mom_blend_5_21_63_252` — Equal-weighted z-scored mom across 4 horizons
+- `sharpe_blend_21_63_126` — Rolling Sharpe blend 3 horizons
+- `mom_accel_5_21_63` — acceleration: short - long momentum rank
+
+### 结果
+| # | Candidate | Funnel verdict | IC | Deep IR | Action |
+|---|---|---|---:|---:|---|
+| 1 | mom_blend_5_21_63_252 | **ARCHIVE** | +0.011 | — | drop (IC 弱) |
+| 2 | mom_accel_5_21_63 | **ARCHIVE** | -0.005 | — | drop (噪声) |
+| 3 | sharpe_blend_21_63_126 | NEEDS_REVIEW (ρ+0.72) | — | **+0.136 FAIL** | drop |
+
+**Per §11.3**: 0 added.
+
+### 新问题
+Multi-horizon linear 组合 IC 比单一最强 horizon 差 —— 跨 horizon z-score 平均
+后 short 和 long 互相抵消。`mom_252d` 独立 IC +0.036 > blend +0.011。
+
+**Insight**: 已有 mom_21d / mom_63d / mom_252d 三个独立 horizon factor 存在
+registry; MFS composite 可以通过 factor_weights 分别加权 —— 不需要预先 blend。
+Blend 作为 single factor 反而减少 optimizer 调整灵活度。
+
+### 下一轮 → R13
+PRD §2 R12-R13 是 multi-horizon composite，R12 已尽了探索。R13 改方向: 
+cross-sectional rank-change factor (PRD §2 R14 提前到 R13 位置)。
+候选: rank_change_21d_63d, rank_persistence_126d (不同 rank-based features)。
+
+### Commit
+- `<待填>`

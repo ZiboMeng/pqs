@@ -1,0 +1,20 @@
+# Source: Claude (deep-mining R12 per PRD)
+# Round: 25
+# Submitted: 2026-04-22
+# Seed: PRD Track A R12-R13 multi-horizon composite
+factor_name: "mom_accel_5_21_63"
+hypothesis: "Multi-horizon blend of same signal family captures persistence at multiple time scales."
+formula: |
+  See research.llm_candidates.round_25.compute_fns:mom_accel_5_21_63
+  Uses rolling pct_change / rolling mean-std across 3-4 horizons with shift(1) lag applied.
+compute_fn_path: "research.llm_candidates.round_25.compute_fns:mom_accel_5_21_63"
+required_fields: ["close"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: [all]
+expected_edge: "moderate positive, IC 0.04-0.08"
+expected_risk: "may be highly correlated with the strongest constituent horizon"
+possible_failure_modes:
+  - "Long-horizon component dominates and correlates with mom_252d"
+  - "Z-score aggregation over sparse early data is unstable"
+novelty_vs_existing_factors: "Individual horizon factors exist (mom_5, mom_21, mom_63, mom_252) but no cross-horizon blend"
