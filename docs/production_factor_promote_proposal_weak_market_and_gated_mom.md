@@ -89,6 +89,20 @@ kill switch + target_vol in production should clamp.
 - C_weak_market config: +21.89% CAGR, +3.42% vs QQQ
 - **NOT yet tested through production MFS + acceptance pack v2**
 
+### R21 cost sensitivity (commit `4c589fd` ... ` TBD`)
+- Composite C (same as R14) under different cost_bps × 1x/2x stress:
+
+| cost_bps | 1x CAGR | 2x CAGR | vs QQQ 2x |
+|---:|---:|---:|---:|
+| 5  | 22.13% | 21.89% | +3.42pt |
+| 10 | 21.89% | 21.39% | +2.92pt |
+| 20 | 21.39% | 20.41% | +1.94pt |
+| 30 | 20.90% | 19.44% | +0.97pt |
+
+**Cost robustness**: even at cost 30 bps × 2x = 60 bps effective, strategy
+still beats QQQ (+0.97pt). In production, realistic cost ~10 bps so
+margin of safety is solid.
+
 ---
 
 ## Decision framework for user

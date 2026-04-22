@@ -4642,3 +4642,34 @@ existing intraday composite under different cost multipliers.
 
 ### Commit
 - `4c589fd` Deep-mining R19+R20
+
+## Deep-Mining R21 — cost sensitivity sweep
+
+### 目标
+R14 best composite (C_weak_market) 在不同成本下的稳定性。
+
+### 结果
+| cost_bps | 1x CAGR | 2x CAGR | vs QQQ |
+|---:|---:|---:|---:|
+| 5 | 22.13% | 21.89% | +3.42 |
+| 10 | 21.89% | 21.39% | +2.92 |
+| 20 | 21.39% | 20.41% | +1.94 |
+| 30 | 20.90% | 19.44% | **+0.97** |
+
+**Cost robust PASS**: 即便 30 bps × 2x = 60 bps effective cost，仍 beat
+QQQ +0.97pt。Production 真实成本 ~10 bps，margin of safety 充足。
+
+### §11.1 Decision
+此 composite 不是 mining archive 里的 spec_id (来自 `llm_composite_backtest.py`)，
+无法直接走 `promote_strategy.py`。但 evidence 增强了 R14 proposal 可信度。
+
+**更新 proposal doc**: 加 R21 cost sensitivity 表格到
+`docs/production_factor_promote_proposal_weak_market_and_gated_mom.md`
+
+### 下一轮 → R22
+R22-R23: intraday composite strategy (R17 regime insight 应用)。尝试
+regime-aware composite: PRODUCTION factors + 在 CRISIS 时 overweight
+intraday vol signal, 在 BULL 时 overweight overnight gap signal。
+
+### Commit
+- `<待填>`
