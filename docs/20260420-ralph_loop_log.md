@@ -7479,3 +7479,75 @@ Loop productive scope 完结。继续 buffer round 边际价值已 exhausted。
 
 ### 11. Halt 条件检查 (§15.3)
 全部通过
+
+---
+
+## R-feat-v1-round-25
+
+**时间**: 2026-04-23
+**Step**: 7 tooling extension (--universe-size flag for funnel CLI)
+
+### 1. 本轮主题
+修 R24 发现的 funnel CLI 15-sym 硬编码限制。加 `--universe-size` flag
+让 cross-sectional 候选能在 full 79-sym universe 评估。
+
+### 2. 本轮目标
+- `scripts/llm_factor_propose.py` 接 `--universe-size INT|full`
+- 默认仍 15（保持向后兼容）
+- 验证：R24 候选在 `--universe-size full` 下 verdict 从 ARCHIVE
+  正确 flip 到 NEEDS_HUMAN_REVIEW
+
+### 3. 为什么这轮优先做它
+R24 发现了 tooling-level measurement bug：funnel 在 15-sym panel 上
+archives 掉真实有 cross-sectional alpha 的 candidate。这是 universal
+tooling issue，不修下次所有新 cross-sectional candidate 都会 under-
+reported。
+
+### 4. 做了什么
+1. `_load_price_and_factors` 加 `n_symbols` 参数
+2. CLI 加 `--universe-size` flag (int 或 "full")
+3. main() 把参数传下去
+4. Re-run R23 candidate with `--universe-size full` 验证
+
+### 5. 修改了哪些文件
+```
+M  scripts/llm_factor_propose.py  (+25 -5)
+```
+
+### 6. 跑了哪些测试 / 实验
+- `--universe-size 15` (default): R23 candidate 仍 ARCHIVE IC -0.054
+  (backward-compat 正确)
+- `--universe-size full`: R23 candidate 现 NEEDS_HUMAN_REVIEW IC -0.085
+  IR -0.34 (正确 routing)
+- 完整 pytest: 1271 passed (unchanged)
+
+### 7. 结果如何
+
+**Routing 正确 flip**:
+- R24 verdict: ARCHIVE (15-sym n_symbols cap hard-coded)
+- R25 verdict: NEEDS_HUMAN_REVIEW (79-sym full universe)
+
+Note: IC magnitude -0.085 here < R19 -0.325。两个 pipeline 差异：
+- R19 用 h=5 fwd returns, full-history panel (2865 dates)
+- R25 funnel 用 h=21 默认, 2022+ panel (1317 dates)
+- Signal concentration on h=5 比 h=21 强（见 R21 horizon sweep）
+- Funnel 短 panel (2022+) 也避免了 pre-2023 peak 期
+
+所以 R25 的 -0.085 是 recent-period + longer-horizon 的 under-
+estimate。R18-R22 的 -0.325+ 才是 full-power 数字。两者都 document
+在 R23 yaml 的 expected_edge。
+
+### 8. 当前发现的新问题 / 新机会
+- Funnel 的 post-2022-01-01 cutoff hard-coded at line 103；未来可让
+  它也成 CLI flag — 但本 loop 不做了
+- 新 universe-size flag 立即 benefits 所有 future LLM candidate runs
+  做 cross-sectional signal 测试
+
+### 9. 剩余风险
+无
+
+### 10. 下一轮建议方向
+Loop 实质 productive scope 完结
+
+### 11. Halt 条件检查 (§15.3)
+全部通过
