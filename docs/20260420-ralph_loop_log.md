@@ -10543,3 +10543,178 @@ missing-open 有 `_skipped_missing_open` 计数器 + ghost cleanup。
 - 条件 5: NO (zero findings requiring schema migration or new PRD)
 
 → 继续 R3（tests + docs sync + baseline rebuild）
+
+---
+
+## R-audit-round-03
+
+**时间**: 2026-04-24
+**Commit**: `d53b403`
+**Focus**: Tests + docs sync + baseline rebuild + fetch_data runtime bug fix
+
+### 1. 本轮主题
+PRD §3 Round 3：integration tests + README.md accuracy sweep + baseline
+snapshot regeneration + CLAUDE.md drift check。**本轮额外**：user 报
+`fetch_data.py` 在 fresh 15m/30m download 时 yfinance 返回
+"requested range must be within the last 60 days" 错误；audit 中断修
+这个 runtime bug。
+
+### 2. 本轮目标
+- `pytest tests/integration` 全量跑
+- README.md 扫过所有 numeric claims / script refs / feature counts
+- 刷新 `data/baseline/latest.json`
+- CLAUDE.md "Current TODO" / "Confirmed Done" drift check
+- 修 user-reported `fetch_data.py` 15m/30m lookback bug
+- Emit `AUDIT3DONE` promise（若全部 green）
+
+### 3. 为什么这轮优先做它
+R1 + R2 证明了 core + I/O 没 bug。R3 是面向用户的"治理"一轮：README
+是新用户第一入口，不能有错的数字；baseline snapshot 是工具链用来判断
+"测试是否回归" 的基线。**加上 user 实际在用 fetch_data 时碰到的
+bug**，这轮必须实打实地跑 + 改。
+
+### 4. 做了什么
+
+**(a) Integration tests 全跑**:
+```
+tests/integration: 45 passed, 1 xfailed in 42.48s
+  test_backtest_paper_consistency: 5 pass + 1 xfail
+  test_daily_to_timing_e2e: 6 pass
+  test_multi_tf_time_consistency: 6 pass
+  test_multitf_execution_contract: 4 pass
+  test_single_source_of_truth: 7 pass
+  test_stage3_acceptance: 16 pass
+```
+
+**(b) README.md stale-claim sweep** — 9 entries fixed:
+| Before | After |
+|---|---|
+| "2026-04-22, post deep-mining 50-round" 头 | "2026-04-24, post RCMv1 + 3-round audit" |
+| "52 交易标的" (3 occurrences) | "79 交易标的" |
+| "Mining archive: 302 trials / 12 lineages" | split: production archive.db + research rcm_archive.db (222 trials / 3 lineages) |
+| "7 PROD + 41 RESEARCH" | "7 + 64 RESEARCH" (RCMv1 added 12 orthogonal features) |
+| "~1180 tests + ~30 integration, 1211 passed" | "1341 unit + 46 integration, 1386 pass" |
+| "745 passing tests" (Phase B summary) | "745 passing tests (at end of Phase B; historical)" |
+| (missing) | Added §17.10 RCMv1 complete block |
+| (missing) | Added §17.11 Codebase Audit 3-round complete block |
+
+**(c) `scripts/build_research_baseline_snapshot.py` regenerated**:
+```
+Baseline snapshot → data/baseline/latest.json (gitignored)
+Git HEAD: 829b5435ad08 (→ d53b403 after commit)
+Tests collected: 1388 (1341 unit + 47 integration; differs from full
+  run count by 1 due to xfail handling)
+Factor registry: 7 PROD / 64 RESEARCH / 8 MAP
+Universe: 79 tradable
+Production archive: 65 trials / 1 lineage (separate from rcm_archive)
+```
+
+**(d) CLAUDE.md drift fix**:
+Added compact "RCMv1 20-round COMPLETE" + "Codebase audit 3-round
+COMPLETE" headers at top of TODO section, each pointing to synthesis
+doc. Avoided re-growing CLAUDE.md (recent trim at 2620→1123 lines).
+
+**(e) `fetch_data.py` 15m/30m lookback bug fix (user-reported)**:
+Problem: `_INTRADAY_LOOKBACK_DAYS = 700` was hardcoded for ALL freqs,
+but yfinance supports:
+- 60m → 730 days
+- 30m → 60 days only
+- 15m → 60 days only
+- 5m → 60 days only
+- 1m → 30 days only
+
+Requesting 700d of 15m/30m → yfinance "requested range must be within
+the last N days" → empty DataFrame → logged as "可能退市". 这是 
+**false delisting warning**，实际只是 lookback 超限。
+
+Fix: 改成 per-freq dict:
+```python
+_INTRADAY_LOOKBACK_DAYS = {
+    "60m": 700, "30m": 55, "15m": 55, "5m": 55, "1m": 25,
+}
+_INTRADAY_LOOKBACK_FALLBACK = 55
+```
+
+Plus clamping in `download_intraday`:
+```python
+max_lookback_days = _INTRADAY_LOOKBACK_DAYS.get(freq, _INTRADAY_LOOKBACK_FALLBACK)
+earliest_start = end - pd.Timedelta(days=max_lookback_days)
+if start < earliest_start:
+    start = earliest_start  # debug log
+```
+
+Verified fix:
+```
+$ python scripts/fetch_data.py --intraday-only --symbols BRK-B
+[BRK-B] 下载 30m (from 2026-02-27)...  ← 55 days ago, within limit
+[BRK-B] 30m 保存完成 (507 行)
+[BRK-B] 下载 15m (from 2026-02-27)...
+[BRK-B] 15m 保存完成 (1014 行)
+日内下载完成: 2 更新, 1 跳过
+```
+
+Before the fix: 0 rows downloaded + "possibly delisted" false-positive.
+
+**(f) Full test suite post-R3**:
+```
+pytest -q: 1386 pass + 1 skipped + 1 xfailed in 135s. No regressions
+```
+
+### 5. 修改了哪些文件
+```
+M  README.md               (+18, -13)
+M  CLAUDE.md               (+19)
+M  scripts/fetch_data.py   (+27, -4)  ← real bug fix
+# regenerated (gitignored):
++  data/baseline/latest.json
++  data/baseline/snapshot_20260423T225532Z.json
+```
+
+### 6. 跑了哪些测试/实验
+- `pytest tests/integration -q`: 45 pass + 1 xfailed (42s)
+- `pytest -q`: 1386 pass + 1 skipped + 1 xfailed (135s) - post R3 changes
+- `python scripts/build_research_baseline_snapshot.py`: baseline reshipped
+- `python scripts/fetch_data.py --intraday-only --symbols BRK-B`: 
+  15m/30m 正常下载 507/1014 行（修复前 0 行）
+
+### 7. 结果如何
+
+**All three R3 gates pass**:
+- Integration tests: 45/46 pass (1 xfail expected)
+- README: 9 stale claims updated
+- Baseline: regenerated, 1388 tests collected, 79 universe, 7+64 factors
+- CLAUDE.md: compact drift fix
+
+**Bonus**: user-reported runtime bug in `fetch_data.py` for 15m/30m
+lookback — found, fixed, verified with real yfinance round-trip on
+BRK-B. 这是 R3 audit 唯一发现的 real bug（R1/R2 都是 0 bugs）。
+
+### 8. 当前发现的新问题/新机会
+
+**新机会（非 bug）**:
+- `scripts/fetch_data.py` 的 per-freq lookback 应该 centralize 到
+  `core/data/yfinance_provider.py` 作为 ABC-level constants，避免
+  其他 caller（比如 `scripts/build_bars_parquet.py`）有类似 bug。
+  Out of R3 scope (只要求 bug fix，不要求 refactor)。
+- README 仍有若干 "R34/R28/R38" 等 round references 用户可能看不懂；
+  未来可加个 glossary section。非 bug。
+
+### 9. 剩余风险
+无。Test suite 绿、baseline 刷新、README 与 code truth 一致。
+
+### 10. 下一轮建议方向
+无 R4 — 3/3 rounds 完成。Emit `AUDIT3DONE`。
+
+未来 audit cadence 建议: 每 10 rounds ralph-loop work 或每 2 周做一次
+同类 3-round audit。可重跑 `bash scripts/start_codebase_audit_loop.sh`
+即可。
+
+### 11. Halt 条件检查 (§4)
+- 条件 1: **YES (3/3 used)** — audit 完成
+- 条件 2: NO（1386 pass > 1341 baseline）
+- 条件 3: NO
+- 条件 4: NO
+- 条件 5: NO（fetch_data bug 在 scope 内修复）
+
+**AUDIT3DONE eligible**: ✅ All 3 rounds complete, test suite passes,
+README is synced, 1 user-reported bug fixed. Promise can emit.
