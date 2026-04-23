@@ -7994,3 +7994,103 @@ A  tests/unit/factors/test_family_b.py    (+140)
 - 其他不相关
 
 → 继续 R05 (Family C + D)
+
+---
+
+## R-rcm-v1-round-05
+
+**时间**: 2026-04-24
+**Commit**: `b749be1`
+**Step**: Step 3 (Feature Family C + D — **12/12 PRD features complete**)
+
+### 1. 本轮主题 / Step
+Step 3 收尾：Family C (3 liquidity/risk) + Family D (1 trend quality)
+一轮完成，PRD §5.2 12-feature scope 全部落地。
+
+### 2. 本轮目标
+- Family C: amihud_20d, downside_vol_20d, vol_ratio_5_20
+- Family D: trend_tstat_20d
+- 14 新单测
+- PRD §5.2 进度推到 12/12
+
+### 3. 为什么这轮优先做它
+R04 完成 Family B 后，C/D 还差 4 feature 全部是 T1（纯 OHLCV），不需
+等待 plumbing，一轮可收。积累完 12/12 后进 Step 4 mask 硬化更有序。
+
+### 4. 做了什么
+**Family C** (`_family_c_liquidity_risk`):
+- `amihud_20d`: Amihud illiquidity = mean(|ret| / dollar_vol, 20d)。
+  Conditional on volume_df（无 volume 则静默 omit）
+- `downside_vol_20d`: `ret.where(ret < 0).rolling(20).std()` —
+  对下行不对称的风险度量
+- `vol_ratio_5_20`: 5d std / 20d std — 期限结构压缩/扩张指标
+
+**Family D** (`_family_d_trend_quality`):
+- `trend_tstat_20d`: 滚动 20d OLS 回归 log(close) ~ t，返回 slope 的
+  t-stat。用 rolling.apply(raw=True) + 纯 numpy inner function。
+  normalizes raw slope by residual SE。
+
+### 5. 修改了哪些文件
+```
+M  core/factors/factor_generator.py       (+90)
+M  core/factors/factor_registry.py        (+11)
+A  tests/unit/factors/test_family_cd.py   (+200)
+```
+
+### 6. 跑了哪些测试 / 实验
+- `pytest tests/unit/factors/test_family_cd.py` 14/14 pass
+- Targeted: 24/24 pass (family_cd + registry)
+- 完整 suite: **1324 passed** (+14 from R04), 1 skipped, 1 xfailed
+
+### 7. 结果如何
+
+**Feature scope complete: PRD §5.2 12/12 **
+
+| Family | Count | Features |
+|---|---:|---|
+| A — Benchmark-relative | 4/4 | rel_spy_20d, rel_qqq_20d, beta_spy_60d, residual_mom_spy_20d |
+| B — Position/breakout | 4/4 | range_pos_252d, days_since_52w_high, breakout_20d_strength, dist_from_new_high_252 |
+| C — Liquidity/risk | 3/3 | amihud_20d, downside_vol_20d, vol_ratio_5_20 |
+| D — Trend quality | 1/1 | trend_tstat_20d |
+| **Total** | **12/12** | |
+
+Key verifications:
+- `amihud_20d`: low-volume stock has higher illiquidity (empirical 6x diff)
+- `downside_vol_20d` ≤ total_vol（invariant verified on sample dates）
+- `vol_ratio_5_20` 在 iid random panel 上 median ≈ 1；compression test
+  panel 上最后 bar ratio < 0.5 正确检测
+- `trend_tstat_20d` 在 log-linear rising 下 > 50，flat 下 ≈ 0，
+  declining 下 < -50 — 符合 OLS 理论预期
+- `amihud_20d` conditional-on-volume 正确：无 volume_df → 输出中不出现
+  该 feature（graceful omit）
+
+### 8. 当前发现的新问题 / 新机会
+- Family C `vol_ratio_5_20` 和既有 `vol_regime` (= -vol_21/vol_126) 语义
+  有点重叠，但 horizon 不同 (5/20 vs 21/126)，定位不同。Mining 层的
+  dedup check 会 surface 是否真冗余
+- `trend_tstat_20d` 用 rolling.apply 性能可接受但不是最优；如果未来
+  需要更多 t-stat 类 feature，可以考虑 vectorize 或用 numba engine
+- 12 features 完成后，Research Composite Miner (Step 5) 输入 pool
+  已定型 — 下一步 mask 硬化可以针对这 12 + existing 做统一处理
+
+### 9. 剩余风险
+- 无。所有 12 features 都是 pure function，无 side effect；0 regression
+
+### 10. 下一轮建议方向
+- **R06 (建议)**: Step 4 research_mask 硬化. Scope:
+  - 增强 panel builder 以 `apply_research_mask()` 替代 `fillna(0)`
+  - 为 IC screen / 未来 miner 提供统一 sample-definition 接口
+  - 估 2-3 rounds 完成 mask + miner integration groundwork
+- R07+: 进 Step 5 miner 本体（family-aware sampling, Optuna TPE, 
+  rcm_archive.db, objective function）
+- 预计进度: R06-R08 Step 4; R09-R13 Step 5; R14-R16 first run +
+  分析; R17+ buffer
+
+### 11. Halt 条件检查 (§13.3)
+- 条件 2 (plumbing 失败): NO — P1/P2 都 done; P3 (8 scripts) 先延后
+  到 Step 4 之后（不 block Step 3）
+- 条件 3 (接口回归): NO — 0 regression
+- 条件 7: 5/22
+- 其他不相关
+
+→ 继续 R06 (Step 4 mask 硬化)
