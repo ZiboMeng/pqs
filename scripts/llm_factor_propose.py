@@ -82,7 +82,7 @@ def _resolve_compute_fn(path: str):
     return getattr(mod, func_name)
 
 
-def _load_price_and_factors(cfg):
+def _load_price_and_factors(cfg, n_symbols: int = 15):
     """Minimal universe + factor snapshot for dedup + IC.
 
     PRD 20260423 R16: now loads OHLCV (not just close) and passes
@@ -92,6 +92,12 @@ def _load_price_and_factors(cfg):
     OHLC like close_to_high_proximity_21d / intraday_support_21d /
     range_compression_5_63 / xsec_volume_surge_5d) can be properly
     funneled. Discovered R15 4 candidates archived due to this gap.
+
+    PRD 20260423 R25: `n_symbols` parameter lets callers widen the
+    universe beyond the default top-15. R24 discovered that cross-
+    sectional signals (e.g. quality-gated reversal) under-perform on
+    a 15-symbol panel compared to the 79-symbol expanded universe.
+    Use `--universe-size full` to load the whole expanded set.
     """
     store = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
     uni = cfg.universe
@@ -101,10 +107,10 @@ def _load_price_and_factors(cfg):
     ))
     symbols = [s for s in all_syms
                if s not in uni.blacklist and s not in uni.macro_reference]
-    # Just load the top-15 for a reasonable dedup reference. The LLM
-    # auto-launch phase can expand this; scaffold keeps it fast.
+    # Use up to n_symbols. For wide cross-sectional signals set n_symbols
+    # = len(symbols) via --universe-size full.
     closes, opens, highs, lows, volumes = {}, {}, {}, {}, {}
-    for s in symbols[:15]:
+    for s in symbols[:n_symbols]:
         df = store.read(s, "1d")
         if df is None or df.empty or "close" not in df.columns:
             continue
@@ -146,6 +152,12 @@ def main():
                              "(shape + leakage check only; no dedup/IC)")
     parser.add_argument("--out-dir", default="data/ml/llm_candidates",
                         help="Where to write verdict JSON")
+    parser.add_argument("--universe-size", default="15",
+                        help="Number of symbols to load for IC screen "
+                             "(int, or 'full' for the complete expanded "
+                             "universe). Default 15 for fast dedup. "
+                             "Use 'full' for cross-sectional candidates "
+                             "per PRD R25 finding.")
     args = parser.parse_args()
 
     # Load candidate
@@ -180,7 +192,16 @@ def main():
     price_df, existing, extra_panels = None, None, {}
     if compute_fn is not None and not args.skip_data:
         cfg = load_config(Path(args.config_dir))
-        price_df, existing, extra_panels = _load_price_and_factors(cfg)
+        if args.universe_size == "full":
+            n_syms = 10_000  # effectively the whole universe
+        else:
+            try:
+                n_syms = int(args.universe_size)
+            except ValueError:
+                raise SystemExit(
+                    f"--universe-size must be int or 'full', got {args.universe_size!r}"
+                )
+        price_df, existing, extra_panels = _load_price_and_factors(cfg, n_symbols=n_syms)
         n_extra = sum(1 for v in extra_panels.values() if v is not None)
         logger.info(
             "Data loaded: price_df %s, %d existing factors, %d extra panels",
