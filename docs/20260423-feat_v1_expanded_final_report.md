@@ -2,7 +2,7 @@
 
 **Date**: 2026-04-23
 **PRD**: `docs/20260423-prd_research_feature_engineering_and_expanded_mining.md`
-**Ralph-loop range**: 11 rounds executed (max 16 allowed)
+**Ralph-loop range**: 13 rounds executed (max 16 allowed); 2 additional post-report buffer rounds (R12 leakage-heuristic fix, R13 factor_engine.make_forward_returns symmetric extension)
 **Lineage tag**: `post-2026-04-23-feat-v1-expanded`
 **Completion status**: Step 1-4 + 6-7 COMPLETE; Step 5 BLOCKED per §15.3 halt condition 7 (awaits user decision)
 **Commit range**: `06cc07a..829d56b`
@@ -46,7 +46,9 @@ autonomously).
 | R08 | `e194b1d` | 3-4 | Mining finished; halt condition 7 triggered; blocker doc |
 | R09 | `ef94686` | 6 | DSL ablation on df22a253dda6: +0.91pt CAGR, -0.51pt MaxDD |
 | R10 | `829d56b` | 7 | LLM sidecar on 5 candidates; regime_selectivity_spread_63d strongest |
-| R11 | (this) | 15.6 | Final report |
+| R11 | `7d0043c` | 15.6 | Final report (this file) |
+| R12 | `c7ca965` | 7.fix | Leakage heuristic: +`rolling_` / `cumsum` / `cumprod` / `ewm(` / `.ewm` lag keywords; +3 tests |
+| R13 | `40d3469` | 1.fix | `factor_engine.make_forward_returns` cc/oc/oo symmetric with R04 (evaluator-internal); +6 tests |
 
 Log entries: per-round 11-part Chinese reports in `docs/20260420-ralph_loop_log.md::R-feat-v1-round-NN`.
 
@@ -156,7 +158,7 @@ Per blocker doc §4, 4 paths forward:
 
 ### Test state
 
-- **1262 passed, 1 skipped, 1 xfailed** (from 1215 baseline pre-feat-v1, +47 new)
+- **1271 passed, 1 skipped, 1 xfailed** (from 1215 baseline pre-feat-v1, +56 new)
 - 0 regression
 - Pre-existing xfail (`TestQQQOutperformance::test_full_period_cagr_beats_qqq`) unchanged
 
