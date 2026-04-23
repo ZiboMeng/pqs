@@ -9434,3 +9434,192 @@ M  tests/unit/mining/test_research_miner.py  (+50, existing 1 test adjusted)
 - 其他不相关
 
 → 继续 R16
+
+## R-rcm-v1-round-16
+
+**时间**: 2026-04-24
+**Commit**: `ca945b7`
+**Step**: R15 fix 验证 — lag=1 mining + pre/post 对比
+
+### 1. 本轮主题 / Step
+R15 已 ship leakage fix (default `lag=1`)。R16 的目的是：
+1. 用 lag=1 重跑一次 mining (新 lineage)
+2. 诊断分析对比 pre/post
+3. 确认修复后真实 research signal 是什么
+
+### 2. 本轮目标
+- 跑 50 trials lag=1 under `post-2026-04-24-rcm-v1-lag1` lineage
+- analyze_research_miner_run.py 加 `--lag` flag 让 univariate IC 也
+  shift
+- 对比 R13 (lag=0) vs R16 (lag=1) top-K + PRD features 参与度
+
+### 3. 为什么这轮优先做它
+R15 commit 了 fix 但没 validate 在真实数据上。R16 若不跑，"leakage
+修复" 仅是 unit-test 验证，不知道修复后 PRD features 到底有没有信号。
+
+### 4. 做了什么
+**Mining**:
+```
+--trials 50 --seed 42 --lag 1
+--study rcm-v1-run-02-lag1
+--lineage post-2026-04-24-rcm-v1-lag1
+```
+3.5 分钟耗时，40 completed trials (同 R13 完成率)。
+
+**Analyzer patch**:
+- `_univariate_ic(..., lag: int = 1)` 默认 shift panel by 1
+- CLI `--lag 1` threading
+
+**Diagnostics run**:
+- 61 features 重算 univariate IC（lag=1 → 与 composite miner 一致）
+- top-10 + 12 PRD features pair-correlation
+
+### 5. 修改了哪些文件
+```
+M  scripts/analyze_research_miner_run.py   (+11, -2)
+# 新 artifacts（data/ gitignored）:
++  data/ml/research_miner/rcm-v1-run-02-lag1/ (top_20 + summary + 5 CSVs)
++  data/mining/rcm_archive.db 新增 40 rows under 新 lineage
++  data/mining/rcm_optuna.db 新增 1 study (rcm-v1-run-02-lag1)
+```
+
+### 6. 跑了哪些测试 / 实验
+
+**对比表**（关键）:
+
+| 指标 | R13 lag=0 | R16 lag=1 | Δ |
+|---|---|---|---|
+| Best IC_IR (composite top-1) | **+4.77** | **+0.50** | -4.27 (-89%) |
+| Best objective | +4.44 | +0.15 | -4.29 |
+| Avg IC_IR across trials | -1.28 | +0.18 | **翻转** |
+| Worst objective | -8.03 | -0.83 | 压缩 10x |
+| PRD-new in top-10 slots | 2/55 (3.6%) | **21/50 (42%)** | **+11.7x** |
+| Family B slots top-10 | 15 | 20 | +5 |
+| Pair correlations |rho|>=0.5 | 23 | 16 | -7 |
+
+**Top univariate IC_IR (lag=1)**:
+```
+hl_range              IR=+0.47       ← 短期波动 proxy
+drawup_from_252d_low  IR=+0.42  (B)  ← position family
+ret_5d                IR=+0.37       ← 短期 return  
+rs_vs_spy_126d        IR=+0.36  (A)  ← long-run 相对强弱
+max_dd_126d           IR=+0.33  (B)  ← drawdown 特征
+beta_spy_60d (PRD!)   IR=+0.33  (A)  ← beta exposure
+overnight_gap_5d      IR=+0.21       ← 隔夜回归
+downside_vol_20d(PRD!) IR=+0.20  (C)
+rs_vs_spy_21d         IR=+0.19  (A)
+amihud_20d (PRD!)     IR=+0.19  (C)  ← 流动性
+```
+
+**R14 那些"强 signal" 现在怎么样**:
+| Feature (R14 lag=0) | R14 IR | R16 IR (lag=1) |
+|---|---|---|
+| mean_rev_sma20 | +3.13 | **dropped out of top-10** |
+| mean_rev_sma50 | +2.93 | dropped |
+| volume_surge_20d | +1.67 | dropped |
+| reversal_5d/10d/21d | +1.55 | dropped |
+| **beta_spy_60d** | +0.30 | **+0.33** ✓ |
+| downside_vol_20d | +0.20 | **+0.20** ✓ |
+| amihud_20d | +0.17 | **+0.19** ✓ |
+
+这证明：R14 里"+3+" 的都是 shared-close leakage，真实信号在 0.1-0.5
+量级。PRD features 反而 robust，数值稳定。
+
+**Top-10 composite specs (R16)**:
+- #1-#4 都含：`max_dd_126d + days_since_52w_high + trend_tstat_20d`
+- `days_since_52w_high` (PRD) 出现在 10/10 trials（但 univariate 仅 +0.09）
+- `trend_tstat_20d` (PRD) 出现在 9/10（univariate -0.37）—— 说明这两
+  个 PRD feature 在 composite 中扮演**正交 / 互补** 角色，不是单独强
+  信号，而是让 composite diversify 抬高整体信号
+
+### 7. 结果如何
+
+**R15 fix 效力 — 已完全确认**:
+- IC_IR 从 literature-不现实 +4.77 → 合理 +0.50（10x 下降）
+- 整体分布从 heavy-tail 变为 compact
+- 旧 leakage features 全部退出 top
+- PRD features 大幅进入（3.6% → 42%）
+
+**PRD features 的价值 — R14 结论被 R16 推翻**:
+R14 认为 PRD 12 features "信号弱" —— 实际是被 leakage-boosted existing
+factors 不公平碾压。Apples-to-apples (lag=1) 下：
+- `beta_spy_60d` +0.33 IR 与 top existing factor 同档
+- 3/12 PRD features 直接进 top-10 univariate
+- 6/12 positive IC，6/12 negative
+- Composite 中 PRD features 占 42% top-10 slots
+
+**Research signal 真实强度**:
+- Single factor: 0.2-0.5 IR range（professional level for daily）
+- Composite best: +0.50 IR（略好于 top single factor，但不是 step change）
+- 说明 universe / horizon / mask 设定下的 daily factor research 空间
+  有限但 real
+
+**16 pairs 残留正交性失败**:
+post-fix 仍然有 16 对 |rho|>=0.5，top 3:
+- `downside_vol_20d <-> vol_63d`: **-0.95** (真正的 redundancy)
+- `residual_mom_spy_20d <-> vol_63d`: -0.83
+- `amihud_20d <-> vol_63d`: -0.78
+
+PRD 把 A/B/C/D 分 family，但 Family C 的几个 "liquidity/cost" 
+features 其实都是 vol 的变体。这是 PRD 设计级问题不是 mining 问题。
+
+### 8. 当前发现的新问题 / 新机会
+
+**关键 finding 1 — PRD features 部分有价值**:
+- `beta_spy_60d`, `downside_vol_20d`, `amihud_20d` univariate signal 
+  OK
+- `days_since_52w_high`, `trend_tstat_20d` 虽然 univariate 弱但 composite
+  有贡献（正交价值）
+- `rel_spy_20d/rel_qqq_20d` 有 signal 但与 `rs_vs_spy_21d` 重叠
+- **Step 7 决策应保留** 3-5 个 PRD features（不要全删，但也不全加）
+
+**关键 finding 2 — composite alpha 有限**:
+Best composite IC_IR +0.50（每年 ~0.5 sigma worth of alpha）
+- 这对应 rough Sharpe ~0.5 - 1.0（依赖 turnover / cost）
+- **不是 step-change result** — 与 Phase B 的 MFS (CAGR 19% / Sharpe 0.98)
+  量级一致
+- 说明 current panel + horizon + universe 的信号天花板大约如此
+
+**关键 finding 3 — Family C 设计 flaw**:
+`vol_63d`（existing）≈ `downside_vol_20d` + `amihud_20d`（PRD）
+→ PRD Family C 本质上 encode 同一 economic dimension
+→ Step 7 方向：真正新的 family 应该是 earnings / macro / rate / 
+  breadth / options-flow 级别的新维度，**不是更多 vol variants**
+
+**新问题**: 为什么 avg IC_IR +0.18（40 trials mean）但 best 只 +0.50？
+- 说明 sampler 还在探索阶段，大部分 spec 是中等水平
+- R17 可能值得跑 150-200 trials 看 TPE 收敛后 best 能到哪
+
+### 9. 剩余风险
+- lag=1 默认可能在 **某些 factors** 过度 penalize (e.g. legit intraday
+  signal)；目前暂不关心（RCMv1 是 daily）
+- 16 对 residual 高相关性表明 composite 仍可能 double-count 某些
+  economic dimension —— 需要 R17+ correlation penalty 调权重
+
+### 10. 下一轮建议方向
+
+**R17 推荐 Step 7**:
+1. 扩 mining trials 到 150-200 做 final top-K baseline
+2. 将 R16 top-K 的 signal（0.33-0.50 IR 区间）作为 Step 7 决策依据
+3. 三选一方向：
+   - (a) **新数据 family**: earnings calendar / macro regime indicators
+     / sector breadth — 这是 PRD §10 提到的"轻量数据层"
+   - (b) **新 horizon**: 试 5d / 63d fwd return 看是否有 horizon-level
+     不同 alpha structure
+   - (c) **蒸馏 production proposal**: 最 top spec 进入 S1 research 
+     candidate（刚才讨论的分层架构 PRD 的一部分）—— 但需要先 spec 
+     冻结 + OOS walk-forward + 完整 acceptance pack
+
+**个人倾向** (a) 或 (c)；(b) 是 R50 大循环已做过的事情不是突破口。
+
+### 11. Halt 条件检查 (§13.3)
+- 条件 1: **接近完成** — features + plumbing + mask + miner + 首轮运行
+  + 分析 + leakage 修复 + 重跑验证 全部 ✓；剩余"Step 7 决策 + R17-R22
+  使用预算"
+- 条件 2: NO — config 未碰
+- 条件 3: NO — 0 regressions (1341 passed maintained)
+- 条件 5: NO — R16 lag=1 分析给出清晰 next-step directions
+- 条件 7: 16/22
+- 其他不相关
+
+→ 继续 R17
