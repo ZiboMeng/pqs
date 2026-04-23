@@ -98,3 +98,51 @@ def research_mask(
     # Align shapes (tradable mask's columns come from volume_df reindex)
     tr = tr.reindex_like(pf).fillna(False)
     return pf & tr
+
+
+# ── PRD 20260424 §7 — Research-mask sample-definition hardening ──────────────
+
+
+def apply_research_mask(
+    factor_panel: pd.DataFrame,
+    mask: pd.DataFrame,
+    fill: float = float("nan"),
+) -> pd.DataFrame:
+    """Apply a boolean research mask to a factor panel.
+
+    Cells where `mask == False` are set to `fill` (default NaN). This is
+    the anti-pattern replacement for `factor_panel.fillna(0)` which
+    silently conflates four different states into a single value:
+      1. 真正中性值 (factor legitimately equals 0 on this date)
+      2. warmup 缺失 (factor not yet computable — leading-NaN)
+      3. 不可交易样本 (mask says illiquid / below price floor)
+      4. 数据缺失样本 (OHLCV genuinely missing)
+
+    After this function:
+      - non-NaN cells = valid observation AND passes mask
+      - NaN cells    = either warmup / data-missing (pre-existing NaN in
+                       factor_panel) OR excluded by mask
+
+    Downstream callers (IC screen, ML trainer, miner metric) should
+    then `.dropna()` on rows/columns as appropriate for their objective,
+    rather than `.fillna(0)` which hides the distinction.
+
+    Parameters
+    ----------
+    factor_panel : DataFrame of factor values
+    mask         : Boolean DataFrame (same semantic shape as panel); cells
+                   that are True stay, cells that are False are masked.
+                   Missing entries in mask (after reindex_like) become
+                   False (conservative: mask out unknown cells).
+    fill         : value for False-mask cells; default NaN preserves the
+                   "skip this sample" distinction. Callers wanting strict
+                   zero-neutralization can pass fill=0.0 explicitly, which
+                   is then intentional and auditable (unlike implicit
+                   .fillna(0)).
+
+    Returns
+    -------
+    DataFrame aligned to factor_panel.
+    """
+    aligned_mask = mask.reindex_like(factor_panel).fillna(False)
+    return factor_panel.where(aligned_mask, other=fill)
