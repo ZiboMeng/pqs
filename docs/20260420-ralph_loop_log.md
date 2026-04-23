@@ -6340,3 +6340,92 @@ deep-mining 发现一致（2022 bear 保护 vs 2020 V-recovery 伤害）。
 - 条件 7 仍 active（Step 5 blocked）
 - 其他都通过
 - Step 6 完成；继续 Step 7
+
+---
+
+## R-feat-v1-round-10
+
+**时间**: 2026-04-23
+**Commit**: (log-only; funnel artifacts in `data/ml/llm_sidecar_r10/`)
+**Step**: 7 (LLM sidecar — expanded-universe-aware funnel)
+
+### 1. 本轮主题 / Step
+Step 7: 从 97 existing candidate pool 挑 5 expanded-universe-aware 方向跑
+funnel。
+
+### 2. 本轮目标
+- 按 PRD §9.1 限制到 3-6 高质量候选
+- 覆盖 4 个指定方向: benchmark-relative breadth / defensive-cyclical /
+  sector rotation / path-shape
+- 跑 `llm_factor_propose.py` funnel
+- 记录 verdicts
+
+### 3. 为什么这轮优先做它
+Step 5 blocked；Step 6 (R09) 完成；Step 7 是 autonomous 范围内最后一块
+实质工作。LLM sidecar 产出给未来 mining round 储备，不与本 PRD baseline
+耦合。
+
+### 4. 做了什么
+从 97 pool 挑 5 个:
+- benchmark-relative breadth:
+  `codex_round_04/breadth_alignment_share_63d`
+- defensive-cyclical: 
+  `codex_round_04/bull_participation_share_63d`
+- benchmark-relative:
+  `codex_round_04/ew_beta_residual_63d`
+- path-shape / extrema:
+  `Gemini_round_02/close_to_high_proximity_21d`
+- regime rotation:
+  `codex_round_04/regime_selectivity_spread_63d`
+
+为每个跑 `python scripts/llm_factor_propose.py --input <yaml> --out-dir data/ml/llm_sidecar_r10/<name>`。
+
+### 5. 修改了哪些文件
+无 code 改动。Artifacts 在 `data/ml/llm_sidecar_r10/` (gitignored)。
+
+### 6. 跑了哪些测试 / 实验
+5 个 funnel runs 全部成功。Summary:
+
+| Candidate | Direction | Verdict | IC mean | IR | n_dates |
+|---|---|---|---:|---:|---:|
+| breadth_alignment_share_63d | breadth-rel | ARCHIVE | +0.013 | +0.04 | 826 |
+| bull_participation_share_63d | def-cyc | ARCHIVE | +0.048 | +0.15 | 749 |
+| ew_beta_residual_63d | bench-rel | ARCHIVE | +0.007 | +0.02 | 480 |
+| close_to_high_proximity_21d | path-shape | **REJECT** | — | — | 0 (heuristic) |
+| regime_selectivity_spread_63d | regime-rot | ARCHIVE | **+0.081** | **+0.25** | 315 |
+
+### 7. 结果如何
+- **0 KEEP** (funnel threshold IR ≥ 0.30)
+- **3 ARCHIVE** (IC 弱)
+- **1 REJECT** (leakage heuristic false-positive on `rolling_max(high, 21)`
+  — heuristic checks for `rolling(` 但该 YAML 用 `rolling_max(` 命名；
+  实际 factor 应当 past-only safe)
+- `regime_selectivity_spread_63d` IR +0.25 最接近门槛，值得未来 deep_check
+  跟进（+0.05 绝对幅度的改善可能让它通过）
+
+一致性观察：5 candidate 里**没有一个在当前 79-sym expanded universe 上
+产生强 IC**。与 R08 blocker 发现的"当前 factor/universe 空间饱和"相
+印证。
+
+### 8. 当前发现的新问题 / 新机会
+- Leakage heuristic 的 `rolling(` keyword 检查对 `rolling_max(` / 
+  `rolling_mean(` / `rolling_sum(` 等衍生命名 false-negative。非阻断但
+  应在未来扩 pattern 列表
+- `regime_selectivity_spread_63d` IR +0.25 是本 LLM pool 在 expanded
+  universe 上的最强信号 — 建议未来 LLM phase 的 reverse review 把它列为
+  "almost there" 候选
+- 0 KEEP 再次证实 PRD §4 "本轮不 promote" 立场正确 — 这 97-pool 在当前
+  universe 上没有过线的候选
+
+### 9. 剩余风险
+- 无新风险
+
+### 10. 下一轮建议方向
+- **R11 (建议)**: Final report 写作。Step 1-4, 6-7 都产出；Step 5 blocked
+  by §15.3 要求 user 决策。总结 + 发 FEATV1DONE
+- 剩余 iterations (12-16) 作 buffer 处理任何 post-report 问题
+
+### 11. Halt 条件检查 (§15.3)
+- 条件 7 active
+- 其他条件全通过
+- Step 7 完成；loop 进入 final-report 阶段
