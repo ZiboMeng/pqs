@@ -6558,3 +6558,60 @@ M  tests/unit/factors/test_llm_candidate_funnel.py (+40)
 
 ### 11. Halt 条件检查 (§15.3)
 全部通过。条件 7 仍 active。
+
+---
+
+## R-feat-v1-round-13
+
+**时间**: 2026-04-23
+**Step**: post-Step-1 consistency fix
+
+### 1. 本轮主题 / Step
+将 R04 的 compute_forward_returns cc/oc/oo 扩展 symmetric 对应到
+`factor_engine.make_forward_returns` (evaluator-internal utility)。
+
+### 2. 本轮目标
+- 扩 `make_forward_returns(horizon, mode, open_df)` 支持 cc/oc/oo
+- 与 `compute_forward_returns` 值等价
+- 6 新单测 + backward-compat 默认 cc
+
+### 3. 为什么这轮优先做它
+R08 发现 make_forward_returns 仍只支持 cc — 未来 mining evaluator
+要用 oc/oo labels 需要 symmetric 路径。现在补上，避免将来 duplicated
+inline 扩展。
+
+### 4. 做了什么
+- `factor_engine.make_forward_returns` 加 2 个 kwarg：
+  - mode ∈ {cc, oc, oo}
+  - open_df (required for oc/oo)
+- 实现与 compute_forward_returns 一致
+- 6 tests 覆盖 default-is-cc / oc 需 open_df / oo 需 open_df /
+  invalid mode / oc 值 match compute_forward_returns / oo 值 match
+
+### 5. 修改了哪些文件
+```
+M  core/factors/factor_engine.py                (+25 -2)
+M  tests/unit/factors/test_factor_engine.py    (+55)
+```
+
+### 6. 跑了哪些测试 / 实验
+- `pytest tests/unit/factors/test_factor_engine.py` 31/31 pass
+- 完整 suite: 1271 (+6 from R12)
+
+### 7. 结果如何
+两条 forward-return 路径（compute_forward_returns + make_forward_returns）
+现在 API 一致且值等价。未来 research / mining / evaluator 谁要用 oc/oo
+都可以直接调。
+
+### 8. 当前发现的新问题 / 新机会
+无
+
+### 9. 剩余风险
+无
+
+### 10. 下一轮建议方向
+R14-R16 buffer: 主要是等 user 决策。无 user 决策下，剩余实质 PRD
+推进空间极小。继续可做但边际递减。
+
+### 11. Halt 条件检查 (§15.3)
+全部通过。条件 7 active。
