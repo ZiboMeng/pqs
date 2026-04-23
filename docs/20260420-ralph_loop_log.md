@@ -8744,3 +8744,150 @@ M  tests/unit/mining/test_research_miner.py  (+207)
 - 其他不相关
 
 → 继续 R12
+
+## R-rcm-v1-round-12
+
+**时间**: 2026-04-24
+**Commit**: `6579fb5`
+**Step**: Step 5 Miner part 4/4 — RCMArchive + Optuna persistence
+
+### 1. 本轮主题 / Step
+Step 5 最后一块：PRD §12.2 指定的独立 DB。`data/mining/rcm_archive.db`
+（研究 trial 记录）与 `data/mining/rcm_optuna.db`（Optuna study 恢复）
+分离于生产 archive.db，避免重新引入 production-linked 耦合。
+
+### 2. 本轮目标
+- `core/mining/rcm_archive.py` 新 RCMArchive SQLite 类
+- schema 反映 research-composite 语义（family_counts / corr_concentration
+  / turnover_proxy / benchmark_excess / regime_stddev / objective）
+- 确定性 trial_id（spec hash）做去重
+- lineage_tag 必填 → top_k / lineage_summary 均按 lineage 过滤
+- ResearchMiner 可选接入 archive + optuna_storage
+- 18 新单测
+
+### 3. 为什么这轮优先做它
+R11 已经把 Optuna objective 和 miner 入口做完，in-memory 可跑。但 PRD
+§12.2 明确要求独立 DB；R13 跑第一次真实 mining 前必须先落 DB 持久化，
+否则跑完就丢。archive 还要支持 lineage 切片（诊断 / 复现）。
+
+### 4. 做了什么
+
+**RCMArchive schema**:
+```sql
+rcm_trials (
+  trial_id TEXT PRIMARY KEY,     -- sha256(spec_json)[:12]
+  study_id, lineage_tag, created_at,
+  spec_json,                      -- full spec for replay
+  n_features, n_families,
+  features_csv, weights_csv,      -- display-friendly
+  family_counts_json,             -- dict family->count
+  n_dates, ic_mean, ic_std, ic_ir,
+  turnover_proxy, corr_concentration,
+  benchmark_excess, regime_stddev, objective
+)
+rcm_studies (
+  study_id PK, lineage_tag, created_at,
+  objective_weights_json, panel_description,
+  n_trials_recorded
+)
+```
+
+**决定性设计**:
+- NaN metrics → NULL（之前 NOT NULL 触发 IntegrityError）。合理：
+  evaluator 在 n_dates=0 或 ic_std=0 时产生 NaN。Schema 允许持久化
+  "failed trials" 做研究
+- trial_id = 内容哈希 → 同 spec 重复 insert replace 最新 metrics。
+  天然 idempotency（rerun 不污染 count）
+- WAL journal mode → 允许并发读（future R13+ 读 top_k 同时写 trial）
+- archive.insert_trial 失败仅 WARN 不 raise → Optuna study 不会因 DB
+  问题中断（advisory persistence）
+
+**ResearchMiner.__init__ 扩展**:
+- `archive=None, lineage_tag=None, study_id=None` 默认（向后兼容）
+- 设置 archive 则 lineage_tag 和 study_id 必须一起设（防止 lineage
+  混乱）
+- archive 设置 → record_study 同时注入 objective_weights metadata
+
+**ResearchMiner.mine 扩展**:
+- `optuna_storage="sqlite:///data/mining/rcm_optuna.db"` 启用 Optuna
+  study 持久化
+- `study_name` 必需 when storage 设置
+- `load_if_exists=True` 支持跨 process 恢复 sampler state
+- 两套 DB 正交：rcm_archive.db 记 TrialResult，rcm_optuna.db 记
+  Optuna 内部 state（supports TPE resume）
+
+### 5. 修改了哪些文件
+```
+A  core/mining/rcm_archive.py           (+300)
+M  core/mining/research_miner.py         (+70)
+A  tests/unit/mining/test_rcm_archive.py (+440)
+```
+
+### 6. 跑了哪些测试 / 实验
+- `pytest tests/unit/mining/test_rcm_archive.py` **18/18 pass**
+- `pytest tests/unit/mining/` 104 pass
+- 完整 suite: **1337 passed** / 1 skipped / **0 regressions** / 82s
+  (prev 1319 → +18)
+- 18 tests 分布：
+  - Schema（2）: tables 创建 + 嵌套 parent dir 自动
+  - `_hash_spec` 确定性（2）
+  - `record_study` 元数据（2）: metadata 存储 + idempotent
+  - `insert_trial`（4）: roundtrip / dedup by hash / NaN → NULL /
+    study counter
+  - `top_k` + lineage（4）: sort DESC / 过滤 / summary / 空 archive
+  - Miner ↔ archive 集成（4）: lineage+study 必须一起 / 3-trial
+    Optuna 写 archive / 恢复 via optuna_storage / storage without
+    study_name 报错
+
+### 7. 结果如何
+
+**PRD §12 合规**:
+- §12.1 lineage_tag=`post-2026-04-24-rcm-v1` ✓ 通过整条路径传递
+- §12.2 artifact 路径 ✓ `data/mining/rcm_archive.db` + 
+  `data/mining/rcm_optuna.db`
+- §12.3 独立 DB 理由 ✓ 独立 schema，无耦合
+
+**去重正确性**:
+- 同 spec 第二次 insert_trial：row count 保持 1，metrics 更新到最新
+  （REPLACE），study counter 仍然 +1 per call（用 session count 而非
+  unique spec count）—— 这个语义是 "研究了多少次" 而非 "多少种 spec"
+
+**Optuna 恢复**:
+- 测试用两 miners 连续 mine(n=2) × 2 →  `len(study.trials) >= 4`
+  verified（Optuna 正确 persist 4 trials）
+
+### 8. 当前发现的新问题 / 新机会
+- **Schema evolution**: 未来若加 regime breakdown / cost_adjusted_ir，
+  需要 ALTER TABLE（SQLite 支持但有限制）。R13 前考虑加一个 `metrics_json`
+  TEXT 字段做 "extensible payload" 存未 indexable 的 metrics
+- **Optuna storage locked**: 多 process 同时写同 `sqlite:///` 会冲突。
+  PRD §5 scale 若未来要分布式 mine，需要 postgres。但 v1 单机 OK
+- **Archive count ≠ unique spec count**: 测试 `bumps_study_counter`
+  发现 n_trials_recorded 按 call 而非 unique spec bump。对 R13 top-K
+  summary 要记得 `SELECT COUNT(DISTINCT trial_id)` 而非 `COUNT(*)`
+
+### 9. 剩余风险
+- 无。SQLite IO + Optuna integration 都有测；advisory persistence 保证
+  DB 错不会 fail mining
+
+### 10. 下一轮建议方向
+- **R13 (PRD Step 6)**: 第一次真实 research mining run
+  - Build 79-sym panel with 12 PRD features + existing research factors
+  - `ResearchMiner(archive=RCMArchive("data/mining/rcm_archive.db"),
+    lineage_tag="post-2026-04-24-rcm-v1", study_id="rcm-v1-run-01",
+    ...)`
+  - `miner.mine(n_trials=200, optuna_storage="sqlite:///data/mining/
+    rcm_optuna.db", study_name="rcm-v1-run-01", load_if_exists=True)`
+  - 写 CLI scaffold: `scripts/run_research_miner.py --trials N --study 
+    NAME --out-dir data/ml/research_miner/`
+  - 首轮预期：几百 trials，top-K 做 diagnostic（先不做 accept）
+- R14: top-K diagnostics + family heatmap + correlation analysis
+
+### 11. Halt 条件检查 (§13.3)
+- 条件 2: NO — No invariant touched
+- 条件 3: NO — 0 regressions (1337 passed)
+- 条件 5: NO — No config edits
+- 条件 7: 12/22
+- 其他不相关
+
+→ 继续 R13
