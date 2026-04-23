@@ -14,8 +14,7 @@ formula: |
   # Sign convention: negative IC at any forecast horizon (reversal direction).
   # Strategy use: multiply by -1 to get signal-ready direction (long the
   # dip on high-quality names).
-compute_fn_path: null   # not implemented as standalone compute_fn;
-                        # composite of existing factors in factor_generator
+compute_fn_path: "research.llm_candidates.feat_v1_round_01.compute_fns:overnight_reversal_quality_gated_1d"
 required_fields: ["open", "close"]
 suitable_horizon: [1, 3, 5]   # h=1 most robust post-2023 per R21
 suitable_universe: "expanded_79"
