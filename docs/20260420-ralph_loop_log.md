@@ -8285,3 +8285,118 @@ M  scripts/run_xgb_cv.py          (+45 -15)
 - 其他不相关
 
 → 继续 R08
+
+---
+
+## R-rcm-v1-round-08
+
+**时间**: 2026-04-24
+**Commit**: `c0593e1`
+**Step**: Step 4 part 3 + Step 2 P3 (2 more scripts done)
+
+### 1. 本轮主题 / Step
+完成 R06 audit 点名的 4 个 research anti-pattern scripts 的升级。
+R07 做了 2 个，本轮做剩下的 2 个：xgb_weight_model + transformer_research。
+
+### 2. 本轮目标
+- `run_xgb_weight_model.py`: 4 fillna(0) 审查：2 真 anti-pattern 修掉，
+  2 legitimate 权重矩阵零填充标注保留
+- `run_transformer_research.py`: 2 fillna(0) 换成 dropna（Transformer 不
+  像 XGBoost 原生支持 NaN，必须显式 drop）
+- 两 script 同时做 P3 OHLCV 升级
+
+### 3. 为什么这轮优先做它
+R06/R07 已完成 helper + 2 scripts；R08 把 anti-pattern 清单收尾。完成
+后 §7.1 panel 层 mask 硬化对 4 个 ML scripts 全部生效，可以进 §7.2
+miner 层（需等 Step 5 miner 构造完成）。
+
+### 4. 做了什么
+
+**`run_xgb_weight_model.py`** (4 fillna(0) 审查):
+1. line 102 `X = panel[feature_cols].fillna(0)` — anti-pattern，改 NaN-native
+2. line 135 `model.predict(test_panel[feature_cols].fillna(0))` — anti-pattern，改 NaN-native
+3. line 143 `return pd.DataFrame(weights).T.fillna(0)` — **legitimate**：
+   权重矩阵零填充意义是 "symbol not selected this date = zero weight"，
+   不是 feature 值 imputation。保留 + 加注释
+4. line 183 `weights.reindex(cols, fill_value=0).fillna(0)` — 同上 legitimate
+
+**`run_transformer_research.py`** (2 fillna(0) 审查):
+1. line 95 `_ridge_xgb_benchmarks` 的 X: Ridge 不支持 NaN，换
+   `panel.dropna(subset=feature_cols)`（auditable + explicit）
+2. line 143 Transformer sequence 构造: 不能把 NaN 塞 tensor，改
+   `grp.dropna(subset=feature_cols)` + 相关 `fwd/dates` 索引也用
+   clean grp
+
+两 script 都同时升级 OHLCV 接口（load open/high/low + pass 给
+generate_all_factors）+ 构建 research_mask + long-form panel 中
+row-gate 非可交易样本。
+
+### 5. 修改了哪些文件
+```
+M  scripts/run_xgb_weight_model.py      (+45 -15)
+M  scripts/run_transformer_research.py  (+55 -8)
+```
+
+### 6. 跑了哪些测试 / 实验
+- 两 script `py_compile` + CLI `--help` 通过
+- 完整 suite: **1330 passed** (unchanged from R06-R07, 0 regression)
+
+### 7. 结果如何
+
+**R06 audit anti-pattern 全部清理完成**:
+- ✅ run_xgb_importance (R07, 1 fillna(0))
+- ✅ run_xgb_cv (R07, 2 fillna(0))
+- ✅ run_xgb_weight_model (R08, 2 真 anti-pattern + 2 legitimate 标注)
+- ✅ run_transformer_research (R08, 2 fillna(0))
+
+**Transformer 处理的特殊性**:
+XGBoost 原生支持 NaN (`missing=np.nan` default)，所以 XGBoost scripts
+可以让 NaN 直接进 training，模型自己 split-aware handle。Transformer /
+Ridge / 其他 dense ML 必须**显式** drop 或 impute。这里选 drop 而非
+impute 是 deliberate：保留 "4-state 语义区分" 的一部分 — dropping
+rows tells the model "this sample isn't usable" 而不是 "this sample's
+features are all 0".
+
+**PRD §11.1 "6 of 8 scripts" 进度**:
+- 已升级: 5/8 (feat-v1 R16 llm_factor_propose + R07 两 + R08 两)
+- 再升级 1 个即满足 "6 of 8" 验收标准
+- Pending 待做（R09 可选 1 个）:
+  - run_model_comparison.py
+  - run_factor_interaction_mine.py
+  - llm_composite_backtest.py
+  - llm_candidate_orthogonalization.py
+
+**PRD §7 hardening 进度**:
+- §7.1 Panel 层 ✅ (4 ML scripts + apply_research_mask helper 都 ready)
+- §7.2 Miner 层 ⏳ (等 Step 5 miner 构造)
+- §7.3 Diagnostics 层 ⏳ (等 Step 5)
+
+### 8. 当前发现的新问题 / 新机会
+- Transformer script 里 dropna 前 `len(grp) < seq_len + 1` 检查，dropna
+  后还要再检查一遍（已加 `if len(grp_clean) < seq_len + 1: continue`）
+  —— 正确防御性
+- `weight_matrix.fillna(0)` 的"symbol 未选择 = 0 权重"语义需要在 comment
+  里 explicit call out —— 已做，避免未来 audit 误以为是 anti-pattern
+- R09 可以：(a) 升级第 6 个 script 满足 §11.1 硬标准；或 (b) 开始 Step 5
+  miner 本体搭建。按剩余 budget (22 - 8 = 14 rounds) 应 (b) 主，(a) 顺手
+
+### 9. 剩余风险
+- Scripts 没 e2e smoke test，真实训练 run 未跑过；有可能 XGBoost NaN 处理
+  遇到数据边界 case。但本 PRD scope 不要求 e2e runs，留给未来验证
+  PRD §11.1 "可跑通" 的时候
+
+### 10. 下一轮建议方向
+- **R09 (建议)**: Step 5 Research Composite Miner v1 搭建启动。优先:
+  1. 新 `core/mining/research_miner.py` 骨架：class + 主 API
+  2. 独立的 rcm_archive.db schema 设计（不混 production archive）
+  3. family-aware sampling 第一版（先实现结构，objective function 跟后续）
+  估 3-4 rounds 完成 miner 本体；之后 R13-R14 first run + 分析
+- 或备选: 把 §11.1 的第 6 个 script 顺手升级（1 round），再开 Step 5
+
+### 11. Halt 条件检查 (§13.3)
+- 条件 2: NO
+- 条件 3: NO — 0 regression
+- 条件 7: 8/22
+- 其他不相关
+
+→ 继续 R09 (Step 5 Miner)
