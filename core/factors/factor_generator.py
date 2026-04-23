@@ -73,6 +73,7 @@ def generate_all_factors(
     """
     factors: Dict[str, pd.DataFrame] = {}
 
+    factors.update(_baseline_return_factors(price_df, open_df))
     factors.update(_momentum_factors(price_df))
     factors.update(_mean_reversion_factors(price_df))
     factors.update(_volatility_factors(price_df))
@@ -138,6 +139,35 @@ def apply_data_sensitivity_mask(
                             len(cols_to_mask), name)
         out[name] = df
     return out
+
+
+def _baseline_return_factors(
+    price_df: pd.DataFrame,
+    open_df: pd.DataFrame | None = None,
+) -> Dict[str, pd.DataFrame]:
+    """Short-horizon raw return factors (PRD 20260423 Step 1, Returns family).
+
+    Emits:
+      - ret_1d, ret_2d  (close-to-close raw returns, unsigned siblings
+        of the existing reversal_5d / reversal_10d / reversal_21d family)
+      - overnight_ret_1d  (raw 1-bar overnight gap, sibling of rolling
+        overnight_gap_5d / overnight_gap_21d) — only when open_df provided
+      - intraday_ret_1d  (raw 1-bar intraday return) — only when open_df
+        provided
+
+    All values are raw (sign = direction of return). Callers that want
+    mean-reversion direction must negate explicitly.
+    """
+    from core.factors.base_returns import (
+        simple_return, overnight_return_raw, intraday_return_raw,
+    )
+    factors: Dict[str, pd.DataFrame] = {}
+    factors["ret_1d"] = simple_return(price_df, 1)
+    factors["ret_2d"] = simple_return(price_df, 2)
+    if open_df is not None:
+        factors["overnight_ret_1d"] = overnight_return_raw(open_df, price_df)
+        factors["intraday_ret_1d"] = intraday_return_raw(open_df, price_df)
+    return factors
 
 
 def _momentum_factors(price_df: pd.DataFrame) -> Dict[str, pd.DataFrame]:

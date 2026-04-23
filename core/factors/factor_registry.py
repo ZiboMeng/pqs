@@ -74,6 +74,11 @@ PRODUCTION_FACTORS: FrozenSet[str] = frozenset({
 # families are added to factor_generator (test_factor_registry catches it).
 
 RESEARCH_FACTORS: FrozenSet[str] = frozenset({
+    # Baseline returns family (PRD 20260423 Step 1 Round 1)
+    # Raw close-to-close short-horizon returns + raw 1-bar gap/intraday.
+    # Unsigned siblings of reversal_5d / overnight_gap_5d etc. Research-only.
+    "ret_1d", "ret_2d",
+    "overnight_ret_1d", "intraday_ret_1d",
     # Momentum family
     "mom_21d", "mom_63d", "mom_126d", "mom_252d", "mom_12_1",
     "risk_adj_mom_63d",
