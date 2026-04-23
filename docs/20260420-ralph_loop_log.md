@@ -6147,3 +6147,108 @@ data/mining/archive.db → .bak.20260422_233325 (gitignored)
 - 其他条件（pytest / core import / disk / config）全通过
 
 → 等 mining 完成
+
+---
+
+## R-feat-v1-round-08
+
+**时间**: 2026-04-23
+**Commit**: `e194b1d`
+**Step**: 3 (R39 mining 完成) + 4 (Top-K 分析) → **§15.3 halt 条件 7 触发**
+**Background task**: `bs6o50vch` → completed exit_code 0
+
+### 1. 本轮主题 / Step
+Step 3 mining 完成 + Step 4 structural 分析 + 按 §15.3 halt 条件 7 产 blocker
+文档。
+
+### 2. 本轮目标
+- 等 R07 后台 mining 完成
+- 跑 `scripts/feat_v1_topk_analysis.py`
+- 按 PRD §15.3 halt 条件 7 判断是否 blocker
+
+### 3. 为什么这轮优先做它
+R07 已经 kick off mining；本轮必须收尾。PRD §12 Step 5 "只有在 R39 显示
+方向性改善后，进入 R40 / R41"，所以必须先判定 R39 结果再决定后续
+方向。
+
+### 4. 做了什么
+1. Poll mining 状态直到完成（626.5s / ~10 分钟）
+2. 分析 archive 里的 65 个 trial
+3. 对比 pre-PRD lineage `post-2026-04-22-deep-R38-stage12`
+4. 写 blocker 文档 `docs/20260423-feat_v1_r39_blocker.md`
+
+### 5. 修改了哪些文件
+```
+A  docs/20260423-feat_v1_r39_blocker.md  (+193)
+(data/mining/archive.db 新写入 65 trials — gitignored)
+```
+
+### 6. 跑了哪些测试 / 实验
+- Mining 80 trials → 65 archived
+- `scripts/feat_v1_topk_analysis.py --k 10` 产出完整 top-K 报告
+
+### 7. 结果如何
+
+| 指标 | R39 feat-v1 | pre-PRD R39 | Δ |
+|---|---:|---:|---|
+| n_trials archived | 65 | 70 | -5 |
+| n_quick_pass | 32 | 34 | -2 |
+| n_oos_pass | **0** | 1 | **-1 (严格劣)** |
+| best oos_ir | **-0.119** | +0.343 | **-0.462** |
+| worst oos_ir | -0.815 | -0.852 | +0.037 |
+| 任一 top-20 oos_ir > 0? | **no** | yes | - |
+| n_qqq_gate_pass (top 10) | 10/10 | varies | - |
+
+**§15.3 halt 条件 7 两个 clause 都 true**:
+- n_oos_pass == 0 ✓
+- 全部 trial oos_ir < 0 ✓
+- 严格劣于 pre-PRD ✓
+
+**Top-10 factor-family 分布**（证明无结构异常）:
+- quality 31.4% / relative 27.4% / mom 18.2% / vol 13.7% /
+  position 7.2% / regime 2.1% / volume 0%
+- 与 pre-PRD 同型 — 无退化
+
+### 8. 当前发现的新问题 / 新机会
+
+**根因分析（详见 blocker 文档 §3）**:
+1. **最可能：Optuna 采样方差**。Pre-PRD R39 的 1/70 OOS-pass spec
+   `4b5f36ed9ab5` 是从同 7-factor 产空间随机抽样获得；本轮 fresh study
+   → 不同 80 draws → 错过那个区间。Bernoulli pass-rate ~0.5-1%。
+2. **feat-v1 新因子未进 mining 空间**（by design）。R01-R05 新 factor
+   都进 RESEARCH_FACTORS，但 `MultiFactorSpace` 只采 `PRODUCTION_FACTORS`
+   (7 个)。PRD §4 明文禁止修改 PRODUCTION_FACTORS，PRD §15.4 明文禁止
+   loop 自主扩 `MultiFactorSpace`。
+3. **非 feat-v1 实现 bug**：Step 1-2 PASS，1262/1262 tests 绿，
+   evaluator NaN/inf 守卫按设计触发（log 里可见 "_run_walk_forward._mean:
+   dropping 3 non-finite value(s)"）。
+
+**用户需要决策的（§15.3 要求）** — 4 选项:
+- A: 扩 MultiFactorSpace 采 research 因子（需新授权）
+- B: 更多 Optuna trials（3600s budget 不变但 trials 提升）
+- C: 加 Stage 3 universe（需 config edit 授权）
+- D: 接受当前 feat-v1 作为 direction confirmation + 关闭 PRD，
+     下一轮改做 microstructure / new data source（synthesis §recommendation
+     Priority C）
+
+我的 recommendation: **D 最诚实**；A 信息增益最高但需新 PRD；B 便宜
+hedge。详 blocker §4.
+
+### 9. 剩余风险
+- Step 5 (R40/R41) BLOCKED — 按 PRD §15.3 条件 7 要求停，等 user 决策
+- Steps 6 和 7 **不受 halt 影响**（独立轨道，§15.4 allow）
+
+### 10. 下一轮建议方向
+- **R09 (建议)**: Step 6 DSL fast-exit ablation on `df22a253dda6`
+  （本轮 feat-v1 最佳 spec，tier D）。即使 spec 本身不 promote，ablation
+  告诉我们 DSL 在 feat-v1 lineage 下的边际贡献
+- **R10**: Step 7 LLM sidecar — 97 个 candidate 里按 expanded-universe-
+  aware 方向（benchmark-relative breadth / defensive-cyclical spread /
+  sector rotation / path-shape）挑 3-6 个跑 funnel，产出给未来 mining
+  round（非本 PRD）
+- Loop 继续 R09-R11，Step 5 保持 blocked 直到 user 响应
+
+### 11. Halt 条件检查 (§15.3)
+- **条件 7 触发** — 已写 blocker 文档
+- 其他条件（pytest / core import / disk / config）全通过
+- Action: Step 5 BLOCKED；Step 6/7 继续
