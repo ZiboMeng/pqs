@@ -7240,3 +7240,105 @@ Economic mechanism (hypothesis):
 ### 11. Halt 条件检查 (§15.3)
 - 条件 7 仍 active
 - 其他通过
+
+---
+
+## R-feat-v1-round-22
+
+**时间**: 2026-04-23
+**Step**: 6 deeper (robustness: does reversal × quality generalize across quality proxies?)
+
+### 1. 本轮主题
+R18-R21 定位了 `reversal × rolling_sharpe_126d` 特定信号。但这可能是
+pair-specific artifact。R22 交叉测试 3 reversal × 5 quality-proxy =
+15 pairs，看效果是否稳健。
+
+### 2. 本轮目标
+- 3 reversals (ret_1d, overnight_ret_1d, ret_2d) × 5 quality proxies
+- 看哪些 quality 版本保留 strong pooled IR
+- 看哪些 quality 版本衰减严重
+
+### 3. 为什么这轮优先做它
+Single-pair finding 容易 curve-fit。Cross-proxy 稳健性是 promotion
+前必做的 sanity check。如果只 rolling_sharpe_126d 给强结果，证据弱；
+如果多 quality proxy 给相似结果，证据 strong generalizable。
+
+### 4. 做了什么
+- 15 pair interaction 计算 h=1 fwd IC
+- Report pooled IR, Q2 IR, Q4 IR per pair
+
+### 5. 修改了哪些文件
+无 code 改动。
+
+### 6. 跑了哪些测试 / 实验
+
+**h=1 fwd, 15 interactions** (pool IR < -0.6 highlighted):
+
+| reversal | quality | pool IR | Q2 IR | Q4 IR |
+|---|---|---:|---:|---:|
+| ret_1d | **rolling_sharpe_126d** | **-0.815** | -1.029 | -0.674 |
+| ret_1d | return_per_risk_21d | -0.102 | -0.160 | -0.077 |
+| ret_1d | risk_adj_mom_63d | -0.125 | -0.180 | -0.072 |
+| ret_1d | **drawup_from_252d_low** | **-0.651** | -0.826 | -0.580 |
+| ret_1d | **max_dd_126d** | **-0.699** | -0.825 | -0.669 |
+| overnight_ret_1d | **rolling_sharpe_126d** | **-0.826** | -1.024 | -0.642 |
+| overnight_ret_1d | return_per_risk_21d | -0.098 | -0.144 | -0.134 |
+| overnight_ret_1d | risk_adj_mom_63d | -0.117 | -0.156 | -0.101 |
+| overnight_ret_1d | **drawup_from_252d_low** | **-0.638** | -0.802 | -0.498 |
+| overnight_ret_1d | **max_dd_126d** | **-0.675** | -0.802 | -0.587 |
+| ret_2d | **rolling_sharpe_126d** | **-0.697** | -0.954 | -0.571 |
+| ret_2d | return_per_risk_21d | -0.042 | -0.054 | +0.000 |
+| ret_2d | risk_adj_mom_63d | -0.058 | -0.144 | +0.015 |
+| ret_2d | **drawup_from_252d_low** | **-0.539** | -0.757 | -0.411 |
+| ret_2d | **max_dd_126d** | **-0.562** | -0.745 | -0.497 |
+
+### 7. 结果如何
+
+**两大 finding**:
+
+1. **Effect 在 long-horizon quality 上稳健，short-horizon quality 上
+   微弱**:
+   - Strong proxies (pool IR < -0.5): `rolling_sharpe_126d` (126d), 
+     `drawup_from_252d_low` (252d), `max_dd_126d` (126d)
+   - Weak proxies (pool IR ~ -0.1): `return_per_risk_21d` (21d),
+     `risk_adj_mom_63d` (63d)
+   - 门槛似乎在 ~100d 左右：短于 100d 效应几乎消失
+
+2. **Economic interpretation**:
+   - **不是** "quality 自身预测反转" (quality 单因子 IC 近 0)
+   - **是** "long-horizon quality 定义了可靠的 reversal 候选池"
+   - 高 126d Sharpe / 低 126d max_dd / 高 252d drawup 的股票 →
+     reversal signal 放大 2-3 倍
+   - 短 horizon quality 可能 noise-dominated，无法有效筛选
+
+3. **Q4 decay 在所有 strong pairs 同步**:
+   - Strong 家族 Q4 IR 全部 -0.4 到 -0.7 (比 Q2 -0.7 to -1.0 衰减 ~30-40%)
+   - 证实 R20 signal-decay 结论 generalizes across quality proxies,
+     不是单一 pair artifact
+
+**对 Option E 更新**:
+- 良好消息: concept generalizes → 不是 one-off curve fit
+- 坏消息: decay 也 generalizes → 任何 "long-horizon quality × short-
+  horizon reversal" composite 都同样 Q4 衰减
+- Option E1 (RESEARCH archive) 更 attractive — 可以 capture 这个
+  cross-quality-proxy family 作为研究主题
+- Option E2 (MultiFactorSpace) 仍然 risky 因 decay 在所有版本同步发生
+
+### 8. 当前发现的新问题 / 新机会
+- **"Long-horizon quality as reversal amplifier"** 是个 bigger concept，
+  值得作为 future research 主题（独立于本 PRD scope）
+- 未来 LLM round 可以 seed 这类 cross-horizon quality-reversal
+  interaction 作新 candidate pool
+- Q4 decay 在所有 5 strong pairs 同步发生 → market-wide structural
+  shift (HFT arbitrage expansion in 2023+) 的证据增强
+
+### 9. 剩余风险
+无新风险
+
+### 10. 下一轮建议方向
+Loop 实质 productive scope 真正枯竭。所有 auto-reachable findings 已
+document 完整。
+
+### 11. Halt 条件检查 (§15.3)
+- 条件 7 仍 active
+- 其他通过
