@@ -6063,3 +6063,87 @@ Mining 层若用需要 sign flip（就像已有 `reversal_5d` 做的那样）。
 
 ### 11. Halt 条件检查 (§15.3)
 全部通过。Step 2 → Step 3 过渡。
+
+---
+
+## R-feat-v1-round-07
+
+**时间**: 2026-04-23
+**Commit**: `30afdb5`
+**Step**: 3 (Expanded mining — Phase B kickoff)
+**Background task**: `bs6o50vch` (mining, running at time of this log)
+
+### 1. 本轮主题 / Step
+Step 3 Phase B: R39 fresh baseline mining on 79-symbol feat-v1 panel.
+
+### 2. 本轮目标
+- C+ pattern: fresh Optuna study + fresh archive（备份后删旧 db）
+- 80 trials × 3600s budget, type=multi_factor, lineage=post-2026-04-23-feat-v1-expanded
+- 后台跑，同时 prep Step 4 分析工具（R08 用）
+- 不在本轮 gate 判断，mining 结束后下一轮分析
+
+### 3. 为什么这轮优先做它
+Step 2 Phase A 验证 panel ok，必须在 Step 4 之前跑完 R39。时间预算：
+pre-PRD 时 R39 C+ 跑 834s，即 14 分钟；本轮参数一致，预计同数量级。
+分析工具先备齐避免下一轮还要写代码。
+
+### 4. 做了什么
+1. Backup: `optuna.db` + `archive.db` → `.bak.20260422_233325`
+2. 删掉当前 dbs（fresh 状态）
+3. Kick off mining in background:
+   ```
+   python scripts/run_mining.py --trials 80 --budget 3600 \
+          --type multi_factor \
+          --lineage-tag post-2026-04-23-feat-v1-expanded
+   ```
+4. 新建 `scripts/feat_v1_topk_analysis.py` (226 行)：
+   - Lineage summary
+   - Top-K 详细展开（含 gate 列 + factor weights + params）
+   - Gate pass tallies
+   - Factor-family weight-share distribution
+   - R01-R05 new-factor presence check (forward-looking)
+   - Cross-lineage compare vs pre-PRD lineages
+
+### 5. 修改了哪些文件
+```
+A  scripts/feat_v1_topk_analysis.py  (+226)
+data/mining/optuna.db  → .bak.20260422_233325 (gitignored)
+data/mining/archive.db → .bak.20260422_233325 (gitignored)
+```
+
+### 6. 跑了哪些测试 / 实验
+- 无新单测（分析工具是研究 CLI）
+- 完整 suite: 1262 pass（保持）
+- Mining log 前 10 行 观察：panel 3460 × 79，evaluator 用 real open price,
+  trial 1-2 跑了正常
+
+### 7. 结果如何
+- Mining 后台跑中
+- 分析工具 ready
+- R08 即可直接 `python scripts/feat_v1_topk_analysis.py --k 10`
+
+### 8. 当前发现的新问题 / 新机会
+- 观察：现阶段 mining 层 (MultiFactorSpace.suggest) 只产出
+  PRODUCTION_FACTORS 的 weights；R01-R05 新 research factors 不会
+  被 mining 直接采样。这和 PRD §4 "不改 PRODUCTION_FACTORS" 一致，但
+  意味着 R39 的改善来源主要是 expanded universe 而非新 factor
+  → 这正是 Phase B 要回答的：universe 扩容本身带不带改善？
+
+### 9. 剩余风险
+- Mining 若跑崩溃（OOM / 评估错误）会在背景进程 exit_code != 0 体现，
+  下轮处理
+- Mining 若 0 OOS pass → halt per §15.3 条件 7 (R39 blocker 条件)
+
+### 10. 下一轮建议方向
+- **R08 (待 mining 完成)**: `python scripts/feat_v1_topk_analysis.py`
+  跑完，解读 top-K 结构，写 Phase C 结果文档。按 §15.3 条件 7 检查是
+  否应 halt
+- 若 mining 显示改善 → R09/R10 进 Phase D R40 regime validation + Phase
+  E R41 acceptance pack v2
+- 若 halt → 写 blocker doc 等用户
+
+### 11. Halt 条件检查 (§15.3)
+- 没有 mining 结果之前，halt 条件尚未可判
+- 其他条件（pytest / core import / disk / config）全通过
+
+→ 等 mining 完成
