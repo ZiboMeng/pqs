@@ -8400,3 +8400,109 @@ features are all 0".
 - 其他不相关
 
 → 继续 R09 (Step 5 Miner)
+
+---
+
+## R-rcm-v1-round-09
+
+**时间**: 2026-04-24
+**Commit**: `031c2a9`
+**Step**: Step 5 Miner part 1/4 — FamilyConfig + ResearchCompositeSpec + sampler
+
+### 1. 本轮主题 / Step
+Step 5 Research Composite Miner v1 开工。R09 落地 data-model + sampler
+骨架，R10 evaluator, R11 Optuna objective, R12 archive DB, R13 first run,
+R14 分析。
+
+### 2. 本轮目标
+- 4 family config 覆盖 PRD 12 features + existing 稳定 research factors
+- `ResearchCompositeSpec` frozen dataclass + invariant checks
+- `suggest_composite_spec` 家族感知 sampler 骨架
+- 15 单测覆盖所有数据结构和 sampler 行为
+- 不依赖 optuna（lazy import），pure dataclass testable
+
+### 3. 为什么这轮优先做它
+R01-R08 把 feature + mask plumbing 全部 ready。miner 是 Step 5 核心
+产物，结构复杂但 R09 可以先落 scaffold 不跑 Optuna（测试驱动）。
+按 PRD §15 step order 自然下一步。
+
+### 4. 做了什么
+**4 Family 定义**:
+- Family A (9 factors): R03 PRD Family A 4 个 + existing rs_vs_spy_*,
+  rs_acceleration, rel_spy_5d
+- Family B (8 factors): R04 PRD Family B 4 个 + existing dist_52w_high,
+  drawup_from_252d_low, max_dd_126d, drawdown_current
+- Family C (7 factors): R05 PRD Family C 3 个 + existing vol_21d,
+  vol_63d, volume_surge_20d, vol_regime
+- Family D (8 factors): R05 PRD Family D 1 个 + existing mom_21d/63d/
+  126d/252d, mean_rev_sma20/50, rolling_sharpe_126d, risk_adj_mom_63d
+
+所有 4 家族 disjoint（invariant 测试验证）— 无因子在两家族出现。
+总因子池: 32 across 4 families。
+
+**Sampler 采样协议**:
+1. Optuna `suggest_int` 每家族给 0..2 feature count
+2. Optuna `suggest_categorical` 每 slot 从该家族 factors 里挑
+3. Dedup（同 feature 选两次则合并）
+4. 检查 n_active_families ≥ min_families=3，否则 TrialPruned
+5. Optuna `suggest_float` 每 selected feature 给 raw [0,1] 权重
+6. Normalize 到 sum=1；若全 0 则 fallback uniform
+7. Final float-noise adj 到 exact sum=1.0（tolerance 1e-6）
+
+**Spec invariants**:
+- features/weights 长度匹配
+- weights ≥ 0 & sum = 1.0 ± 1e-6
+- n_features ≥ 1
+- frozen=True 便于 Optuna dedup
+
+### 5. 修改了哪些文件
+```
+A  core/mining/research_miner.py              (+180)
+A  tests/unit/mining/test_research_miner.py  (+195)
+```
+
+### 6. 跑了哪些测试 / 实验
+- `pytest tests/unit/mining/test_research_miner.py` 15/15 pass
+- 完整 suite: **1345 passed** (+15 from R08), 1 skipped, 1 xfailed
+
+### 7. 结果如何
+- Data model 就位：FamilyConfig, ResearchCompositeSpec, 4 family 定义
+- Sampler 在 MockTrial 下 deterministic 产生 valid spec
+- Weights normalization 正确（2:3:5 raw → 0.2:0.3:0.5），zero-fallback
+  uniform，dedup 当同 factor 选两次
+- 32 factor pool × 家族感知采样 = 远大于 7-PRODUCTION_FACTOR 空间，符合
+  PRD §2 "打开搜索空间" 的目标
+
+### 8. 当前发现的新问题 / 新机会
+- v1 sampler 不做 correlation / turnover penalty — 留给 R11 objective
+  function。Alternative: 可以在 sample 时 reject 高 family 重叠 spec，
+  但这会偏离 "Optuna-driven 无偏采样" 原则
+- Family D 只有 1 PRD factor 加 7 existing；Family A 最丰富（9 factors）。
+  下一版家族可以 balance 一下
+- `min_families=3` 可能在某些 trial 里过严（8 slot 中 2 空很正常）。
+  R11 时可以考虑 soft penalty 代替硬 prune
+
+### 9. 剩余风险
+- R10 composite evaluator 需要定义 "composite value = weighted sum of
+  z-scored factors"；z-score 的 cross-sectional vs time-series 选择
+  会影响 IC 量级。R10 时明确
+- Optuna lazy import 可能在 Python 3.14 新环境里有兼容问题；但当前
+  tests 不需要 optuna 实装
+
+### 10. 下一轮建议方向
+- **R10 (建议)**: Composite evaluator:
+  - `build_composite_series(spec, factor_panel)` — z-score per factor
+    per date + weighted sum → composite signal panel
+  - `evaluate_composite(spec, factor_panel, fwd_returns, mask)` — 返回
+    metrics dict: OOS IR, benchmark excess, turnover proxy,
+    correlation concentration
+- R11: Optuna objective wrapper (PRD §8.6 weighted-sum formula)
+- R12: rcm_archive.db schema + SQLite writer
+
+### 11. Halt 条件检查 (§13.3)
+- 条件 2: NO — plumbing done
+- 条件 3: NO — 0 regression
+- 条件 7: 9/22
+- 其他不相关
+
+→ 继续 R10
