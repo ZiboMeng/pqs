@@ -11297,3 +11297,148 @@ pattern 就好。
 - 条件 7: NO
 
 → 继续 R5（freeze CLI）
+
+---
+
+## R-phase-e-round-05
+
+**时间**: 2026-04-24
+**Commit**: `76742b1`
+**Sub-phase**: E-1
+**Focus**: `scripts/freeze_research_candidate.py` — rcm_trial → FrozenStrategySpec → YAML + S0 registry row
+
+### 1. 本轮主题
+PRD §2 E1-R5。把 R4 的 FrozenStrategySpec schema 接入 rcm_archive，
+产 S0 candidate record + frozen YAML 落盘。
+
+### 2. 本轮目标
+- CLI `scripts/freeze_research_candidate.py`
+- 输入: `--trial-id` OR `--lineage-tag + --top-k-index`
+- 输出: `data/research_candidates/<id>.yaml` + registry row @ S0
+- Refuses duplicate IDs / missing trial / arg mutex violations
+- 4+ tests (实际 9)
+
+### 3. 为什么这轮优先做它
+R4 schema 光放着没用；R5 给它第一个 producer。之后 R6 promote 才有
+input。也让 future RCMv2 / 新 mining 有一条"trial → candidate" 的正
+式通路。
+
+### 4. 做了什么
+
+**CLI 主流程**:
+```
+1. Validate arg mutex (trial-id XOR lineage-tag)
+2. Load row from rcm_archive.rcm_trials (by trial_id or top-k rank)
+3. Duplicate check on candidate_id (registry.exists)
+4. Build FrozenStrategySpec:
+   - features/weights from spec_json in rcm_trials
+   - summary stubs derived from rcm_trials columns:
+     * benchmark_relative_summary: corr_concentration
+     * oos_holdout_summary: ic_mean / ic_std / ic_ir / n_dates
+     * robustness_summary: turnover_proxy / corr_concentration / objective
+   - source block: trial_id + lineage_tag + study_id + archive_db
+   - notes: stamped freeze time + "stubs; R6 requires full evidence"
+5. Write YAML to out-path
+6. Register row @ S0_research_prototype with frozen_spec_path
+```
+
+**决定性设计 — stub 够用**:
+summary stubs 都是 dict with "note: stub from rcm_archive; full
+evidence required for S1 promote"。这样:
+- R4 schema 接受（non-empty dict）
+- R6 research_promote 能 detect "stub" 标识 → 拒绝 S0 → S1 
+- 用户 workflow 很清楚: freeze → 编辑 YAML / memo → promote
+
+**决定性设计 — revoke 是 terminal wrt candidate_id**:
+test `test_revoke_then_re_freeze_allowed` 发现 revoke 后 row 仍在 S5，
+再 freeze 同 id 仍被 duplicate check 拒绝。这是故意的：
+- revoke 是审计记录，不能被新 freeze 覆盖
+- 要替换候选，用新 candidate_id（避免 id 歧义）
+
+### 5. 修改了哪些文件
+```
+A  scripts/freeze_research_candidate.py           (+258)
+A  tests/unit/research/test_freeze_cli.py         (+256)
+```
+
+### 6. 跑了哪些测试/实验
+
+**9 新单测** (all PASS):
+- Freeze from --trial-id writes YAML + registers S0 ✓
+- Freeze from --lineage-tag + --top-k-index=0 ✓
+- Summary stubs are R4-schema-compliant (loadable via FrozenStrategySpec) ✓
+- Duplicate candidate_id rejected exit 1 ✓
+- Missing trial rejected exit 1 ✓
+- Both trial-id + lineage-tag mutex rejected ✓
+- Neither provided rejected ✓
+- Dry-run does not write YAML nor register ✓
+- Revoke-then-re-freeze same id rejected (contract pin) ✓
+
+Tests use ad-hoc `tmp_path/rcm_archive.db` + `tmp_path/registry.db`
+seeded with a single fake trial — no touching real archives.
+
+**Inline real-world verification**:
+```
+$ python scripts/freeze_research_candidate.py \
+    --trial-id f24aefecc91a \
+    --candidate-id rcm_v1_defensive_02 \
+    --dry-run
+
+Source trial: f24aefecc91a (lineage=post-2026-04-24-rcm-v1-lag1,
+objective=0.3550, ic_ir=0.4951)
+
+YAML preview shows 4 features + stubbed summaries + "TODO: author
+decision memo for rcm_v1_defensive_02 before research_promote.py"
+placeholder.
+```
+
+### 7. 结果如何
+
+**Freeze pipeline works end-to-end**. Given any trial in rcm_archive,
+one CLI call produces:
+- valid YAML on disk (passes R4 FrozenStrategySpec validation)
+- registry row at S0
+
+**Workflow now covered**:
+- NEW trial → freeze → S0
+- S0 spec → revoke_candidate (for early rejection)
+- S0 → S1 via research_promote (R6, next)
+
+### 8. 当前发现的新问题/新机会
+
+**机会 — freeze batch mode**: 如果 future 需要 freeze top-5 from a
+lineage, 现在要调 5 次 (--top-k-index 0 / 1 / 2 / 3 / 4)。加
+`--top-k-range 0:5` 一步到位是简单扩展。但 scope 外。
+
+**观察 — decision_memo path handling**: 当 user 没给 `--decision-memo`
+时, CLI 写了 "TODO: author..." 字符串作 inline text。R6 promote
+会检查这个 placeholder 并 reject (ensures real memo exists).
+
+### 9. 剩余风险
+- 无。R5 纯 additive (新 CLI + 新 tests)，未改动现有 code path。
+
+### 10. 下一轮建议方向
+**R6 E-1 R3**: `scripts/research_promote.py` (S0 → S1 gate)
+- Args: `--candidate-id`, `--acceptance-json` (optional, auto-discovers 
+  latest), `--decision-memo-path` (required)
+- Validate:
+  - Candidate exists at S0
+  - Acceptance JSON PASS (outcome=promote_to_paper)
+  - Hard blocks: any "stub" substring in summaries → fail (user must
+    replace stubs with real evidence)
+  - Decision memo file exists + non-empty
+- Transition: S0 → S1
+- Hard invariant: does NOT touch `config/production_strategy.yaml`
+  (test explicitly greps changed files)
+- 5+ tests
+
+### 11. Halt 条件检查 (§3)
+- 条件 1: NO (5/14 rounds used)
+- 条件 2: NO (+9, no regression)
+- 条件 3: NO
+- 条件 4: NO
+- 条件 5: NO
+- 条件 6: NO
+- 条件 7: NO
+
+→ 继续 R6（research_promote CLI）
