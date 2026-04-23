@@ -8891,3 +8891,192 @@ A  tests/unit/mining/test_rcm_archive.py (+440)
 - 其他不相关
 
 → 继续 R13
+
+## R-rcm-v1-round-13
+
+**时间**: 2026-04-24
+**Commit**: `f852c95`
+**Step**: Step 6 — first research mining run
+
+### 1. 本轮主题 / Step
+PRD §15 Step 6：跑首次 Research Composite Miner v1 run，产出 top-K
+诊断 artifact。R09-R12 已经 ship miner 组件 + archive；R13 在 79-sym
+panel 上用真实数据跑 50 trials，验证端到端链路 + 产出第一批诊断数据。
+
+### 2. 本轮目标
+- CLI scaffold `scripts/run_research_miner.py`
+- 在 79-sym (tradable) × 3461 dates panel 上 build 12 PRD features +
+  既有 RESEARCH_FACTORS
+- 50 trials Optuna TPE（seed=42）写 `data/mining/rcm_archive.db`
+  + `data/mining/rcm_optuna.db` 双 DB
+- `data/ml/research_miner/rcm-v1-run-01/` 输出 top_20 + lineage_summary
+  + run_summary
+- 不触碰 PRODUCTION_FACTORS / config/universe.yaml /
+  production_strategy.yaml
+
+### 3. 为什么这轮优先做它
+PRD §15 step order Step 5 已完（R09 scaffold + R10 evaluator + R11
+objective + R12 archive）。Step 6 是直接下一步：首次真实跑。不跑首次
+就没法在 R14 做 top-K 分析 / family heatmap / diagnostics。
+
+### 4. 做了什么
+
+**CLI（315 行）**:
+- `_load_price_volume`：universe.yaml → seed_pool + sector_etfs +
+  factor_etfs + cross_asset，剔除 blacklist + macro_reference，从
+  MarketDataStore 读全 OHLCV
+- `_build_factor_panel_map`：
+  - 构造 `benchmark_map = {SPY: close[SPY], QQQ: close[QQQ]}` → PRD P1
+    实现的 multi-benchmark generator 被真正调用
+  - `research_mask(min_price=5, min_usd=20e6, window=20)`
+  - `generate_all_factors(..., benchmark_map=benchmark_map)`
+  - `compute_forward_returns(horizons=[21], mode="cc")` 取 21d CC fwd
+- `_write_artifacts`：
+  - `archive.top_k(k=20, lineage_tag=...)` → parquet + csv
+  - `archive.lineage_summary()` → csv
+  - `run_summary.json`（时间戳 + config + top-3 preview）
+- 主函数：study_id 默认 timestamped，可 `--resume` 续跑
+
+**Real run 配置**:
+```
+--trials 50 --seed 42 --study rcm-v1-run-01
+--archive-db data/mining/rcm_archive.db
+--optuna-db data/mining/rcm_optuna.db
+--lineage post-2026-04-24-rcm-v1
+```
+
+### 5. 修改了哪些文件
+```
+A  scripts/run_research_miner.py  (+315)
+# 不在 git 里的 artifact（data/ gitignored）:
++  data/mining/rcm_archive.db
++  data/mining/rcm_optuna.db
++  data/ml/research_miner/rcm-v1-run-01/top_20.parquet
++  data/ml/research_miner/rcm-v1-run-01/top_20.csv
++  data/ml/research_miner/rcm-v1-run-01/lineage_summary.csv
++  data/ml/research_miner/rcm-v1-run-01/run_summary.json
+```
+
+### 6. 跑了哪些测试 / 实验
+
+**Smoke 验证**（先跑 10 trials 看 wiring）:
+- 79 syms × 3461 dates panel built
+- 61 factors generated（12 PRD 全部 present, all_family factors all
+  resolved from panel）
+- research_mask 排除 48914 (date, symbol) cells
+- 6/10 trials finite-objective（4 pruned: n_families < 3）
+- Best smoke：IR +1.60, obj +1.21
+
+**真实 run** `rcm-v1-run-01`:
+- 50 trials, 40 completed, 10 pruned
+- 4 分钟耗时（Optuna trial ~5-6s）
+
+### 7. 结果如何
+
+**Top-10 (objective DESC)**:
+
+| # | n_feat | n_fam | IR | turn | corr | obj | features |
+|---|--:|--:|--:|--:|--:|--:|--|
+| 1 | 4 | 3 | **+4.77** | 0.49 | **0.09** | **+4.44** | rs_acceleration, vol_63d, mean_rev_sma50, risk_adj_mom_63d |
+| 2 | 6 | 3 | +2.83 | 0.51 | 0.14 | +2.43 | max_dd_126d, drawdown_current, amihud_20d, vol_regime, mom_252d, mean_rev_sma20 |
+| 3 | 6 | 4 | +2.29 | 0.48 | 0.20 | +1.85 | rs_acceleration, max_dd_126d, drawdown_current, vol_63d, mom_252d, mean_rev_sma20 |
+| 4-10 | 4-6 | 3-4 | +1.28~+2.18 | ~0.47-0.55 | 0.15-0.20 | +0.86~+1.75 | TPE-converged 邻域 variants |
+
+**Archive lineage_summary**：
+- 1 lineage (post-2026-04-24-rcm-v1)
+- 40 trials, avg IC_IR -1.04, best +4.77, worst -7.10
+- avg objective -1.49
+
+**TPE 收敛行为**：top-6 清晰是 TPE 在一个 weight-neighborhood 内细调 
+`{rs_acceleration, max_dd_126d, drawdown_current, vol_63d, mom_252d,
+mean_rev_sma20}` 这 6 个（每个 IR 递减 ~0.1，相当于 TPE 对 weights
+做 local search）。
+
+**Feature frequency in top-10**:
+- `rs_acceleration` (A) 8/10
+- `mom_252d` (D) 8/10
+- `max_dd_126d` (B) 7/10
+- `vol_63d` (C) 7/10
+- `drawdown_current` (B) 6/10
+- `mean_rev_sma20` (D) 6/10
+
+**PRD 12 features 出现情况**（top-10 里）:
+- 出现: `residual_mom_spy_20d` (1 appearance, #10)
+- 零出现: 11/12（rel_spy_20d / rel_qqq_20d / beta_spy_60d /
+  range_pos_252d / days_since_52w_high / breakout_20d_strength /
+  dist_from_new_high_252 / amihud_20d 略 / downside_vol_20d / vol_ratio_5_20 /
+  trend_tstat_20d）
+
+**关键观察**：**Top 10 完全由既有 RESEARCH_FACTORS 的组合主导，12 PRD
+features 几乎没 surface**。这个初步 signal 值得 R14 深入分析：
+(a) 50 trials 的 Optuna TPE 是否足够让 12 new PRD features 从 33 可选 
+    factors 里被抽到
+(b) 新 features 的 raw IC 是否确实弱于既有（R14 可以做 univariate IC
+    对比）
+(c) 是否因为 family A 新 features 与既有 rs_acceleration / rs_vs_spy_*
+    有冗余（correlation check in R14）
+
+### 8. 当前发现的新问题 / 新机会
+
+**问题 1 — IC_IR 值系统性偏大**: 最佳 IR +4.77 远高于量化 literature
+典型值 0.5-1.5。根因：fwd_21d 跨日重叠 →  per-date IC 序列高度自相关
+→ std 偏小 → mean/std*sqrt(252) 被放大。
+
+**修复方案（R14 候选）**:
+- (a) 用非重叠 stride：每 21 日取一个 sample date
+- (b) Newey-West HAC 修正 std（lag=20 window）
+- (c) Annualization 从 sqrt(252) 改为 sqrt(252/21)=sqrt(12)≈3.46
+  使 sqrt(252)=15.87 → sqrt(12)=3.46，IR 会降到 +1.04 量级（合理）
+
+**问题 2 — 12 PRD features 首轮未进 top-10**: sampler 覆盖度问题。
+可能解：
+- 增 trials 到 150-200 让 TPE 充分探索
+- 或用 `RandomSampler` 先均匀扫 100 trials 建 baseline，再 TPE 收敛
+- 或在 families 里调整 feature list 让新 features 权重初始化更显著
+
+**机会 — 收敛邻域识别**: top 6 变体是 TPE 在同一 feature 组合上做 weight
+search。说明：
+- sampler 工作正常
+- 该 feature 组合有 real signal basin
+- 该组合不含任何 PRD 12 new features，说明**在当前 panel + mask + 21d fwd
+  定义下，既有 RESEARCH_FACTORS 组合的信号强度主导**
+
+**问题 3 — Optuna trial 速度**：前 10 trials ~3s/trial，后 40 trials
+~5-6s/trial。因为 TPE 倾向采样 high-feature-count specs（6 feat ≈
+多 2x z-score + 更大 corr matrix）。非 blocker，但 R14 分析时 100+
+trials 预算需考虑。
+
+### 9. 剩余风险
+- ⚠️ IC_IR 值 potentially misleading for single-run absolute interpretation
+  （但 relative ranking 仍 valid）—— R14 必须先修复 IR 算法再做 top-K
+  decisions
+- Top 1 unique spec `{rs_acceleration, vol_63d, mean_rev_sma50,
+  risk_adj_mom_63d}` 需 R14 做更严格的 OOS / regime stratification 验证
+  才能 claim signal
+
+### 10. 下一轮建议方向
+- **R14 (PRD Step 6 → Step 7 过渡)**:
+  - 修复 IC_IR 重叠 forecast 问题（non-overlapping stride or annualization
+    factor fix）
+  - Top-K 分析：
+    (a) 对 top-10 specs 做 regime stratification
+    (b) feature frequency heatmap by family
+    (c) 相关性矩阵（top features pairwise correlation in panel）
+  - 12 PRD features 独立 univariate IC 对比（raw IC 怎样？）
+  - 决定是否 R15+ 重 mining 用非重叠 stride + 150-200 trials
+- R15+: 根据 R14 findings 决定 Step 7 路径（扩 feature family / 轻量
+  新数据层 / 蒸馏 production 路线）
+
+### 11. Halt 条件检查 (§13.3)
+- 条件 1: **进度** — miner 已完成首轮运行（§13.3 条件 1 完整描述是"12 
+  features + 3 plumbing + research_mask 全部完成，且 miner 已完成首轮
+  运行与分析"；R13 完成了"首轮运行"，分析在 R14）
+- 条件 2: NO — Invariant 未碰（benchmark_map 通过既有 P1 接口调用；
+  PRODUCTION_FACTORS 未动；无 config 编辑）
+- 条件 3: NO — 0 regression（1337 passed maintained）
+- 条件 5: NO — IC_IR 值有方法论偏差但 search space 本身已展开（40
+  completed trials spread across feature/family space）
+- 条件 7: 13/22
+- 其他不相关
+
+→ 继续 R14
