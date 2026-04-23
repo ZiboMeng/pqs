@@ -6862,3 +6862,94 @@ RISK_OFF 144 / CRISIS 123 days (total 3459 matches panel length).
 ### 11. Halt 条件检查 (§15.3)
 - 条件 7 仍 active
 - 其他通过
+
+---
+
+## R-feat-v1-round-18
+
+**时间**: 2026-04-23
+**Step**: 6 deeper (factor-interaction scan: R01-R05 new × existing top-9)
+
+### 1. 本轮主题
+Pairwise multiplicative interaction scan — 新 R01-R05 factors × 9
+existing high-|IC| factors. 搜 incremental |IC| ≥ max(parent IC)。
+
+### 2. 本轮目标
+- 对 8 × 9 = 72 pair 计算 interaction IC
+- 排名 incremental alpha
+- 给 future promotion round seed
+
+### 3. 为什么这轮优先做它
+R17 regime-stratified IC 发现 reversal factor CRISIS 放大；逻辑 next
+step 是看 interaction 层是否有 "quality-gated reversal" 或类似 regime-
+like modulation signal 被 multiplicative product 捕到。
+
+### 4. 做了什么
+- 加载 79-sym OHLCV panel
+- `generate_all_factors` 产出 49 factors
+- 对 8 new × 9 existing pair 计算 product 的 cross-sectional IC_5d
+- 排名
+
+### 5. 修改了哪些文件
+无 code 改动（inline diagnostic）。
+
+### 6. 跑了哪些测试 / 实验
+
+**Single-factor IC baseline** (for reference):
+- ret_1d -0.258, overnight_ret_1d -0.254, ret_5d -0.175, ret_2d -0.170
+- dist_52w_high -0.136, rel_spy_5d -0.136
+- mom_63d -0.129, mom_126d -0.121, rolling_sharpe_126d -0.011
+
+**Top 5 interactions by incremental IC**:
+
+| pair | inter_IC | new | old | incr |
+|---|---:|---:|---:|---:|
+| **overnight_ret_1d × rolling_sharpe_126d** | **-0.3254** | -0.2539 | -0.0112 | **+0.0714** |
+| **ret_1d × rolling_sharpe_126d** | **-0.3236** | -0.2580 | -0.0112 | **+0.0657** |
+| **ret_2d × rolling_sharpe_126d** | -0.2196 | -0.1700 | -0.0112 | +0.0496 |
+| ret_1d × vol_63d | +0.2568 | -0.2580 | -0.0567 | -0.0011 |
+| overnight_ret_1d × vol_63d | +0.2526 | -0.2539 | -0.0567 | -0.0014 |
+
+### 7. 结果如何
+
+**主要发现**: **"Quality-weighted short-term reversal"** 是 concrete
+incremental alpha lead. `ret_1d × rolling_sharpe_126d` 和
+`overnight_ret_1d × rolling_sharpe_126d` IC 上升到 -0.32+ 区间（vs
+raw ret_1d -0.258），incremental +0.066~+0.071.
+
+**Mechanism**: `rolling_sharpe_126d` (quality 因子) 自身 IC 近 0
+(-0.011)；但它作为 sign/scale modulator，放大了 reversal 信号在
+"高质量股票" 上的效应。Economically: 高质量股下跌/上涨后更倾向 mean-
+revert（低质股随机游走更多），product 把这个 conditional 效应捕到。
+
+**Note on vol_63d pairs**: `ret_1d × vol_63d` IC +0.257 (flipped
+sign) — 因为 vol_63d 本身符号可变（rolling 标准差取负作为 low_vol
+convention），乘积改变了符号但绝对幅度和 parent 近似。不是 incremental
+发现。
+
+**没有找到 >+0.10 incremental IC 的 pair**: 最强 +0.071 仍属 moderate
+incremental; 证实 §10.3 "factor space 饱和" 结论 — 即使 pairwise
+interaction 里也没有 large step-up。
+
+### 8. 当前发现的新问题 / 新机会
+- 3 个 "reversal × quality" pair 高度一致地 surface — 是否已有 PRD 之
+  外的 LLM candidate 表达过这个 idea？搜 97 pool：`return_per_risk_21d`
+  (已 mapped 到 quality)，`risk_adj_mom_63d` 是相关但正号 momentum 版本
+- "Quality-modulated reversal" 可以作为 future LLM round 的 hypothesis
+  seed — candidate factor 形如 `ret_1d * quality_score` 或
+  `rank_cs(ret_1d) * rank_cs(quality)`
+- PRD §15.4 明禁 loop 自主扩 MultiFactorSpace / PRODUCTION_FACTORS，
+  所以这个 lead 只能作为 finding 留给 user
+
+### 9. 剩余风险
+无
+
+### 10. 下一轮建议方向
+- 继续 buffer round 的边际价值递减
+- 核心 critical path 仍是 user 决策 blocker options
+- 如 loop 还继续，可 deep-check top incremental pair 在 OOS / regime
+  上的稳定性（但结论大概率不改变 promote-requires-user-decision 现状）
+
+### 11. Halt 条件检查 (§15.3)
+- 条件 7 仍 active
+- 其他通过
