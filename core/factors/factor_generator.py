@@ -49,6 +49,7 @@ def generate_all_factors(
     backfill_tickers: set[str] | None = None,
     volume_sensitive_factors: list[str] | None = None,
     intraday_bars_60m: Dict[str, pd.DataFrame] | None = None,
+    benchmark_map: Dict[str, pd.Series] | None = None,
 ) -> Dict[str, pd.DataFrame]:
     """
     Generate all candidate factors from price (and optionally volume) data.
@@ -57,7 +58,17 @@ def generate_all_factors(
     ----------
     price_df      : close prices, index=date, columns=symbols
     volume_df     : daily volume, same shape as price_df (optional)
-    benchmark_col : column name for benchmark (used in relative strength)
+    benchmark_col : column name for benchmark (used in relative strength).
+                    Backward-compat: if `benchmark_map` is None, the
+                    benchmark is sourced from `price_df[benchmark_col]`.
+    benchmark_map : PRD 20260424 P1. Optional dict mapping benchmark name
+                    (e.g. "SPY", "QQQ") → close-price Series. When supplied,
+                    each benchmark is injected into a copy of `price_df`
+                    under its name column, so downstream factor families
+                    can reference any benchmark by name. Enables features
+                    like `rel_qqq_*`, `beta_spy_*`, `residual_mom_*` that
+                    need benchmarks beyond the single `benchmark_col`.
+                    The original `price_df` is not mutated.
     backfill_tickers : set of tickers whose bars come from trades_backfill
                        pipeline; their volume semantics differ from
                        stocks-only CSV source. If supplied, the output
@@ -72,28 +83,43 @@ def generate_all_factors(
     Returns
     -------
     Dict[factor_name → DataFrame] with same index/columns as price_df
+    (benchmark-injected columns are NOT returned as factors).
     """
     factors: Dict[str, pd.DataFrame] = {}
 
-    factors.update(_baseline_return_factors(price_df, open_df))
-    factors.update(_baseline_range_factors(price_df, high_df, low_df, volume_df))
-    factors.update(_baseline_relative_factors(price_df, benchmark_col))
-    factors.update(_momentum_factors(price_df))
-    factors.update(_mean_reversion_factors(price_df))
-    factors.update(_volatility_factors(price_df))
+    # PRD 20260424 P1: if a benchmark_map is supplied, inject each
+    # named benchmark as a column in a COPY of price_df so factor
+    # families that lookup `price_df[name]` work uniformly regardless
+    # of whether the caller passed benchmarks as explicit columns or
+    # via the map. Original caller's price_df is not mutated.
+    effective_price_df = _resolve_benchmark_map(
+        price_df, benchmark_col, benchmark_map,
+    )
+
+    factors.update(_baseline_return_factors(effective_price_df, open_df))
+    factors.update(_baseline_range_factors(effective_price_df, high_df, low_df, volume_df))
+    factors.update(_baseline_relative_factors(effective_price_df, benchmark_col))
+    factors.update(_momentum_factors(effective_price_df))
+    factors.update(_mean_reversion_factors(effective_price_df))
+    factors.update(_volatility_factors(effective_price_df))
     if volume_df is not None:
-        factors.update(_volume_factors(price_df, volume_df))
-    factors.update(_quality_factors(price_df))
-    factors.update(_relative_strength_factors(price_df, benchmark_col))
-    factors.update(_sector_rotation_factors(price_df))
-    factors.update(_macro_regime_factors(price_df, benchmark_col))
-    factors.update(_regime_gated_factors(price_df, benchmark_col))
-    factors.update(_weak_market_factors(price_df, benchmark_col))
+        factors.update(_volume_factors(effective_price_df, volume_df))
+    factors.update(_quality_factors(effective_price_df))
+    factors.update(_relative_strength_factors(effective_price_df, benchmark_col))
+    factors.update(_sector_rotation_factors(effective_price_df))
+    factors.update(_macro_regime_factors(effective_price_df, benchmark_col))
+    factors.update(_regime_gated_factors(effective_price_df, benchmark_col))
+    factors.update(_weak_market_factors(effective_price_df, benchmark_col))
     if open_df is not None:
-        factors.update(_overnight_factors(price_df, open_df))
-    factors.update(_breadth_factors(price_df))
+        factors.update(_overnight_factors(effective_price_df, open_df))
+    factors.update(_breadth_factors(effective_price_df))
     if intraday_bars_60m is not None:
-        factors.update(_intraday_factors(price_df, intraday_bars_60m))
+        factors.update(_intraday_factors(effective_price_df, intraday_bars_60m))
+
+    # Factor outputs must be aligned to caller's original price_df
+    # columns — injected benchmarks should not leak into output panels
+    # if they weren't in the caller's symbol set.
+    factors = _trim_factors_to_caller_symbols(factors, price_df.columns)
 
     # PRD §D3 / §3.1.C alias layer: expose historically-named factors
     # as thin references to existing ones. Same DataFrame shared — no
@@ -110,6 +136,67 @@ def generate_all_factors(
 
     logger.info("FactorGenerator: produced %d candidate factors", len(factors))
     return factors
+
+
+# PRD 20260424 P1 (Research Composite Miner v1) multi-benchmark helpers.
+
+
+def _resolve_benchmark_map(
+    price_df: pd.DataFrame,
+    benchmark_col: str,
+    benchmark_map: Dict[str, pd.Series] | None,
+) -> pd.DataFrame:
+    """Return a price_df variant whose columns include every named
+    benchmark in `benchmark_map` (and the original caller columns).
+
+    Backward-compat: when `benchmark_map` is None, returns `price_df`
+    unchanged (no copy). When supplied, returns a COPY of `price_df`
+    with each benchmark series injected as a column named by its key.
+
+    Parameters
+    ----------
+    price_df      : caller's original close panel
+    benchmark_col : legacy single-benchmark name (for documentation only
+                    — this helper does not consult it). Kept in signature
+                    so mistake-proofing: if caller passes an unmapped
+                    benchmark_col without benchmark_map, they will get
+                    the existing KeyError at subfactor lookup time (same
+                    behavior as pre-P1).
+    benchmark_map : {name: close_series} dict
+
+    Returns
+    -------
+    DataFrame — same as price_df if benchmark_map is None, else a copy
+    with all benchmarks injected as columns named by key.
+    """
+    if not benchmark_map:
+        return price_df
+    merged = price_df.copy()
+    for name, series in benchmark_map.items():
+        merged[name] = series.reindex(merged.index)
+    return merged
+
+
+def _trim_factors_to_caller_symbols(
+    factors: Dict[str, pd.DataFrame],
+    caller_columns: pd.Index,
+) -> Dict[str, pd.DataFrame]:
+    """Return a new factor dict where every factor DataFrame's columns
+    are restricted to `caller_columns`. This prevents benchmark-injected
+    columns (e.g. an extra "QQQ" from benchmark_map) from leaking into
+    factor outputs if QQQ wasn't part of the caller's universe."""
+    trimmed: Dict[str, pd.DataFrame] = {}
+    caller_set = set(caller_columns)
+    for name, df in factors.items():
+        if isinstance(df, pd.DataFrame):
+            cols_to_keep = [c for c in df.columns if c in caller_set]
+            if len(cols_to_keep) == len(df.columns):
+                trimmed[name] = df  # no change
+            else:
+                trimmed[name] = df[cols_to_keep]
+        else:
+            trimmed[name] = df
+    return trimmed
 
 
 # PRD §D3 / §3.1.C alias map: alias_name → canonical_name already in
