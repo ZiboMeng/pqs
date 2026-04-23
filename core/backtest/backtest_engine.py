@@ -435,6 +435,18 @@ def compute_metrics(
     if equity_curve.empty or len(equity_curve) < 2:
         return {}
 
+    # PRD §11 M14: drop leading/trailing NaN before computing endpoint-based
+    # metrics (total_return, CAGR). Pre-fix, a benchmark series with leading
+    # NaN (e.g. QQQ in a panel whose index was pulled earlier by another
+    # ticker like BRK-B) produced iloc[0]=NaN → CAGR=NaN, corrupting all
+    # benchmark comparisons. first_valid_index/last_valid_index restore
+    # endpoint sanity without changing mid-series behavior.
+    fvi = equity_curve.first_valid_index()
+    lvi = equity_curve.last_valid_index()
+    if fvi is None or lvi is None or fvi == lvi:
+        return {}
+    equity_curve = equity_curve.loc[fvi:lvi]
+
     returns = equity_curve.pct_change().dropna()
     n_years = len(equity_curve) / annualization
 
