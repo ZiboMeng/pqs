@@ -1,0 +1,19 @@
+# Source: Gemini 2.5 (external LLM handoff per PRD M15)
+# Round: Gemini_round_02
+# Submitted: 2026-04-22
+factor_name: "skewness_63d"
+hypothesis: "Assets exhibiting positive return skewness offer lottery-ticket payoffs, but systematically penalizing extreme positive skew avoids buying exhausted meme-stocks."
+formula: |
+  ret = pct_change(close, 1)
+  factor = -1 * rolling_skewness(ret, 63)
+compute_fn_path: "research.llm_candidates.Gemini_round_02.compute_fns:skewness_63d"
+required_fields: ["close"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: ["NEUTRAL", "CAUTIOUS"]
+expected_edge: "Positive IC (+0.02). Consistent with the 'low idiosyncratic skewness' anomaly in quant finance."
+expected_risk: "May select assets with heavy negative tails (crash risk)."
+possible_failure_modes:
+  - "Exposed to sudden left-tail events (blowups)."
+  - "Skewness computation is unstable with small samples."
+novelty_vs_existing_factors: "Cross-sectional moment extraction; focuses on the third moment (skewness), absent from repo."

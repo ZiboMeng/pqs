@@ -1,0 +1,19 @@
+# Source: Gemini 2.5 (external LLM handoff per PRD M15)
+# Round: Gemini_round_02
+# Submitted: 2026-04-22
+factor_name: "friday_seasonality_126d"
+hypothesis: "Retail and institutional positioning ahead of weekends leads to persistent positive drift in specific historically resilient assets."
+formula: |
+  is_friday = day_of_week == 4
+  factor = rolling_mean(pct_change(close, 1) where is_friday, 126)
+compute_fn_path: "research.llm_candidates.Gemini_round_02.compute_fns:friday_seasonality_126d"
+required_fields: ["close"]
+suitable_horizon: [5]
+suitable_universe: "expanded_53"
+suitable_regime: ["RISK_ON"]
+expected_edge: "Positive IC (+0.015). Marginal edge capturing weekend risk-premiums."
+expected_risk: "Very slow-moving signal; low absolute magnitude."
+possible_failure_modes:
+  - "Macro environment shifting to Friday risk-off (weekend gap fears)."
+  - "Holidays shifting the end-of-week day."
+novelty_vs_existing_factors: "Event-based seasonality. Completely ignores standard momentum."

@@ -1,0 +1,20 @@
+# Source: Gemini 2.5 (external LLM handoff per PRD M15)
+# Round: Gemini_round_02
+# Submitted: 2026-04-22
+factor_name: "spy_divergence_21d"
+hypothesis: "Assets that generate positive returns on days the broader market is down exhibit immense relative strength and idiosyncratic buyers."
+formula: |
+  spy_ret = pct_change(SPY, 1)
+  asset_ret = pct_change(close, 1)
+  factor = rolling_sum(asset_ret where spy_ret < 0, 21)
+compute_fn_path: "research.llm_candidates.Gemini_round_02.compute_fns:spy_divergence_21d"
+required_fields: ["close"]
+suitable_horizon: [5, 21]
+suitable_universe: "tech_heavy"
+suitable_regime: ["NEUTRAL", "CAUTIOUS"]
+expected_edge: "Positive IC (+0.035). Isolates hidden strength."
+expected_risk: "May over-allocate to non-correlated defensive assets like GLD."
+possible_failure_modes:
+  - "Prolonged bull run where SPY has almost no down days, flattening the factor."
+  - "Beta-mismatch creates false positives."
+novelty_vs_existing_factors: "Benchmark-relative direction; explicitly isolates benchmark down-days unlike standard rs_vs_spy."

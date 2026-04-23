@@ -1,0 +1,20 @@
+# Source: Gemini 2.5 (external LLM handoff per PRD M15)
+# Round: Gemini_round_02
+# Submitted: 2026-04-22
+factor_name: "intraday_support_21d"
+hypothesis: "Assets consistently closing near their daily highs despite intraday dips indicate strong underlying institutional support (buying the dip)."
+formula: |
+  lower_shadow = min(open, close) - low
+  total_range = high - low
+  factor = rolling_mean(lower_shadow / total_range, 21)
+compute_fn_path: "research.llm_candidates.Gemini_round_02.compute_fns:intraday_support_21d"
+required_fields: ["close", "open", "high", "low"]
+suitable_horizon: [5, 21]
+suitable_universe: "expanded_53"
+suitable_regime: ["RISK_ON", "BULL"]
+expected_edge: "Positive IC (+0.03). High lower-shadow ratio predicts short-term bounce."
+expected_risk: "Fails in gap-down markets where intraday ranges mean less than overnight moves."
+possible_failure_modes:
+  - "Low volatility grinding trends where ranges are too small to be meaningful."
+  - "Data errors in high/low ticks skewing the ratio."
+novelty_vs_existing_factors: "Explores intraday-specific shadow geometry, orthogonal to closing momentum."

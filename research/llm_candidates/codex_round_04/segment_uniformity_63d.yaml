@@ -1,0 +1,22 @@
+# Source: Gemini 2.5 (external LLM handoff per PRD M15)
+# Round: 27
+# Submitted: 2026-04-22
+factor_name: "segment_uniformity_63d"
+hypothesis: "A 63-day move carried by many moderate 5-day segments may be more durable than one dominated by a single burst."
+formula: |
+  ret_63 = close.pct_change(63)
+  move_5_abs = abs(close.pct_change(5))
+  dominant_5d = move_5_abs.rolling(63, min_periods=20).max()
+  feat_raw = ret_63 / dominant_5d
+  feat = cross-sectional z-score(feat_raw.shift(1))
+compute_fn_path: "research.llm_candidates.codex_round_04.compute_fns:segment_uniformity_63d"
+required_fields: ["close"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: [NEUTRAL, RISK_ON, BULL]
+expected_edge: "positive, IC roughly 0.01-0.03 if multi-segment continuation beats one-burst moves"
+expected_risk: "Sensitive to denominator spikes; can look bad on genuine information shocks that still trend"
+possible_failure_modes:
+  - "Single catalyst repricings continue and the factor misses them"
+  - "Rolling max of 5d move is unstable around event-heavy windows"
+novelty_vs_existing_factors: "This is a segment concentration metric, not a plain path breadth or endpoint momentum signal; expected correlation to momentum family should be moderate, around 0.2-0.4."

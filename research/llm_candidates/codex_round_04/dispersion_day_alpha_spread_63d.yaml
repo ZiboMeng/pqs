@@ -1,0 +1,26 @@
+# Source: Gemini 2.5 (external LLM handoff per PRD M15)
+# Round: 27
+# Submitted: 2026-04-22
+factor_name: "dispersion_day_alpha_spread_63d"
+hypothesis: "Some names earn their edge specifically when cross-sectional dispersion is high and stock selection matters most."
+formula: |
+  ret_1d = close.pct_change()
+  dispersion_1d = ret_1d.std(axis=1)
+  cutoff_63 = dispersion_1d.rolling(63, min_periods=20).median()
+  high_disp = dispersion_1d > cutoff_63
+  low_disp = dispersion_1d <= cutoff_63
+  high_mean = masked_mean(ret_1d, high_disp, window=63, min_periods=15)
+  low_mean = masked_mean(ret_1d, low_disp, window=63, min_periods=15)
+  feat_raw = high_mean - low_mean
+  feat = cross-sectional z-score(feat_raw.shift(1))
+compute_fn_path: "research.llm_candidates.codex_round_04.compute_fns:dispersion_day_alpha_spread_63d"
+required_fields: ["close"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: "all"
+expected_edge: "positive, IC roughly 0.01-0.03 if high-dispersion winners remain the same names over subsequent weeks"
+expected_risk: "Dispersion state can be unstable and clustered around macro events; signal may reverse after single-stock shock periods"
+possible_failure_modes:
+  - "High-dispersion performance reflects one-off event winners rather than persistent leadership"
+  - "When dispersion compresses for long stretches, the factor loses distinctiveness"
+novelty_vs_existing_factors: "Unlike cross_section_dispersion_21d, this is stock-specific conditional performance across dispersion states, not a market-wide dispersion level; expected correlation to existing factors should be low-moderate, around 0.15-0.3."

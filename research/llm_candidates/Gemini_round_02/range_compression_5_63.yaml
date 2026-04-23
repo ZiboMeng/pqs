@@ -1,0 +1,20 @@
+# Source: Gemini 2.5 (external LLM handoff per PRD M15)
+# Round: Gemini_round_02
+# Submitted: 2026-04-22
+factor_name: "range_compression_5_63"
+hypothesis: "Assets trading in an abnormally tight range compared to their historical average are building energy for a directional expansion."
+formula: |
+  atr_5 = rolling_mean(high - low, 5)
+  atr_63 = rolling_mean(high - low, 63)
+  factor = -1 * (atr_5 / atr_63)
+compute_fn_path: "research.llm_candidates.Gemini_round_02.compute_fns:range_compression_5_63"
+required_fields: ["high", "low"]
+suitable_horizon: [5, 21]
+suitable_universe: "expanded_53"
+suitable_regime: ["NEUTRAL"]
+expected_edge: "Positive IC (+0.03). High values (most compressed) precede outsized directional moves."
+expected_risk: "Range expansion can happen to the downside; requires long trend filter in portfolio construction."
+possible_failure_modes:
+  - "Illiquidity masquerading as range compression."
+  - "Breakdown instead of breakout."
+novelty_vs_existing_factors: "Path-shape direction via ATR geometry rather than closing price standard deviation."

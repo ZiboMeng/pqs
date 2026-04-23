@@ -1,0 +1,20 @@
+# Source: Gemini 2.5 (external LLM handoff per PRD M15)
+# Round: Gemini_round_02
+# Submitted: 2026-04-22
+factor_name: "intraday_overnight_ratio_21d"
+hypothesis: "Assets driven by daytime (intraday) momentum are fundamentally stronger than those surviving merely on overnight gaps."
+formula: |
+  intraday_ret = (close - open) / open
+  overnight_ret = (open - shift(close, 1)) / shift(close, 1)
+  factor = rolling_mean(intraday_ret, 21) / (rolling_std(overnight_ret, 21) + 1e-6)
+compute_fn_path: "research.llm_candidates.Gemini_round_02.compute_fns:intraday_overnight_ratio_21d"
+required_fields: ["close", "open"]
+suitable_horizon: [21]
+suitable_universe: "expanded_53"
+suitable_regime: ["BULL", "RISK_ON"]
+expected_edge: "Positive IC (+0.03). Rewards organic trading hours price discovery."
+expected_risk: "Can be noisy; overnight variance can spike due to broad market macro news, unfairly penalizing the asset."
+possible_failure_modes:
+  - "Overnight variance artificially deflates the ratio during global macro shocks."
+  - "Open/Close data anomalies."
+novelty_vs_existing_factors: "Factor interaction type; blends intraday return with overnight risk penalty."

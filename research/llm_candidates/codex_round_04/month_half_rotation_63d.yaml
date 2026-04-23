@@ -1,0 +1,24 @@
+# Source: Gemini 2.5 (external LLM handoff per PRD M15)
+# Round: 27
+# Submitted: 2026-04-22
+factor_name: "month_half_rotation_63d"
+hypothesis: "Some names may systematically earn better returns in the early-middle part of the month than in the later-middle part due to recurring allocation flows."
+formula: |
+  ret_1d = close.pct_change()
+  early_mid = day_of_month in [6..15]
+  late_mid = day_of_month in [16..25]
+  early_mean = masked_mean(ret_1d, early_mid, 63, 8)
+  late_mean = masked_mean(ret_1d, late_mid, 63, 8)
+  feat_raw = early_mean - late_mean
+  feat = cross-sectional z-score(feat_raw.shift(1))
+compute_fn_path: "research.llm_candidates.codex_round_04.compute_fns:month_half_rotation_63d"
+required_fields: ["close"]
+suitable_horizon: [5, 21]
+suitable_universe: "expanded_53"
+suitable_regime: "all"
+expected_edge: "small positive or negative, IC roughly 0.00-0.02 if monthly flow timing matters outside pure month-start/end windows"
+expected_risk: "Calendar effects are fragile and can disappear after transaction costs or simple resampling"
+possible_failure_modes:
+  - "Signal just repackages month-start or month-end noise with no independent edge"
+  - "Irregular trading calendars distort the masked sample count"
+novelty_vs_existing_factors: "This intentionally avoids the first/last 5-day month windows already tested and instead uses middle-of-month rotation; expected correlation to prior event candidates should be low-moderate."

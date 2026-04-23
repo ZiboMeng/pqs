@@ -1,0 +1,23 @@
+# Source: Gemini 2.5 (external LLM handoff per PRD M15)
+# Round: 27
+# Submitted: 2026-04-22
+factor_name: "crowding_gap_vs_qqq_63d"
+hypothesis: "Names with positive trend that behave more like the broad market than like crowded QQQ leadership may offer cleaner continuation with less crowding risk."
+formula: |
+  ret_1d = close.pct_change()
+  corr_spy_63 = rolling_corr(ret_1d, SPY_ret_1d, 63)
+  corr_qqq_63 = rolling_corr(ret_1d, QQQ_ret_1d, 63)
+  corr_gap = corr_spy_63 - corr_qqq_63
+  feat_raw = close.pct_change(63) * corr_gap
+  feat = cross-sectional z-score(feat_raw.shift(1))
+compute_fn_path: "research.llm_candidates.codex_round_04.compute_fns:crowding_gap_vs_qqq_63d"
+required_fields: ["close"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: [NEUTRAL, RISK_ON, BULL]
+expected_edge: "positive, IC roughly 0.01-0.03 if less-QQQ-crowded winners continue better than benchmark-hugging tech proxies"
+expected_risk: "Can simply tilt away from tech in periods when tech remains dominant; correlation estimates can be unstable"
+possible_failure_modes:
+  - "QQQ leadership broadens and the anti-crowding tilt becomes a headwind"
+  - "SPY and QQQ correlations converge, leaving little cross-sectional spread"
+novelty_vs_existing_factors: "This uses relative benchmark-correlation structure rather than endpoint relative return, making it different from standard rel_strength and qqq-relative momentum ideas; expected correlation should be moderate, around 0.2-0.4."

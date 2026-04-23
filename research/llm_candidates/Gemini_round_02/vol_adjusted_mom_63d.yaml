@@ -1,0 +1,20 @@
+# Source: Gemini 2.5 (external LLM handoff per PRD M15)
+# Round: Gemini_round_02
+# Submitted: 2026-04-22
+factor_name: "vol_adjusted_mom_63d"
+hypothesis: "Momentum divided by its realization volatility standardizes risk, favoring slow-and-steady compounders over volatile high-flyers."
+formula: |
+  ret_63 = pct_change(close, 63)
+  vol_63 = rolling_std(pct_change(close, 1), 63)
+  factor = ret_63 / vol_63
+compute_fn_path: "research.llm_candidates.Gemini_round_02.compute_fns:vol_adjusted_mom_63d"
+required_fields: ["close"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: ["all"]
+expected_edge: "Positive IC (+0.045). Sharpe-ratio equivalent momentum factor."
+expected_risk: "Can overly concentrate in low-beta sectors like staples."
+possible_failure_modes:
+  - "Low vol denominators explode the factor value during flat markets."
+  - "Sudden vol regime change wrecks historical denominator."
+novelty_vs_existing_factors: "Factor interaction type; blends mom_63d and vol_63d. Similar to risk_adj_mom but explicit ratio."

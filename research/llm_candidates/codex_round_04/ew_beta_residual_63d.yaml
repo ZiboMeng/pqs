@@ -1,0 +1,23 @@
+# Source: Gemini 2.5 (external LLM handoff per PRD M15)
+# Round: 27
+# Submitted: 2026-04-22
+factor_name: "ew_beta_residual_63d"
+hypothesis: "Stocks whose 63-day return exceeds what their rolling beta to the equal-weight universe would imply may represent idiosyncratic leadership rather than plain market drift."
+formula: |
+  ret_1d = close.pct_change()
+  ew_ret_1d = ret_1d.mean(axis=1)
+  ew_ret_63 = exp(log1p(ew_ret_1d).rolling(63, min_periods=30).sum()) - 1
+  beta_126 = rolling_cov(ret_1d, ew_ret_1d, 126) / rolling_var(ew_ret_1d, 126)
+  feat_raw = close.pct_change(63) - beta_126 * ew_ret_63
+  feat = cross-sectional z-score(feat_raw.shift(1))
+compute_fn_path: "research.llm_candidates.codex_round_04.compute_fns:ew_beta_residual_63d"
+required_fields: ["close"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: "all"
+expected_edge: "positive, IC roughly 0.02-0.04 if residual leadership persists after removing broad equal-weight tape beta"
+expected_risk: "Can lag in synchronized beta rallies where simple market exposure dominates stock selection; may also lean into crowded winners if idiosyncratic leadership gets over-owned"
+possible_failure_modes:
+  - "Equal-weight benchmark becomes too noisy in narrow markets, making beta residual unstable"
+  - "Residualization may understate genuine sector leadership when many names in one cluster move together"
+novelty_vs_existing_factors: "Closest to momentum and rel_strength, but it removes rolling beta-adjusted equal-weight tape exposure instead of comparing to SPY/QQQ endpoint return; estimated correlation to existing momentum/RS family should be moderate rather than high, around 0.3-0.5."

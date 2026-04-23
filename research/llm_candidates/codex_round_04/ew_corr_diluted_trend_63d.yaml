@@ -1,0 +1,22 @@
+# Source: Gemini 2.5 (external LLM handoff per PRD M15)
+# Round: 27
+# Submitted: 2026-04-22
+factor_name: "ew_corr_diluted_trend_63d"
+hypothesis: "A 63-day trend that is less correlated with the equal-weight tape may reflect more idiosyncratic leadership and less crowded beta."
+formula: |
+  ret_1d = close.pct_change()
+  ew_ret_1d = ret_1d.mean(axis=1)
+  corr_ew_63 = rolling_corr(ret_1d, ew_ret_1d, 63)
+  feat_raw = close.pct_change(63) * (1 - corr_ew_63)
+  feat = cross-sectional z-score(feat_raw.shift(1))
+compute_fn_path: "research.llm_candidates.codex_round_04.compute_fns:ew_corr_diluted_trend_63d"
+required_fields: ["close"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: [NEUTRAL, RISK_ON, BULL]
+expected_edge: "positive, IC roughly 0.01-0.03 if uncrowded trends persist better than fully tape-synchronized moves"
+expected_risk: "Can underperform in broad beta melt-ups where high-correlation winners keep leading anyway"
+possible_failure_modes:
+  - "Equal-weight correlation estimates get noisy in narrow leadership tapes"
+  - "May unintentionally underweight legitimate sector waves that travel together"
+novelty_vs_existing_factors: "This is correlation-penalized trend rather than raw momentum or SPY-relative return; expected overlap with momentum/rel_strength is moderate, around 0.25-0.45."

@@ -1,0 +1,19 @@
+# Source: Gemini 2.5 (external LLM handoff per PRD M15)
+# Round: Gemini_round_02
+# Submitted: 2026-04-22
+factor_name: "regime_cautious_low_vol"
+hypothesis: "During CAUTIOUS regimes, capital strictly rotates to the lowest volatility defensives; applying this condition captures the flight to safety."
+formula: |
+  vol_21 = rolling_std(pct_change(close, 1), 21)
+  factor = (1 / vol_21) * (regime == 'CAUTIOUS')
+compute_fn_path: "research.llm_candidates.Gemini_round_02.compute_fns:regime_cautious_low_vol"
+required_fields: ["close"]
+suitable_horizon: [21]
+suitable_universe: "diversifier_only"
+suitable_regime: ["CAUTIOUS"]
+expected_edge: "Positive IC (+0.04 during Cautious). Strong defensive factor."
+expected_risk: "Dead weight during RISK_ON."
+possible_failure_modes:
+  - "Regime whipsaws cause rapid entry/exit friction."
+  - "A sudden macro shock hits traditional low-vol assets (e.g., rate spike hitting utilities)."
+novelty_vs_existing_factors: "Regime-conditioned version of low_vol; specifically armed only during CAUTIOUS phases."

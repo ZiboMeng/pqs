@@ -1,0 +1,22 @@
+# Source: Gemini 2.5 (external LLM handoff per PRD M15)
+# Round: 27
+# Submitted: 2026-04-22
+factor_name: "post_shock_drift_63d"
+hypothesis: "Stocks that historically drift better on the day after their own downside shocks may have stronger dip-buying sponsorship than peers."
+formula: |
+  ret_1d = close.pct_change()
+  shock_cut_21 = ret_1d.rolling(21, min_periods=10).quantile(0.10)
+  post_shock_mask = ret_1d.shift(1) <= shock_cut_21.shift(1)
+  feat_raw = masked_mean(ret_1d, post_shock_mask, window=63, min_periods=10)
+  feat = cross-sectional z-score(feat_raw.shift(1))
+compute_fn_path: "research.llm_candidates.codex_round_04.compute_fns:post_shock_drift_63d"
+required_fields: ["close"]
+suitable_horizon: [5, 21]
+suitable_universe: "expanded_53"
+suitable_regime: [CAUTIOUS, NEUTRAL, RISK_ON]
+expected_edge: "positive, IC roughly 0.01-0.03 if post-shock sponsorship is persistent"
+expected_risk: "Can mistake dead-cat bounces for resilience; sparse event counts can make the rolling mean unstable"
+possible_failure_modes:
+  - "Shock events are too infrequent for some symbols"
+  - "Shock aftermath behavior changes sign across regimes and breaks the average"
+novelty_vs_existing_factors: "This is an event-aftereffect factor rather than a simple reversal or drawdown level; expected overlap with short-horizon reversal candidates should be moderate but not extreme, around 0.2-0.35."

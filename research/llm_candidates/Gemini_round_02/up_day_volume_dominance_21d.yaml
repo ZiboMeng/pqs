@@ -1,0 +1,21 @@
+# Source: Gemini 2.5 (external LLM handoff per PRD M15)
+# Round: Gemini_round_02
+# Submitted: 2026-04-22
+factor_name: "up_day_volume_dominance_21d"
+hypothesis: "Accumulation is proven when the average volume on up days significantly exceeds the average volume on down days."
+formula: |
+  ret = pct_change(close, 1)
+  vol_up = rolling_mean(volume where ret > 0, 21)
+  vol_down = rolling_mean(volume where ret <= 0, 21)
+  factor = vol_up / vol_down
+compute_fn_path: "research.llm_candidates.Gemini_round_02.compute_fns:up_day_volume_dominance_21d"
+required_fields: ["close", "volume"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: ["NEUTRAL", "RISK_ON"]
+expected_edge: "Positive IC (+0.035). Classic money flow logic."
+expected_risk: "Can be skewed by a single massive volume day (e.g., earnings beat)."
+possible_failure_modes:
+  - "No down days in 21 days leads to division by zero."
+  - "Options expiration volume skewing the ratio."
+novelty_vs_existing_factors: "Cross-sectional volume segregation; distinct from standard price_volume_div."

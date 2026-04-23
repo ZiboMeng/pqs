@@ -1,0 +1,24 @@
+# Source: Gemini 2.5 (external LLM handoff per PRD M15)
+# Round: 27
+# Submitted: 2026-04-22
+factor_name: "effective_path_breadth_63d"
+hypothesis: "A 63-day advance driven by many contributing days is more durable than the same endpoint return delivered by a few jumpy sessions."
+formula: |
+  ret_1d = close.pct_change()
+  abs_sum_63 = abs(ret_1d).rolling(63, min_periods=30).sum()
+  sq_sum_63 = (ret_1d ** 2).rolling(63, min_periods=30).sum()
+  effective_n_63 = abs_sum_63 ** 2 / sq_sum_63
+  path_breadth = effective_n_63 / 63
+  feat_raw = close.pct_change(63) * path_breadth
+  feat = cross-sectional z-score(feat_raw.shift(1))
+compute_fn_path: "research.llm_candidates.codex_round_04.compute_fns:effective_path_breadth_63d"
+required_fields: ["close"]
+suitable_horizon: [21, 63]
+suitable_universe: "expanded_53"
+suitable_regime: [NEUTRAL, RISK_ON, BULL]
+expected_edge: "positive, IC roughly 0.01-0.03 if smoother broad-participation trends persist better than jump-driven moves"
+expected_risk: "Can underperform after news shocks where true regime repricing arrives in only a handful of sessions; may also overlap modestly with low-vol / quality profiles"
+possible_failure_modes:
+  - "Breakout markets led by gap jumps look weak by construction even when they continue"
+  - "In very low-vol tapes, path-breadth differences compress and the factor loses cross-sectional spread"
+novelty_vs_existing_factors: "Unlike momentum, drawup, or rel_strength, this is about return-distribution geometry rather than endpoint level; compared with low_vol/quality it rewards smooth participation only when paired with positive net trend, so estimated correlation should stay moderate, around 0.2-0.4."

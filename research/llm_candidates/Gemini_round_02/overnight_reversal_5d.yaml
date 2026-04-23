@@ -1,0 +1,19 @@
+# Source: Gemini 2.5 (external LLM handoff per PRD M15)
+# Round: Gemini_round_02
+# Submitted: 2026-04-22
+factor_name: "overnight_reversal_5d"
+hypothesis: "Extreme overnight gaps tend to mean-revert during regular trading hours; avoiding assets with massive recent gap-ups prevents holding the bag."
+formula: |
+  overnight_ret = (open - shift(close, 1)) / shift(close, 1)
+  factor = -1 * rolling_sum(overnight_ret, 5)
+compute_fn_path: "research.llm_candidates.Gemini_round_02.compute_fns:overnight_reversal_5d"
+required_fields: ["close", "open"]
+suitable_horizon: [5]
+suitable_universe: "expanded_53"
+suitable_regime: ["NEUTRAL", "RISK_OFF"]
+expected_edge: "Positive IC (+0.025). Fades exhaustion gaps."
+expected_risk: "Underperforms in breakaway gap momentum regimes."
+possible_failure_modes:
+  - "Fighting a fundamental structural change (e.g., massive earnings beat)."
+  - "Low-priced stocks having erratic gap math."
+novelty_vs_existing_factors: "Intraday-specific; inverses overnight_gap_5d to capture the mean-reversion edge."
