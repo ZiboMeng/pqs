@@ -445,6 +445,54 @@ def test_evaluate_composite_high_corr_concentration():
     assert metrics.corr_concentration > 0.99
 
 
+def test_evaluate_composite_horizon_scales_ic_ir():
+    """R14: ic_ir scales as sqrt(252/horizon). horizon=1 → ~4.58x larger
+    than horizon=21 with identical ic_mean + ic_std.
+
+    Construct panels where ic_series is deterministic so ic_mean/ic_std
+    is fixed; then verify ic_ir ratio matches the annualization ratio.
+    """
+    np.random.seed(11)
+    idx = pd.bdate_range("2024-01-02", periods=60)
+    cols = [f"S{i}" for i in range(15)]
+    # Signal panel strongly correlated with fwd returns
+    p = pd.DataFrame(np.random.randn(60, 15), index=idx, columns=cols)
+    fwd = p * 0.3 + pd.DataFrame(
+        np.random.randn(60, 15) * 0.7, index=idx, columns=cols,
+    )
+    spec = ResearchCompositeSpec(
+        features=("mom_21d",), weights=(1.0,),
+        family_counts={"D": 1, "A": 1, "B": 1},
+    )
+    m_h1 = evaluate_composite(spec, {"mom_21d": p}, fwd, horizon=1)
+    m_h21 = evaluate_composite(spec, {"mom_21d": p}, fwd, horizon=21)
+    # ic_mean + ic_std identical (function of panels, not horizon)
+    assert abs(m_h1.ic_mean - m_h21.ic_mean) < 1e-12
+    assert abs(m_h1.ic_std - m_h21.ic_std) < 1e-12
+    # IR scales by sqrt(21 / 1) = sqrt(21)
+    if np.isfinite(m_h1.ic_ir) and np.isfinite(m_h21.ic_ir) and m_h21.ic_ir != 0:
+        ratio = m_h1.ic_ir / m_h21.ic_ir
+        expected = np.sqrt(21)
+        assert abs(ratio - expected) < 1e-6
+    # horizon field stored
+    assert m_h1.horizon == 1
+    assert m_h21.horizon == 21
+
+
+def test_evaluate_composite_rejects_bad_horizon():
+    spec = ResearchCompositeSpec(
+        features=("mom_21d",), weights=(1.0,),
+        family_counts={"D": 1, "A": 1, "B": 1},
+    )
+    idx = pd.bdate_range("2024-01-02", periods=10)
+    cols = list("ABCDEF")
+    p = pd.DataFrame(np.random.randn(10, 6), index=idx, columns=cols)
+    with pytest.raises(ValueError, match="horizon must be positive"):
+        evaluate_composite(spec, {"mom_21d": p}, p, horizon=0)
+    with pytest.raises(ValueError, match="horizon must be positive"):
+        evaluate_composite(spec, {"mom_21d": p}, p, horizon=-5)
+
+
 def test_evaluate_composite_single_feature_corr_concentration_zero():
     """n_features=1 → corr_concentration = 0 (trivially no redundancy)."""
     np.random.seed(5)

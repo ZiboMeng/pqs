@@ -88,11 +88,11 @@ def _load_price_volume(cfg, store) -> dict[str, pd.DataFrame]:
 
 
 def _build_factor_panel_map(
-    frames: dict, tradable: list[str],
+    frames: dict, tradable: list[str], horizon: int = 21,
 ) -> tuple[dict[str, pd.DataFrame], pd.DataFrame, pd.DataFrame, int]:
     """Generate factor panels + forward returns + research mask.
 
-    Returns (factor_panel_map, fwd_returns_21d, mask, n_masked_out)
+    Returns (factor_panel_map, fwd_returns_<horizon>d, mask, n_masked_out)
     """
     close = frames["close"]
     volume = frames["volume"]
@@ -123,10 +123,9 @@ def _build_factor_panel_map(
         if name in RESEARCH_FACTORS
     }
 
-    # Forward returns: 21d horizon (standard medium-term horizon for
-    # composite research; longer than intraday, shorter than full-cycle)
-    fwd_all = compute_forward_returns(close, horizons=[21], mode="cc")
-    fwd_21 = fwd_all[21]
+    # Forward returns: `horizon`-day CC return (default 21d = medium-term)
+    fwd_all = compute_forward_returns(close, horizons=[horizon], mode="cc")
+    fwd_h = fwd_all[horizon]
 
     n_masked_out = None
     if mask is not None:
@@ -134,7 +133,7 @@ def _build_factor_panel_map(
             n_masked_out = int((~mask).sum().sum())
         except Exception:
             n_masked_out = None
-    return panel_map, fwd_21, mask, n_masked_out
+    return panel_map, fwd_h, mask, n_masked_out
 
 
 def _write_artifacts(
@@ -196,6 +195,9 @@ def main() -> int:
                         help="Pass load_if_exists=True to Optuna")
     parser.add_argument("--min-families", type=int, default=3)
     parser.add_argument("--max-features-per-family", type=int, default=2)
+    parser.add_argument("--horizon", type=int, default=21,
+                        help="Forecast horizon in trading days (also used "
+                             "for IC_IR annualization factor sqrt(252/h))")
     parser.add_argument("--config-dir", default="config")
     args = parser.parse_args()
 
@@ -216,7 +218,9 @@ def main() -> int:
                 n_dates, n_syms, len(tradable))
 
     logger.info("Generating factors (this takes 1-2 min)...")
-    panel_map, fwd_21, mask, n_masked = _build_factor_panel_map(frames, tradable)
+    panel_map, fwd_h, mask, n_masked = _build_factor_panel_map(
+        frames, tradable, horizon=args.horizon,
+    )
     family_factor_names = all_family_factors(FAMILIES_V1)
     missing = family_factor_names - set(panel_map)
     if missing:
@@ -246,12 +250,13 @@ def main() -> int:
     logger.info("Building ResearchMiner...")
     miner = ResearchMiner(
         factor_panel_map=panel_map,
-        fwd_returns=fwd_21,
+        fwd_returns=fwd_h,
         mask=mask,
         families=FAMILIES_V1,
         objective_weights=ObjectiveWeights(),
         min_families=args.min_families,
         max_features_per_family=args.max_features_per_family,
+        horizon=args.horizon,
         archive=archive,
         lineage_tag=args.lineage,
         study_id=study_id,
@@ -291,7 +296,7 @@ def main() -> int:
             "max_features_per_family": args.max_features_per_family,
             "n_syms": int(n_syms), "n_dates": int(n_dates),
             "n_factors_in_panel": panel_feature_count,
-            "fwd_return_horizon_days": 21,
+            "fwd_return_horizon_days": int(args.horizon),
             "fwd_return_mode": "cc",
         },
     )

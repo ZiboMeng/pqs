@@ -483,15 +483,25 @@ def _corr_concentration(
 
 @dataclass
 class CompositeMetrics:
-    """Summary metrics for a research composite (PRD §8.4 candidate schema)."""
+    """Summary metrics for a research composite (PRD §8.4 candidate schema).
+
+    R14 fix: `ic_ir` uses horizon-aware annualization factor
+    `sqrt(252 / horizon)` instead of naive `sqrt(252)`. For fwd horizon h,
+    consecutive per-date IC observations share (h-1)/h of their forward
+    window → correlation across the IC series deflates std → annualizing
+    by sqrt(252) overstates IR by ~sqrt(h). The horizon-aware factor
+    approximates non-overlapping sampling. Full Newey-West HAC is still
+    stricter but out of v1 scope.
+    """
     n_features: int
     n_families: int
     n_dates: int
     ic_mean: float
     ic_std: float
-    ic_ir: float  # ic_mean / ic_std * sqrt(252)
+    ic_ir: float            # ic_mean / ic_std * sqrt(252 / horizon)
     turnover_proxy: float
     corr_concentration: float
+    horizon: int = 21       # forecast horizon in trading days (for audit)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -503,6 +513,7 @@ class CompositeMetrics:
             "ic_ir": self.ic_ir,
             "turnover_proxy": self.turnover_proxy,
             "corr_concentration": self.corr_concentration,
+            "horizon": self.horizon,
         }
 
 
@@ -511,12 +522,13 @@ def evaluate_composite(
     factor_panel_map: Mapping[str, pd.DataFrame],
     fwd_returns: pd.DataFrame,
     mask: Optional[pd.DataFrame] = None,
+    horizon: int = 21,
 ) -> CompositeMetrics:
     """Evaluate a research composite spec against forward returns.
 
     Computes per-PRD §8.4:
       - IC (per-date spearman rank-correlation of composite vs fwd_ret)
-      - IC mean / std / IR (annualized)
+      - IC mean / std / IR (annualized as sqrt(252 / horizon))
       - turnover proxy (cross-sectional rank stability)
       - corr concentration (mean pairwise |corr| between components)
 
@@ -529,11 +541,16 @@ def evaluate_composite(
     factor_panel_map : feature name → factor panel mapping
     fwd_returns      : forward-return panel (date × symbol)
     mask             : optional research_mask panel to filter samples
+    horizon          : forecast horizon in trading days (default 21).
+                       Controls the annualization factor on IC_IR.
+                       See class docstring for theory.
 
     Returns
     -------
     CompositeMetrics dataclass
     """
+    if horizon <= 0:
+        raise ValueError(f"horizon must be positive, got {horizon}")
     composite = build_composite_series(spec, factor_panel_map)
     if mask is not None:
         # Import lazily to avoid circular
@@ -542,9 +559,10 @@ def evaluate_composite(
     ic_series = _spearman_ic_per_date(composite, fwd_returns)
     ic_mean = float(ic_series.mean()) if len(ic_series) else float("nan")
     ic_std = float(ic_series.std()) if len(ic_series) > 1 else float("nan")
-    # Annualized IR
+    # Horizon-aware annualized IR (R14): sqrt(252/h) approximates
+    # non-overlapping sampling scale.
     if ic_std > 0 and pd.notna(ic_std):
-        ic_ir = ic_mean / ic_std * np.sqrt(252)
+        ic_ir = ic_mean / ic_std * np.sqrt(252 / horizon)
     else:
         ic_ir = float("nan")
     turnover = _turnover_proxy(composite)
@@ -558,6 +576,7 @@ def evaluate_composite(
         ic_ir=float(ic_ir),
         turnover_proxy=turnover,
         corr_concentration=corr_conc,
+        horizon=int(horizon),
     )
 
 
@@ -645,6 +664,7 @@ class ResearchMiner:
         min_families: int = 3,
         max_features_per_family: int = 2,
         weight_step: float = 0.05,
+        horizon: int = 21,
         archive: Any = None,
         lineage_tag: Optional[str] = None,
         study_id: Optional[str] = None,
@@ -657,6 +677,7 @@ class ResearchMiner:
         self.min_families = min_families
         self.max_features_per_family = max_features_per_family
         self.weight_step = weight_step
+        self.horizon = int(horizon)
         # R12: optional persistence. When archive is provided, each
         # successful run_trial also writes to archive under (study_id,
         # lineage_tag). Both must be set together or not at all.
@@ -702,6 +723,7 @@ class ResearchMiner:
             self.factor_panel_map,
             self.fwd_returns,
             mask=self.mask,
+            horizon=self.horizon,
         )
         objective = compute_objective(
             metrics,
