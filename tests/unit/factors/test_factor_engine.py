@@ -249,3 +249,52 @@ class TestMakeForwardReturns:
         fwd = FactorEngine.make_forward_returns(price, horizon=5)
         # 最后 5 行应为 NaN（shift(-5) 移出范围）
         assert fwd.iloc[-5:].isna().all().all()
+
+    # ── mode extension (PRD 20260423 R13, symmetric with R04) ─────────
+    def test_cc_mode_default(self):
+        _, _, price = _strong_factor(n_dates=50)
+        default = FactorEngine.make_forward_returns(price, horizon=3)
+        cc = FactorEngine.make_forward_returns(price, horizon=3, mode="cc")
+        pd.testing.assert_frame_equal(default, cc)
+
+    def test_oc_mode_requires_open_df(self):
+        _, _, price = _strong_factor(n_dates=20)
+        with pytest.raises(ValueError, match="requires open_df"):
+            FactorEngine.make_forward_returns(price, horizon=1, mode="oc")
+
+    def test_oo_mode_requires_open_df(self):
+        _, _, price = _strong_factor(n_dates=20)
+        with pytest.raises(ValueError, match="requires open_df"):
+            FactorEngine.make_forward_returns(price, horizon=1, mode="oo")
+
+    def test_invalid_mode_rejected(self):
+        _, _, price = _strong_factor(n_dates=20)
+        with pytest.raises(ValueError, match="mode must be one of"):
+            FactorEngine.make_forward_returns(price, horizon=1, mode="xx")
+
+    def test_oc_mode_value_matches_compute_forward_returns(self):
+        """factor_engine.make_forward_returns and factor_generator.
+        compute_forward_returns should produce identical values in each mode."""
+        from core.factors.factor_generator import compute_forward_returns
+        _, _, price = _strong_factor(n_dates=30)
+        # Synthetic open: close shifted by -0.5
+        open_df = price - 0.5
+        fwd_engine = FactorEngine.make_forward_returns(
+            price, horizon=2, mode="oc", open_df=open_df,
+        )
+        fwd_gen = compute_forward_returns(
+            price, horizons=[2], mode="oc", open_df=open_df,
+        )[2]
+        pd.testing.assert_frame_equal(fwd_engine, fwd_gen)
+
+    def test_oo_mode_value_matches_compute_forward_returns(self):
+        from core.factors.factor_generator import compute_forward_returns
+        _, _, price = _strong_factor(n_dates=30)
+        open_df = price * 0.995
+        fwd_engine = FactorEngine.make_forward_returns(
+            price, horizon=3, mode="oo", open_df=open_df,
+        )
+        fwd_gen = compute_forward_returns(
+            price, horizons=[3], mode="oo", open_df=open_df,
+        )[3]
+        pd.testing.assert_frame_equal(fwd_engine, fwd_gen)

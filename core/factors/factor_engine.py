@@ -217,6 +217,8 @@ class FactorEngine:
     def make_forward_returns(
         price_df: pd.DataFrame,
         horizon:  int = 5,
+        mode:     str = "cc",
+        open_df:  Optional[pd.DataFrame] = None,
     ) -> pd.DataFrame:
         """
         [研究专用] 构造 horizon 日前向收益率（使用未来价格）。
@@ -230,11 +232,31 @@ class FactorEngine:
         如需滞后收益率（历史数据，无未来泄漏），请使用
         make_lagged_returns(price_df, horizon) 代替。
 
+        PRD 20260423 R04/R13 label-mode extension (symmetric with
+        `compute_forward_returns`):
+          - mode="cc" (default, backward-compat):
+                close[t+h] / close[t] - 1
+          - mode="oc":
+                close[t+h] / open[t+h] - 1  (requires open_df)
+          - mode="oo":
+                open[t+h] / open[t] - 1     (requires open_df)
+
         Returns
         -------
         pd.DataFrame  与 price_df 形状相同；末尾 horizon 行为 NaN（真实未来不可得）
         """
-        return price_df.pct_change(horizon).shift(-horizon)
+        if mode not in {"cc", "oc", "oo"}:
+            raise ValueError(f"mode must be one of cc/oc/oo, got {mode!r}")
+        if mode in {"oc", "oo"} and open_df is None:
+            raise ValueError(f"mode={mode!r} requires open_df")
+        if mode == "cc":
+            return price_df.pct_change(horizon).shift(-horizon)
+        elif mode == "oc":
+            oc = price_df / open_df.reindex_like(price_df) - 1.0
+            return oc.shift(-horizon)
+        else:  # "oo"
+            oo = open_df.pct_change(horizon)
+            return oo.reindex_like(price_df).shift(-horizon)
 
     @staticmethod
     def make_lagged_returns(
