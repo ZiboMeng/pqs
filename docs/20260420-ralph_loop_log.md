@@ -11138,3 +11138,162 @@ covered). 无需额外锁。
 **Phase E-0 complete**. E-1 begins at R4.
 
 → 继续 R4（FrozenStrategySpec schema）
+
+---
+
+## R-phase-e-round-04
+
+**时间**: 2026-04-24
+**Commit**: `d434d5f`
+**Sub-phase**: E-1
+**Focus**: FrozenStrategySpec schema — 8 mandatory fields + YAML round-trip
+
+### 1. 本轮主题
+PRD §2 E1-R4 + PRD 2 §6.1：把 Promote Input Package 8 必填字段落成
+Python dataclass，支持 YAML round-trip，并通过现存的 RCMv1 frozen
+YAML 验证能正确加载。
+
+### 2. 本轮目标
+- `core/research/frozen_spec.py` dataclass
+- 8 mandatory fields validation
+- `to_yaml` / `from_yaml` round-trip
+- 现存 RCMv1 YAML 能 load + round-trip + 保留 optional 字段
+- 6+ 单测 (实际 19)
+
+### 3. 为什么这轮优先做它
+E-1 R5 freeze / R6 promote / R8 paper runner 都要 consume FrozenStrategySpec。
+先建 schema，后续脚本只是它的 I/O thin-wrapper。8 fields 是 auditor 
+防 "light-weight promote" 的最后防线。
+
+### 4. 做了什么
+
+**`FrozenStrategySpec` dataclass** (~370 LOC):
+8 mandatory + 14 optional + extras catch-all.
+
+```
+mandatory:
+  candidate_id              : str (non-empty)
+  strategy_version          : str (regex ^[a-zA-Z][\w\-.]{1,}$)
+  source_trial_id           : str (rcm_archive back-pointer)
+  feature_set               : list[FeatureEntry] (>=1)
+  benchmark_relative_summary: dict | non-empty str
+  oos_holdout_summary       : dict | non-empty str
+  robustness_summary        : dict | non-empty str
+  decision_memo             : str (path or inline text)
+
+optional (all present in RCMv1 YAML):
+  strategy_type, family, transforms, composite_rule, labels,
+  panel_contract, rebalance, weighting_rule, benchmark_definition,
+  risk_overlay, cost_model_version, alternative_weighting_variant,
+  source, research_evidence, notes
+
+extras dict: catch-all for forward compatibility
+```
+
+**设计决定**:
+1. **summary accepts dict OR string**: 让 R19 sensitivity table 等机器
+   可查数据是 dict；legacy memo-style 允许 str。PRD 2 §6.4 说 decision_memo
+   可以是 path 或 inline，extend 到其他 summaries 也合理。
+2. **from_yaml tolerant to nested `source.trial_id`**: RCMv1 的 YAML
+   把 trial_id 放在 `source:` block 下面。不要求 caller 改 YAML，
+   schema 自动 resolve。
+3. **extras catch-all**: 未知顶层 key 不报错、不丢失，存到 `extras`
+   dict 里。future-proofs against YAML evolution.
+4. **validation in `__post_init__`**: create = validate. 无法构造 invalid 
+   spec，下游可放心假设 spec 满足 invariants.
+
+**RCMv1 YAML 更新**:
+原来 YAML 缺 `decision_memo` 和 3 个 summary fields (R3 时 R4 schema
+还没写)。R4 补齐：
+- `decision_memo: docs/20260424-rcm_v1_s1_candidate_memo.md`
+- `benchmark_relative_summary`: {note, crisis_regime_ic_ir 1.589,
+  risk_on_regime_ic_ir 0.167, vs_spy_qqq: deferred_to_paper_layer}
+- `oos_holdout_summary`: {walk_forward_n_folds 4, folds_positive 4,
+  weakest_ir 0.181, strongest_ir 0.777, full_period_ic_ir 0.4951,
+  n_dates 3310}
+- `robustness_summary`: {n_experiments 14, ir_range [0.383, 0.510],
+  ir_std 0.032, dominant_feature drawup_from_252d_low,
+  alternative_equal_weight_ir 0.510, random_baseline_best_ir 0.336,
+  cost_turnover_proxy 0.196, corr_concentration 0.037}
+
+数值全部来自 R18 + R19 实跑结果，不编。
+
+### 5. 修改了哪些文件
+```
+A  core/research/frozen_spec.py                                 (+370)
+A  tests/unit/research/test_frozen_spec.py                      (+240)
+M  data/research_candidates/rcm_v1_defensive_composite_01.yaml  (+36)
+```
+
+### 6. 跑了哪些测试/实验
+
+**19 新单测** (all PASS):
+- 8 mandatory fields validation (each rejected when missing/empty): 7 tests
+- summary accepts str: 1
+- FeatureEntry minimal / missing name / extras preserve: 3
+- YAML round-trip minimal + full: 2
+- from_yaml nested source.trial_id tolerated: 1
+- unknown top-level keys -> extras: 1
+- from_yaml rejects non-mapping root: 1
+- from_yaml_file missing file raises: 1
+- **RCMv1 YAML loads + round-trips + preserves optional fields**: 1
+
+**RCMv1 YAML smoke** (inline):
+```
+spec = FrozenStrategySpec.from_yaml_file('data/research_candidates/...')
+spec.candidate_id = 'rcm_v1_defensive_composite_01'
+spec.source_trial_id = 'f24aefecc91a'
+len(spec.feature_set) = 4
+spec.decision_memo = 'docs/20260424-rcm_v1_s1_candidate_memo.md'
+spec.to_yaml() round-trip preserves all fields ✓
+```
+
+**Research suite**: 57/57 pass (R1 26 + R3 12 + R4 19)
+**Full suite** pending; expected 1446 (+19 from 1427).
+
+### 7. 结果如何
+
+**Schema shipped + RCMv1 YAML compliant**. Fewer surprises at R5/R6
+when freeze/promote scripts need to serialize/deserialize.
+
+**Invariant established**: the R3 migration YAML is now covered by
+`test_loads_real_rcmv1_frozen_yaml` — any future schema change that
+breaks RCMv1 will fail this test and force an explicit migration.
+
+### 8. 当前发现的新问题/新机会
+
+**机会 — 自动生成 FrozenStrategySpec from RCMArchive trial**:
+R5 `freeze_research_candidate.py` 可以接 `rcm_archive.trial_id` 
+→ build FrozenStrategySpec()。summary fields 可以从 trial + archive
+metadata derive。这省了人工填表。
+
+**观察 — regex 严格度**: `_STRATEGY_VERSION_PATTERN` 现接受
+`test-v1` / `strat_v2` / `alpha.3` / `rcm-v1-2026-04-24`。拒绝 `""` 
+/ `"x"` / `"1234"`. 够宽松 also 够严格，生产实际用 `<name>-v<N>-<date>`
+pattern 就好。
+
+### 9. 剩余风险
+- 无。R4 纯 additive + 1 个 RCMv1 YAML 字段补齐（不破坏 R3 migration
+  路径 —— migration script 的 CLI contract 不依赖 YAML 内具体字段，
+  只依赖文件存在）。
+
+### 10. 下一轮建议方向
+**R5 E-1 R2**: `scripts/freeze_research_candidate.py`
+- Args: `--trial-id` 或 `--lineage-tag` + `--top-k-index`, 
+  `--candidate-id`, `--archive-db`
+- Build FrozenStrategySpec from rcm_archive trial + metadata
+- Write YAML to `data/research_candidates/<id>.yaml`
+- Insert row in registry with status S0
+- Refuse duplicate candidate_id (use revoke + re-freeze if replacing)
+- 4+ tests
+
+### 11. Halt 条件检查 (§3)
+- 条件 1: NO (4/14 rounds used)
+- 条件 2: NO (+19, 无 regression)
+- 条件 3: NO
+- 条件 4: NO
+- 条件 5: NO
+- 条件 6: NO
+- 条件 7: NO
+
+→ 继续 R5（freeze CLI）
