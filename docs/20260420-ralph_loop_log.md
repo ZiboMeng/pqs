@@ -10867,3 +10867,133 @@ connection-per-call 已足够 2-3 processes 并发读写。但真大规模并发
 - 条件 7: NO
 
 → 继续 R2（pyarrow decouple）
+
+---
+
+## R-phase-e-round-02
+
+**时间**: 2026-04-24
+**Commit**: `33d5895`
+**Sub-phase**: E-0
+**Focus**: pyarrow decouple — eliminate eager parquet I/O stack from paper-layer imports
+
+### 1. 本轮主题
+PRD `docs/20260424-prd_phase_e_execution.md` §2 E0-R2 +
+charter §E0-6：让 paper layer 轻量单测不被 parquet stack 拖死。
+
+### 2. 本轮目标
+- `core/data/market_data_store.py`: lazy import `pyarrow` + `pyarrow.parquet`
+- 验证: `from core.paper_trading.paper_trading_engine import
+  PaperTradingEngine` 不触发 `pyarrow.parquet` 加载
+- 3+ subprocess-based tests 捕捉 regressions
+- 0 test regressions
+
+### 3. 为什么这轮优先做它
+E-0 的 prerequisite —— 后续 E-2 paper layer 需要能做轻量单测。如果
+每次 import PaperTradingEngine 都把 parquet stack 初始化一次，单测
+速度 + 可测性都受影响。
+
+### 4. 做了什么
+
+**Root cause trace**:
+```
+import core.paper_trading.paper_trading_engine
+  → core.paper_trading.pnl_tracker (module loads)
+  → (transits core.data.__init__) → core.data.market_data_store
+    → TOP-LEVEL `import pyarrow as pa; import pyarrow.parquet as pq`
+```
+
+**Fix** (`core/data/market_data_store.py`):
+- 顶层 3 lines 改为 lazy imports 内部函数调用时触发
+- `has_min_bars()` 里 `import pyarrow.parquet as pq`
+- `_write_parquet()` 里 `import pyarrow as pa; import pyarrow.parquet as pq`
+- 模块顶部加 comment 说明 R2 设计意图
+
+**Discovery — pandas 2.x 不可避免会 load pyarrow.lib**:
+测试时发现 `import pandas as pd` 就会 `pyarrow.lib` (C++ core) 加载
+到 sys.modules。This is pandas 2.x library behavior, 不是我们代码。
+`pyarrow.lib` 是 lightweight (只加载 C++ wheel, 没 filesystem I/O)。
+**真正的 heavy stack 是 `pyarrow.parquet`** —— 这才是 test 里要 assert
+的 target。
+
+### 5. 修改了哪些文件
+```
+M  core/data/market_data_store.py                   (+10, -3)
+A  tests/unit/data/test_pyarrow_decouple.py         (+92)
+```
+
+### 6. 跑了哪些测试/实验
+
+**Subprocess-based tests** (3 新测) — 每个 subprocess 新 Python
+解释器 import 目标模块，然后检查 `sys.modules`:
+
+1. `test_paper_trading_engine_does_not_load_pyarrow_parquet`:
+   导入 `PaperTradingEngine` 后 `pyarrow.parquet not in sys.modules` ✓
+
+2. `test_market_data_store_class_does_not_load_pyarrow_parquet`:
+   导入 `MarketDataStore` 后 `pyarrow.parquet not in sys.modules` ✓
+
+3. `test_candidate_registry_does_not_load_pyarrow_at_all`:
+   导入 `CandidateRegistry` 后 `pyarrow.parquet not in sys.modules` ✓
+
+**End-to-end verification**:
+```
+store = MarketDataStore(Path('data'))
+df = store.read('SPY', '1d')     # 2842 rows ✓
+store.has_min_bars('SPY', '1d', 100)  # True ✓
+now pyarrow.parquet IS loaded (after actual use, not on import)
+```
+
+**Regression**: Full suite **1415 passed** / 1 skipped / 1 xfailed /
+126s (1412 → +3; 0 regression).
+
+### 7. 结果如何
+
+**Decouple goal met**. Paper-layer import chain no longer eagerly
+drags `pyarrow.parquet` into sys.modules. `MarketDataStore.read()` 
+still works correctly (lazy import fires on first actual parquet
+read).
+
+**Scope correctly narrowed**: the literal "no pyarrow in sys.modules"
+goal from PRD was not achievable because pandas 2.x itself loads
+`pyarrow.lib`. But the engineering concern (parquet stack coupling)
+is fully addressed by targeting `pyarrow.parquet` specifically.
+
+### 8. 当前发现的新问题/新机会
+
+**观察**: `core/data/__init__.py` 仍然 eager re-exports
+`MarketDataStore` —— 这本身没问题，现在 MarketDataStore 自己不再
+eager-import pyarrow.parquet. Future refactor to make `core.data`
+__init__ 也 lazy 是可行的但 out of scope this round。
+
+**新机会 — lightweight paper unit tests**: 现在可以写针对 PaperTradingEngine
+的单测而不需要 mock MarketDataStore。test_pyarrow_decouple.py 已经
+是示例。E-2 (paper layer) 单测可以直接受益。
+
+### 9. 剩余风险
+- `MarketDataStore.read()` 调用 `pd.read_parquet()` 仍会 lazy-load
+  pyarrow.parquet —— 正确行为，不是 regression
+- 其他 scripts (build_bars_parquet / trades_scanner 等) 继续 top-level
+  import pyarrow：scope 外，它们本来就是 parquet 专职工具
+
+### 10. 下一轮建议方向
+**R3 E-0 R3**: Revoke workflow + RCMv1 migration
+- 新 script `scripts/revoke_candidate.py`（用 E-0 R1 的 registry API）
+- 一次性迁移：把 `docs/20260424-rcm_v1_s1_candidate_memo.md` 作为
+  第一条真实 S1 record 插入 registry
+  - candidate_id = `rcm_v1_defensive_composite_01`
+  - source_trial_id = `f24aefecc91a`
+  - status = S1, decision_memo_path 指 memo, frozen_spec_path 指
+    从 memo §2 抽出的 YAML
+- 验证：R3 跑完后 registry.list_by_status(S1_CANDIDATE) 能看到这一条
+
+### 11. Halt 条件检查 (§3)
+- 条件 1: NO (2/14 rounds used)
+- 条件 2: NO (1415 > 1412, 正向)
+- 条件 3: NO (core imports clean)
+- 条件 4: NO (802 GB free)
+- 条件 5: NO (no schema migration)
+- 条件 6: NO (未触 production_strategy.yaml)
+- 条件 7: NO
+
+→ 继续 R3（revoke workflow + RCMv1 migration）
