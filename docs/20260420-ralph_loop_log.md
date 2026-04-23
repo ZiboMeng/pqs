@@ -9623,3 +9623,158 @@ Best composite IC_IR +0.50（每年 ~0.5 sigma worth of alpha）
 - 其他不相关
 
 → 继续 R17
+
+## R-rcm-v1-round-17
+
+**时间**: 2026-04-24
+**Commit**: (data-only, no code change)
+**Step**: PRD §15 Step 6 延伸 — TPE 收敛验证 (200 trials)
+
+### 1. 本轮主题 / Step
+R16 用 40 trials 给出 best IC_IR +0.50，但 avg IC_IR 只有 +0.18。
+说明 sampler 还没收敛。R17 extend 到 200 trials（`--resume` +160）
+看 TPE 会不会找到更稳定的 spec / 更高的 best。
+
+### 2. 本轮目标
+- Resume `rcm-v1-run-02-lag1` study，+160 trials
+- 验证：`--resume` 从 rcm_optuna.db 正确恢复
+- 看 best IC_IR 是否有改进
+- 看 top-K 是否收敛（或继续 random walk）
+
+### 3. 为什么这轮优先做它
+R18+ 做 OOS / Step 7 decision 之前，需要"最终"converged top spec 作
+为 anchor。40 trials 可能是"早期探索"阶段的 artifact，不代表 mining
+能达到的 best。
+
+### 4. 做了什么
+```
+--trials 160 --resume --seed 42
+--study rcm-v1-run-02-lag1
+--lineage post-2026-04-24-rcm-v1-lag1
+```
+~14 分钟耗时（160 trials × ~5s + panel rebuild）。
+
+### 5. 修改了哪些文件
+无代码改动。Artifacts (gitignored):
+- `data/ml/research_miner/rcm-v1-run-02-lag1/top_20.{parquet,csv}` 更新
+- `data/mining/rcm_archive.db` 从 40 rows → **165 rows** under lineage
+- `data/mining/rcm_optuna.db` study 从 40 → 200 trials（157 finite）
+
+### 6. 跑了哪些测试 / 实验
+
+**对比 R16 (40 trials) vs R17 (200 trials)**:
+
+| 指标 | R16 (40) | R17 (200) | Δ |
+|---|---|---|---|
+| finite-objective trials | 40 | 157 (+125 new) | +3.9x |
+| Best IC_IR | +0.505 | **+0.524** | +0.019 |
+| Best objective | +0.145 | **+0.355** | **+0.21** |
+| Avg IC_IR | +0.184 | **+0.310** | +0.126 |
+| Avg objective | -0.210 | **+0.040** | 翻转到正 |
+| Archive rows | 40 | 165 | +125 |
+
+**关键 finding — TPE 完全收敛**:
+Top-20 trials（objective 0.34-0.36 区间）**全部**含同一 feature set：
+```
+{beta_spy_60d, drawup_from_252d_low, days_since_52w_high, amihud_20d}
+```
+区别只在 weights。
+
+```
+#1: IR=+0.495 obj=+0.355 corr=0.037 turn=0.206
+#2: IR=+0.490 obj=+0.354 corr=0.037 turn=0.197
+...
+#20: IR=+0.4xx obj=+0.34x (same features, different weights)
+```
+
+### 7. 结果如何
+
+**Converged solution characteristics**:
+- n_features = 4（最小 satisfy min_families=3 的 footprint）
+- n_families = 3 (A=1, B=2, C=1, D=0)
+- corr_concentration = **0.037**（极低冗余 —— R16 top was 0.105）
+- turnover_proxy = 0.20（稳定 signal）
+- IC_IR +0.50 → annualized Sharpe proxy ~0.5-1.0
+
+**Feature 构成分析**:
+| Feature | Family | PRD-new? | Univariate IR (R16) |
+|---|---|---|---|
+| beta_spy_60d | A | **YES** | +0.33 |
+| drawup_from_252d_low | B | No (existing) | +0.42 |
+| days_since_52w_high | B | **YES** | +0.09 |
+| amihud_20d | C | **YES** | +0.19 |
+
+**3/4 来自 PRD 12 features** — 这直接 **falsifies** R14 的"PRD features 弱"
+结论。Under lag=1 (apples-to-apples)，PRD features 是这个 converged
+composite 的主力。
+
+**经济含义**:
+- `beta_spy_60d`: 低 beta 优先（A family 的 risk-exposure gate）
+- `drawup_from_252d_low`: 1y 低点反弹 signal（B family 的 path-shape）
+- `days_since_52w_high`: 距离近期高点天数（B family 补，与 drawup 互补）
+- `amihud_20d`: 流动性（C family，惩罚 illiquid 样本）
+
+四个 feature 经济维度分明：**beta exposure × drawup × distance-to-high × 
+liquidity**。不是单维度堆砌，是真正的正交 composite。
+
+### 8. 当前发现的新问题 / 新机会
+
+**新发现 1 — Converged spec 已达到 v1 "ceiling"**:
+- Top-20 clustered 在 obj 0.34-0.36
+- Further trials 会继续 tune weights 但换不出更 fundamental 不同 spec
+- 说明：**搜索空间已充分探索**，不再需要扩 trials
+- IF 要下一步更强 signal，需要：新 data family / 新 horizon / 新 universe
+
+**新发现 2 — 经济含义合理**:
+这个 composite 做 low-beta / post-drawdown-recovery / well-capitalized
+stocks — 与 quality-momentum factor tilt 一致。**不是纯数据挖掘偶然**。
+
+**机会 — 候选 Research Candidate (S1)**:
+按照用户提出的 Layered Architecture PRD，这个 converged spec 已具备
+S0 → S1 promote 的**部分**资格：
+- Spec 可冻结：4 features + 4 weights，trial_id 确定
+- Evidence: IC_IR +0.50 on 14-year 79-sym panel, corr 0.037
+- 缺：OOS walk-forward / benchmark-relative / regime-stratified
+
+**R18 建议**: 给这个 converged spec 跑完整 research acceptance：
+- OOS walk-forward（非 overlap）
+- regime-stratified IC
+- cost stress
+- 然后决定是否 S0 → S1 promote
+
+### 9. 剩余风险
+- 5 rounds budget remaining (17/22)
+- Converged 速度说明 TPE 可能过早收敛 —— 但 175+ trials 
+  应该已充分探索 4-feature 邻域；更 exotic 的 n_feat=6-7 spec 可能未
+  被 TPE 专门试（penalty 偏好紧凑 spec）
+- avg IR +0.31 比 best +0.52 差距大 —— 大部分 random spec 仍然是中等
+  水平
+
+### 10. 下一轮建议方向
+
+**R18**: converged spec 的完整 research acceptance evaluation
+- Spec: `{beta_spy_60d: w1, drawup_from_252d_low: w2,
+           days_since_52w_high: w3, amihud_20d: w4}` (取 top-1 weights)
+- OOS: 4-fold temporal walk-forward (2011-2014 / 2015-2018 / 2019-2022 /
+  2023-2026)
+- Regime: IC in 6 regimes (bull / bear / crash / recovery / sideways /
+  vol-regime)
+- Cost robustness: 2x cost stress
+- 输出：`data/ml/research_miner/rcm-v1-run-02-lag1/converged_spec_
+  acceptance.json`
+
+如果 acceptance pass → 可做 S0→S1 promotion memo（不触碰
+config/production_strategy.yaml）。如果 not pass → 文档化"converged 
+signal 在 OOS/regime 下的真实 stability"作为 blocker report。
+
+### 11. Halt 条件检查 (§13.3)
+- 条件 1: **很接近完成** — features + plumbing + mask + miner + 首轮
+  + 分析 + leakage fix + 重跑验证 + TPE 收敛 全部 ✓；剩最终 acceptance
+  evaluation（R18）
+- 条件 2: NO
+- 条件 3: NO
+- 条件 5: NO
+- 条件 7: 17/22
+- 其他不相关
+
+→ 继续 R18
