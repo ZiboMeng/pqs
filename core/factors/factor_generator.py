@@ -101,6 +101,8 @@ def generate_all_factors(
     factors.update(_baseline_relative_factors(effective_price_df, benchmark_col))
     factors.update(_family_a_benchmark_relative(effective_price_df))
     factors.update(_family_b_position_breakout(effective_price_df))
+    factors.update(_family_c_liquidity_risk(effective_price_df, volume_df))
+    factors.update(_family_d_trend_quality(effective_price_df))
     factors.update(_momentum_factors(effective_price_df))
     factors.update(_mean_reversion_factors(effective_price_df))
     factors.update(_volatility_factors(effective_price_df))
@@ -418,6 +420,104 @@ def _family_b_position_breakout(
     factors["dist_from_new_high_252"] = (
         price_df / prior_252d_max.replace(0, np.nan) - 1.0
     )
+
+    return factors
+
+
+def _family_c_liquidity_risk(
+    price_df: pd.DataFrame,
+    volume_df: pd.DataFrame | None = None,
+) -> Dict[str, pd.DataFrame]:
+    """PRD 20260424 Family C — liquidity / cost proxy / risk state.
+
+    Produces:
+      - amihud_20d       : rolling 20d mean of |ret_1d| / dollar_volume.
+                           Classic Amihud illiquidity; higher = less liquid.
+                           Requires volume_df — silently omitted if None.
+      - downside_vol_20d : rolling 20d std of daily returns restricted to
+                           negative returns only (downside risk asymmetry).
+      - vol_ratio_5_20   : 5d rolling vol / 20d rolling vol. Values < 1
+                           mean recent volatility compressed below 20d
+                           average — classic "quiet before the storm"
+                           or "compression before breakout" signal.
+                           Values > 1 mean recent heightened volatility.
+    """
+    factors: Dict[str, pd.DataFrame] = {}
+    daily_ret = price_df.pct_change()
+
+    # amihud_20d — requires volume
+    if volume_df is not None:
+        aligned_vol = volume_df.reindex_like(price_df)
+        dollar_vol = price_df * aligned_vol
+        # Daily illiquidity contribution: |ret| / dollar_vol
+        daily_illiq = daily_ret.abs() / dollar_vol.replace(0, np.nan)
+        # Rolling mean over 20d
+        factors["amihud_20d"] = daily_illiq.rolling(
+            20, min_periods=10,
+        ).mean()
+
+    # downside_vol_20d — std of negative-only daily returns
+    downside_only = daily_ret.where(daily_ret < 0)
+    factors["downside_vol_20d"] = downside_only.rolling(
+        20, min_periods=5,
+    ).std()
+
+    # vol_ratio_5_20 — short/long vol term structure
+    vol_5 = daily_ret.rolling(5, min_periods=3).std()
+    vol_20 = daily_ret.rolling(20, min_periods=10).std()
+    factors["vol_ratio_5_20"] = vol_5 / vol_20.replace(0, np.nan)
+
+    return factors
+
+
+def _family_d_trend_quality(
+    price_df: pd.DataFrame,
+) -> Dict[str, pd.DataFrame]:
+    """PRD 20260424 Family D — trend quality.
+
+    Produces:
+      - trend_tstat_20d : OLS slope t-statistic of rolling 20d regression
+                          of log(close) on time index [0..19]. Higher |t|
+                          = stronger trend (up or down); values near 0 =
+                          no trend (random walk). More informative than
+                          raw slope because it's normalized by regression
+                          residual variance.
+
+    Implementation uses rolling.apply(raw=True) with a pure-numpy inner
+    function; O(N × 20 × S) but fast enough on research panels.
+    """
+    factors: Dict[str, pd.DataFrame] = {}
+    log_close = np.log(price_df.replace(0, np.nan))
+
+    def _tstat_20d(y: np.ndarray) -> float:
+        """OLS slope t-stat of y vs [0..n-1]. Returns 0 for degenerate cases."""
+        n = len(y)
+        if n < 3 or np.isnan(y).any():
+            return np.nan
+        x = np.arange(n, dtype=float)
+        x_mean = x.mean()
+        y_mean = y.mean()
+        x_dev = x - x_mean
+        y_dev = y - y_mean
+        x_var = (x_dev ** 2).sum()
+        if x_var <= 0:
+            return np.nan
+        slope = (x_dev * y_dev).sum() / x_var
+        intercept = y_mean - slope * x_mean
+        y_pred = intercept + slope * x
+        residuals = y - y_pred
+        rss = (residuals ** 2).sum()
+        # SE(slope) = sqrt( (rss / (n - 2)) / x_var )
+        if n <= 2:
+            return np.nan
+        se_slope_sq = (rss / (n - 2)) / x_var
+        if se_slope_sq <= 0:
+            return np.nan
+        return float(slope / np.sqrt(se_slope_sq))
+
+    factors["trend_tstat_20d"] = log_close.rolling(
+        20, min_periods=15,
+    ).apply(_tstat_20d, raw=True)
 
     return factors
 

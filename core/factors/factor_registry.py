@@ -107,6 +107,15 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     #                            uses same-bar max)
     "range_pos_252d", "days_since_52w_high",
     "breakout_20d_strength", "dist_from_new_high_252",
+    # PRD 20260424 Family C — liquidity / cost / risk state
+    # amihud_20d       : rolling 20d mean of |ret| / dollar_volume (requires
+    #                    volume). CONDITIONAL: omitted when volume_df is None
+    # downside_vol_20d : rolling 20d std of negative-only daily returns
+    # vol_ratio_5_20   : 5d vol / 20d vol (term structure compression)
+    "amihud_20d", "downside_vol_20d", "vol_ratio_5_20",
+    # PRD 20260424 Family D — trend quality
+    # trend_tstat_20d : OLS slope t-stat of rolling 20d log(close) vs time
+    "trend_tstat_20d",
     # Research aliases (PRD §D3 / §3.1.C). Same DataFrame as canonical;
     # kept in registry so drift-check still passes and LLM / mining code
     # can query either name.
