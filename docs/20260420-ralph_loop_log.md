@@ -9263,3 +9263,174 @@ PRD-new features 在较短 5d 或较长 63d horizon 信号更强，说明问题
 - 其他不相关
 
 → 继续 R15
+
+## R-rcm-v1-round-15
+
+**时间**: 2026-04-24
+**Commit**: `38082a6`
+**Step**: 方法论纠偏 — shared-close[t] leakage 修复
+
+### 1. 本轮主题 / Step
+R14 结尾优先级 #1：审 `mean_rev_sma20` IC +0.33 是否 leakage。审计
+结果**是 leakage，且是系统性的**（影响所有 pct_change / SMA-rel /
+price-based factors）。本轮做方法论修复。
+
+### 2. 本轮目标
+- 音具体审 `mean_rev_sma20` 定义 + 5 组 controlled IC 测试
+- 在 `evaluate_composite` 加 `lag` 默认 1 bar（fix shared-close）
+- Thread 到 ResearchMiner + CLI
+- 补单测 validate
+- 全 suite 回归
+
+### 3. 为什么这轮优先做它
+R14 flagged IC_IR 值异常 + signal 集中在 mean_rev 家族。如果确认
+leakage，R13 的所有 top-K 结论都需要重审。如果不是，PRD features
+的 under-representation 有别的原因。R15 必须先回答这个 YES/NO 问题。
+
+### 4. 做了什么
+
+**Step A — Leakage 审计**（run inline Python）:
+
+```
+Test 1 (lag=0 baseline):        IC_mean=+0.327  IR=+3.133
+Test 2 (explicit shift(1)):     IC_mean=-0.005  IR=-0.048  ← smoking gun
+Test 3 (non-overlapping stride):IC_mean=+0.290  IR=+2.790  (signal 仍在)
+Test 4 (2015+ only):            IC_mean=+0.327             (全期一致)
+Test 5 (shuffle fwd 打破时序):  IC_mean=-0.001  IR=-0.012  (signal 消失)
+Test 6 (year-by-year):
+   2016-2018: +0.4646
+   2019-2021: +0.4322
+   2022-2024: +0.2288
+   2025+    : -0.0213  ← 近期 fade
+```
+
+**Test 2 + Test 5 一起**确认：
+- 非时序打乱→消失：signal 有时序成分（正常）
+- 但 shift(1) 后 →消失：signal 依赖 close[t] 出现在 factor 和 
+  fwd_return 两边（leakage）
+
+**Step B — 根因分析**:
+- `mean_rev_sma20[t] = -(close[t] - SMA20[t]) / SMA20[t]`  ← 用 close[t]
+- `fwd_return[t] = close[t+h] / close[t] - 1`  ← 也用 close[t] 为基
+- close[t] 的**同期 noise** 在两处机械性地创造 rank correlation：
+  - close[t] 低 → factor 高（价格低于 SMA）
+  - close[t] 低 → fwd_return 高（分母小）
+- 这不是严格 look-ahead（factor 没超前用 close[t+1]），但是 shared-noise
+  leakage —— PRD §3.1 "prohibit same-bar execution" 的变体
+
+**Step C — 影响范围**:
+所有使用 close[t] 的 factors 都受影响：
+- `mean_rev_sma20/50`
+- `reversal_5d/10d/21d` (-close.pct_change → -close[t]/close[t-h] + 1)
+- `mom_Nd` (close.pct_change → close[t]/close[t-N] - 1)
+- `rel_spy_20d / rel_qqq_20d` (也有 close[t] in 分子)
+- ALL R14 univariate-IC top-10 were affected
+
+**Step D — 修复实现** (`evaluate_composite`):
+```python
+def evaluate_composite(spec, ..., lag: int = 1):
+    composite = build_composite_series(spec, factor_panel_map)
+    if lag > 0:
+        composite = composite.shift(lag)
+    # 然后 IC calc
+```
+
+设计：
+- **Default lag=1** → shifted factor[t-1] 配 fwd_return[t] → 无 shared
+  close[t]
+- `lag=0` 允许显式 contemporaneous IC 研究（如 "close 预测 intraday"）
+- `lag` threading：`ResearchMiner(..., lag=1)` → `evaluate_composite(
+  ..., lag=self.lag)` → CLI flag `--lag 1`
+- Rejects `lag < 0`
+
+### 5. 修改了哪些文件
+```
+M  core/mining/research_miner.py             (+20)
+M  scripts/run_research_miner.py             (+7)
+M  tests/unit/mining/test_research_miner.py  (+50, existing 1 test adjusted)
+```
+
+### 6. 跑了哪些测试 / 实验
+- Inline leakage audit（上面 Step A）
+- `pytest tests/unit/mining/` 108 pass（+2 lag tests）
+- 完整 suite: **1341 passed** / 1 skipped / 0 regressions / 82s
+  (R14 1339 → +2)
+- 1 existing R10 test adjusted：`test_evaluate_composite_with_wide_panel_gets_valid_ic`
+  — 原来假设 contemporaneous IC；现改用 `fwd_aligned = p1.shift(1) * 0.15
+  + noise` 保证默认 lag=1 下仍产生正 IC（保留测试意图：强相关 panel
+  产生 >0.05 IC）
+
+### 7. 结果如何
+
+**Primary deliverable — 方法论修复 shipped**:
+- `evaluate_composite(..., lag=1)` 默认行为 → IC semantics 与 backtest
+  T+1 open execution 对齐
+- R14 诊断 script 也需要重跑（会在 R16 做）—— 之前的 univariate IC 
+  ranking 是 pre-fix 数据
+- R13 archive rows 保留 pre-fix IR 值（archive 记录观测时的 state，
+  不 retroactively 改；重跑产生新 trial_id）
+
+**Secondary deliverable — leakage understanding**:
+- 不是 factor_generator bug（factor 定义对 EOD execution 正确）
+- 是 **research IC metric 与 production execution 语义不一致** 的问题
+- 其他研究工具（`run_xgb_cv.py` 等）**也可能**有类似语义问题 —— R16+
+  再 audit
+
+**Secondary deliverable — mean_rev_sma20 的真实 signal**:
+- 全期：contemporaneous IC +0.33, shift-1 IC -0.005 → 无真实 21d 预测力
+- 但 signal structure 非纯 noise —— `signal 随 horizon 缩短 + 用 t-1 signal
+  预测 [t, t+1] 开平仓` 的 backtest 可能仍有价值（未验证）
+
+### 8. 当前发现的新问题 / 新机会
+
+**新问题 1 — R13 top-K 现在结论不可信**:
+- Top #1 IC_IR +4.77 于 pre-fix lag=0 下得到
+- 跑一次 lag=1 mining 估计 top-K 将大洗牌 → 所有 R13/R14 的"谁进入
+  composite" 结论 tentative
+
+**新问题 2 — 广泛的 factor IC 重审**:
+- `reversal_*`, `mom_*`, `mean_rev_*`, `rel_spy_*`, `rel_qqq_*`, 
+  `rs_vs_spy_*`, `rs_acceleration` 都用 close[t]
+- `vol_*d`, `amihud_*`, `beta_*` 基于 returns → 结构类似但 indirect
+- 全部 research-level IC 值都需要 lag=1 下重算才算 valid
+
+**新机会 — 更干净的 research <-> backtest 对齐**:
+- 如果 lag=1 下某 factor 仍有 +0.05+ IC，那是 genuine 预测力
+- 如果 lag=1 下所有 factors IC 都变 ~0，说明系统 alpha 其实很弱，
+  production backtest 的 CAGR 19%/Sharpe 0.98 （Phase B）可能来自
+  portfolio construction / vol targeting 而非 factor edge
+- R16+ 跑一轮 lag=1 mining，诚实地看真实 research signal strength
+
+### 9. 剩余风险
+- ⚠️ R13/R14 artifacts 的 top-K 现在**不可作为 R15+ 决策依据**
+- 需要 R16 至少重跑一次 lag=1 mining 才能判断 Step 7 方向（扩 feature /
+  接数据层 / 蒸馏 production）
+- lag=1 下全部 factors 可能信号都很弱 → 这本身是**重要 research finding**
+  （PRD §10 提到的 "轻量数据层" 可能真的 needed）
+
+### 10. 下一轮建议方向
+
+**R16 推荐任务**:
+1. 跑 50 trials lag=1 mining under new lineage tag
+   `post-2026-04-24-rcm-v1-lag1` (区分 pre/post fix rows)
+2. 跑 diagnostic analyzer 对比 pre (rcm-v1-run-01) vs post (rcm-v1-run-02)
+3. 如果 lag=1 下 top IC_IR 全 < 0.3，Step 7 方向是"接轻量数据层 / 扩
+  feature family / 重审 backtest alpha 来源"
+4. 如果 lag=1 下 top IC_IR 仍 > 0.5，继续 Step 7 正常路径
+
+**Halt 条件 §13.3 re-评估**:
+- 条件 3 "关键接口引发系统性回归"：NO —— 0 regressions，但**R15 改
+  evaluate_composite 默认行为是 breaking change** 对依赖该 API 的
+  外部调用。目前只有 ResearchMiner + CLI 消费，都在同一 PR 一起改
+- 条件 5 blocker 指向新数据层：**PENDING** —— R16 跑完 lag=1 才能判断
+
+### 11. Halt 条件检查 (§13.3)
+- 条件 1: 部分 — Step 5 miner + Step 6 首跑 ✓，但 leakage 修复后需
+  R16 重跑产出 valid 分析
+- 条件 2: NO — Invariant 未碰
+- 条件 3: NO — 0 regressions (1341 passed)
+- 条件 5: PENDING — R16 confirm
+- 条件 7: 15/22
+- 其他不相关
+
+→ 继续 R16
