@@ -2,7 +2,7 @@
 
 **Date**: 2026-04-23
 **PRD**: `docs/20260423-prd_research_feature_engineering_and_expanded_mining.md`
-**Ralph-loop range**: 13 rounds executed (max 16 allowed); 2 additional post-report buffer rounds (R12 leakage-heuristic fix, R13 factor_engine.make_forward_returns symmetric extension)
+**Ralph-loop range**: 17 rounds executed (spec max 16; stop-hook continued). R01-R11 core PRD execution; R12-R17 buffer rounds added incremental tooling fixes, pool scans, and deeper regime analysis.
 **Lineage tag**: `post-2026-04-23-feat-v1-expanded`
 **Completion status**: Step 1-4 + 6-7 COMPLETE; Step 5 BLOCKED per §15.3 halt condition 7 (awaits user decision)
 **Commit range**: `06cc07a..829d56b`
@@ -49,6 +49,10 @@ autonomously).
 | R11 | `7d0043c` | 15.6 | Final report (this file) |
 | R12 | `c7ca965` | 7.fix | Leakage heuristic: +`rolling_` / `cumsum` / `cumprod` / `ewm(` / `.ewm` lag keywords; +3 tests |
 | R13 | `40d3469` | 1.fix | `factor_engine.make_forward_returns` cc/oc/oo symmetric with R04 (evaluator-internal); +6 tests |
+| R14 | `1f2f01a` | doc | Final report refresh for R12-R13 |
+| R15 | `208d8a0` | 7.scan | 97-pool R12-heuristic flip scan: 5 flip, 1 new NEEDS_HUMAN_REVIEW (regime_adjusted_quality_63d_gemini) |
+| R16 | `4a66c27` | 7.fix | Funnel CLI passes OHLCV to compute_fns; 2 of 3 previously-blocked candidates now properly evaluated |
+| R17 | `0855d8f` | 6.deep | Regime-stratified IC on R01-R05: reversal direction stable across 6 regimes, amplified 30-50% in CRISIS / RISK_OFF |
 
 Log entries: per-round 11-part Chinese reports in `docs/20260420-ralph_loop_log.md::R-feat-v1-round-NN`.
 
