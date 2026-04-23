@@ -8506,3 +8506,114 @@ A  tests/unit/mining/test_research_miner.py  (+195)
 - 其他不相关
 
 → 继续 R10
+
+---
+
+## R-rcm-v1-round-10
+
+**时间**: 2026-04-24
+**Commit**: `94bbc28`
+**Step**: Step 5 Miner part 2/4 — composite evaluator
+
+### 1. 本轮主题 / Step
+Step 5 part 2：Composite signal builder + 4 核心 metrics。R09 data-model
++ sampler 落地后，R10 加 evaluator 使 spec 可以对应 metrics。
+
+### 2. 本轮目标
+- `zscore_cs` cross-sectional 标准化
+- `build_composite_series(spec, panels)` → 复合信号 DataFrame
+- `CompositeMetrics` dataclass (PRD §8.4 schema 对应)
+- `evaluate_composite(spec, panels, fwd_returns, mask=None)` 主 API
+- `_turnover_proxy` / `_corr_concentration` 内部 metric
+- 9 新测覆盖所有 helper + end-to-end
+
+### 3. 为什么这轮优先做它
+R09 sampler 产 spec，R10 让 spec 可评估。R11 才能组 Optuna objective
+= f(metrics)。所以 R10 是 sampler → objective 间的桥，必须先做。
+
+### 4. 做了什么
+
+**`zscore_cs(df, min_periods=5)`**:
+- Per-date: mean=0, std=1 (ddof=0 population)
+- 行 valid count < min_periods → 该行 NaN'd out
+- 无 imputation（NaN stay NaN）
+
+**`build_composite_series(spec, panel_map)`**:
+- 对每 feature 做 zscore_cs
+- 加权求和 (pd.concat + groupby level=1 保持 NaN 正确传播)
+- Intersection on date/symbol axes across components
+- Missing features → KeyError
+
+**`evaluate_composite`**:
+- 内部: `_spearman_ic_per_date` (≥10 sym / date threshold) +
+  `_turnover_proxy` (rank-shuffle stability) +
+  `_corr_concentration` (pairwise |Pearson|)
+- 可选 mask 参数 → `apply_research_mask` (R06) 保持 sample 定义
+- 返回 `CompositeMetrics` (n_features, n_families, n_dates,
+  ic_mean, ic_std, ic_ir = mean/std*sqrt(252), turnover_proxy,
+  corr_concentration)
+
+### 5. 修改了哪些文件
+```
+M  core/mining/research_miner.py             (+220)
+M  tests/unit/mining/test_research_miner.py  (+130)
+```
+
+### 6. 跑了哪些测试 / 实验
+- `pytest tests/unit/mining/test_research_miner.py` 24/24 pass
+- 完整 suite: **1354 passed** (+9 from R09), 1 skipped, 1 xfailed
+- 一个 pandas-2.x 兼容性修复: `.stack(dropna=True)` 在新 pandas 被移除，
+  改用 `.stack()`（behavior 等价）
+
+### 7. 结果如何
+
+**Evaluator 组件正确性验证**:
+- zscore_cs: 5-sym 玩具 panel 每行验证 mean=0 / std=1 (ddof=0)
+- build_composite: 2-component 手算 0.6·z_mom + 0.4·z_vol 对比 ✓
+- IC: 15-sym panel with designed correlation → positive IC 约 +0.05
+- corr_concentration: 同 panel 2x → ~1.0（完全冗余）；单 feature → 0
+- mask: masked 版本 n_dates 下降（小于 10-sym threshold）
+- 边界: 6-sym panel 在 min=10 threshold 下 n_dates=0
+
+**PRD §8.4 candidate schema 对齐**:
+CompositeMetrics 字段与 PRD §8.4 要求一一对应:
+- feature list ✓ (via spec.features)
+- family buckets ✓ (via spec.family_counts)
+- transform/standardization ✓ (zscore_cs in build)
+- weighting scheme ✓ (spec.weights)
+- benchmark-relative metrics — R11 add (与 benchmark_map)
+- turnover / cost proxy ✓ (turnover_proxy)
+- regime summary — R11/R14 扩展
+
+### 8. 当前发现的新问题 / 新机会
+- 当前 ic_ir 用 `mean/std * sqrt(252)`，假设 IC 是 per-day；如果 fwd
+  horizon 不是 1d（默认 5d），annualization factor 应当按 252/horizon
+  调整。R11 时可以 parameterize horizon
+- `_corr_concentration` 对 n=2 component 同 panel 用例 corr=1.0 验证
+  通过；对 3+ component 的平均行为 R11 pareto / penalty design 时需
+  重新考虑（可能想 weighted average 而非 simple mean）
+- `_turnover_proxy` 目前 O(N×S) 计算；未来 Optuna 若大规模 trial 可
+  能是 bottleneck，但单 spec 评估 <1s OK
+
+### 9. 剩余风险
+- 无。evaluator 是 pure function，不产生 side effect
+
+### 10. 下一轮建议方向
+- **R11 (建议)**: Optuna objective + ResearchMiner entry class:
+  - PRD §8.6 weighted-sum formula:
+    `objective = w1*IR - w2*turnover - w3*corr_conc + w4*bench_excess - w5*regime_stddev`
+  - `ResearchMiner.run_trial(trial)` 调 suggest_composite_spec → 
+    build/evaluate → 返回 scalar objective
+  - `ResearchMiner.mine(n_trials, budget)` Optuna study wrapper
+  - benchmark_excess 需要 benchmark_returns 参数 + per-spec 算法
+- R12: rcm_archive.db (SQLite schema + writer)
+- R13: First real run (on 79-sym panel with 12 features + existing)
+- R14: Top-K analysis
+
+### 11. Halt 条件检查 (§13.3)
+- 条件 2: NO
+- 条件 3: NO — 0 regression
+- 条件 7: 10/22
+- 其他不相关
+
+→ 继续 R11
