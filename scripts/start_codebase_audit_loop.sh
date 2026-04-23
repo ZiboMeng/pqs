@@ -212,10 +212,10 @@ PRE-FLIGHT CHECKLIST (run before pasting the command below):
        df -h .
 
 --------------------------------------------------------------------------------
-PASTE THIS INTO CLAUDE CODE:
+PASTE THIS INTO CLAUDE CODE (single line, starts with /ralph-loop:ralph-loop):
 --------------------------------------------------------------------------------
 
-/ralph-loop:ralph-loop "\$PROMPT" --max-iterations 3 --completion-promise AUDIT3DONE
+/ralph-loop:ralph-loop "$PROMPT" --max-iterations 3 --completion-promise AUDIT3DONE
 
 --------------------------------------------------------------------------------
 During the loop (informational):
@@ -234,9 +234,5 @@ During the loop (informational):
   * Emit <promise>AUDIT3DONE</promise>
   * Commit final README.md + data/baseline/latest.json
   * Append final summary to docs/20260420-ralph_loop_log.md
-
-PROMPT (for reference, as stored in this script):
-
-  $PROMPT
 
 EOF
