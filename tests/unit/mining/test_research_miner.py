@@ -5,14 +5,21 @@ from typing import Any
 
 import pytest
 
+import numpy as np
+import pandas as pd
+
 from core.mining.research_miner import (
     FAMILIES_V1,
     FAMILY_A, FAMILY_B, FAMILY_C, FAMILY_D,
+    CompositeMetrics,
     FamilyConfig,
     ResearchCompositeSpec,
     all_family_factors,
+    build_composite_series,
+    evaluate_composite,
     family_of_factor,
     suggest_composite_spec,
+    zscore_cs,
 )
 
 
@@ -252,3 +259,200 @@ def test_suggest_dedup_when_same_feature_picked_twice():
     # 3 unique features
     assert spec.n_features == 3
     assert len(set(spec.features)) == 3
+
+
+# ── R10: zscore_cs ────────────────────────────────────────────────────────────
+
+def test_zscore_cs_row_mean_zero_std_one():
+    idx = pd.bdate_range("2024-01-01", periods=3)
+    df = pd.DataFrame({
+        "A": [1.0, 2.0, 3.0],
+        "B": [3.0, 3.0, 3.0],
+        "C": [5.0, 4.0, 3.0],
+        "D": [0.0, 1.0, 2.0],
+        "E": [4.0, 5.0, 6.0],
+    }, index=idx)
+    z = zscore_cs(df, min_periods=5)
+    # Per-date row: mean ~ 0, std ~ 1 (population, ddof=0)
+    for d in idx:
+        row = z.loc[d].dropna()
+        assert abs(row.mean()) < 1e-10
+        assert abs(row.std(ddof=0) - 1.0) < 1e-10
+
+
+def test_zscore_cs_insufficient_symbols_becomes_nan():
+    """Row with < min_periods=5 valid columns → NaN'd out."""
+    idx = pd.bdate_range("2024-01-01", periods=2)
+    df = pd.DataFrame({"A": [1.0, 2.0], "B": [2.0, 3.0]}, index=idx)
+    z = zscore_cs(df, min_periods=5)
+    assert z.isna().all().all()
+
+
+# ── R10: build_composite_series ─────────────────────────────────────────────
+
+
+@pytest.fixture
+def synthetic_panels():
+    """2 factor panels × 10 bars × 6 symbols for composite math."""
+    np.random.seed(1)
+    idx = pd.bdate_range("2024-01-02", periods=10)
+    cols = list("ABCDEF")
+    panel_mom = pd.DataFrame(
+        np.random.randn(10, 6), index=idx, columns=cols,
+    )
+    panel_vol = pd.DataFrame(
+        np.random.randn(10, 6), index=idx, columns=cols,
+    )
+    return {"mom_21d": panel_mom, "vol_21d": panel_vol}
+
+
+def test_build_composite_shape_and_sum(synthetic_panels):
+    spec = ResearchCompositeSpec(
+        features=("mom_21d", "vol_21d"),
+        weights=(0.6, 0.4),
+        family_counts={"D": 1, "C": 1, "A": 1, "B": 0},  # min_families=3 arbitrary
+    )
+    # Skip family check manually (ResearchCompositeSpec doesn't enforce it)
+    comp = build_composite_series(spec, synthetic_panels)
+    # Shape matches intersection
+    assert comp.shape == (10, 6)
+    # Each cell = 0.6 * z_mom + 0.4 * z_vol
+    zm = zscore_cs(synthetic_panels["mom_21d"])
+    zv = zscore_cs(synthetic_panels["vol_21d"])
+    expected = zm * 0.6 + zv * 0.4
+    valid = expected.dropna()
+    assert np.allclose(
+        comp.loc[valid.index, valid.columns].values,
+        valid.values, atol=1e-10,
+    )
+
+
+def test_build_composite_missing_feature_raises(synthetic_panels):
+    spec = ResearchCompositeSpec(
+        features=("mom_21d", "NOT_THERE"),
+        weights=(0.5, 0.5),
+    )
+    with pytest.raises(KeyError, match="missing features"):
+        build_composite_series(spec, synthetic_panels)
+
+
+# ── R10: evaluate_composite ─────────────────────────────────────────────────
+
+
+def test_evaluate_composite_returns_metrics(synthetic_panels):
+    """Basic smoke test — evaluate returns a CompositeMetrics."""
+    spec = ResearchCompositeSpec(
+        features=("mom_21d", "vol_21d"),
+        weights=(0.5, 0.5),
+        family_counts={"D": 1, "C": 1, "A": 1},
+    )
+    # Fake forward returns correlated with composite slightly
+    idx = synthetic_panels["mom_21d"].index
+    np.random.seed(42)
+    # Need at least 10 symbols per date for IC computation, extend
+    # synthetic to use wider panels
+    cols = synthetic_panels["mom_21d"].columns
+    fwd = pd.DataFrame(
+        np.random.randn(len(idx), len(cols)),
+        index=idx, columns=cols,
+    )
+    metrics = evaluate_composite(spec, synthetic_panels, fwd)
+    assert isinstance(metrics, CompositeMetrics)
+    # Only 6 symbols per date, min 10 required for IC → ic_series empty
+    # So n_dates == 0, ic_* all NaN
+    assert metrics.n_features == 2
+    assert metrics.n_dates == 0  # fewer than 10 syms per date
+
+
+def test_evaluate_composite_with_wide_panel_gets_valid_ic():
+    """15 symbols per date → IC should be computable."""
+    np.random.seed(7)
+    idx = pd.bdate_range("2024-01-02", periods=50)
+    cols = [f"SYM{i}" for i in range(15)]
+    p1 = pd.DataFrame(
+        np.random.randn(50, 15), index=idx, columns=cols,
+    )
+    p2 = pd.DataFrame(
+        np.random.randn(50, 15), index=idx, columns=cols,
+    )
+    # Fwd returns slightly correlated with p1
+    fwd = p1 * 0.15 + np.random.randn(50, 15) * 0.85
+    fwd.index = idx; fwd.columns = cols
+    spec = ResearchCompositeSpec(
+        features=("mom_21d", "vol_21d"),
+        weights=(0.7, 0.3),
+        family_counts={"D": 1, "C": 1, "A": 1},
+    )
+    metrics = evaluate_composite(
+        spec, {"mom_21d": p1, "vol_21d": p2}, fwd,
+    )
+    assert metrics.n_dates > 40  # most dates produce IC
+    # Expected positive IC since composite correlates with fwd via p1
+    assert metrics.ic_mean > 0.05
+
+
+def test_evaluate_composite_respects_mask():
+    """With research_mask masking out half the cells, n_dates can drop or IC shift."""
+    np.random.seed(3)
+    idx = pd.bdate_range("2024-01-02", periods=40)
+    cols = [f"S{i}" for i in range(12)]
+    p1 = pd.DataFrame(np.random.randn(40, 12), index=idx, columns=cols)
+    p2 = pd.DataFrame(np.random.randn(40, 12), index=idx, columns=cols)
+    fwd = p1 * 0.2 + np.random.randn(40, 12) * 0.8
+    fwd.index = idx; fwd.columns = cols
+    # Mask out half the columns
+    mask = pd.DataFrame(True, index=idx, columns=cols)
+    mask.iloc[:, :6] = False  # first 6 symbols masked
+    spec = ResearchCompositeSpec(
+        features=("mom_21d", "vol_21d"),
+        weights=(0.7, 0.3),
+        family_counts={"D": 1, "C": 1, "A": 1},
+    )
+    m_masked = evaluate_composite(
+        spec, {"mom_21d": p1, "vol_21d": p2}, fwd, mask=mask,
+    )
+    m_unmasked = evaluate_composite(
+        spec, {"mom_21d": p1, "vol_21d": p2}, fwd,
+    )
+    # Masked version: 6 valid symbols per date, below IC threshold (<10)
+    # → n_dates likely 0
+    assert m_masked.n_dates == 0
+    assert m_unmasked.n_dates > 20
+
+
+def test_evaluate_composite_high_corr_concentration():
+    """Two identical feature panels → corr concentration ~ 1.0."""
+    np.random.seed(9)
+    idx = pd.bdate_range("2024-01-02", periods=40)
+    cols = [f"S{i}" for i in range(12)]
+    p = pd.DataFrame(np.random.randn(40, 12), index=idx, columns=cols)
+    # Same panel 2x → perfect correlation
+    spec = ResearchCompositeSpec(
+        features=("mom_21d", "vol_21d"),
+        weights=(0.5, 0.5),
+        family_counts={"D": 1, "C": 1, "A": 1},
+    )
+    fwd = p * 0.1 + np.random.randn(40, 12) * 0.9
+    fwd.index = idx; fwd.columns = cols
+    metrics = evaluate_composite(
+        spec, {"mom_21d": p, "vol_21d": p.copy()}, fwd,
+    )
+    # corr_concentration should be ~1.0 since both components identical
+    assert metrics.corr_concentration > 0.99
+
+
+def test_evaluate_composite_single_feature_corr_concentration_zero():
+    """n_features=1 → corr_concentration = 0 (trivially no redundancy)."""
+    np.random.seed(5)
+    idx = pd.bdate_range("2024-01-02", periods=40)
+    cols = [f"S{i}" for i in range(12)]
+    p = pd.DataFrame(np.random.randn(40, 12), index=idx, columns=cols)
+    fwd = p * 0.2 + np.random.randn(40, 12) * 0.8
+    fwd.index = idx; fwd.columns = cols
+    spec = ResearchCompositeSpec(
+        features=("mom_21d",), weights=(1.0,),
+        family_counts={"D": 1, "A": 1, "B": 1},
+    )
+    metrics = evaluate_composite(spec, {"mom_21d": p}, fwd)
+    assert metrics.corr_concentration == 0.0
+    assert metrics.n_features == 1

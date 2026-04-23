@@ -1,4 +1,6 @@
-"""Research Composite Miner v1 (PRD 20260424 §8).
+"""Research Composite Miner v1 (PRD 20260424 §8). Maintainer note: R09
+adds FamilyConfig + ResearchCompositeSpec + sampler; R10 adds composite
+evaluator; R11 will add Optuna objective + mining entry.
 
 Research-only composite miner. Distinct from production-linked
 `MultiFactorSpace` in `core/mining/strategy_space.py` — this miner:
@@ -27,7 +29,10 @@ integration (R11), archive DB (R12), first run (R13), analysis (R14).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, FrozenSet, List, Mapping, Sequence, Tuple
+from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Sequence, Tuple
+
+import numpy as np
+import pandas as pd
 
 
 # ── Family definitions ───────────────────────────────────────────────────────
@@ -308,4 +313,249 @@ def suggest_composite_spec(
         features=features_tup,
         weights=weights_tup,
         family_counts=dict(family_counts),
+    )
+
+
+# ── R10: composite signal builder + evaluator ───────────────────────────────
+
+
+def zscore_cs(
+    df: pd.DataFrame, min_periods: int = 5,
+) -> pd.DataFrame:
+    """Cross-sectional z-score per date (row).
+
+    Each row (date) is standardized to zero mean + unit std across its
+    valid (non-NaN) columns. Rows with fewer than `min_periods` valid
+    columns return NaN. NaN cells in input stay NaN (no imputation).
+    """
+    mu = df.mean(axis=1, skipna=True)
+    sd = df.std(axis=1, skipna=True, ddof=0).replace(0, np.nan)
+    valid_count = df.notna().sum(axis=1)
+    out = df.sub(mu, axis=0).div(sd, axis=0)
+    # Blank-out rows that don't meet min_periods
+    mask = valid_count < min_periods
+    out.loc[mask] = np.nan
+    return out
+
+
+def build_composite_series(
+    spec: ResearchCompositeSpec,
+    factor_panel_map: Mapping[str, pd.DataFrame],
+) -> pd.DataFrame:
+    """Weighted z-score composite of feature panels.
+
+    For each feature in spec.features:
+      1. z-score the factor panel cross-sectionally per date
+      2. multiply by the feature's weight
+    Sum across features → composite signal panel (date × symbol).
+
+    Missing feature panels raise KeyError (caller must supply all
+    spec.features). NaN cells in any component propagate via
+    per-cell sum skipping NaN with `.sum(min_count=1)` — at least one
+    valid component is required for a valid composite cell.
+
+    Parameters
+    ----------
+    spec             : ResearchCompositeSpec
+    factor_panel_map : mapping of factor name → DataFrame (date × symbol)
+
+    Returns
+    -------
+    DataFrame aligned to the intersection of all component panels'
+    date indices / symbol columns.
+    """
+    missing = [f for f in spec.features if f not in factor_panel_map]
+    if missing:
+        raise KeyError(
+            f"factor_panel_map missing features: {missing}"
+        )
+    # Take the index/columns intersection across all components
+    first = factor_panel_map[spec.features[0]]
+    common_idx = first.index
+    common_cols = first.columns
+    for feat in spec.features[1:]:
+        p = factor_panel_map[feat]
+        common_idx = common_idx.intersection(p.index)
+        common_cols = common_cols.intersection(p.columns)
+    # z-score each component then weight and sum
+    weighted_components: List[pd.DataFrame] = []
+    for feat, w in zip(spec.features, spec.weights):
+        p = factor_panel_map[feat].loc[common_idx, common_cols]
+        z = zscore_cs(p)
+        weighted_components.append(z * w)
+    # Sum across features; each cell = Σ w_i * z_i where component not NaN
+    # Use pd.concat with keys then sum across level 0 for robust NaN handling
+    stacked = pd.concat(weighted_components, keys=range(len(weighted_components)))
+    composite = stacked.groupby(level=1).sum(min_count=1)
+    # Preserve original index ordering (common_idx)
+    return composite.reindex(common_idx).reindex(columns=common_cols)
+
+
+def _spearman_ic_per_date(
+    signal: pd.DataFrame, fwd_returns: pd.DataFrame,
+) -> pd.Series:
+    """Per-date spearman rank-correlation of signal vs fwd_returns.
+
+    Aligns on index and columns intersection. Requires ≥ 10 valid (sym)
+    observations per date else returns NaN for that date.
+    """
+    common_idx = signal.index.intersection(fwd_returns.index)
+    common_cols = signal.columns.intersection(fwd_returns.columns)
+    sig = signal.loc[common_idx, common_cols]
+    fwd = fwd_returns.loc[common_idx, common_cols]
+    ics: Dict[pd.Timestamp, float] = {}
+    for date in common_idx:
+        s_row = sig.loc[date].dropna()
+        f_row = fwd.loc[date].dropna()
+        shared = s_row.index.intersection(f_row.index)
+        if len(shared) < 10:
+            continue
+        # spearman = pearson on ranks
+        s_rank = s_row.loc[shared].rank()
+        f_rank = f_row.loc[shared].rank()
+        # Only compute if ranks have variance
+        if s_rank.std() == 0 or f_rank.std() == 0:
+            continue
+        corr = s_rank.corr(f_rank)
+        if pd.notna(corr):
+            ics[date] = float(corr)
+    return pd.Series(ics, name="ic").sort_index()
+
+
+def _turnover_proxy(signal: pd.DataFrame) -> float:
+    """Cross-sectional rank stability proxy ∈ [0, 1].
+
+    High turnover = ranks shuffle a lot between consecutive dates;
+    low turnover = stable signal. Computed as mean of per-date average
+    |rank change| normalized by the cross-sectional rank range.
+
+    Returns 0.0 when signal is all-NaN or single-date.
+    """
+    if len(signal) < 2:
+        return 0.0
+    ranks = signal.rank(axis=1, method="average")
+    n_sym = ranks.count(axis=1)
+    # |rank diff| per cell
+    diff = ranks.diff(1).abs()
+    # Per-date mean |rank change|
+    per_date_mean_abs_change = diff.mean(axis=1, skipna=True)
+    # Normalize by cross-sectional n_sym to get [0,1]-ish scale
+    normalized = per_date_mean_abs_change / n_sym.replace(0, np.nan)
+    return float(normalized.mean(skipna=True)) if normalized.notna().any() else 0.0
+
+
+def _corr_concentration(
+    spec: ResearchCompositeSpec,
+    factor_panel_map: Mapping[str, pd.DataFrame],
+) -> float:
+    """Mean of pairwise |Pearson correlation| between component factors.
+
+    High value = components redundant (each pair highly correlated) →
+    composite is essentially one signal repeated.
+    Low value = components orthogonal → true diversification.
+
+    Returns 0.0 when spec has only 1 feature (trivially zero redundancy).
+    """
+    if spec.n_features < 2:
+        return 0.0
+    # Flatten each component to a 1-D series (date × symbol)
+    flat_series: List[pd.Series] = []
+    for feat in spec.features:
+        p = factor_panel_map[feat]
+        # Pandas 2.x+ dropped `dropna` kwarg from stack; default now drops NaN.
+        flat_series.append(p.stack())
+    # Pairwise corr — compute symmetric matrix upper triangle
+    corrs: List[float] = []
+    for i in range(len(flat_series)):
+        for j in range(i + 1, len(flat_series)):
+            # Align on common index (date, symbol) pairs
+            combined = pd.concat(
+                [flat_series[i], flat_series[j]], axis=1, join="inner",
+            )
+            combined.columns = ["a", "b"]
+            if len(combined) < 30:
+                continue
+            c = combined["a"].corr(combined["b"])
+            if pd.notna(c):
+                corrs.append(abs(float(c)))
+    return float(np.mean(corrs)) if corrs else 0.0
+
+
+@dataclass
+class CompositeMetrics:
+    """Summary metrics for a research composite (PRD §8.4 candidate schema)."""
+    n_features: int
+    n_families: int
+    n_dates: int
+    ic_mean: float
+    ic_std: float
+    ic_ir: float  # ic_mean / ic_std * sqrt(252)
+    turnover_proxy: float
+    corr_concentration: float
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "n_features": self.n_features,
+            "n_families": self.n_families,
+            "n_dates": self.n_dates,
+            "ic_mean": self.ic_mean,
+            "ic_std": self.ic_std,
+            "ic_ir": self.ic_ir,
+            "turnover_proxy": self.turnover_proxy,
+            "corr_concentration": self.corr_concentration,
+        }
+
+
+def evaluate_composite(
+    spec: ResearchCompositeSpec,
+    factor_panel_map: Mapping[str, pd.DataFrame],
+    fwd_returns: pd.DataFrame,
+    mask: Optional[pd.DataFrame] = None,
+) -> CompositeMetrics:
+    """Evaluate a research composite spec against forward returns.
+
+    Computes per-PRD §8.4:
+      - IC (per-date spearman rank-correlation of composite vs fwd_ret)
+      - IC mean / std / IR (annualized)
+      - turnover proxy (cross-sectional rank stability)
+      - corr concentration (mean pairwise |corr| between components)
+
+    If `mask` provided (date × symbol bool), composite cells where mask
+    is False are set to NaN before metrics (PRD §7 sample definition).
+
+    Parameters
+    ----------
+    spec             : ResearchCompositeSpec
+    factor_panel_map : feature name → factor panel mapping
+    fwd_returns      : forward-return panel (date × symbol)
+    mask             : optional research_mask panel to filter samples
+
+    Returns
+    -------
+    CompositeMetrics dataclass
+    """
+    composite = build_composite_series(spec, factor_panel_map)
+    if mask is not None:
+        # Import lazily to avoid circular
+        from core.factors.base_masks import apply_research_mask
+        composite = apply_research_mask(composite, mask)
+    ic_series = _spearman_ic_per_date(composite, fwd_returns)
+    ic_mean = float(ic_series.mean()) if len(ic_series) else float("nan")
+    ic_std = float(ic_series.std()) if len(ic_series) > 1 else float("nan")
+    # Annualized IR
+    if ic_std > 0 and pd.notna(ic_std):
+        ic_ir = ic_mean / ic_std * np.sqrt(252)
+    else:
+        ic_ir = float("nan")
+    turnover = _turnover_proxy(composite)
+    corr_conc = _corr_concentration(spec, factor_panel_map)
+    return CompositeMetrics(
+        n_features=spec.n_features,
+        n_families=spec.n_families,
+        n_dates=len(ic_series),
+        ic_mean=ic_mean,
+        ic_std=ic_std,
+        ic_ir=float(ic_ir),
+        turnover_proxy=turnover,
+        corr_concentration=corr_conc,
     )
