@@ -1,6 +1,6 @@
 # config/production_strategy.yaml — SINGLE SOURCE OF TRUTH
 #
-# PRD: docs/prd_framework_completion.md §M1
+# PRD: docs/20260421-prd_framework_completion.md §M1
 #
 # This file is the ONE authoritative definition of the current production
 # strategy. `run_backtest.py`, `run_paper.py`, `run_multi_tf_backtest.py`,

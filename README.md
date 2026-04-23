@@ -66,8 +66,8 @@
 - **数据**: 日线 2007-2026 / 60m intraday 2015-2026 / 1m 2015-2026（部分）/ S&P 500 pool 513 symbols (R34 sync)
 - **Mining archive**: 302 trials / 12 lineages (R1 Phase B 之前 ~40, deep-mining 新增 262); 1 spec 过 archive OOS+QQQ gate (`6d15b735a64c`) 但 fresh backtest FAIL
 - **测试**: 见 `data/baseline/latest.json`（跑 `scripts/build_research_baseline_snapshot.py` 刷新；当前 snapshot = **1211 passed + 1 skipped**, 0 xfailed）
-- **Framework**: M0-M8 + M10 + M13 + M15 + M16 已交付。详 `docs/prd_framework_completion.md`
-- **Deep-mining 50-round (2026-04-22 complete)**: 7 tracks × 50 rounds autonomous execution 结束。详 **`docs/deep_mining_50round_final_synthesis.md`**。**5 个 user decisions 等响应**（universe 扩容 v3 / drawup demotion / DSL Rule 2 weight / XGB R45 ensemble / post-decision mining resubmit）
+- **Framework**: M0-M8 + M10 + M13 + M15 + M16 已交付。详 `docs/20260421-prd_framework_completion.md`
+- **Deep-mining 50-round (2026-04-22 complete)**: 7 tracks × 50 rounds autonomous execution 结束。详 **`docs/20260422-deep_mining_50round_final_synthesis.md`**。**5 个 user decisions 等响应**（universe 扩容 v3 / drawup demotion / DSL Rule 2 weight / XGB R45 ensemble / post-decision mining resubmit）
 
 ---
 
@@ -641,7 +641,7 @@ python scripts/run_universe_rebalance.py
   - `--force --yes-i-know-what-im-doing`: emergency override（不推荐）
   - `--rationale "..."`: 记录 promote 原因
 - **产出**: 重写 `config/production_strategy.yaml` 为 `status: active`（需后续 `git commit` 生效）
-- **完整流程**: 见 `docs/promotion_flow.md`
+- **完整流程**: 见 `docs/20260421-promotion_flow.md`
 
 #### `send_round_summary.py`
 - **作用**: 每轮研究总结发微信 / Server 酱
@@ -660,7 +660,7 @@ python scripts/run_universe_rebalance.py
   1. 跑此脚本
   2. 打开产出 .md，复制 `--- PASTE TO LLM BELOW ---` 到 `ABOVE` 之间的内容
   3. 粘到 Gemini / Codex 对话，要求 "生成 N 个 candidates YAMLs"
-  4. 手动落盘到 `research/llm_candidates/round_NN/<name>.yaml`（见 `docs/llm_external_llm_handoff.md` 规则）
+  4. 手动落盘到 `research/llm_candidates/round_NN/<name>.yaml`（见 `docs/20260421-llm_external_llm_handoff.md` 规则）
   5. `git commit` —— Claude 下次 session 会自动 funnel 这些 candidates
 
 #### `build_research_baseline_snapshot.py` ⭐ (PRD M0, 新增)
@@ -1113,7 +1113,7 @@ fingerprints:                     # M3 runtime alignment check 用
 
 ### 10.5 Universe 两层概念
 
-详 `docs/universe_expansion_spec_v2_2.md`:
+详 `docs/20260421-universe_expansion_spec_v2_2.md`:
 - **Tradable Universe** (execution) — 本 config/universe.yaml，含 ETFs
 - **Admission Whitelist** (expansion screening) — v2.2 spec Layer 1，common stock only
 
@@ -1179,7 +1179,7 @@ python scripts/run_mining.py --leaderboard --lineage-filter 'my_tag'
 - `universe_buckets_<tag>.csv`
 - `xgb_importance.parquet` + `xgb_run_summary.md`
 
-### 11.5 研究日志 `docs/ralph_loop_log.md`
+### 11.5 研究日志 `docs/20260420-ralph_loop_log.md`
 
 **最重要的人类可读日志**。每轮 research iteration 的 11-part Chinese report:
 1. 本轮主题
@@ -1202,7 +1202,7 @@ python scripts/run_mining.py --leaderboard --lineage-filter 'my_tag'
 
 ### 12.1 "我想加一个新 factor"
 
-**流程**（按 `docs/prd_llm_factor_mining.md` 正式流程）：
+**流程**（按 `docs/20260420-prd_llm_factor_mining.md` 正式流程）：
 
 ```bash
 # 1. 写 YAML 候选（按 PRD §4 schema）
@@ -1254,7 +1254,7 @@ python scripts/run_backtest.py --no-walk-forward
 
 ### 12.3 "我想扩 universe"
 
-按 `docs/universe_expansion_spec_v2_2.md` + `docs/prd_universe_expanded_mining.md`:
+按 `docs/20260421-universe_expansion_spec_v2_2.md` + `docs/20260421-prd_universe_expanded_mining.md`:
 
 ```bash
 # 1. 准备候选 list (newline-separated)
@@ -1381,7 +1381,7 @@ rm .claude/ralph-loop.local.md
 
 ### 13.5 Per-round 结构
 
-每轮 AI 都该输出 **11-part 中文报告** 写入 `docs/ralph_loop_log.md`:
+每轮 AI 都该输出 **11-part 中文报告** 写入 `docs/20260420-ralph_loop_log.md`:
 1. 本轮主题 (A/B/C/D/E 或菜单 topic)
 2. 本轮目标
 3. 为什么这轮优先做它
@@ -1492,12 +1492,12 @@ xfail 解除条件必须文档化在 reason 参数里。
 **永不 auto-KEEP**。最终 promote 决策必须人审核 OOS + regime + cost + QQQ。
 
 **Phase 1 — Claude 对话式（默认）**:
-- `docs/llm_proposal_prompt_template.md` —— Claude 自用 system prompt + YAML schema
-- `docs/llm_proposal_seed_context.md` —— 每轮开始前要注入的 5 段 repo state
-- `docs/llm_funnel_checklist.md` —— 6 步 mandatory funnel
+- `docs/20260421-llm_proposal_prompt_template.md` —— Claude 自用 system prompt + YAML schema
+- `docs/20260421-llm_proposal_seed_context.md` —— 每轮开始前要注入的 5 段 repo state
+- `docs/20260421-llm_funnel_checklist.md` —— 6 步 mandatory funnel
 
 **Phase 1.5 — Multi-LLM Handoff (PRD M15 reframed)** — 通过 Gemini / Codex / 任意 LLM 参与，无需 API:
-- `docs/llm_external_llm_handoff.md` —— 完整 workflow 说明
+- `docs/20260421-llm_external_llm_handoff.md` —— 完整 workflow 说明
 - `scripts/dump_llm_handoff_context.py` —— 自动 dump 当前 repo state 为 markdown context pack（copy-paste 即喂任意 LLM）
 - 用户手动落盘 LLM 产出到 `research/llm_candidates/round_NN/*.yaml`；Claude funnel 自动拾取
 - 无 API 依赖 / 无成本 / 无可重复性风险
@@ -1550,7 +1550,7 @@ python scripts/run_mining.py ...   # 下次 run 会创建新 optuna.db
 2. 更新测试里的 `factor_weights={...}` 为新值
 3. 保留 `@pytest.mark.xfail` + 注 reason 如果暂不能解
 
-### 16.5 `docs/ralph_loop_log.md` 太长
+### 16.5 `docs/20260420-ralph_loop_log.md` 太长
 
 **正常现象**: 累计 35+ 轮，1000+ 行，~150KB。
 读法: 跳读 "## Round N" section 的 §1 主题 和 §7/§8 关键发现。
@@ -1602,7 +1602,7 @@ df = store.load("SPY", freq="1m", fallback="auto")  # 自动尾部补全
 
 ## 17. 研究历史摘要
 
-**完整史**见 `docs/ralph_loop_log.md`. 关键阶段：
+**完整史**见 `docs/20260420-ralph_loop_log.md`. 关键阶段：
 
 ### 17.1 Phase B (LLM-Round 1-50, 2025-2026 early)
 - 基础架构 / kill switch / cost model / walk-forward OOS / regime detection
@@ -1622,7 +1622,7 @@ df = store.load("SPY", freq="1m", fallback="auto")  # 自动尾部补全
 
 ### 17.4 LLM Factor Mining Phase (R1-R28, 2026-04-20)
 
-详 `docs/prd_llm_factor_mining.md` + `docs/llm_phase_blocker_report.md`
+详 `docs/20260420-prd_llm_factor_mining.md` + `docs/20260421-llm_phase_blocker_report.md`
 
 核心产出:
 - **12/12 menu topic 覆盖** (LLM-1 ~ LLM-12)
@@ -1649,7 +1649,7 @@ df = store.load("SPY", freq="1m", fallback="auto")  # 自动尾部补全
 
 ### 17.6 Universe-Expanded Mining (R29-R35, 2026-04-21 afternoon)
 
-详 `docs/prd_universe_expanded_mining.md` + `docs/ralph_loop_universe_mining_state_reconstructed.md`
+详 `docs/20260421-prd_universe_expanded_mining.md` + `docs/20260421-ralph_loop_universe_mining_state_reconstructed.md`
 
 32 轮预算，7 轮完成后 **user 请求 pause**；`.claude/ralph-loop.local.md` 状态文件意外消失，已在 reconstructed 文档里保留完整接续方案（Options A/B/C）。
 7 轮进度:
@@ -1678,7 +1678,7 @@ df = store.load("SPY", freq="1m", fallback="auto")  # 自动尾部补全
 
 ### 17.9 Deep Mining Phase (2026-04-22, ✅ **50 rounds COMPLETED**)
 
-详 `docs/prd_deep_mining_50round.md` + ⭐ `docs/deep_mining_50round_final_synthesis.md` (R50 最终报告)
+详 `docs/20260421-prd_deep_mining_50round.md` + ⭐ `docs/20260422-deep_mining_50round_final_synthesis.md` (R50 最终报告)
 
 50 轮 autonomous execution，覆盖 7 tracks：
 
@@ -1712,7 +1712,7 @@ df = store.load("SPY", freq="1m", fallback="auto")  # 自动尾部补全
 
 ### 17.8 Framework Completion (2026-04-21+，优先级高于恢复 mining)
 
-详 `docs/prd_framework_completion.md`（v1.1 双向审计确认版）
+详 `docs/20260421-prd_framework_completion.md`（v1.1 双向审计确认版）
 
 Codex 审计 + self-audit 发现 3 个 P0 工程 blocker（在恢复 mining 之前必须收口）:
 1. **Single Source of Truth 缺失** —— `run_paper.py` / `run_backtest.py` 硬编码旧 MFS 权重互不一致，未含 R15 promoted `drawup`；而 `test_backtest_paper_consistency.py` 用 R33 新权重
@@ -1765,8 +1765,8 @@ model / Transformer research）。
 1. 读本 README 全文 (~1h)
 2. 运行 `pytest -q` 验证环境
 3. 运行 `scripts/run_backtest.py --no-walk-forward` 看一次完整流程
-4. 读 `docs/ralph_loop_log.md` 最近 5 轮了解研究节奏
-5. 读 `docs/prd_universe_expanded_mining.md` 了解当前方向
+4. 读 `docs/20260420-ralph_loop_log.md` 最近 5 轮了解研究节奏
+5. 读 `docs/20260421-prd_universe_expanded_mining.md` 了解当前方向
 6. 读 `CLAUDE.md` 了解约束细节
 7. 跑自己的第一次 mining: `scripts/run_mining.py --trials 10 --budget 300`
 

@@ -1,7 +1,7 @@
 """Production-side wrapper for applying cross-ticker DSL rules to a
 strategy's date × symbol weight matrix.
 
-PRD: docs/prd_framework_completion.md §11 M10
+PRD: docs/20260421-prd_framework_completion.md §11 M10
 
 Design principle (per PRD §1.4 M4 acceptance):
   - Rules are OFF by default at the production wrapper level; only apply

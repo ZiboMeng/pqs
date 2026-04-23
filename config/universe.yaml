@@ -7,7 +7,7 @@
 # products, and macro instruments because those are legitimately
 # tradable.
 #
-# This is SEPARATE from docs/universe_expansion_spec_v2_2.md §2.1's
+# This is SEPARATE from docs/20260421-universe_expansion_spec_v2_2.md §2.1's
 # "Layer 1 admission whitelist", which is used by the universe
 # EXPANSION SCREENING pipeline (scripts/universe_admission_screen.py)
 # to identify CANDIDATE common stocks for adding to this execution

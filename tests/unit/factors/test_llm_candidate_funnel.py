@@ -1,7 +1,7 @@
 """Round 10 Topic J (2026-04-20): LLM candidate funnel tests.
 
 Scaffold for the auto-launch LLM factor mining phase (see
-`docs/prd_llm_factor_mining.md`). Tests validate:
+`docs/20260420-prd_llm_factor_mining.md`). Tests validate:
 
   1. YAML schema round-trip + required-field enforcement
   2. Namespace hygiene: candidates can't shadow PRODUCTION_FACTORS or

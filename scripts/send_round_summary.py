@@ -9,8 +9,8 @@ Stdout backend prints to console (useful when env var not set yet).
 
 Usage
 -----
-    # From a markdown file (last N chars of docs/ralph_loop_log.md)
-    python scripts/send_round_summary.py --file docs/ralph_loop_log.md \
+    # From a markdown file (last N chars of docs/20260420-ralph_loop_log.md)
+    python scripts/send_round_summary.py --file docs/20260420-ralph_loop_log.md \
         --last-section
 
     # From a heredoc or echoed string
@@ -39,7 +39,7 @@ logger = get_logger("send_round_summary")
 
 def _extract_last_section(md_path: Path) -> str:
     """Take the last `##`-level section from a markdown log. Used to
-    grab the current round's summary from `docs/ralph_loop_log.md`."""
+    grab the current round's summary from `docs/20260420-ralph_loop_log.md`."""
     text = md_path.read_text()
     # Split by top-level section markers (## at line start, or ---)
     # Last "## LLM-Round N" section

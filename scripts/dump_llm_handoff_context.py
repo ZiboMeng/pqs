@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """Dump a ready-to-paste context pack for external LLMs (Gemini / Codex / etc).
 
-PRD: docs/prd_framework_completion.md §11 M15 (reframed)
-Companion doc: docs/llm_external_llm_handoff.md
+PRD: docs/20260421-prd_framework_completion.md §11 M15 (reframed)
+Companion doc: docs/20260421-llm_external_llm_handoff.md
 
 Generates a markdown file containing:
   - Current PRODUCTION_FACTORS list
@@ -10,7 +10,7 @@ Generates a markdown file containing:
   - Recent rejected/archived candidates with reasons
   - Current universe composition (53 tradable symbols)
   - Recent regime distribution (last 252d)
-  - The system-prompt template from docs/llm_external_llm_handoff.md
+  - The system-prompt template from docs/20260421-llm_external_llm_handoff.md
 
 User copies the entire output into a chat window with Gemini / Codex /
 whatever LLM they have, and asks for N factor candidates.

@@ -251,7 +251,7 @@ class TestQQQOutperformance:
         self.open_df = pd.DataFrame(of).sort_index()
         # Guard: if real data is missing (e.g., fresh clone), skip
         # gracefully instead of crashing on RangeIndex vs str comparison
-        # (see docs/prd_universe_expanded_mining.md §1.3 user review).
+        # (see docs/20260421-prd_universe_expanded_mining.md §1.3 user review).
         if (self.price_df.empty
                 or not isinstance(self.price_df.index, pd.DatetimeIndex)):
             pytest.skip(

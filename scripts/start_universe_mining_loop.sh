@@ -1,7 +1,7 @@
 #!/bin/bash
 # Start the 30-round universe-expanded mining ralph-loop.
 #
-# Reference PRD: docs/prd_universe_expanded_mining.md
+# Reference PRD: docs/20260421-prd_universe_expanded_mining.md
 # Lineage pattern: post-2026-04-21-universe-mining-round-N
 # Max iterations: 30
 # Completion promise: RALPHDONE (must be GENUINELY true)
@@ -21,7 +21,7 @@
 
 set -eo pipefail
 
-PRD_PATH="docs/prd_universe_expanded_mining.md"
+PRD_PATH="docs/20260421-prd_universe_expanded_mining.md"
 
 if [[ ! -f "$PRD_PATH" ]]; then
     echo "ERROR: PRD not found at $PRD_PATH" >&2
@@ -31,14 +31,14 @@ fi
 
 # Single-line ASCII-only prompt per prior lesson
 # (escape-safe, no Chinese / em-dash / section marks)
-PROMPT='Execute one round per docs/prd_universe_expanded_mining.md section 3 topic menu. lineage_tag=post-2026-04-21-universe-mining-round-N where N is the current round number. Do NOT modify config/universe.yaml or PRODUCTION_FACTORS without explicit user auth. Halt on any section 7 stop condition. Write per-round 11-part Chinese report to chat and docs/ralph_loop_log.md. Attempt send_round_summary.py notification at end of each round.'
+PROMPT='Execute one round per docs/20260421-prd_universe_expanded_mining.md section 3 topic menu. lineage_tag=post-2026-04-21-universe-mining-round-N where N is the current round number. Do NOT modify config/universe.yaml or PRODUCTION_FACTORS without explicit user auth. Halt on any section 7 stop condition. Write per-round 11-part Chinese report to chat and docs/20260420-ralph_loop_log.md. Attempt send_round_summary.py notification at end of each round.'
 
 cat <<EOF
 ================================================================================
 Universe-Expanded Mining — Ralph-Loop Setup
 ================================================================================
 
-PRD:            docs/prd_universe_expanded_mining.md
+PRD:            docs/20260421-prd_universe_expanded_mining.md
 Max iterations: 30
 Promise:        RALPHDONE
 Lineage pattern: post-2026-04-21-universe-mining-round-N

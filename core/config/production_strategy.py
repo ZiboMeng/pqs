@@ -1,6 +1,6 @@
 """Production strategy single-source-of-truth loader + builder.
 
-PRD: docs/prd_framework_completion.md §M1
+PRD: docs/20260421-prd_framework_completion.md §M1
 
 `config/production_strategy.yaml` is the ONE authoritative definition of
 the current production strategy. This module:
@@ -164,7 +164,7 @@ def load_production_strategy(
     if not p.exists():
         raise ProductionStrategyError(
             f"Production strategy artifact not found at {p}. "
-            f"See docs/prd_framework_completion.md §M1."
+            f"See docs/20260421-prd_framework_completion.md §M1."
         )
     try:
         raw = yaml.safe_load(p.read_text())

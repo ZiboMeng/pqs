@@ -2,7 +2,7 @@
 Topic J, 2026-04-20).
 
 This module is the SCAFFOLD for the LLM-assisted factor mining phase
-defined in `docs/prd_llm_factor_mining.md`. It does NOT call any LLM.
+defined in `docs/20260420-prd_llm_factor_mining.md`. It does NOT call any LLM.
 It provides:
 
   1. `FactorCandidate` dataclass matching the PRD's structured YAML
@@ -43,7 +43,7 @@ from core.factors.factor_registry import PRODUCTION_FACTORS, RESEARCH_FACTORS
 @dataclass
 class FactorCandidate:
     """Matches the PRD structured YAML schema
-    (docs/prd_llm_factor_mining.md §4).
+    (docs/20260420-prd_llm_factor_mining.md §4).
 
     Required fields must be non-empty; optional fields can be None/empty
     but should be populated when the LLM has an answer.
@@ -234,7 +234,7 @@ def run_funnel(
 
     This function NEVER returns a KEEP verdict directly. The final
     decision to promote is HUMAN-REVIEW gated, consistent with
-    `docs/prd_llm_factor_mining.md` §2.
+    `docs/20260420-prd_llm_factor_mining.md` §2.
     """
     # Stage 1: leakage heuristic
     leakage = leakage_heuristic_check(candidate)

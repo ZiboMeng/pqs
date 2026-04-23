@@ -1,7 +1,7 @@
 """Acceptance pack — validation checks required before promote_strategy.py
 upgrades `config/production_strategy.yaml::status` to `active`.
 
-PRD: docs/prd_framework_completion.md §M2
+PRD: docs/20260421-prd_framework_completion.md §M2
 
 A spec_id from the mining archive is considered promotable only if it passes
 ALL gates below. Each gate is a boolean with supporting diagnostic values;

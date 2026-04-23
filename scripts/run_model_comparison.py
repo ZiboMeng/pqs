@@ -12,7 +12,7 @@ leaderboard.
 Purpose
 -------
 Before entering the LLM-assisted factor mining phase (see
-docs/prd_llm_factor_mining.md), establish a reproducible baseline
+docs/20260420-prd_llm_factor_mining.md), establish a reproducible baseline
 showing which factors the CLASSICAL models consider important.
 This is a RESEARCH tool — output feeds no production path.
 

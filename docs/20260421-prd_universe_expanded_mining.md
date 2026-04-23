@@ -4,10 +4,10 @@
 **Date**: 2026-04-21 (v1.0) / 2026-04-21 (v1.1 after user critique) /
          2026-04-21 (v1.1.1 post-review fixes commit `acb4c4f` + P2 docs)
 **Trigger**: User-directed post-R28 universe expansion sign-off
-**Supersedes**: `docs/prd_llm_factor_mining.md` (30-round LLM phase) at the
+**Supersedes**: `docs/20260420-prd_llm_factor_mining.md` (30-round LLM phase) at the
 factor-discovery level — this phase focuses on **strategy calibration on
 the expanded universe** and further alpha selection exploration
-**Prior-phase findings source**: `docs/llm_phase_blocker_report.md`
+**Prior-phase findings source**: `docs/20260421-llm_phase_blocker_report.md`
 **v1.1 revisions** (integrated from user review):
 - Blocker C reframed as decision blocker (not in-loop resolution)
 - Success criteria split into hard goals vs outcome goals (avoid
@@ -36,7 +36,7 @@ the expanded universe** and further alpha selection exploration
   - 1 Alpha Core: PWR (β_spy=1.32 borderline)
   - 12 Diversifier: WMT/GILD/JNJ/K/VZ/OXY/GIS/WEC/EA/ED/DG/CLX
   - 8 Tactical: GS/MS/C/LRCX/KLAC/CAT/MU/AVGO
-- Spec: `docs/universe_expansion_spec_v2_2.md`
+- Spec: `docs/20260421-universe_expansion_spec_v2_2.md`
 - R17 "不降标准" 原则严格保留
 
 ### 1.3 当前 blockers
@@ -81,7 +81,7 @@ the expanded universe** and further alpha selection exploration
 ### 2.3 Baseline snapshot requirement (R0 固化，new)
 
 本 loop 启动前（R29 pre-flight）必须 commit 一份 baseline snapshot
-到 `docs/universe_mining_r0_baseline.md` 包含:
+到 `docs/20260421-universe_mining_r0_baseline.md` 包含:
 - Current pytest output (1108 passed + 1 xfailed 预期)
 - Archive leaderboard filtered to `post-2026-04-21-universe-mining%`
   (预期 empty)
@@ -136,7 +136,7 @@ round. Git commits on:
 - Every round that changes source code / config / docs
 - Otherwise, commits may be batched at checkpoint rounds (e.g., R32,
   R38, R46, R58) — but round-N's log entry must always land in
-  `docs/ralph_loop_log.md` via a commit by end of round N+2 latest.
+  `docs/20260420-ralph_loop_log.md` via a commit by end of round N+2 latest.
 - **Never** let 5 rounds pass without a git commit.
 
 **WeChat notify**: invoke `scripts/send_round_summary.py` at end of
@@ -270,7 +270,7 @@ Key settings:
 
 ### 8.2 Monitoring
 
-每轮 stdout + `docs/ralph_loop_log.md` "Universe-Mining-Round N" 段落 +
+每轮 stdout + `docs/20260420-ralph_loop_log.md` "Universe-Mining-Round N" 段落 +
 微信推送 (via `send_round_summary.py` when `PQS_WECOM_WEBHOOK_URL` set).
 
 ### 8.3 数据产出
@@ -320,4 +320,4 @@ Key settings:
 |---|---|---|
 | 2026-04-21 | v1.0 | 初稿，by LLM-phase ralph-loop after user R28 approval |
 | 2026-04-21 | v1.1 | User R_post_R28 review integrated: Blocker C reframed decision-only, success criteria split hard/outcome, §3.1 exploration-signal contract, §4.2 L2→L3 terminology fix, §4.4 bidirectional-evidence definition, §4.5 trial operational definition, §2.3 R0 baseline requirement, §8.1 cross-ref fix |
-| 2026-04-21 | v1.1.1 | **Post-review fixes applied** (commit `acb4c4f` + P2 docs). Repo now satisfies PRD pre-flight: empty-data runtime guards added (new `core/data/panel_loader.py`); pytest baseline restored to **1108 passed + 1 xfailed**; R0 baseline snapshot landed at `docs/universe_mining_r0_baseline.md`; launcher `python` hardcode removed; universe metric naming aligned to v2.2 terminology (`alpha_positive_rate_rolling` / `tail_correlation_to_spy` / `alpha_t_stat_504d` / `beta_qqq_504d`); bucket_assign backward-compat + 504d-preferred; `config/universe.yaml` annotated with two-layer universe clarification; v2.2 spec §4.6 notes provisional intrinsic-only bucket_assign implementation. **Ready for loop launch.** |
+| 2026-04-21 | v1.1.1 | **Post-review fixes applied** (commit `acb4c4f` + P2 docs). Repo now satisfies PRD pre-flight: empty-data runtime guards added (new `core/data/panel_loader.py`); pytest baseline restored to **1108 passed + 1 xfailed**; R0 baseline snapshot landed at `docs/20260421-universe_mining_r0_baseline.md`; launcher `python` hardcode removed; universe metric naming aligned to v2.2 terminology (`alpha_positive_rate_rolling` / `tail_correlation_to_spy` / `alpha_t_stat_504d` / `beta_qqq_504d`); bucket_assign backward-compat + 504d-preferred; `config/universe.yaml` annotated with two-layer universe clarification; v2.2 spec §4.6 notes provisional intrinsic-only bucket_assign implementation. **Ready for loop launch.** |

@@ -3,7 +3,7 @@
 scripts/llm_factor_propose.py — Round 10 Topic J (2026-04-20):
 scaffold CLI for LLM-proposed factor candidates.
 
-Takes a YAML candidate (per `docs/prd_llm_factor_mining.md` §4 schema)
+Takes a YAML candidate (per `docs/20260420-prd_llm_factor_mining.md` §4 schema)
 and runs it through the candidate funnel:
 
   load YAML → shape validation → leakage heuristic → (optional)
@@ -12,7 +12,7 @@ and runs it through the candidate funnel:
 This script does NOT call any LLM. It's the validation layer for
 candidates produced by an LLM (or a human emulating one). The actual
 LLM proposal flow happens in the auto-launch phase (see
-`docs/prd_llm_factor_mining.md`).
+`docs/20260420-prd_llm_factor_mining.md`).
 
 Usage
 -----

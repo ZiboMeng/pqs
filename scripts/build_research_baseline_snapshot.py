@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Build research baseline snapshot for PQS.
 
-PRD: docs/prd_framework_completion.md M0 — replaces hardcoded test counts /
+PRD: docs/20260421-prd_framework_completion.md M0 — replaces hardcoded test counts /
 lineage summaries / config assertions in documentation with a machine-readable
 snapshot that can be re-generated on demand.
 

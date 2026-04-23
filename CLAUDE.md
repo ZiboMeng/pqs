@@ -792,7 +792,7 @@ Sector diversification: 每个 GICS ≥3 symbols, 单一最多 8 ；targetsize 6
   MARKET_LIKE / DIVERSIFIER / ALPHA_GENERATOR / BETA_PLUS_ALPHA
 - 在 32-symbol universe 上跑（2018-01-01 → 2026-04-18）
 - 产出 `data/ml/universe_alpha_diagnostic.csv` + `universe_alpha_summary.json`
-- 更新 `docs/llm_phase_blocker_report.md` §6.1.1 写入 empirical findings
+- 更新 `docs/20260421-llm_phase_blocker_report.md` §6.1.1 写入 empirical findings
 
 **核心发现** — 用户 R19 direction 得到**定量 validation**:
 
@@ -833,7 +833,7 @@ ETFs**，个股里没有 low-β 分散源
 **lineage_tag**: `post-2026-04-20-llm-round-19`
 
 **改动**:
-- 新 `docs/llm_phase_blocker_report.md` (~250 行) —— PRD §10 criterion
+- 新 `docs/20260421-llm_phase_blocker_report.md` (~250 行) —— PRD §10 criterion
   #4 要求的 blocker report 初稿（`reports/` 是 gitignore，移到 `docs/`）
 - **用户 R19 指令** (2026-04-21): "后面对于universe肯定要进行优化和扩充
   当前的暴露太偏大科技 需要进行筛选 来实现alpha正值 而不是纯赚beta" ——
@@ -1857,7 +1857,7 @@ signal stability 的教训：稳定但弱的信号不过 §5.4。
 **12 轮 loop 终点**:
 - Round 1-12 完成所有 PRD §3.1-§3.4 的可行主题
 - 但 0 个策略通过 `evaluator.evaluate()` 的 Tier-3 门槛（OOS 通过率 < 40%，QQQ outperformance 边际）
-- 按用户在 Round 8 追加的指令，loop 结束后进入 **PRD §13.0 的 30 轮 LLM-assisted + XGBoost mining 阶段**（`docs/prd_llm_factor_mining.md`）
+- 按用户在 Round 8 追加的指令，loop 结束后进入 **PRD §13.0 的 30 轮 LLM-assisted + XGBoost mining 阶段**（`docs/20260420-prd_llm_factor_mining.md`）
 - 此阶段使用 Round 9（model_comparison）+ Round 10（llm_candidate funnel）的工具，持续 lineage_tag bump：`post-2026-04-20-llm-round-N`
 
 ### Round 11 — Topic L：BrokerAdapter 骨架
@@ -1885,7 +1885,7 @@ signal stability 的教训：稳定但弱的信号不过 §5.4。
 **时间**: 2026-04-20
 **改动**:
 - 新 `core/factors/llm_candidate.py` 模块（scaffold，**不调 LLM API**）：
-  - `FactorCandidate` dataclass 匹配 `docs/prd_llm_factor_mining.md` §4 YAML schema
+  - `FactorCandidate` dataclass 匹配 `docs/20260420-prd_llm_factor_mining.md` §4 YAML schema
   - `load_candidate_from_yaml()` + shape validation + 命名空间碰撞拒绝（`PRODUCTION_FACTORS` / `RESEARCH_FACTORS` 重名直接抛错）
   - `leakage_heuristic_check()` 文本层扫描 lookahead 关键字 + lag 关键字缺失
   - `dedup_check()` Spearman rank correlation vs 现有因子，阈值 0.7
@@ -1900,7 +1900,7 @@ signal stability 的教训：稳定但弱的信号不过 §5.4。
 
 **测试变化**: 1071 → **1090 passing**（+19）
 
-**下阶段就绪**: `docs/prd_llm_factor_mining.md` auto-launch 阶段的底座已经在位。LLM 生成的 YAML 候选可以通过 CLI 直接进入 funnel，不需要新代码
+**下阶段就绪**: `docs/20260420-prd_llm_factor_mining.md` auto-launch 阶段的底座已经在位。LLM 生成的 YAML 候选可以通过 CLI 直接进入 funnel，不需要新代码
 
 ### Round 9 — Topic H：Ridge vs XGBoost 特征重要性对比
 
@@ -2553,7 +2553,7 @@ limit + min_level gating built-in. Credentials via env var expansion
 
 ### Current TODO Checklist
 
-**Deep Mining Phase PRD** (`docs/prd_deep_mining_50round.md` v1.1) —
+**Deep Mining Phase PRD** (`docs/20260421-prd_deep_mining_50round.md` v1.1) —
 50-round **AUTONOMOUS** active phase. 7 tracks: daily+ML (R1-R15),
 intraday (R16-R25), DSL (R26-R33), universe expansion (R34-R41),
 XGBoost rigor (R42-R46), transformer hyperparameter (R47-R48), final
@@ -2573,19 +2573,19 @@ promotes to status=active.
   failure, disk < 10GB, unexpected config edits, archive corruption,
   3rd --force promote in one loop)
 
-**Framework Completion PRD** (`docs/prd_framework_completion.md` v1.2) —
+**Framework Completion PRD** (`docs/20260421-prd_framework_completion.md` v1.2) —
 All M0-M8 + M10 + M13 + M15 + M16 shipped; critical path clean. Open:
 M11 (paper-BT consistency), M12 (concentration real gate), M14 (NaN),
 M17 (live feed), M18 (DSL funcs). See PRD §9-11.
 - [x] **M0** research baseline snapshot (`scripts/build_research_baseline_snapshot.py`)
 - [x] **M1** `config/production_strategy.yaml` single source of truth (21 unit + 7 integration tests)
-- [x] **M2** promote CLI + acceptance pack v2 (18 unit tests; `scripts/acceptance_pack.py` + `scripts/promote_strategy.py` + `docs/promotion_flow.md`). v2 added `full_period_fresh_backtest` gate after first promote attempt caught quick-eval-vs-full-period CAGR gap (`6d15b735a64c` was rolled back; pack now re-runs fresh backtest by default)
+- [x] **M2** promote CLI + acceptance pack v2 (18 unit tests; `scripts/acceptance_pack.py` + `scripts/promote_strategy.py` + `docs/20260421-promotion_flow.md`). v2 added `full_period_fresh_backtest` gate after first promote attempt caught quick-eval-vs-full-period CAGR gap (`6d15b735a64c` was rolled back; pack now re-runs fresh backtest by default)
 - [x] **M3** runtime alignment check WARN mode (12 unit tests; `core/alignment/alignment_check.py`; integrated in `run_backtest.py` + `run_paper.py`)
 - [x] **M4** cross-ticker YAML DSL (24 unit tests; `core/signals/cross_ticker_rules.py` + `config/cross_ticker_rules.yaml`; 3 rule types; safe expression eval no Python eval)
 - [x] **M5** multi-TF execution contract runtime assert (4 integration tests; `IntradayBacktestEngine.run_multi_day` clips + WARN on negative timing_provider weights)
-- [x] **M6** LLM proposal Phase 1 (3 markdown docs: `docs/llm_proposal_prompt_template.md`, `docs/llm_proposal_seed_context.md`, `docs/llm_funnel_checklist.md`; process formalization, no code change)
+- [x] **M6** LLM proposal Phase 1 (3 markdown docs: `docs/20260421-llm_proposal_prompt_template.md`, `docs/20260421-llm_proposal_seed_context.md`, `docs/20260421-llm_funnel_checklist.md`; process formalization, no code change)
 - [x] **M7** XGBoost weight research model (`scripts/run_xgb_weight_model.py`; research-only; not wired to production)
-- [x] **M8** Transformer research Phase 1 **findings shipped** — `docs/transformer_research_phase1_findings.md`. OOS R²: Ridge +0.012 / XGBoost -0.110 / **Transformer -0.207** (most overfit). Honest negative finding: daily 21d forecasting scope unsuitable for transformer; recommend parking or pivot to intraday / cross-sectional / longer-horizon setup.
+- [x] **M8** Transformer research Phase 1 **findings shipped** — `docs/20260421-transformer_research_phase1_findings.md`. OOS R²: Ridge +0.012 / XGBoost -0.110 / **Transformer -0.207** (most overfit). Honest negative finding: daily 21d forecasting scope unsuitable for transformer; recommend parking or pivot to intraday / cross-sectional / longer-horizon setup.
 
 **Post-M8 items** (PRD v1.2 §11):
 - [x] **M10** cross-ticker DSL production wiring (`core/signals/cross_ticker_wrapper.py` + `run_backtest.py` / `run_paper.py` integration; 9 unit tests; `--no-cross-ticker-rules` CLI flag to disable per-run)
@@ -2593,7 +2593,7 @@ M17 (live feed), M18 (DSL funcs). See PRD §9-11.
 - [ ] **M12** concentration gate real enforcement (P2, 0.5d). Currently skip-PASS; runtime `soft_cap_max_single` + `PortfolioConstructor` hard cap cover production. M12 would inspect fresh-backtest weight matrix for per-date top-1/top-3 concentration and reject if > threshold (e.g. top-1 > 0.40 or top-3 > 0.70).
 - [x] **M13** alignment FAIL mode config-driven rollout (`config/system.yaml::alignment::{mode, live_only_fail}`; defaults WARN + live_only_fail=true; operator flip without code change)
 - [ ] **M14** BacktestEngine NaN root-cause fix (P2, 1d; conditional). Ghost-cleanup + NaN last-price can produce NaN as equity last bar. Pack v2 workaround uses `.dropna()` before CAGR. Fix: skip ghost-liquidation when last_close is NaN, or fillna last-valid in equity aggregation. Promote to blocker if user complains about NaN in `reports/backtests/.../equity_curve.csv`.
-- [x] **M15** LLM Proposal multi-LLM context pack (see `docs/llm_external_llm_handoff.md`). **Reframed** from "Anthropic API call" to "provide context doc that user feeds to Gemini/Codex; those LLMs produce YAML candidates; user manually places in research/llm_candidates/round_NN/; Claude funnel picks up." Fully automated Phase 2 (API) is NOT planned.
+- [x] **M15** LLM Proposal multi-LLM context pack (see `docs/20260421-llm_external_llm_handoff.md`). **Reframed** from "Anthropic API call" to "provide context doc that user feeds to Gemini/Codex; those LLMs produce YAML candidates; user manually places in research/llm_candidates/round_NN/; Claude funnel picks up." Fully automated Phase 2 (API) is NOT planned.
 - [x] **M16** Transformer Phase 1 findings (done, see above)
 - [ ] **M17** Realtime intraday live-feed infra. Out of framework PRD scope; independent PRD `prd_live_feed.md` when needed. Gate: do not start until validated best strategy exists and is stable (no point live-tracking a provisional strategy).
 - [ ] **M18** Cross-ticker DSL function expansion (P3, 0.3d per function). Candidate new funcs: `ratio(sym_a, sym_b)`, `zscore(col, N)`, `rank_cs(col)`, `breakout(N)`. Add ONLY when a specific rule yaml demands them; don't pre-add.

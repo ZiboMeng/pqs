@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Fetch S&P 500 daily bars as a mining candidate pool.
 
-PRD: docs/prd_deep_mining_50round.md §2 Track D (R34)
+PRD: docs/20260421-prd_deep_mining_50round.md §2 Track D (R34)
 
 This is SEPARATE from config/universe.yaml fetch_data.py path. It builds
 a broader candidate pool stored at data/daily/ (same format, same location
