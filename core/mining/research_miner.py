@@ -645,6 +645,9 @@ class ResearchMiner:
         min_families: int = 3,
         max_features_per_family: int = 2,
         weight_step: float = 0.05,
+        archive: Any = None,
+        lineage_tag: Optional[str] = None,
+        study_id: Optional[str] = None,
     ) -> None:
         self.factor_panel_map = factor_panel_map
         self.fwd_returns = fwd_returns
@@ -654,6 +657,28 @@ class ResearchMiner:
         self.min_families = min_families
         self.max_features_per_family = max_features_per_family
         self.weight_step = weight_step
+        # R12: optional persistence. When archive is provided, each
+        # successful run_trial also writes to archive under (study_id,
+        # lineage_tag). Both must be set together or not at all.
+        if archive is not None and (lineage_tag is None or study_id is None):
+            raise ValueError(
+                "archive requires both lineage_tag and study_id"
+            )
+        self.archive = archive
+        self.lineage_tag = lineage_tag
+        self.study_id = study_id
+        if archive is not None:
+            archive.record_study(
+                study_id=study_id,
+                lineage_tag=lineage_tag,
+                objective_weights={
+                    "w_ir": self.objective_weights.w_ir,
+                    "w_turnover": self.objective_weights.w_turnover,
+                    "w_corr_conc": self.objective_weights.w_corr_conc,
+                    "w_bench_excess": self.objective_weights.w_bench_excess,
+                    "w_regime_stddev": self.objective_weights.w_regime_stddev,
+                },
+            )
         # Cache of trial results for in-memory analysis
         self.results: List[TrialResult] = []
 
@@ -686,15 +711,48 @@ class ResearchMiner:
         )
         result = TrialResult(spec=spec, metrics=metrics, objective=objective)
         self.results.append(result)
+        # R12: persist to archive when configured
+        if self.archive is not None:
+            try:
+                self.archive.insert_trial(
+                    result,
+                    lineage_tag=self.lineage_tag,
+                    study_id=self.study_id,
+                    benchmark_excess=0.0,
+                    regime_stddev=0.0,
+                )
+            except Exception as exc:  # noqa: BLE001
+                # Persistence is advisory — don't fail the Optuna study
+                # because of a DB issue; caller can audit self.results
+                import logging
+                logging.getLogger(__name__).warning(
+                    "archive.insert_trial failed: %s", exc,
+                )
         return objective
 
     def mine(
-        self, n_trials: int = 50, seed: int = 42,
+        self,
+        n_trials: int = 50,
+        seed: int = 42,
+        *,
+        optuna_storage: Optional[str] = None,
+        study_name: Optional[str] = None,
+        load_if_exists: bool = False,
     ) -> List[TrialResult]:
         """Run an Optuna study for n_trials and return results sorted
         descending by objective.
 
-        v1 uses in-memory Optuna; R12 will swap to persistent rcm_optuna.db.
+        Persistence (R12):
+          * `optuna_storage`: e.g. "sqlite:///data/mining/rcm_optuna.db" to
+            persist the Optuna study (enables resume across processes).
+          * `study_name`: required when using optuna_storage; groups trials
+            under a named study. When `load_if_exists=True`, reopens an
+            existing study of the same name instead of creating a new one.
+          * Defaults (None, None, False) → in-memory study, fresh each call.
+
+        Note: `optuna_storage` tracks Optuna's internal trial state
+        (for resumption of the sampler). The TrialResult archive
+        (rcm_archive.db, set via __init__) is independent.
         """
         try:
             import optuna
@@ -706,7 +764,16 @@ class ResearchMiner:
         # Silence optuna default INFO chatter during tests
         optuna.logging.set_verbosity(optuna.logging.WARNING)
         sampler = optuna.samplers.TPESampler(seed=seed)
-        study = optuna.create_study(direction="maximize", sampler=sampler)
+        create_kwargs = dict(direction="maximize", sampler=sampler)
+        if optuna_storage is not None:
+            if study_name is None:
+                raise ValueError(
+                    "study_name required when optuna_storage is set"
+                )
+            create_kwargs["storage"] = optuna_storage
+            create_kwargs["study_name"] = study_name
+            create_kwargs["load_if_exists"] = load_if_exists
+        study = optuna.create_study(**create_kwargs)
         study.optimize(self.run_trial, n_trials=n_trials, n_jobs=1)
         # Return successful trials only, sorted
         completed = [r for r in self.results if np.isfinite(r.objective)]
