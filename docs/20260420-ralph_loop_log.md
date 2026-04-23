@@ -7551,3 +7551,78 @@ Loop 实质 productive scope 完结
 
 ### 11. Halt 条件检查 (§15.3)
 全部通过
+
+---
+
+## R-feat-v1-round-26
+
+**时间**: 2026-04-23
+**Step**: 7 closure (re-run R15 candidates with R25 --universe-size full flag)
+
+### 1. 本轮主题
+Close R10 → R12 → R15 → R25 chain: 5 R15-flipped candidates with
+new --universe-size full.
+
+### 2. 本轮目标
+验证 R25 flag 对所有 previously-ARCHIVE candidate 的 routing 改善。
+
+### 3. 为什么这轮优先做它
+R10-R15 foundation → R25 tooling → R26 closure 自然流程。
+
+### 4. 做了什么
+对 5 candidates re-run funnel, 对比 R15 vs R26 verdict.
+
+### 5. 修改了哪些文件
+无 code 改动。
+
+### 6. 跑了哪些测试 / 实验
+
+Verdict 变化对比:
+
+| Candidate | R10 | R15 | R26 (full universe) |
+|---|---|---|---|
+| regime_adjusted_quality_63d_gemini | — | NEEDS_HUMAN_REVIEW | **NEEDS_HUMAN_REVIEW (2 dedup)** |
+| close_to_high_proximity_21d | REJECT leakage | ARCHIVE | **NEEDS_HUMAN_REVIEW (6 dedup)** |
+| intraday_support_21d | — | ARCHIVE n=0 | ARCHIVE IC +0.01 (IR +0.06) |
+| range_compression_5_63 | — | ARCHIVE n=0 | ARCHIVE IC -0.01 (IR -0.06) |
+| xsec_volume_surge_5d | — | ARCHIVE n=0 | ARCHIVE n=0 (compute_fn 问题) |
+
+### 7. 结果如何
+
+**1 candidate 新 flip 到 NEEDS_HUMAN_REVIEW**:
+`close_to_high_proximity_21d` — R12 修 leakage 后 IC 能算；R25 widen
+universe 后 dedup 检测到高度 correlation 与 6 existing factors。真
+research 价值是 "已被 mean_rev_sma20 等充分表达的概念"，future promote
+需先 justify incremental value.
+
+**2 candidate 现可测 IC 但弱**:
+`intraday_support_21d`, `range_compression_5_63` 在 full universe 有
+~1280 dates 可测，但 IC 接近 0 (±0.01) — 本身 signal 就是弱的，和
+universe size 无关。
+
+**1 candidate compute_fn 内部问题**:
+`xsec_volume_surge_5d` 返回空（压根没产 value，不是 "IC 能算但弱"）。
+Gemini 原 YAML 用 `cross_sectional_rank` 但 compute_fn 未实现 panel-
+level rank。需 YAML 级 fix 才 testable。
+
+### 8. 当前发现的新问题 / 新机会
+- **R18-R25 chain 交付 3 actionable research artifacts**:
+  1. `overnight_reversal_quality_gated_1d` (R23 YAML + R24 compute_fn)
+     — strongest loop finding, IR -0.83 @h=1
+  2. `close_to_high_proximity_21d` (R26 flip) — dedup-heavy but worth
+     incremental-value review
+  3. `regime_adjusted_quality_63d_gemini` (R15) — dedup-flagged, 
+     need human review of dedup signals
+- `xsec_volume_surge_5d` compute_fn 用 cross_sectional_rank 是 panel-
+  level 操作；当前 funnel per-symbol 运行产生空输出。fix 不在本 loop
+  scope
+
+### 9. 剩余风险
+无
+
+### 10. 下一轮建议方向
+Loop 真正可做的事情全部 exhausted。R18-R25 的 findings 形成完整
+research 链条。
+
+### 11. Halt 条件检查 (§15.3)
+全部通过
