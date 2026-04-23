@@ -21,9 +21,14 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
 
+# R2 (Phase E-0) — pyarrow lazily imported inside the methods that use
+# it (`has_min_bars`, `_write_parquet`). This keeps `import
+# core.data.market_data_store` cheap for callers that only need symbol-
+# path helpers or the class itself (e.g. tests that pass a mocked
+# store), and ensures modules that transit through `core/data/__init__`
+# (notably core.paper_trading.paper_trading_engine) do not drag
+# pyarrow into sys.modules.
 from core.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -178,6 +183,7 @@ class MarketDataStore:
         if not path.exists():
             return False
         try:
+            import pyarrow.parquet as pq  # R2: lazy
             pf = pq.read_metadata(path)
             return pf.num_rows >= min_bars
         except Exception:
@@ -214,7 +220,12 @@ class MarketDataStore:
 # ── Parquet I/O helpers ───────────────────────────────────────────────────────
 
 def _write_parquet(df: pd.DataFrame, path: Path) -> None:
-    """Write DataFrame to parquet with consistent settings."""
+    """Write DataFrame to parquet with consistent settings.
+
+    R2 (Phase E-0) — pyarrow imported lazily; see module-level comment.
+    """
+    import pyarrow as pa                # R2: lazy
+    import pyarrow.parquet as pq        # R2: lazy
     table = pa.Table.from_pandas(df, preserve_index=True)
     pq.write_table(
         table,
