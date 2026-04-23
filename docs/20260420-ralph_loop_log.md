@@ -5893,3 +5893,85 @@ A  tests/unit/factors/test_forward_returns_modes.py  (+110)
 
 ### 11. Halt 条件检查 (§15.3)
 全部通过（+11 tests, 0 regression, 0 config 改动）。继续 R05。
+
+---
+
+## R-feat-v1-round-05
+
+**时间**: 2026-04-23
+**Commit**: `4eea421`
+**Step**: 1 (Feature engineering — per-date masks; **Step 1 COMPLETE**)
+
+### 1. 本轮主题 / Step
+Step 1 最后一轮：per-date-per-symbol mask 暴露（§3.3 / §6.4）。
+
+### 2. 本轮目标
+- 建 `core/factors/base_masks.py` 暴露 3 个 mask helper
+- 不改 `RESEARCH_FACTORS`（masks 不是因子）
+- 9 个单测覆盖 price floor / tradability / combined / 异常路径
+
+### 3. 为什么这轮优先做它
+Step 1 feature+label 已齐全（R01-R04 累计 11 个新因子 + cc/oc/oo
+label mode）。§3.3 "将 admission / tradability 相关逻辑暴露为 research
+可消费的面板级 mask" 是 Step 1 最后一块。完成后 Step 2 panel build
+就有统一 mask 接口可消费。
+
+### 4. 做了什么
+- `base_masks.py`:
+  - `price_floor_mask(price_df, min_price=5.0)` — bool 面板
+  - `tradable_mask_dollar_vol(price_df, volume_df, min_usd=20e6, window=20)`
+    — 复用 R02 的 `dollar_volume_ma` 实现 §D2 dual-role
+  - `research_mask(...)` — 两者 AND
+- 所有 mask: NaN → False（不可交易），负阈值拒绝
+- 9 tests：floor / tradable / combined + edge cases
+
+### 5. 修改了哪些文件
+```
+A  core/factors/base_masks.py               (+115)
+A  tests/unit/factors/test_base_masks.py   (+130)
+```
+
+### 6. 跑了哪些测试 / 实验
+- 目标测试 9/9 pass
+- 完整 suite: **1262 passed** (+9 from R04), 1 skipped, 1 xfailed
+- 已验证：mask 对 NaN 输入返回 False（不产生 NaN bool），对 $3 股 /
+  低成交量股正确过滤
+
+### 7. 结果如何
+- Step 1 **COMPLETE**
+- 累计新增 11 个 research factors（超 PRD 目标 10 的 1 个）
+- forward-return 3-mode 接口 ready
+- 3 个 per-date mask helper ready
+- 总增量测试 47 (R01 8 + R02 9 + R03 10 + R04 11 + R05 9)
+- 从 1215 起步到 1262（+47 tests；0 regression; 1 xfail 不变）
+
+**Step 1 完成状态清单 (vs PRD §10.1)**：
+- ✅ 10+ research features 补齐可被下游调用
+- ✅ compute_forward_returns 支持 cc/oc/oo
+- ✅ 研究层可拿到 per-date-per-symbol mask
+- ✅ 15+ 单测（实际 +47）
+- ✅ 不改 PRODUCTION_FACTORS / config/universe.yaml / production_strategy.yaml
+
+### 8. 当前发现的新问题 / 新机会
+- 观察：mask 目前独立于 `generate_all_factors`，不自动参与 factor
+  panel；这是刻意设计（mask 语义不同）。如果 Step 2 / Step 3 要让
+  mining evaluator 按 mask 过滤样本，需要新 mining flag
+- 观察：现有 `scripts/universe_admission_screen.py` 的 binary per-
+  symbol 检查可以改成用新 mask helpers 做 rolling 版本——非本 PRD scope
+
+### 9. 剩余风险
+- 无
+
+### 10. 下一轮建议方向
+- **R06 (建议)**: Step 2 — 79-symbol panel 可用性 sanity check。
+  加载 config/universe.yaml 的 seed_pool，调用 `generate_all_factors`
+  + 全套新 mask，确认：
+    1. 79 symbols 都能产生 panel（BarStore.load 无异常）
+    2. 新 factor shape 正确，无 NaN 列
+    3. mask 按预期过滤
+    4. aliases 正确 resolve
+  产出 `docs/YYYYMMDD-feat_v1_panel_sanity.md` 小结
+- R07: Step 3 — R39 fresh baseline mining on 79-symbol expanded universe
+
+### 11. Halt 条件检查 (§15.3)
+全部通过（+9 tests, 0 regression, 0 config 改动）。Step 1 完成，进 Step 2。
