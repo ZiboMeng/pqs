@@ -152,12 +152,13 @@ def _load_panel(cfg, store, horizon: int):
 
 def _univariate_ic(
     panel_map: dict, fwd: pd.DataFrame, mask, horizon: int,
-    feature_list: list[str],
+    feature_list: list[str], lag: int = 1,
 ) -> pd.DataFrame:
     """Per-feature per-date Spearman IC, averaged over time.
 
     Also returns horizon-aware IR. Reuses `_spearman_ic_per_date` from
-    research_miner to stay consistent.
+    research_miner to stay consistent. R15 fix: shift panel by `lag`
+    bars before IC to match evaluate_composite default (lag=1).
     """
     from core.mining.research_miner import _spearman_ic_per_date
     from core.factors.base_masks import apply_research_mask
@@ -171,6 +172,8 @@ def _univariate_ic(
             })
             continue
         panel = panel_map[f]
+        if lag > 0:
+            panel = panel.shift(lag)
         if mask is not None:
             panel = apply_research_mask(panel, mask)
         ic_series = _spearman_ic_per_date(panel, fwd)
@@ -232,6 +235,11 @@ def main() -> int:
     parser.add_argument("--archive-db", default="data/mining/rcm_archive.db")
     parser.add_argument("--top-k", type=int, default=10)
     parser.add_argument("--horizon", type=int, default=21)
+    parser.add_argument("--lag", type=int, default=1,
+                        help="R15 fix — shift panels by `lag` bars before "
+                             "univariate IC (matches evaluate_composite "
+                             "default). Set to 0 only for legacy "
+                             "contemporaneous-IC comparison.")
     parser.add_argument("--out-dir",
                         default="data/ml/research_miner")
     parser.add_argument("--config-dir", default="config")
@@ -271,6 +279,7 @@ def main() -> int:
         logger.info("Univariate IC on %d features...", len(all_features))
         univariate_df = _univariate_ic(
             panel_map, fwd, mask, args.horizon, all_features,
+            lag=args.lag,
         )
         univariate_df.to_csv(out_root / "univariate_ic.csv", index=False)
 
