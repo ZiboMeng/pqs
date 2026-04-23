@@ -6706,3 +6706,66 @@ R16 max-iteration — loop 自然退出。无额外 autonomous progress path。
 
 ### 11. Halt 条件检查 (§15.3)
 全部通过。
+
+---
+
+## R-feat-v1-round-16 (max-iteration)
+
+**时间**: 2026-04-23
+**Step**: 7 tooling extension (CLI OHLCV kwarg pass-through)
+
+### 1. 本轮主题
+最后一轮 (iteration 16/16) — 修 R15 发现的 `llm_factor_propose.py`
+CLI 只传 close_df 导致 OHLCV-dependent candidate 无法评估的问题。
+
+### 2. 本轮目标
+- `_load_price_and_factors` 返回扩 3-tuple 含 OHLCV
+- main() 把 extras 作 kwargs 传给 compute_fn
+- 验证 R15 blocked 的 3 candidate 现在能跑 funnel
+
+### 3. 为什么这轮优先做它
+R15 明确指出 tooling gap（3 candidates 被迫 ARCHIVE n=0 仅因 CLI
+未传 OHLCV）。修补让未来所有 LLM candidate funnel 运行更完整。
+
+### 4. 做了什么
+- CLI `_load_price_and_factors` 加载 open/high/low/volume 面板
+  并传给 `generate_all_factors`
+- compute_fn 调用用 wrapper 合并 OHLCV extras 到 **kwargs
+- 保持向后兼容（老 compute_fn 不接 OHLCV 的照样工作）
+
+### 5. 修改了哪些文件
+```
+M  scripts/llm_factor_propose.py  (+30 -10)
+```
+
+### 6. 跑了哪些测试 / 实验
+- Re-run R15's 3 candidates:
+  - `intraday_support_21d`: ARCHIVE IR -0.06 (n=830 dates) was n=0
+  - `range_compression_5_63`: ARCHIVE IR +0.10 (n=824) was n=0
+  - `xsec_volume_surge_5d`: 仍 n=0（compute_fn 内部问题，非 CLI）
+- `pytest tests/unit/factors/test_llm_candidate_funnel.py` 22/22 unchanged
+
+### 7. 结果如何
+- 2/3 R15-blocked candidates 现在可 funnel
+- 两个 verdict 都是 IC 弱（weak signal），不是 KEEP — 但 confirmed
+  not hidden by tooling
+- 第 3 个 `xsec_volume_surge_5d` 是 compute_fn 实现问题（factor =
+  cross_sectional_rank(vol_ratio)，可能需要 panel 层 rank）
+
+### 8. 当前发现的新问题 / 新机会
+- `xsec_volume_surge_5d` compute_fn 返回空 output — 建议将来
+  review Gemini 原始 candidate YAML 是否有 cross-sectional 计算
+  错误
+- 至此 97-pool 里对"flip-可 funnel"的候选全部跑完，**0 KEEP**
+  进一步强化 R08 结论：当前 factor/universe 组合饱和
+
+### 9. 剩余风险
+无
+
+### 10. 下一轮建议方向
+- 本轮 max-iteration=16 达到；loop 自然终止
+- User 决策 (A/B/C/D per blocker doc) 决定下一步 PRD 方向
+
+### 11. Halt 条件检查 (§15.3)
+- 条件 7 仍 active
+- max-iterations 达到（16/16）— 自然退出
