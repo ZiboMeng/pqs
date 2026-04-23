@@ -10119,3 +10119,123 @@ This 简化 S1 promotion memo。
 **RCMV1DONE eligibility**: ✅ All PRD §11 criteria met, §13.3 condition 1
 satisfied. Can emit `<promise>RCMV1DONE</promise>` at R20+ 完成后 or 
 any time based on current state.
+
+## R-rcm-v1-round-20
+
+**时间**: 2026-04-24
+**Commit**: `c22bfe1`
+**Step**: RCMv1 closeout — S1 Research Candidate promotion memo
+
+### 1. 本轮主题 / Step
+R19 已 validate converged spec（parameter-robust + TPE 不是 random lucky）。
+R20 走最后一步：按 PRD 2 §6 Promote Input Package schema 写 promotion
+memo。完全 doc-only，不碰任何 production artifact 或 config。
+
+### 2. 本轮目标
+- `docs/20260424-rcm_v1_s1_candidate_memo.md`：按 PRD 2 §6 schema 完整
+  10-section memo
+- 包含 frozen spec YAML (§2)
+- 包含 research evidence summary (§3)
+- 严格 observe PRD §13.4 禁止项（不 promote / 不修 config / 不新 vendor）
+- 明确 recommendation 是 "prompt for human review"，不是 auto-promote
+
+### 3. 为什么这轮优先做它
+RCMv1 PRD §11 全部 success criteria 已达。收尾需要一份**可交接**的
+memo —— 让人类 reviewer 基于 PRD 2 §6 检查表决定 promote/hold/reject。
+没 memo 就 claim done 缺 deliverable。
+
+### 4. 做了什么
+
+**Memo 10 sections**（343 lines）:
+1. Candidate identification (id, lineage, trial_id, proposed state)
+2. **Frozen strategy spec YAML** — features + weights + transforms + 
+   composite rule + labels + panel contract + benchmark + risk overlay
+   + alternative equal-weight variant
+3. Research evidence (IC/IR, walk-forward, regime, sensitivity, TPE vs
+   random, full-period consistency)
+4. Engineering readiness (reproducibility, data deps, panel gen,
+   assumptions, freezeability)
+5. Decision memo (economic logic, sleeve role, 5 failure modes to
+   monitor, alternatives considered, what paper layer must answer)
+6. Hard blocks check (PRD 2 §8) — 8/8 PASS
+7. Required artifacts inventory (PRD 2 §13) — 10/12 ✓, 2 deferred to
+   paper layer
+8. Recommendation: Outcome A promote_to_paper，note human review required
+9. Next-steps (human-triggered, not autonomous)
+10. One-line summary
+
+**严格 compliance**:
+- NO PRODUCTION_FACTORS edit
+- NO config/universe.yaml or production_strategy.yaml edit
+- NO auto-promote — memo 是 input package 不是 decision
+- NO new vendor / data layer
+- NO paper infrastructure declaration
+
+### 5. 修改了哪些文件
+```
+A  docs/20260424-rcm_v1_s1_candidate_memo.md  (+343)
+```
+
+### 6. 跑了哪些测试 / 实验
+无实验。纯 doc deliverable。
+
+### 7. 结果如何
+
+**Deliverable done**. Memo contains:
+- 精确到 trial_id 的 spec 重现性
+- 14 sensitivity experiments 的 robustness 证据
+- 6-regime + 4-fold walk-forward stability 证据
+- Economic logic 接入学术文献（Novy-Marx 2013 profitability；Asness et
+  al. 2014 quality factors）
+- Alternatives-considered paragraph 承认 equal-weight variant 几乎
+  匹配 TPE-tuned
+- 明确 scope boundary：memo 是 S0→S1 proposal，不触发 S1→S2 或 S3+
+
+### 8. 当前发现的新问题 / 新机会
+
+**发现 — PRD 1/2 落地路径清晰**:
+这份 memo 现在是 PRD 1 Layered Architecture 的 `S1 research candidate`
+范例。如果 PRD 1 Phase E 开始实现，可以：
+- 把 memo §2 YAML 移到 `data/research_candidates/rcm_v1_defensive_composite_01.yaml`
+- 给 rcm_archive 加 `status` column (S0/S1/...)
+- 该 memo 成为"输入 paper layer 的 reference template"
+
+**机会 — 后续 research direction clear**:
+RCMv1 现在给 Phase E 提供了：
+(a) 一个现成的 S1 candidate（defensive sleeve）
+(b) research_miner + rcm_archive 基础设施
+(c) acceptance + sensitivity 工具链
+
+下一步明确是接"新数据维度"（earnings / breadth / macro）而不是继续
+在 OHLCV 里堆 factor variants。
+
+### 9. 剩余风险
+- Memo 基于 current panel + horizon + mask；universe 若未来扩展，
+  composite 行为需重新验证
+- Paper layer 本身未 build —— S1→S2 物理路径仍 blocked 在 infrastructure
+  上，不是 memo 上
+
+### 10. 下一轮建议方向
+
+**R21**: 有 2 rounds buffer。可选：
+- (a) **emit RCMV1DONE** at next turn and stop（所有 PRD 要求已满足）
+- (b) 写一份 "RCMv1 → Phase E bridge" doc，列出 PRD 1 Layered 实现最
+  小路径（把 rcm_archive schema 加 status column 等）
+- (c) 跑 equal-weight variant 做 sanity backtest（RCMv1 scope 之外）
+
+**推荐 (a)**。R19 已经 "eligible to emit RCMV1DONE"；R20 memo 完成后
+再一步 emit 更合适。如果 user 希望继续 Phase E，可以 subsequent 回合
+启动新 PRD。
+
+### 11. Halt 条件检查 (§13.3)
+- 条件 1: **完成** — 12 features + 3 plumbing + mask + miner + 首跑 + 
+  分析 + leakage fix + 重跑 + 收敛 + acceptance + sensitivity + 
+  synthesis + **memo** 全部 ✓
+- 条件 2: NO
+- 条件 3: NO — 0 regressions (no code change R20)
+- 条件 5: NO
+- 条件 7: 20/22
+- 其他不相关
+
+**RCMV1DONE eligibility re-confirmed**: PRD 要求全部满足，memo 完整
+deliverable 落地。emit `<promise>RCMV1DONE</promise>` 在 R21 合理。
