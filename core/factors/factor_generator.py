@@ -44,6 +44,8 @@ def generate_all_factors(
     volume_df: pd.DataFrame | None = None,
     benchmark_col: str = "SPY",
     open_df: pd.DataFrame | None = None,
+    high_df: pd.DataFrame | None = None,
+    low_df: pd.DataFrame | None = None,
     backfill_tickers: set[str] | None = None,
     volume_sensitive_factors: list[str] | None = None,
     intraday_bars_60m: Dict[str, pd.DataFrame] | None = None,
@@ -74,6 +76,7 @@ def generate_all_factors(
     factors: Dict[str, pd.DataFrame] = {}
 
     factors.update(_baseline_return_factors(price_df, open_df))
+    factors.update(_baseline_range_factors(price_df, high_df, low_df, volume_df))
     factors.update(_momentum_factors(price_df))
     factors.update(_mean_reversion_factors(price_df))
     factors.update(_volatility_factors(price_df))
@@ -91,6 +94,13 @@ def generate_all_factors(
     if intraday_bars_60m is not None:
         factors.update(_intraday_factors(price_df, intraday_bars_60m))
 
+    # PRD §D3 / §3.1.C alias layer: expose historically-named factors
+    # as thin references to existing ones. Same DataFrame shared — no
+    # recomputation. Research-only convenience so downstream LLM /
+    # mining can query by either name. Aliases added LAST so they
+    # reflect any earlier mutations.
+    _apply_research_aliases(factors)
+
     if backfill_tickers:
         factors = apply_data_sensitivity_mask(
             factors, backfill_tickers,
@@ -99,6 +109,23 @@ def generate_all_factors(
 
     logger.info("FactorGenerator: produced %d candidate factors", len(factors))
     return factors
+
+
+# PRD §D3 / §3.1.C alias map: alias_name → canonical_name already in
+# the generator output. Windows are near-equivalent (21 vs 20) — the
+# decision is not to re-implement, just resolve names.
+_RESEARCH_ALIASES = {
+    "vol_20d": "vol_21d",
+    "volume_ratio_20d": "volume_surge_20d",
+}
+
+
+def _apply_research_aliases(factors: Dict[str, pd.DataFrame]) -> None:
+    """Add alias entries to the factor dict in-place. Same DataFrame
+    reference — no copy. No-op if the canonical factor is absent."""
+    for alias, canonical in _RESEARCH_ALIASES.items():
+        if canonical in factors and alias not in factors:
+            factors[alias] = factors[canonical]
 
 
 def _default_volume_sensitive_factors() -> list[str]:
@@ -167,6 +194,36 @@ def _baseline_return_factors(
     if open_df is not None:
         factors["overnight_ret_1d"] = overnight_return_raw(open_df, price_df)
         factors["intraday_ret_1d"] = intraday_return_raw(open_df, price_df)
+    return factors
+
+
+def _baseline_range_factors(
+    price_df: pd.DataFrame,
+    high_df: pd.DataFrame | None = None,
+    low_df: pd.DataFrame | None = None,
+    volume_df: pd.DataFrame | None = None,
+) -> Dict[str, pd.DataFrame]:
+    """Short-horizon range / liquidity factors (PRD 20260423 Step 1,
+    Volatility-Range family).
+
+    Emits:
+      - hl_range  : (high - low) / prev_close, raw 1-bar ATR-lite
+        (only when both high_df and low_df provided)
+      - dollar_vol_20d : rolling 20d mean of close * volume
+        (only when volume_df provided; dual-role per PRD §D2 —
+        also basis for future tradability masks)
+    """
+    from core.factors.base_volatility import hl_range as _hl_range_fn
+    from core.factors.base_volatility import dollar_volume_ma
+    factors: Dict[str, pd.DataFrame] = {}
+    if high_df is not None and low_df is not None:
+        factors["hl_range"] = _hl_range_fn(
+            high_df, low_df, price_df, normalize=True,
+        )
+    if volume_df is not None:
+        factors["dollar_vol_20d"] = dollar_volume_ma(
+            price_df, volume_df, window=20,
+        )
     return factors
 
 

@@ -130,8 +130,12 @@ class TestRegistryMapShrunk:
         assert "rs_vs_spy_63d" not in RESEARCH_TO_PRODUCTION_MAP
 
     def test_map_shrunk_by_exactly_two(self):
-        # Before Round 6: 9 entries. After: 7 entries (2 removed).
-        assert len(RESEARCH_TO_PRODUCTION_MAP) == 7
+        # Before Round 6: 9 entries. After Round 6 Topic E merge: 7
+        # (vol_63d + rs_vs_spy_63d removed). PRD 20260423 R02 added
+        # back `vol_20d` as alias of vol_21d → low_vol, so 8 now.
+        # volume_ratio_20d is NOT in this map (its canonical
+        # volume_surge_20d has no PROD sibling).
+        assert len(RESEARCH_TO_PRODUCTION_MAP) == 8
 
     def test_remaining_map_entries_still_valid(self):
         """Sanity: all remaining map keys target production factors

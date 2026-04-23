@@ -75,6 +75,11 @@ class TestFactorGeneratorAlignsWithRegistry:
             index=idx, columns=syms,
         )
         open_df = price.shift(1).bfill()
+        # Synthetic high / low panels so hl_range (PRD 20260423 R02)
+        # participates in the drift check. Simple ±0.5% envelope around
+        # close — enough to produce a finite H-L each bar.
+        high_df = price * 1.005
+        low_df = price * 0.995
         # Synthetic 60m RTH bars so intraday factor family (Round 5
         # Topic F, 2026-04-20) participates in the drift check.
         intraday_bars_60m = {}
@@ -97,6 +102,7 @@ class TestFactorGeneratorAlignsWithRegistry:
 
         factors = generate_all_factors(
             price, volume, open_df=open_df,
+            high_df=high_df, low_df=low_df,
             intraday_bars_60m=intraday_bars_60m,
         )
 

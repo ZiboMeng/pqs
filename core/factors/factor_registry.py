@@ -79,6 +79,15 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     # Unsigned siblings of reversal_5d / overnight_gap_5d etc. Research-only.
     "ret_1d", "ret_2d",
     "overnight_ret_1d", "intraday_ret_1d",
+    # Baseline volatility / range family (PRD 20260423 Step 1 Round 2)
+    # hl_range = (H-L)/prev_close (normalized 1-bar true range lite).
+    # dollar_vol_20d = 20d MA of close*volume (both feature & mask source).
+    "hl_range", "dollar_vol_20d",
+    # Research aliases (PRD §D3 / §3.1.C). Same DataFrame as canonical;
+    # kept in registry so drift-check still passes and LLM / mining code
+    # can query either name.
+    "vol_20d",           # alias → vol_21d
+    "volume_ratio_20d",  # alias → volume_surge_20d
     # Momentum family
     "mom_21d", "mom_63d", "mom_126d", "mom_252d", "mom_12_1",
     "risk_adj_mom_63d",
@@ -161,6 +170,13 @@ RESEARCH_TO_PRODUCTION_MAP: Dict[str, str] = {
     # as distinct research variants.
     # Market trend
     "spy_trend_200d":          "market_trend",
+    # PRD 20260423 §D3 alias: `vol_20d` references the same DataFrame as
+    # `vol_21d`, which in turn shadows `low_vol`. The 20d/21d difference
+    # is deliberately not re-implemented (see PRD D3 rationale).
+    # `volume_ratio_20d` also aliases `volume_surge_20d` (research-only),
+    # so it stays out of this map and is detected as research-only by
+    # research_only_factors().
+    "vol_20d":                 "low_vol",
     # Note: drawup_from_252d_low is NOT in this map. It uses the SAME
     # name in both RESEARCH_FACTORS and PRODUCTION_FACTORS (not a
     # "shadow" — the research-facing and production-facing names are
