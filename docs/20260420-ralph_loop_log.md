@@ -5818,3 +5818,78 @@ A  tests/unit/factors/test_base_relative.py (+110)
 
 ### 11. Halt 条件检查 (§15.3)
 全部通过。继续 R04。
+
+---
+
+## R-feat-v1-round-04
+
+**时间**: 2026-04-23
+**Commit**: `cefc76f`
+**Step**: 1 (Feature engineering — label mode extension)
+
+### 1. 本轮主题 / Step
+Step 1 label-layer：`compute_forward_returns` 支持 `mode ∈ {cc, oc, oo}`。
+
+### 2. 本轮目标
+- `compute_forward_returns` 新增 `mode` 和 `open_df` 参数
+- 默认 mode="cc" 保持向后兼容（所有现有 caller 不改动）
+- 补齐 oc (open-to-close next-day) + oo (open-to-open forward) 两种 label
+- 11 个新单测
+
+### 3. 为什么这轮优先做它
+PRD §6.3 明确："目标不是简单再加两个函数，而是让 label mode 成为统一
+参数"。把 3 个 mode 统一接口在 Step 2 panel build 之前落地，保证后续
+IC screen / ML panel / mining evaluator 都能无改动地用新 mode。
+
+### 4. 做了什么
+- `compute_forward_returns(price_df, horizons=None, mode="cc", open_df=None)`
+  - cc: `close[t+h]/close[t] - 1`（原有行为，backward-compat）
+  - oc: `close[t+h]/open[t+h] - 1`（次日日内回报）
+  - oo: `open[t+h]/open[t] - 1`（next-period open-to-open）
+- 异常路径：无效 mode / oc/oo 无 open_df / zero/negative horizon 都 raise
+- 11 tests：per-mode value 验证 + last-h-bar NaN + shape + validation
+
+### 5. 修改了哪些文件
+```
+M  core/factors/factor_generator.py                   (+50 -3)
+A  tests/unit/factors/test_forward_returns_modes.py  (+110)
+```
+
+### 6. 跑了哪些测试 / 实验
+- 目标测试 11/11 pass
+- 完整 suite: **1253 passed** (+11 from R03), 1 skipped, 1 xfailed
+- 已验证：`compute_forward_returns(price_df, [5])` 接口不变，
+  `compute_forward_returns(price_df, [5], mode="cc")` 结果相同
+
+### 7. 结果如何
+- 3 mode 统一接口 ready
+- Step 1 因子层 + label 层完成
+- 回看 PRD §10.1 成功标准：
+  - ✅ 10 个 research features 补齐可被下游调用（R01-R03：
+    ret_1d, ret_2d, overnight_ret_1d, intraday_ret_1d, hl_range,
+    dollar_vol_20d, vol_20d(alias), volume_ratio_20d(alias),
+    ret_5d, dist_52w_high, rel_spy_5d = 11 个，超标 1 个）
+  - ✅ `compute_forward_returns` 支持 cc/oc/oo（本轮）
+  - ⏳ 研究层可拿到 per-date-per-symbol mask（待 R05）
+  - ✅ 15+ 单测全通（实际 +38：R01 8, R02 9, R03 10, R04 11）
+  - ✅ 不改动 PRODUCTION_FACTORS（7 unchanged）
+
+### 8. 当前发现的新问题 / 新机会
+- 观察：`core/factors/factor_engine.py::make_forward_returns` 是
+  evaluator 内部用的 utility，也只支持 cc 模式；如果未来 IC screen
+  要用 oc/oo，需要类似扩展。本 PRD scope 只改 `compute_forward_returns`
+  public API；factor_engine 等 mining evaluator 需要 oc/oo 时再扩
+- 观察：oo mode 在 leading-bar 处 open[t] 可能 NaN（一些 ticker
+  首日只有 close），导致 oo 返回 NaN。PRD §10 不要求这个 edge case
+
+### 9. 剩余风险
+- 无新风险
+
+### 10. 下一轮建议方向
+- **R05 (建议)**: Mask 暴露（admission / tradability / combined）
+  per PRD §3.3 §6.4。目标：把 `universe_admission_screen` 的 criteria
+  暴露为 per-date-per-symbol DataFrame 供 research consume。
+- 估 R05 是 Step 1 最后一轮；之后 R06 进入 Step 2 panel build
+
+### 11. Halt 条件检查 (§15.3)
+全部通过（+11 tests, 0 regression, 0 config 改动）。继续 R05。
