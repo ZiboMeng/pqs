@@ -7732,3 +7732,80 @@ systematic bias = `(N-1)/N`. 对 lookback=60 就是 59/60=0.9833. Fix:
 - 其他条件与本轮不相关
 
 → 继续 R02
+
+---
+
+## R-rcm-v1-round-02
+
+**时间**: 2026-04-24
+**Commit**: `f02764e`
+**Step**: Step 2 (Plumbing P1 — multi-benchmark generator signature)
+
+### 1. 本轮主题 / Step
+Step 2 第 2 项：`generate_all_factors` 加 `benchmark_map` kwarg，支持
+多 benchmark 注入而不破坏 backward compat。
+
+### 2. 本轮目标
+- 新 kwarg `benchmark_map: Dict[str, pd.Series] | None`
+- 内部 resolve：如提供 map，copy price_df 并注入 benchmark 列
+- Trim：factor 输出剔除 caller 未指定的 benchmark 列
+- 原 `price_df` 不 mutate
+- 10 tests 覆盖 backward-compat / 注入 / trim / caller 保护
+
+### 3. 为什么这轮优先做它
+R01 落了 P2 helpers。P1 是 Family A 4 个 feature 的前置：
+`rel_qqq_20d` / `beta_spy_60d` / `residual_mom_spy_20d` 都需要 QQQ 或
+beta 运算，必须先让 generator 认识多 benchmark。先落 signature，再
+R03+ 加具体 feature。
+
+### 4. 做了什么
+- `_resolve_benchmark_map(price_df, benchmark_col, benchmark_map)` —
+  None/空 → 原样返回；有 map → copy + 注入
+- `_trim_factors_to_caller_symbols(factors, caller_columns)` —
+  factor 输出按 caller 列集裁剪
+- `generate_all_factors` 新 kwarg + 内部用 `effective_price_df` + 末
+  尾 trim
+- 10 新测：resolve 各路径 / trim / 端到端 backward-compat / 注入 /
+  multi-benchmark / caller panel 未变
+
+### 5. 修改了哪些文件
+```
+M  core/factors/factor_generator.py            (+70 -2)
+A  tests/unit/factors/test_multi_benchmark.py  (+175)
+```
+
+### 6. 跑了哪些测试 / 实验
+- `pytest tests/unit/factors/test_multi_benchmark.py` 10/10 pass
+- 完整 suite: **1289 passed** (+10 from R01 baseline), 1 skipped, 1 xfailed
+
+### 7. 结果如何
+- Signature 扩展完成：旧 caller 零改动；新 caller 可传 `benchmark_map`
+  `={"SPY": spy_series, "QQQ": qqq_series, ...}`
+- 关键 invariant 保持：caller panel 不 mutate
+- Factor 输出列集与 caller 列集严格对齐（没有 benchmark 泄漏）
+- 0 regression
+
+### 8. 当前发现的新问题 / 新机会
+- 8 scripts upgrade (P3) 还没做；本 R02 P1 生效但下游没用到
+  new signature。R04+ 做 P3 时可以同步把这些 scripts 升到用
+  `benchmark_map` 形式，即使 R03 加 feature 也先不依赖 P3
+
+### 9. 剩余风险
+- `_trim_factors_to_caller_symbols` 对非 DataFrame factor（若未来出
+  现）会走 else 分支。当前 factor_generator 只出 DataFrame 所以 OK，
+  但加了防御代码便于未来扩展
+
+### 10. 下一轮建议方向
+- **R03 (建议)**: 落地 Family A 的 4 个新 feature (rel_spy_20d,
+  rel_qqq_20d, beta_spy_60d, residual_mom_spy_20d) + tests。现在 P1
+  和 P2 都就位，可以直接写 feature 了
+- 可能 R04 就能把 Family A 落完
+- Family B/C/D 往后排
+
+### 11. Halt 条件检查 (§13.3)
+- 条件 2 (plumbing 2 rounds 内失败): NO, R01 + R02 进度良好
+- 条件 3 (关键接口回归): NO, 0 regression
+- 条件 7 (max 22): 2/22
+- 其他不相关
+
+→ 继续 R03 (Family A features)
