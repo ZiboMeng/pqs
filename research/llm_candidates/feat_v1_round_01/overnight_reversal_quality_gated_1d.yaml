@@ -1,0 +1,30 @@
+# Source: Ralph-loop R18-R22 autonomous interaction scan
+# PRD: docs/20260423-prd_research_feature_engineering_and_expanded_mining.md
+# Round: feat_v1_round_01
+# Submitted: 2026-04-23
+factor_name: "overnight_reversal_quality_gated_1d"
+hypothesis: "Overnight gap reversal is systematically stronger on stocks with high long-horizon risk-adjusted quality. The 126-day rolling Sharpe ratio acts as an amplifier, filtering reversal candidates to names whose historical risk-reward profile is strong enough that short-term mispricings are more likely to mean-revert rather than trend. Short-horizon (21-63d) quality proxies do NOT show this effect (IC ~-0.1), suggesting the mechanism requires multi-month quality accumulation."
+formula: |
+  # Per-bar composite:
+  #   factor = overnight_gap_1d(close, open) * rolling(close, 126).sharpe()
+  # Where:
+  #   overnight_gap_1d = open[t] / close[t-1] - 1   (PRD R01 base_returns)
+  #   rolling_sharpe_126d = rolling(126 day) mean of daily returns
+  #                       / rolling(126 day) std of daily returns * sqrt(252)
+  # Sign convention: negative IC at any forecast horizon (reversal direction).
+  # Strategy use: multiply by -1 to get signal-ready direction (long the
+  # dip on high-quality names).
+compute_fn_path: null   # not implemented as standalone compute_fn;
+                        # composite of existing factors in factor_generator
+required_fields: ["open", "close"]
+suitable_horizon: [1, 3, 5]   # h=1 most robust post-2023 per R21
+suitable_universe: "expanded_79"
+suitable_regime: ["all"]   # regime-robust direction across all 6 regimes
+expected_edge: "Pooled IR = -0.83 on 79-symbol expanded universe, h=1 forward. Q2 peak IR -1.03. Cross-proxy robust: same effect on drawup_from_252d_low (IR -0.64), max_dd_126d (IR -0.70)."
+expected_risk: "Q4 2023-2025 decay (43% IR drop h=1, 64% at h=21). Signal-decay hypothesis preferred over regime-artifact per R20 sibling-cross-check: longer-horizon version decays MORE, opposite of regime-artifact prediction. Likely HFT arbitrage compression of multi-day reversal. h=1 version retains Q4 IR -0.64 (acceptable)."
+possible_failure_modes:
+  - "Live Q4 decay continues → signal dies entirely in future"
+  - "Short-horizon quality (return_per_risk_21d, risk_adj_mom_63d) gives IR ~-0.1; restricting to 126d+ rolling Sharpe is load-bearing"
+  - "rolling_sharpe_126d computation: 126d warmup means young IPOs (< 126d history) can't contribute — limits early-stage universe participation"
+  - "Sign convention: interaction is negative-IC in raw form; easy to forget the -1 multiply when using as signal"
+novelty_vs_existing_factors: "Novel to the 97-candidate LLM pool (R21 confirmed 0 true matches). Loop-generated via R18 pairwise interaction scan of R01-R05 new factors × existing top-9. Closest existing RESEARCH factor is `risk_adj_mom_63d` which is mom/vol ratio rather than reversal × quality product."
