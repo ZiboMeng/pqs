@@ -5579,3 +5579,93 @@ edit config/universe.yaml 违反 §11.2)。
 
 ### Commit
 - `6c35dfd` Deep-mining R51 (post-50 sanity validation)
+
+---
+
+## R-feat-v1-round-01
+
+**时间**: 2026-04-23
+**Commit**: `2e5acf6`
+**PRD**: `docs/20260423-prd_research_feature_engineering_and_expanded_mining.md`
+**Step**: 1 (Feature engineering — Returns family)
+**Lineage**: `post-2026-04-23-feat-v1-expanded`（Step 1 仅 feature 层，无 mining trial）
+
+### 1. 本轮主题 / Step
+Step 1 — Feature engineering 的第一批 helper + 注册。Returns family
+优先，因为它是 3 个 helper 模块里最基础、复用面最大的一块。
+
+### 2. 本轮目标
+- 建 `core/factors/base_returns.py` 放 3 个 canonical 原语
+- 在 `factor_generator.py` 新增 `_baseline_return_factors` 产出 4 个
+  新注册因子：`ret_1d`, `ret_2d`, `overnight_ret_1d`, `intraday_ret_1d`
+- 加 8 个单测覆盖正确性 + shape + complementary identity
+- 保持 drift 测试绿（registry ↔ generator 一致）
+
+### 3. 为什么这轮优先做它
+PRD §D1 决策的 helper 拆分里，Returns family 是 30+ 因子的底层原语
+——`simple_return` 未来会被 `_momentum_factors`、`_mean_reversion_factors`
+共享；`overnight_return_raw` + `intraday_return_raw` 为 §3.1.B 的 raw
+sibling 要求打底。如果不先落这一层，后面 vol_20d alias、hl_range、
+rel_spy_5d 里会反复手写相同的 pct_change 语义，违反 D1 "避免 monolith
+膨胀" 原则。
+
+### 4. 做了什么
+- `core/factors/base_returns.py` (NEW, 65 行) 3 个 pure function
+- `core/factors/factor_generator.py` 加 `_baseline_return_factors`
+  helper 并挂到 `generate_all_factors` 里（在 `_momentum_factors` 之前）
+- `core/factors/factor_registry.py` 的 `RESEARCH_FACTORS` 加 4 个新名字
+- `tests/unit/factors/test_base_returns.py` (NEW) 8 tests
+
+### 5. 修改了哪些文件
+```
+A  core/factors/base_returns.py            (+65)
+M  core/factors/factor_generator.py         (+28)
+M  core/factors/factor_registry.py          (+5)
+A  tests/unit/factors/test_base_returns.py (+110)
+```
+
+### 6. 跑了哪些测试 / 实验
+- `pytest tests/unit/factors/test_base_returns.py` → 8/8 pass
+- `pytest tests/unit/factors/test_factor_registry.py` → 10/10 pass
+  （drift 检测：新 4 名字在 registry 和 generator 输出都出现，一致）
+- `pytest tests/unit/factors/test_factor_generator.py` → 27/27 pass
+- Full suite: **1223 passed** (+8 from 1215 baseline), 1 skipped, 1 xfailed
+
+### 7. 结果如何
+- Returns family helper 层 ready
+- 4 新 research factors 可被下游 `generate_all_factors` 消费
+- `intraday_return_raw` + `overnight_return_raw` 满足恒等式
+  `(1+ovn)(1+intra) = close/prev_close`（单测验证）
+- 0 regression
+
+### 8. 当前发现的新问题 / 新机会
+- 观察 1：现有 `_momentum_factors` 里 `mom_21d` = `pct_change(21)`；
+  未来可考虑把它也 refactor 走 `simple_return` 共享路径（非本轮范围，
+  PRD 明确"对外 API 尽量不变"）
+- 观察 2：`_overnight_factors` 里 `overnight_ret = open_df / price_df.shift(1) - 1`
+  的计算现在和 `base_returns.overnight_return_raw` 功能等同；R02-R03
+  做 Volatility/Range 时可以顺便把 `_overnight_factors` 内部也切到共享
+  helper（不扩 scope，仅消除重复）
+
+### 9. 剩余风险
+- 无显著风险。本轮改动纯增量，未触碰 PRODUCTION_FACTORS、universe、
+  production_strategy.yaml 任一条红线（§15.4）
+
+### 10. 下一轮建议方向
+- **R02 (建议)**: Volatility/Range family — 建 `base_volatility.py`，
+  加 `hl_range`（真缺）+ `dollar_vol_20d`（真缺 raw factor）+ 声明
+  `vol_20d` alias 到 `vol_21d`（PRD §D3）。把 `_volume_factors` 的
+  `volume_surge_20d` 也 alias 成 `volume_ratio_20d`（§3.1.C）
+- R03 备选: Relative/Position family（`dist_52w_high`, `rel_spy_5d`）
+- 预计 Step 1 总共 3-4 轮完成
+
+### 11. Halt 条件检查 (§15.3)
+- pytest regression > 5: **NO** (0 regression)
+- core/ import failure: **NO**
+- disk < 10GB: **NO** (`df -h` shows plenty)
+- unauthorized config edits: **NO** (0 prod-config touches)
+- archive corruption: **N/A** (no mining this round)
+- 3rd --force promote: **N/A**
+- R39 OOS fail blocker: **N/A**（Step 3 还没到）
+
+→ 继续执行 R02
