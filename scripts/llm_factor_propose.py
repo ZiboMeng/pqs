@@ -83,7 +83,16 @@ def _resolve_compute_fn(path: str):
 
 
 def _load_price_and_factors(cfg):
-    """Minimal universe + factor snapshot for dedup + IC."""
+    """Minimal universe + factor snapshot for dedup + IC.
+
+    PRD 20260423 R16: now loads OHLCV (not just close) and passes
+    open_df / high_df / low_df / volume_df to generate_all_factors so
+    candidates requiring these inputs (hl_range, overnight_ret_1d,
+    intraday_ret_1d, dollar_vol_20d, and LLM candidates that reference
+    OHLC like close_to_high_proximity_21d / intraday_support_21d /
+    range_compression_5_63 / xsec_volume_surge_5d) can be properly
+    funneled. Discovered R15 4 candidates archived due to this gap.
+    """
     store = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
     uni = cfg.universe
     all_syms = list(dict.fromkeys(
@@ -94,15 +103,37 @@ def _load_price_and_factors(cfg):
                if s not in uni.blacklist and s not in uni.macro_reference]
     # Just load the top-15 for a reasonable dedup reference. The LLM
     # auto-launch phase can expand this; scaffold keeps it fast.
-    pf = {}
+    closes, opens, highs, lows, volumes = {}, {}, {}, {}, {}
     for s in symbols[:15]:
         df = store.read(s, "1d")
-        if df is not None and not df.empty and "close" in df.columns:
-            pf[s] = df["close"]
-    price_df = pd.DataFrame(pf).sort_index()
+        if df is None or df.empty or "close" not in df.columns:
+            continue
+        closes[s] = df["close"]
+        if "open" in df.columns:
+            opens[s] = df["open"]
+        if "high" in df.columns:
+            highs[s] = df["high"]
+        if "low" in df.columns:
+            lows[s] = df["low"]
+        if "volume" in df.columns:
+            volumes[s] = df["volume"]
+    price_df = pd.DataFrame(closes).sort_index()
     price_df = price_df.loc[price_df.index >= "2022-01-01"]
-    factors = generate_all_factors(price_df)
-    return price_df, factors
+    open_df = pd.DataFrame(opens).reindex_like(price_df) if opens else None
+    high_df = pd.DataFrame(highs).reindex_like(price_df) if highs else None
+    low_df = pd.DataFrame(lows).reindex_like(price_df) if lows else None
+    volume_df = pd.DataFrame(volumes).reindex_like(price_df) if volumes else None
+    factors = generate_all_factors(
+        price_df,
+        volume_df=volume_df,
+        open_df=open_df,
+        high_df=high_df,
+        low_df=low_df,
+    )
+    return price_df, factors, {
+        "open_df": open_df, "high_df": high_df,
+        "low_df": low_df, "volume_df": volume_df,
+    }
 
 
 def main():
@@ -146,16 +177,35 @@ def main():
             logger.error("compute_fn_path resolution FAILED: %s", exc)
             sys.exit(2)
 
-    price_df, existing = None, None
+    price_df, existing, extra_panels = None, None, {}
     if compute_fn is not None and not args.skip_data:
         cfg = load_config(Path(args.config_dir))
-        price_df, existing = _load_price_and_factors(cfg)
-        logger.info("Data loaded: price_df %s, %d existing factors",
-                    price_df.shape, len(existing))
+        price_df, existing, extra_panels = _load_price_and_factors(cfg)
+        n_extra = sum(1 for v in extra_panels.values() if v is not None)
+        logger.info(
+            "Data loaded: price_df %s, %d existing factors, %d extra panels",
+            price_df.shape, len(existing), n_extra,
+        )
+
+    # Inspect compute_fn signature to see if it accepts OHLCV kwargs. The
+    # older LLM-candidate convention was compute_fn(price_df, vol_df=None,
+    # regime=None, **kwargs). New candidates that need OHLC read them out
+    # of **kwargs (e.g. kwargs.get("open_df")). Pass all extra panels as
+    # kwargs so both conventions work.
+    fn_kwargs = {k: v for k, v in extra_panels.items() if v is not None}
+    if fn_kwargs and compute_fn is not None:
+        # Wrap compute_fn so run_funnel's simple signature still works
+        _orig_fn = compute_fn
+        def _wrapped(*args, **kwargs):
+            merged = {**fn_kwargs, **kwargs}
+            return _orig_fn(*args, **merged)
+        compute_fn_wrapped = _wrapped
+    else:
+        compute_fn_wrapped = compute_fn
 
     verdict = run_funnel(
         cand,
-        compute_fn=compute_fn,
+        compute_fn=compute_fn_wrapped,
         price_df=price_df,
         existing_factors=existing,
     )
