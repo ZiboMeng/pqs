@@ -7905,3 +7905,92 @@ A  tests/unit/factors/test_family_a.py        (+145)
 - 其他不相关
 
 → 继续 R04 (Family B)
+
+---
+
+## R-rcm-v1-round-04
+
+**时间**: 2026-04-24
+**Commit**: `926ce81`
+**Step**: Step 3 (Feature Family B — position / breakout / path-shape)
+
+### 1. 本轮主题 / Step
+Step 3 第二批：Family B 4 个 position/breakout features。全部 T1 (OHLCV
+only)，无新 plumbing 需求。
+
+### 2. 本轮目标
+- 4 feature: range_pos_252d / days_since_52w_high /
+  breakout_20d_strength / dist_from_new_high_252
+- 注册到 RESEARCH_FACTORS
+- 11 新测
+
+### 3. 为什么这轮优先做它
+R01-R03 已经 Plumbing + Family A 就位。Family B 是 T1 最简单的一批，
+不需等 P3 8-scripts 升级就能直接落地。继续积累 feature 再做 Step 4
+mask 硬化更有意义。
+
+### 4. 做了什么
+- `_family_b_position_breakout(price_df)` helper
+- 4 features 的实现选型：
+  - `range_pos_252d`: (close - min) / (max - min) — [0,1] 归一化
+  - `days_since_52w_high`: rolling(252).apply(np.argmax) 后偏移转 "days since"
+  - `breakout_20d_strength`: close / shift(max(20)) - 1 — 突破幅度，shift(1)
+    关键：不 shift 则 new-high 总是 0
+  - `dist_from_new_high_252`: close / shift(max(252)) - 1 — 与 dist_52w_high
+    区别：shifted max vs same-bar max；本 feature 在突破日给正值，历史
+    feature 在突破日给 0
+- 11 tests 覆盖构造性 panel (strictly rising / peak-then-drop / flat)
+  + invariant (∈ [0,1], ≤ 0, etc) + end-to-end
+
+### 5. 修改了哪些文件
+```
+M  core/factors/factor_generator.py       (+55)
+M  core/factors/factor_registry.py        (+7)
+A  tests/unit/factors/test_family_b.py    (+140)
+```
+
+### 6. 跑了哪些测试 / 实验
+- 目标测试 48/48 pass (family_b + registry + generator)
+- 完整 suite: **1310 passed** (+11 from R03), 1 skipped, 1 xfailed
+
+### 7. 结果如何
+**Family B 4/4 feature 全部落地**。核心 verification:
+- Strictly-rising panel: range_pos 恒 1.0 ✓ days_since 恒 0 ✓ breakout
+  恒 positive ✓ dist_from_new_high_252 恒 positive ✓
+- Peak-then-drop panel: 峰值日 range_pos=1, days_since=0; post-drop
+  days_since 准确计数（bar 159 = 10 days, bar 200 = 51 days）✓
+- 全 feature shape 匹配输入 panel ✓
+
+**PRD §5.2 进度累计**: A 4/4 + B 4/4 = **8/12 done**。
+
+### 8. 当前发现的新问题 / 新机会
+- `days_since_52w_high` 用 rolling.apply(np.argmax) 实现，在 79-sym ×
+  3000-bar × 252-window 上估 10-20 秒。对 research 可接受；若未来要
+  下 production 可用 pandas rolling 'numba' engine 或 C 实现加速
+- `dist_from_new_high_252` 和 `dist_52w_high` 的差异 (shifted vs
+  same-bar max) 微妙但真实 economically meaningful。Mining miner 可以
+  同时用两版本 — 一个捕获 "今天是否新高"，一个捕获 "距最近高点多远"
+- `breakout_20d_strength` 在 bullish regime 经常 positive，在 bearish
+  接近 -1 到 0。cross-sectional IC 可能和 mom_21d 相关性较高，dedup
+  check 会捕获
+
+### 9. 剩余风险
+- 无。所有 feature pure function
+
+### 10. 下一轮建议方向
+- **R05 (建议)**: Family C (3 liquidity/risk features) + D (1 trend
+  quality). 总共 4 features，一轮能完成：
+  - `amihud_20d` (需要 volume)
+  - `downside_vol_20d`
+  - `vol_ratio_5_20`
+  - `trend_tstat_20d`
+- R06 开始 Step 4 mask 硬化
+- R07+ 进 Step 5 miner 本体
+
+### 11. Halt 条件检查 (§13.3)
+- 条件 2 (plumbing 失败): NO — 未进入 plumbing 层
+- 条件 3 (接口回归): NO — 0 regression
+- 条件 7: 4/22
+- 其他不相关
+
+→ 继续 R05 (Family C + D)
