@@ -531,12 +531,19 @@ class MiningEvaluator:
         pass_rate = n_pass / len(windows)
 
         def _mean(lst: list) -> float:
-            # Drop non-finite (NaN AND ±inf AND astronomical values from
-            # near-zero-std Sharpe computations). A single pathological OOS
-            # window with tiny std can produce |sharpe| > 1e14 which then
-            # dominates the mean. See `4b5f36ed9ab5` in R39 archive — oos_sharpe
-            # came out -4.87e15 due to this path; post-fix the mean of valid
-            # windows alone is what's archived.
+            # Drop non-finite (NaN AND ±inf). Compute_metrics std-floor at
+            # source now returns NaN for near-flat windows, but this is
+            # defense-in-depth against any path returning inf. Per D4
+            # semantics: fail-soft (drop), but WARN so pollution is visible.
+            # See `4b5f36ed9ab5` in R39 archive — oos_sharpe came out -4.87e15
+            # before compute_metrics got the std-floor guard.
+            bad_idx = [i for i, x in enumerate(lst) if not np.isfinite(x)]
+            if bad_idx:
+                logger.warning(
+                    "_run_walk_forward._mean: dropping %d non-finite value(s) at indices %s "
+                    "(likely near-flat OOS window producing inf Sharpe)",
+                    len(bad_idx), bad_idx,
+                )
             v = [x for x in lst if np.isfinite(x)]
             return float(np.mean(v)) if v else float("nan")
 

@@ -461,14 +461,38 @@ def compute_metrics(
     # downstream aggregation. Observed in R39 trial 4b5f36ed9ab5 (oos_sharpe
     # archived as -4.87e15). 1e-8 is well below any realistic daily return std
     # (typical equity ≈ 1% = 1e-2, cash-equiv ≈ 1e-5), so this only rejects
-    # numerically-degenerate windows.
+    # numerically-degenerate windows. Per D4 semantics: replace inf/−inf with
+    # NaN and WARN (not silent) so the near-flat window is visible but does
+    # not pollute aggregation via dropna at the call site.
     _STD_FLOOR = 1e-8
-    sharpe   = float(excess.mean() / excess.std() * np.sqrt(annualization)) \
-               if excess.std() > _STD_FLOOR else np.nan
+    _std = float(excess.std())
+    if _std > _STD_FLOOR:
+        sharpe = float(excess.mean() / excess.std() * np.sqrt(annualization))
+        if not np.isfinite(sharpe):
+            logger.warning(
+                "compute_metrics: Sharpe non-finite (%s) despite std=%.2e above floor; "
+                "clamping to NaN", sharpe, _std,
+            )
+            sharpe = np.nan
+    else:
+        if _std > 0:
+            logger.warning(
+                "compute_metrics: near-flat series (std=%.2e ≤ %.0e floor); "
+                "clamping Sharpe to NaN to prevent astronomical value",
+                _std, _STD_FLOOR,
+            )
+        sharpe = np.nan
 
     downside = returns[returns < rf_daily]
-    sortino  = float(excess.mean() / downside.std() * np.sqrt(annualization)) \
-               if len(downside) > 1 and downside.std() > _STD_FLOOR else np.nan
+    if len(downside) > 1 and float(downside.std()) > _STD_FLOOR:
+        sortino = float(excess.mean() / downside.std() * np.sqrt(annualization))
+        if not np.isfinite(sortino):
+            logger.warning(
+                "compute_metrics: Sortino non-finite (%s); clamping to NaN", sortino,
+            )
+            sortino = np.nan
+    else:
+        sortino = np.nan
 
     roll_max = equity_curve.cummax()
     drawdown = (equity_curve - roll_max) / roll_max
