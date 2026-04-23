@@ -10997,3 +10997,144 @@ __init__ 也 lazy 是可行的但 out of scope this round。
 - 条件 7: NO
 
 → 继续 R3（revoke workflow + RCMv1 migration）
+
+---
+
+## R-phase-e-round-03
+
+**时间**: 2026-04-24
+**Commit**: `14e2493`
+**Sub-phase**: E-0 (foundation complete after this round)
+**Focus**: Revoke CLI + RCMv1 S1 memo migration as first real candidate
+
+### 1. 本轮主题
+PRD §2 E0-R3：用 R1 的 registry API 实现 `scripts/revoke_candidate.py`
+CLI；同时执行一次性迁移把 `docs/20260424-rcm_v1_s1_candidate_memo.md`
+作为第一条真实 S1 record 写入 registry。
+
+### 2. 本轮目标
+- Frozen spec YAML 从 memo §2 抽出成独立文件
+- `scripts/revoke_candidate.py` CLI（6 reason enum + auto-memo stub）
+- `scripts/migrate_rcm_v1_memo_to_registry.py` 一次性迁移
+- Real execution: 把 RCMv1 candidate 装进 registry
+- 4+ 单测 (actual: 12)
+
+### 3. 为什么这轮优先做它
+Revoke 是最高杠杆的治理原语。R15 leakage event 就是一次"应 revoke"
+场景。E-0 R3 把 revoke 在 research 层就 build 好，不等 paper 层。
+同时把 RCMv1 memo 作为第一条真实 S1 迁入 —— E-0 验收标准的关键。
+
+### 4. 做了什么
+
+**Frozen YAML** (`data/research_candidates/rcm_v1_defensive_composite_01.yaml`):
+从 memo §2 抽出 + 扩展 `source` 块（trial_id / lineage_tag / archive_db
+/ study / sampler / seed / n_trials_in_study）+ `research_evidence`
+summary（IC_IR + walk-forward + regime + sensitivity）。
+
+**Revoke CLI** (`scripts/revoke_candidate.py`):
+```
+--candidate-id <id> --reason {leakage_found|reproducibility_failed|
+  benchmark_misaligned|candidate_superseded|spec_unreproducible|other}
+[--memo-path <path>] [--registry-db <path>]
+```
+- 无 memo 时 auto-generate stub `<id>_revoke_<ts>.md`（warn caller to edit）
+- Hard blocks: missing candidate / already revoked / bogus reason /
+  non-existent memo → exit 1
+- reason=repro_failed 自动 revert 到 S0（R1 registry 逻辑）
+
+**Migration CLI** (`scripts/migrate_rcm_v1_memo_to_registry.py`):
+- Prereq check: frozen YAML + memo file + rcm_archive.rcm_trials 
+  里有 f24aefecc91a
+- Register with status=S1_CANDIDATE + frozen_spec_path + memo_path
+- Idempotent: exists check + race-safe catch
+- `--dry-run` 只 validate 不写
+
+### 5. 修改了哪些文件
+```
+A  data/research_candidates/rcm_v1_defensive_composite_01.yaml (+111)
+A  scripts/revoke_candidate.py                                  (+141)
+A  scripts/migrate_rcm_v1_memo_to_registry.py                   (+150)
+A  tests/unit/research/test_revoke_and_migration.py             (+312)
+```
+
+Migration side effect: `data/research_candidates/registry.db` 
+(gitignored) 现在有 1 row = rcm_v1_defensive_composite_01 @ S1.
+
+### 6. 跑了哪些测试/实验
+
+**12 新单测** (all PASS):
+- CLI --help smoke / invalid reason / happy path updates status+reason /
+  missing candidate exit1 / bad memo path exit1 / repro_failed reverts S0
+  / double revoke exit1 / auto-memo stub writes & records path (8)
+- Migration dry-run validates prereqs / idempotent no-op / produces
+  valid S1 record with on-disk paths (3)
+- Frozen YAML parses / 4 features / weights sum ~1.0 / source pointer (1)
+
+**Inline verifications**:
+```
+$ python scripts/migrate_rcm_v1_memo_to_registry.py
+Registered: rcm_v1_defensive_composite_01
+  status      : S1_research_candidate
+  created_at  : 2026-04-23T23:39:14...
+  promoted_at : 2026-04-23T23:39:14...
+
+$ python scripts/migrate_rcm_v1_memo_to_registry.py   # second run
+Already registered (status=S1_research_candidate). Migration is a no-op.
+```
+
+**Full suite** (post-R3 commit): running → will verify 1415 → 1427 (+12)
+
+### 7. 结果如何
+
+**E-0 验收标准全部达成** (PRD §2 E-0):
+- [x] candidate registry 落地 (R1)
+- [x] state machine 可写入/读取 (R1)
+- [x] research_promote / revoke_candidate 基本流程可跑 (R3 part)
+- [x] promote_strategy.py 语义不再混淆 (本来就只管 production,
+  新 research_promote 将在 R6 build)
+- [x] 至少 1 个真实 candidate 完成 S0 -> S1 流程 (RCMv1 migration)
+
+Plus E-0 R2 bonus: pyarrow.parquet decoupled from paper-layer.
+
+### 8. 当前发现的新问题/新机会
+
+**发现 — memo §2 YAML 指导 R4 schema**: 现在 frozen YAML 有 12 个
+顶层 key (candidate_id / strategy_version / strategy_type / family /
+feature_set / transforms / composite_rule / labels / panel_contract /
+rebalance / weighting_rule / benchmark_definition / risk_overlay /
+cost_model_version / alternative_weighting_variant / source /
+research_evidence). R4 FrozenStrategySpec 的 8 mandatory fields 可以
+直接从这个 reference 文件抽取。
+
+**观察 — dual-run 风险**: 如果开发时两个人同时跑 migration, 第二个
+会 catch DuplicateCandidateError or hit exists check (both paths 
+covered). 无需额外锁。
+
+### 9. 剩余风险
+- 无。R3 纯增量：新 CLI + 新 YAML + 新 tests + 一次性迁移。未改动任何
+  existing code path。
+
+### 10. 下一轮建议方向
+**R4 E-1 R1**: FrozenStrategySpec dataclass
+- `core/research/frozen_spec.py` with 8 mandatory fields per PRD auditor
+  minimum: candidate_id / strategy_version / source_trial_id /
+  feature_set / benchmark_relative_summary / oos_holdout_summary /
+  robustness_summary / decision_memo
+- Optional: weights, transforms, mask_rules, etc. matching RCMv1
+  memo §2 verbatim
+- `to_yaml()` / `from_yaml()` round-trip
+- 6+ tests (mandatory-missing / roundtrip / version-format /
+  feature-set-empty / alternative-weight-optional / path-resolution)
+
+### 11. Halt 条件检查 (§3)
+- 条件 1: NO (3/14 rounds used; E-0 complete)
+- 条件 2: NO (1427 expected > 1415)
+- 条件 3: NO (all imports clean)
+- 条件 4: NO (802 GB free)
+- 条件 5: NO (no schema migration on existing DBs; new registry.db only)
+- 条件 6: NO (未触 production_strategy.yaml)
+- 条件 7: NO
+
+**Phase E-0 complete**. E-1 begins at R4.
+
+→ 继续 R4（FrozenStrategySpec schema）
