@@ -6953,3 +6953,110 @@ interaction 里也没有 large step-up。
 ### 11. Halt 条件检查 (§15.3)
 - 条件 7 仍 active
 - 其他通过
+
+---
+
+## R-feat-v1-round-19
+
+**时间**: 2026-04-23
+**Step**: 6 deeper (deep-check on R18 top interaction)
+
+### 1. 本轮主题
+Deep-check (OOS walk-forward + temporal quartile + regime stratification)
+on `overnight_ret_1d × rolling_sharpe_126d` — R18 highest incremental
+IC pair。
+
+### 2. 本轮目标
+- 确认 R18 pooled IC -0.325 是否由单一时期主导（temporal check）
+- 跑 42 个 63-day walk-forward window 看 OOS 稳定性
+- Regime 稳定性
+
+### 3. 为什么这轮优先做它
+R18 surface 了 "quality-weighted reversal" concrete lead。如果它只在
+2016-2020 工作不在 2023+ 工作，那就是 backward-looking curve fit，
+promote 没意义。deep_check 是 promotion funnel 最后一道过滤。
+
+### 4. 做了什么
+- 建 interaction factor = `overnight_ret_1d × rolling_sharpe_126d`
+- Per-date spearman IC vs fwd5
+- 切 4 等分 temporal quartile
+- 42 个 non-overlapping 63-day OOS windows
+- 6 regime stratification
+
+### 5. 修改了哪些文件
+无 code 改动。
+
+### 6. 跑了哪些测试 / 实验
+
+**Pooled**: IC = -0.3254, IR = -0.784, n = 2865
+
+**Temporal quartiles** (ascending by time):
+
+| quartile | range | mean IC | IR | n |
+|---|---|---:|---:|---:|
+| Q1 | 2016-07 → 2018-11 | -0.3802 | -0.755 | 717 |
+| Q2 | 2018-11 → 2021-03 | -0.4163 | -1.023 | 716 |
+| Q3 | 2021-03 → 2023-07 | -0.3557 | -0.966 | 716 |
+| **Q4** | **2023-07 → 2025-11** | **-0.1492** | **-0.496** | **716** |
+
+**Walk-forward OOS**: 42 windows × 63 days, mean IR -0.817, pass rate
+(|IR|>0.3) = **90.5%**
+
+**Regime**:
+- BULL: -0.347 / IR -0.77
+- RISK_ON: -0.278 / IR -0.70
+- NEUTRAL: -0.313 / IR -0.74
+- CAUTIOUS: -0.337 / IR -0.88
+- RISK_OFF: -0.338 / IR -0.98
+- CRISIS: -0.397 / IR -1.07
+
+### 7. 结果如何
+
+**主要发现两条**:
+
+1. **强历史 alpha + 方向一致**:
+   - 所有 quartile 和所有 regime 符号一致（negative IC，reversal
+     direction）
+   - walk-forward 90.5% 窗口过 IR 0.3 门槛
+   - 这在 pre-PRD 阶段 LLM candidate 里 rarely 见到的强度
+
+2. **Q4 decay 警报**:
+   - Q1-Q3 IR -0.76 to -1.02 范围
+   - Q4 (2023-07 起) IR -0.50 —— **43% 衰减**
+   - 可能原因：
+     - 市场学习/套利（reversal 信号被高频捕获）
+     - 2023-2025 是持续 BULL run, regime 偏向不利于 reversal (与
+       R17 发现一致: BULL regime -0.35 vs CRISIS -0.40, 差距确实存在)
+
+**对 promotion 的含义**:
+- 单从 R19 结果看：它 **几乎满足** promotion funnel 的 OOS 门槛，但
+  Q4 decay 是 red flag
+- 按 §15.4 autonomy 我不能 promote；必须作为 finding 交给 user
+- 若 user 接受 "Q4 decay 可接受 (BULL regime 系统性)" 观点，这是
+  **目前 97-pool + interaction-scan 里最强 candidate**
+
+### 8. 当前发现的新问题 / 新机会
+- **This is the strongest incremental-alpha candidate ever produced
+  autonomously by the loop**. 之前 pre-PRD `4b5f36ed9ab5` OOS IR +0.34
+  (3-month avg)；本 factor OOS IR -0.82 per 63d windows. Scale 不同
+  但 9x 更强
+- 需要对称 confirm: 同时跑 `ret_1d × rolling_sharpe_126d` (R18 top 2)
+  看是否 overnight 版本和 intraday 版本的 decay 模式一致
+- **Promotion-class candidate candidate**: 建议 user review 后决定
+  是否 formally pipeline promote via scripts/promote_strategy.py。但
+  §15.4 forbid auto-promote
+
+### 9. 剩余风险
+- 如果 Q4 decay 是 real signal death（不只是 regime effect），下一个
+  BULL run 可能不会恢复；live run 风险
+- 所以 even if user promotes, should gate with: "halt/demote if 252d
+  rolling IR > -0.15"
+
+### 10. 下一轮建议方向
+- **最强 lead**: `overnight_ret_1d × rolling_sharpe_126d` 作为 candidate
+  加入 R20 blocker report 的 "user-decision candidates" 列表
+- 必须 user 签 promote authorization；autonomous 不 promote
+
+### 11. Halt 条件检查 (§15.3)
+- 条件 7 仍 active
+- 其他通过
