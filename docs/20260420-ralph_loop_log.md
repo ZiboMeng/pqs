@@ -10718,3 +10718,152 @@ BRK-B. 这是 R3 audit 唯一发现的 real bug（R1/R2 都是 0 bugs）。
 
 **AUDIT3DONE eligible**: ✅ All 3 rounds complete, test suite passes,
 README is synced, 1 user-reported bug fixed. Promise can emit.
+
+---
+
+## R-phase-e-round-01
+
+**时间**: 2026-04-24
+**Commit**: `08731af`
+**Sub-phase**: E-0
+**Focus**: Candidate registry + S0/S1/S2/S5 state machine
+
+### 1. 本轮主题
+PRD `docs/20260424-prd_phase_e_execution.md` §2 E0-R1：建立研究候选
+治理层，与 trial archive 解耦。
+
+### 2. 本轮目标
+- 新 package `core/research/`（独立于 core/mining）
+- `CandidateRegistry` SQLite schema + CRUD + state transitions
+- `CandidateStatus` 枚举（S0/S1/S2/S5 active；S3/S4 design-only）
+- `RevokeReason` 枚举
+- 8+ 单测（实际 26）
+- 0 regressions
+
+### 3. 为什么这轮优先做它
+Phase E 所有后续工作（promote / revoke / paper enter）都依赖 registry。
+它是 governance 语义的物理载体。先建 registry，后写脚本。
+
+### 4. 做了什么
+
+**新模块 `core/research/candidate_registry.py`**（~340 LOC）:
+
+```
+CandidateStatus (Enum):
+  S0_research_prototype / S1_research_candidate / S2_paper_candidate
+  / S3_deployment_candidate / S4_production / S5_deprecated
+
+RevokeReason (Enum):
+  leakage_found / reproducibility_failed / benchmark_misaligned
+  / candidate_superseded / spec_unreproducible / other
+
+CandidateRecord (dataclass): row view + to_dict()
+
+CandidateRegistry:
+  __init__(db_path=data/research_candidates/registry.db)
+  register(...)       # default S0；higher-status OK for R3 migration
+  get / exists / list_by_status / count
+  transition(id, to_status, promoted_at=None)
+     - S3/S4 raises InvalidTransitionError (out of scope)
+     - S5 raises (use revoke())
+     - S0 -> S2 direct rejected (must via S1)
+  revoke(id, reason, memo_path=None)
+     - default -> S5_deprecated
+     - reason=REPRODUCIBILITY_FAILED -> reverts to S0
+     - re-revoke rejected
+  update_paths(id, frozen_spec_path, decision_memo_path)
+```
+
+**State machine**（`_ALLOWED_TRANSITIONS`）:
+```
+S0 -> {S1}
+S1 -> {S2, S0(reset)}
+S2 -> {}                   # S3 rejected this phase
+S5 -> {} terminal
++ revoke any -> {S5, or S0 if repro_failed}
+```
+
+**Schema**（新 DB `data/research_candidates/registry.db`，与 rcm_archive
+完全分离）:
+```
+research_candidates (
+  candidate_id PK, source_trial_id, source_lineage_tag, status,
+  frozen_spec_path, decision_memo_path,
+  promoted_at, revoked_at, revoke_reason, revoke_memo_path,
+  created_at, updated_at
+)
++ index on status + (source_trial_id, source_lineage_tag)
+```
+
+### 5. 修改了哪些文件
+```
+A  core/research/__init__.py                         (+14)
+A  core/research/candidate_registry.py               (+345)
+A  tests/unit/research/__init__.py                   (+0)
+A  tests/unit/research/test_candidate_registry.py    (+256)
+```
+
+### 6. 跑了哪些测试/实验
+- `pytest tests/unit/research/test_candidate_registry.py` 26/26 pass
+- Full suite: **1412 passed** / 1 skipped / 1 xfailed / 128s
+  (1386 → +26 R1; 0 regressions)
+- Smoke test inline before suite: register → transition S0→S1 → revoke 
+  with memo → S5 ✓
+
+### 7. 结果如何
+
+**Registry ships clean**. 26 tests cover:
+- Schema creation + nested mkdir + idempotent init (3)
+- Register default S0 / higher status (R3 migration case) / duplicate
+  rejected / S3+S4 rejected (4)
+- get missing raises / exists / list_by_status / count (4)
+- Transition S0→S1 with auto promoted_at / S1→S2 / S1→S0 reset /
+  S3 rejected / S0→S2 direct rejected / S5 via transition() rejected (6)
+- Revoke happy path / repro_failed reverts S0 / missing raises /
+  twice raises / wrong-reason-type raises (5)
+- update_paths / preserves-unset-on-None (2)
+- CandidateRecord.to_dict / CandidateStatus.phase_e_active() (2)
+
+**Design decision — separate DB file**: went with
+`data/research_candidates/registry.db` rather than a new table in
+rcm_archive.db. Clean governance boundary per auditor: trial records
+are experimental, candidates are governance. Different DBs makes the
+separation unmisreadable (can't accidentally JOIN).
+
+**Design decision — REPRODUCIBILITY_FAILED reverts to S0 not S5**:
+auditor's revoke workflow hint. If we failed to reproduce, the spec
+isn't necessarily bad — it should go back to prototype for retry, not
+into deprecated graveyard. revoke_reason is still recorded for audit.
+
+### 8. 当前发现的新问题/新机会
+
+**机会 — R3 migration 路径清晰**: `register(candidate_id=..., 
+status=CandidateStatus.S1_CANDIDATE, decision_memo_path=...)` 直接
+插入 S1 record 已经支持，R3 只需写 CLI 胶水读 memo 构造 args。
+
+**观察 — 无 concurrent write semaphore**: SQLite WAL mode 加上
+connection-per-call 已足够 2-3 processes 并发读写。但真大规模并发
+是 out of scope for Phase E（单用户 + 研究脚本场景）。
+
+### 9. 剩余风险
+- 无 schema migration 风险：新 DB、新 table、新 package，与现有
+  rcm_archive / production archive 完全解耦。
+- 测试数量回归窗口充分（1386 → 1412 = +26，100% 来自新测）。
+
+### 10. 下一轮建议方向
+**R2 E-0 R2**: Pyarrow decouple
+- `core/data/__init__.py` 顶层 eager import → lazy
+- `scripts/run_paper.py` 顶层不再直接 import MarketDataStore
+- 验收：`python -c "from core.paper_trading.paper_trading_engine import
+  PaperTradingEngine"` 不触发 pyarrow 加载
+
+### 11. Halt 条件检查 (§3)
+- 条件 1: NO（1/14 rounds used）
+- 条件 2: NO（1412 pass > 1386 baseline，正向）
+- 条件 3: NO（imports clean）
+- 条件 4: NO（802 GB free）
+- 条件 5: NO（零 schema migration；新 DB）
+- 条件 6: NO（未触 production_strategy.yaml）
+- 条件 7: NO
+
+→ 继续 R2（pyarrow decouple）
