@@ -8094,3 +8094,91 @@ Key verifications:
 - 其他不相关
 
 → 继续 R06 (Step 4 mask 硬化)
+
+---
+
+## R-rcm-v1-round-06
+
+**时间**: 2026-04-24
+**Commit**: `71343ee`
+**Step**: Step 4 (research_mask hardening — part 1 of 2)
+
+### 1. 本轮主题 / Step
+Step 4 第一批：`apply_research_mask` helper + fillna(0) 调用点审计，
+为 R07 下游集成做铺垫。
+
+### 2. 本轮目标
+- 新 `apply_research_mask(factor_panel, mask, fill=NaN)` helper
+- 完整 docstring + PRD §7 语义（4 种状态区分）
+- 6 新单测
+- Audit + 分类所有 fillna(0) 调用点
+
+### 3. 为什么这轮优先做它
+R05 完成 12/12 feature scope 后进 Step 4 自然下一步。mask 硬化是
+Miner v1 的前置依赖（§7.2 miner 层必须用 mask 作 sample 定义）。
+先落 helper 再做 script/miner 集成（R07+）避免单次 PR 过大。
+
+### 4. 做了什么
+- `apply_research_mask(factor_panel, mask, fill=NaN)`:
+  - True 格保留原值，False 格设为 fill（默认 NaN）
+  - 保留原有 NaN（warmup 语义不丢失）
+  - 缺失 mask 格默认 False（conservative）
+- 6 新测验证上述语义 + end-to-end with price_floor_mask
+- Audit: 14 处 fillna(0) 分类：
+  - **4 script 是 research anti-pattern**（R07 修）:
+    - run_xgb_importance.py:114
+    - run_xgb_weight_model.py:102, 135, 143, 183
+    - run_xgb_cv.py:88, 95
+    - run_transformer_research.py:95, 143
+  - **10 处是 legitimate boundary use**（不改）: trades_scanner /
+    build_bars（dtype cast）+ factor_evaluator cumprod + eval bench
+    fillna 等
+
+### 5. 修改了哪些文件
+```
+M  core/factors/base_masks.py             (+60)
+M  tests/unit/factors/test_base_masks.py  (+80)
+```
+
+### 6. 跑了哪些测试 / 实验
+- `pytest tests/unit/factors/test_base_masks.py` 15/15 pass
+- 完整 suite: **1330 passed** (+6 from R05), 1 skipped, 1 xfailed
+
+### 7. 结果如何
+- `apply_research_mask` 以 pure function 形式落地，API 与 PRD §7
+  semantics 对齐
+- 每一种 `fillna(0)` 的 4 种错配语义（真 0 / warmup / 不可交易 / 缺数据）
+  现在可以被 helper 显式区分
+- 下游 miner / ML script 只要把 `.fillna(0)` 改成 `apply_research_mask(
+  factor, mask)` + caller-side `.dropna()` 就满足 §7.1-7.3 要求
+
+### 8. 当前发现的新问题 / 新机会
+- Audit 意外发现 `factor_evaluator.py:218` 的 fillna(0) 是 "(1 + ret)
+  cumprod 的中性补洞" —— 这是 legitimate 因为 missing return = no
+  return change = 1.0 in cumprod = 0 in ret space。不 block R07 scope
+- `run_transformer_research` 有 2 处 fillna(0)（line 95 在加载 panel，
+  line 143 在 per-symbol 循环内），需要在 R07 里都改
+- Research_mask 应用后大量 NaN 可能让 XGBoost 报错（它本来就能 handle
+  NaN 但某些路径 assumes no-NaN）。R07 集成时要 per-script 处理 NaN
+  策略: XGBoost use `missing=np.nan` 或 caller `.dropna()`
+
+### 9. 剩余风险
+- 无。helper 是 additive，不 break any caller
+
+### 10. 下一轮建议方向
+- **R07 (建议)**: 把 `apply_research_mask` 接入 4 个 ML scripts:
+  - run_xgb_importance: panel `.fillna(0)` → `apply_research_mask(panel, mask)` + XGBoost 允许 NaN
+  - run_xgb_weight_model: 同样处理 3 处 fillna(0)
+  - run_xgb_cv: 2 处 fillna(0)
+  - run_transformer_research: 2 处 fillna(0)
+  - 每个 script 需要 mask 生成逻辑（用已有 research_mask helper）
+- R08 可以接入 miner 入口 + diagnostics 层
+- R09+ 进 Step 5 miner 本体
+
+### 11. Halt 条件检查 (§13.3)
+- 条件 2: NO — plumbing 进展正常
+- 条件 3: NO — 0 regression
+- 条件 7: 6/22
+- 其他不相关
+
+→ 继续 R07 (Step 4 part 2 — ML scripts 集成)
