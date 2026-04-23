@@ -6634,3 +6634,75 @@ R14-R16 buffer: 主要是等 user 决策。无 user 决策下，剩余实质 PRD
 
 ### 11. Halt 条件
 全部通过。loop 达到所有可行 autonomous scope。
+
+---
+
+## R-feat-v1-round-15
+
+**时间**: 2026-04-23
+**Step**: 7 extension (scan 97-pool for R12-heuristic flips)
+
+### 1. 本轮主题
+Scan 97 candidate pool: identify which would previously have been
+leakage-REJECT but now pass post-R12 fix.
+
+### 2. 本轮目标
+- 全 pool scan
+- 对 "flip" 候选跑 funnel
+- 看是否有新 surfaced candidate 值得未来 deep_check
+
+### 3. 为什么这轮优先做它
+R12 heuristic fix 理论上让一批候选从 REJECT 改到 ARCHIVE/REVIEW。量
+化一下收益 + 识别 "post-R12 only" 候选是 50 秒工作；buffer round 物尽
+其用。
+
+### 4. 做了什么
+- Scan 全 97 pool（loaded via load_candidate_from_yaml, skip .promoted）
+- Compare pre-R12 vs post-R12 heuristic on each
+- 对 5 flip 候选跑 funnel
+
+### 5. 修改了哪些文件
+无 code 改动。Artifacts 进 `data/ml/llm_sidecar_r15/` (gitignored)。
+
+### 6. 跑了哪些测试 / 实验
+**Pre → post R12 flips**: 5 candidates
+- regime_adjusted_quality_63d_gemini (Gemini_round_01)
+- close_to_high_proximity_21d (Gemini_round_02) — already R12 tested
+- intraday_support_21d (Gemini_round_02)
+- range_compression_5_63 (Gemini_round_02)
+- xsec_volume_surge_5d (Gemini_round_02)
+
+**Funnel verdicts on 4 (excl. close_to_high retested R12)**:
+
+| Candidate | Verdict | Note |
+|---|---|---|
+| regime_adjusted_quality_63d_gemini | **NEEDS_HUMAN_REVIEW** | dedup match with 2 existing factors |
+| intraday_support_21d | ARCHIVE | CLI funnel 只有 close panel，factor 要 OHLC |
+| range_compression_5_63 | ARCHIVE | 同上，需 H/L |
+| xsec_volume_surge_5d | ARCHIVE | 同上，需 volume |
+
+### 7. 结果如何
+- R12 fix 对 97-pool 有 5/97 flip 率（~5%）
+- 1 个 **NEEDS_HUMAN_REVIEW** surfaced — 未来人工 review 时值得看
+  `regime_adjusted_quality_63d_gemini`（与既有 quality 家族有高相关，
+  可能是概念重写；dedup 决定是否去留）
+- 3 个 ARCHIVE 源于 funnel CLI `scripts/llm_factor_propose.py` 不传
+  open/high/low/volume — 这是 tooling gap（不影响结论但限制这类
+  candidate 自动评估）
+
+### 8. 当前发现的新问题 / 新机会
+- `scripts/llm_factor_propose.py` 应当接受 `--open/high/low/volume`
+  等 kwargs（类似 `generate_all_factors` 的扩展）。未来 round 可以
+  做这个小扩展。非本 loop scope
+- `regime_adjusted_quality_63d_gemini` 值得存档为 "almost-surface-able"
+  候选 — 和 R10 的 `regime_selectivity_spread_63d` 一样处于 "边缘
+  signal" 区间
+
+### 9. 剩余风险
+无
+
+### 10. 下一轮建议方向
+R16 max-iteration — loop 自然退出。无额外 autonomous progress path。
+
+### 11. Halt 条件检查 (§15.3)
+全部通过。
