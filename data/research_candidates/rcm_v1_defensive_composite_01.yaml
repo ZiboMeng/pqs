@@ -13,6 +13,43 @@ strategy_version: rcm-v1-2026-04-24
 strategy_type: single_factor_composite
 family: research_composite        # NOT in PRODUCTION_FACTORS
 
+# R4 (Phase E-1) — decision memo path (mandatory field per PRD §E1-R4).
+# The registry row also records this under decision_memo_path; frozen
+# YAML duplicates it so a frozen spec is self-contained from a reader's
+# point of view.
+decision_memo: docs/20260424-rcm_v1_s1_candidate_memo.md
+
+# R4 — summary fields required by FrozenStrategySpec. Structured here
+# (not just memo references) so promote_standard gates can machine-check.
+benchmark_relative_summary:
+  note: >-
+    Composite IC is cross-sectional rank correlation (Spearman) and thus
+    approximately benchmark-neutral by construction. Full benchmark-
+    relative portfolio P&L defer to paper layer. Convergence evidence:
+    +1.59 IR in CRISIS regime (defensive tilt works when needed), +0.17
+    IR in RISK_ON (weakest — pure beta-on underperforms low-beta tilt).
+  crisis_regime_ic_ir: 1.589
+  risk_on_regime_ic_ir: 0.167
+  vs_spy_qqq: deferred_to_paper_layer
+
+oos_holdout_summary:
+  walk_forward_n_folds: 4
+  walk_forward_folds_positive: 4
+  walk_forward_weakest_ir: 0.181       # fold 2 incl. 2018 + COVID stress
+  walk_forward_strongest_ir: 0.777     # fold 4 recency
+  full_period_ic_ir: 0.4951
+  full_period_n_dates: 3310
+
+robustness_summary:
+  weight_sensitivity_n_experiments: 14
+  weight_sensitivity_ir_range: [0.383, 0.510]
+  weight_sensitivity_ir_std: 0.032
+  dominant_feature: drawup_from_252d_low   # dropping -> -0.11 IR
+  alternative_equal_weight_ir: 0.510       # marginal +3% vs TPE-tuned
+  random_baseline_best_ir: 0.336           # TPE beats random by 56%
+  cost_turnover_proxy: 0.196               # monthly-ish
+  corr_concentration: 0.037                # very low redundancy
+
 feature_set:
   - name: beta_spy_60d
     family: A                     # Benchmark-relative / Residual / Risk Exposure
