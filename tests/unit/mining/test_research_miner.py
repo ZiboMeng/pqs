@@ -379,19 +379,23 @@ def test_evaluate_composite_with_wide_panel_gets_valid_ic():
     p2 = pd.DataFrame(
         np.random.randn(50, 15), index=idx, columns=cols,
     )
-    # Fwd returns slightly correlated with p1
-    fwd = p1 * 0.15 + np.random.randn(50, 15) * 0.85
-    fwd.index = idx; fwd.columns = cols
+    # R15 fix: default lag=1 shifts composite by 1 before IC. To
+    # produce a positive IC under the new semantics, align fwd with the
+    # shifted composite — i.e. fwd[t] correlates with p1[t-1], NOT p1[t].
+    fwd_aligned = p1.shift(1) * 0.15 + np.random.randn(50, 15) * 0.85
+    fwd_aligned.index = idx
+    fwd_aligned.columns = cols
     spec = ResearchCompositeSpec(
         features=("mom_21d", "vol_21d"),
         weights=(0.7, 0.3),
         family_counts={"D": 1, "C": 1, "A": 1},
     )
     metrics = evaluate_composite(
-        spec, {"mom_21d": p1, "vol_21d": p2}, fwd,
+        spec, {"mom_21d": p1, "vol_21d": p2}, fwd_aligned,
     )
     assert metrics.n_dates > 40  # most dates produce IC
-    # Expected positive IC since composite correlates with fwd via p1
+    # Expected positive IC since composite correlates with fwd via
+    # shifted p1 (matches lag=1 semantics)
     assert metrics.ic_mean > 0.05
 
 
@@ -477,6 +481,55 @@ def test_evaluate_composite_horizon_scales_ic_ir():
     # horizon field stored
     assert m_h1.horizon == 1
     assert m_h21.horizon == 21
+
+
+def test_evaluate_composite_lag_default_is_one():
+    """R15 leakage fix: default lag=1 shifts composite by 1 before IC.
+    Setting lag=1 vs lag=0 should produce different (and typically
+    smaller-magnitude) IC when factor and fwd_return share close[t].
+    """
+    np.random.seed(17)
+    idx = pd.bdate_range("2024-01-02", periods=50)
+    cols = [f"S{i}" for i in range(12)]
+    # Construct a panel where factor[t] directly tracks close[t] noise,
+    # and fwd_return[t] is just noise — lag=0 may produce spurious IC,
+    # lag=1 should remove it.
+    noise = pd.DataFrame(np.random.randn(50, 12), index=idx, columns=cols)
+    # Factor = shifted version of fwd_return's own noise → contemporaneous
+    # IC is strong, shifted IC should vanish
+    fwd = noise.copy()
+    panel = noise.copy()  # perfectly aligned
+    spec = ResearchCompositeSpec(
+        features=("mom_21d",), weights=(1.0,),
+        family_counts={"D": 1, "A": 1, "B": 1},
+    )
+    m_no_lag = evaluate_composite(
+        spec, {"mom_21d": panel}, fwd, horizon=21, lag=0,
+    )
+    m_with_lag = evaluate_composite(
+        spec, {"mom_21d": panel}, fwd, horizon=21, lag=1,
+    )
+    # Contemporaneous IC should be near 1 (panel == fwd exactly)
+    assert m_no_lag.ic_mean > 0.9
+    # Shifted IC should be much weaker (panel shifted by 1 vs fwd)
+    assert abs(m_with_lag.ic_mean) < abs(m_no_lag.ic_mean)
+    # Default evaluate_composite call should match lag=1 behavior
+    m_default = evaluate_composite(
+        spec, {"mom_21d": panel}, fwd, horizon=21,
+    )
+    assert abs(m_default.ic_mean - m_with_lag.ic_mean) < 1e-12
+
+
+def test_evaluate_composite_rejects_negative_lag():
+    spec = ResearchCompositeSpec(
+        features=("mom_21d",), weights=(1.0,),
+        family_counts={"D": 1, "A": 1, "B": 1},
+    )
+    idx = pd.bdate_range("2024-01-02", periods=10)
+    cols = list("ABCDEF")
+    p = pd.DataFrame(np.random.randn(10, 6), index=idx, columns=cols)
+    with pytest.raises(ValueError, match="lag must be >= 0"):
+        evaluate_composite(spec, {"mom_21d": p}, p, lag=-1)
 
 
 def test_evaluate_composite_rejects_bad_horizon():

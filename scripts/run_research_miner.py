@@ -198,6 +198,10 @@ def main() -> int:
     parser.add_argument("--horizon", type=int, default=21,
                         help="Forecast horizon in trading days (also used "
                              "for IC_IR annualization factor sqrt(252/h))")
+    parser.add_argument("--lag", type=int, default=1,
+                        help="Bars to shift composite before IC (R15: "
+                             "1 prevents shared-close leakage; 0 allows "
+                             "contemporaneous IC for benchmarking)")
     parser.add_argument("--config-dir", default="config")
     args = parser.parse_args()
 
@@ -257,6 +261,7 @@ def main() -> int:
         min_families=args.min_families,
         max_features_per_family=args.max_features_per_family,
         horizon=args.horizon,
+        lag=args.lag,
         archive=archive,
         lineage_tag=args.lineage,
         study_id=study_id,
@@ -298,6 +303,7 @@ def main() -> int:
             "n_factors_in_panel": panel_feature_count,
             "fwd_return_horizon_days": int(args.horizon),
             "fwd_return_mode": "cc",
+            "composite_lag_bars": int(args.lag),
         },
     )
 

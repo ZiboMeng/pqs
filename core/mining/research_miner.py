@@ -523,6 +523,7 @@ def evaluate_composite(
     fwd_returns: pd.DataFrame,
     mask: Optional[pd.DataFrame] = None,
     horizon: int = 21,
+    lag: int = 1,
 ) -> CompositeMetrics:
     """Evaluate a research composite spec against forward returns.
 
@@ -543,7 +544,20 @@ def evaluate_composite(
     mask             : optional research_mask panel to filter samples
     horizon          : forecast horizon in trading days (default 21).
                        Controls the annualization factor on IC_IR.
-                       See class docstring for theory.
+    lag              : R15 fix. Number of bars to shift the composite
+                       BEFORE computing IC. Default 1. Prevents "shared
+                       close[t] leakage": if a factor at date t is a
+                       function of close[t], and fwd_return[t] =
+                       close[t+h]/close[t] - 1 also uses close[t] as
+                       base, the same-bar noise in close[t] mechanically
+                       creates correlation that has no forecasting
+                       value. Shifting the composite by 1 ensures the
+                       signal used at t is computed strictly from data
+                       through t-1, matching the T+1-open execution
+                       convention the backtest engine enforces. Set
+                       lag=0 only for explicit contemporaneous IC
+                       research (e.g. "does close[t] predict today's
+                       intraday return?"); never for composite mining.
 
     Returns
     -------
@@ -551,7 +565,11 @@ def evaluate_composite(
     """
     if horizon <= 0:
         raise ValueError(f"horizon must be positive, got {horizon}")
+    if lag < 0:
+        raise ValueError(f"lag must be >= 0, got {lag}")
     composite = build_composite_series(spec, factor_panel_map)
+    if lag > 0:
+        composite = composite.shift(lag)
     if mask is not None:
         # Import lazily to avoid circular
         from core.factors.base_masks import apply_research_mask
@@ -665,6 +683,7 @@ class ResearchMiner:
         max_features_per_family: int = 2,
         weight_step: float = 0.05,
         horizon: int = 21,
+        lag: int = 1,
         archive: Any = None,
         lineage_tag: Optional[str] = None,
         study_id: Optional[str] = None,
@@ -678,6 +697,7 @@ class ResearchMiner:
         self.max_features_per_family = max_features_per_family
         self.weight_step = weight_step
         self.horizon = int(horizon)
+        self.lag = int(lag)
         # R12: optional persistence. When archive is provided, each
         # successful run_trial also writes to archive under (study_id,
         # lineage_tag). Both must be set together or not at all.
@@ -724,6 +744,7 @@ class ResearchMiner:
             self.fwd_returns,
             mask=self.mask,
             horizon=self.horizon,
+            lag=self.lag,
         )
         objective = compute_objective(
             metrics,
