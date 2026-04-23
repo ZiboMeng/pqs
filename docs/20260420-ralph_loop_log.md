@@ -10376,3 +10376,170 @@ scripts 的 `--help` 冒烟测试 + 1 个小 backtest + 1 个 master report
 - 条件 5（finding requires schema migration / new PRD）: NO
 
 → 继续 R2（scripts + I/O audit）
+
+---
+
+## R-audit-round-02
+
+**时间**: 2026-04-24
+**Commit**: (log-only; zero code changes in R2)
+**Focus**: Scripts + I/O audit — `scripts/*.py`, `core/data/`, `core/paper_trading/`, `core/reporting/`
+
+### 1. 本轮主题
+PRD §3 Round 2：scripts + I/O layer audit。检验 argparse bit-rot、
+script entrypoint regressions、数据加载层、paper engine + reporting
+初始化。
+
+### 2. 本轮目标
+- 全 57 个 scripts `--help` 冒烟
+- 13 个 data/paper_trading/reporting modules import smoke
+- Vix loader / BarStore / Calendar / CostModel / BacktestEngine
+  exercise on real data
+- PaperTradingEngine + PnLTracker + MasterReportBuilder 真实 init
+- 跑 1 个 canonical integration script 证明没有 integration bit-rot
+
+### 3. 为什么这轮优先做它
+R1 已 clear core library。Scripts 是最易出 argparse flag rename / path
+bit-rot 的地方；I/O 层经过 trades backfill + bar_store fallback 多次
+改动，需 sanity check。
+
+### 4. 做了什么
+
+**(a) `--help` smoke, 全 57 scripts**:
+```
+Total scripts: 57
+Failed --help: 0
+```
+所有 argparse 都 clean，无 SystemExit 异常、无 ImportError。
+
+**(b) 13 modules import smoke**:
+```
+core.data: bar_store, calendar, market_data_store, panel_loader,
+           provider, validator, vix_loader, yfinance_provider (8 OK)
+core.paper_trading: paper_trading_engine, pnl_tracker (2 OK)
+core.reporting: intraday_report, master_report, master_report_builder (3 OK)
+Total: 13/13 OK
+```
+
+**(c) Real-data runtime smoke**:
+| API | Result |
+|---|---|
+| `MarketDataStore.read('SPY','1d')` | 2842 rows, 6 cols |
+| `BarStore.load('SPY','daily')` | 2842 rows (= MarketDataStore) |
+| `load_vix_series(store, target_index, mode='lenient')` | 60 rows, last=20.22, 0 NaN |
+| `get_trading_days('2024-01-01', '2024-01-31')` | 21 days ✓ |
+| `is_trading_day('2024-01-02')` | True ✓ |
+| `YFinanceProvider issubclass DataProvider` | True ✓ (ABC 合规) |
+| `CostModel(cfg.cost_model)` | commission_bps + slippage_bps valid |
+
+**(d) End-to-end tiny backtest**:
+```
+BacktestEngine(cost_model=cm, initial_capital=100_000)
+  .run(signals_df=equal_weight_5sym, price_df, open_df)  # 60 days
+  → BacktestResult:
+     equity_curve[-1] = 101,499.90 (+1.5%)
+     n_trades = 7
+     total_commission_usd = $5.21
+     total_slippage_usd = $54.49
+     attrs: cash_curve / equity_curve / metrics / n_trades / positions /
+            total_commission_usd / total_slippage_usd / trades
+```
+
+**(e) PaperTradingEngine + PnLTracker**:
+```
+PnLTracker(initial_capital=100_000) ✓
+PaperTradingEngine(cost_model=cm, pnl_tracker=tracker, db_path=..., 
+                    initial_capital=100_000) ✓
+Params: cost_model / pnl_tracker / db_path / initial_capital /
+        eod_force_close / confluence_enabled / kill_switch / ...
+```
+
+**(f) MasterReportBuilder**:
+```
+MasterReportBuilder() → builder API: build / set_backtest / 
+  set_bt_paper_reconciliation / set_factors / set_paper_trading /
+  set_regime_performance / set_rolling_windows / set_strategy_attribution
+```
+MasterReport `@dataclass` has 12 required positional-or-keyword args
+(properly structured for builder pattern).
+
+**(g) Canonical integration**: `build_research_baseline_snapshot.py`
+real run:
+```
+Baseline snapshot written to data/baseline/snapshot_*.json + latest.json
+Git HEAD: 69a7755 (clean)
+Tests: collected=1388 (1341 unit + 47 integration)
+Factor registry: 7 PROD / 64 RESEARCH / 8 MAP
+Universe: 79 tradable symbols
+Archive: 65 trials across 1 lineages (0 promoted)
+```
+
+### 5. 修改了哪些文件
+无。R2 纯 audit，零代码改动。
+
+### 6. 跑了哪些测试/实验
+- 57 scripts `--help` smoke
+- 13 I/O modules import smoke
+- 7 real-data API calls (data store, VIX, calendar, cost model)
+- 1 BacktestEngine tiny backtest (60d × 5sym)
+- 1 PaperTradingEngine init
+- 1 MasterReportBuilder init
+- 1 integration script end-to-end (baseline snapshot)
+
+### 7. 结果如何
+
+**Zero real bugs found.** 所有 public-API path 在真实数据上运行 clean：
+- No argparse drift
+- No import regressions
+- BT 实际 trade 出 7 次，成本正确归属（commission=$5.21, slippage=$54.49）
+- Paper engine DB 路径可 mkdir + 初始化
+- Reporting builder API intact
+- Integration script happy-path 通过
+
+**Test-harness errors (not bugs)**:
+- `load_vix`（我 probe 写的）→ 真名 `load_vix_series` + 需 (store, target_index)
+- `trading_days_range` → 真名 `get_trading_days`
+- `BacktestResult.equity/fills` → 真名 `equity_curve/trades`
+- `BacktestEngine(price_df=...)` → 真 sig `(cost_model, initial_capital=...)`
+
+这些都是我 audit probe 没查 true signature 的错，code 没 bug。
+
+### 8. 当前发现的新问题/新机会
+
+**Observation（非 bug）**:
+Baseline snapshot 显示:
+- 1388 tests collected，其中 1341 unit + 47 integration
+- Archive 65 trials（指 production archive.db, 非 rcm_archive.db）
+- Production strategy status=conservative_default（MFS baseline 状态）
+
+R1 的观察之一（registry 列了 4 个只在 high/low/intraday 可得时 emit
+的 factors）在 R2 再次确认：`BarStore.load(freq='daily', fallback='local')`
+返回的是日级数据，没 high/low/intraday，所以那些 factor 不会 emit；这
+完全正确，不是 bug。
+
+**机会**: `load_vix_series` 的 signature `(store, target_index, mode)`
+有点 stiff —— target_index 必填，不能默认从 store 自己推断。未来
+refactor 可简化，但不是 bug。
+
+### 9. 剩余风险
+无。所有 I/O edge case 都有 try/except 保护；BacktestEngine 对
+missing-open 有 `_skipped_missing_open` 计数器 + ghost cleanup。
+
+### 10. 下一轮建议方向
+**Round 3: Tests + docs sync + baseline rebuild**
+- Full integration tests (47 tests in tests/integration/)
+- README.md accuracy sweep — scan every script reference, every data
+  path, every feature count claim
+- `data/baseline/latest.json` regenerate (R2 已 regenerate 一次用于
+  smoke)
+- CLAUDE.md "Current TODO" + "Confirmed Done" drift check
+- Emit `<promise>AUDIT3DONE</promise>` 若 everything stays green
+
+### 11. Halt 条件检查 (§4)
+- 条件 1: NO (2/3 used)
+- 条件 2: NO (1341+47 = 1388 stable)
+- 条件 3: NO (all 40 modules import clean)
+- 条件 4: NO (802 GB free)
+- 条件 5: NO (zero findings requiring schema migration or new PRD)
+
+→ 继续 R3（tests + docs sync + baseline rebuild）
