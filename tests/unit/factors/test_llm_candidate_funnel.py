@@ -126,6 +126,45 @@ class TestLeakageHeuristic:
         issues = leakage_heuristic_check(cand)
         assert issues == []
 
+    def test_rolling_max_not_flagged(self):
+        """R12 fix: rolling_max / rolling_mean / rolling_sum pseudocode
+        patterns used by LLM candidates should NOT trigger the 'missing
+        lag' warning (they're past-only by construction). Discovered R10
+        via Gemini_round_02/close_to_high_proximity_21d false-positive.
+        """
+        cand = load_candidate_from_dict({
+            "factor_name": "rolling_max_factor",
+            "hypothesis": "distance from rolling high predicts reversion",
+            "formula": (
+                "high_21 = rolling_max(high, 21)\n"
+                "low_21 = rolling_min(low, 21)\n"
+                "factor = (close - low_21) / (high_21 - low_21)"
+            ),
+        })
+        issues = leakage_heuristic_check(cand)
+        # Should NOT have the "no explicit lag" complaint
+        assert not any("no explicit lag" in msg for msg in issues), (
+            f"rolling_max should count as a lag keyword. Got issues: {issues}"
+        )
+
+    def test_cumsum_not_flagged(self):
+        cand = load_candidate_from_dict({
+            "factor_name": "cumsum_factor",
+            "hypothesis": "cumulative return predicts",
+            "formula": "factor = cumsum(daily_ret, 63)",
+        })
+        issues = leakage_heuristic_check(cand)
+        assert not any("no explicit lag" in msg for msg in issues)
+
+    def test_ewm_not_flagged(self):
+        cand = load_candidate_from_dict({
+            "factor_name": "ewm_factor",
+            "hypothesis": "EWM smoothed return predicts",
+            "formula": "factor = close.ewm(span=21).mean()",
+        })
+        issues = leakage_heuristic_check(cand)
+        assert not any("no explicit lag" in msg for msg in issues)
+
 
 class TestDedupCheck:
 

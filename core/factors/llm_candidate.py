@@ -136,7 +136,16 @@ _LOOKAHEAD_KEYWORDS = (
 )
 _LAG_KEYWORDS = (
     "shift(", ".shift", "lag", "pct_change(", "rolling(",
-    "cummax", "cummin", "diff(", "t-1", "previous", "historical",
+    # LLM candidates often use pandas pseudocode style like
+    # rolling_max/rolling_mean/rolling_sum/rolling_std/rolling_min.
+    # These are past-only by construction (rolling window ends at t).
+    # Treat the `rolling_` prefix as a lag keyword. Discovered R10 via
+    # `Gemini_round_02/close_to_high_proximity_21d` false-positive.
+    "rolling_",
+    "cummax", "cummin", "cumsum", "cumprod",
+    "diff(", "t-1", "previous", "historical",
+    # ewm (exponentially weighted) is also past-only by default
+    "ewm(", ".ewm",
 )
 
 
