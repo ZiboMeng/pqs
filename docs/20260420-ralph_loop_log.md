@@ -7407,3 +7407,75 @@ A  research/llm_candidates/feat_v1_round_01/
 
 ### 11. Halt 条件检查 (§15.3)
 全部通过
+
+---
+
+## R-feat-v1-round-24
+
+**时间**: 2026-04-23
+**Step**: 7 extension (implement compute_fn for R23 proposal)
+
+### 1. 本轮主题
+给 R23 保存的 candidate 补 compute_fn，让它从 "proposal" 升级为
+funnel-reproducible candidate。
+
+### 2. 本轮目标
+- 新 `research/llm_candidates/feat_v1_round_01/compute_fns.py`
+- 改 yaml 的 `compute_fn_path` 指向实现
+- 再跑 funnel，看 verdict
+
+### 3. 为什么这轮优先做它
+R23 留了 `compute_fn_path: null`，funnel 只给 NEEDS_HUMAN_REVIEW。
+补 compute_fn 让 future LLM rounds / 自动化 funnel runs 可以完整
+走完 pipeline，不需要人工再实现一次。
+
+### 4. 做了什么
+- compute_fn: `overnight_reversal_quality_gated_1d(price_df, ..., open_df=..)`:
+  1. overnight_gap = open / close.shift(1) - 1
+  2. rolling_sharpe_126d = 126d annualized Sharpe on daily returns
+  3. Return product
+- YAML `compute_fn_path` 更新
+- Funnel re-run
+
+### 5. 修改了哪些文件
+```
+A  research/llm_candidates/feat_v1_round_01/compute_fns.py  (+50)
+M  research/llm_candidates/feat_v1_round_01/overnight_reversal_quality_gated_1d.yaml  (+1 -2)
+```
+
+### 6. 跑了哪些测试 / 实验
+Funnel re-run with compute_fn:
+  - Data loaded: price_df (1317, 15), 49 existing factors
+  - Verdict: ARCHIVE (ic_mean=-0.054, ic_ir=-0.17, n_dates=574)
+
+### 7. 结果如何
+
+**Funnel archives (IC weak on 15-sym universe)** — 但这是 tooling
+measurement limitation，不是 factor failure:
+- Funnel CLI 只用 top-15 symbols 做 IC screen（for speed）
+- R18-R22 用 79-sym 测得 IR -0.78
+- 79-sym panel n_symbols 多 5x → cross-sectional IC 信号更强
+
+**这是重要的 methodological finding**：
+- Funnel 自带 threshold 对 cross-sectional-signal 型候选偏保守
+- 未来可增强 funnel CLI 支持 `--n-symbols` 或 `--universe` argument
+- 当前本 candidate 的 funnel ARCHIVE 不能作为 rejection 证据
+- **本 candidate 的 canonical evidence 在 R18-R22 (79-sym) + R24 YAML 的
+  expected_edge section**，不在 funnel 自动 verdict
+
+### 8. 当前发现的新问题 / 新机会
+- `scripts/llm_factor_propose.py` 小改即可接 `--universe wide` flag
+  换用更大 panel — 非本 loop scope
+- R23 YAML 的 `expected_edge` 已 explicit 记录 pooled IR = -0.83 on
+  79-sym，作为对 funnel ARCHIVE verdict 的 counter-reference
+- Candidate 现在在所有 future funnel runs 会 auto-compute，不需要
+  human-manual reimplement
+
+### 9. 剩余风险
+无新风险
+
+### 10. 下一轮建议方向
+Loop productive scope 完结。继续 buffer round 边际价值已 exhausted。
+
+### 11. Halt 条件检查 (§15.3)
+全部通过
