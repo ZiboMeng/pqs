@@ -6490,3 +6490,71 @@ A  docs/20260423-feat_v1_expanded_final_report.md  (+200)
 ### 11. Halt 条件检查 (§15.3)
 - 条件 7 仍 active（Step 5 blocked；按设计退出）
 - 其他条件全通过
+
+---
+
+## R-feat-v1-round-12
+
+**时间**: 2026-04-23
+**Commit**: `c7ca965`
+**Step**: 7 extension (fix leakage heuristic false-positive from R10)
+
+### 1. 本轮主题 / Step
+修 R10 发现的 leakage heuristic false-positive（`rolling_max(` not
+caught by `rolling(` keyword）。
+
+### 2. 本轮目标
+- 扩 `_LAG_KEYWORDS` 包含常见 pseudocode 变体：`rolling_`, `cumsum`,
+  `cumprod`, `ewm(`, `.ewm`
+- 3 个新单测覆盖 rolling_max / cumsum / ewm 三种典型模式
+- 重跑 R10 里被错拒的候选验证 fix
+
+### 3. 为什么这轮优先做它
+Stop hook 重新触发 prompt，意味 loop 要求继续。虽然 PRD §15.6 exit 条件
+满足，但 loop 还有 5 round buffer。本修补是 R10 直接发现的具体 bug，
+小 scope + 高可测 + 未来所有 LLM funnel 都受益 — 是在 autonomous 边界
+内最有性价比的 incremental 工作。
+
+### 4. 做了什么
+1. `core/factors/llm_candidate.py::_LAG_KEYWORDS` 加 5 个 pattern：
+   `rolling_`, `cumsum`, `cumprod`, `ewm(`, `.ewm`
+2. `tests/unit/factors/test_llm_candidate_funnel.py` +3 tests
+3. Re-run R10 candidate `close_to_high_proximity_21d` 确认 fix 后
+   funnel 不再错拒
+
+### 5. 修改了哪些文件
+```
+M  core/factors/llm_candidate.py                  (+7 -2)
+M  tests/unit/factors/test_llm_candidate_funnel.py (+40)
+```
+
+### 6. 跑了哪些测试 / 实验
+- `pytest tests/unit/factors/test_llm_candidate_funnel.py` 22/22 pass
+- 完整 suite: **1265 passed** (+3 from R10 baseline), 1 skipped, 1 xfailed
+- Re-run R10 candidate: fix 后不再卡 leakage，进到 dedup 阶段正确
+  identify ρ=-0.923 vs mean_rev_sma20（legit archive，非 false-reject）
+
+### 7. 结果如何
+- 所有 pseudocode 变体（rolling_max / cumsum / ewm）现在被识别为 lag
+  keyword
+- R10 的 5 candidate 里那个 false-reject 的改回 ARCHIVE（通过 dedup）
+- 未来 LLM funnel 的 leakage heuristic 更准确
+
+### 8. 当前发现的新问题 / 新机会
+- 观察：fix 后 `close_to_high_proximity_21d` 通过 leakage，但被 dedup
+  ρ=-0.923 vs mean_rev_sma20 干掉。说明 Gemini 提出的这个"距 21d 高点
+  距离"其实就是均线反转的另一写法——dedup 守卫捕获到位
+- 观察：`_LAG_KEYWORDS` 里的 `rolling_` 是 prefix match（子串检查）；
+  安全因为实际使用 `rolling_` 的场景基本都是合法 pseudocode
+
+### 9. 剩余风险
+- 无
+
+### 10. 下一轮建议方向
+- R13 buffer: 如果 loop 还要跑，可做：(a) factor_engine.make_forward_returns
+  扩 cc/oc/oo 对称（R08 noted）；(b) 更多 LLM sidecar candidates；(c)
+  等 user 决策
+- 无 user 决策的情况下，实质性 PRD 推进无路径
+
+### 11. Halt 条件检查 (§15.3)
+全部通过。条件 7 仍 active。
