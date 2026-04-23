@@ -7146,3 +7146,97 @@ sub-finding:
 ### 11. Halt 条件检查 (§15.3)
 - 条件 7 仍 active
 - 其他通过
+
+---
+
+## R-feat-v1-round-21
+
+**时间**: 2026-04-23
+**Step**: 6 deeper (horizon sensitivity + 97-pool search for "quality × reversal")
+
+### 1. 本轮主题
+(a) 97 LLM pool 搜 "quality + reversal" 关键词，看 R18-R19 发现的
+    composite 是否已在 existing candidates 里被某 LLM 提出过
+(b) horizon 敏感性：对 R18 top candidate (overnight_ret_1d ×
+    rolling_sharpe_126d) 跑 h=1/3/5/10/21，看 decay 是否 horizon-dependent
+
+### 2. 本轮目标
+- 确认这个 composite 是不是重复造轮子
+- 找到最 robust 的 horizon 版本给 user
+
+### 3. 为什么这轮优先做它
+R20 信号衰减结论后，user decision 需要：
+  (1) "这个 concept 是全新的还是已 surface 过？" → (a) 回答
+  (2) "最 robust 的 horizon 在哪？" → (b) 回答
+
+### 4. 做了什么
+- Yaml scan on 97 pool，keywords: {quality, sharpe, risk_adj} AND
+  {reversal, reversion, mean_rev, revert}
+- Horizon sweep h ∈ {1,3,5,10,21} on overnight_ret_1d × rolling_sharpe_126d
+- Q2 IR, Q4 IR, Q4/Q2 ratio 对比
+
+### 5. 修改了哪些文件
+无 code 改动。
+
+### 6. 跑了哪些测试 / 实验
+
+**(a) 97-pool "quality × reversal" search**:
+- 仅 1 命中: `codex_round_04/run_persistence_spread_63d.yaml`
+- 该 candidate 讲的是 "bull/bear run persistence spread"，跟
+  "quality-weighted reversal" 不是同一 hypothesis
+- **→ R18-R19 的 composite 是 loop-surfaced 的 genuinely new
+  angle**，未曾 via LLM funnel 提出过
+
+**(b) Horizon sensitivity on overnight_ret_1d × rolling_sharpe_126d**:
+
+| h (fwd horizon) | Pooled IR | Q2 IR | Q4 IR | Q4/Q2 |
+|---:|---:|---:|---:|---:|
+| 1 | -0.826 | -1.024 | **-0.642** | 0.63 |
+| 3 | -0.713 | -0.888 | -0.499 | 0.56 |
+| 5 (R19 ref) | -0.784 | -1.023 | -0.496 | 0.48 |
+| 10 | -0.671 | -0.956 | -0.333 | 0.35 |
+| 21 | -0.624 | -0.860 | -0.308 | 0.36 |
+
+### 7. 结果如何
+
+**Q4 decay 随 horizon 单调恶化**。h=1 Q4/Q2=0.63，h=21 Q4/Q2=0.36.
+这进一步支持 signal-decay 假设（如果是 regime-artifact，decay 应当
+跨 horizon 近似均匀；这里明显 horizon-dependent）。
+
+Economic mechanism (hypothesis):
+- HFT / quant shops 对 multi-day reversal 套利效率比 1-day 高
+  （更多时间关仓 + 更多 liquidity 可进出）
+- 2023+ HFT 容量扩张吞掉 multi-day 部分，1-day 保留相对多
+- 因此：**h=1 版本 Q4 仍有 IR -0.64（强）**，h=10/21 版本几乎衰完
+
+**Update to Option E recommendation**:
+- 如果 user 选 E（保留 candidate），优先 **h=1 版本**
+- h=10/21 版本已过度衰减到 IR -0.3，不如放弃
+- h=1 的 promote 模式 (if E2) 应为 "1-day forecast tradable" 而非
+  5-21 day setup
+
+### 8. 当前发现的新问题 / 新机会
+- **R18-R19-R20-R21 累积出一个 fully-documented research lead**:
+  - Concept: quality-weighted short-term reversal
+  - Strongest form: overnight_ret_1d × rolling_sharpe_126d, h=1 fwd
+  - Q4 IR -0.64 (still strong post-decay)
+  - Economic interpretation: reversal on high-quality names amplified
+    by quality rank; decayed by HFT arbitrage but residual survives
+    at 1d horizon
+  - 4 sibling pairs confirmed Q4 decay pattern (not artifact)
+- 不在 97 existing pool 里 — 可以作新 candidate YAML 加到 research/
+  llm_candidates/feat_v1_round_01/ 作为 loop-generated lead。但本
+  loop scope 是 PRD §12 step order，这个属于 "new lead generation"
+  而非本 PRD target；**留给 user 判断是否纳入 future LLM round seed**
+
+### 9. 剩余风险
+无新风险
+
+### 10. 下一轮建议方向
+- Loop 实质 productive scope 正式枯竭；所有可达 autonomous findings
+  已 document
+- 继续 buffer round 只会产生 cosmetic 内容
+
+### 11. Halt 条件检查 (§15.3)
+- 条件 7 仍 active
+- 其他通过
