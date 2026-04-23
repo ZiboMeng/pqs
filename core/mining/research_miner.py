@@ -778,6 +778,7 @@ class ResearchMiner:
         n_trials: int = 50,
         seed: int = 42,
         *,
+        sampler: str = "tpe",
         optuna_storage: Optional[str] = None,
         study_name: Optional[str] = None,
         load_if_exists: bool = False,
@@ -806,8 +807,13 @@ class ResearchMiner:
             )
         # Silence optuna default INFO chatter during tests
         optuna.logging.set_verbosity(optuna.logging.WARNING)
-        sampler = optuna.samplers.TPESampler(seed=seed)
-        create_kwargs = dict(direction="maximize", sampler=sampler)
+        if sampler.lower() == "tpe":
+            sampler_obj = optuna.samplers.TPESampler(seed=seed)
+        elif sampler.lower() == "random":
+            sampler_obj = optuna.samplers.RandomSampler(seed=seed)
+        else:
+            raise ValueError(f"sampler must be 'tpe' or 'random', got {sampler!r}")
+        create_kwargs = dict(direction="maximize", sampler=sampler_obj)
         if optuna_storage is not None:
             if study_name is None:
                 raise ValueError(

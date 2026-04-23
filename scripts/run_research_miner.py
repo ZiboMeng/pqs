@@ -198,6 +198,9 @@ def main() -> int:
     parser.add_argument("--horizon", type=int, default=21,
                         help="Forecast horizon in trading days (also used "
                              "for IC_IR annualization factor sqrt(252/h))")
+    parser.add_argument("--sampler", default="tpe",
+                        choices=["tpe", "random"],
+                        help="Optuna sampler (R19: random for baseline check)")
     parser.add_argument("--lag", type=int, default=1,
                         help="Bars to shift composite before IC (R15: "
                              "1 prevents shared-close leakage; 0 allows "
@@ -276,6 +279,7 @@ def main() -> int:
 
     results = miner.mine(
         n_trials=args.trials, seed=args.seed,
+        sampler=args.sampler,
         optuna_storage=optuna_storage, study_name=study_id,
         load_if_exists=args.resume,
     )
