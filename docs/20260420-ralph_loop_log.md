@@ -5975,3 +5975,91 @@ A  tests/unit/factors/test_base_masks.py   (+130)
 
 ### 11. Halt 条件检查 (§15.3)
 全部通过（+9 tests, 0 regression, 0 config 改动）。Step 1 完成，进 Step 2。
+
+---
+
+## R-feat-v1-round-06
+
+**时间**: 2026-04-23
+**Commit**: `75ba4b1`
+**Step**: 2 (Panel sanity — Phase A)
+
+### 1. 本轮主题 / Step
+Step 2 Phase A: 79-symbol expanded universe panel 可用性验证。
+
+### 2. 本轮目标
+- 真实数据跑 `generate_all_factors` + 全套 R01-R05 新增物
+- 验证 factor 存在性 / alias identity / label mode / mask / drift
+- 5d 快速 IC smoke 看方向和量级
+- 产出 `docs/20260423-feat_v1_panel_sanity.md` 落盘
+
+### 3. 为什么这轮优先做它
+PRD §7.2 Phase A 要求："完成 feature engineering 后，先确认 79-symbol
+panel 可稳定生成；所有新增 feature / label / mask 可以被下游消费；
+alias 与 raw sibling 行为清晰"。Step 3 mining 前必跑。
+
+### 4. 做了什么
+- 用 `BarStore.load` 加载 79 tickers 的完整 OHLCV（0 error）
+- 调 `generate_all_factors(close, volume, open, high, low, benchmark_col="SPY")`
+- 验证 11/11 新因子存在 + 2 alias identity 正确 + 3 mode forward returns
+  shape 正确 + 3 mask True-fraction 合理
+- 跑 5d IC smoke，记录方向和量级
+- 写 130 行 sanity 文档
+
+### 5. 修改了哪些文件
+```
+A  docs/20260423-feat_v1_panel_sanity.md  (+197)
+```
+无 code / test 改动。
+
+### 6. 跑了哪些测试 / 实验
+- 完整 suite: 1262/1262 passed (unchanged; 本轮只有 doc)
+- 79-symbol panel 真实数据端到端运行成功
+- IC_5d smoke 跑 ~3300 dates
+
+### 7. 结果如何
+**Phase A PASS**：
+- Panel 3459 bars × 79 symbols 稳定生成
+- 11/11 新因子 present
+- 3 aliases identity-equal 验证通过
+- Forward returns 3 modes shape 匹配
+- Masks True-fraction 合理 (81-96%)
+- Registry drift 0
+
+**IC_5d findings** (6 factors with |IC| > 0.13)：
+- ret_1d (-0.258), overnight_ret_1d (-0.254) — 强短期反转信号
+- ret_5d/ret_2d (~-0.17) — multi-day 反转
+- dist_52w_high (-0.136), rel_spy_5d (-0.136) — position/relative 反转
+全为负方向（raw return），与已知 US equity 短期 reversal effect 一致。
+Mining 层若用需要 sign flip（就像已有 `reversal_5d` 做的那样）。
+
+### 8. 当前发现的新问题 / 新机会
+- `dollar_vol_20d` IC ≈ 0 — 证实它首要角色是 tradability mask 而非
+  alpha feature（PRD §D2 dual-role 意图得到 empirical support）
+- `intraday_ret_1d` IC ≈ 0 — 纯 intraday move 在 5d 层面主要是噪声；
+  真正价值可能在与 overnight 的交互里（LLM sidecar R09 方向候选）
+- `rel_spy_5d` n_dates 只有 2248（比其他 3300+ 少）— SPY 列自身被
+  过滤掉导致每日样本少 1；非 bug
+- `core/factors/factor_engine.py::make_forward_returns` 还只支持 cc
+  mode；如果 R08 acceptance pack 要用 oc/oo 需扩 — 非本轮
+
+### 9. 剩余风险
+- 无新风险。Step 2 Phase A gate pass
+
+### 10. 下一轮建议方向
+- **R07 (建议)**: Step 3 Phase B — R39 fresh baseline mining on
+  79-symbol universe. 执行 C+ 方案（fresh optuna.db + fresh
+  archive.db）：
+  ```
+  mv data/mining/optuna.db   data/mining/optuna.db.bak.<stamp>
+  mv data/mining/archive.db  data/mining/archive.db.bak.<stamp>
+  python scripts/run_mining.py --trials 80 --budget 3600 \
+         --type multi_factor \
+         --lineage-tag post-2026-04-23-feat-v1-expanded
+  ```
+  预计 mining 30-60 分钟（budget 3600s 但 R39 第一次跑时 834s 完成）
+- R08: Step 4 top-K 结构分析
+- 若 R39 `n_oos_pass == 0` 且所有 oos_ir < 0 → halt per §15.3
+
+### 11. Halt 条件检查 (§15.3)
+全部通过。Step 2 → Step 3 过渡。
