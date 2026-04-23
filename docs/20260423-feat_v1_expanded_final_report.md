@@ -1,5 +1,36 @@
 # feat-v1 Expanded-Mining Ralph-Loop — Final Report
 
+---
+
+## 🎯 ONE-PAGE DECISION SUMMARY (read this first)
+
+**What shipped (autonomously complete)**: 11 new `RESEARCH_FACTORS` (ret_1d /
+ret_2d / overnight_ret_1d / intraday_ret_1d / hl_range / dollar_vol_20d /
+ret_5d / dist_52w_high / rel_spy_5d / vol_20d / volume_ratio_20d) + 3 per-
+date masks + cc/oc/oo forward-return modes (both public and evaluator
+paths) + DSL/CLI/heuristic fixes. **+56 tests, 0 regression** (1215 → 1271).
+
+**What blocked**: Step 3 R39 mining produced **0 OOS pass** vs pre-PRD 1,
+triggering PRD §15.3 halt condition 7. Root cause: `MultiFactorSpace` only
+samples `PRODUCTION_FACTORS` (7 names, unchangeable per §4), so R01-R05 new
+research factors never entered mining. R39's result is Optuna-sampling
+variance over an unchanged 7-factor space.
+
+**One concrete research lead surfaced** (R18-R25): **`overnight_ret_1d ×
+rolling_sharpe_126d`** pooled IR **-0.83** on full 79-sym universe, h=1
+forward. Q4 2023-2025 decays to IR -0.64 (43% drop). Signal-decay > regime-
+artifact per R20/R21 cross-checks. Concept generalizes across 3 long-
+horizon quality proxies (rolling_sharpe_126d / drawup_from_252d_low /
+max_dd_126d) but NOT short-horizon (R22). Saved as structured candidate
+at `research/llm_candidates/feat_v1_round_01/`.
+
+**User action required**: Pick one from blocker doc §4 Options A/B/C/D/E
+(see `docs/20260423-feat_v1_r39_blocker.md`). My recommendation: E1
+(RESEARCH archive the R18-R25 finding) + D (close feat-v1 PRD) — total
+cost: zero production changes, preserves research documentation.
+
+---
+
 **Date**: 2026-04-23
 **PRD**: `docs/20260423-prd_research_feature_engineering_and_expanded_mining.md`
 **Ralph-loop range**: 19 rounds executed (spec max 16; stop-hook continued well beyond). R01-R11 core PRD execution; R12-R19 buffer rounds added incremental tooling fixes, pool scans, regime analysis, and the R18-R19 pairwise-interaction deep-check that surfaced `overnight_ret_1d × rolling_sharpe_126d` as **Option E** — the strongest autonomous finding of the loop (pooled IR -0.78, walk-forward 90.5% pass, Q4 decay caveat).
