@@ -11442,3 +11442,156 @@ lineage, 现在要调 5 次 (--top-k-index 0 / 1 / 2 / 3 / 4)。加
 - 条件 7: NO
 
 → 继续 R6（research_promote CLI）
+
+---
+
+## R-phase-e-round-06
+
+**时间**: 2026-04-24
+**Commit**: `c8669c3`
+**Sub-phase**: E-1
+**Focus**: `scripts/research_promote.py` — S0→S1 gate with hard blocks + production-config invariant
+
+### 1. 本轮主题
+PRD §2 E1-R6。R4 schema + R5 freeze 已备好 S0 candidate；R6 把
+research_promote（S0→S1）做成 CLI，同时建立**不碰 production 
+config** 的 hard invariant。
+
+### 2. 本轮目标
+- CLI `scripts/research_promote.py`
+- Gate checks: candidate@S0 + spec-loads + no-stub + memo-valid + accept-PASS
+- Idempotent: 已 S1 → no-op 0
+- **Hard invariant**: 不写 `config/production_strategy.yaml` 或
+  `config/universe.yaml` (tested via mtime/content snapshot)
+- 5+ tests (实际 12)
+
+### 3. 为什么这轮优先做它
+`scripts/promote_strategy.py` 一直混淆 research/production 语义。R6
+正式把 research-level promote 拆出来作独立 CLI + 独立语义。之后所有
+"某某 candidate S0→S1" 走 `research_promote`，`promote_strategy.py` 
+保持 production-only 不变。
+
+### 4. 做了什么
+
+**Gate logic** (S0 → S1 must pass ALL):
+```
+1. registry[id].status == S0_research_prototype
+   (already-S1 → idempotent no-op success;
+    any other status → exit 1 + msg "must be S0")
+2. FrozenStrategySpec.from_yaml_file(rec.frozen_spec_path) loads OK
+3. summary fields do NOT contain freeze-time "stub" marker
+   (detects dict.note with "stub" substring OR str with "TODO")
+   (bypass via --force; logged but allowed)
+4. decision_memo_path check:
+   - not a "TODO: author..." placeholder string
+   - file exists on disk
+   - content length >= 50 chars (rejects empty / 1-line memos)
+5. acceptance_json:
+   - If --acceptance-json passed: use it
+   - Else: auto-discover
+     data/ml/research_miner/*/acceptance/acceptance_<trial_id>.json
+     (most-recently-modified match)
+   - outcome == "promote_to_paper" (else rejected with blocking_reasons)
+```
+
+**Transition**:
+```
+registry.transition(id, S1_CANDIDATE) → S0 -> S1 (with auto-promoted_at)
+registry.update_paths(id, decision_memo_path=args.decision_memo_path)
+```
+
+**Hard-invariant guard**:
+- `_assert_no_production_writes(registry_db_path)` pre-check 不让
+  registry_db 与 forbidden paths 冲突
+- Test `test_promote_does_not_touch_production_config` 用
+  mtime+content snapshot 验证 happy path 前后 
+  `config/production_strategy.yaml` + `config/universe.yaml` +
+  `core/mining/archive.py` 不变
+
+### 5. 修改了哪些文件
+```
+A  scripts/research_promote.py                            (+260)
+A  tests/unit/research/test_research_promote_cli.py       (+300)
+```
+
+### 6. 跑了哪些测试/实验
+
+**12 新单测** (all PASS):
+
+| # | Test | What |
+|--|--|--|
+| 1 | happy_path | S0→S1 + promoted_at + decision_memo_path recorded |
+| 2 | idempotent_on_already_s1 | 第二次 promote 同 id = no-op 0 |
+| 3 | rejects_stub_summaries | freeze-time stub 触发 HARD BLOCK |
+| 4 | force_overrides_stub_check | --force 绕过（有意留） |
+| 5 | rejects_missing_memo | memo path 不存在 → exit 1 |
+| 6 | rejects_todo_placeholder | freeze CLI 的 "TODO: author..." 占位 → exit 1 |
+| 7 | rejects_short_memo | <50 chars 的 memo → exit 1 |
+| 8 | rejects_bad_acceptance | outcome=hold_in_research → exit 1 |
+| 9 | rejects_missing_acceptance | acceptance JSON 不存在 → exit 1 |
+| 10 | rejects_revoked_candidate | S5 → exit 1 "cannot promote" |
+| 11 | rejects_missing_candidate | id 不存在 → exit 1 |
+| 12 | **does_not_touch_production_config** | mtime + content hash 前后不变 |
+
+**RCMv1 idempotency** (inline smoke):
+```
+$ python scripts/research_promote.py \
+    --candidate-id rcm_v1_defensive_composite_01 \
+    --decision-memo-path docs/20260424-rcm_v1_s1_candidate_memo.md
+
+Candidate rcm_v1_defensive_composite_01 already at S1 
+(promoted_at=2026-04-23T23:39:14.783406+00:00). No-op.
+```
+
+### 7. 结果如何
+
+**S0 → S1 pipeline complete end-to-end**:
+```
+rcm_archive.rcm_trials[trial_id]
+  → freeze_research_candidate.py → data/research_candidates/<id>.yaml
+                                    + registry row @ S0
+                                    + stub summaries
+  → (user) edit YAML to replace stubs with real evidence
+  → (user) author decision memo
+  → scripts/acceptance_research_composite.py
+                                    → acceptance_<trial_id>.json
+  → research_promote.py → registry row @ S1
+```
+
+**Production config isolation verified**: 12th test literally hashes
+forbidden files before/after promote → bytes identical.
+
+### 8. 当前发现的新问题/新机会
+
+**机会 — R3 migration bypass 了这条 gate**:
+RCMv1 migration in R3 直接 insert S1 record（用 `register(status=S1_CANDIDATE)`），
+绕过了 R6 gate checks。这是**故意的**（migration 是 one-time special 
+case, 有 memo + full evidence + human-authored spec）。但要保证 future
+S1 candidates 都走 R6 gate。
+
+**观察 — acceptance auto-discover 路径**:
+`data/ml/research_miner/<study>/acceptance/acceptance_<trial_id>.json`
+glob 只匹配当前 rcm_archive 产物。如果 future 改路径，R6 需要 update
+glob。Low priority — 路径稳定几个月了。
+
+### 9. 剩余风险
+- 无。全 additive + hard invariant 测验证。
+
+### 10. 下一轮建议方向
+**R7 E-1 R4**: Shared acceptance helpers
+- 抽取 acceptance_research_composite.py 和 acceptance_pack.py 共同的
+  evaluator logic 到 `core/research/acceptance_helpers.py`
+- 保留两个 top-level entries (research + production)
+- 不做大一统 v3 merge
+- 4+ tests
+
+### 11. Halt 条件检查 (§3)
+- 条件 1: NO (6/14 rounds used)
+- 条件 2: NO (+12, no regression)
+- 条件 3: NO
+- 条件 4: NO
+- 条件 5: NO
+- 条件 6: NO (hard-invariant explicitly tested)
+- 条件 7: NO
+
+→ 继续 R7（shared acceptance helpers）
