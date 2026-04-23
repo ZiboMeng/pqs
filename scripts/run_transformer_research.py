@@ -53,25 +53,46 @@ def _build_panel(cfg, store, horizon: int):
     tradable = [s for s in all_syms
                 if s not in uni.blacklist and s not in uni.macro_reference]
     start = cfg.backtest.start_date or "2007-01-02"
-    price_frames, vol_frames = {}, {}
+    # PRD 20260424 P3 + §7: full OHLCV + research_mask.
+    price_frames, open_frames, high_frames, low_frames, vol_frames = {}, {}, {}, {}, {}
     for sym in tradable:
         df = store.read(sym, "1d")
-        if df is not None and not df.empty:
-            if "close" in df.columns:
-                price_frames[sym] = df["close"]
-            if "volume" in df.columns:
-                vol_frames[sym] = df["volume"]
+        if df is None or df.empty or "close" not in df.columns:
+            continue
+        price_frames[sym] = df["close"]
+        if "open" in df.columns:
+            open_frames[sym] = df["open"]
+        if "high" in df.columns:
+            high_frames[sym] = df["high"]
+        if "low" in df.columns:
+            low_frames[sym] = df["low"]
+        if "volume" in df.columns:
+            vol_frames[sym] = df["volume"]
     price_df = pd.DataFrame(price_frames).sort_index()
-    vol_df = pd.DataFrame(vol_frames).sort_index() if vol_frames else None
+    open_df = pd.DataFrame(open_frames).reindex_like(price_df) if open_frames else None
+    high_df = pd.DataFrame(high_frames).reindex_like(price_df) if high_frames else None
+    low_df = pd.DataFrame(low_frames).reindex_like(price_df) if low_frames else None
+    vol_df = pd.DataFrame(vol_frames).reindex_like(price_df) if vol_frames else None
     if start:
         price_df = price_df[price_df.index >= start]
-        if vol_df is not None:
-            vol_df = vol_df[vol_df.index >= start]
+        for df_ref in (open_df, high_df, low_df, vol_df):
+            if df_ref is not None:
+                df_ref.drop(df_ref.index[df_ref.index < pd.Timestamp(start)], inplace=True)
 
-    factors = generate_all_factors(price_df, vol_df)
+    from core.factors.base_masks import research_mask
+    mask_panel = (
+        research_mask(price_df, vol_df, min_price=5.0, min_usd=20e6, window=20)
+        if vol_df is not None else None
+    )
+
+    factors = generate_all_factors(
+        price_df, volume_df=vol_df,
+        open_df=open_df, high_df=high_df, low_df=low_df,
+    )
     fwd = compute_forward_returns(price_df, [horizon])[horizon]
 
     rows = []
+    n_masked_out = 0
     dates = price_df.index[252:-horizon]
     for date in dates:
         for sym in tradable:
@@ -80,20 +101,40 @@ def _build_panel(cfg, store, horizon: int):
             y = fwd.loc[date].get(sym)
             if pd.isna(y):
                 continue
+            # PRD §7: skip non-tradable (date, symbol) pairs
+            if mask_panel is not None:
+                mv = (
+                    mask_panel.loc[date, sym]
+                    if date in mask_panel.index and sym in mask_panel.columns
+                    else False
+                )
+                if not mv:
+                    n_masked_out += 1
+                    continue
             row = {"date": date, "symbol": sym, "fwd_return": y}
             for fname, fdf in factors.items():
                 val = fdf.loc[date].get(sym) if date in fdf.index and sym in fdf.columns else np.nan
                 row[fname] = val
             rows.append(row)
     panel = pd.DataFrame(rows)
+    if mask_panel is not None:
+        logger.info("Research mask excluded %d non-tradable samples", n_masked_out)
     feature_cols = [c for c in panel.columns if c not in ("date", "symbol", "fwd_return")]
     return panel, feature_cols
 
 
 def _ridge_xgb_benchmarks(panel, feature_cols, split_frac):
-    """Run Ridge + XGBoost on the panel, return OOS R² for each."""
-    X = panel[feature_cols].fillna(0).values
-    y = panel["fwd_return"].values
+    """Run Ridge + XGBoost on the panel, return OOS R² for each.
+
+    PRD 20260424 §7: Ridge cannot handle NaN; drop rows with any NaN
+    feature. XGBoost handles NaN natively but here we use the dropped
+    panel so Ridge and XGBoost see the same sample (fair comparison).
+    The dropna is explicit and auditable (unlike the prior silent
+    fillna(0) which conflated warmup / masked / true-zero).
+    """
+    clean = panel.dropna(subset=feature_cols)
+    X = clean[feature_cols].values
+    y = clean["fwd_return"].values
     dates_sorted = panel["date"].sort_values().unique()
     split_date = dates_sorted[int(len(dates_sorted) * split_frac)]
     train_mask = panel["date"] < split_date
@@ -140,10 +181,16 @@ def _transformer_benchmark(
     for sym, grp in panel_sorted.groupby("symbol"):
         if len(grp) < seq_len + 1:
             continue
-        features = grp[feature_cols].fillna(0).values.astype(np.float32)
-        fwd = grp["fwd_return"].values.astype(np.float32)
-        dates = grp["date"].values
-        for i in range(seq_len, len(grp)):
+        # PRD 20260424 §7: Transformer can't handle NaN in tensor input;
+        # drop rows with any NaN feature (auditable) rather than silent
+        # fillna(0) which poisons the sequence with zero-valued 'data'.
+        grp_clean = grp.dropna(subset=feature_cols)
+        if len(grp_clean) < seq_len + 1:
+            continue
+        features = grp_clean[feature_cols].values.astype(np.float32)
+        fwd = grp_clean["fwd_return"].values.astype(np.float32)
+        dates = grp_clean["date"].values
+        for i in range(seq_len, len(grp_clean)):
             sequences.append(features[i - seq_len : i])
             targets.append(fwd[i])
             indexer.append((sym, dates[i]))
