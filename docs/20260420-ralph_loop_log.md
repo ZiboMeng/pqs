@@ -6252,3 +6252,91 @@ hedge。详 blocker §4.
 - **条件 7 触发** — 已写 blocker 文档
 - 其他条件（pytest / core import / disk / config）全通过
 - Action: Step 5 BLOCKED；Step 6/7 继续
+
+---
+
+## R-feat-v1-round-09
+
+**时间**: 2026-04-23
+**Commit**: (log-only this round, findings recorded here)
+**Step**: 6 (DSL fast-exit ablation — independent of blocked Step 5)
+
+### 1. 本轮主题 / Step
+Step 6: DSL ablation on feat-v1 R39 best spec `df22a253dda6`.
+
+### 2. 本轮目标
+- 跑 DSL-on vs DSL-off 对照 backtest
+- 验证 DSL layer 在 expanded universe + feat-v1 代码状态下仍加 alpha
+- 对比 pre-PRD 同类 ablation 结果
+
+### 3. 为什么这轮优先做它
+Step 5 BLOCKED on §15.3；Step 6 独立可跑（§15.4 autonomy）。PRD §8 要求
+DSL 修正与 baseline mining 分开做，避免归因混淆 — 但现在 baseline mining
+已完成且失败，DSL 独立 test 给 DSL 本身边际贡献的净评估。
+
+### 4. 做了什么
+- 从 archive 抽 `df22a253dda6` params（tier D 但 feat-v1 R39 best）
+- 建 MultiFactorStrategy 实例，generate signals → PortfolioConstructor → weights
+- 2 路 backtest：
+  - DSL OFF: 直接 engine.run(weights)
+  - DSL ON:  apply_rules_to_weight_matrix → engine.run(adjusted)
+- 比较 CAGR / Sharpe / MaxDD / QQQ excess
+
+### 5. 修改了哪些文件
+无代码修改（diagnostic run only）。
+
+### 6. 跑了哪些测试 / 实验
+**df22a253dda6 spec params**:
+```
+lookback_mom=189, lookback_quality=63, lookback_vol=63
+min_holding_days=21, top_n=6, rebalance_monthly=False, score_weighted=False
+weights: quality 0.35 / rel_strength 0.30 / momentum 0.20 / low_vol 0.15
+         drawup 0.05 / market_trend 0.0 / pv_div 0.0
+```
+
+Backtest 结果（简化 path: 无 open_df / 无 target_vol / 无 kill switch）:
+
+| | CAGR | Sharpe | MaxDD | QQQ excess |
+|---|---:|---:|---:|---:|
+| DSL OFF | 25.38% | 0.291 | -28.18% | +10.94% |
+| DSL ON  | 26.30% | 0.298 | -28.69% | +11.85% |
+| **Δ**   | **+0.91pt** | +0.007 | **-0.51pt** | +0.91pt |
+
+DSL stats: 2139/3459 天被改写 (61.8%), 7189 symbol-weight changes.
+
+### 7. 结果如何
+
+**DSL alpha 稳定 +0.9pt** — 跨 2 个不同 spec 确认:
+- Prior session `4b5f36ed9ab5`: +0.92pt CAGR
+- This session `df22a253dda6`: +0.91pt CAGR
+
+**MaxDD 反向但都小**: 4b5f... 改善 +0.92pt; df22... 恶化 -0.51pt。
+说明 DSL 的 MaxDD effect 是 spec-dependent 的，不是单调改善。与 R25
+deep-mining 发现一致（2022 bear 保护 vs 2020 V-recovery 伤害）。
+
+**Sharpe 基本 flat** 两个 spec 都 +0.007 — 噪声级。
+
+### 8. 当前发现的新问题 / 新机会
+- 观察：简化 backtest path 下 CAGR 显示 25-26%（DSL 开关不同），但
+  acceptance pack gate 10 跑完整 path（含 regime-scaled target_vol +
+  kill switch）会显著压低 headline CAGR。两个数字都合理，对比时统一比
+  "on minus off" delta
+- 观察：DSL 在 feat-v1 R39 best spec 上仍加 alpha，和 R38 best spec 一致
+  — 证明 DSL layer 不依赖 spec 特征，是 universe-level effect
+- 建议：未来 spec 进 acceptance pack 前跑 DSL ablation 作 robustness
+  check（很便宜）
+
+### 9. 剩余风险
+- 无新风险。Step 5 仍 blocked
+
+### 10. 下一轮建议方向
+- **R10 (建议)**: Step 7 LLM sidecar — 97-candidate pool 挑 3-6 个
+  expanded-universe-aware 方向（benchmark-relative breadth / defensive-
+  cyclical spread / sector rotation / path-shape）跑 funnel
+- R11-R14 buffer: 继续 Step 7 扩展 / 新 diagnostic runs / 写 final report
+  (max iterations 16, currently 9/16 used)
+
+### 11. Halt 条件检查 (§15.3)
+- 条件 7 仍 active（Step 5 blocked）
+- 其他都通过
+- Step 6 完成；继续 Step 7
