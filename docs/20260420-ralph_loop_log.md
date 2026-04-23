@@ -6615,3 +6615,22 @@ R14-R16 buffer: 主要是等 user 决策。无 user 决策下，剩余实质 PRD
 
 ### 11. Halt 条件检查 (§15.3)
 全部通过。条件 7 active。
+
+---
+
+## R-feat-v1-round-14
+
+**时间**: 2026-04-23
+**Step**: doc maintenance
+
+### 1. 本轮主题
+更新 final report 反映 R12-R13 buffer-round 增量。
+
+### 2-10. 简报
+- Final report §1 round table 加 R12 / R13 行
+- §5 test state 更新 1262 → 1271 (+56 new from baseline)
+- §0 top-line "11 rounds" 更新为 "13 rounds executed"
+- 无新 code
+
+### 11. Halt 条件
+全部通过。loop 达到所有可行 autonomous scope。
