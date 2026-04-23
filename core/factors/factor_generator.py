@@ -77,6 +77,7 @@ def generate_all_factors(
 
     factors.update(_baseline_return_factors(price_df, open_df))
     factors.update(_baseline_range_factors(price_df, high_df, low_df, volume_df))
+    factors.update(_baseline_relative_factors(price_df, benchmark_col))
     factors.update(_momentum_factors(price_df))
     factors.update(_mean_reversion_factors(price_df))
     factors.update(_volatility_factors(price_df))
@@ -223,6 +224,34 @@ def _baseline_range_factors(
     if volume_df is not None:
         factors["dollar_vol_20d"] = dollar_volume_ma(
             price_df, volume_df, window=20,
+        )
+    return factors
+
+
+def _baseline_relative_factors(
+    price_df: pd.DataFrame,
+    benchmark_col: str = "SPY",
+) -> Dict[str, pd.DataFrame]:
+    """Relative / position factors (PRD 20260423 Step 1, Relative family).
+
+    Emits:
+      - ret_5d          : raw 5d close-to-close return (unsigned sibling
+                          of existing reversal_5d, per PRD §3.1.B)
+      - dist_52w_high   : close / rolling_max(close, 252) - 1 (PRD §D4)
+      - rel_spy_5d      : 5d return of symbol minus 5d return of SPY
+                          (per PRD §3.1.A, missing shorter-horizon sibling
+                          of rs_vs_spy_21d / 63d / 126d)
+    """
+    from core.factors.base_returns import simple_return
+    from core.factors.base_relative import (
+        dist_from_rolling_max, relative_return,
+    )
+    factors: Dict[str, pd.DataFrame] = {}
+    factors["ret_5d"] = simple_return(price_df, 5)
+    factors["dist_52w_high"] = dist_from_rolling_max(price_df, window=252)
+    if benchmark_col in price_df.columns:
+        factors["rel_spy_5d"] = relative_return(
+            price_df, benchmark_col, lookback=5,
         )
     return factors
 

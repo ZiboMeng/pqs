@@ -83,6 +83,13 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     # hl_range = (H-L)/prev_close (normalized 1-bar true range lite).
     # dollar_vol_20d = 20d MA of close*volume (both feature & mask source).
     "hl_range", "dollar_vol_20d",
+    # Baseline relative / position family (PRD 20260423 Step 1 Round 3)
+    # ret_5d        = raw 5d close-to-close return (unsigned sibling of
+    #                 reversal_5d)
+    # dist_52w_high = close / rolling_max(close, 252) - 1 (per §D4)
+    # rel_spy_5d    = short-horizon benchmark-relative return (sibling
+    #                 of rs_vs_spy_21d/63d/126d)
+    "ret_5d", "dist_52w_high", "rel_spy_5d",
     # Research aliases (PRD §D3 / §3.1.C). Same DataFrame as canonical;
     # kept in registry so drift-check still passes and LLM / mining code
     # can query either name.
