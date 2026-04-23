@@ -651,10 +651,57 @@ def _weak_market_factors(
 def compute_forward_returns(
     price_df: pd.DataFrame,
     horizons: List[int] = None,
+    mode: str = "cc",
+    open_df: pd.DataFrame | None = None,
 ) -> Dict[int, pd.DataFrame]:
-    """Compute forward returns for IC calculation."""
+    """Compute forward returns for IC calculation.
+
+    Modes (PRD 20260423 §6.3):
+      - "cc" (close-to-close, default, backward-compatible):
+          close[t+h] / close[t] - 1
+        No open_df needed. Matches original semantics.
+      - "oc" (close-to-next-period-open-to-close):
+          close[t+h] / open[t+h] - 1
+        Captures "buy at t+h open, sell at t+h close" label. Requires
+        open_df.
+      - "oo" (open-to-open, forward):
+          open[t+h] / open[t] - 1
+        Captures "buy at t open, sell at t+h open" label. Requires
+        open_df.
+
+    All modes return the result aligned to `price_df.index` and
+    shifted so that `result[h].loc[t]` is the forward return that
+    would be realized if the bar at `t` is the decision bar.
+
+    Parameters
+    ----------
+    price_df : close prices, index=date, columns=symbols
+    horizons : list of horizons in trading days; default [5, 10, 21]
+    mode     : one of {"cc", "oc", "oo"}
+    open_df  : open prices, required when mode in {"oc", "oo"}
+
+    Returns
+    -------
+    Dict[int, pd.DataFrame]: horizon → forward-return panel
+    """
+    if mode not in {"cc", "oc", "oo"}:
+        raise ValueError(f"mode must be one of cc/oc/oo, got {mode!r}")
+    if mode in {"oc", "oo"} and open_df is None:
+        raise ValueError(f"mode={mode!r} requires open_df")
     horizons = horizons or [5, 10, 21]
-    result = {}
+    result: Dict[int, pd.DataFrame] = {}
     for h in horizons:
-        result[h] = price_df.pct_change(h).shift(-h)
+        if h < 1:
+            raise ValueError(f"horizons must be >= 1, got {h}")
+        if mode == "cc":
+            # close[t+h] / close[t] - 1, aligned back to t
+            result[h] = price_df.pct_change(h).shift(-h)
+        elif mode == "oc":
+            # close[t+h] / open[t+h] - 1, aligned back to t
+            oc = price_df / open_df.reindex_like(price_df) - 1.0
+            result[h] = oc.shift(-h)
+        else:  # mode == "oo"
+            # open[t+h] / open[t] - 1, aligned back to t
+            oo = open_df.pct_change(h)
+            result[h] = oo.reindex_like(price_df).shift(-h)
     return result
