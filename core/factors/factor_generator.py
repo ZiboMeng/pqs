@@ -100,6 +100,7 @@ def generate_all_factors(
     factors.update(_baseline_range_factors(effective_price_df, high_df, low_df, volume_df))
     factors.update(_baseline_relative_factors(effective_price_df, benchmark_col))
     factors.update(_family_a_benchmark_relative(effective_price_df))
+    factors.update(_family_b_position_breakout(effective_price_df))
     factors.update(_momentum_factors(effective_price_df))
     factors.update(_mean_reversion_factors(effective_price_df))
     factors.update(_volatility_factors(effective_price_df))
@@ -358,6 +359,65 @@ def _family_a_benchmark_relative(
     # rel_qqq_20d — separate branch so SPY-missing case doesn't block QQQ
     if "QQQ" in price_df.columns:
         factors["rel_qqq_20d"] = relative_return(price_df, "QQQ", 20)
+
+    return factors
+
+
+def _family_b_position_breakout(
+    price_df: pd.DataFrame,
+) -> Dict[str, pd.DataFrame]:
+    """PRD 20260424 Family B — position / breakout / path-shape.
+
+    Produces 4 features (all T1 — adjusted-close only):
+      - range_pos_252d : (close - min_252d) / (max_252d - min_252d), ∈ [0,1]
+                         Complement to dist_52w_high (which is close / max - 1
+                         ∈ [-∞, 0]); range_pos normalizes by range span.
+      - days_since_52w_high : number of trading days since the 252d rolling
+                              max was most recently set (0 = today is new high)
+      - breakout_20d_strength : close / max(prior 20d close) - 1
+                                Positive = today closed above prior 20d high
+                                (breakout magnitude); negative = still within
+                                range. Uses shift(1) on rolling max so today's
+                                close is compared to yesterday's 20d high.
+      - dist_from_new_high_252 : close / max(prior 252d close) - 1
+                                 Same logic at 252d horizon. Distinct from
+                                 `dist_52w_high` (which uses same-bar max,
+                                 always ≤ 0): this version uses shifted max
+                                 so breakout bars get positive values.
+    """
+    factors: Dict[str, pd.DataFrame] = {}
+
+    # range_pos_252d
+    min_252 = price_df.rolling(252, min_periods=60).min()
+    max_252 = price_df.rolling(252, min_periods=60).max()
+    range_span = (max_252 - min_252).replace(0, np.nan)
+    factors["range_pos_252d"] = (price_df - min_252) / range_span
+
+    # days_since_52w_high — rolling argmax, offset to "days since"
+    # apply with np.argmax is O(N*window) but acceptable on research panels.
+    def _days_since_max(arr: np.ndarray) -> float:
+        # arr has length == window (within min_periods). argmax returns
+        # position of the first max; convert to "days since" where today
+        # is window-1 (0 = new high today).
+        last_idx = len(arr) - 1
+        return float(last_idx - int(np.argmax(arr)))
+
+    factors["days_since_52w_high"] = price_df.rolling(
+        252, min_periods=60,
+    ).apply(_days_since_max, raw=True)
+
+    # breakout_20d_strength — compare today's close to yesterday's 20d max
+    # (shift(1) on rolling max excludes today so breakout bars get positive)
+    prior_20d_max = price_df.rolling(20, min_periods=10).max().shift(1)
+    factors["breakout_20d_strength"] = (
+        price_df / prior_20d_max.replace(0, np.nan) - 1.0
+    )
+
+    # dist_from_new_high_252 — same formulation at 252d horizon
+    prior_252d_max = price_df.rolling(252, min_periods=60).max().shift(1)
+    factors["dist_from_new_high_252"] = (
+        price_df / prior_252d_max.replace(0, np.nan) - 1.0
+    )
 
     return factors
 

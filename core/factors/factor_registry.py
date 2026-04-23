@@ -98,6 +98,15 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     # All 4 CONDITIONAL on benchmark availability (SPY or QQQ column / map).
     # Missing benchmark → feature silently omitted (not NaN-filled).
     "rel_spy_20d", "rel_qqq_20d", "beta_spy_60d", "residual_mom_spy_20d",
+    # PRD 20260424 Family B — position / breakout / path-shape
+    # range_pos_252d          : (close - min_252d) / (max_252d - min_252d) ∈ [0,1]
+    # days_since_52w_high     : bars since 252d rolling max (0 = today is new high)
+    # breakout_20d_strength   : close / shift(max_20d) - 1 (breakout magnitude)
+    # dist_from_new_high_252  : close / shift(max_252d) - 1 (distance from prior
+    #                            252d high; distinct from dist_52w_high which
+    #                            uses same-bar max)
+    "range_pos_252d", "days_since_52w_high",
+    "breakout_20d_strength", "dist_from_new_high_252",
     # Research aliases (PRD §D3 / §3.1.C). Same DataFrame as canonical;
     # kept in registry so drift-check still passes and LLM / mining code
     # can query either name.
