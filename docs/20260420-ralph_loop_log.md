@@ -7645,3 +7645,90 @@ research 链条。
 
 ### 11. Halt 条件检查 (§15.3)
 全部通过
+
+---
+
+## R-rcm-v1-round-01
+
+**时间**: 2026-04-24
+**Commit**: `01634f1`
+**PRD**: `docs/20260424-prd_research_composite_miner_v1.md`
+**Step**: Step 2 (Plumbing P2 — residualization helper)
+**Lineage**: `post-2026-04-24-rcm-v1`
+
+### 1. 本轮主题 / Step
+Step 2 的 3 项 plumbing 里选 P2（residualization helper）作为第一轮。
+最小 isolated 单元，无跨文件依赖，为 Family A 的 `residual_mom_spy_20d`
+和未来 sector-neutral residual 家族打底。
+
+### 2. 本轮目标
+- `core/factors/base_relative.py` 加 2 个 pure helper:
+  - `rolling_beta(stock_returns, bench_returns, lookback=60)`
+  - `residualize_returns(stock_returns, bench_returns, lookback=60)`
+- 8 tests 覆盖 recover-true-beta / warmup / self-identity / composition
+
+### 3. 为什么这轮优先做它
+3 个 plumbing 依赖顺序：
+- P2 (residualize): 最小，无下游
+- P1 (multi-benchmark): 改 generator signature，会连锁影响 8 scripts
+- P3 (8 scripts upgrade): 最大，且依赖 P1 完成后 signature 稳定
+
+先做 P2 落地 helper，R02/R03 再 P1，R04+ 做 P3，避免中间态 signature
+改动导致 script 双改。
+
+### 4. 做了什么
+- `rolling_beta`: cov/var 滑窗计算 per-symbol rolling beta. 用 cov/var
+  identity `(E[XY] - E[X]E[Y]) / Var(bench)` 实现，O(N) rolling 效率
+- `residualize_returns`: 每日残差 = stock_ret - beta * bench_ret
+- 8 tests: true-beta recovery, warmup NaN, self-beta=1, 参数验证, shape,
+  corr-removal check, self-residual zero, composition into residual momentum
+
+### 5. 修改了哪些文件
+```
+M  core/factors/base_relative.py            (+105 -2)
+M  tests/unit/factors/test_base_relative.py (+100 -1)
+```
+
+### 6. 跑了哪些测试 / 实验
+- `pytest tests/unit/factors/test_base_relative.py` 18/18 pass
+- 完整 suite: **1279 passed** (+8 from 1271 baseline), 1 skipped, 1 xfailed
+
+### 7. 结果如何
+- `rolling_beta` recovers 构造 1.5 / 0.5 betas within 0.15 accuracy
+- `residualize_returns` removes |corr| < 0.15 vs benchmark after 120d
+  lookback
+- Self-benchmark beta = 1.0 exactly (post-ddof fix)
+- 0 regression
+
+**Round-internal sub-finding**: 首次 run 时 self-beta 出 0.9833 而非 1.0.
+诊断：pandas `rolling.mean()` 用 N 除数（population mean），但
+`rolling.var()` 默认 `ddof=1`（sample var, N-1 除数）。我的 cov 公式
+`E[XY] - E[X]E[Y]` 用 N 除数，和 bench_var 的 N-1 除数不匹配，
+systematic bias = `(N-1)/N`. 对 lookback=60 就是 59/60=0.9833. Fix:
+改 var(ddof=0) 对齐 N 除数。这个 bug 如果不 unit-test self-beta=1
+永远不会被发现，会默默 bias 所有 residualize 因子 ~1-2%。
+
+### 8. 当前发现的新问题 / 新机会
+- 无新问题；P2 helper 完整落地
+- 数学层面：rolling cov/var 的 ddof 一致性是个常见陷阱，未来如果加其他
+  rolling-moment 计算（skew, kurt, 残差 vol）要统一 convention
+
+### 9. 剩余风险
+- 无。helpers 是 pure function，无 side effect
+
+### 10. 下一轮建议方向
+- **R02 (建议)**: P1 multi-benchmark factor generator —— 扩 `generate_all
+  _factors` 接 `benchmark_map={"SPY": ..., "QQQ": ...}`。这是 P1 的核心，
+  是 `rel_qqq_20d` / `beta_spy_60d` / `residual_mom_spy_20d` 能下沉到
+  generator 的前提。估 1-2 rounds
+- R03 可能也在 P1 scope（tests + back-compat 验证）
+- R04+ 开始 P3（8 scripts upgrade）
+
+### 11. Halt 条件检查 (§13.3)
+- 条件 2 (plumbing 失败超 2 轮): NO, 刚开始
+- 条件 3 (关键接口回归): NO, 0 regression
+- 条件 6 (bug-fix spiral): NO, R01 一次过（self-beta 纯 unit-test internal）
+- 条件 7 (max 22): 1/22
+- 其他条件与本轮不相关
+
+→ 继续 R02
