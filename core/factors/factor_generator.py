@@ -99,6 +99,7 @@ def generate_all_factors(
     factors.update(_baseline_return_factors(effective_price_df, open_df))
     factors.update(_baseline_range_factors(effective_price_df, high_df, low_df, volume_df))
     factors.update(_baseline_relative_factors(effective_price_df, benchmark_col))
+    factors.update(_family_a_benchmark_relative(effective_price_df))
     factors.update(_momentum_factors(effective_price_df))
     factors.update(_mean_reversion_factors(effective_price_df))
     factors.update(_volatility_factors(effective_price_df))
@@ -312,6 +313,52 @@ def _baseline_range_factors(
         factors["dollar_vol_20d"] = dollar_volume_ma(
             price_df, volume_df, window=20,
         )
+    return factors
+
+
+def _family_a_benchmark_relative(
+    price_df: pd.DataFrame,
+) -> Dict[str, pd.DataFrame]:
+    """PRD 20260424 Family A — benchmark-relative / residual / risk exposure.
+
+    Produces (conditional on benchmark presence in price_df):
+      - rel_spy_20d   : 20d stock return - 20d SPY return (short sibling
+                        of rs_vs_spy_21d which uses 21d lookback — distinct
+                        by a bar, both kept)
+      - rel_qqq_20d   : same vs QQQ (primary benchmark per PRD invariant;
+                        net-new coverage — no rs_vs_qqq_* existed before)
+      - beta_spy_60d  : rolling 60d OLS beta of daily returns vs SPY
+      - residual_mom_spy_20d : sum of 20d daily residual returns after
+                               removing rolling-60d SPY beta exposure
+
+    All 4 rely on P1 multi-benchmark plumbing: the caller must either
+    include SPY/QQQ columns in price_df OR pass them via benchmark_map.
+    Missing benchmark → feature silently omitted from output (not NaN'd).
+    """
+    from core.factors.base_relative import (
+        relative_return, rolling_beta, residualize_returns,
+    )
+    factors: Dict[str, pd.DataFrame] = {}
+    daily_ret = price_df.pct_change()
+
+    # rel_spy_20d
+    if "SPY" in price_df.columns:
+        factors["rel_spy_20d"] = relative_return(price_df, "SPY", 20)
+        # beta_spy_60d
+        spy_ret = daily_ret["SPY"]
+        factors["beta_spy_60d"] = rolling_beta(
+            daily_ret, spy_ret, lookback=60,
+        )
+        # residual_mom_spy_20d: rolling sum of 20d daily residuals
+        residuals = residualize_returns(daily_ret, spy_ret, lookback=60)
+        factors["residual_mom_spy_20d"] = residuals.rolling(
+            20, min_periods=10,
+        ).sum()
+
+    # rel_qqq_20d — separate branch so SPY-missing case doesn't block QQQ
+    if "QQQ" in price_df.columns:
+        factors["rel_qqq_20d"] = relative_return(price_df, "QQQ", 20)
+
     return factors
 
 

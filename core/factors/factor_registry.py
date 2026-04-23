@@ -90,6 +90,14 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     # rel_spy_5d    = short-horizon benchmark-relative return (sibling
     #                 of rs_vs_spy_21d/63d/126d)
     "ret_5d", "dist_52w_high", "rel_spy_5d",
+    # PRD 20260424 Family A — benchmark-relative / residual / risk exposure
+    # rel_spy_20d          : 20d stock ret - 20d SPY ret
+    # rel_qqq_20d          : same vs QQQ (net-new: no rs_vs_qqq_* existed)
+    # beta_spy_60d         : rolling 60d OLS beta of daily returns vs SPY
+    # residual_mom_spy_20d : 20d sum of daily residuals after 60d beta remove
+    # All 4 CONDITIONAL on benchmark availability (SPY or QQQ column / map).
+    # Missing benchmark → feature silently omitted (not NaN-filled).
+    "rel_spy_20d", "rel_qqq_20d", "beta_spy_60d", "residual_mom_spy_20d",
     # Research aliases (PRD §D3 / §3.1.C). Same DataFrame as canonical;
     # kept in registry so drift-check still passes and LLM / mining code
     # can query either name.

@@ -65,7 +65,8 @@ class TestFactorGeneratorAlignsWithRegistry:
     def test_all_generator_outputs_registered(self):
         np.random.seed(42)
         idx = pd.bdate_range("2024-01-01", periods=400)
-        syms = ["SPY", "AAPL", "MSFT", "NVDA", "TSLA"]
+        # QQQ added for PRD 20260424 Family A features (rel_qqq_20d etc.)
+        syms = ["SPY", "QQQ", "AAPL", "MSFT", "NVDA", "TSLA"]
         price = pd.DataFrame(
             100 + np.cumsum(np.random.randn(400, len(syms)) * 0.5, axis=0),
             index=idx, columns=syms,
