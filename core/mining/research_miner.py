@@ -559,3 +559,162 @@ def evaluate_composite(
         turnover_proxy=turnover,
         corr_concentration=corr_conc,
     )
+
+
+# ── R11: Optuna objective + ResearchMiner entry ─────────────────────────────
+
+
+@dataclass(frozen=True)
+class ObjectiveWeights:
+    """PRD §8.6 weighted-sum objective weights.
+
+    Default mirrors PRD example; callers can tune via CLI.
+    """
+    w_ir: float = 1.0               # + weight on OOS IR
+    w_turnover: float = 0.5         # − penalty on turnover proxy
+    w_corr_conc: float = 1.0        # − penalty on correlation concentration
+    w_bench_excess: float = 0.3     # + weight on benchmark excess
+    w_regime_stddev: float = 0.2    # − penalty on regime-IC stddev
+
+
+def compute_objective(
+    metrics: CompositeMetrics,
+    benchmark_excess: float = 0.0,
+    regime_stddev: float = 0.0,
+    weights: Optional[ObjectiveWeights] = None,
+) -> float:
+    """PRD §8.6 weighted-sum objective.
+
+    objective = w_ir * IR
+              - w_turnover * turnover_proxy
+              - w_corr_conc * corr_concentration
+              + w_bench_excess * benchmark_excess
+              - w_regime_stddev * regime_stddev
+
+    NaN-safe: any NaN metric contributes 0 (logged at caller as "insufficient
+    data"). Returns -inf if IC_IR itself is NaN (no signal).
+    """
+    w = weights or ObjectiveWeights()
+    ir = metrics.ic_ir if np.isfinite(metrics.ic_ir) else float("-inf")
+    if ir == float("-inf"):
+        return float("-inf")
+    turnover = metrics.turnover_proxy if np.isfinite(metrics.turnover_proxy) else 0.0
+    corr_c = metrics.corr_concentration if np.isfinite(metrics.corr_concentration) else 0.0
+    be = benchmark_excess if np.isfinite(benchmark_excess) else 0.0
+    rs = regime_stddev if np.isfinite(regime_stddev) else 0.0
+    return (
+        w.w_ir * ir
+        - w.w_turnover * turnover
+        - w.w_corr_conc * corr_c
+        + w.w_bench_excess * be
+        - w.w_regime_stddev * rs
+    )
+
+
+@dataclass
+class TrialResult:
+    """Result of a single Optuna trial in the research miner."""
+    spec: ResearchCompositeSpec
+    metrics: CompositeMetrics
+    objective: float
+
+
+class ResearchMiner:
+    """Research Composite Miner v1 (PRD §8).
+
+    Entry class wrapping:
+      - Optuna study (maximize direction)
+      - family-aware sampler
+      - composite build + evaluate
+      - weighted-sum objective
+      - trial result collection
+
+    v1 scope: in-memory only. R12 adds SQLite archive.
+    v1 scope: single-horizon label (cc forward return); v2 can parameterize.
+    v1 scope: benchmark_excess defaulted to 0; R13+ can wire benchmark
+    portfolio simulation.
+    """
+
+    def __init__(
+        self,
+        factor_panel_map: Mapping[str, pd.DataFrame],
+        fwd_returns: pd.DataFrame,
+        mask: Optional[pd.DataFrame] = None,
+        families: Sequence[FamilyConfig] = FAMILIES_V1,
+        objective_weights: Optional[ObjectiveWeights] = None,
+        min_families: int = 3,
+        max_features_per_family: int = 2,
+        weight_step: float = 0.05,
+    ) -> None:
+        self.factor_panel_map = factor_panel_map
+        self.fwd_returns = fwd_returns
+        self.mask = mask
+        self.families = families
+        self.objective_weights = objective_weights or ObjectiveWeights()
+        self.min_families = min_families
+        self.max_features_per_family = max_features_per_family
+        self.weight_step = weight_step
+        # Cache of trial results for in-memory analysis
+        self.results: List[TrialResult] = []
+
+    def run_trial(self, trial: Any) -> float:
+        """Optuna-compatible objective function.
+
+        Samples a spec via suggest_composite_spec, evaluates it, stores
+        the TrialResult, returns the scalar objective (for Optuna to
+        maximize). Raises optuna.TrialPruned when sampler rejects the
+        spec (e.g. fewer than min_families).
+        """
+        spec = suggest_composite_spec(
+            trial,
+            families=self.families,
+            min_families=self.min_families,
+            max_features_per_family=self.max_features_per_family,
+            weight_step=self.weight_step,
+        )
+        metrics = evaluate_composite(
+            spec,
+            self.factor_panel_map,
+            self.fwd_returns,
+            mask=self.mask,
+        )
+        objective = compute_objective(
+            metrics,
+            benchmark_excess=0.0,  # v1: simplified; R13 can wire real bench
+            regime_stddev=0.0,     # v1: no regime stratification yet
+            weights=self.objective_weights,
+        )
+        result = TrialResult(spec=spec, metrics=metrics, objective=objective)
+        self.results.append(result)
+        return objective
+
+    def mine(
+        self, n_trials: int = 50, seed: int = 42,
+    ) -> List[TrialResult]:
+        """Run an Optuna study for n_trials and return results sorted
+        descending by objective.
+
+        v1 uses in-memory Optuna; R12 will swap to persistent rcm_optuna.db.
+        """
+        try:
+            import optuna
+        except ImportError:
+            raise RuntimeError(
+                "optuna required for ResearchMiner.mine; "
+                "install with `pip install optuna`"
+            )
+        # Silence optuna default INFO chatter during tests
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
+        sampler = optuna.samplers.TPESampler(seed=seed)
+        study = optuna.create_study(direction="maximize", sampler=sampler)
+        study.optimize(self.run_trial, n_trials=n_trials, n_jobs=1)
+        # Return successful trials only, sorted
+        completed = [r for r in self.results if np.isfinite(r.objective)]
+        completed.sort(key=lambda r: -r.objective)
+        return completed
+
+    def top_k(self, k: int = 10) -> List[TrialResult]:
+        """Return top-K trials by objective (descending). Excludes -inf."""
+        completed = [r for r in self.results if np.isfinite(r.objective)]
+        completed.sort(key=lambda r: -r.objective)
+        return completed[:k]

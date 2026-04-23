@@ -13,9 +13,13 @@ from core.mining.research_miner import (
     FAMILY_A, FAMILY_B, FAMILY_C, FAMILY_D,
     CompositeMetrics,
     FamilyConfig,
+    ObjectiveWeights,
     ResearchCompositeSpec,
+    ResearchMiner,
+    TrialResult,
     all_family_factors,
     build_composite_series,
+    compute_objective,
     evaluate_composite,
     family_of_factor,
     suggest_composite_spec,
@@ -456,3 +460,206 @@ def test_evaluate_composite_single_feature_corr_concentration_zero():
     metrics = evaluate_composite(spec, {"mom_21d": p}, fwd)
     assert metrics.corr_concentration == 0.0
     assert metrics.n_features == 1
+
+
+# ── R11: ObjectiveWeights ────────────────────────────────────────────────────
+
+
+def test_objective_weights_defaults():
+    """PRD §8.6 default weights match the documented formula."""
+    w = ObjectiveWeights()
+    assert w.w_ir == 1.0
+    assert w.w_turnover == 0.5
+    assert w.w_corr_conc == 1.0
+    assert w.w_bench_excess == 0.3
+    assert w.w_regime_stddev == 0.2
+
+
+def test_objective_weights_frozen():
+    """ObjectiveWeights is frozen — reassignment raises."""
+    w = ObjectiveWeights()
+    with pytest.raises(Exception):  # FrozenInstanceError or AttributeError
+        w.w_ir = 2.0  # type: ignore[misc]
+
+
+# ── R11: compute_objective ───────────────────────────────────────────────────
+
+
+def _mk_metrics(ir=0.5, turnover=0.1, corr=0.2, n_features=3, n_families=3):
+    return CompositeMetrics(
+        n_features=n_features,
+        n_families=n_families,
+        n_dates=100,
+        ic_mean=0.03,
+        ic_std=0.06,
+        ic_ir=ir,
+        turnover_proxy=turnover,
+        corr_concentration=corr,
+    )
+
+
+def test_compute_objective_formula_default_weights():
+    """Default weights: obj = 1·IR - 0.5·T - 1·C + 0.3·E - 0.2·S."""
+    m = _mk_metrics(ir=0.5, turnover=0.1, corr=0.2)
+    obj = compute_objective(m, benchmark_excess=0.4, regime_stddev=0.05)
+    # 1.0*0.5 - 0.5*0.1 - 1.0*0.2 + 0.3*0.4 - 0.2*0.05
+    # = 0.5 - 0.05 - 0.2 + 0.12 - 0.01 = 0.36
+    assert abs(obj - 0.36) < 1e-10
+
+
+def test_compute_objective_custom_weights():
+    """Custom weights scale linearly."""
+    m = _mk_metrics(ir=1.0, turnover=0.2, corr=0.3)
+    w = ObjectiveWeights(
+        w_ir=2.0, w_turnover=1.0, w_corr_conc=0.5,
+        w_bench_excess=0.0, w_regime_stddev=0.0,
+    )
+    obj = compute_objective(m, weights=w)
+    # 2.0*1.0 - 1.0*0.2 - 0.5*0.3 = 2.0 - 0.2 - 0.15 = 1.65
+    assert abs(obj - 1.65) < 1e-10
+
+
+def test_compute_objective_nan_ir_returns_neg_inf():
+    """NaN IR → -inf (no signal, Optuna will deprioritize)."""
+    m = _mk_metrics(ir=float("nan"))
+    obj = compute_objective(m)
+    assert obj == float("-inf")
+
+
+def test_compute_objective_nan_turnover_contributes_zero():
+    """NaN turnover/corr/bench/regime treated as 0 (insufficient data)."""
+    m = CompositeMetrics(
+        n_features=2, n_families=2, n_dates=50,
+        ic_mean=0.02, ic_std=0.04, ic_ir=0.5,
+        turnover_proxy=float("nan"),
+        corr_concentration=float("nan"),
+    )
+    obj = compute_objective(
+        m, benchmark_excess=float("nan"), regime_stddev=float("nan"),
+    )
+    # 1.0*0.5 - 0 - 0 + 0 - 0 = 0.5
+    assert abs(obj - 0.5) < 1e-10
+
+
+# ── R11: TrialResult ─────────────────────────────────────────────────────────
+
+
+def test_trial_result_stores_spec_metrics_objective():
+    spec = ResearchCompositeSpec(
+        features=("mom_21d",), weights=(1.0,),
+        family_counts={"D": 1, "A": 1, "B": 1},
+    )
+    m = _mk_metrics(ir=0.7)
+    tr = TrialResult(spec=spec, metrics=m, objective=0.42)
+    assert tr.spec is spec
+    assert tr.metrics is m
+    assert tr.objective == 0.42
+
+
+# ── R11: ResearchMiner.run_trial ─────────────────────────────────────────────
+
+
+@pytest.fixture
+def mini_panels():
+    """4 synthetic factor panels × 40 bars × 8 symbols for mining tests."""
+    np.random.seed(42)
+    idx = pd.bdate_range("2024-01-02", periods=40)
+    cols = [f"S{i}" for i in range(8)]
+    base = pd.DataFrame(np.random.randn(40, 8), index=idx, columns=cols)
+    panels = {
+        "rel_spy_20d": base + np.random.randn(40, 8) * 0.1,
+        "range_pos_252d": base * 0.5 + np.random.randn(40, 8) * 0.5,
+        "amihud_20d": np.abs(np.random.randn(40, 8)),
+        "trend_tstat_20d": np.random.randn(40, 8),
+    }
+    panels = {
+        k: pd.DataFrame(v, index=idx, columns=cols) if not isinstance(v, pd.DataFrame) else v
+        for k, v in panels.items()
+    }
+    fwd = base * 0.15 + pd.DataFrame(
+        np.random.randn(40, 8) * 0.85, index=idx, columns=cols,
+    )
+    return panels, fwd
+
+
+def test_research_miner_run_trial_appends_result(mini_panels):
+    panels, fwd = mini_panels
+    miner = ResearchMiner(factor_panel_map=panels, fwd_returns=fwd)
+    trial = MockTrial(
+        int_suggestions={
+            "n_features_A": 1, "n_features_B": 1, "n_features_C": 1,
+            "n_features_D": 1,
+        },
+        cat_suggestions={
+            "family_A_slot_0": "rel_spy_20d",
+            "family_B_slot_0": "range_pos_252d",
+            "family_C_slot_0": "amihud_20d",
+            "family_D_slot_0": "trend_tstat_20d",
+        },
+        float_suggestions={
+            "w_rel_spy_20d": 0.3,
+            "w_range_pos_252d": 0.3,
+            "w_amihud_20d": 0.2,
+            "w_trend_tstat_20d": 0.2,
+        },
+    )
+    obj = miner.run_trial(trial)
+    assert len(miner.results) == 1
+    assert isinstance(miner.results[0], TrialResult)
+    assert miner.results[0].objective == obj
+    # With 4 features spanning 4 families, spec should be valid
+    assert miner.results[0].spec.n_features == 4
+    assert miner.results[0].spec.n_families == 4
+
+
+def test_research_miner_top_k_sorts_descending(mini_panels):
+    """After 3 fake run_trial calls, top_k returns sorted results."""
+    panels, fwd = mini_panels
+    miner = ResearchMiner(factor_panel_map=panels, fwd_returns=fwd)
+    # Inject 3 synthetic TrialResults directly
+    spec = ResearchCompositeSpec(
+        features=("rel_spy_20d",), weights=(1.0,),
+        family_counts={"A": 1, "B": 1, "C": 1},
+    )
+    m = _mk_metrics(ir=0.5)
+    miner.results = [
+        TrialResult(spec=spec, metrics=m, objective=0.1),
+        TrialResult(spec=spec, metrics=m, objective=0.5),
+        TrialResult(spec=spec, metrics=m, objective=0.3),
+        TrialResult(spec=spec, metrics=m, objective=float("-inf")),
+    ]
+    top = miner.top_k(k=2)
+    assert len(top) == 2
+    assert top[0].objective == 0.5
+    assert top[1].objective == 0.3
+
+
+# ── R11: ResearchMiner.mine (small Optuna integration) ───────────────────────
+
+
+def test_research_miner_mine_small(mini_panels):
+    """3-trial Optuna run completes and produces sorted TrialResults."""
+    optuna = pytest.importorskip("optuna")
+    panels, fwd = mini_panels
+    # Restrict families to only factors present in mini_panels so Optuna
+    # can't pick missing names. 1 factor per family × 4 families.
+    restricted_families = (
+        FamilyConfig(name="A", title="mini-A", factors=frozenset({"rel_spy_20d"})),
+        FamilyConfig(name="B", title="mini-B", factors=frozenset({"range_pos_252d"})),
+        FamilyConfig(name="C", title="mini-C", factors=frozenset({"amihud_20d"})),
+        FamilyConfig(name="D", title="mini-D", factors=frozenset({"trend_tstat_20d"})),
+    )
+    miner = ResearchMiner(
+        factor_panel_map=panels, fwd_returns=fwd,
+        families=restricted_families, min_families=3,
+    )
+    results = miner.mine(n_trials=3, seed=7)
+    # At least some trials should be completed (some may fail min_families)
+    # Results are finite-objective only, sorted descending
+    assert all(np.isfinite(r.objective) for r in results)
+    if len(results) >= 2:
+        for i in range(len(results) - 1):
+            assert results[i].objective >= results[i + 1].objective
+    # Every stored result (including pruned ones as -inf) should be in
+    # miner.results for audit
+    assert len(miner.results) >= len(results)
