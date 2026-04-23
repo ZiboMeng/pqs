@@ -5740,3 +5740,81 @@ M  tests/unit/factors/test_shadowed_factor_merge.py (+5 -2)
 
 ### 11. Halt 条件检查 (§15.3)
 全部通过（pytest +9，config 零改动）。继续 R03。
+
+---
+
+## R-feat-v1-round-03
+
+**时间**: 2026-04-23
+**Commit**: `822b114`
+**Step**: 1 (Feature engineering — Relative/Position family)
+
+### 1. 本轮主题 / Step
+Step 1 第三批：Relative / Position family + §3.1.B raw sibling
+`ret_5d` 补齐。
+
+### 2. 本轮目标
+- 建 `core/factors/base_relative.py`（2 primitives）
+- generate_all_factors 加 `_baseline_relative_factors`，产出 3 个新因子
+- 注册到 `RESEARCH_FACTORS`
+- 10 个新单测
+- 完成 Step 1 的因子家族覆盖（3 个 base_*.py 模块）
+
+### 3. 为什么这轮优先做它
+R01 Returns、R02 Volatility/Range 落地后，Relative/Position 是 PRD
+§3.1.A 最后一个 "真缺" 家族：`dist_52w_high` (§D4 窗口 252)、
+`rel_spy_5d`（当前最短 benchmark-relative 是 21d）。顺便把 §3.1.B
+要求的 `ret_5d` raw sibling 落下（最小 scope 一起合入，避免 R04 还要
+插因子层）。
+
+### 4. 做了什么
+- `base_relative.py`:
+  - `dist_from_rolling_max(price_df, window=252)`
+  - `relative_return(price_df, benchmark_col, lookback)`
+- `factor_generator._baseline_relative_factors`:
+  - `ret_5d` (raw, 未 sign-flip)
+  - `dist_52w_high` (window=252)
+  - `rel_spy_5d`
+- `RESEARCH_FACTORS` +3 名字
+- 10 tests 覆盖 non-positive / zero-at-new-high / post-peak 衰减 /
+  benchmark-self 恒等 / strong-stock 正 rel-ret / weak-stock 负 rel-ret
+  + 3 异常路径
+
+### 5. 修改了哪些文件
+```
+A  core/factors/base_relative.py            (+90)
+M  core/factors/factor_generator.py         (+30)
+M  core/factors/factor_registry.py          (+8)
+A  tests/unit/factors/test_base_relative.py (+110)
+```
+
+### 6. 跑了哪些测试 / 实验
+- 目标测试 10/10 pass
+- 完整 suite: **1242 passed** (+10 from R02), 1 skipped, 1 xfailed
+- Drift test 自动通过（3 新名字同时在 generator + registry）
+
+### 7. 结果如何
+- PRD §6.2 三大因子家族（Returns / Range / Relative）全部落地
+- Step 1 因子家族覆盖完成。剩下：label mode 扩展 (R04) + mask 暴露 (R05)
+- `dist_52w_high` 在 A 持续上涨时 dist=0（通过验证），B 跌破后 dist<0
+- `rel_spy_5d` 对 SPY 自己等于 0（benchmark self-identity）
+
+### 8. 当前发现的新问题 / 新机会
+- 观察：现有 `_relative_strength_factors` 里 `rs_vs_spy_21d` 等用的是
+  类似 `relative_return` 的计算，但各自内联实现。Step 1 完成后可考虑
+  把 `_relative_strength_factors` 也切到共享 helper — 非本 PRD scope
+- 观察：`dist_52w_high` 和 `max_dd_126d` 在概念上对称（一个 dist-from-
+  high，一个 max drawdown over window），但 window 不同（252 vs 126）。
+  这可能是两个独立信号，研究侧都保留
+
+### 9. 剩余风险
+- 无新风险。纯增量
+
+### 10. 下一轮建议方向
+- **R04 (建议)**: `compute_forward_returns` 扩展 `mode ∈ {cc, oc, oo}`。
+  现状只有 cc 模式（close-to-close）；oc (close to next-day close 基于
+  open 执行) 和 oo 需要 open_df 输入。估计 R04 包含接口扩展 + 5-8 测试
+- R05: mask 暴露（admission / tradability / combined）— 连接 Step 2
+
+### 11. Halt 条件检查 (§15.3)
+全部通过。继续 R04。
