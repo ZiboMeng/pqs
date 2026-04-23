@@ -7342,3 +7342,68 @@ document 完整。
 ### 11. Halt 条件检查 (§15.3)
 - 条件 7 仍 active
 - 其他通过
+
+---
+
+## R-feat-v1-round-23
+
+**时间**: 2026-04-23
+**Step**: 7 extension (save R18-R22 finding as formal FactorCandidate YAML)
+
+### 1. 本轮主题
+R18-R22 surface 的 "quality-gated overnight reversal" 是 loop 产出的
+strongest research lead；保存为正式 structured FactorCandidate YAML，
+给未来 user-driven review 和 LLM funnel 留下 hand-off。
+
+### 2. 本轮目标
+- 新 YAML 在 `research/llm_candidates/feat_v1_round_01/`
+- 充分 document 实证 findings（cross-proxy IR, Q4 decay, horizon）
+- `compute_fn_path: null` — 作 PROPOSAL 不作 auto-run，遵循 PRD §2.2
+  "LLM 不是最终裁判" 原则
+- 确认 funnel 正确 route 到 NEEDS_HUMAN_REVIEW
+
+### 3. 为什么这轮优先做它
+R18-R22 数据已齐全；再不落成结构化 YAML 就散落在 ralph_loop_log.md 里
+不易检索。§9.1 授权 sidecar 产 3-6 高质量候选 — 本轮是使用这项授权。
+
+### 4. 做了什么
+- 新 YAML 30 行 + full expected_edge / expected_risk / failure_modes /
+  novelty_vs_existing_factors
+- 触发 funnel shape-only check → NEEDS_HUMAN_REVIEW (correct verdict
+  for a candidate without compute_fn_path)
+
+### 5. 修改了哪些文件
+```
+A  research/llm_candidates/feat_v1_round_01/
+     overnight_reversal_quality_gated_1d.yaml  (+30)
+```
+
+### 6. 跑了哪些测试 / 实验
+- `llm_factor_propose --skip-data` verdict = NEEDS_HUMAN_REVIEW ✓
+- Reason: "no compute_fn or price_df — candidate is a proposal; human
+  must implement before IC screen" — exactly intended routing
+
+### 7. 结果如何
+- R18-R22 finding 正式存档为 structured candidate
+- 98 total candidates now in research/llm_candidates/ (97 + 1 new)
+- 验证 funnel PROPOSAL 路径工作正常
+
+### 8. 当前发现的新问题 / 新机会
+- 新 candidate dir `feat_v1_round_01/` 暗示 future "feat_v1_round_02"
+  的可能 — 但本 loop 不会产第二个，因为额外数据收集会触发 §15.4 限制
+- R18-R22 finding 现在有 2 个 canonical 位置：
+  - `docs/20260420-ralph_loop_log.md::R-feat-v1-round-{18,19,20,21,22}`
+    (narrative)
+  - `research/llm_candidates/feat_v1_round_01/overnight_reversal_quality_gated_1d.yaml`
+    (structured)
+  - 两者 cross-reference
+
+### 9. 剩余风险
+- 该 YAML 没有 compute_fn 实现 — 但这是 deliberate (PROPOSAL 需要
+  human review 批准，然后才实现)
+
+### 10. 下一轮建议方向
+- Loop 产出实质价值完结；后续仅 cosmetic
+
+### 11. Halt 条件检查 (§15.3)
+全部通过
