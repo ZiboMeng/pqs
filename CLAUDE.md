@@ -1056,6 +1056,29 @@ limit + min_level gating built-in. Credentials via env var expansion
 
 ### Current TODO Checklist
 
+**Deep Mining 50-round (2026-04-22 COMPLETE)** —
+see `docs/20260422-deep_mining_50round_final_synthesis.md`. 7 tracks
+× 50 rounds autonomous execution finished. 5 user decisions were
+pending; some resolved via RCMv1 downstream work.
+
+**RCMv1 20-round (2026-04-24 COMPLETE)** — Research Composite Miner v1 +
+12 orthogonal features. Key deliverables:
+- R15 **leakage fix**: `evaluate_composite(lag=1)` default (was 0).
+  Pre-fix shared-close[t] IC values were inflated ~10x.
+- R17 **converged spec** `{beta_spy_60d, drawup_from_252d_low,
+  days_since_52w_high, amihud_20d}` IC_IR +0.50 (formerly +4.77
+  pre-fix).
+- R18 acceptance PASS (4/4 walk-forward folds + 6/6 regimes positive).
+- R20 S1 Research Candidate promotion memo `docs/20260424-rcm_v1_s1_candidate_memo.md`
+  (doc-only; does NOT touch production_strategy.yaml).
+- See `docs/20260424-rcm_v1_final_synthesis.md`.
+
+**Codebase audit 3-round (2026-04-24 COMPLETE)** —
+`docs/20260424-prd_codebase_audit_3round.md`. R1 core library (27
+modules, 0 bugs) + R2 scripts/IO (57 scripts + 13 modules, 0 bugs)
++ R3 tests + README sync + baseline rebuild. Launch:
+`bash scripts/start_codebase_audit_loop.sh`.
+
 **Deep Mining Phase PRD** (`docs/20260421-prd_deep_mining_50round.md` v1.1) —
 50-round **AUTONOMOUS** active phase. 7 tracks: daily+ML (R1-R15),
 intraday (R16-R25), DSL (R26-R33), universe expansion (R34-R41),

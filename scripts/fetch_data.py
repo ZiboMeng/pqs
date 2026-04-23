@@ -37,7 +37,23 @@ logger = get_logger("fetch_data")
 
 _DEFAULT_START_DATE  = "2007-01-01"
 _INTRADAY_FREQS      = ["60m", "30m", "15m"]
-_INTRADAY_LOOKBACK_DAYS = 700   # yfinance 60m 免费限制约 730 天
+# yfinance per-freq lookback limits:
+#   60m  → ~730 days
+#   30m  → 60 days
+#   15m  → 60 days
+#   5m   → 60 days
+#   1m   → 30 days
+# Requesting beyond the limit causes yfinance to return empty data with
+# a "requested range must be within the last N days" error. Size each
+# request to stay inside the safe window.
+_INTRADAY_LOOKBACK_DAYS = {
+    "60m": 700,
+    "30m": 55,
+    "15m": 55,
+    "5m":  55,
+    "1m":  25,
+}
+_INTRADAY_LOOKBACK_FALLBACK = 55    # unknown freq → conservative 55d
 
 
 def get_all_symbols(cfg) -> dict:
@@ -119,6 +135,12 @@ def download_intraday(
         for freq in freqs:
             try:
                 end = pd.Timestamp.today()
+                max_lookback_days = _INTRADAY_LOOKBACK_DAYS.get(
+                    freq, _INTRADAY_LOOKBACK_FALLBACK,
+                )
+                # Hard floor: never request a start earlier than yfinance
+                # permits for this freq, or yfinance returns empty data.
+                earliest_start = end - pd.Timedelta(days=max_lookback_days)
 
                 if not full:
                     last_date = store.get_last_date(sym, freq)
@@ -129,9 +151,19 @@ def download_intraday(
                             continue
                         start = last_date - pd.Timedelta(days=5)
                     else:
-                        start = end - pd.Timedelta(days=_INTRADAY_LOOKBACK_DAYS)
+                        start = earliest_start
                 else:
-                    start = end - pd.Timedelta(days=_INTRADAY_LOOKBACK_DAYS)
+                    start = earliest_start
+
+                # Clamp start to yfinance's per-freq window.
+                if start < earliest_start:
+                    logger.debug(
+                        "[%s/%s] start %s predates yfinance %dd window; "
+                        "clamping to %s",
+                        sym, freq, start.date(), max_lookback_days,
+                        earliest_start.date(),
+                    )
+                    start = earliest_start
 
                 logger.info("[%s] 下载 %s (from %s)...", sym, freq, start.date())
                 result = provider.fetch_intraday([sym], freq=freq, start=str(start.date()))

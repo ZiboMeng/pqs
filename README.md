@@ -56,18 +56,20 @@
 - **最大回撤 15-20%**，黑天鹅中不差于 SPY
 - **OOS walk-forward IR ≥ 0.20**（promote 到生产的门槛）
 
-### 1.4 当前状态（2026-04-22, post deep-mining 50-round）
+### 1.4 当前状态（2026-04-24, post RCMv1 + 3-round audit）
 
 - **生产策略**: `config/production_strategy.yaml` (M1 单一真源，当前 `status: conservative_default`；post-fix validated best **尚未存在** — pack v2 在 50-round R49 仍拒绝唯一候选 `6d15b735a64c`)
-- **Universe**: 52 交易标的 = `seed_pool` 32（含 Mag7 + SPY/QQQ/GLD + leveraged + 20 个 R28 扩容 common stocks，`K` 2026-04-21 因 Kellanova 退市移除）+ 11 sector ETFs + 5 factor ETFs + 4 cross-asset。另有 3 个 macro_reference（^VIX/^TNX/DX-Y.NYB）只作 features
-- **Factor registry**: **7 PRODUCTION + 41 RESEARCH**（deep-mining R7 加 `spy_trend_gated_mom_63d`、R10 加 `weak_market_relative_strength_63d`），通过 `test_factor_registry.py` 强一致
+- **Universe**: **79 交易标的** = `seed_pool` 59（含 Mag7 + SPY/QQQ/GLD + leveraged + R28 扩容 common stocks + R38 扩容；`SQQQ` + `SOXS` 在 blacklist）+ 11 sector ETFs + 5 factor ETFs + 4 cross-asset。另有 3 个 macro_reference（^VIX/^TNX/DX-Y.NYB）只作 features
+- **Factor registry**: **7 PRODUCTION + 64 RESEARCH**（RCMv1 在 RESEARCH 里加 12 个 orthogonal features，deep-mining R7/R10 各加一个），通过 `test_factor_registry.py` 强一致
 - **Alignment**: runtime WARN 模式（M3）；fingerprints hash 对 yaml 匹配
 - **Cross-ticker DSL**: `config/cross_ticker_rules.yaml` **enabled: true**，**5 条规则**（R24 加 Rule 4 `leveraged_etfs_dual_confirmation` + Rule 5 `xlu_outperformance_signals_defensive_rotation`）；M10 完成 production 集成（`core/signals/cross_ticker_wrapper.py`），`run_backtest.py` + `run_paper.py` 启动时默认应用；`--no-cross-ticker-rules` 可关闭；R23 A/B 测试证明 +2.3pt CAGR alpha，R25 stress 揭示 Rule 2/5 在 COVID V-recovery 下有非对称伤害
 - **数据**: 日线 2007-2026 / 60m intraday 2015-2026 / 1m 2015-2026（部分）/ S&P 500 pool 513 symbols (R34 sync)
-- **Mining archive**: 302 trials / 12 lineages (R1 Phase B 之前 ~40, deep-mining 新增 262); 1 spec 过 archive OOS+QQQ gate (`6d15b735a64c`) 但 fresh backtest FAIL
-- **测试**: 见 `data/baseline/latest.json`（跑 `scripts/build_research_baseline_snapshot.py` 刷新；当前 snapshot = **1211 passed + 1 skipped**, 0 xfailed）
+- **Mining archive**: Production `data/mining/archive.db` = 302 trials / 12 lineages (R1 Phase B ~40 + deep-mining 262). Research `data/mining/rcm_archive.db` = 222 trials / 3 lineages (RCMv1 R13 pre-fix + R16/R17 post-fix lag=1 converged + R19 random baseline); 1 converged spec `f24aefecc91a` 通过 research acceptance (S1 Research Candidate memo `docs/20260424-rcm_v1_s1_candidate_memo.md`)
+- **测试**: 见 `data/baseline/latest.json`（跑 `scripts/build_research_baseline_snapshot.py` 刷新；当前 snapshot = **1341 unit + 45 integration passed, 1 skipped + 1 xfailed**）
 - **Framework**: M0-M8 + M10 + M13 + M15 + M16 已交付。详 `docs/20260421-prd_framework_completion.md`
-- **Deep-mining 50-round (2026-04-22 complete)**: 7 tracks × 50 rounds autonomous execution 结束。详 **`docs/20260422-deep_mining_50round_final_synthesis.md`**。**5 个 user decisions 等响应**（universe 扩容 v3 / drawup demotion / DSL Rule 2 weight / XGB R45 ensemble / post-decision mining resubmit）
+- **Deep-mining 50-round (2026-04-22 complete)**: 7 tracks × 50 rounds autonomous execution 结束。详 **`docs/20260422-deep_mining_50round_final_synthesis.md`**
+- **RCMv1 20-round (2026-04-24 complete)**: Research Composite Miner v1 + 12 orthogonal features + R15 leakage fix (`lag=1` default in IC) + R17 TPE-converged 4-feature defensive composite + R18 acceptance passed + R19 due diligence + R20 S1 promotion memo. 详 **`docs/20260424-rcm_v1_final_synthesis.md`**
+- **Codebase audit (2026-04-24)**: 3-round audit found **0 bugs** across 27 core modules + 57 scripts + 13 I/O modules; full test suite 1341 unit + 45 integration pass
 
 ---
 
@@ -152,7 +154,7 @@ pqs/
 ├── CLAUDE.md                    ← Claude Code 专用 instructions + 历史
 ├── config/                      ← 所有 YAML 配置
 │   ├── system.yaml              - 资本 / 路径 / 日志
-│   ├── universe.yaml            - 交易 universe 定义（52 symbols）
+│   ├── universe.yaml            - 交易 universe 定义（79 symbols）
 │   ├── production_strategy.yaml ⭐ - **生产策略单一真源** (PRD M1)
 │   ├── backtest.yaml            - 回测 + mining 阈值
 │   ├── risk.yaml                - 风险约束（position limits, kill switch 等）
@@ -184,7 +186,7 @@ pqs/
 │   ├── notify/                  - 消息推送
 │   └── logging_setup.py         - 全局 logging 初始化
 ├── scripts/                     ← 全部 CLI 入口（详见 §8）
-├── tests/                       ← pytest 套件（1211 passed, 1 skipped）
+├── tests/                       ← pytest 套件（1341 unit + 45 integration pass, 1 skipped + 1 xfailed）
 │   ├── unit/
 │   └── integration/
 ├── data/                        ← 数据目录（gitignored）
@@ -272,7 +274,7 @@ python scripts/build_catalog.py                # coverage 目录
 # 若项目 Python 不在 PATH，用 env 绝对路径（WSL/conda 常见）
 PY=/home/zibo/miniconda3/envs/pqs/bin/python
 
-$PY -m pytest -q                        # 应该 ≈ 1211 passed + 1 skipped, 0 xfailed
+$PY -m pytest -q                        # 应该 ≈ 1341 unit + 45 integration pass, 1 skipped + 1 xfailed
 $PY scripts/run_backtest.py --help      # 验证 CLI 能进
 bash scripts/run_all.sh check           # 环境自检
 ```
@@ -1400,9 +1402,9 @@ rm .claude/ralph-loop.local.md
 
 ### 14.1 结构
 
-- `tests/unit/<module>/test_*.py` — 单元（~1180 tests, ≈ 100s 跑完）
-- `tests/integration/test_*.py` — 集成（~30 tests, I/O 密集）
-- 合计 **1211 passed + 1 skipped, 0 xfailed** (2026-04-22, post deep-mining 50-round; 核对 `data/baseline/latest.json`)
+- `tests/unit/<module>/test_*.py` — 单元（1341 tests, ≈ 86s 跑完）
+- `tests/integration/test_*.py` — 集成（46 tests, ≈ 42s, I/O 密集）
+- 合计 **1386 pass + 1 skipped + 1 xfailed** (2026-04-24, post RCMv1 + audit; 核对 `data/baseline/latest.json`)
 
 ### 14.2 运行
 
@@ -1607,7 +1609,7 @@ df = store.load("SPY", freq="1m", fallback="auto")  # 自动尾部补全
 ### 17.1 Phase B (LLM-Round 1-50, 2025-2026 early)
 - 基础架构 / kill switch / cost model / walk-forward OOS / regime detection
 - Best strategy at end: multi_factor CAGR 19%, Sharpe 0.98, MaxDD -19.7%
-- 745 passing tests
+- 745 passing tests (at end of Phase B; historical value, current count is in `data/baseline/latest.json`)
 
 ### 17.2 Phase C (iteration 1-19, 2026-04-17+)
 - 19 次 loop 补齐测试 gap + bug 修
@@ -1673,7 +1675,7 @@ df = store.load("SPY", freq="1m", fallback="auto")  # 自动尾部补全
 ### 17.7 未解 blockers (post 50-round)
 - **OOS IR ≥ 0.20 promote threshold 仍未跨过**（50-round best OOS IR 是 LLM-round-28 spec `6d15b735a64c` 的 +0.292，但 R49 v2 pack 的 `full_period_fresh_backtest` gate 揭示 -10.33pt CAGR vs QQQ）
 - **factor→forward-return 在 2021+ 系统性负**（R42/R43/R44/R47 跨 model class 一致 OOS R² ≤ 0）
-- **universe tech-concentrated**：当前 52 symbols 中约 10-12 个 alpha generators；S&P 500 pool audit (R35) 显示 177 α>3% 候选可用
+- **universe tech-concentrated**：当前 79 symbols 中约 10-12 个 alpha generators；S&P 500 pool audit (R35) 显示 177 α>3% 候选可用
 - 突破需求：universe 扩容 (R38 proposal 等授权) / 新数据源 (microstructure / order flow / sentiment) / structurally new factor family
 
 ### 17.9 Deep Mining Phase (2026-04-22, ✅ **50 rounds COMPLETED**)
@@ -1709,6 +1711,38 @@ df = store.load("SPY", freq="1m", fallback="auto")  # 自动尾部补全
 5. Post-decision-1 mining resubmit
 
 **Launch command** (historical): `/ralph-loop:ralph-loop ... --max-iterations 50 --completion-promise DEEPDONE`
+
+### 17.10 Research Composite Miner v1 (2026-04-24, ✅ **20 rounds COMPLETED**)
+
+详 `docs/20260424-prd_research_composite_miner_v1.md` + ⭐ `docs/20260424-rcm_v1_final_synthesis.md` + S1 candidate memo `docs/20260424-rcm_v1_s1_candidate_memo.md`
+
+**Deliverables**:
+- 12 新 orthogonal features 加入 `RESEARCH_FACTORS`（Family A/B/C/D，PRD §5.2）
+- 3 plumbing prereqs: multi-benchmark generator (SPY+QQQ), residualize helper, 8 downstream scripts 升级
+- `research_mask` hardening（panel/miner/diagnostics 共用）
+- `core/mining/research_miner.py`（~720 LOC）: FamilyConfig + sampler + evaluator + objective + ResearchMiner class
+- `core/mining/rcm_archive.py`（~300 LOC）: 独立 SQLite archive `data/mining/rcm_archive.db`
+- 4 scripts: `run_research_miner.py` / `analyze_research_miner_run.py` / `acceptance_research_composite.py` / `weight_sensitivity_research_composite.py`
+- 22 新单测 (`test_research_miner.py` + `test_rcm_archive.py`)
+
+**关键 findings**:
+- **R15 leakage fix (critical)**: pre-fix `mean_rev_sma20` 看似 IC=+0.33 实为 shared-close[t] 伪信号；修 `evaluate_composite(lag=1)` 后消失到 -0.005。所有 pct_change-based factor 受影响
+- **R16-R17 post-fix re-mining**: TPE 收敛到一个 4-feature defensive composite：
+  `{beta_spy_60d, drawup_from_252d_low, days_since_52w_high, amihud_20d}`
+  IC_IR +0.50 (vs R13 pre-fix +4.77，10× 更现实)
+- **R18 acceptance**: 4/4 walk-forward folds 正、6/6 regime 正、CRISIS +1.59 最强（defensive 语义正确）
+- **R19 due diligence**: TPE +0.52 vs Random +0.34（TPE 真找到 basin）；weight sensitivity IR 范围 [+0.38, +0.51] std 0.032（parameter-flat）
+- **R20 S1 promotion memo**: 按 User PRD 2 §6 schema 写成，**doc-only**（未触碰 production_strategy.yaml）
+
+### 17.11 Codebase Audit 3-Round (2026-04-24, ✅ COMPLETED)
+
+详 `docs/20260424-prd_codebase_audit_3round.md`
+
+- R1: core library (27 modules) — 0 bugs
+- R2: scripts + I/O (57 scripts + 13 modules) — 0 bugs
+- R3: tests + README sync + baseline rebuild（本轮）
+
+**Launch**: `bash scripts/start_codebase_audit_loop.sh`
 
 ### 17.8 Framework Completion (2026-04-21+，优先级高于恢复 mining)
 
