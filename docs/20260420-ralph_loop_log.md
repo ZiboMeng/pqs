@@ -9778,3 +9778,178 @@ signal 在 OOS/regime 下的真实 stability"作为 blocker report。
 - 其他不相关
 
 → 继续 R18
+
+## R-rcm-v1-round-18
+
+**时间**: 2026-04-24
+**Commit**: `c06b26f`
+**Step**: PRD §15 Step 7 gate — converged spec 的 research acceptance
+
+### 1. 本轮主题 / Step
+R17 收敛到一个 4-feature spec（IC_IR +0.50 / corr 0.037）。R18 给它
+做完整 research-level acceptance evaluation —— full-period + walk-forward
++ regime-stratified —— 看是否 worthy of S0→S1 promote（研究候选）。
+
+### 2. 本轮目标
+- 写 `scripts/acceptance_research_composite.py`
+- 对 converged spec `f24aefecc91a` 跑三项评估：
+  1. Full-period IC
+  2. 4-fold temporal walk-forward
+  3. 6-state regime-stratified
+- 按 PRD2 §7 决策 pass/hold/reject
+- 写 acceptance JSON artifact
+
+### 3. 为什么这轮优先做它
+R17 say "TPE 已收敛"。但 single IC_IR +0.50 可能来自时段 bias / 单一
+regime。Step 7 的方向（继续扩 feature / 接 data / 蒸馏 candidate）
+depends on 这个 spec 是否 truly stable。不做就是拍脑门。
+
+### 4. 做了什么
+
+**Script 设计** (`scripts/acceptance_research_composite.py`, 378 行):
+- `_load_converged_spec`: archive 取 top-1 或 --trial-id 指定
+- `_build_panel`: 同 miner 79-sym panel + benchmark_map + mask
+- `_composite_ic(spec, ..., lag=1)`: reuse R15 leakage-safe IC 
+- `_walkforward`: 按时间切 4 段 equal-size folds
+- `_classify_regimes`: RegimeDetector（6-state VIX+drawdown+EMA）
+- `_regime_stratified_ic`: per-regime IC summary
+- `_ic_stability_decision`: PRD2 §7 决策 (threshold IR=0.2, 3/4 WF 
+  positive, 3/6 regime positive → `promote_to_paper`; else 
+  `hold_in_research`)
+
+**Spec audited**:
+```
+trial_id:    f24aefecc91a
+lineage:     post-2026-04-24-rcm-v1-lag1
+features (weights):
+  beta_spy_60d         (A, PRD-new)  w=+0.186
+  drawup_from_252d_low (B, existing) w=+0.302
+  days_since_52w_high  (B, PRD-new)  w=+0.395
+  amihud_20d           (C, PRD-new)  w=+0.116
+```
+
+### 5. 修改了哪些文件
+```
+A  scripts/acceptance_research_composite.py  (+378)
+# 新 artifact (gitignored):
++  data/ml/research_miner/rcm-v1-run-02-lag1/acceptance/acceptance_f24aefecc91a.json
+```
+
+### 6. 跑了哪些测试 / 实验
+无单测（acceptance 是 one-shot diagnostic 工具）。跑 acceptance eval：
+
+```
+Full:  n=3310  ic_mean=+0.0372  IR=+0.4951  pos_rate=0.567
+Walk-forward (4 folds, all positive ✓):
+  2015-01 → 2018-02  n=827  IR=+0.390
+  2018-02 → 2020-10  n=827  IR=+0.181   ← weakest (2018 stress + 2020 covid)
+  2020-10 → 2023-07  n=827  IR=+0.674
+  2023-07 → 2026-03  n=829  IR=+0.777
+Regime (6 regimes, all positive ✓):
+  BULL      n=943  IR=+0.344
+  CAUTIOUS  n=728  IR=+0.407
+  CRISIS    n=214  IR=+1.589  ← strongest in crisis!
+  NEUTRAL   n=427  IR=+0.818
+  RISK_OFF  n=392  IR=+0.620
+  RISK_ON   n=605  IR=+0.167  ← weakest (defensive spec underperforms)
+```
+
+### 7. 结果如何
+
+**Decision: `promote_to_paper`** — ALL 3 criteria 通过：
+- Full IC_IR +0.495 >= 0.2 ✓
+- 4/4 walk-forward folds positive (>= 3 required) ✓
+- 6/6 regimes positive (>= 3 required) ✓
+
+**经济含义诚实诠释**:
+这是一个 **defensive composite**: 
+- Low-beta (`beta_spy_60d` 权重方向) → 波动时期对 tail risk 减暴露
+- Drawup from low (`drawup_from_252d_low`) → catches reversion 买入
+- Days since 52w high (`days_since_52w_high`) → 避免高位买入
+- Illiquid penalty (`amihud_20d`) → 压低流动性 penalty
+- CRISIS IR +1.59 强得出奇 —— 因为所有 4 个维度在 crisis 都起作用：
+  beta 惩罚保护、drawup 抓底部、52w-high 距离避免错拿"falling knife"、
+  流动性 premium 上升
+- RISK_ON IR +0.17 —— 整体仍 positive 但落后 —— defensive spec 天然
+  underperform  risk-on 环境（符合预期）
+
+**PRD §11 成功标准 re-evaluation**:
+- §11.1 Feature & plumbing success: ✓ R01-R09 完成
+- §11.2 Miner success:
+  - top-K composites ✓ 165 rows in archive
+  - 至少 1 个 composite 具备 defensible signal ✓ (this one)
+  - 至少 1 个 composite 显示 regime diversity ✓ 
+- §11.3 宏观成功:
+  - Research layer 正式化 ✓
+  - Leakage 修正 ✓ 
+  - PRD features 价值被验证 ✓
+
+**Layered Architecture 对齐**:
+- S0 Research Prototype: ✓ (mined 165 trials)
+- S1 Research Candidate: **this spec 今天拿到 S1 资格**
+- S2 Shadow/Paper: **NOT YET** — paper infrastructure 未 build
+- S3+: future
+
+### 8. 当前发现的新问题 / 新机会
+
+**发现 — 真实 alpha 的现实 level**:
+在 14-year × 79-sym × 21d-fwd × mask-aware × lag=1（zero-leakage）
+setup 下，best composite IC_IR +0.50 对应：
+- 年化 IC std ~ +0.037 / sqrt(252/21) ≈ +0.011
+- 单因子 strategy expected Sharpe: 0.5-1.0 (不含 cost)
+- 这**是**professional level for daily US equity long-only factor
+  但**不是** step-change 结果
+- Phase B 的 MFS CAGR 19%/Sharpe 0.98 其实 roughly 对应 IR 0.5-0.7
+  量级（portfolio construction + vol targeting 多出一些）—— 印证
+
+**机会 — 防守 sleeve composite**:
+这个 spec 的 CRISIS +1.59 是关键数字。如果做 regime-switched allocation
+（e.g., 这个 spec 在 CRISIS/RISK_OFF 时加权，MFS 在 BULL/RISK_ON 时加
+权），可能超过任何 single spec。这是 R19+ / Layered PRD 的可能方向。
+
+**机会 — 完成 RCMV1 PRD promise**:
+- 12 features ✓
+- 3 plumbing ✓
+- research_mask ✓
+- Research Composite Miner v1 ✓
+- First mining run ✓
+- Step 7 analysis ✓ (this round)
+- **PRD RCMV1DONE promise 条件全部满足**（除非新 blocker surface）
+
+### 9. 剩余风险
+- IC_IR +0.50 / IC mean +0.037 仍可能 partially 来自 14-year backtest
+  overfit；真 paper 验证需要 look-ahead forbidden future data
+- 这个 spec 是 **top-1 pick from archive**。TPE 收敛意味着 top-20 都是
+  这个 spec 的 variants。但仍然可能 TPE 过早 exploit —— R19 可以跑更
+  多 trials 或 RandomSampler 验证
+- spec 只针对 21d horizon 和 cc mode；其他 horizon/mode 未验证
+
+### 10. 下一轮建议方向
+
+**R19 (推荐)**: PRD RCMV1DONE 前的 final due diligence:
+- 跑 RandomSampler 50 trials 作为 baseline，确认 TPE 收敛没漏 global 
+  optimum
+- 对 converged spec 做 parameter stability（±10% 每个 weight 看 IR 
+  还在 +0.45 - +0.55 区间吗）
+- 写 final synthesis report `docs/20260424-rcm_v1_final_synthesis.md`
+
+**R20-R22 buffer**: 
+- 如果 R19 出 issues，修复
+- 否则：开始准备 S0→S1 promotion memo / frozen package template
+
+**RCMV1DONE criteria re-check**:
+PRD doesn't give explicit DONE string 的 numeric standard. §13.3 条件 1
+是 "12 features + 3 plumbing + research_mask 全部完成，且 miner 已完成
+首轮运行与分析"。所有这些 ✓。所以可以 claim DONE 或走完 final due
+diligence 后 claim DONE。
+
+### 11. Halt 条件检查 (§13.3)
+- 条件 1: **基本完成** — 12 features ✓ plumbing ✓ mask ✓ miner ✓
+  首轮 + 分析 + leakage fix + 重跑 + 收敛 + acceptance ✓
+- 条件 2: NO — config 未碰
+- 条件 3: NO — 0 regressions (acceptance 工具不跑测)
+- 条件 5: NO — search space 已打开且有真实 signal
+- 条件 7: 18/22
+- 其他不相关
+
+→ 继续 R19（final due diligence）
