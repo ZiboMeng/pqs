@@ -173,6 +173,14 @@ reversal (R17 showed CRISIS is where reversal is strongest).
 **Risk**: If Q4 decay is (a) signal death, live use exposes to trap.
 If (b) regime artifact, signal will recover in next drawdown.
 
+**R20 follow-up (2026-04-23 late)** — 3-sibling cross-check (overnight
+/ 1d / 2d × rolling_sharpe_126d) shows Q4/Q2 IR ratios 0.42-0.54, with
+the 2d sibling worst-decayed (0.42). This VIOLATES the regime-artifact
+prediction (longer horizon should be less regime-sensitive), favoring
+the **signal-decay** hypothesis (HFT-era arbitrage compression of
+quality-weighted reversal). User should weight E3 (ignore) and E1
+(RESEARCH archive only) above E2 (MultiFactorSpace inclusion).
+
 **User-decision for Option E**:
 - E1: Add `quality_weighted_overnight_reversal` to RESEARCH_FACTORS
   + deep-check formal candidate funnel (does not require
