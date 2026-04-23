@@ -8617,3 +8617,130 @@ CompositeMetrics 字段与 PRD §8.4 要求一一对应:
 - 其他不相关
 
 → 继续 R11
+
+## R-rcm-v1-round-11
+
+**时间**: 2026-04-24
+**Commit**: `60e05bb`
+**Step**: Step 5 Miner part 3/4 — Optuna objective + ResearchMiner entry
+
+### 1. 本轮主题 / Step
+Step 5 part 3：PRD §8.6 weighted-sum objective + Optuna 集成入口。R10
+让 spec → metrics 可算，R11 把 metrics → scalar 让 Optuna 能优化。
+
+### 2. 本轮目标
+- `ObjectiveWeights` frozen dataclass (PRD §8.6 默认权重)
+- `compute_objective(metrics, benchmark_excess, regime_stddev, weights)`
+  纯函数 + NaN-safe
+- `TrialResult` (spec, metrics, objective) 记录一次 trial
+- `ResearchMiner` 入口类:
+  - `run_trial(trial)` Optuna 兼容签名
+  - `mine(n_trials, seed)` 包装 Optuna study
+  - `top_k(k)` 返回排序 trials
+- 10 新单测覆盖默认值 / 公式 / NaN / 类结构 / 小规模 Optuna 集成
+
+### 3. 为什么这轮优先做它
+R10 后 spec → metrics 已通；没有 objective scalar，Optuna 无法 drive
+sampling。R11 是把 R09+R10 组件 stich 成可跑 study 的最后一步。
+
+### 4. 做了什么
+
+**ObjectiveWeights**（frozen，防误改）:
+```
+w_ir=1.0   w_turnover=0.5   w_corr_conc=1.0
+w_bench_excess=0.3   w_regime_stddev=0.2
+```
+
+**compute_objective**:
+`1·IR - 0.5·T - 1·C + 0.3·E - 0.2·S`
+- NaN IR → `-inf` (无信号 → Optuna 立即排低)
+- 其他 NaN（turnover/corr/bench/regime）→ 0 (当做 "no penalty"
+  而非 fail，因为 n_features=1 的 corr_concentration 本就是 0)
+
+**TrialResult**：`(spec, metrics, objective)` 三元组记录。
+
+**ResearchMiner**:
+- `__init__(factor_panel_map, fwd_returns, mask=None, families=FAMILIES_V1,
+  objective_weights=None, min_families=3, max_features_per_family=2,
+  weight_step=0.05)`
+- `run_trial(trial)`: sampler → build → evaluate → objective，append
+  TrialResult 到 `self.results`
+- `mine(n_trials, seed)`: TPESampler(seed) + create_study(direction=
+  "maximize") + optimize，返回 `finite-objective` trial 列表降序
+- `top_k(k)`: 同 view 截断 k
+- v1 scope：in-memory only；R12 swap persistent rcm_optuna.db
+- v1 benchmark_excess / regime_stddev 默认 0；R13+ 接真实 benchmark
+  portfolio simulation
+
+**关键设计**:
+- `run_trial` 让 sampler 抛 `optuna.TrialPruned` 时 Optuna 会记录但不
+  append result 到 miner.results（因为 exception 早于 append）
+- `families` kwarg 可传受限族，便于单测（panel 缺因子时不让 sampler 挑
+  不存在的名字）
+- `objective_weights` 独立于家族定义，让 CLI 可以 tune 不改家族
+
+### 5. 修改了哪些文件
+```
+M  core/mining/research_miner.py             (+159)
+M  tests/unit/mining/test_research_miner.py  (+207)
+```
+
+### 6. 跑了哪些测试 / 实验
+- `pytest tests/unit/mining/test_research_miner.py` **34/34 pass**（24 R09/R10 + 10 R11）
+- 完整 suite: **1319 passed** / 1 skipped / 0 regressions / 74s
+- 10 新测类型：
+  - 默认值（2）: 5 个权重字段值 + frozen 验证
+  - 公式正确性（2）: 默认 weights 手算 0.36 / custom weights 手算 1.65
+  - NaN-safe（2）: NaN IR → -inf / NaN turnover/corr/bench/regime → 按 0
+  - TrialResult（1）: 结构
+  - ResearchMiner（3）: run_trial 单次 append / top_k 排序 / 3-trial
+    Optuna 集成（受限家族避免 panel 缺因子）
+
+### 7. 结果如何
+
+**API 完整性**：
+- ResearchMiner 现在是完整可 import & run 的类
+- 与 Optuna 的集成点清洁（TrialPruned 自然传播；无 exception 时
+  append result）
+- run_trial 同时可用作 Optuna 目标（study.optimize(miner.run_trial)）
+  或用 MockTrial 单测
+
+**PRD §8.6 对齐**：
+- 公式定义：match（5 权重 ∈ 正确符号）
+- 默认权重：match PRD 示例
+- NaN 处理：pragmatic（IR=-inf 即 "no signal skip"；其他=0 即 "no
+  data yet, don't penalize"）
+
+### 8. 当前发现的新问题 / 新机会
+- `benchmark_excess` 和 `regime_stddev` v1 硬编 0：R13 做第一次真实
+  mining 前需要想清楚这两个怎么算。R13 scope 至少要一个 benchmark_excess
+  的简化计算（如 `sum(top_quintile_ret) - SPY_ret` over panel dates）
+- 当前 miner.results 会保留所有 trials（包括 pruned 的 -inf/nan）吗？
+  实际看：TrialPruned 异常被 Optuna 吞掉，所以 run_trial 没执行到 append
+  那一步，results 只含成功评估的 trial。**不会泄漏 -inf**。top_k/mine
+  里再 filter 是双保险，但实际已不必要
+- `mine()` 每次创建新 in-memory study，多次调用不会累加 —— R12 做
+  persistence 时需清晰语义（resume vs fresh）
+
+### 9. 剩余风险
+- 无。pure function + 类仅读 self 状态；无 side effect 到文件系统
+
+### 10. 下一轮建议方向
+- **R12 (建议)**: rcm_archive.db SQLite 持久化
+  - Schema：trials (trial_id, study_id, spec_json, metrics_json,
+    objective, timestamp, lineage_tag)
+  - Writer：ResearchMiner 注入 DB_PATH，run_trial 末尾 insert
+  - rcm_optuna.db：Optuna `storage=f"sqlite:///..."` 让 study resume
+  - 独立于 MiningArchive（production DB）避免污染
+- R13: First real mining run（79-sym panel + 12 PRD features + existing
+  research set，~200 trials）
+- R14: Top-K 分析 + diagnostics
+
+### 11. Halt 条件检查 (§13.3)
+- 条件 2: NO — Invariant 未碰
+- 条件 3: NO — 0 regression（1319 passed）
+- 条件 5: NO — No config edits
+- 条件 7: 11/22
+- 其他不相关
+
+→ 继续 R12
