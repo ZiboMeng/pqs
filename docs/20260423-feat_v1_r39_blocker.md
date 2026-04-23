@@ -181,6 +181,14 @@ the **signal-decay** hypothesis (HFT-era arbitrage compression of
 quality-weighted reversal). User should weight E3 (ignore) and E1
 (RESEARCH archive only) above E2 (MultiFactorSpace inclusion).
 
+**R21 horizon sweep (2026-04-23 late+)**: decay worsens monotonically
+with horizon. h=1 Q4/Q2 = 0.63 (least decay, Q4 IR still -0.64).
+h=21 Q4/Q2 = 0.36 (severe decay). If user chooses Option E, the
+**h=1 horizon is the only version worth live trial** — longer horizons
+have been absorbed by arbitrage. R21 also confirmed 97 existing LLM
+candidates don't duplicate this concept — it's loop-generated, novel,
+and fully-documented (R18-R21 chain).
+
 **User-decision for Option E**:
 - E1: Add `quality_weighted_overnight_reversal` to RESEARCH_FACTORS
   + deep-check formal candidate funnel (does not require
