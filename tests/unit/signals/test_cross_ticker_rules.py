@@ -266,6 +266,69 @@ def test_regime_basket_wrong_regime_no_change():
     assert out == {"SPY": 1.0}
 
 
+def test_regime_basket_suppress_if_active_skips_blend():
+    """R25 fast-exit: in RISK_OFF regime, if SPY 5d/20d SMA bullish-crossed,
+    skip the defensive blend (V-recovery already under way)."""
+    # Build a monotonic-up SPY series: last 20 bars trending up so 5d SMA > 20d SMA
+    dates = pd.date_range("2024-01-01", periods=30, freq="B")
+    spy = pd.DataFrame({
+        "open": range(100, 130),
+        "high": range(101, 131),
+        "low": range(99, 129),
+        "close": range(100, 130),
+        "volume": [1_000_000] * 30,
+    }, index=dates)
+    rule = RegimeBasketRule(
+        name="defense",
+        regime=["RISK_OFF", "CRISIS"],
+        basket_weights={"TLT": 0.5, "GLD": 0.5},
+        override_strategy=False,
+        suppress_if={"driver": "SPY", "condition": "sma(close, 5) > sma(close, 20)"},
+    )
+    ctx = RuleContext(
+        bar_timestamp=dates[-1],
+        regime="RISK_OFF",
+        ohlcv={"SPY": spy},
+    )
+    weights = {"AAPL": 0.6, "MSFT": 0.4}
+    out = apply_rules(weights, ctx, [rule])
+    # Suppressed → blend skipped → weights unchanged (defensive basket not injected)
+    assert out == {"AAPL": 0.6, "MSFT": 0.4}
+    assert "TLT" not in out
+    assert "GLD" not in out
+
+
+def test_regime_basket_suppress_if_inactive_still_blends():
+    """If SPY 5d SMA still below 20d SMA (no recovery signal), defensive blend applies."""
+    # Build a monotonic-down SPY series: 5d SMA < 20d SMA
+    dates = pd.date_range("2024-01-01", periods=30, freq="B")
+    spy = pd.DataFrame({
+        "open": range(130, 100, -1),
+        "high": range(131, 101, -1),
+        "low": range(129, 99, -1),
+        "close": range(130, 100, -1),
+        "volume": [1_000_000] * 30,
+    }, index=dates)
+    rule = RegimeBasketRule(
+        name="defense",
+        regime=["RISK_OFF", "CRISIS"],
+        basket_weights={"TLT": 0.5, "GLD": 0.5},
+        override_strategy=False,
+        suppress_if={"driver": "SPY", "condition": "sma(close, 5) > sma(close, 20)"},
+    )
+    ctx = RuleContext(
+        bar_timestamp=dates[-1],
+        regime="RISK_OFF",
+        ohlcv={"SPY": spy},
+    )
+    weights = {"AAPL": 0.6, "MSFT": 0.4}
+    out = apply_rules(weights, ctx, [rule])
+    # Not suppressed → standard 50/50 blend → basket symbols present, normalized
+    assert "TLT" in out
+    assert "GLD" in out
+    assert sum(out.values()) == pytest.approx(1.0, abs=1e-6)
+
+
 def test_long_only_invariant_clips_negatives():
     """Rule with negative multiplier should clip to 0."""
     rule = BenchmarkTriggerRule(

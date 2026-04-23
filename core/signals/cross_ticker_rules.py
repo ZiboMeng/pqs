@@ -61,6 +61,12 @@ class RegimeBasketRule:
     regime: List[str]
     basket_weights: Dict[str, float]
     override_strategy: bool = False   # False = blend with base, True = replace
+    # Optional fast-exit / recovery trigger. When set, the rule is SKIPPED (no
+    # blend / no override) if the driver's last bar satisfies `condition`.
+    # Shape: {"driver": "SPY", "condition": "sma(close, 5) > sma(close, 20)"}
+    # Motivation: R25 deep-mining crisis stress test — V-recovery was hurt by
+    # keeping the defensive blend active after the market had already turned.
+    suppress_if: Optional[Dict[str, str]] = None
     priority: int = 100
 
 
@@ -187,11 +193,27 @@ def _parse_rule(raw: Dict[str, Any]) -> Rule:
             priority=int(raw.get("priority", 100)),
         )
     if rtype == RuleType.REGIME_BASKET.value:
+        suppress_raw = raw.get("suppress_if")
+        suppress_if: Optional[Dict[str, str]] = None
+        if suppress_raw is not None:
+            if not isinstance(suppress_raw, dict) or \
+                    "driver" not in suppress_raw or "condition" not in suppress_raw:
+                raise CrossTickerRuleError(
+                    f"Rule {name!r}: suppress_if must be dict with 'driver' and "
+                    f"'condition' keys; got {suppress_raw!r}"
+                )
+            # Validate expression shape now (fail fast); runtime eval still checks.
+            _validate_expression(str(suppress_raw["condition"]))
+            suppress_if = {
+                "driver": str(suppress_raw["driver"]),
+                "condition": str(suppress_raw["condition"]),
+            }
         return RegimeBasketRule(
             name=name,
             regime=list(raw["regime"]),
             basket_weights=dict(raw["basket_weights"]),
             override_strategy=bool(raw.get("override_strategy", False)),
+            suppress_if=suppress_if,
             priority=int(raw.get("priority", 100)),
         )
     if rtype == RuleType.MULTI_TF_CONFIRMATION.value:
@@ -294,6 +316,19 @@ def _apply_regime_basket(
 ) -> Dict[str, float]:
     if ctx.regime not in rule.regime:
         return weights
+    # Fast-exit check: if suppress_if set and driver satisfies condition, skip rule.
+    if rule.suppress_if is not None:
+        driver = rule.suppress_if["driver"]
+        driver_df = ctx.ohlcv.get(driver)
+        if driver_df is not None and not driver_df.empty:
+            try:
+                if _eval_expression(rule.suppress_if["condition"], driver_df):
+                    return weights
+            except Exception as exc:
+                logger.warning(
+                    "Rule %s suppress_if eval failed (driver=%s): %s — continuing to apply rule",
+                    rule.name, driver, exc,
+                )
     if rule.override_strategy:
         # Ensure basket weights are >= 0 (long-only) and normalize
         basket = {k: max(0.0, v) for k, v in rule.basket_weights.items()}

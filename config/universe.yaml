@@ -85,6 +85,44 @@ seed_pool:
   - MU        # semis
   - AVGO      # semis
 
+  # ═════════════════════════════════════════════════════════════════
+  # R38 v3 expansion Stage 1+2 — user-approved 2026-04-22
+  # 27 symbols added per deep-mining R34-R38 pipeline (synthesis user review)
+  # Stage 3 (10 BETA_PLUS_ALPHA) DEFERRED — awaits R39-R41 validation
+  # Lineage: `post-2026-04-22-deep-R38-stage12`
+  # ═════════════════════════════════════════════════════════════════
+
+  # Stage 1 — Diversifier Premium (11, β<0.7, strong sharpe, admission CORE)
+  - BRK-B     # financials — Berkshire, all-weather high quality
+  - TER       # industrials — test equipment, low β
+  - TJX       # discretionary — off-price retail, recession-resistant
+  - TKO       # entertainment — UFC/WWE, idiosyncratic
+  - TRGP      # energy midstream — pipeline, yield+stability
+  - TRV       # insurance — low β financial
+  - TSN       # staples — food processor
+  - TT        # industrials — HVAC/climate
+  - TXN       # semis — analog, legacy moat
+  - UNP       # industrials — rails
+  - VICI      # REITs — casino properties
+
+  # Stage 2 — Alpha-Generator Curated (16, β≈1.0, α>3%, sector-diversified)
+  - COST      # staples/discretionary — R21 α+13.3% Sharpe+1.00
+  - AXP       # financials
+  - BKNG      # discretionary — travel
+  - APD       # materials — industrial gas
+  - ABT       # health
+  - CMG       # discretionary — restaurants
+  - COP       # energy
+  - UNH       # health — managed care
+  - LLY       # health — R21 α+24.8% Sharpe+1.07 (top non-tech alpha)
+  - ISRG      # medtech — surgical robotics
+  - NEE       # utilities
+  - MCK       # health distribution
+  - CME       # financials — exchange
+  - TMO       # health — life sciences
+  - A         # health — analytical instruments
+  - ACGL      # insurance
+
 # Sector ETFs (SPDR)
 sector_etfs:
   - XLK   # Technology

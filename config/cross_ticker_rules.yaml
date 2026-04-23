@@ -41,12 +41,19 @@ rules:
     priority: 10
 
   # ─────────────────────────────────────────────────────────────────────────
-  # Rule 2: RISK_OFF / CRISIS → defensive blend
+  # Rule 2: RISK_OFF / CRISIS → defensive blend (with recovery fast-exit)
   # ─────────────────────────────────────────────────────────────────────────
   # In stressed regimes, blend 50/50 with a defensive basket of Treasuries +
   # gold + staples. override_strategy=false means the base strategy's
   # picks still get 50% weight; this is a risk dampener, not a full regime
   # override.
+  #
+  # suppress_if (deep-mining R25 stress test finding): V-recoveries (e.g.
+  # 2020 COVID) were hurt because the defensive blend stayed active after
+  # the market had already turned. The SPY 5d/20d SMA cross is sensitive
+  # enough to catch the turn a few weeks earlier than close > 50d SMA,
+  # without over-triggering on single-day noise. If user later sees whipsaw
+  # issues, add a persistence gate (e.g. require 3 consecutive days).
   - name: "defensive_blend_risk_off"
     type: regime_basket
     regime: [RISK_OFF, CRISIS]
@@ -56,8 +63,11 @@ rules:
       GLD: 0.25
       SHY: 0.15
       JNJ: 0.10
-      PG:  0.10
+      GIS: 0.10   # was PG (not in seed_pool); GIS is nearest staples analog in universe
     override_strategy: false
+    suppress_if:
+      driver: SPY
+      condition: "sma(close, 5) > sma(close, 20)"
     priority: 20
 
   # ─────────────────────────────────────────────────────────────────────────
@@ -110,7 +120,10 @@ rules:
   - name: "xlu_outperformance_signals_defensive_rotation"
     type: benchmark_trigger
     driver: XLU
-    condition: "close > sma(close, 5) and sma(close, 21) > sma(close, 50)"
+    # NOTE: Python `and` on Series triggers ambiguous-truth error; use `&` (pandas
+    # bitwise) with parens. Before this fix (pre-2026-04-22) Rule 5 silently
+    # failed every bar and was effectively disabled.
+    condition: "(close > sma(close, 5)) & (sma(close, 21) > sma(close, 50))"
     action: allow_overweight
     targets: [XLU, XLP, TLT, GLD, JNJ]  # amplify defensive names, not cyclicals
     weight_multiplier: 1.10
