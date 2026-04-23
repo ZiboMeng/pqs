@@ -7809,3 +7809,99 @@ A  tests/unit/factors/test_multi_benchmark.py  (+175)
 - 其他不相关
 
 → 继续 R03 (Family A features)
+
+---
+
+## R-rcm-v1-round-03
+
+**时间**: 2026-04-24
+**Commit**: `5e7a3e7`
+**Step**: Step 3 (Feature Family A — benchmark-relative / residual / risk)
+
+### 1. 本轮主题 / Step
+Step 3 第一批：落地 Family A 4 个 feature，消费 R01 P2 + R02 P1 的
+plumbing。
+
+### 2. 本轮目标
+- 4 feature: rel_spy_20d / rel_qqq_20d / beta_spy_60d / residual_mom_spy_20d
+- 新 `_family_a_benchmark_relative(price_df)` helper 在 factor_generator
+- 注册到 RESEARCH_FACTORS
+- 10 新单测 + drift test panel 加 QQQ
+
+### 3. 为什么这轮优先做它
+R01/R02 plumbing 就位后，Family A 直接写 feature 没有等待项。选 A 不
+选 B/C/D 是因为 A 是 PRD invariant 要求的 (QQQ benchmark) + 最能验证
+P1 plumbing 真实可用，闭环 R02 的 happy-path。
+
+### 4. 做了什么
+- `_family_a_benchmark_relative`: conditional-on-benchmark 产出 4 feature
+  - rel_spy_20d: 复用 `relative_return` helper
+  - rel_qqq_20d: 同上，当 QQQ in panel
+  - beta_spy_60d: 用 R01 `rolling_beta(daily_ret, SPY_ret, 60)`
+  - residual_mom_spy_20d: R01 `residualize_returns` → rolling(20).sum()
+- RESEARCH_FACTORS +4，带 CONDITIONAL 注释
+- Drift test 加 QQQ 到 syms list（让 rel_qqq_20d 参与 drift check）
+- 10 新测覆盖 per-feature value / shape / self-identity / warmup /
+  缺失 benchmark graceful omit / P1 map-path 端到端
+
+### 5. 修改了哪些文件
+```
+M  core/factors/factor_generator.py           (+50)
+M  core/factors/factor_registry.py            (+8)
+M  tests/unit/factors/test_factor_registry.py (+1 -1)
+A  tests/unit/factors/test_family_a.py        (+145)
+```
+
+### 6. 跑了哪些测试 / 实验
+- 目标测试 57/57 pass (tests/unit/factors 全家)
+- 完整 suite: **1299 passed** (+10 from R02), 1 skipped, 1 xfailed
+
+### 7. 结果如何
+
+**Family A 4 feature 全部落地**，具体 verification:
+- SPY self-row 在 rel_spy_20d = 0 (恒等)
+- QQQ self-row 在 rel_qqq_20d = 0
+- SPY self-beta = 1.0 (ddof=0 fix 保证精确)
+- SPY self-residual 近 0
+- Missing-benchmark graceful omit（QQQ 不在 → rel_qqq_20d 静默跳过，
+  不生成 NaN-filled bogus factor）
+- P1 map-path 端到端：caller 提供 stocks-only panel + benchmark_map
+  {SPY, QQQ}，factor 输出只包含 caller 列集（benchmark 不泄漏）
+
+**PRD §5.2 Family A 清单进度**:
+- [x] rel_spy_20d
+- [x] rel_qqq_20d
+- [x] beta_spy_60d
+- [x] residual_mom_spy_20d
+- (4/4 done this round)
+
+### 8. 当前发现的新问题 / 新机会
+- residual_mom_spy_20d 有两层 warmup（60d beta + 20d sum），合计 ~80d
+  数据才能出首个非 NaN。在长 history (2015+) panel 上无感；但对新
+  上市 ticker (< 80d) 是非 zero NaN fraction。Panel-level mask (Step 4)
+  会自动 handle。
+- `_family_a_benchmark_relative` 可以以后扩成 `_family_a_factory(
+  benchmarks=["SPY","QQQ", ...])`，支持更长 horizon 或更多 benchmark
+  —— 但本 PRD scope 仅 4 个 feature
+
+### 9. 剩余风险
+- 无。feature 层 pure function，和 P1/P2 helpers 一致
+
+### 10. 下一轮建议方向
+- **R04 (建议)**: Family B — 4 position/breakout features:
+  - range_pos_252d
+  - days_since_52w_high
+  - breakout_20d_strength (continuous)
+  - dist_from_new_high_252 (continuous)
+  全部 T1 (纯 OHLCV)，不需要 new plumbing。估 1 round 完成
+- Family C (liquidity, 3 features) + D (trend_tstat_20d, 1) 可能 R05
+  合并完成
+- 之后 R06+ 进 Step 4 mask 硬化 + Step 5 miner 本体
+
+### 11. Halt 条件检查 (§13.3)
+- 条件 2 (plumbing 失败): NO — R01/R02/R03 一气呵成
+- 条件 3 (接口回归): NO — 0 regression
+- 条件 7: 3/22
+- 其他不相关
+
+→ 继续 R04 (Family B)
