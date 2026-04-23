@@ -6769,3 +6769,96 @@ M  scripts/llm_factor_propose.py  (+30 -10)
 ### 11. Halt 条件检查 (§15.3)
 - 条件 7 仍 active
 - max-iterations 达到（16/16）— 自然退出
+
+---
+
+## R-feat-v1-round-17 (post-max-iteration buffer)
+
+**时间**: 2026-04-23
+**Step**: 6 extension (regime-stratified IC on new factors — deeper than R06 pooled IC)
+
+### 1. 本轮主题
+Regime-stratified IC for R01-R05 new factors. R06 pooled IC 给了一个
+方向指标；per-regime 看能否发现新因子有 regime-specific 强度（future
+promotion 时的 conditional-use 线索）。
+
+### 2. 本轮目标
+- 跑 per-regime spearman IC (factor vs y_cc_5d) across 6 regimes
+- 看是否任何因子在特定 regime 下显著强
+- 作为 R06 sanity 的补充
+
+### 3. 为什么这轮优先做它
+Loop 继续运行；autonomous scope 剩余 work 中这是有明确信息增益的项。
+Per-regime IC 是 factor-promotion 前的必要 sanity，特别是 §10.3 研究
+价值成功标准之一: "expanded universe 重新打开搜索空间" 需要 per-regime
+check 才能 reject "改善只来自某单一 regime"假设.
+
+### 4. 做了什么
+- 加载 79-sym panel (OHLCV)
+- 用 RegimeDetector 分类成 6 regime 标签
+- 对每个 factor × regime 计算 per-date IC，取均值
+- 对比 regime 间差异
+
+### 5. 修改了哪些文件
+无 code 改动（诊断 run only）。
+
+### 6. 跑了哪些测试 / 实验
+Regime counts: BULL 1056 / CAUTIOUS 755 / RISK_ON 735 / NEUTRAL 646 /
+RISK_OFF 144 / CRISIS 123 days (total 3459 matches panel length).
+
+**Per-regime IC (×10⁻⁴ for brevity)**:
+
+| factor | BULL | CAUTIOUS | RISK_ON | NEUTRAL | RISK_OFF | CRISIS |
+|---|---:|---:|---:|---:|---:|---:|
+| ret_1d | -0.259 | -0.251 | -0.236 | -0.262 | -0.309 | **-0.343** |
+| ret_2d | -0.159 | -0.170 | -0.159 | -0.179 | -0.216 | -0.231 |
+| overnight_ret_1d | -0.265 | -0.246 | -0.231 | -0.260 | -0.262 | **-0.307** |
+| intraday_ret_1d | +0.007 | -0.024 | -0.012 | -0.021 | -0.054 | -0.061 |
+| hl_range | -0.095 | -0.058 | -0.062 | -0.048 | -0.035 | -0.061 |
+| dollar_vol_20d | +0.009 | +0.008 | +0.006 | +0.015 | -0.010 | +0.011 |
+| ret_5d | -0.172 | -0.174 | -0.155 | -0.177 | -0.205 | **-0.285** |
+| dist_52w_high | -0.149 | -0.111 | -0.131 | -0.143 | -0.130 | **-0.183** |
+| rel_spy_5d | -0.114 | -0.141 | -0.130 | -0.136 | -0.201 | **-0.254** |
+
+### 7. 结果如何
+**两个稳健发现**:
+
+1. **方向一致跨 regime** — 所有 reversal factor 的 IC 符号全负跨 6
+   regime，hl_range 也稳负，dollar_vol_20d 近 0 稳定。**Factor direction
+   不是 regime-specific artifact**，加分 §10.3 研究价值。
+
+2. **CRISIS / RISK_OFF 放大 reversal**：
+   - `ret_1d` CRISIS -0.343 vs BULL -0.259 = 0.08 增量
+   - `ret_5d` CRISIS -0.285 vs BULL -0.172 = 0.11 增量
+   - `rel_spy_5d` CRISIS -0.254 vs BULL -0.114 = 0.14 增量（最强）
+   - `dist_52w_high` CRISIS -0.183 vs BULL -0.149 = 0.03 增量
+
+   Stress regime 下 factor alpha 更强。与直觉一致（stress 里 panic
+   overshoot 给 reversion 更多空间）。但 CRISIS n=123 dates，CI 较宽；
+   不是可单独 promote 的 level。
+
+**Sanity note**：`dollar_vol_20d` 跨 regime IC 全 ~0 — 再次证实它应
+作 mask，非 signal feature.
+
+### 8. 当前发现的新问题 / 新机会
+- **"regime-conditioned reversal" 候选方向**：如果未来 PRD 授权扩
+  MultiFactorSpace 或加新 PRODUCTION factor，`ret_5d × CRISIS-indicator`
+  或 `rel_spy_5d × RISK_OFF-indicator` 这类 interaction 是 strong lead
+- Top reversal factors (ret_1d / overnight_ret_1d) 增量在 CRISIS 最强，
+  但 absolute magnitude 差异只 0.08-0.14（相对 baseline 0.25 的 30-50%），
+  不足以 promote 单独 factor
+- 与已有 `spy_trend_gated_mom_63d` (R7 promotion, regime-gated) 的思路
+  一致：regime-gating mean-reversion 的 research candidate 值得 future
+  LLM round seed
+
+### 9. 剩余风险
+无新风险
+
+### 10. 下一轮建议方向
+- Max-iteration 已超；loop 继续的话可以做 factor-interaction 扫描（R01-R05
+  两两乘积），但边际信息增益继续递减
+- 真正 critical path 仍是 user 对 blocker doc 的 A/B/C/D 决策
+
+### 11. Halt 条件检查 (§15.3)
+- 条件 7 仍 active
+- 其他通过
