@@ -3,7 +3,7 @@
 Status: **DRAFT — awaiting current 12-round ralph-loop completion**
 Author: user-specified 2026-04-20 pre-sleep
 Trigger: if the current 12-round ralph-loop (based on
-`docs/prd_intraday_mining_loop.md`) fails to produce a promoted
+`docs/20260420-prd_intraday_mining_loop.md`) fails to produce a promoted
 strategy (PRD §5 exit criterion 1), auto-launch this phase for
 30 additional rounds.
 
@@ -183,7 +183,7 @@ QQQ hard gate（通过 evaluator 路径）→ tier 评级。
 
 本 PRD **仅在以下任一条件满足时启动**：
 
-1. 当前 12 轮 `docs/prd_intraday_mining_loop.md` 结束
+1. 当前 12 轮 `docs/20260420-prd_intraday_mining_loop.md` 结束
 2. 当前 12 轮结束后用户明确批准进入此阶段
 
 ### 8.1 Auto-launch（如果当前 12 轮未 promote）

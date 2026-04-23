@@ -106,11 +106,11 @@ print(regime.value_counts().sort_index())
 When starting a new LLM-round:
 
 1. Run all 5 commands above, paste output into the conversation.
-2. Paste `docs/llm_proposal_prompt_template.md` system prompt.
+2. Paste `docs/20260421-llm_proposal_prompt_template.md` system prompt.
 3. State the direction you want the LLM to explore (e.g. "propose 3
    intraday-momentum-interaction candidates for tech-heavy regime").
 4. Receive YAML candidates.
-5. Run funnel per `docs/llm_funnel_checklist.md`.
+5. Run funnel per `docs/20260421-llm_funnel_checklist.md`.
 6. Human review → promote / archive / reject.
 
 ## Minimum context age

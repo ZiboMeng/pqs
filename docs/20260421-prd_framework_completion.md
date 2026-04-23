@@ -204,7 +204,7 @@ fingerprints:
 **Deliverable**:
 - `scripts/promote_strategy.py --spec-id <hash>` CLI
 - `core/mining/acceptance_pack.py`（可独立调用的 validation pack）
-- 流程文档在 `docs/promotion_flow.md`
+- 流程文档在 `docs/20260421-promotion_flow.md`
 
 **CLI 行为**:
 ```bash
@@ -412,9 +412,9 @@ class TimingDecision:
 ### Milestone M6 — LLM Proposal Phase 1（1 天）P1.5
 
 **Deliverable** 仅 process + template，无代码改动：
-- `docs/llm_proposal_prompt_template.md`（标准化我（Claude）写 candidate YAML 时的 system prompt）
-- `docs/llm_proposal_seed_context.md`（跑 proposal 前应注入的 repo state：PRODUCTION_FACTORS / RESEARCH_FACTORS / 最近 archive summary / 近 rejected candidate 列表）
-- `docs/llm_funnel_checklist.md`（每个 candidate 必跑的命令序列 + verdict 解读指南）
+- `docs/20260421-llm_proposal_prompt_template.md`（标准化我（Claude）写 candidate YAML 时的 system prompt）
+- `docs/20260421-llm_proposal_seed_context.md`（跑 proposal 前应注入的 repo state：PRODUCTION_FACTORS / RESEARCH_FACTORS / 最近 archive summary / 近 rejected candidate 列表）
+- `docs/20260421-llm_funnel_checklist.md`（每个 candidate 必跑的命令序列 + verdict 解读指南）
 
 **Template 规约**（摘录）:
 ```
@@ -506,7 +506,7 @@ softmax 或 top-N pick）。
 **Acceptance**:
 - `python scripts/run_transformer_research.py --epochs 10` 在本机能跑（GPU 或 CPU）
 - artifact 包含 OOS R² vs Ridge/XGB 的三方对比表
-- 新增 `docs/transformer_research_phase1_findings.md` 诚实写结果
+- 新增 `docs/20260421-transformer_research_phase1_findings.md` 诚实写结果
 - 新增 smoke test `tests/unit/ml/test_transformer_encoder.py`（CPU only，2 秒内）
 
 **Dependency**: 无（独立研究分支）。
@@ -523,7 +523,7 @@ softmax 或 top-N pick）。
 每个 M0-M8 完成时必须同步更新：
 - `README.md` 对应小节（见 `README.md::§18.5 README 维护约定`）
 - `CLAUDE.md` Phase / 约束 段
-- `docs/prd_universe_expanded_mining.md` 若依赖本 PRD 的 artifact 需更新 prerequisite 段
+- `docs/20260421-prd_universe_expanded_mining.md` 若依赖本 PRD 的 artifact 需更新 prerequisite 段
 
 ---
 
@@ -628,7 +628,7 @@ python scripts/run_backtest.py --strategy multi_factor --no-walk-forward
 - 审计来源：Codex 2026-04-21 audit + self-audit
 - 约束来源：CLAUDE.md §2 invariants + §约束 3 multi-TF + §9 QQQ rule
 - 关联 PRD: `prd_universe_expanded_mining.md` (mining loop continuation, post-M3)
-- 历史决策：`docs/ralph_loop_log.md` R15 (drawup promote) / R28 (universe expansion) / R33 (xfail resolution)
+- 历史决策：`docs/20260420-ralph_loop_log.md` R15 (drawup promote) / R28 (universe expansion) / R33 (xfail resolution)
 
 ---
 
@@ -647,7 +647,7 @@ All 9 milestones shipped in sequence 2026-04-21. Test count grew
 |---|---|---|
 | M0 | `bb90eb6` | `build_research_baseline_snapshot.py` + gitignore for `data/baseline/` |
 | M1 | `8d2deeb` | `config/production_strategy.yaml` + `core/config/production_strategy.py` + 3 entrypoints rewired (+28 tests) |
-| M2 | `868d60f` → `8b59417` | Acceptance pack v1 → **v2** (`full_period_fresh_backtest` gate added after rollback incident, see §10); `promote_strategy.py` CLI; `docs/promotion_flow.md` (+18 tests) |
+| M2 | `868d60f` → `8b59417` | Acceptance pack v1 → **v2** (`full_period_fresh_backtest` gate added after rollback incident, see §10); `promote_strategy.py` CLI; `docs/20260421-promotion_flow.md` (+18 tests) |
 | M3 | `df0e7db` | Runtime alignment WARN mode; `core/alignment/alignment_check.py`; wired into `run_backtest.py` + `run_paper.py` (+12 tests) |
 | M4 | `c657175` → `86077e3` | Cross-ticker DSL + safe expression evaluator + 3 rule types; demo script; enabled with 3 example rules (+24 tests) |
 | M5 | `770b453` | Multi-TF execution contract runtime assert; `IntradayBacktestEngine.run_multi_day` clips negative weights (+4 tests) |
@@ -726,8 +726,8 @@ Not required for "framework complete" signal, but should be tracked:
 | **M12** | Concentration gate real enforcement. Inspect promoted spec's fresh-backtest weight matrix for top-1/top-3 concentration; reject if > threshold (currently skip-pass) | P2 | 0.5 day |
 | **M13** | Alignment FAIL mode rollout | **✅ DONE 2026-04-21** — `config/system.yaml::alignment::{mode, live_only_fail}` schema in place; defaults WARN + live_only_fail=true; operator flip WARN→FAIL after 2-week soak without code change |
 | **M14** | BacktestEngine last-bar-NaN edge. Root-cause fix rather than `.dropna()` workaround. Ghost-position cleanup interaction with stale-bar tracker | P2 | 1 day |
-| **M15** | **REFRAMED** 2026-04-21: no Anthropic API call. User has Gemini + Codex + 任意 LLM access; provide standardized context pack doc they can paste into any LLM chat, and a script to dump current repo state into that pack. User manually places LLM-produced YAMLs into `research/llm_candidates/round_NN/`; Claude funnel picks up. **✅ DONE** — `docs/llm_external_llm_handoff.md` + `scripts/dump_llm_handoff_context.py`. Auto-file-watcher inbox pattern is deferred; current copy-paste bridge is sufficient. | Reframed DONE | 0.5 day actual |
-| **M16** | Transformer Phase 1 — real findings. Run on 1650 GPU, record OOS R² head-to-head vs Ridge/XGB, produce `docs/transformer_research_phase1_findings.md` | **✅ DONE 2026-04-21** — Ridge +0.012 / XGB -0.110 / Transformer -0.207; negative finding, recommend park |
+| **M15** | **REFRAMED** 2026-04-21: no Anthropic API call. User has Gemini + Codex + 任意 LLM access; provide standardized context pack doc they can paste into any LLM chat, and a script to dump current repo state into that pack. User manually places LLM-produced YAMLs into `research/llm_candidates/round_NN/`; Claude funnel picks up. **✅ DONE** — `docs/20260421-llm_external_llm_handoff.md` + `scripts/dump_llm_handoff_context.py`. Auto-file-watcher inbox pattern is deferred; current copy-paste bridge is sufficient. | Reframed DONE | 0.5 day actual |
+| **M16** | Transformer Phase 1 — real findings. Run on 1650 GPU, record OOS R² head-to-head vs Ridge/XGB, produce `docs/20260421-transformer_research_phase1_findings.md` | **✅ DONE 2026-04-21** — Ridge +0.012 / XGB -0.110 / Transformer -0.207; negative finding, recommend park |
 | **M17** | Realtime intraday live-feed infrastructure. Out of framework PRD scope; tracked in `prd_live_feed.md` (future) | P2 | Weeks |
 | **M18** | Cross-ticker DSL: add `ratio()`, `zscore()`, `rank_cs()` safe funcs to DSL evaluator. Demand-driven | P3 | 0.3 day each |
 

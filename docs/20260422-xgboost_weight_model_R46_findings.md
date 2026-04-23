@@ -1,6 +1,6 @@
 # R46 — XGBoost Weight Model Final Findings
 
-**PRD**: `docs/prd_deep_mining_50round.md` §11.6 Track E (R42-R46)
+**PRD**: `docs/20260421-prd_deep_mining_50round.md` §11.6 Track E (R42-R46)
 **Date**: 2026-04-22
 **Status**: **FINDINGS — awaits user decision**
 **Recommendation**: **PARK** (research-only, do NOT promote to production)

@@ -1,6 +1,6 @@
 # Universe Expansion Proposal v3 — S&P 500-based Layered Framework
 
-**PRD**: `docs/prd_deep_mining_50round.md` §11.2 + §2 Track D (R34-R41)
+**PRD**: `docs/20260421-prd_deep_mining_50round.md` §11.2 + §2 Track D (R34-R41)
 **Source lineage**: R34 (SP500 pool sync) + R35 (alpha audit) +
 R36 (Layer 1 admission) + R37 (risk labels)
 **Date**: 2026-04-22

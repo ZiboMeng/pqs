@@ -2,8 +2,8 @@
 
 每一轮 Ralph-loop 迭代，你都必须在动任何代码之前读完：
 
-- `docs/prd_intraday_mining_loop.md` — 本阶段 PRD，含 Topics A-L 菜单 与 第 5 节 exit criteria
-- 本文件 `docs/ralph_loop_prompt.md` — 完整 8 步协议
+- `docs/20260420-prd_intraday_mining_loop.md` — 本阶段 PRD，含 Topics A-L 菜单 与 第 5 节 exit criteria
+- 本文件 `docs/20260420-ralph_loop_prompt.md` — 完整 8 步协议
 - `CLAUDE.md` — 系统不变约束
 
 所有面向用户的文本、计划陈述、审计结论、commit 消息，一律使用**中文**。代码注释保持英文。
@@ -16,7 +16,7 @@
 
 1. `git log --oneline -15` — 读上一轮的 commit subject
 2. `git status` 必须干净；不干净就停下问用户
-3. 读 `docs/prd_intraday_mining_loop.md` Appendix A round log，识别下一轮编号 + 预期 topic
+3. 读 `docs/20260420-prd_intraday_mining_loop.md` Appendix A round log，识别下一轮编号 + 预期 topic
 4. `pytest tests/ -q` 超时 3 分钟；必须绿；不绿就先修，别碰 topic
 5. 扫 `data/mining/archive.db`：统计 `score=-999` 行数、不同 `lineage_tag` 的分布、有没有缺 `lineage_tag` 的行。任何异常 → 本轮 topic 变成"修这个"，而不是 §3 菜单里的项
 
@@ -72,8 +72,8 @@
 
 ### 第 8 步 — 日志收尾（一个小 doc commit）
 
-- 编辑 `docs/prd_intraday_mining_loop.md` Appendix A，加本轮一行：日期 / topic / lineage_tag / 一句话结果
-- 编辑 `docs/ralph_loop_log.md`，**追加**（不是覆盖）本轮完整 11 部分中文报告，含时间戳、commit 哈希、测试数量变化
+- 编辑 `docs/20260420-prd_intraday_mining_loop.md` Appendix A，加本轮一行：日期 / topic / lineage_tag / 一句话结果
+- 编辑 `docs/20260420-ralph_loop_log.md`，**追加**（不是覆盖）本轮完整 11 部分中文报告，含时间戳、commit 哈希、测试数量变化
 - commit 消息：`docs: 第 N 轮日志更新`
 
 ---
@@ -127,7 +127,7 @@
 2. 一个主 commit + 一个 PRD/log doc commit
 3. 若本轮关闭了某个列出的收口项，CLAUDE.md 已更新
 4. 主 commit body 是 11 部分中文报告
-5. `docs/ralph_loop_log.md` 末尾已追加本轮完整中文报告
+5. `docs/20260420-ralph_loop_log.md` 末尾已追加本轮完整中文报告
 
 ---
 

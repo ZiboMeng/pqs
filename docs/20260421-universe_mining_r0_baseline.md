@@ -1,7 +1,7 @@
 # Universe-Expanded Mining Phase — R0 Baseline Snapshot
 
 **Generated**: 2026-04-21 (post-R28 + post-review fixes)
-**Required by**: `docs/prd_universe_expanded_mining.md` §2.3
+**Required by**: `docs/20260421-prd_universe_expanded_mining.md` §2.3
 **Purpose**: freeze pre-loop state so R58 final report can attribute
 progress precisely ("进步从何而来"). Without this snapshot, any
 improvement over 30 rounds is not attributable to loop activity
@@ -162,7 +162,7 @@ All P0 fixes applied:
 4. **Bucket assigner** updated to read new field names with
    backward-compat fallback to legacy names.
 
-5. **This baseline file** (docs/universe_mining_r0_baseline.md).
+5. **This baseline file** (docs/20260421-universe_mining_r0_baseline.md).
 
 ---
 

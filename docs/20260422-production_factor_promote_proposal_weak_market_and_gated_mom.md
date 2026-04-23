@@ -1,6 +1,6 @@
 # Production Factor Promote Proposal — Gated-Mom + Weak-Market RS
 
-**PRD**: `docs/prd_deep_mining_50round.md` §11.4
+**PRD**: `docs/20260421-prd_deep_mining_50round.md` §11.4
 **Date**: 2026-04-22
 **Status**: **PROPOSAL — awaits user review + explicit authorization**
 **Trigger**: R14/R15 ensemble backtest shows meaningful alpha improvement

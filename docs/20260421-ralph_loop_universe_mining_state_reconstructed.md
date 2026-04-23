@@ -24,7 +24,7 @@ completion_promise: "RALPHDONE"
 started_at: "2026-04-21T..."  # (time user launched the loop; post R28 config commit)
 ---
 
-Execute one round per docs/prd_universe_expanded_mining.md section 3 topic menu. lineage_tag=post-2026-04-21-universe-mining-round-N where N is the current round number. Do NOT modify config/universe.yaml or PRODUCTION_FACTORS without explicit user auth. Halt on any section 7 stop condition. Write per-round 11-part Chinese report to chat and docs/ralph_loop_log.md.
+Execute one round per docs/20260421-prd_universe_expanded_mining.md section 3 topic menu. lineage_tag=post-2026-04-21-universe-mining-round-N where N is the current round number. Do NOT modify config/universe.yaml or PRODUCTION_FACTORS without explicit user auth. Halt on any section 7 stop condition. Write per-round 11-part Chinese report to chat and docs/20260420-ralph_loop_log.md.
 ```
 
 ---
@@ -34,7 +34,7 @@ Execute one round per docs/prd_universe_expanded_mining.md section 3 topic menu.
 Derived from earlier terminal transcript:
 
 ```
-/ralph-loop:ralph-loop "Execute one round per docs/prd_universe_expanded_mining.md section 3 topic menu. lineage_tag=post-2026-04-21-universe-mining-round-N where N is the current round number. Do NOT modify config/universe.yaml or PRODUCTION_FACTORS without explicit user auth. Halt on any section 7 stop condition. Write per-round 11-part Chinese report to chat and docs/ralph_loop_log.md." --max-iterations 32 --completion-promise RALPHDONE
+/ralph-loop:ralph-loop "Execute one round per docs/20260421-prd_universe_expanded_mining.md section 3 topic menu. lineage_tag=post-2026-04-21-universe-mining-round-N where N is the current round number. Do NOT modify config/universe.yaml or PRODUCTION_FACTORS without explicit user auth. Halt on any section 7 stop condition. Write per-round 11-part Chinese report to chat and docs/20260420-ralph_loop_log.md." --max-iterations 32 --completion-promise RALPHDONE
 ```
 
 ---
@@ -82,7 +82,7 @@ Loop was **paused at R35** per user request (2026-04-21 afternoon).
    started_at: "2026-04-21T12:00:00Z"
    ---
 
-   Execute one round per docs/prd_universe_expanded_mining.md section 3 topic menu. lineage_tag=post-2026-04-21-universe-mining-round-N where N is the current round number. Do NOT modify config/universe.yaml or PRODUCTION_FACTORS without explicit user auth. Halt on any section 7 stop condition. Write per-round 11-part Chinese report to chat and docs/ralph_loop_log.md.
+   Execute one round per docs/20260421-prd_universe_expanded_mining.md section 3 topic menu. lineage_tag=post-2026-04-21-universe-mining-round-N where N is the current round number. Do NOT modify config/universe.yaml or PRODUCTION_FACTORS without explicit user auth. Halt on any section 7 stop condition. Write per-round 11-part Chinese report to chat and docs/20260420-ralph_loop_log.md.
    EOF
    ```
 2. Next round would be R36 (intraday baseline per §3 block R36-R38)
@@ -115,8 +115,8 @@ stop-hook. Lineage_tag numbering continues from R36.
 **What was NOT lost** (preserved elsewhere):
 - All round-by-round mining archive entries (data/mining/archive.db)
 - All commit history (R29-R35 commits listed above)
-- All per-round logs (docs/ralph_loop_log.md)
-- The launch command + PRD + script (docs/prd_universe_expanded_mining.md,
+- All per-round logs (docs/20260420-ralph_loop_log.md)
+- The launch command + PRD + script (docs/20260421-prd_universe_expanded_mining.md,
   scripts/start_universe_mining_loop.sh)
 
 ---

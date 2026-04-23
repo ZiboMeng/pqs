@@ -105,7 +105,7 @@ Look at the aggregated artifacts:
 Decide:
 
 - **ARCHIVE** (most common) — keep YAML in repo, don't promote. Add a
-  one-line note to `docs/ralph_loop_log.md` explaining the rejection
+  one-line note to `docs/20260420-ralph_loop_log.md` explaining the rejection
   reason.
 
 - **PROMOTE_TO_RESEARCH** — add to `core/factors/factor_registry.py::RESEARCH_FACTORS`.

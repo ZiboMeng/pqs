@@ -81,7 +81,7 @@ novelty_vs_existing_factors: "Compare against mom_63d / rs_vs_spy_63d / drawup_f
 
 ## Seed context (inject current repo state before asking LLM to propose)
 
-See `docs/llm_proposal_seed_context.md` for the 5-section seed context
+See `docs/20260421-llm_proposal_seed_context.md` for the 5-section seed context
 pack. In summary:
 1. PRODUCTION_FACTORS list (from `core/factors/factor_registry.py`)
 2. RESEARCH_FACTORS list (same file)
@@ -124,7 +124,7 @@ novelty_vs_existing_factors: |
 
 ## After receiving candidate YAML → mandatory funnel
 
-See `docs/llm_funnel_checklist.md` for the 6-step mandatory sequence.
+See `docs/20260421-llm_funnel_checklist.md` for the 6-step mandatory sequence.
 
 ## DO NOT
 

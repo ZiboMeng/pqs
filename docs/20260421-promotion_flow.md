@@ -147,4 +147,4 @@ python scripts/run_backtest.py --strategy multi_factor
 python scripts/run_paper.py --mode replay --from-date 2024-01-02 --to-date 2024-06-30
 ```
 
-See PRD `docs/prd_framework_completion.md` §M2 for roadmap.
+See PRD `docs/20260421-prd_framework_completion.md` §M2 for roadmap.

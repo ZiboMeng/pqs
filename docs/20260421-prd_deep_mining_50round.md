@@ -71,7 +71,7 @@ filter-down to execution universe via admission pipeline (M4 rules +
    approaches**: daily, intraday, XGBoost, transformer, LLM proposals,
    cross-ticker rules.
 4. **Per-round ralph-loop commit + baseline snapshot + Chinese 11-part
-   report** to `docs/ralph_loop_log.md`.
+   report** to `docs/20260420-ralph_loop_log.md`.
 
 ### 1.2 Outcome goals (expected, not gated)
 
@@ -207,7 +207,7 @@ Each round must:
    - If all 10 gates pass → user notification + `--dry-run` of promote
    - User must authorize before actual promote write
 
-4. **Per-round 11-part Chinese report** to `docs/ralph_loop_log.md`:
+4. **Per-round 11-part Chinese report** to `docs/20260420-ralph_loop_log.md`:
    1. 本轮主题 (track + topic)
    2. 本轮目标
    3. 为什么优先
@@ -308,14 +308,14 @@ Pause loop if any of:
 
 Per-round:
 - Commit with lineage-tagged archive entries
-- 11-part Chinese report in `docs/ralph_loop_log.md`
+- 11-part Chinese report in `docs/20260420-ralph_loop_log.md`
 - Any new YAMLs / configs / scripts
 
 Phase-final (after R50):
 - `docs/deep_mining_phase_final_report.md` — comprehensive summary
 - Updated `config/production_strategy.yaml` (active or
   conservative_default with documented reasoning)
-- `docs/ralph_loop_log.md` updated through R50
+- `docs/20260420-ralph_loop_log.md` updated through R50
 - Master report generated with final state
 - Updated `config/universe.yaml` (if R38 gave expanded set)
 
@@ -339,7 +339,7 @@ A new launcher script will be written for this phase:
 Launch format (single-line ASCII per CLAUDE.md rule):
 
 ```
-/ralph-loop:ralph-loop "Execute one round per docs/prd_deep_mining_50round.md section 2 track menu. lineage_tag=post-2026-04-22-deep-R<NN>. Write 11-part Chinese report per round. Halt on section 5 stop conditions. Do NOT modify PRODUCTION_FACTORS or config/universe.yaml outside R38 without explicit user auth." --max-iterations 50 --completion-promise DEEPDONE
+/ralph-loop:ralph-loop "Execute one round per docs/20260421-prd_deep_mining_50round.md section 2 track menu. lineage_tag=post-2026-04-22-deep-R<NN>. Write 11-part Chinese report per round. Halt on section 5 stop conditions. Do NOT modify PRODUCTION_FACTORS or config/universe.yaml outside R38 without explicit user auth." --max-iterations 50 --completion-promise DEEPDONE
 ```
 
 Completion promise: `DEEPDONE` (output only when genuinely complete or
@@ -451,7 +451,7 @@ Per-function unit test template already in
 ### 11.6 R46 XGBoost weight model decision
 
 **Rule**: Auto-park as research-only. Write
-`docs/xgboost_weight_model_R46_findings.md` with:
+`docs/20260422-xgboost_weight_model_R46_findings.md` with:
   - Fresh vs Ridge vs equal-weight CAGR / Sharpe / MaxDD comparison
   - Per-fold CV stability (R42 data)
   - SHAP top factors (R43 data)

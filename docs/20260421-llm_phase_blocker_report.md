@@ -11,7 +11,7 @@ factor 空间不足以支撑新增 alpha'，产出一份 blocker 报告"
 
 Over 18 rounds of LLM-assisted factor mining (R1-R18), the phase
 generated 26 structured factor candidates covering all 11 menu topics
-from `docs/prd_llm_factor_mining.md` §9. One candidate
+from `docs/20260420-prd_llm_factor_mining.md` §9. One candidate
 (`drawup_from_252d_low`) was promoted to `RESEARCH_FACTORS` (R10) and
 further to `PRODUCTION_FACTORS` (R15, user-authorized) —— the first
 LLM-generated production factor in the PQS codebase.
@@ -287,8 +287,8 @@ Artifacts:
 
 Documentation:
 - `CLAUDE.md` §Ralph-Loop Findings: R1-R18 entries
-- `docs/ralph_loop_log.md`: full 12-part reports each round
-- `docs/prd_llm_factor_mining.md`: original PRD (unchanged)
+- `docs/20260420-ralph_loop_log.md`: full 12-part reports each round
+- `docs/20260420-prd_llm_factor_mining.md`: original PRD (unchanged)
 
 ## 8. Open Questions for R20-R30
 

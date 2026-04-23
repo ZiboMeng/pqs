@@ -1,6 +1,6 @@
 # 🏁 Deep-Mining 50-Round — 完整最终总结报告 (R50)
 
-**PRD**: `docs/prd_deep_mining_50round.md`
+**PRD**: `docs/20260421-prd_deep_mining_50round.md`
 **日期**: 2026-04-22
 **状态**: ✅ **FINAL — 50 rounds complete, handoff to user**
 **Authority**: §11.7 R50 end-gate deliverable
@@ -122,7 +122,7 @@ ref_high/ref_low/rsi)，所以 defer。
 | R43 | SHAP attribution 同 folds | Top SHAP: mean_rev_sma20 / drawdown_current; **SHAP vs permutation 显著不一致** |
 | R44 | 60/40 stricter split | Test R² = **-4.56** (catastrophic) |
 | R45 | (ensemble test, skipped) | MFS + XGB blend needs new code; deferred |
-| **R46** | **Findings doc + PARK verdict** | **📄 `docs/xgboost_weight_model_R46_findings.md` — PARK** |
+| **R46** | **Findings doc + PARK verdict** | **📄 `docs/20260422-xgboost_weight_model_R46_findings.md` — PARK** |
 
 **R42 关键 finding**: 
 - `drawup_from_252d_low` (R15 PRODUCTION) 在 5-fold CV 下 rank **#27/35** with **NEG mean permutation (-0.004)**
@@ -552,8 +552,8 @@ family 在现有 panel 上饱和。
 
 **用户现在做什么?**
 
-✅ **Priority action**: 审 `docs/universe_expansion_proposal_v3.md`，选 A/B/C/D
-✅ Check `docs/xgboost_weight_model_R46_findings.md` 对 XGB PARK verdict
+✅ **Priority action**: 审 `docs/20260422-universe_expansion_proposal_v3.md`，选 A/B/C/D
+✅ Check `docs/20260422-xgboost_weight_model_R46_findings.md` 对 XGB PARK verdict
 ✅ 看 5 个 Decisions 是否要响应 (R38 最重要)
 ✅ 如果 Decision 1 = yes，loop 可以接续 R39-R41 做 universe 扩容后的 mining
 

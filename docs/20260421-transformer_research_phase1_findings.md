@@ -1,7 +1,7 @@
 # Transformer Research Phase 1 — Findings
 
 **Date**: 2026-04-21
-**PRD**: `docs/prd_framework_completion.md` §M8 → §11 M16
+**PRD**: `docs/20260421-prd_framework_completion.md` §M8 → §11 M16
 **Run**: `scripts/run_transformer_research.py --horizon 21 --seq-len 63 --epochs 5`
 **Artifact**: `data/ml/transformer/phase1_daily_h21/summary.json`
 
