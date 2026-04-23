@@ -9080,3 +9080,186 @@ trials 预算需考虑。
 - 其他不相关
 
 → 继续 R14
+
+## R-rcm-v1-round-14
+
+**时间**: 2026-04-24
+**Commit**: `d8f24eb`
+**Step**: PRD §15 Step 6 / Step 7 过渡 — R13 首跑分析 + IC_IR 方法修复
+
+### 1. 本轮主题 / Step
+R13 首跑暴露两个问题：
+(a) IC_IR 数值系统性偏大（+4.77 远超 literature 0.5-1.5）
+(b) 12 PRD "正交" features 未进 top-10
+R14 两件事：修 (a)；diagnose (b)。
+
+### 2. 本轮目标
+- `evaluate_composite` 加 horizon-aware IC_IR annualization
+- CompositeMetrics 加 `horizon` 字段
+- ResearchMiner __init__ 加 `horizon=21` 默认，threaded 到 evaluate
+- CLI 加 `--horizon` flag
+- 新 diagnostics script `scripts/analyze_research_miner_run.py`
+- 跑 rcm-v1-run-01 诊断，出首批 findings
+
+### 3. 为什么这轮优先做它
+R15 如果不先修 IR 算法，任何 top-K 比较都在错误的数值基准上做决定。
+Diagnostics 是 Step 7 方向判断的前提：(b) 到底是 sampler 覆盖问题还是
+PRD features 本身弱信号？不分析就盲目扩 trial。
+
+### 4. 做了什么
+
+**IC_IR horizon fix**:
+```python
+# Before: ic_ir = ic_mean / ic_std * sqrt(252)    (inflates by sqrt(h))
+# After:  ic_ir = ic_mean / ic_std * sqrt(252/h)  (horizon-aware)
+```
+理论：per-date IC 序列对 h-day fwd returns 有 (h-1)/h 跨日 overlap → 
+std 被 deflate → naive sqrt(252) 年化放大 ~sqrt(h) 倍。对 h=21，
+fix 后 IR 值降低 ~sqrt(21)≈4.58 倍。R13 top #1 从 +4.77 → +1.04（合理区间）。
+
+**Diagnostics analyzer** (`scripts/analyze_research_miner_run.py`):
+- 读 rcm_archive lineage+study
+- feature frequency in top-K + family histogram + PRD-new flag
+- 61 features 独立 univariate per-date IC（horizon-aware IR）
+- top-10 + 12 PRD features pairwise Spearman 相关矩阵
+- 输出 JSON + 4 CSV
+
+### 5. 修改了哪些文件
+```
+M  core/mining/research_miner.py             (+25, -12)
+M  scripts/run_research_miner.py             (+7)
+M  tests/unit/mining/test_research_miner.py  (+48)
+A  scripts/analyze_research_miner_run.py     (+356)
+# 不在 git（data/ gitignored）:
++  data/ml/research_miner/rcm-v1-run-01/diagnostics/
+   - diagnostics_summary.json
+   - feature_frequency_top_k.csv
+   - family_histogram_top_k.csv
+   - univariate_ic.csv
+   - feature_pair_correlation.csv
+```
+
+### 6. 跑了哪些测试 / 实验
+- `pytest tests/unit/mining/` 106 pass（+2 R14 horizon tests）
+- 完整 suite: **1339 passed** / 1 skipped / 0 regressions / 82s
+  (R13 1337 → +2)
+- Diagnostics 运行：rcm-v1-run-01 上 ~5 分钟（含 panel rebuild +
+  61 features × 3400 dates × 79 symbols univariate IC）
+
+### 7. 结果如何
+
+**核心发现 1 — PRD features 占 top-10 极少**:
+
+| 指标 | 值 |
+|---|---|
+| Top-10 总 feature slots | 55 |
+| PRD-new appearances | **2 / 55** (3.6%) |
+| Existing-factor appearances | 53 / 55 (96.4%) |
+| Family dist (slots) | A=9, B=15, C=11, D=20 |
+
+**核心发现 2 — univariate IC 排序（post-fix horizon-aware）**:
+
+Top 5 features by IC_IR:
+```
+mean_rev_sma20      D  IR=+3.13  IC=+0.327 (!)
+mean_rev_sma50      D  IR=+2.93  IC=+0.303
+volume_surge_20d    C  IR=+1.67  IC=+0.136
+reversal_5d            IR=+1.57
+reversal_21d           IR=+1.56
+```
+PRD 12 features by IC_IR（全部）:
+```
+beta_spy_60d         A  IR=+0.30  IC=+0.030  ← 唯一 positive 大于 0.2
+downside_vol_20d     C  IR=+0.20  IC=+0.020
+amihud_20d           C  IR=+0.17  IC=+0.014
+days_since_52w_high  B  IR=+0.13
+residual_mom_spy_20d A  IR=-0.17
+vol_ratio_5_20       C  IR=-0.28
+trend_tstat_20d      D  IR=-0.80
+rel_spy_20d          A  IR=-1.20
+rel_qqq_20d          A  IR=-1.20
+dist_from_new_high_252 B IR=-1.26
+range_pos_252d       B  IR=-1.28
+breakout_20d_strength B IR=-1.66  ← 最弱
+```
+
+**核心发现 3 — PRD "正交" claim 经验不成立**:
+
+pairwise |Spearman rho| >= 0.5，PRD-new 对现有 RESEARCH_FACTORS:
+
+| PRD-new | existing | corr | 解读 |
+|---|---|---|---|
+| downside_vol_20d | vol_63d | **-0.95** | 实际上是 vol 的变体 |
+| residual_mom_spy_20d | vol_63d | -0.83 | 被 vol 主导 |
+| breakout_20d_strength | mean_rev_sma20 | -0.78 | 同一价格-SMA 关系 |
+| amihud_20d | vol_63d | -0.78 | 流动性 ≈ vol |
+| rel_spy_20d | mean_rev_sma50 | -0.69 | 相对强弱 = 短期 mean-revert 反向 |
+| rel_qqq_20d | mean_rev_sma50 | -0.66 | 同上 |
+| range_pos_252d | mom_252d | +0.71 | position = 累积 return |
+| range_pos_252d | mean_rev_sma50 | -0.70 | 双重 |
+| dist_from_new_high_252 | drawdown_current | +0.74 | 同一距离概念 |
+| dist_from_new_high_252 | mom_252d | +0.63 | 多共线 |
+
+一共 23 对 |rho|≥0.5。PRD §8.2 principle "new family 应优先来自不同经济维度"
+在 12 features × 61 existing 的这组选择上**没有真正实现**。
+
+### 8. 当前发现的新问题 / 新机会
+
+**挑战 1**: R13 首跑的结论不是"sampler 不够覆盖"（sampler 正常采 40
+specs 覆盖多 family），而是"PRD 12 features 在当前 panel + 21d fwd + 
+market mask 下的经验正交性 + 信号强度**都弱于**现有 RESEARCH_FACTORS"。
+
+**挑战 2 — mean_rev_sma20/50 的 IC +0.33/+0.30** 异常强。量化文献 IC
+通常 0.03-0.07。两种可能：
+- 该 factor 实际 encodes 强 mean-reversion signal on 21d horizon
+- `mean_rev_sma20` 的 factor 定义含某种前视泄漏
+需要 R15 具体看 `factor_generator` 里 `mean_rev_sma20` 的实现确认。
+
+**机会 — 扩 Family D sampler**:
+如果 mean_rev_sma20/mean_rev_sma50 确属 valid signal，它们已经在
+FAMILY_D.factors 里！问题是 TPE 20 trials 下采到它们一次或两次。
+可能的 R15 改进：
+- 先跑 RandomSampler 100 trials 均匀扫 baseline，再 TPE 精调
+- 或提升 `weight_step` from 0.05 → 0.1 降维搜索空间
+
+**机会 — 新 horizon 组合搜索**:
+R13/R14 只用 21d CC fwd。可以加 5d / 63d horizon 做对比 — 如果
+PRD-new features 在较短 5d 或较长 63d horizon 信号更强，说明问题
+是 horizon mismatch 不是 feature 质量问题。
+
+### 9. 剩余风险
+- ⚠️ mean_rev_sma20 IC +0.33 需要**独立审核确认非 leakage**（R15 第一
+  优先级，否则所有 top-K 结论都受影响）
+- Old R13 archive rows 保留 pre-fix IC_IR 值（+4.77 等）— **不是 bug**，
+  archive 记录观测时的值；重新跑一次即可得 post-fix IR
+- R14 diagnostics 只对 single study；多 study cross-lineage 比较待 R15+
+
+### 10. 下一轮建议方向
+
+**R15 优先级**:
+1. **审 mean_rev_sma20 factor 定义**（30 min）确认无 leakage，否则所有
+   composite 结论重算
+2. **决策点**: 跑更多 trials（150-200）看 TPE 是否收敛 PRD features？
+   还是接受"PRD-new features 信号确实弱" 作为研究结论 → 进入 Step 7？
+3. Step 7 候选：
+   - 扩 family（多 horizon / mean-revert-家族 / event-proxy）
+   - 接轻量数据层（sector ETF 已在 panel；earnings calendar 可选）
+   - 从现有 top trial 蒸馏 production proposal（R50 大循环已做过类似的）
+
+**Halt 条件 §13.3 评估**:
+- 条件 1 进度：miner 首轮运行 + 分析完成，但**分析暴露 PRD features 系统
+  性不适配 current setup**。是否触发条件 5 "search space 未打开 且 blocker
+  指向 out-of-scope"? ← **NO**: search space 已打开（40 trials，IR 分布
+  [-7, +4.8]）；blocker 不是 out-of-scope，是 PRD feature 选择经验上
+  与 panel 不匹配。
+- 所有其他条件 NO
+
+### 11. Halt 条件检查 (§13.3)
+- 条件 1: 部分（首轮运行 ✓，分析 ✓，但剩 "结论 + Step 7 决策" 未完）
+- 条件 2: NO — PRODUCTION_FACTORS / config 未碰
+- 条件 3: NO — 0 regressions (1339 passed)
+- 条件 5: NO — search space 已打开，blocker 不是新数据层需求
+- 条件 7: 14/22
+- 其他不相关
+
+→ 继续 R15
