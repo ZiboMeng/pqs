@@ -150,6 +150,39 @@ sufficient to break the OOS barrier; strategic decision required".
   (Option A) or fundamentally new data (microstructure per synthesis
   §recommended Priority C)".
 
+#### Option E (appended 2026-04-23 post-R19): consider the
+#### "quality-weighted reversal" interaction candidate
+R18 pairwise interaction scan + R19 deep-check surfaced
+**`overnight_ret_1d × rolling_sharpe_126d`** as the strongest
+autonomous finding of the loop:
+
+| Metric | Value | Note |
+|---|---:|---|
+| Pooled IC | -0.325 | vs raw overnight_ret_1d -0.254, rolling_sharpe_126d -0.011 |
+| Pooled IR | -0.784 | very strong |
+| OOS walk-forward windows | 42 × 63d | pass rate 90.5% (|IR| > 0.3) |
+| Regime direction | all 6 negative | robust direction: -0.28 (RISK_ON) to -0.40 (CRISIS) |
+| Temporal quartile decay | Q1-Q3 IR -0.76 to -1.02 | **Q4 (2023+) IR -0.50** — 43% decay |
+
+**Interpretation**: Economically plausible — reversal signal is stronger
+on high-quality names (rolling_sharpe_126d modulates sign/scale). Q4
+decay could be (a) market adapting to the signal, or (b) 2023-2025
+sustained BULL regime genuinely being the weakest environment for
+reversal (R17 showed CRISIS is where reversal is strongest).
+
+**Risk**: If Q4 decay is (a) signal death, live use exposes to trap.
+If (b) regime artifact, signal will recover in next drawdown.
+
+**User-decision for Option E**:
+- E1: Add `quality_weighted_overnight_reversal` to RESEARCH_FACTORS
+  + deep-check formal candidate funnel (does not require
+  PRODUCTION change; reversible).
+- E2: Same as E1 + add to MultiFactorSpace.suggest() weight sampler
+  (requires PRD addendum for §4 / §15.4 relaxation; same authorization
+  surface as Option A).
+- E3: Ignore — accept the Q4 decay as a "do not trust" signal; loop
+  produced this as a finding but user judgment rejects it.
+
 ### Recommendation (loop output — NOT a decision)
 
 Option D is the most honest given PRD §4 constraints. Option A gives

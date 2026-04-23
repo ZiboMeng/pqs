@@ -2,7 +2,7 @@
 
 **Date**: 2026-04-23
 **PRD**: `docs/20260423-prd_research_feature_engineering_and_expanded_mining.md`
-**Ralph-loop range**: 17 rounds executed (spec max 16; stop-hook continued). R01-R11 core PRD execution; R12-R17 buffer rounds added incremental tooling fixes, pool scans, and deeper regime analysis.
+**Ralph-loop range**: 19 rounds executed (spec max 16; stop-hook continued well beyond). R01-R11 core PRD execution; R12-R19 buffer rounds added incremental tooling fixes, pool scans, regime analysis, and the R18-R19 pairwise-interaction deep-check that surfaced `overnight_ret_1d × rolling_sharpe_126d` as **Option E** — the strongest autonomous finding of the loop (pooled IR -0.78, walk-forward 90.5% pass, Q4 decay caveat).
 **Lineage tag**: `post-2026-04-23-feat-v1-expanded`
 **Completion status**: Step 1-4 + 6-7 COMPLETE; Step 5 BLOCKED per §15.3 halt condition 7 (awaits user decision)
 **Commit range**: `06cc07a..829d56b`
@@ -53,6 +53,8 @@ autonomously).
 | R15 | `208d8a0` | 7.scan | 97-pool R12-heuristic flip scan: 5 flip, 1 new NEEDS_HUMAN_REVIEW (regime_adjusted_quality_63d_gemini) |
 | R16 | `4a66c27` | 7.fix | Funnel CLI passes OHLCV to compute_fns; 2 of 3 previously-blocked candidates now properly evaluated |
 | R17 | `0855d8f` | 6.deep | Regime-stratified IC on R01-R05: reversal direction stable across 6 regimes, amplified 30-50% in CRISIS / RISK_OFF |
+| R18 | `12fdd58` | 6.deep | Pairwise interaction scan (8 new × 9 existing): **overnight_ret_1d × rolling_sharpe_126d** highest incremental (+0.071 IC over parents) |
+| R19 | `2915982` | 6.deep | Deep-check on R18 top: pooled IR -0.78, walk-forward 90.5% pass rate, regime-robust direction, **Q4 2023+ decay to IR -0.50** (43% drop) — flagged as user-decision Option E in blocker doc |
 
 Log entries: per-round 11-part Chinese reports in `docs/20260420-ralph_loop_log.md::R-feat-v1-round-NN`.
 
