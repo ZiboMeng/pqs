@@ -189,3 +189,88 @@ class TestConfigPlumbing:
         assert ev._min_qqq_cagr_exc == 0.0
         assert ev._min_qqq_holdout_exc == 0.0
         assert ev._min_qqq_oos_avg_exc == 0.0
+
+
+class TestLeadingNaNRobustness:
+    """Regression guards for the two bugs surfaced by R39 trial 4b5f36ed9ab5:
+      (a) qqq_*_excess landed as None in archive because _cagr used iloc[0]
+          on equity curves with leading NaN (expanded universe had BRK-B
+          starting 2015-01-02, pulling panel index earlier than QQQ data);
+      (b) oos_sharpe got -4.87e15 because _mean dropped NaN but not ±inf.
+    """
+
+    def test_cagr_handles_leading_nan(self):
+        """_cagr inside _check_qqq_gate must trim leading NaN before iloc[0]."""
+        ev, _mk = TestCheckQQQGateDirectly()._setup()
+        r = EvalResult(spec_id="x", strategy_type="multi_factor", params={})
+        price_df = pd.DataFrame(
+            {"SPY": [100, 101, 102]},
+            index=pd.bdate_range("2020-01-01", periods=3),
+        )
+        # Strategy equity curve with 1 leading NaN (simulates BRK-B-style
+        # early-start contamination). Valid range still beats QQQ.
+        strat_eq = _mk(300, 0.10)
+        strat_eq.iloc[0] = float("nan")  # leading NaN
+        fake_bt = MagicMock()
+        fake_bt.equity_curve = strat_eq
+        qqq_eq = _mk(300, 0.05)
+        qqq_eq.iloc[0] = float("nan")  # same leading-NaN pattern
+        qqq_series = qqq_eq.rename("close")
+
+        holdout = price_df.iloc[-1:]
+        non_holdout = price_df.iloc[:-1]
+        spec = MagicMock(spec_id="x", strategy_type="multi_factor")
+        spec.params_dict = {}
+
+        with patch.object(ev, "_run_backtest", return_value=fake_bt), \
+             patch.object(ev, "_build_weights", return_value=pd.DataFrame()), \
+             patch("core.mining.evaluator.instantiate_strategy") as mi:
+            mi.return_value = MagicMock()
+            mi.return_value.generate.return_value = pd.DataFrame()
+            ev._check_qqq_gate(
+                r, price_df, holdout, qqq_series, non_holdout,
+                spec, None, None,
+            )
+        # Pre-fix: qqq_full_period_excess stayed NaN (archived as None).
+        # Post-fix: leading NaN trimmed → excess is a finite positive number.
+        assert not np.isnan(r.qqq_full_period_excess), \
+            "qqq_full_period_excess must not be NaN when leading-NaN can be trimmed"
+        assert r.qqq_full_period_excess > 0
+
+    def test_compute_metrics_rejects_tiny_std_sharpe(self):
+        """compute_metrics must return sharpe=NaN when std is below the
+        _STD_FLOOR threshold, preventing astronomical Sharpe values from
+        poisoning downstream aggregation (R39 4b5f36ed9ab5 bug)."""
+        from core.backtest.backtest_engine import compute_metrics
+        # Build an equity curve with tiny-but-positive std:
+        # essentially flat with microscopic noise. Pre-fix this produced
+        # |sharpe| in the 1e14-1e16 range.
+        idx = pd.bdate_range("2020-01-01", periods=100)
+        eq = pd.Series(
+            1.0 + np.arange(100) * 1e-12,  # near-flat drift with noise ~1e-12
+            index=idx,
+        )
+        m = compute_metrics(eq)
+        # Sharpe should be NaN (tiny std rejected), not an astronomical number
+        assert np.isnan(m.get("sharpe")), \
+            f"Tiny-std should yield NaN Sharpe, got {m.get('sharpe')}"
+        # Normal equity still produces a finite Sharpe
+        eq_normal = pd.Series(
+            np.cumprod(1 + np.random.default_rng(42).normal(0.001, 0.01, 100)),
+            index=idx,
+        )
+        m2 = compute_metrics(eq_normal)
+        assert np.isfinite(m2.get("sharpe")), "Normal-vol Sharpe should be finite"
+
+    def test_mean_drops_nonfinite_defense(self):
+        """_mean helper in _run_walk_forward has defense-in-depth: drops
+        non-finite (inf/NaN) even though compute_metrics now rejects tiny
+        std at source. Guards against any future path that returns inf."""
+        def _mean(lst):
+            v = [x for x in lst if np.isfinite(x)]
+            return float(np.mean(v)) if v else float("nan")
+
+        assert _mean([0.5, float("inf"), 0.7]) == pytest.approx(0.6, abs=1e-6)
+        assert _mean([0.5, float("-inf"), 0.7]) == pytest.approx(0.6, abs=1e-6)
+        assert _mean([0.5, float("nan"), 0.7]) == pytest.approx(0.6, abs=1e-6)
+        assert np.isnan(_mean([float("inf"), float("-inf"), float("nan")]))

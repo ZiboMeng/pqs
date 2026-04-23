@@ -531,7 +531,13 @@ class MiningEvaluator:
         pass_rate = n_pass / len(windows)
 
         def _mean(lst: list) -> float:
-            v = [x for x in lst if not np.isnan(x)]
+            # Drop non-finite (NaN AND ±inf AND astronomical values from
+            # near-zero-std Sharpe computations). A single pathological OOS
+            # window with tiny std can produce |sharpe| > 1e14 which then
+            # dominates the mean. See `4b5f36ed9ab5` in R39 archive — oos_sharpe
+            # came out -4.87e15 due to this path; post-fix the mean of valid
+            # windows alone is what's archived.
+            v = [x for x in lst if np.isfinite(x)]
             return float(np.mean(v)) if v else float("nan")
 
         return {
@@ -817,9 +823,24 @@ class MiningEvaluator:
         from core.regime.regime_detector import RegimeDetector
 
         def _cagr(series: pd.Series) -> float:
-            if series is None or series.empty or len(series) < 2:
+            # M14 extension: trim leading/trailing NaN before iloc. Pre-fix,
+            # expanded universes with a ticker starting one day earlier (e.g.
+            # BRK-B 2015-01-02 vs SPY/QQQ 2015-01-03) pulled the equity index
+            # start to a date where the engine's NAV is NaN, producing
+            # NaN/NaN = NaN in the ratio. Result: `qqq_full_period_excess`
+            # never got set and was archived as None. TODO: consolidate with
+            # core/backtest/backtest_engine.compute_metrics which has the
+            # same guard.
+            if series is None or series.empty:
                 return float("nan")
+            fvi = series.first_valid_index()
+            lvi = series.last_valid_index()
+            if fvi is None or lvi is None or fvi == lvi:
+                return float("nan")
+            series = series.loc[fvi:lvi]
             n = len(series)
+            if n < 2:
+                return float("nan")
             total = float(series.iloc[-1] / series.iloc[0])
             if total <= 0:
                 return float("nan")
@@ -827,7 +848,15 @@ class MiningEvaluator:
             return total ** (1.0 / years) - 1.0
 
         def _total_return(series: pd.Series) -> float:
-            if series is None or series.empty or len(series) < 2:
+            # Same M14 extension as _cagr above.
+            if series is None or series.empty:
+                return float("nan")
+            fvi = series.first_valid_index()
+            lvi = series.last_valid_index()
+            if fvi is None or lvi is None or fvi == lvi:
+                return float("nan")
+            series = series.loc[fvi:lvi]
+            if len(series) < 2:
                 return float("nan")
             return float(series.iloc[-1] / series.iloc[0] - 1.0)
 

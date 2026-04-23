@@ -456,11 +456,19 @@ def compute_metrics(
     vol     = float(returns.std() * np.sqrt(annualization))
     rf_daily = risk_free_rate / annualization
     excess   = returns - rf_daily
-    sharpe   = float(excess.mean() / excess.std() * np.sqrt(annualization)) if excess.std() > 0 else np.nan
+    # Tighten std threshold: a tiny-but-positive std (e.g. 1e-18 from floating
+    # noise on a flat series) produced astronomical Sharpe ratios that poisoned
+    # downstream aggregation. Observed in R39 trial 4b5f36ed9ab5 (oos_sharpe
+    # archived as -4.87e15). 1e-8 is well below any realistic daily return std
+    # (typical equity ≈ 1% = 1e-2, cash-equiv ≈ 1e-5), so this only rejects
+    # numerically-degenerate windows.
+    _STD_FLOOR = 1e-8
+    sharpe   = float(excess.mean() / excess.std() * np.sqrt(annualization)) \
+               if excess.std() > _STD_FLOOR else np.nan
 
     downside = returns[returns < rf_daily]
     sortino  = float(excess.mean() / downside.std() * np.sqrt(annualization)) \
-               if len(downside) > 1 and downside.std() > 0 else np.nan
+               if len(downside) > 1 and downside.std() > _STD_FLOOR else np.nan
 
     roll_max = equity_curve.cummax()
     drawdown = (equity_curve - roll_max) / roll_max
