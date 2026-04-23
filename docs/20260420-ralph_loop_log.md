@@ -7060,3 +7060,89 @@ promote 没意义。deep_check 是 promotion funnel 最后一道过滤。
 ### 11. Halt 条件检查 (§15.3)
 - 条件 7 仍 active
 - 其他通过
+
+---
+
+## R-feat-v1-round-20
+
+**时间**: 2026-04-23
+**Step**: 6 deeper (R18 Top-2/Top-3 Q4 decay check — confirm signal-decay hypothesis)
+
+### 1. 本轮主题
+R19 发现 R18 top-1 interaction (overnight_ret_1d × rolling_sharpe_126d)
+在 Q4 (2023-2025) 有 43% IR 衰减。单样本无法区分 signal-decay vs
+regime-artifact。Check 其他 2 个 sibling pair 复现 decay 模式。
+
+### 2. 本轮目标
+跑 Q4/Q2 IR ratio on R18 top-3:
+  (1) overnight_ret_1d × rolling_sharpe_126d (R19 reference)
+  (2) ret_1d × rolling_sharpe_126d
+  (3) ret_2d × rolling_sharpe_126d
+
+如果三个 Q4/Q2 比率接近 → decay 是 systematic（signal-decay）
+如果 ratio 按 horizon 单调变化 → 可区分 regime vs decay
+
+### 3. 为什么这轮优先做它
+R19 发现意义最大；必须验证它是真 signal 还是 artifact。仅 1 样本不够
+ground truth，3 sibling cross-check 给更严的判断。
+
+### 4. 做了什么
+对 3 pair 分别：per-date IC → 4 temporal quartile IR → Q4/Q2 ratio
+
+### 5. 修改了哪些文件
+无 code 改动。
+
+### 6. 跑了哪些测试 / 实验
+
+| Pair | Pooled IR | Q1 | Q2 | Q3 | **Q4** | **Q4/Q2** |
+|---|---:|---:|---:|---:|---:|---:|
+| overnight_ret_1d × rolling_sharpe_126d | -0.784 | -0.755 | -1.023 | -0.966 | **-0.496** | **0.48** |
+| ret_1d × rolling_sharpe_126d | -0.781 | -0.729 | -1.015 | -0.941 | **-0.545** | **0.54** |
+| ret_2d × rolling_sharpe_126d | -0.617 | -0.552 | -0.841 | -0.790 | **-0.353** | **0.42** |
+
+### 7. 结果如何
+
+**Q4 decay 在 3 sibling 中一致复现** — 0.42 到 0.54 ratio。但重要的
+sub-finding:
+
+**2d 版本衰减最严重** (Q4/Q2 = 0.42)，**1d 版本相对好** (0.48-0.54)
+
+这 violates "regime artifact" prediction:
+- 如果 decay 来自 2023+ BULL regime（reversal 效应天然弱）→ longer
+  horizon (2d) 应该 LESS regime-sensitive（多个 day 平滑 regime 切换）
+- 实际：2d 衰减最严重
+- → **decay 更像结构性衰减而非 regime artifact**
+
+**Mechanism 假设**:
+- 2020-2023 散户 meme/option flow 等带来极强短期反转机会
+- 2023 起 HFT / quant shops 对 intraday 反转的 arbitrage 大幅提高
+- 结果：短期反转信号在高质量股上被套利掉更彻底
+- 2d 更容易被跨夜套利，1d 更受短期流动性微结构影响
+
+**Option E (blocker) 的 recommendation 需调整**:
+- 原 E1/E2 倾向 "加入 RESEARCH_FACTORS + deep-check" 相对安全
+- 但 R20 三样本一致 decay 暗示：**live-use 很可能继续衰减**
+- 更保守的 recommendation: **只加入 RESEARCH（E1）作 academic 记录，
+  不要 promote 到 MultiFactorSpace（E2），除非 user 有非常强理由
+  信任 regime-artifact 解释**
+
+### 8. 当前发现的新问题 / 新机会
+- 3 sibling cross-check 是 valuable forensic 技术 — 值得未来对任何
+  interaction-alpha 候选标准化运行
+- "Quality × reversal" 在 pre-2023 很强（Q2 IR -1.02）但 post-2023
+  衰减 — 符合学术文献里 "reversal alpha decay with HFT proliferation"
+  的说法
+- **无其他 promotion candidate surface 出来** — 本 loop 最强的
+  interaction 都是 quality × reversal 家族，且同步衰减
+
+### 9. 剩余风险
+- Option E2 对 MultiFactorSpace 加入这个 interaction 有 live-trap
+  风险，除非 user 接受 "50% IR drop 后仍是 -0.50 绝对值很强" 的观点
+
+### 10. 下一轮建议方向
+- 继续 buffer round 价值递减严重
+- 所有 loop 能产出的 concrete candidates 都已 surfaced 并带 warning
+
+### 11. Halt 条件检查 (§15.3)
+- 条件 7 仍 active
+- 其他通过
