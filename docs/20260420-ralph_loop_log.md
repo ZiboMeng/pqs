@@ -5669,3 +5669,74 @@ A  tests/unit/factors/test_base_returns.py (+110)
 - R39 OOS fail blocker: **N/A**（Step 3 还没到）
 
 → 继续执行 R02
+
+---
+
+## R-feat-v1-round-02
+
+**时间**: 2026-04-23
+**Commit**: `47fa0e4`
+**Step**: 1 (Feature engineering — Volatility/Range + D3 aliases)
+
+### 1. 本轮主题 / Step
+Step 1 第二批：Volatility / Range family + PRD §D3 / §3.1.C alias 层。
+
+### 2. 本轮目标
+- 建 `core/factors/base_volatility.py` (hl_range + dollar_volume_ma)
+- generate_all_factors 加 high_df/low_df kwargs + `_baseline_range_factors`
+- 落地 alias 层：`vol_20d → vol_21d`, `volume_ratio_20d → volume_surge_20d`
+- 注册 4 新 RESEARCH_FACTORS 名字（2 真因子 + 2 alias）
+- 9 个新单测 + 修 drift test + 修 shadowed_factor_merge test
+
+### 3. 为什么这轮优先做它
+R01 建 Returns family 打通后，Volatility/Range 是 PRD §3.1.A 第二个
+"真缺" 家族（`hl_range` 是 ATR-lite 真空白，`dollar_vol_20d` 既是
+feature 又是 mask 基础，§D2）。alias 层一并落是因为它和 base_volatility
+语义接近，单独拆分出 R03 价值低。
+
+### 4. 做了什么
+- `base_volatility.py`（2 pure func）
+- `factor_generator.py` 新 kwarg + 新 helper + alias pass
+- `factor_registry.py` +4 名字 + +1 映射
+- 9 新测 + drift test 适配 + shadow test 期望值 7→8
+
+### 5. 修改了哪些文件
+```
+A  core/factors/base_volatility.py             (+88)
+M  core/factors/factor_generator.py             (+50)
+M  core/factors/factor_registry.py              (+14)
+A  tests/unit/factors/test_base_volatility.py  (+105)
+M  tests/unit/factors/test_factor_registry.py   (+7)
+M  tests/unit/factors/test_shadowed_factor_merge.py (+5 -2)
+```
+
+### 6. 跑了哪些测试 / 实验
+- 目标测试 46/46 pass
+- 完整 suite: **1232 passed** (+9 from R01), 1 skipped, 1 xfailed
+- Alias 测试显式验证 `factors["vol_20d"] is factors["vol_21d"]`（同一 DataFrame）
+
+### 7. 结果如何
+- hl_range / dollar_vol_20d 落地；alias 路径 ready
+- 所有 drift 和 shadowed-factor-merge 测试重新对齐
+- Volatility/Range family 完毕
+
+### 8. 当前发现的新问题 / 新机会
+- 观察：`volume_ratio_20d` 作为 alias 没进 RESEARCH_TO_PRODUCTION_MAP
+  是正确的（`volume_surge_20d` 本身 research-only），但 `research_only
+  _factors()` helper 会把 alias 也算进 research-only 集合 — 这是
+  预期的，alias 本质上 inherit canonical 的 scope
+- 观察：`hl_range` 在 drift test 用 ±0.5% 合成 high/low 效果良好，
+  但真实数据可能 H/L 范围更大 —— 未来 Step 2 (panel build) 时用 BarStore
+  实际 OHLC 数据验证效果
+
+### 9. 剩余风险
+- 无显著风险。纯增量，未触碰 invariant
+
+### 10. 下一轮建议方向
+- **R03 (建议)**: Relative/Position family (`base_relative.py`) —
+  `dist_52w_high` (§D4 窗口=252) + `rel_spy_5d`。这是 Step 1 最后一个
+  真缺家族。估计 R03 + 打包收尾 (label mode + mask 暴露) 可能要 2 轮
+- R04: compute_forward_returns 扩 mode=cc/oc/oo + mask 暴露
+
+### 11. Halt 条件检查 (§15.3)
+全部通过（pytest +9，config 零改动）。继续 R03。
