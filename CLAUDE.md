@@ -121,7 +121,7 @@ Evidence levels:
 | Regime robustness (6 regimes) | `code_verified` | evaluator.py:_check_regime_robustness |
 | OOS/IS Sharpe overfit gate | `code_verified` | evaluator.py:_assign_tier |
 | 5-stage mining pipeline | `code_verified` | evaluator.py:evaluate() stages 1-5 |
-| 30 candidate factors | `test_verified` | factor_generator.py + test_factor_generator.py |
+| 64 research factors (7 production) | `test_verified` | factor_generator.py + factor_registry.py + test_factor_registry.py (count as of audit-v2 baseline 2026-04-24) |
 | Feature importance (XGBoost 3.2.0) | `code_verified` | run_xgb_importance.py (real XGBoost + permutation) |
 | MultiFactorStrategy | `test_verified` | multi_factor.py + test_multi_factor.py (16 tests) |
 | Left-side trading module | `test_verified` | left_side.py + test_left_side.py |
@@ -1073,11 +1073,22 @@ pending; some resolved via RCMv1 downstream work.
   (doc-only; does NOT touch production_strategy.yaml).
 - See `docs/20260424-rcm_v1_final_synthesis.md`.
 
-**Codebase audit 3-round (2026-04-24 COMPLETE)** —
-`docs/20260424-prd_codebase_audit_3round.md`. R1 core library (27
-modules, 0 bugs) + R2 scripts/IO (57 scripts + 13 modules, 0 bugs)
-+ R3 tests + README sync + baseline rebuild. Launch:
-`bash dev/scripts/loop/start_codebase_audit_loop.sh`.
+**Codebase audit 3-round v1 (2026-04-24 COMPLETE)** —
+`docs/20260424-prd_codebase_audit_3round.md`, lineage
+`audit-2026-04-24`. R1 core library (27 modules, 0 functional bugs) +
+R2 scripts/IO (57 scripts + 13 modules, 0 functional bugs) + R3 tests
++ README sync + baseline rebuild.
+
+**Codebase audit 3-round v2 (2026-04-24 COMPLETE)** — same PRD,
+lineage `audit-2026-04-24-v2`, covers Phase E governance layer
+(`core/research/`) + X-1 path migration (`dev/scripts/**/*.py`). R1
+found/fixed 19 unused imports in core (no functional bugs) + R2 found/
+fixed 3 real `--help` bugs in scripts (`feat_v1_topk_analysis.py`
+missing sys.path; `build_splits_parquet.py` / `run_multi_tf_backtest.py`
+missing argparse) and cleaned 44 unused imports + R3 refreshed
+baseline 1386→1536 tests and synced README. See
+`docs/20260420-ralph_loop_log.md` §R-audit-v2-round-01/02/03.
+Launch: `bash dev/scripts/loop/start_codebase_audit_loop.sh`.
 
 **Phase E Research Governance + Paper Layer (2026-04-24 COMPLETE)** —
 14-round ralph-loop ship. Execution PRD

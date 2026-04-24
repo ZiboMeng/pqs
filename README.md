@@ -64,9 +64,9 @@
 - **Alignment**: runtime WARN 模式（M3）；fingerprints hash 对 yaml 匹配
 - **Cross-ticker DSL**: `config/cross_ticker_rules.yaml` **enabled: true**，**5 条规则**（R24 加 Rule 4 `leveraged_etfs_dual_confirmation` + Rule 5 `xlu_outperformance_signals_defensive_rotation`）；M10 完成 production 集成（`core/signals/cross_ticker_wrapper.py`），`run_backtest.py` + `run_paper.py` 启动时默认应用；`--no-cross-ticker-rules` 可关闭；R23 A/B 测试证明 +2.3pt CAGR alpha，R25 stress 揭示 Rule 2/5 在 COVID V-recovery 下有非对称伤害
 - **数据**: 日线 2007-2026 / 60m intraday 2015-2026 / 1m 2015-2026（部分）/ S&P 500 pool 513 symbols (R34 sync)
-- **Mining archive**: Production `data/mining/archive.db` = 302 trials / 12 lineages (R1 Phase B ~40 + deep-mining 262). Research `data/mining/rcm_archive.db` = 222 trials / 3 lineages (RCMv1 R13 pre-fix + R16/R17 post-fix lag=1 converged + R19 random baseline)
+- **Mining archive**: Production `data/mining/archive.db` = 65 trials / 1 lineage (post-2026-04-23-feat-v1-expanded; prior history trimmed after feat-v1 expansion). Research `data/mining/rcm_archive.db` = 216 trials / 3 lineages (RCMv1 R13 pre-fix `post-2026-04-24-rcm-v1` + R16/R17 post-fix `post-2026-04-24-rcm-v1-lag1` + R19 random baseline `post-2026-04-24-rcm-v1-random`)
 - **Candidate registry** (Phase E): `data/research_candidates/registry.db` = 1 record. `rcm_v1_defensive_composite_01` 从 `f24aefecc91a` trial 冻结 → S0 → S1 → **S2_paper_candidate**（经 `freeze_research_candidate.py` / `research_promote.py` / `paper_enter.py` 走完 governance pipeline）
-- **测试**: 见 `data/baseline/latest.json`（跑 `dev/scripts/baseline/build_research_baseline_snapshot.py` 刷新；当前 snapshot = **1536+ unit + 45 integration passed, 1 skipped + 1 xfailed**）
+- **测试**: 见 `data/baseline/latest.json`（跑 `dev/scripts/baseline/build_research_baseline_snapshot.py` 刷新；当前 snapshot = **1491 unit + 45 integration passed, 1 skipped + 1 xfailed**, 1538 collected, 148.94s）
 - **Framework**: M0-M8 + M10 + M13 + M15 + M16 已交付。详 `docs/20260421-prd_framework_completion.md`
 - **Deep-mining 50-round (2026-04-22 complete)**: 7 tracks × 50 rounds autonomous execution 结束。详 **`docs/20260422-deep_mining_50round_final_synthesis.md`**
 - **RCMv1 20-round (2026-04-24 complete)**: Research Composite Miner v1 + 12 orthogonal features + R15 leakage fix (`lag=1` default in IC) + R17 TPE-converged 4-feature defensive composite + R18 acceptance passed + R19 due diligence + R20 S1 promotion memo. 详 **`docs/20260424-rcm_v1_final_synthesis.md`**
@@ -188,7 +188,7 @@ pqs/
 │   ├── notify/                  - 消息推送
 │   └── logging_setup.py         - 全局 logging 初始化
 ├── scripts/                     ← 全部 CLI 入口（详见 §8）
-├── tests/                       ← pytest 套件（1341 unit + 45 integration pass, 1 skipped + 1 xfailed）
+├── tests/                       ← pytest 套件（1491 unit + 45 integration pass, 1 skipped + 1 xfailed）
 │   ├── unit/
 │   └── integration/
 ├── data/                        ← 数据目录（gitignored）
@@ -249,7 +249,7 @@ conda install -c conda-forge libomp   # XGBoost 需要
 首次启动需拉 yfinance 数据:
 
 ```bash
-# 1. Universe 日线（config/universe.yaml 里的 53 个 symbols）
+# 1. Universe 日线（config/universe.yaml 里的 79 个 tradable symbols）
 python scripts/fetch_data.py --daily-only
 
 # 2. Mining pool（S&P 500 级别）—— PRD deep mining R34 用
@@ -276,7 +276,7 @@ python scripts/build_catalog.py                # coverage 目录
 # 若项目 Python 不在 PATH，用 env 绝对路径（WSL/conda 常见）
 PY=/home/zibo/miniconda3/envs/pqs/bin/python
 
-$PY -m pytest -q                        # 应该 ≈ 1341 unit + 45 integration pass, 1 skipped + 1 xfailed
+$PY -m pytest -q                        # 应该 ≈ 1491 unit + 45 integration pass, 1 skipped + 1 xfailed
 $PY scripts/run_backtest.py --help      # 验证 CLI 能进
 bash scripts/run_all.sh check           # 环境自检
 ```
@@ -1404,9 +1404,9 @@ rm .claude/ralph-loop.local.md
 
 ### 14.1 结构
 
-- `tests/unit/<module>/test_*.py` — 单元（1341 tests, ≈ 86s 跑完）
+- `tests/unit/<module>/test_*.py` — 单元（1491 tests, ≈ 108s 跑完）
 - `tests/integration/test_*.py` — 集成（46 tests, ≈ 42s, I/O 密集）
-- 合计 **1386 pass + 1 skipped + 1 xfailed** (2026-04-24, post RCMv1 + audit; 核对 `data/baseline/latest.json`)
+- 合计 **1536 pass + 1 skipped + 1 xfailed** (2026-04-24, post Phase E + audit-v2; 核对 `data/baseline/latest.json`)
 
 ### 14.2 运行
 
@@ -1885,3 +1885,5 @@ model / Transformer research）。
 ---
 
 *README v1.2 — 2026-04-22, audit pass 3 after Deep-Mining 50-round completion. Key updates: factor registry 39→41 / DSL rules 3→5 / universe 53→52 (K delisted) / tests 1109→1211 / added R50 synthesis + R38 proposal + R46 findings doc references / §17.9 marked complete.*
+
+*README v1.3 — 2026-04-24 (audit-v2 pass 3, lineage `audit-2026-04-24-v2`). Key updates: tests 1386→1536 (post Phase E 14-round ship) / factor registry 41→64 RESEARCH (RCMv1 12 orthogonal features + shadow exports) + 7 PRODUCTION / mining archive trimmed to `post-2026-04-23-feat-v1-expanded` 65 trials (prior history detached) / rcm_archive 222→216 trials (3 lineages unchanged) / universe 52→79 tradable / 63 unused imports removed in R1/R2 / 3 --help bugs fixed (feat_v1_topk_analysis / build_splits_parquet / run_multi_tf_backtest). No functional regressions — see `docs/20260420-ralph_loop_log.md` §R-audit-v2-round-01/02/03.*

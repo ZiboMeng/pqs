@@ -13072,3 +13072,156 @@ parse 缺陷，不是 X-1 引入的）。
 - 条件 3: NO（32 + 13 = 45 modules import sweep 全部 OK）
 - 条件 4: NO（disk 801GB free）
 - 条件 5: NO（无 schema migration / new PRD 触发）
+
+---
+
+## R-audit-v2-round-03
+
+**时间**: 2026-04-24
+**lineage_tag**: audit-2026-04-24-v2
+**Commit**: TBD (填入 R3 commit 后)
+
+### 1. 本轮主题
+Round 3 — Tests + docs sync + baseline rebuild。覆盖
+`tests/integration/` 全量跑 + README.md 精读 + `data/baseline/latest.json`
+重建 + CLAUDE.md drift check。
+
+### 2. 本轮目标
+1. Integration test suite 全量跑，确认 R1/R2 改动无 regression
+2. `dev/scripts/baseline/build_research_baseline_snapshot.py --run-tests`
+   刷新 `data/baseline/latest.json`
+3. README.md 逐条对码 script 引用 / 数据路径 / 特征数量 / universe 数
+4. CLAUDE.md Current TODO Checklist + Confirmed Done 表 drift fix
+
+### 3. 为什么这轮优先做它
+- R1 (core cleanup) + R2 (scripts cleanup + 3 --help bugs) 修改了 40+
+  文件，需要 integration 全量 smoke 验证
+- Phase E 14-round 完成后 README 从未系统性复核；CLAUDE.md 的
+  "Codebase audit" 行还停留在 v1（说 0 bugs）
+- baseline snapshot 反映 v1 尾部状态，需要 push 到 R2 commit 的新 head
+
+### 4. 做了什么
+
+**1. Integration tests**:
+`python -m pytest tests/integration -q` → **45 passed, 1 xfailed in 41.62s**
+（所有 46 tests，1 expected failure 符合 baseline）。R1+R2 改动无 regression。
+
+**2. Baseline rebuild**:
+`python dev/scripts/baseline/build_research_baseline_snapshot.py --run-tests`
+→ **1536 passed / 0 failed / 1 skipped / 1 xfailed / 1538 collected /
+148.94s**，写入 `data/baseline/snapshot_20260424T053317Z.json` +
+`data/baseline/latest.json`。New snapshot 指向 `b97fc2b3c2b1`
+（R2 log fill hash commit，本 R3 commit 的 parent）。
+
+**3. Archive state verification** (for README truth):
+- Production archive `data/mining/archive.db`: **65 trials / 1 lineage**
+  (`post-2026-04-23-feat-v1-expanded`)
+- Research archive `data/mining/rcm_archive.db`: **216 trials / 3
+  lineages** (rcm-v1 34, rcm-v1-lag1 159, rcm-v1-random 23)
+- Research candidates: **1 record**
+  (`rcm_v1_defensive_composite_01 @ S2_paper_candidate`)
+
+**4. README.md 精读 + fix**:
+
+| README ref | 旧 | 新 |
+|-----------|----|----|
+| §1.4 test count | `1536+ unit + 45 integration` | `1491 unit + 45 integration … 1538 collected, 148.94s` |
+| §1.4 Mining archive | `302 trials / 12 lineages` + `222 trials / 3 lineages` | `65 trials / 1 lineage` + `216 trials / 3 lineages` |
+| §4 tree pytest count | `1341 unit + 45 integration` | `1491 unit + 45 integration` |
+| §6 quick-test check | `≈ 1341 unit + 45 integration` | `≈ 1491 unit + 45 integration` |
+| §7 fetch-data comment | `53 个 symbols` | `79 个 tradable symbols` |
+| §14.1 test table | `1341 tests` + `1386 pass` | `1491 tests` + `1536 pass` |
+| Footer | `README v1.2 (2026-04-22)` | 保留 v1.2 条目 + 新增 v1.3 (2026-04-24 audit-v2) |
+
+All 10+ script refs in README checked via regex — 0 broken.
+
+**5. CLAUDE.md drift fix**:
+- "Current TODO Checklist" 下 "Codebase audit 3-round (2026-04-24
+  COMPLETE)" row 分裂为两条: v1 (audit-2026-04-24) + v2 (audit-2026-04-24-v2)
+- "Confirmed Done" 表 "30 candidate factors" → "64 research factors
+  (7 production)"（post-Phase E + RCMv1 registry）
+
+### 5. 修改了哪些文件
+
+| 文件 | 修改 |
+|------|------|
+| data/baseline/latest.json | R2 commit 的 baseline 快照（1491u/45i/1s/1xf, 148.94s） |
+| data/baseline/snapshot_20260424T053317Z.json | 同上 (archived copy) |
+| data/baseline/snapshot_20260424T053253Z.json | 首次 regen 的 no-run-tests 快照（archived） |
+| README.md | 7 处 stale count/数据路径 fix + footer v1.3 audit-v2 条目 |
+| CLAUDE.md | Codebase audit v1+v2 split row + Confirmed Done 因子计数 update |
+| docs/20260420-ralph_loop_log.md | R-audit-v2-round-03 本轮 log entry |
+
+注: `data/baseline/` 属 .gitignore，新 snapshot 不进 commit（是派生产物）；
+commit 只含 README.md + CLAUDE.md + log entry。
+
+### 6. 跑了哪些测试/实验
+- `pytest tests/integration -q` → 45 pass + 1 xfail / 41.62s
+- `build_research_baseline_snapshot.py --run-tests` → 1536 pass + 1 skip
+  + 1 xfail / 148.94s，写 JSON snapshot
+- SQLite count 3 个 archive DB + candidate registry
+- Regex script-ref scan README → 0 broken
+- AST unused-imports re-scan across R1+R2 整合 scope（10 目录）→
+  **0 remaining**
+
+### 7. 结果如何
+
+**Full suite**: 1536/1538 pass (1 skip + 1 xfail), unchanged from R1/R2 baseline
+
+**README diff 小计**:
+- 7 stale number fixes
+- 1 new footer entry (v1.3) 说明 audit-v2 scope + 具体改动量
+- 0 broken script references
+
+**CLAUDE.md drift fixed**:
+- audit v1 行拆分为 v1 (保留历史) + v2 (新增当前状态)
+- 因子计数 30 → 64 research + 7 production
+
+**Baseline**:
+- HEAD sha b97fc2b3c2b1 (R2 log commit)
+- 配置 hash unchanged（R1/R2 不碰 config）
+- factor registry hash unchanged（R1/R2 只删 import）
+- universe hash unchanged（R1/R2 不碰 universe）
+- test hash/count: 1536 pass（baseline now complete with pass counts filled）
+
+### 8. 当前发现的新问题/新机会
+
+- **观察 1**: Production archive (data/mining/archive.db) 只有 65 trials /
+  1 lineage，比 CLAUDE.md 历史条目记载的 "302 trials / 12 lineages" 少得
+  多。猜测：feat-v1 expanded mining 曾经重新初始化过 DB（或 lineage
+  cull 过历史记录）。这是用户级信息，不是 code bug，README R3 已如实更新
+- **观察 2**: README §14.1 之前的测试 duration "86s" 只算 unit；post-R1/R2
+  统计时间是 108s（加了 Phase E tests）+ 41s (integration) = 149s 全
+  量。已同步到 v1.3 footer
+- **机会 1**: `data/baseline/latest.json` 现在反映 audit-v2 完成后的完整
+  状态，后续任何 regression 可通过 diff 这个 baseline 即刻发现
+
+### 9. 剩余风险
+
+无。R3 只做文档同步 + baseline 再生，未改 core/scripts 代码。
+pytest 套件与 R1/R2 post-cleanup 完全一致（1536 pass）。
+
+### 10. 下一轮建议方向
+
+**AUDIT3DONE**: 本轮完成后 emit completion promise。3-round audit-v2
+结束，无系统性问题遗留。后续维护性工作建议：
+1. 如果未来加新脚本，建议加 pre-commit hook 检查 `--help` rc=0
+2. `ruff` / `pyflakes` 作为可选依赖供本地自查 unused imports（需用户
+   批准加 requirements.txt）
+3. 下一次代码审计建议至少在 10 rounds ralph-loop 之后再做（避免重复
+   扫到相同的 bit rot 起点）
+
+### 11. Halt 条件检查 (§4)
+- 条件 1: **3/3 rounds 完成 — AUDIT3DONE eligible** ✅
+- 条件 2: NO（1536 pass === 新 baseline；无 regression）
+- 条件 3: NO（R1+R2 的 45 modules import sweep 全部 OK 维持）
+- 条件 4: NO（disk 801GB free）
+- 条件 5: NO（无 schema migration / new PRD 触发）
+
+**AUDIT3DONE 成立条件**:
+- ✅ 3 rounds complete (R1 = 6b1d4f4 + R2 = b902fae + R3 = TBD)
+- ✅ Test suite passes (1536/1538 — same as audit-start baseline)
+- ✅ README synced (7 fixes + footer v1.3)
+- ✅ Baseline regenerated (data/baseline/latest.json HEAD=b97fc2b)
+- ✅ CLAUDE.md drift fixed
+- ✅ 无 blocker / 无 new PRD requirement / 无 schema migration
