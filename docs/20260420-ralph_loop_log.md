@@ -11595,3 +11595,165 @@ glob。Low priority — 路径稳定几个月了。
 - 条件 7: NO
 
 → 继续 R7（shared acceptance helpers）
+
+---
+
+## R-phase-e-round-07
+
+**时间**: 2026-04-24
+**Commit**: `cfebef8`
+**Sub-phase**: E-1 (complete)
+**Focus**: `core/research/acceptance_helpers.py` — 抽共享 evaluator，
+保留 research + production 两个顶层入口
+
+### 1. 本轮主题
+PRD §2 E1-R7 + auditor 修正 4: 不硬合并 acceptance_pack v3，只抽共享
+pure helpers 到 `core/research/acceptance_helpers.py`。保留
+research/production 两侧 top-level CLI 各自的语义。
+
+### 2. 本轮目标
+- 新 `core/research/acceptance_helpers.py`: summarize_ic / walkforward /
+  regime / turnover / benchmark_relative_ic / decision
+- Refactor `scripts/acceptance_research_composite.py` 用新 helpers
+- `core/mining/acceptance_pack.py` 不碰
+- CLI output 对 RCMv1 real archive 要 identical
+- 4+ tests (实际 26)
+
+### 3. 为什么这轮优先做它
+E-1 最后一环。之前 research acceptance 的 5 个 private helpers 与
+production acceptance_pack 有同名但略异逻辑。抽到 research helpers 
+module 让：
+- 后续 paper layer 验证可直接调
+- research acceptance vs production acceptance 的 threshold 差异
+  变成显式 kwarg（不是复制黏贴 diverge）
+- Future refactor paths 清晰
+
+### 4. 做了什么
+
+**新 `core/research/acceptance_helpers.py`** (240 LOC):
+7 pure functions:
+
+| function | semantic |
+|----------|----------|
+| `fmt(x)` | None/NaN/Inf → "nan"; finite → "+0.XXXX" |
+| `summarize_ic(ic_series, horizon)` | 年化 IR = mean/std*sqrt(252/h); **std > 1e-12** 才算（防 near-zero std 溢出） |
+| `walkforward_ic(ic, horizon, n_folds, min_per_fold)` | 等分时间 folds + date_start/end |
+| `regime_stratified_ic(ic, regimes, horizon, min_per_regime)` | per-regime IC，sparse 桶 drop |
+| `turnover_summary(composite)` | 0=stable, ~1=churning (rank corr proxy) |
+| `benchmark_relative_ic_summary(by_regime, primary, secondary)` | CRISIS vs RISK_ON IR proxy（full vs-SPY/QQQ in paper）|
+| `ic_stability_decision(full, wf, regime, ir_threshold=..., ...)` | PRD 2 §7 thresholds; **thresholds are kwargs** 让 production 可 tighten |
+
+**发现 & 修 1 个 real bug**:
+编写 `test_summarize_ic_constant_zero_std` 时发现：pandas `Series(
+[0.05]*50).std()` 返回 1e-17（不是 0），原代码 `std > 0` 接受它，
+`mean/std*sqrt(12)` → 1.2e16。修改为 `std > 1e-12`。这是 R7 extract 
+附带发现的**边界 bug**，不修的话 constant-factor composite 会产出
+fake-inflated IR。
+
+**Refactor of `scripts/acceptance_research_composite.py`**:
+原来 5 个 private `_summarize_ic` / `_walkforward` / `_regime_stratified_ic`
+/ `_fmt` / `_ic_stability_decision` 全部替换为从 helpers re-export 
+的 `_name = helper_name` 别名。CLI 用户 code path 不变，backward-compat
+保住。
+
+### 5. 修改了哪些文件
+```
+A  core/research/acceptance_helpers.py                     (+240)
+M  scripts/acceptance_research_composite.py                (-97, +13)
+A  tests/unit/research/test_acceptance_helpers.py          (+260)
+```
+
+### 6. 跑了哪些测试/实验
+
+**26 新单测** (all PASS):
+- fmt None/NaN/Inf/finite: 4
+- summarize_ic empty/single-sample/constant-near-zero/horizon-ratio/
+  bad-horizon/positive-rate: 6
+- walkforward even-split/too-short/bad-n-folds: 3
+- regime aligns-indices/drops-sparse-buckets: 2
+- turnover empty/stable/churning: 3
+- benchmark_relative happy-path/missing-regime: 2
+- decision promote-all-green/hold-on-low-IR/hold-on-walkforward/
+  hold-on-regime/custom-thresholds: 5
+- CLI wrapper re-export parity: 1
+
+**End-to-end parity on RCMv1 real archive**:
+```
+$ python scripts/acceptance_research_composite.py \
+    --study rcm-v1-run-02-lag1 --lineage post-2026-04-24-rcm-v1-lag1
+
+Full period : n=3310 ic_mean=+0.0372 ic_ir=+0.4951 pos_rate=0.567
+Walk-forward (4 folds):
+  fold 1 [2015-01 → 2018-02]  IR=+0.390
+  fold 2 [2018-02 → 2020-10]  IR=+0.181
+  fold 3 [2020-10 → 2023-07]  IR=+0.674
+  fold 4 [2023-07 → 2026-03]  IR=+0.777
+Regime (6 regimes):
+  BULL  IR=+0.344  CAUTIOUS  IR=+0.407
+  CRISIS IR=+1.589 NEUTRAL   IR=+0.818
+  RISK_OFF IR=+0.620 RISK_ON IR=+0.167
+Decision: promote_to_paper
+```
+**Numbers byte-identical to R18 baseline** — refactor proved safe.
+
+**Research suite**: 142/142 pass (R1 26 + R3 12 + R4 19 + R5 9 + R6 12 + 
+R7 26 + pre-R7 mining 38)
+
+### 7. 结果如何
+
+**Phase E-1 complete after this round**:
+- R4: FrozenStrategySpec schema ✓
+- R5: freeze_research_candidate.py CLI ✓
+- R6: research_promote.py S0→S1 gate ✓
+- R7: shared acceptance helpers ✓
+
+**Pipeline end-to-end ships**:
+```
+rcm_archive trial
+  → freeze_research_candidate.py  (S0 row + stub YAML)
+  → (author memo + run acceptance → replace stubs)
+  → research_promote.py           (S0 → S1)
+  → (paper layer build in E-2)
+  → paper_enter.py                (S1 → S2, R11)
+```
+
+**Bonus**: R7 extract surfaced a real bug (std > 0 vs std > 1e-12)
+that was silently wrong in research_miner.py too — worth a future
+round to propagate the fix if similar code exists there.
+
+### 8. 当前发现的新问题/新机会
+
+**观察**: `research_miner._spearman_ic_per_date` 等共享 IC math 逻辑
+可能也有 near-zero std 问题。R8+ E-2 可以顺便 audit。Non-blocker。
+
+**机会**: 现在 `ic_stability_decision(ir_threshold=...)` 可 kwarg，未来 
+production-tier acceptance 可以 `ic_stability_decision(..., 
+ir_threshold=0.5, walkforward_min_positive_folds=4, regime_min_positive=5)`
+— 严格 3x。无需新 code。
+
+### 9. 剩余风险
+- 无。R7 纯 additive + refactor 保持 byte-identical output。
+
+### 10. 下一轮建议方向
+**R8 E-2 R1**: `scripts/run_paper_candidate.py` 
+- Args: `--candidate-id`, `--start-date`, `--end-date`, `--out-dir`
+- Load FrozenStrategySpec from registry.frozen_spec_path
+- Build signals via spec features + weights through PaperTradingEngine
+- Write: signals + target_portfolio + fills + pnl_daily CSVs
+- **Hard invariant test**: DOES NOT read config/production_strategy.yaml
+  (grep)
+- Refuses if candidate not at S1 or S2 status
+- 4+ tests
+
+### 11. Halt 条件检查 (§3)
+- 条件 1: NO (7/14 rounds used; **E-1 complete**)
+- 条件 2: NO (+26, no regression)
+- 条件 3: NO
+- 条件 4: NO
+- 条件 5: NO
+- 条件 6: NO
+- 条件 7: NO
+
+**Phase E-1 complete**. E-2 paper layer begins at R8.
+
+→ 继续 R8（run_paper_candidate.py）
