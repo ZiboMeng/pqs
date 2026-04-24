@@ -250,6 +250,13 @@ See `reports/loop_changelog.md` for Phase B history (50 iterations).
 ## IMPORTANT: Git Safety
 NEVER use `git add -A` or `git add .` — always add specific files.
 
+## docs/ storage convention (effective 2026-04-24, forward-only)
+New documents go into per-category subdirs under `docs/` (e.g.
+`docs/prd/`, `docs/synthesis/`, `docs/checkpoints/`, `docs/memos/`,
+etc.). Existing flat files stay where they are. Full convention +
+category list: `docs/INDEX.md` "Convention for new docs" section.
+Update `docs/INDEX.md` when adding a new doc.
+
 ---
 
 ## Ralph-Loop Findings & PRD-revision meta-notes (archived 2026-04-22)
