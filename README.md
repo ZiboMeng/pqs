@@ -56,7 +56,7 @@
 - **最大回撤 15-20%**，黑天鹅中不差于 SPY
 - **OOS walk-forward IR ≥ 0.20**（promote 到生产的门槛）
 
-### 1.4 当前状态（2026-04-24, post Phase E governance + paper layer）
+### 1.4 当前状态（2026-04-24, post Phase E-post + Candidate-2 8-round）
 
 - **生产策略**: `config/production_strategy.yaml` (M1 单一真源，当前 `status: conservative_default`；post-fix validated best **尚未存在** — pack v2 在 50-round R49 仍拒绝唯一候选 `6d15b735a64c`)
 - **Universe**: **79 交易标的** = `seed_pool` 59（含 Mag7 + SPY/QQQ/GLD + leveraged + R28 扩容 common stocks + R38 扩容；`SQQQ` + `SOXS` 在 blacklist）+ 11 sector ETFs + 5 factor ETFs + 4 cross-asset。另有 3 个 macro_reference（^VIX/^TNX/DX-Y.NYB）只作 features
@@ -65,13 +65,16 @@
 - **Cross-ticker DSL**: `config/cross_ticker_rules.yaml` **enabled: true**，**5 条规则**（R24 加 Rule 4 `leveraged_etfs_dual_confirmation` + Rule 5 `xlu_outperformance_signals_defensive_rotation`）；M10 完成 production 集成（`core/signals/cross_ticker_wrapper.py`），`run_backtest.py` + `run_paper.py` 启动时默认应用；`--no-cross-ticker-rules` 可关闭；R23 A/B 测试证明 +2.3pt CAGR alpha，R25 stress 揭示 Rule 2/5 在 COVID V-recovery 下有非对称伤害
 - **数据**: 日线 2007-2026 / 60m intraday 2015-2026 / 1m 2015-2026（部分）/ S&P 500 pool 513 symbols (R34 sync)
 - **Mining archive**: Production `data/mining/archive.db` = 65 trials / 1 lineage (post-2026-04-23-feat-v1-expanded; prior history trimmed after feat-v1 expansion). Research `data/mining/rcm_archive.db` = 216 trials / 3 lineages (RCMv1 R13 pre-fix `post-2026-04-24-rcm-v1` + R16/R17 post-fix `post-2026-04-24-rcm-v1-lag1` + R19 random baseline `post-2026-04-24-rcm-v1-random`)
-- **Candidate registry** (Phase E): `data/research_candidates/registry.db` = 1 record. `rcm_v1_defensive_composite_01` 从 `f24aefecc91a` trial 冻结 → S0 → S1 → **S2_paper_candidate**（经 `freeze_research_candidate.py` / `research_promote.py` / `paper_enter.py` 走完 governance pipeline）
-- **测试**: 见 `data/baseline/latest.json`（跑 `dev/scripts/baseline/build_research_baseline_snapshot.py` 刷新；当前 snapshot = **1491 unit + 45 integration passed, 1 skipped + 1 xfailed**, 1538 collected, 148.94s）
-- **Framework**: M0-M8 + M10 + M13 + M15 + M16 已交付。详 `docs/20260421-prd_framework_completion.md`
+- **Candidate registry** (Phase E + E-post): `data/research_candidates/registry.db` = **2 records, both S2_paper_candidate**. `rcm_v1_defensive_composite_01` (Phase E R11) + `candidate_2_orthogonal_01` (Phase E-post R6, features `{ret_5d, rs_vs_spy_126d, hl_range}` equally-weighted 1/3 each; composite correlation with RCMv1 = 0.404 < 0.5; turnover relative diff = 79.2% ≥ 20%). Parallel paper 参考系建立
+- **研究 mask**: `config/research_mask.yaml` 为 **single source of truth** (Phase E-post R5)；9 个脚本的 `{min_price=5.0, min_usd=20e6, window=20}` 硬编码已统一 config-driven，bit-identical invariant 在真 universe 上验证通过
+- **Paper data boundary**: `core/data/factory.py::PriceStore` Protocol + `create_default_store(cfg)` (Phase E-post R4)。Paper 脚本依赖 Protocol 而不是具体 `MarketDataStore` 类
+- **测试**: 见 `data/baseline/latest.json`（跑 `dev/scripts/baseline/build_research_baseline_snapshot.py` 刷新；当前 = **1556 passed, 1 skipped, 1 xfailed**, 1558 collected）
+- **Framework**: M0-M8 + M10 + M13 + M15 + M16 已交付。开放项 M11/M12/M14/M17/M18。详 `docs/20260421-prd_framework_completion.md`
 - **Deep-mining 50-round (2026-04-22 complete)**: 7 tracks × 50 rounds autonomous execution 结束。详 **`docs/20260422-deep_mining_50round_final_synthesis.md`**
-- **RCMv1 20-round (2026-04-24 complete)**: Research Composite Miner v1 + 12 orthogonal features + R15 leakage fix (`lag=1` default in IC) + R17 TPE-converged 4-feature defensive composite + R18 acceptance passed + R19 due diligence + R20 S1 promotion memo. 详 **`docs/20260424-rcm_v1_final_synthesis.md`**
-- **Codebase audit (2026-04-24)**: 3-round audit found **0 bugs** across 27 core modules + 57 scripts + 13 I/O modules; fixed 1 bug in fetch_data.py (15m/30m lookback)
-- **Phase E governance + paper layer (2026-04-24 complete)**: 11-round ralph-loop ship. E-0 candidate registry + pyarrow decouple + revoke workflow; E-1 FrozenStrategySpec schema + freeze/research_promote/acceptance helpers; E-2 run_paper_candidate + paper artifact schema + drift report + paper_enter. RCMv1 candidate traversed S0→S1→S2 via new tooling. 详 **`docs/20260424-prd_phase_e_execution.md`**
+- **RCMv1 20-round (2026-04-24 complete)**: Research Composite Miner v1 + R15 leakage fix (`lag=1` default) + R17 TPE-converged 4-feature defensive composite + R18 acceptance passed + R20 S1 promotion memo. 详 **`docs/20260424-rcm_v1_final_synthesis.md`**
+- **Codebase audit (2026-04-24)**: 3-round audit v1 + v2 合计找到 3 个 `--help` 真 bug + 63 unused imports 清理
+- **Phase E governance + paper layer (2026-04-24 complete)**: 14-round ralph-loop ship. 详 **`docs/20260424-phase_e_final_synthesis.md`**
+- **Phase E-post + Candidate-2 (2026-04-24 complete)**: 8-round ralph-loop ship (EPOST_CAND2_DONE). 5 E-post 收尾 gap + Candidate-2 orthogonal candidate @ S2。详 **`docs/20260424-phase_e_post_cand2_final_synthesis.md`**
 
 ---
 
@@ -1890,3 +1893,5 @@ model / Transformer research）。
 *README v1.2 — 2026-04-22, audit pass 3 after Deep-Mining 50-round completion. Key updates: factor registry 39→41 / DSL rules 3→5 / universe 53→52 (K delisted) / tests 1109→1211 / added R50 synthesis + R38 proposal + R46 findings doc references / §17.9 marked complete.*
 
 *README v1.3 — 2026-04-24 (audit-v2 pass 3, lineage `audit-2026-04-24-v2`). Key updates: tests 1386→1536 (post Phase E 14-round ship) / factor registry 41→64 RESEARCH (RCMv1 12 orthogonal features + shadow exports) + 7 PRODUCTION / mining archive trimmed to `post-2026-04-23-feat-v1-expanded` 65 trials (prior history detached) / rcm_archive 222→216 trials (3 lineages unchanged) / universe 52→79 tradable / 63 unused imports removed in R1/R2 / 3 --help bugs fixed (feat_v1_topk_analysis / build_splits_parquet / run_multi_tf_backtest). No functional regressions — see `docs/20260420-ralph_loop_log.md` §R-audit-v2-round-01/02/03.*
+
+*README v1.4 — 2026-04-24 (phase-e-post 8-round, lineage `phase-e-post-2026-04-24`, EPOST_CAND2_DONE). Key updates: tests 1536→1556 (+20 new: 4 migration hermetic / 6 paper factory decoupling / 10 research mask bit-identical invariant) / registry 1→2 S2_paper_candidate records (Candidate-2 `candidate_2_orthogonal_01` {ret_5d, rs_vs_spy_126d, hl_range} equal-weight added; orthogonal to RCMv1 by corr 0.404 + turnover 79%) / new `core/data/factory.py` PriceStore Protocol + `config/research_mask.yaml` single source of truth / new 3 deps (scipy/requests/tqdm/pyzipper) declared / migration hermetic via `--archive-db` injection / revoke drill 3 paths exercised on rcm_v1 clones (real untouched) / R7 audit 0 real bugs + 3 pre-existing unused imports cleaned. Full synthesis `docs/20260424-phase_e_post_cand2_final_synthesis.md`.*

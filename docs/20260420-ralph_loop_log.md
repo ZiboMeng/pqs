@@ -14468,3 +14468,189 @@ R8 需要做：
   / archive schema / broker / universe / factor mining
 - ✅ 未引入新测试 / 新依赖
 
+
+---
+
+## R-epost-cand2-round-08 — Docs sync + CLAUDE.md slim + final synthesis + EPOST_CAND2_DONE
+
+**Lineage tag**: `phase-e-post-2026-04-24`
+**Commit**: TBD (本轮提交后回填)
+**Round scope**: PRD §10.5 R8 — README v1.4 / CLAUDE.md 瘦身 / 最终
+synthesis doc / emit completion promise
+
+### 1. 本轮主题
+
+8-round loop 收尾：同步 README 到 v1.4，把 CLAUDE.md 瘦到 <800 行
+（归档完成项到 `docs/20260424-claude_md_phase_e_history.md`），写
+final synthesis doc，emit `EPOST_CAND2_DONE`。
+
+### 2. 本轮目标
+
+- README §1.4 同步（新增 Candidate-2 registry @ S2 状态、研究
+  mask 单一配置源、paper factory Protocol、测试数 1536→1556）+
+  v1.4 footer 条目
+- CLAUDE.md slim：目标 < 800 行（上限）；把 Deep Mining / RCMv1 /
+  Codebase Audit v1 v2 / Phase E / Phase C plan 各自 archive
+- 新写 `docs/20260424-claude_md_phase_e_history.md` 承接归档内容
+- 新写 `docs/20260424-phase_e_post_cand2_final_synthesis.md` — 12
+  节（R1-R8 summary + 5 gap delivery + Candidate-2 final spec +
+  parallel paper checkpoint-1 notes + decision readiness 评估 +
+  **3 条 audit-v2 launcher 偏差 D1/D2/D3** 强制复述）
+- Emit `<promise>EPOST_CAND2_DONE</promise>`
+
+### 3. 为什么这轮优先做它
+
+PRD §10.3 Round map 最后一轮；R1-R7 全部完成，剩最后 docs 同步 +
+synthesis + 收尾。CLAUDE.md 超 1100 行的问题在 PRD v1.3 footer 已
+被标记为 R8 责任；本轮补齐。
+
+### 4. 做了什么
+
+**Step 1 — 新建归档文档**:
+`docs/20260424-claude_md_phase_e_history.md` (229 lines) 承接：
+- Deep Mining 50-round 详情
+- RCMv1 20-round 详情
+- Codebase audit v1 / v2 详情
+- Phase E Governance + Paper Layer 14-round 详情
+- Phase E-post + Candidate-2 8-round 详情（含本轮交付表）
+- Framework Completion shipped milestones (M0-M8 + M10 + M13 + M15 + M16)
+
+**Step 2 — CLAUDE.md 瘦身**:
+- **首 pass**: Current TODO Checklist 里的 5 个"COMPLETE"区块
+  （Deep Mining / RCMv1 / Audit v1 / Audit v2 / Phase E）从多段
+  压缩到单行 bullet，指向归档文档。1177 → 1115 lines
+- **二 pass**: "Confirmed Done" 36-row 表格（Phase 0 audit 历史）
+  压缩到一段 narrative 描述 + archive pointer。1115 → 1099 lines
+- **三 pass**: "Phase C Execution Plan" 的 Phase 1-4 (~365 lines 的
+  已 shipped acceptance criteria + strict_match 细节) 压缩为 20-line
+  pointer 块，指向 archive doc + 保留 5 个 open M11/M12/M14/M17/M18
+  作为 Framework Completion TODO。1099 → **770 lines** ✓
+- Final: **770 lines, under 800 PRD target**
+
+**Step 3 — README.md v1.4 同步**:
+- §1.4 标题：`当前状态（2026-04-24, post Phase E governance +
+  paper layer）` → `当前状态（2026-04-24, post Phase E-post +
+  Candidate-2 8-round）`
+- Candidate registry: `1 record` → `2 records, both S2_paper_candidate`
+  （新增 Candidate-2 简介 + orthogonality 数字）
+- 新增 bullets：research mask single source of truth / paper factory
+  Protocol / 测试数 `1491+45 passed, 1538 collected` →
+  `1556 passed, 1558 collected`
+- Framework: 加开放项 M11/M12/M14/M17/M18 列表
+- 新增 Phase E-post final synthesis 引用
+- Footer: 新增 v1.4 条目（含 +20 tests / +2 S2 records /
+  `config/research_mask.yaml` / `core/data/factory.py` /
+  3 deps + hermetic migration + revoke drill + R7 audit 全部小结）
+
+**Step 4 — Final synthesis doc**:
+`docs/20260424-phase_e_post_cand2_final_synthesis.md` (336 lines)
+12 节：
+1. Executive summary
+2. Round-by-round delivery 表 (R1-R8 + commit + test count + artifact)
+3. E-post 5-gap delivery 表
+4. Candidate-2 final spec (feature set + 硬约束 gate 表 + 初选
+   rejection audit trail)
+5. Parallel paper checkpoint-1 状态（诚实说明：目前不成立，需
+   operator orchestrate）
+6. Test baseline progression 表
+7. **PRD §10.6 D1/D2/D3 3 条 audit-v2 偏差强制复述**
+8. Decision readiness §8.1/§8.2/§8.3（答案：3 个都 "not yet"）
+9. Halt 条件 summary 表（全部未触发，clean completion via 条件 1）
+10. Hard invariants preserved audit 清单
+11. Open follow-ups（包括 matched parallel paper / M14 / 分支
+    workflow 建议）
+12. Artifacts cross-reference
+末尾 `<promise>EPOST_CAND2_DONE</promise>`
+
+**Step 5 — 验证**:
+- Full pytest: 1556 passed, 1 skipped, 1 xfailed ✓
+- CLAUDE.md: 770 lines < 800 target ✓
+- 所有新文档 path 在 commit / log / README 中交叉引用一致 ✓
+
+### 5. 修改了哪些文件
+
+```
+docs/20260424-claude_md_phase_e_history.md      (NEW; 229 lines)
+docs/20260424-phase_e_post_cand2_final_synthesis.md (NEW; 336 lines)
+docs/20260420-ralph_loop_log.md                 (本报告)
+CLAUDE.md                                        (-407 lines; 1177 -> 770)
+README.md                                        (§1.4 refresh + v1.4 footer)
+```
+
+无代码变更。无 config 变更。无 test 变更。
+
+### 6. 跑了哪些测试/实验
+
+1. **Full pytest**: 1556 passed, 1 skipped, 1 xfailed — 与 R7 baseline
+   一致，零 regression
+2. **CLAUDE.md line count**: 770 / 800 target ✓
+3. **Cross-reference grep**: 所有 `docs/20260424-phase_e_post_cand2_*`
+   + `docs/20260424-claude_md_phase_e_history.md` / `config/research_mask.yaml`
+   / `core/data/factory.py` 在 README 中均可达
+
+### 7. 结果如何
+
+- ✅ CLAUDE.md 770 lines, 低于 PRD <800 硬目标
+- ✅ Phase E history 归档 doc 完成
+- ✅ Final synthesis doc 完成，含 PRD §10.6 3 条 audit-v2 偏差
+- ✅ README v1.4 footer 完成
+- ✅ 零 test regression (1556 === R7 baseline)
+- ✅ `<promise>EPOST_CAND2_DONE</promise>` 在 final synthesis doc 结尾
+- ✅ 8-round loop clean completion via PRD §12.3 halt 条件 1
+
+### 8. 当前发现的新问题/新机会
+
+**观察 (loop 完结时)**:
+- Final synthesis doc §11 已明确列出下游 open follow-ups —— 不属本
+  loop 的责任：
+  - matched parallel paper checkpoint-1（需 operator orchestrate）
+  - M14 NaN 修（P2）
+  - M11 / M12 acceptance pack v3
+  - E-post-5B repro（若未来发现）
+  - 分支 workflow (loop-level feedback)
+
+### 9. 剩余风险
+
+- 零 test regression
+- 无 production config 变更
+- 无 PRODUCTION_FACTORS / promote_strategy 语义变更
+- 无 archive schema 变更
+- 真 rcm_v1 仍 S2_paper_candidate (bit-stable through 8 轮)
+
+### 10. 下一轮建议方向
+
+无下一轮。Loop 完结 — emit `EPOST_CAND2_DONE`。
+
+操作性后续（非本 loop 职责）：
+- 运营层面运行 matched parallel paper（RCMv1 + Candidate-2 同一窗口）
+  产出 checkpoint-1 报告
+- 如 M14 NaN 影响评估，开 P2 修复 ticket
+- 若决定下个 loop 走分支工作流，修改 `start_*_loop.sh` 模板在
+  pre-flight 里 `git checkout -b loop/<lineage>` 并在 loop 尾提示
+  `merge --no-ff` 到 main
+
+### 11. Halt 条件检查 (PRD §12.3)
+
+- **条件 1 (8 rounds done): ✅ TRIGGERED** — 8/8 完成，emit
+  EPOST_CAND2_DONE
+- 条件 2-6: 全部 NO（1556 === R7；core import 无断；disk 801GB；
+  无 schema migration；0 真 bug）
+
+**Final autonomous scope 检查 (PRD §12.1)**:
+- ✅ README / CLAUDE.md edits 在授权范围（§12.1 R8 scope）
+- ✅ 新 docs/*.md 不动代码
+- ✅ 无 production config / PRODUCTION_FACTORS / promote / archive
+  schema / broker / universe / heavy model research 变更
+
+---
+
+**LOOP CLOSURE**: `EPOST_CAND2_DONE` promise satisfied:
+- ✅ All 8 rounds complete (R1..R8 committed to main)
+- ✅ Full test suite passes (1556/1558 collected)
+- ✅ Candidate-2 registry state = S2_paper_candidate
+- ✅ Paper run artifacts exist
+  (`data/paper_runs/candidate_2_orthogonal_01/20260424T152840Z/*`)
+- ✅ README + CLAUDE.md synced (README v1.4 footer + CLAUDE.md 770 lines)
+- ✅ Final synthesis doc exists
+  (`docs/20260424-phase_e_post_cand2_final_synthesis.md`)
+

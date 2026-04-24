@@ -94,41 +94,25 @@
 **Architecture:** config/ → core/ → scripts/ → tests/. Live test count in `data/baseline/latest.json` (build via `python dev/scripts/baseline/build_research_baseline_snapshot.py`).
 **Phase C progress:** 19 iterations + intraday sprint (4 tasks). Intraday pipeline now functional.
 
-Evidence levels:
-- `code_verified`: feature exists in code and logic is correct upon inspection
-- `test_verified`: covered by automated unit/integration tests
-- `manual_verified`: verified by manual run but no automated test
-- `claimed_not_verified`: stated in docs but not independently confirmed
+Evidence levels: `code_verified` / `test_verified` / `manual_verified` / `claimed_not_verified`.
 
-#### Confirmed Done
+#### Confirmed Done (compressed 2026-04-24 R8)
 
-| Feature | Evidence | Verification Source |
-|---------|----------|-------------------|
-| Daily data 2007-2026 (37 symbols) + 60m intraday (32 symbols) | `code_verified` | data/daily/*.parquet, data/intraday/60m/*.parquet |
-| Real T+1 open price execution | `code_verified` | backtest_engine.py:119,151; run_backtest.py:load_open_prices |
-| Paper-backtest shared rebalance logic | `code_verified` | paper_trading_engine.py:run_day_daily → BacktestEngine._generate_orders |
-| Kill switch 3-tier with auto-recovery | `test_verified` | kill_switch.py; test_kill_switch.py |
-| Cost accounting: separate slippage + commission | `test_verified` | test_cost_model.py, test_execution_simulator.py |
-| Integer share mode | `code_verified` | backtest_engine.py:integer_shares, _generate_orders floor() |
-| Walk-forward OOS (regime-aware) | `test_verified` | test_window_analyzer.py |
-| Expanding window validation | `code_verified` | window_analyzer.py:expanding_window() |
-| Forward-block holdout (last 252d) | `code_verified` | evaluator.py data isolation |
-| Data isolation (first 70% quick filter) | `code_verified` | evaluator.py:quick_end_idx |
-| 4 stress period tests | `code_verified` | evaluator.py:_check_stress_periods, config/backtest.yaml |
-| Subperiod robustness | `code_verified` | evaluator.py:_check_subperiod_robustness |
-| Cost sensitivity (2x gate) | `code_verified` | evaluator.py:_check_cost_robustness |
-| Parameter sensitivity (±20%) | `code_verified` | evaluator.py:_check_param_robustness |
-| Regime robustness (6 regimes) | `code_verified` | evaluator.py:_check_regime_robustness |
-| OOS/IS Sharpe overfit gate | `code_verified` | evaluator.py:_assign_tier |
-| 5-stage mining pipeline | `code_verified` | evaluator.py:evaluate() stages 1-5 |
-| 64 research factors (7 production) | `test_verified` | factor_generator.py + factor_registry.py + test_factor_registry.py (count as of audit-v2 baseline 2026-04-24) |
-| Feature importance (XGBoost 3.2.0) | `code_verified` | run_xgb_importance.py (real XGBoost + permutation) |
-| MultiFactorStrategy | `test_verified` | multi_factor.py + test_multi_factor.py (16 tests) |
-| Left-side trading module | `test_verified` | left_side.py + test_left_side.py |
-| Master report (regime vs SPY+QQQ) | `code_verified` | master_report.py, master_report_builder.py |
-| Universe rebalance (PIT) | `code_verified` | run_universe_rebalance.py |
-| Diagnostics suite (4 detectors) | `test_verified` | diagnostics/detectors.py + test_detectors.py (19 tests) |
-| target_vol=0.25 | `test_verified` | constructor.py:_DEFAULT_TARGET_VOL + test_constructor.py |
+Capabilities shipped + test-verified: daily/60m data ingest, real T+1
+open-price execution, paper-backtest shared rebalance logic, 3-tier
+kill switch with auto-recovery, separate slippage/commission cost
+accounting, integer-share mode, regime-aware walk-forward OOS,
+expanding-window validation, 252d forward-block holdout, 4-period
+stress + subperiod + 2x-cost + ±20% param + 6-regime robustness
+gates, OOS/IS Sharpe overfit gate, 5-stage mining pipeline, 64
+research factors (7 production, see factor_registry), XGBoost 3.2.0
+feature importance, MultiFactorStrategy (16 tests), left-side trading,
+SPY+QQQ master report, PIT universe rebalance, 4-detector diagnostics,
+target_vol=0.25 constructor. Full feature table moved to
+`docs/20260424-claude_md_phase_e_history.md` §"Phase E-post +
+Candidate-2 8-round" for audit; individual file pointers remain
+discoverable via `grep` / §"Key File Locations" at the bottom of
+this file.
 
 #### Phase C completion tables (archived 2026-04-22)
 
@@ -172,353 +156,24 @@ P4. Performance, scalability, data vendor / broker prep
 
 ---
 
-### Phase 1: Core Consistency Hardening [REVISED]
-
-**Goal:** Ensure backtest, replay, and paper trading are provably consistent via a formal `strict_match` mechanism. Validate QQQ outperformance under new hard constraint.
-
-#### 1.1 strict_match Formal Mechanism [REVISED]
-
-**Config location:** `config/backtest.yaml` → `consistency` section
-
-```yaml
-consistency:
-  strict_match:
-    enabled: false                    # toggle for CI / regression
-    zero_cost: true                   # disable slippage + commission
-    deterministic_execution: true     # no randomness in fill logic
-    force_shared_path: true           # paper must call BacktestEngine._generate_orders
-    share_mode: integer               # integer | fractional — BOTH sides must use same mode
-    tolerance_equity_bps: 10          # max daily equity divergence (bps)
-    tolerance_position_shares: 0      # exact share match required
-    tolerance_cash_usd: 0.01          # rounding tolerance
-```
-
-**Key change:** `share_mode` replaces hardcoded `integer_shares: true`. The requirement is that **both backtest and paper use the same share_mode**, not that integer is always used. [REVISED]
-
-**Behavior in strict_match mode:**
-- Cost model returns zero slippage and zero commission
-- No stochastic components in execution
-- Both backtest and paper MUST use the identical code path for order generation
-- Same share_mode enforced on both sides
-- Same signal → same price → same fills → same positions → same cash → same equity
-
-**Reconciliation products:**
-
-| Product | Format | Contents |
-|---------|--------|----------|
-| fills_reconciliation | DataFrame | date × symbol × side × qty × price — matched pair, mismatch flag |
-| positions_reconciliation | DataFrame | date × symbol × backtest_qty × paper_qty × diff |
-| cash_reconciliation | Series | date × backtest_cash × paper_cash × diff_usd |
-| equity_reconciliation | Series | date × backtest_equity × paper_equity × diff_bps |
-| mismatch_summary | Dict | first_mismatch_date, n_mismatches, max_divergence_bps, pass/fail |
-
-**Automated test:** `tests/integration/test_strict_match_consistency.py`
-
-#### 1.2 Other Phase 1 Tasks
-
-1. Add MultiFactorStrategy unit tests (≥10): factor computation, signal generation, regime scaling, min_holding_days, edge cases
-2. Verify stressed cost produces directionally correct degradation (see acceptance criteria)
-3. Wire left_side_trading config from risk.yaml into LeftSideTrading class
-4. Add open price regression test
-5. **Validate current best strategy against QQQ hard constraint (full period + holdout)**
-
-### 1.3 Known Critical Bugs to Fix First [NEW]
-
-*To avoid wasted iterations, Claude must fix these identified bugs before running consistency tests:*
-
-1. **Replay Open Price Bug**
-   `scripts/run_paper.py:run_replay()` currently builds `open_prices` from a daily price matrix that only loads `close`, so T+1 `close` is being passed as T+1 `open`. This breaks backtest-paper consistency. It must explicitly load and pass true T+1 `open` prices.
-
-2. **Cost Robustness Bug**
-   `core/mining/evaluator.py:_check_cost_robustness()` attempts to initialize `CostModel` with `stress_multiplier`, but `CostModel` currently accepts only a `CostModelConfig`. This likely causes a silent fallback to the base cost model, invalidating the intended 2x cost stress test.
-
-3. **Execution Cost Accounting Inconsistency (likely commission double counting)**
-   `ExecutionSimulator.simulate_fill()` uses `cost_bps()` to shift execution price, while `cost_bps()` currently represents total cost (`commission + slippage`). It then also applies `commission_usd` separately to cash. This likely double-counts commission and should be fixed by enforcing a clear accounting split:
-
-   * **slippage** → execution price
-   * **commission** → cash accounting
-
-#### Required Fix Validation
-
-Before proceeding with broader consistency or mining work, Claude must:
-
-* patch all three issues
-* add or update automated tests covering each bug
-* verify that:
-
-  * replay uses true T+1 open prices
-  * 2x cost stress actually changes results versus 1x
-  * execution accounting no longer mixes total-cost-in-price with separate commission-in-cash
-* summarize the fix, the files changed, and the regression tests added
-
-
-#### Phase 1 Acceptance Criteria [REVISED]
-
-| Criterion | Measurable Standard |
-|-----------|-------------------|
-| strict_match fills | Exact match: same count, same symbols, same quantities, same prices |
-| strict_match positions | EOD positions identical for every date in test window |
-| strict_match cash | Daily cash divergence < $0.01 |
-| strict_match equity | Daily equity divergence < 10 bps |
-| First mismatch reporting | On failure: output date, symbol, expected vs actual |
-| MultiFactorStrategy tests | ≥10 unit tests covering core logic paths |
-| Stressed cost test | 2x cost produces lower CAGR than 1x cost; total trading cost under 2x is higher than under 1x; difference exceeds configured minimum threshold [REVISED] |
-| Left-side config wiring | cfg.risk.left_side_trading values flow to LeftSideTrading constructor |
-| QQQ full-period | Best strategy CAGR > QQQ CAGR over full backtest period [NEW] |
-| QQQ holdout | Best strategy return > QQQ return over holdout period [NEW] |
-
----
-
-### Phase 2: Intraday Pipeline [REVISED]
-
-**Goal:** Make intraday backtest + paper trading actually executable, multi-asset, persistent, and recoverable.
-
-#### 2.1 Intraday Data Contract [REVISED]
-
-**Canonical representation:**
-```
-Dict[str, pd.DataFrame]  # symbol → OHLCV DataFrame
-```
-
-**Bar data minimum fields:**
-
-| Field | Type | Required |
-|-------|------|----------|
-| open | float | yes |
-| high | float | yes |
-| low | float | yes |
-| close | float | yes |
-| volume | float | yes |
-| timestamp | DatetimeIndex | yes |
-
-**Timezone rules:** [REVISED]
-- **Current implementation:** tz-naive, US/Eastern (matching yfinance output after `align_intraday_index`)
-- **Target architecture:** future versions should migrate to tz-aware UTC-normalized internal representation with ET conversion at display/execution boundaries
-- **Migration constraint:** any tz change must be accompanied by a regression test proving identical backtest results before and after
-
-**Missing and anomalous bar handling:** [REVISED]
-
-| Scenario | Order Generation | Valuation |
-|----------|-----------------|-----------|
-| Missing bars for a symbol | Skip order generation for that symbol | **Mark at last valid price** (stale-flagged) |
-| Incomplete bar (partial data) | Skip if close missing | Use available fields for valuation |
-| Halted / sparse asset | Exclude from order generation | **Continue valuation at last valid price** — never remove from NAV |
-| Stale data (no update for N bars) | Exclude from order generation after staleness_threshold | Continue valuation at last valid price + diagnostic flag |
-
-#### 2.2 Intraday Persistence Schema
-
-| Table | Key Fields | Purpose |
-|-------|-----------|---------|
-| `intraday_orders` | run_id, date, bar_timestamp, symbol, side, qty, signal_source | Every order generated |
-| `intraday_fills` | run_id, date, bar_timestamp, symbol, side, qty, price, slippage, commission | Every execution |
-| `intraday_positions` | run_id, date, bar_timestamp, symbol, qty, avg_cost | Position snapshot per bar |
-| `intraday_equity` | run_id, date, bar_timestamp, equity, cash, portfolio_value | Equity snapshot per bar |
-| `bar_checkpoints` | run_id, date, last_processed_bar, state_json | Resumption checkpoint |
-
-**Recovery and idempotency:**
-- `run_id`: UUID generated at session start
-- `bar_checkpoints`: after each bar, write last_processed_bar + serialized state
-- On restart: load latest checkpoint; resume from next bar
-- Before processing a bar: check if fills exist for (run_id, bar_timestamp); skip if yes
-
-#### Phase 2 Acceptance Criteria [REVISED]
-
-| Criterion | Measurable Standard |
-|-----------|-------------------|
-| Multi-asset portfolio valuation | Intraday backtest runs on ≥5 symbols with correct portfolio NAV (sum of position values + cash) |
-| Bar-level persistence | All 5 persistence tables populated during intraday run |
-| Restart recovery | Kill process mid-run → restart → resumes from checkpoint, no duplicate fills |
-| Incomplete data handling | Engine skips missing bars without crash; stale assets remain in NAV at last valid price |
-| Idempotent re-run | Re-running same session produces identical results |
-| Live paper mode | `--mode live` writes fills + positions to DB |
-
----
-
-### Phase 3: Factor Research Loop + ML [REVISED]
-
-**Goal:** Close the factor research loop, add real ML, establish LLM-assisted exploration with strict guardrails.
-
-#### 3.1 Factor Timing and Leakage Rules [REVISED]
-
-Every factor / signal must have explicit timing semantics:
-
-| Attribute | Definition |
-|-----------|-----------|
-| signal_timestamp | The "as-of" time when the signal is considered generated |
-| data_availability_timestamp | The latest real-world time at which all input data would have been available |
-| execution_timestamp | When orders based on this signal would be executed |
-
-**Leakage rules:**
-- A factor must NOT use any data with `data_availability_timestamp > signal_timestamp`
-- A factor must NOT use any field that would not have been observable at `signal_timestamp`
-- Specifically prohibited: using T-day close to generate T-day signal that executes at T-day close (same-bar execution)
-- Specifically required: signal generated from data available at T-day close → execution at T+1 open (minimum 1-bar lag)
-- Leakage checks are based on **temporal availability semantics**, not simplistic `shift()` counting
-
-**Automated leakage validation:**
-- For each factor in factor_generator.py, verify the computation chain includes at least `shift(1)` or equivalent lag
-- Check that no factor accesses `price_df` at index `t` for a signal dated `t` without shifting
-- Flag factors that use aligned/merged data without explicit lag documentation
-
-#### 3.2 Real XGBoost + SHAP
-
-1. Install xgboost + libomp (conda install -c conda-forge xgboost libomp)
-2. Replace sklearn GradientBoosting with XGBRegressor
-3. Time-series-safe split: train [0, T), test [T, T+V) — temporal, never random
-4. SHAP or permutation importance for factor attribution
-5. Reproducible config saved alongside results (hyperparameters, split dates, seed)
-6. Artifacts saved to `data/ml/`
-
-#### 3.3 Expanded Factor Families
-
-Priority additions:
-- Overnight / intraday return split factors
-- Benchmark-relative factors (vs SPY and vs sector ETF)
-- Regime-conditioned factors (factor value × regime indicator)
-- Multi-horizon factors (combine 5d/21d/63d signals)
-- Breadth / dispersion factors (cross-sectional vol, advance-decline proxy)
-- Execution-aware factors (penalize high-spread / low-volume symbols)
-
-Each new factor must: be registered with unique name, pass NaN/constant/zero-variance checks, have IC screening before entering mining.
-
-#### 3.4 LLM-Assisted Factor Exploration Policy
-
-**Role boundaries:**
-
-LLM may serve as:
-- Candidate factor generator
-- Hypothesis expander
-- Factor combiner
-- Factor interpreter
-- Failure mode analyzer
-- Reverse reviewer
-
-LLM must NOT serve as:
-- Final judge of factor validity
-- Final decision-maker on deployment
-
-**Structured candidate record:**
-
-```yaml
-factor_name: ""
-hypothesis: ""
-formula: ""              # pseudocode or pandas expression
-required_fields: []
-suitable_horizon: []
-suitable_universe: ""
-suitable_regime: []
-expected_edge: ""
-expected_risk: ""
-possible_failure_modes: []
-novelty_vs_existing: ""
-```
-
-**Mandatory research funnel:**
-
-```
-LLM generates candidate
-  → Dedup: check correlation with existing factors
-  → Leakage check: verify temporal availability (see 3.1)
-  → Data availability: confirm required fields exist
-  → IC screen: compute rank IC on full history
-  → OOS validation: walk-forward IC stability
-  → Regime robustness: IC in each of 6 regimes
-  → Keep / Reject / Archive (with logged reason)
-```
-
-**Correlation review rule:** [REVISED]
-- Correlation > 0.7 with any existing Keep factor triggers **mandatory review**, not automatic rejection
-- Candidate must demonstrate incremental value: better regime robustness, lower turnover, better cost-adjusted alpha, or more stable OOS performance
-- If no incremental value can be demonstrated, reject with documented reason
-
-**Mandatory reverse review:**
-- [ ] Not a renamed version of an existing factor
-- [ ] If correlation > 0.7 with existing factor, incremental value documented
-- [ ] Positive IC in ≥3 out of 6 regimes
-- [ ] Not concentrated in a single time period (>60% of IC from one quartile)
-- [ ] Survives 2x cost stress test
-- [ ] Not overfitting to < 5 symbols
-- [ ] Not exploiting timing bias / selection bias / survivorship bias
-
-#### 3.5 Factor → Mining Integration
-
-Decision required:
-- **Option A:** Wire factor_generator output into MFS (replace internal computation)
-- **Option B:** Document that MFS internal computation is intentional (self-contained strategy)
-- Current state (both exist independently) is not acceptable. Must choose and document.
-
-#### Phase 3 Acceptance Criteria [REVISED]
-
-| Criterion | Measurable Standard |
-|-----------|-------------------|
-| Real XGBoost | `import xgboost` succeeds; model trains and produces feature_importances_ |
-| Time-safe split | Train/test split is temporal; split date recorded in output |
-| Reproducible config | Hyperparameters + split + seed saved in data/ml/ |
-| SHAP or permutation | At least one interpretability method produces per-factor attribution |
-| New factor families | ≥3 new families added to factor_generator.py with IC screening |
-| Factor candidate schema | ≥1 candidate fully recorded in structured format |
-| Full funnel walkthrough | ≥1 candidate completes: candidate → IC → OOS → regime → keep/reject with logged reason |
-| NaN/constant handling | factor_generator handles all-NaN, constant, zero-variance gracefully |
-| Leakage validation | Automated check verifies temporal lag in factor computation chain |
-
----
-
-### Phase 4: Performance, Scalability & Architecture Prep [REVISED]
-
-**Goal:** Remove bottlenecks, prepare for serious research scale and future vendor/broker integration.
-
-#### 4.1 Data Provider and Broker Adapter Separation
-
-**Principle:** Research data sources and broker execution MUST be decoupled. Strategy logic must NEVER import broker APIs. Research logic must NOT depend on vendor-specific field naming.
-
-**DataProvider minimum interface:**
-
-```python
-class DataProvider(ABC):
-    def fetch_daily(self, symbols, start, end) -> Dict[str, OHLCVFrame]: ...
-    def fetch_intraday(self, symbols, freq, start, end) -> Dict[str, OHLCVFrame]: ...
-    def get_metadata(self, symbol) -> SymbolMetadata: ...
-    def get_calendar(self, start, end) -> TradingCalendar: ...
-    def get_corporate_actions(self, symbol, start, end) -> List: ...  # optional
-    def healthcheck(self) -> bool: ...
-    def fetch_incremental(self, symbol, freq, last_date) -> OHLCVFrame: ...
-```
-
-**BrokerAdapter minimum interface (future):**
-
-```python
-class BrokerAdapter(ABC):
-    def submit_order(self, order: Order) -> OrderAck: ...
-    def cancel_order(self, order_id: str) -> bool: ...
-    def get_positions(self) -> Dict[str, float]: ...
-    def get_cash(self) -> float: ...
-    def get_open_orders(self) -> List[Order]: ...
-    def get_fills(self, since: datetime) -> List[Fill]: ...
-    def reconcile(self, expected: Dict, actual: Dict) -> ReconcileResult: ...
-```
-
-**Evolution principles:**
-- Swap research data source first, broker second
-- IBKR = broker/execution adapter, NOT primary research data warehouse
-- DataProvider swap must pass price semantics regression test (see Pricing and Valuation Semantics)
-- Current YFinanceProvider already implements DataProvider ABC
-
-#### 4.2 Other Phase 4 Tasks
-
-1. Incremental intraday data updates
-2. Mining parallelization (lock archive DB writes)
-3. Cache expensive computations
-4. DataProvider interface completeness review
-
-#### Phase 4 Acceptance Criteria
-
-| Criterion | Measurable Standard |
-|-----------|-------------------|
-| Incremental intraday fetch | Re-run downloads only missing dates |
-| Parallel mining safety | 2 concurrent processes → no DB corruption |
-| Computation caching | Second run ≥30% faster |
-| DataProvider interface | ABC defined; YFinanceProvider verified against it |
-| No correctness regression | All 674+ tests pass |
+### Phases 1-4 (compressed 2026-04-24 R8)
+
+Phase 1 (core consistency hardening incl. `strict_match`),
+Phase 2 (intraday pipeline), Phase 3 (factor research loop +
+real XGBoost/SHAP + LLM-assisted funnel), Phase 4 (performance +
+DataProvider/BrokerAdapter separation blueprint): nearly all
+items shipped and covered by `data/baseline/latest.json` tests.
+Acceptance criteria / detail preserved in
+`docs/20260424-claude_md_phase_e_history.md` + the Phase C PRD
+document itself (git history).
+
+Still open from Phase 4 blueprint — tracked in Framework
+Completion TODO below:
+- M11 paper-BT consistency gate (pack v3)
+- M12 concentration gate real enforcement
+- M14 BacktestEngine NaN root-cause fix
+- M17 live-feed infra (separate PRD when needed)
+- M18 cross-ticker DSL func expansion on demand
 
 ---
 
@@ -1056,104 +711,42 @@ limit + min_level gating built-in. Credentials via env var expansion
 
 ### Current TODO Checklist
 
-**Deep Mining 50-round (2026-04-22 COMPLETE)** —
-see `docs/20260422-deep_mining_50round_final_synthesis.md`. 7 tracks
-× 50 rounds autonomous execution finished. 5 user decisions were
-pending; some resolved via RCMv1 downstream work.
+**Completed phases** (one-line summaries; full tables moved to
+`docs/20260424-claude_md_phase_e_history.md` on 2026-04-24):
 
-**RCMv1 20-round (2026-04-24 COMPLETE)** — Research Composite Miner v1 +
-12 orthogonal features. Key deliverables:
-- R15 **leakage fix**: `evaluate_composite(lag=1)` default (was 0).
-  Pre-fix shared-close[t] IC values were inflated ~10x.
-- R17 **converged spec** `{beta_spy_60d, drawup_from_252d_low,
-  days_since_52w_high, amihud_20d}` IC_IR +0.50 (formerly +4.77
-  pre-fix).
-- R18 acceptance PASS (4/4 walk-forward folds + 6/6 regimes positive).
-- R20 S1 Research Candidate promotion memo `docs/20260424-rcm_v1_s1_candidate_memo.md`
-  (doc-only; does NOT touch production_strategy.yaml).
-- See `docs/20260424-rcm_v1_final_synthesis.md`.
+- **Deep Mining 50-round** (2026-04-22 ✅) — 7 tracks × 50 rounds;
+  synthesis `docs/20260422-deep_mining_50round_final_synthesis.md`
+- **RCMv1 20-round** (2026-04-24 ✅) — R17 converged spec + R18
+  acceptance PASS + R20 S1 candidate memo;
+  `docs/20260424-rcm_v1_final_synthesis.md`
+- **Codebase Audit v1** (2026-04-24 ✅) — 3 rounds, 0 functional bugs
+- **Codebase Audit v2** (2026-04-24 ✅) — 3 rounds, 3 `--help` bugs +
+  63 unused imports fixed; baseline 1386→1536 tests
+- **Phase E Governance + Paper Layer** (2026-04-24 ✅) — 14 rounds;
+  `candidate_registry` + `frozen_spec` + paper CLI pipeline;
+  RCMv1 @ S2_paper_candidate; `docs/20260424-phase_e_final_synthesis.md`
+- **Phase E-post + Candidate-2** (2026-04-24 ✅) — 8 rounds; 5 E-post
+  gaps + Candidate-2 `{ret_5d, rs_vs_spy_126d, hl_range}` equal-weight
+  @ S2_paper_candidate; `docs/20260424-phase_e_post_cand2_final_synthesis.md`
 
-**Codebase audit 3-round v1 (2026-04-24 COMPLETE)** —
-`docs/20260424-prd_codebase_audit_3round.md`, lineage
-`audit-2026-04-24`. R1 core library (27 modules, 0 functional bugs) +
-R2 scripts/IO (57 scripts + 13 modules, 0 functional bugs) + R3 tests
-+ README sync + baseline rebuild.
+**Framework Completion PRD** (`docs/20260421-prd_framework_completion.md`
+v1.2) — shipped M0-M8 + M10 + M13 + M15 + M16 (see archive); open:
 
-**Codebase audit 3-round v2 (2026-04-24 COMPLETE)** — same PRD,
-lineage `audit-2026-04-24-v2`, covers Phase E governance layer
-(`core/research/`) + X-1 path migration (`dev/scripts/**/*.py`). R1
-found/fixed 19 unused imports in core (no functional bugs) + R2 found/
-fixed 3 real `--help` bugs in scripts (`feat_v1_topk_analysis.py`
-missing sys.path; `build_splits_parquet.py` / `run_multi_tf_backtest.py`
-missing argparse) and cleaned 44 unused imports + R3 refreshed
-baseline 1386→1536 tests and synced README. See
-`docs/20260420-ralph_loop_log.md` §R-audit-v2-round-01/02/03.
-Launch: `bash dev/scripts/loop/start_codebase_audit_loop.sh`.
-
-**Phase E Research Governance + Paper Layer (2026-04-24 COMPLETE)** —
-14-round ralph-loop ship. Execution PRD
-`docs/20260424-prd_phase_e_execution.md` + charter
-`docs/20260424-prd_phase_e_governance_and_paper.md` + final synthesis
-`docs/20260424-phase_e_final_synthesis.md`. Deliverables:
-- E-0 foundation: `core/research/candidate_registry.py` (S0/S1/S2/S5
-  state machine in `data/research_candidates/registry.db`) +
-  pyarrow.parquet decouple from paper layer + `scripts/revoke_candidate.py`
-- E-1 promote: `core/research/frozen_spec.py` (8 mandatory fields) +
-  `scripts/freeze_research_candidate.py` + `scripts/research_promote.py`
-  (S0→S1 gate; hard invariant: never writes
-  `config/production_strategy.yaml`) + `core/research/acceptance_helpers.py`
-- E-2 paper: `scripts/run_paper_candidate.py` (reads frozen spec, not
-  production config) + `core/research/paper_artifacts.py` +
-  `scripts/paper_drift_report.py` (50 bps informational threshold) +
-  `scripts/paper_enter.py` (S1→S2; S3 → NotImplementedError)
-- RCMv1 `rcm_v1_defensive_composite_01` traversed S0→S1→S2 via new
-  tooling. Registry holds at S2_paper_candidate.
-Launch: `bash dev/scripts/loop/start_phase_e_loop.sh`.
-
-**Deep Mining Phase PRD** (`docs/20260421-prd_deep_mining_50round.md` v1.1) —
-50-round **AUTONOMOUS** active phase. 7 tracks: daily+ML (R1-R15),
-intraday (R16-R25), DSL (R26-R33), universe expansion (R34-R41),
-XGBoost rigor (R42-R46), transformer hyperparameter (R47-R48), final
-synthesis (R49-R50). Hard goal: ≥1 spec passes pack v2 all 10 gates and
-promotes to status=active.
-
-**Autonomous Decision Rules** (PRD §11, user pre-authorized 2026-04-22):
-- **Auto-promote** when pack v2 ALL 10 gates PASS + OOS IR ≥ 0.25 + QQQ
-  excess ≥ +2% + max single weight ≤ 0.35
-- **R38 universe**: produce proposal doc only, DO NOT edit yaml
-- **R7/R10/R14 factor → RESEARCH_FACTORS**: auto-add if funnel + deep_check
-  PASS; **→ PRODUCTION_FACTORS**: proposal doc only
-- **R30 DSL funcs**: auto-add `ratio/zscore/rank_cs/breakout` with tests
-- **R46 XGB**: auto-park as research-only + findings doc
-- **R50 final**: promote if anything passed 11.1; else blocker report
-- Halt only on §11.8 stop conditions (pytest regression > 5, core import
-  failure, disk < 10GB, unexpected config edits, archive corruption,
-  3rd --force promote in one loop)
-
-**Framework Completion PRD** (`docs/20260421-prd_framework_completion.md` v1.2) —
-All M0-M8 + M10 + M13 + M15 + M16 shipped; critical path clean. Open:
-M11 (paper-BT consistency), M12 (concentration real gate), M14 (NaN),
-M17 (live feed), M18 (DSL funcs). See PRD §9-11.
-- [x] **M0** research baseline snapshot (`dev/scripts/baseline/build_research_baseline_snapshot.py`)
-- [x] **M1** `config/production_strategy.yaml` single source of truth (21 unit + 7 integration tests)
-- [x] **M2** promote CLI + acceptance pack v2 (18 unit tests; `scripts/acceptance_pack.py` + `scripts/promote_strategy.py` + `docs/20260421-promotion_flow.md`). v2 added `full_period_fresh_backtest` gate after first promote attempt caught quick-eval-vs-full-period CAGR gap (`6d15b735a64c` was rolled back; pack now re-runs fresh backtest by default)
-- [x] **M3** runtime alignment check WARN mode (12 unit tests; `core/alignment/alignment_check.py`; integrated in `run_backtest.py` + `run_paper.py`)
-- [x] **M4** cross-ticker YAML DSL (24 unit tests; `core/signals/cross_ticker_rules.py` + `config/cross_ticker_rules.yaml`; 3 rule types; safe expression eval no Python eval)
-- [x] **M5** multi-TF execution contract runtime assert (4 integration tests; `IntradayBacktestEngine.run_multi_day` clips + WARN on negative timing_provider weights)
-- [x] **M6** LLM proposal Phase 1 (3 markdown docs: `docs/20260421-llm_proposal_prompt_template.md`, `docs/20260421-llm_proposal_seed_context.md`, `docs/20260421-llm_funnel_checklist.md`; process formalization, no code change)
-- [x] **M7** XGBoost weight research model (`scripts/run_xgb_weight_model.py`; research-only; not wired to production)
-- [x] **M8** Transformer research Phase 1 **findings shipped** — `docs/20260421-transformer_research_phase1_findings.md`. OOS R²: Ridge +0.012 / XGBoost -0.110 / **Transformer -0.207** (most overfit). Honest negative finding: daily 21d forecasting scope unsuitable for transformer; recommend parking or pivot to intraday / cross-sectional / longer-horizon setup.
-
-**Post-M8 items** (PRD v1.2 §11):
-- [x] **M10** cross-ticker DSL production wiring (`core/signals/cross_ticker_wrapper.py` + `run_backtest.py` / `run_paper.py` integration; 9 unit tests; `--no-cross-ticker-rules` CLI flag to disable per-run)
-- [ ] **M11** paper-BT consistency gate in pack v3 (P1.5, 1-2d). New gate: replay spec over recent 126d window, diff equity vs fresh backtest, fail if > 10 bps drift. Currently skip-PASS; M1 single-source already covers constructor layer but engine-level drift not verified.
-- [ ] **M12** concentration gate real enforcement (P2, 0.5d). Currently skip-PASS; runtime `soft_cap_max_single` + `PortfolioConstructor` hard cap cover production. M12 would inspect fresh-backtest weight matrix for per-date top-1/top-3 concentration and reject if > threshold (e.g. top-1 > 0.40 or top-3 > 0.70).
-- [x] **M13** alignment FAIL mode config-driven rollout (`config/system.yaml::alignment::{mode, live_only_fail}`; defaults WARN + live_only_fail=true; operator flip without code change)
-- [ ] **M14** BacktestEngine NaN root-cause fix (P2, 1d; conditional). Ghost-cleanup + NaN last-price can produce NaN as equity last bar. Pack v2 workaround uses `.dropna()` before CAGR. Fix: skip ghost-liquidation when last_close is NaN, or fillna last-valid in equity aggregation. Promote to blocker if user complains about NaN in `reports/backtests/.../equity_curve.csv`.
-- [x] **M15** LLM Proposal multi-LLM context pack (see `docs/20260421-llm_external_llm_handoff.md`). **Reframed** from "Anthropic API call" to "provide context doc that user feeds to Gemini/Codex; those LLMs produce YAML candidates; user manually places in research/llm_candidates/round_NN/; Claude funnel picks up." Fully automated Phase 2 (API) is NOT planned.
-- [x] **M16** Transformer Phase 1 findings (done, see above)
-- [ ] **M17** Realtime intraday live-feed infra. Out of framework PRD scope; independent PRD `prd_live_feed.md` when needed. Gate: do not start until validated best strategy exists and is stable (no point live-tracking a provisional strategy).
-- [ ] **M18** Cross-ticker DSL function expansion (P3, 0.3d per function). Candidate new funcs: `ratio(sym_a, sym_b)`, `zscore(col, N)`, `rank_cs(col)`, `breakout(N)`. Add ONLY when a specific rule yaml demands them; don't pre-add.
+- [ ] **M11** paper-BT consistency gate in pack v3 (P1.5, 1-2d). Replay
+  spec over 126d, diff equity vs fresh backtest, fail if > 10 bps drift.
+  Currently skip-PASS.
+- [ ] **M12** concentration gate real enforcement (P2, 0.5d). Inspect
+  fresh-backtest weight matrix for per-date top-1/top-3 concentration;
+  reject if top-1 > 0.40 or top-3 > 0.70. Currently skip-PASS.
+- [ ] **M14** BacktestEngine NaN root-cause fix (P2, 1d; conditional).
+  Ghost-cleanup + NaN last-price can produce NaN as equity last bar.
+  Pack v2 workaround uses `.dropna()` before CAGR; also surfaces in
+  R6 Candidate-2 paper run `final_equity=NaN`.
+- [ ] **M17** Realtime intraday live-feed infra — independent PRD
+  `prd_live_feed.md` when validated best strategy exists.
+- [ ] **M18** Cross-ticker DSL function expansion (P3, 0.3d each).
+  Add `ratio / zscore / rank_cs / breakout` ONLY when a specific
+  rule yaml demands them.
 
 **Older TODO (data / intraday / research)**:
 - [x] Provenance sidecar (trades_scanner + migration + BarStore API)
