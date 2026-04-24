@@ -16,7 +16,7 @@ Called from run_backtest.py and run_paper.py after PortfolioConstructor.build().
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import pandas as pd
 

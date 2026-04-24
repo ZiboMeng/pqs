@@ -827,8 +827,6 @@ class MiningEvaluator:
         differ in practice, but we accept the approximation for now;
         the net sign (pass/fail) is what matters for gating.
         """
-        from core.regime.regime_detector import RegimeDetector
-
         def _cagr(series: pd.Series) -> float:
             # M14 extension: trim leading/trailing NaN before iloc. Pre-fix,
             # expanded universes with a ticker starting one day earlier (e.g.

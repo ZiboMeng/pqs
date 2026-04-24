@@ -26,7 +26,7 @@ StrategyMiner: 基于 Optuna 的策略循环挖掘主引擎。
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -40,7 +40,7 @@ try:
 except ImportError:
     _OPTUNA_AVAILABLE = False
 
-from core.mining.strategy_space import ParameterSpace, ALL_SPACES, StrategySpec, instantiate_strategy
+from core.mining.strategy_space import ParameterSpace, ALL_SPACES, StrategySpec
 from core.mining.evaluator import MiningEvaluator, EvalResult
 from core.mining.archive import MiningArchive
 from core.logging_setup import get_logger

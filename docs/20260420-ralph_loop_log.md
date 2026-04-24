@@ -12756,3 +12756,135 @@ Future ralph-loop 可选方向：
 - 条件 7: YES — 14 rounds used (expected ceiling)
 
 **PHASEEDONE eligibility**: ✅ All 9 preconditions met. Emit now.
+
+---
+
+## R-audit-v2-round-01
+
+**时间**: 2026-04-23
+**lineage_tag**: audit-2026-04-24-v2
+**Commit**: TBD (填入 R1 commit 后)
+
+### 1. 本轮主题
+Round 1 — Core library audit (v2)。覆盖 `core/factors/`、`core/mining/`、
+`core/signals/`、`core/backtest/`、`core/research/`（Phase E governance
+layer 新增）5 个目录共 32 个 module。v1 audit 声明"0 bugs"；本轮用更严
+格的检查手段（AST 扫描 + 静态分析）做复核。
+
+### 2. 本轮目标
+1. 每个 Round 1 scope module 至少 import 一次，捕获隐藏 import-time 错误
+2. pytest tests/unit 全量通过
+3. 静态检查：silent exception swallow / shadowed builtins / unused imports
+   / 过时路径引用 / TODO/FIXME 标记 / 断裂的 docstring 文件引用
+4. 修复所有 autonomous-authorized 范畴内的 bugs（§4.1）
+
+### 3. 为什么这轮优先做它
+- Phase E 14-round ralph-loop 刚落地，新 module `core/research/` 从未被
+  audit 过；X-1 path migration 也刚结束，需要验证没有遗留
+- v1 audit 的工具深度不够，"0 bugs" 判断基于浅层 grep；本轮升级到 AST
+  分析更可信
+
+### 4. 做了什么
+
+**Smoke runs (per PRD §3 Round 1 RUN list)**:
+1. `python scripts/run_factor_screen.py --help` → OK
+2. `python scripts/run_research_miner.py --help` → OK
+3. `python scripts/run_xgb_importance.py --help` → OK
+4. `from core.research.candidate_registry import CandidateRegistry` → OK
+5. `from core.research.frozen_spec import FrozenStrategySpec` → OK
+6. `from core.research.drift_metrics import DriftThresholds` → OK
+7. `import core.research.paper_artifacts, core.research.acceptance_helpers` → OK
+
+**Module sweep**: 32 modules `importlib.import_module()` → 32/32 OK
+
+**Static checks (AST-based)**:
+- Silent `except Exception:` → 7 findings，全部 legitimate（5× config-load
+  fallback, 1× per-iteration param perturbation skip, 1× expression eval
+  failure → rule not applied）。非 bug。
+- Shadowed builtins (list/dict/str/type/...) → 0 findings
+- Unused imports (excluding `__future__` which is syntactic directive) →
+  **19 findings**，全部确认 + 全部移除
+- Stale pre-X-1 path refs in docstrings → 0 findings
+- `# TODO / FIXME / XXX` markers → 0 findings
+- Broken file refs in docstrings/comments (path-with-extension checked
+  against filesystem) → 0 findings
+
+### 5. 修改了哪些文件
+
+15 个文件，共移除 19 个 unused import（全部 low-risk cleanup）：
+
+| 文件 | 移除项 |
+|------|--------|
+| core/research/candidate_registry.py | `import json` |
+| core/research/paper_artifacts.py | `from typing import Optional` |
+| core/backtest/intraday_engine.py | `field`, `Tuple` |
+| core/signals/left_side.py | `Set` |
+| core/signals/cross_ticker_wrapper.py | `Optional` |
+| core/signals/cross_ticker_rules.py | `import numpy as np` |
+| core/factors/llm_candidate.py | `import re` |
+| core/factors/factor_engine.py | `field`, `Dict` |
+| core/factors/base_volatility.py | `import numpy as np` |
+| core/factors/factor_evaluator.py | `field`, `Optional` |
+| core/mining/miner.py | `field`, `instantiate_strategy` (from multi-import) |
+| core/mining/evaluator.py | dead inline `from core.regime.regime_detector import RegimeDetector` |
+| core/signals/strategies/cross_asset_rotation.py | `import numpy as np` |
+| core/signals/strategies/dual_momentum.py | `import numpy as np` |
+| core/signals/strategies/trend_following.py | `Dict` |
+
+### 6. 跑了哪些测试/实验
+- Pre-cleanup baseline: `pytest tests/unit -q` → 1491 pass, 1 skip, 0 fail, 108.69s
+- Post-cleanup verify: `pytest tests/unit -q` → **1491 pass, 1 skip, 0 fail, 107.13s**（完全一致）
+- Post-cleanup import sweep: 32/32 modules OK
+- Post-cleanup unused-import re-scan: **0 remaining**
+
+### 7. 结果如何
+
+**Test-count delta**: 0（纯清理，无 test 新增/减少）
+**Bug list**: 19 unused-import bit-rot（非 functional bug，是 code hygiene）
+**Functional bugs found**: 0（与 v1 audit 结论一致）
+**Fix list**: 19/19 处理完毕；每条都属 §4.1 authorized autonomously
+
+v1 audit 的"0 bugs"判断在"bug = 让代码跑不起来的错误"定义下成立；但按
+更严格的"bit rot + dead code"口径，有 19 条可清理。本轮清理后：
+- `ast.parse()` 后的 unused-imports 扫描：0
+- pytest 无任何 regression
+- 所有 32 module import 仍 OK
+
+### 8. 当前发现的新问题/新机会
+
+- **机会 1**: 可考虑引入 `ruff` 或 `pyflakes` 作为 pre-commit hook，防止
+  类似 unused import 再次积累。未加入 requirements 需 user 决定
+  （per §4.2 pause-for-user: "Any dependency added to requirements.txt"）
+- **观察 1**: `core/mining/evaluator.py:830` 原有的 inline
+  `from core.regime.regime_detector import RegimeDetector` 是 dead code。
+  这通常暗示历史上该函数曾用过 RegimeDetector（可能在 QQQ-vs 计算中）但
+  后来重构抽走了调用点，import 被遗忘。功能无影响。
+- **观察 2**: `core/mining/miner.py:43` 的 `instantiate_strategy` 也属同
+  类——曾经直接调用过，后来通过 `MiningEvaluator` 间接调用。
+
+### 9. 剩余风险
+
+无。所有修改都是"删除未使用的名字"这一类最低风险的改动，测试完整
+regress 验证。Round 1 scope 外（core/data, core/paper_trading 等）由
+Round 2 覆盖。
+
+### 10. 下一轮建议方向
+
+**Round 2: Scripts + I/O audit** — 覆盖 `scripts/*.py`（quant ops 共 ~50
+个脚本）+ `dev/scripts/**/*.py`（X-1 迁移后的 ~13 个脚本）+ `core/data/`
++ `core/paper_trading/` + `core/reporting/`。
+
+重点：
+1. 每个脚本 `--help` smoke test，检查 argparse 在 X-1 path-depth 变化
+   后是否仍然 OK（尤其 `dev/scripts/` 的 3-deep 嵌套脚本）
+2. `run_paper_candidate.py` / `paper_drift_report.py` / `paper_enter.py`
+   三个 Phase E-2 新脚本 --help
+3. 同样的 unused-import + silent-except + shadowed-builtin + stale-ref
+   扫描应用到 Round 2 scope
+
+### 11. Halt 条件检查 (§4)
+- 条件 1: **1/3 rounds 完成，继续**
+- 条件 2: NO（test count 1491 === baseline 1491）
+- 条件 3: NO（core import sweep 32/32 OK）
+- 条件 4: NO（disk 801GB free）
+- 条件 5: NO（无 schema migration / new PRD 触发）
