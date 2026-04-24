@@ -13658,7 +13658,7 @@ R4 验收硬要求（PRD §4.1）：
 ## R-epost-cand2-round-04 — E-post-1 paper path 解耦 MarketDataStore
 
 **Lineage tag**: `phase-e-post-2026-04-24`
-**Commit**: TBD (本轮提交后回填)
+**Commit**: `50a48b9`
 **Round scope**: PRD §4.1 E-post-1 — paper 脚本 / 测试不再直接依赖
 `MarketDataStore`
 
