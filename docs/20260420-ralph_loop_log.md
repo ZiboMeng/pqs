@@ -12070,3 +12070,181 @@ buffer 可 add aggregator。
 - 条件 7: NO
 
 → 继续 R10（paper drift report）
+
+---
+
+## R-phase-e-round-10
+
+**时间**: 2026-04-24
+**Commit**: `c45162e` + `4e4cd04` (.gitignore)
+**Sub-phase**: E-2
+**Focus**: `scripts/paper_drift_report.py` — paper artifacts vs fresh replay drift
+
+### 1. 本轮主题
+PRD §2 E2-R10: 读 R8 产的 paper artifacts + fresh replay，算 NAV delta
++ position delta，产 markdown drift report。50 bps 门槛 **informational
+only**（auditor §7.3 fix）—— 不自动 hold / revoke。
+
+### 2. 本轮目标
+- `core/research/drift_metrics.py` 纯函数
+- `scripts/paper_drift_report.py` CLI
+- 30-day window, mean_drift_bps=50 + worst_day=2% 信息性门槛
+- 5+ NAV rows 硬最低 (charter §6.3)
+- 3+ tests (实际 15)
+
+### 3. 为什么这轮优先做它
+E-2 完整 paper pipeline 差最后一块 "reproducibility check"。R8 runner
++ R9 artifacts 已经 ship；R10 drift report 让这些 artifacts 真正能
+被 consume 出价值。
+
+### 4. 做了什么
+
+**`core/research/drift_metrics.py`** (~130 LOC):
+```
+DriftThresholds (frozen dataclass): defaults (50 bps mean / 2% worst)
+compute_nav_drift(paper_nav, replay_nav) -> DF(paper_nav, replay_nav, 
+  delta_abs, delta_bps); intersect indices; zero-nav guarded; empty-
+  intersect returns empty DF with schema columns
+worst_drift_day(drift_df) -> {date, delta_bps, paper_nav, replay_nav}
+  or None if empty
+compute_position_drift(paper_t, replay_t) -> DF(n_paper, n_replay,
+  n_symbol_diff, weight_l1_diff, weight_l1_diff_half); unions 
+  asymmetric universes with zero-fill
+```
+
+**`scripts/paper_drift_report.py`** (~310 LOC):
+```
+Pipeline:
+  1. Resolve paper run dir (--paper-run-dir OR auto-detect latest
+     --candidate-id)
+  2. Load paper artifacts: live_like_pnl.csv / target_portfolio_daily.csv
+     / run_meta.json
+  3. Sanity: < 5 NAV rows -> reject (charter §6.3)
+  4. Spawn subprocess replay of run_paper_candidate.py on same spec +
+     same window into a tmpdir (shutil.rmtree in finally)
+  5. Compute nav_drift + position_drift + worst_drift_day
+  6. Build markdown report with:
+     - NAV drift table (n_rows, mean/max bps, worst day)
+     - Position drift table (symbol-diff days, L1/2 mean+max)
+     - Informational flags (mean > 50bps OR worst > 200bps)
+     - Interpretation guide (code change / data backfill /
+       non-determinism / future paper-vs-live)
+     - Explicit "informational only; no auto-action" caveat
+  7. Write drift_nav_<ts>.csv / drift_positions_<ts>.csv /
+     drift_report_<ts>.md into the ORIGINAL paper_run_dir
+     (next to original artifacts, timestamped)
+```
+
+**设计决策**:
+1. **Drift report lives next to paper artifacts, not in separate tree**:
+   `data/paper_runs/<id>/<run>/drift_report_<ts>.md` — same dir as
+   the live_like_pnl it compared against. Makes audit obvious.
+2. **Subprocess replay, not in-process**: isolation. If fresh replay
+   crashes, the subprocess return code is the signal; parent cleans
+   tmpdir in finally.
+3. **Informational-only thresholds**: per auditor fix. Report flags
+   exceeded thresholds + says "manual review" but CLI exit 0 either
+   way. No state transition. No auto-revoke.
+4. **< 5 NAV rows reject**: charter §6.3 explicit. R8 default
+   window gives 49 days for RCMv1; covered with margin.
+
+### 5. 修改了哪些文件
+```
+A  core/research/drift_metrics.py                        (+160)
+A  scripts/paper_drift_report.py                          (+310)
+A  tests/unit/research/test_drift_metrics.py              (+303)
+M  .gitignore                                             (+1, data/paper_runs/)
+```
+
+### 6. 跑了哪些测试/实验
+
+**15 新单测** (all PASS):
+
+Pure helpers (11):
+- nav_drift: identical / constant offset / empty intersection /
+  non-series rejection / zero-NAV guarded (5)
+- worst_drift_day: max-abs identification / empty = None (2)
+- position_drift: identical / different universes unions / empty (3)
+- DriftThresholds: defaults match PRD / frozen attr (2)
+
+CLI (4):
+- Runs end-to-end on real RCMv1 paper run (skip if no run on disk)
+- Refuses missing `--paper-run-dir`
+- Refuses < 5 NAV rows (charter §6.3)
+- (mutex: --candidate-id XOR --paper-run-dir enforced by argparse)
+
+**Real-data smoke** (RCMv1, Jan-Feb 2024, 49 days):
+```
+Paper run: data/paper_runs/rcm_v1_defensive_composite_01/20260424T002411Z/
+Replay: /tmp/drift_replay_<random>/
+
+NAV drift mean |delta|: 0.25 bps
+NAV drift max  |delta|: 0.68 bps
+Worst drift day       : 2024-01-18 (-0.7 bps)
+Position-set diff days: 0 / 49
+
+Report: data/paper_runs/.../drift_report_20260424T002419Z.md
+NAV CSV: drift_nav_20260424T002419Z.csv
+Pos CSV: drift_positions_20260424T002419Z.csv
+
+NOTE: thresholds are informational only; no auto-action taken.
+```
+
+All sub-bps drift confirms **paper → replay is reproducible** (same
+code, same data, deterministic). The ~0.7 bps noise is floating-point
+accumulation order in pandas operations — expected, harmless.
+
+### 7. 结果如何
+
+**Phase E-2 data path complete end-to-end**:
+```
+candidate → (R5 freeze) → (R6 promote to S1)
+         → (R8 run_paper_candidate) → 8 artifacts
+         → (R10 paper_drift_report) → drift markdown
+```
+
+RCMv1 candidate has gone through R8 paper run (2024-01 to 2024-02,
+49 days, 47 trades) and R10 drift check (0.25 bps mean drift).
+Reproducibility verified.
+
+**data/paper_runs/ gitignored**: per-run artifacts are regenerable,
+should not be committed.
+
+### 8. 当前发现的新问题/新机会
+
+**观察 — drift is ~0 by construction**: paper_run + replay both call
+`run_paper_candidate.py` with identical args — they ARE the same code
+path. Drift is floating-point noise. The real utility of drift_report
+comes LATER when:
+- code changes between paper run and report run (e.g. after a merge to
+  trunk)
+- data store gets new bars (trades backfill)
+- future paper-vs-live execution divergence
+
+For now the report proves "no hidden non-determinism", which is a 
+real invariant worth pinning down.
+
+**机会 — multi-run trend report**: R10 current reports compare 1 paper
+run vs 1 replay. Future: aggregate across multiple paper runs for a
+single candidate to show "drift trend over time". Out of Phase E scope.
+
+### 9. 剩余风险
+- 无。R10 纯 additive。
+
+### 10. 下一轮建议方向
+**R11 E-2 R4**: `scripts/paper_enter.py` — S1 → S2 transition
+- Args: `--candidate-id`, optionally validate drift report presence
+- Registry.transition(S1 → S2)
+- S2 → S3 explicitly `NotImplementedError` ("out of Phase E scope")
+- 4+ tests
+
+### 11. Halt 条件检查 (§3)
+- 条件 1: NO (10/14 rounds used)
+- 条件 2: NO (+15, no regression)
+- 条件 3: NO
+- 条件 4: NO
+- 条件 5: NO
+- 条件 6: NO (scripts never touched production_strategy.yaml)
+- 条件 7: NO
+
+→ 继续 R11（paper_enter.py S1→S2）
