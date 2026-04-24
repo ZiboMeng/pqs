@@ -141,7 +141,7 @@ During the loop (informational):
   * Append final summary to docs/20260420-ralph_loop_log.md
 
 DELIBERATE DEVIATIONS FROM audit-v2 LAUNCHER:
-  D1. No auto-generate PRD (PRD is 300+ lines and already committed).
+  D1. No auto-generate PRD (PRD is 250 lines and already committed).
   D2. Mandatory pytest tuple tracking per round (PRD §2 drift policy).
       audit-v2 only required "no regression > 10 tests"; this PRD is
       stricter: any unexpected drift is a halt signal.

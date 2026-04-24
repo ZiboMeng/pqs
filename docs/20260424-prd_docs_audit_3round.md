@@ -125,7 +125,10 @@ Keep in README:
   at auditor's discretion
 
 Verify every remaining script / path / feature number resolves
-against current code. Test counts update from post-R3 baseline.
+against current code. README test counts are updated in R2 using the
+current pytest tuple (post-R1 end); R3 regenerates
+`data/baseline/latest.json` and the two numbers must agree (since R2
+and R3 don't add tests).
 
 ### Round 3 — CLAUDE.md slim + baseline rebuild + DOCSAUDITDONE
 
