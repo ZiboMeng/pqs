@@ -22,8 +22,8 @@ scripts/freeze_research_candidate.py (Phase E-1 R5) +
 scripts/research_promote.py (R6).
 
 Usage:
-    python scripts/migrate_rcm_v1_memo_to_registry.py
-    python scripts/migrate_rcm_v1_memo_to_registry.py --dry-run
+    python dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py
+    python dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py --dry-run
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ import argparse
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(ROOT))
 
 from core.logging_setup import get_logger, setup_logging

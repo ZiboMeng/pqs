@@ -7,9 +7,9 @@ current production strategy, generates weights, and shows how the rule
 engine transforms them per bar/day across a recent window.
 
 Usage:
-  python scripts/demo_cross_ticker_rules.py
-  python scripts/demo_cross_ticker_rules.py --start 2024-01-01 --end 2024-12-31
-  python scripts/demo_cross_ticker_rules.py --rules-file config/cross_ticker_rules.yaml
+  python dev/scripts/demo/demo_cross_ticker_rules.py
+  python dev/scripts/demo/demo_cross_ticker_rules.py --start 2024-01-01 --end 2024-12-31
+  python dev/scripts/demo/demo_cross_ticker_rules.py --rules-file config/cross_ticker_rules.yaml
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(ROOT))
 
 from core.config.loader import load_config

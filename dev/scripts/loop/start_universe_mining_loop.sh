@@ -56,7 +56,7 @@ Pre-flight checklist (user to verify):
 1. Current git status is clean:
        git status
 2. Regenerate baseline snapshot (replaces hardcoded test count; see PRD M0):
-       python scripts/build_research_baseline_snapshot.py
+       python dev/scripts/baseline/build_research_baseline_snapshot.py
        jq '.tests, .git.dirty, .archive.total_trials' data/baseline/latest.json
 3. Archive lineage pre-check for current round (filter by expected tag):
        python -c "import sqlite3; c = sqlite3.connect('data/mining/archive.db'); print(c.execute(\"SELECT COUNT(*) FROM trials WHERE lineage_tag LIKE 'post-2026-04-21-universe-mining%'\").fetchone())"

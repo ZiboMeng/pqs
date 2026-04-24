@@ -68,7 +68,7 @@ PRE-FLIGHT CHECKLIST (run before pasting the command below):
 1. Current git status is clean:
        git status
 2. Regenerate baseline snapshot:
-       python scripts/build_research_baseline_snapshot.py
+       python dev/scripts/baseline/build_research_baseline_snapshot.py
        jq '.tests, .git.dirty, .archive.total_trials' data/baseline/latest.json
 3. Confirm feat-v1 final state is committed (pre-condition for Step 1):
        git log --oneline | grep -E "feat-v1 R[0-9]+" | head -5

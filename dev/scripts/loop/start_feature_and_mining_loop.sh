@@ -62,7 +62,7 @@ PRE-FLIGHT CHECKLIST (run before pasting the command below):
 1. Current git status is clean:
        git status
 2. Regenerate baseline snapshot:
-       python scripts/build_research_baseline_snapshot.py
+       python dev/scripts/baseline/build_research_baseline_snapshot.py
        jq '.tests, .git.dirty, .archive.total_trials' data/baseline/latest.json
 3. Confirm R39 archive state (should have previous lineage post-2026-04-22-
    deep-R38-stage12 from pre-PRD; safe to keep for comparison):

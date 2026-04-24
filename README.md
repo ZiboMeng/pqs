@@ -66,7 +66,7 @@
 - **数据**: 日线 2007-2026 / 60m intraday 2015-2026 / 1m 2015-2026（部分）/ S&P 500 pool 513 symbols (R34 sync)
 - **Mining archive**: Production `data/mining/archive.db` = 302 trials / 12 lineages (R1 Phase B ~40 + deep-mining 262). Research `data/mining/rcm_archive.db` = 222 trials / 3 lineages (RCMv1 R13 pre-fix + R16/R17 post-fix lag=1 converged + R19 random baseline)
 - **Candidate registry** (Phase E): `data/research_candidates/registry.db` = 1 record. `rcm_v1_defensive_composite_01` 从 `f24aefecc91a` trial 冻结 → S0 → S1 → **S2_paper_candidate**（经 `freeze_research_candidate.py` / `research_promote.py` / `paper_enter.py` 走完 governance pipeline）
-- **测试**: 见 `data/baseline/latest.json`（跑 `scripts/build_research_baseline_snapshot.py` 刷新；当前 snapshot = **1536+ unit + 45 integration passed, 1 skipped + 1 xfailed**）
+- **测试**: 见 `data/baseline/latest.json`（跑 `dev/scripts/baseline/build_research_baseline_snapshot.py` 刷新；当前 snapshot = **1536+ unit + 45 integration passed, 1 skipped + 1 xfailed**）
 - **Framework**: M0-M8 + M10 + M13 + M15 + M16 已交付。详 `docs/20260421-prd_framework_completion.md`
 - **Deep-mining 50-round (2026-04-22 complete)**: 7 tracks × 50 rounds autonomous execution 结束。详 **`docs/20260422-deep_mining_50round_final_synthesis.md`**
 - **RCMv1 20-round (2026-04-24 complete)**: Research Composite Miner v1 + 12 orthogonal features + R15 leakage fix (`lag=1` default in IC) + R17 TPE-converged 4-feature defensive composite + R18 acceptance passed + R19 due diligence + R20 S1 promotion memo. 详 **`docs/20260424-rcm_v1_final_synthesis.md`**
@@ -1349,7 +1349,7 @@ for r in rows: print(r)
 
 ```bash
 # 打印启动命令
-bash scripts/start_universe_mining_loop.sh
+bash dev/scripts/loop/start_universe_mining_loop.sh
 
 # 复制打印的命令到 Claude Code，格式：
 # /ralph-loop:ralph-loop "... prompt ..." --max-iterations 32 --completion-promise RALPHDONE
@@ -1420,7 +1420,7 @@ pytest tests/unit/mining/ -q       # 单模块
 pytest --cov=core tests/ --cov-report=html
 
 # 快速 baseline snapshot（1-2s，不跑全套）
-python scripts/build_research_baseline_snapshot.py
+python dev/scripts/baseline/build_research_baseline_snapshot.py
 ```
 
 **不再硬写测试数**：刷新 `data/baseline/latest.json` 来获取当前 collected/passed
@@ -1502,7 +1502,7 @@ xfail 解除条件必须文档化在 reason 参数里。
 
 **Phase 1.5 — Multi-LLM Handoff (PRD M15 reframed)** — 通过 Gemini / Codex / 任意 LLM 参与，无需 API:
 - `docs/20260421-llm_external_llm_handoff.md` —— 完整 workflow 说明
-- `scripts/dump_llm_handoff_context.py` —— 自动 dump 当前 repo state 为 markdown context pack（copy-paste 即喂任意 LLM）
+- `dev/scripts/llm_handoff/dump_llm_handoff_context.py` —— 自动 dump 当前 repo state 为 markdown context pack（copy-paste 即喂任意 LLM）
 - 用户手动落盘 LLM 产出到 `research/llm_candidates/round_NN/*.yaml`；Claude funnel 自动拾取
 - 无 API 依赖 / 无成本 / 无可重复性风险
 
@@ -1571,7 +1571,7 @@ cat config/notify.yaml
 echo $PQS_WECOM_WEBHOOK_URL
 
 # 3. 测试
-python scripts/send_round_summary.py --title "test" --stdout <<< "hello"
+python dev/scripts/notify/send_round_summary.py --title "test" --stdout <<< "hello"
 ```
 
 **获取 webhook URL**: 企业微信群 → 群机器人 → 新建 → 复制 URL (含 `?key=xxx`)
@@ -1586,7 +1586,7 @@ export PQS_WECOM_WEBHOOK_URL="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?k
 **原因**: prompt 里有中文标点或多行。
 
 **解决**: prompt 必须**单行 ASCII**，用双引号包起来。推荐用
-`bash scripts/start_universe_mining_loop.sh` 产出的命令。
+`bash dev/scripts/loop/start_universe_mining_loop.sh` 产出的命令。
 
 ### 16.8 Intraday bar 数据不全
 
@@ -1756,7 +1756,7 @@ synthesis (R13) **`docs/20260424-phase_e_final_synthesis.md`**.
   S3/S4 rejection (Phase F-scoped); Revoke workflow built into schema
 - R2: pyarrow decouple — `pyarrow.parquet` no longer eagerly loaded
   when importing `PaperTradingEngine` or `MarketDataStore`
-- R3: `scripts/revoke_candidate.py` + `scripts/migrate_rcm_v1_memo_to_registry.py` — RCMv1 migrated as first S1 candidate
+- R3: `scripts/revoke_candidate.py` + `dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py` — RCMv1 migrated as first S1 candidate
 
 **E-1 promote standard code-ification (R4-R7)**:
 - R4: `core/research/frozen_spec.py` — `FrozenStrategySpec` with 8
@@ -1795,7 +1795,7 @@ Registry currently holds it at **S2_paper_candidate**.
 - S3/S4 transitions reject with `InvalidTransitionError` /
   `NotImplementedError` pointing at Phase F
 
-**Launch**: `bash scripts/start_codebase_audit_loop.sh`
+**Launch**: `bash dev/scripts/loop/start_codebase_audit_loop.sh`
 
 ### 17.8 Framework Completion (2026-04-21+，优先级高于恢复 mining)
 

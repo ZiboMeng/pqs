@@ -1,6 +1,6 @@
 """Tests for Phase E-0 R3: revoke CLI + RCMv1 migration.
 
-Covers scripts/revoke_candidate.py + scripts/migrate_rcm_v1_memo_to_registry.py.
+Covers scripts/revoke_candidate.py + dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py.
 Both scripts go through CandidateRegistry; these tests pin down the CLI
 contract behavior on top of the registry unit tests (R1).
 """
@@ -194,7 +194,7 @@ def test_revoke_cli_auto_generates_memo_stub(tmp_path):
 
 def test_migration_dry_run_validates_prereqs():
     result = _run(
-        [sys.executable, "scripts/migrate_rcm_v1_memo_to_registry.py",
+        [sys.executable, "dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py",
          "--dry-run"],
     )
     assert result.returncode == 0
@@ -208,13 +208,13 @@ def test_migration_idempotent(tmp_path):
     reg_db = tmp_path / "r.db"
     # First run
     r1 = _run(
-        [sys.executable, "scripts/migrate_rcm_v1_memo_to_registry.py",
+        [sys.executable, "dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py",
          "--registry-db", str(reg_db)],
     )
     assert r1.returncode == 0
     # Second run
     r2 = _run(
-        [sys.executable, "scripts/migrate_rcm_v1_memo_to_registry.py",
+        [sys.executable, "dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py",
          "--registry-db", str(reg_db)],
     )
     assert r2.returncode == 0
@@ -231,7 +231,7 @@ def test_migration_produces_valid_s1_record(tmp_path):
     """End state after migration matches R3 contract."""
     reg_db = tmp_path / "r.db"
     _run(
-        [sys.executable, "scripts/migrate_rcm_v1_memo_to_registry.py",
+        [sys.executable, "dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py",
          "--registry-db", str(reg_db)],
     )
     reg = CandidateRegistry(reg_db)

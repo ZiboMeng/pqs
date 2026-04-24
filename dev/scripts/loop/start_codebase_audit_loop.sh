@@ -92,7 +92,7 @@ Focus: `tests/integration/`, README.md, baseline snapshot.
 - README.md: scan every script reference, every data path, every
   feature count; FIX any claim that no longer matches code
 - `data/baseline/latest.json`: regenerate via
-  `python scripts/build_research_baseline_snapshot.py`
+  `python dev/scripts/baseline/build_research_baseline_snapshot.py`
 - CLAUDE.md: check "Current TODO Checklist" + "Confirmed Done" table
   for drift; fix stale rows
 - Output: README diff summary + baseline snapshot commit + CLAUDE.md
@@ -161,7 +161,7 @@ fi
 # Single-line ASCII-only prompt.
 # AUTONOMOUS MODE: autopilot per PRD §4 "Authorized autonomously".
 # Halt conditions per PRD §4 "Halt conditions".
-PROMPT='Execute one round per docs/20260424-prd_codebase_audit_3round.md section 3 round structure. lineage_tag=audit-2026-04-24 for all audit artifacts. Round 1 = core library audit. Round 2 = scripts and IO audit. Round 3 = tests and docs sync and baseline rebuild. AUTONOMOUS MODE: follow section 4 Authorized autonomously rules; pause to surface per section 4 Pause-for-user rules. Halt per section 4 Halt conditions. Do NOT add new features. Do NOT modify PRODUCTION_FACTORS, config/universe.yaml, or config/production_strategy.yaml except to fix a concrete bug. Do NOT auto-promote any spec. Do NOT add new vendor or heavy data layer. Each round RUNS representative code paths not just reads them. Each round produces 11-part Chinese report appended to docs/20260420-ralph_loop_log.md as R-audit-round-NN. Round 3 must also update README.md to reflect current truth and regenerate data/baseline/latest.json via scripts/build_research_baseline_snapshot.py. Emit AUDIT3DONE only after all 3 rounds complete and test suite passes and README is synced.'
+PROMPT='Execute one round per docs/20260424-prd_codebase_audit_3round.md section 3 round structure. lineage_tag=audit-2026-04-24 for all audit artifacts. Round 1 = core library audit. Round 2 = scripts and IO audit. Round 3 = tests and docs sync and baseline rebuild. AUTONOMOUS MODE: follow section 4 Authorized autonomously rules; pause to surface per section 4 Pause-for-user rules. Halt per section 4 Halt conditions. Do NOT add new features. Do NOT modify PRODUCTION_FACTORS, config/universe.yaml, or config/production_strategy.yaml except to fix a concrete bug. Do NOT auto-promote any spec. Do NOT add new vendor or heavy data layer. Each round RUNS representative code paths not just reads them. Each round produces 11-part Chinese report appended to docs/20260420-ralph_loop_log.md as R-audit-round-NN. Round 3 must also update README.md to reflect current truth and regenerate data/baseline/latest.json via dev/scripts/baseline/build_research_baseline_snapshot.py. Emit AUDIT3DONE only after all 3 rounds complete and test suite passes and README is synced.'
 
 cat <<EOF
 ================================================================================

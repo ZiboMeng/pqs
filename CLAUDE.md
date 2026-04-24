@@ -91,7 +91,7 @@
 
 ### Current System State (Phase 0 Audit, 2026-04-17) [REVISED]
 
-**Architecture:** config/ → core/ → scripts/ → tests/. Live test count in `data/baseline/latest.json` (build via `python scripts/build_research_baseline_snapshot.py`).
+**Architecture:** config/ → core/ → scripts/ → tests/. Live test count in `data/baseline/latest.json` (build via `python dev/scripts/baseline/build_research_baseline_snapshot.py`).
 **Phase C progress:** 19 iterations + intraday sprint (4 tasks). Intraday pipeline now functional.
 
 Evidence levels:
@@ -585,7 +585,7 @@ bash scripts/run_all.sh xgb           # feature importance
 bash scripts/run_all.sh leaderboard   # mining rankings
 
 # PRD M0 (2026-04-21): baseline snapshot replaces hardcoded test counts
-python scripts/build_research_baseline_snapshot.py
+python dev/scripts/baseline/build_research_baseline_snapshot.py
 jq '.tests, .git, .archive' data/baseline/latest.json
 ```
 
@@ -731,7 +731,7 @@ Selection priority:
 
 ### Environment
 - Python: `/home/zibo/miniconda3/envs/pqs/bin/python`
-- Tests: count tracked in `data/baseline/latest.json` (refresh via `python scripts/build_research_baseline_snapshot.py`); as of 2026-04-22 around 1300+ passing
+- Tests: count tracked in `data/baseline/latest.json` (refresh via `python dev/scripts/baseline/build_research_baseline_snapshot.py`); as of 2026-04-22 around 1300+ passing
 - Key data (yfinance provider, legacy): daily (37 symbols, 2007-2026), 60m (32 symbols), 30m/15m (32 symbols, 60d)
 - **Key data (new 1m pipeline):** see "1m Bar Pipeline" section below
 
@@ -861,7 +861,7 @@ python scripts/trades_scanner.py --watch [--year-include 2024] \
 python scripts/scanner_sequential_2026_2025.py --a-pid ... # 2026→2025 chain
 python scripts/scanner_terminator.py --pid ... --year 2025 \
     --completion-date 20251231                             # year-end gate
-python scripts/disk_guard.py                              # C: drive guard
+python dev/scripts/ops/disk_guard.py                              # C: drive guard
 python scripts/consolidate_trades.py                      # .staging_trades → root
 python scripts/consolidate_sanity_check.py                # cross-source price sanity
 python scripts/post_processing_pipeline.py [--skip-wait]  # end-to-end orch
@@ -1077,7 +1077,7 @@ pending; some resolved via RCMv1 downstream work.
 `docs/20260424-prd_codebase_audit_3round.md`. R1 core library (27
 modules, 0 bugs) + R2 scripts/IO (57 scripts + 13 modules, 0 bugs)
 + R3 tests + README sync + baseline rebuild. Launch:
-`bash scripts/start_codebase_audit_loop.sh`.
+`bash dev/scripts/loop/start_codebase_audit_loop.sh`.
 
 **Phase E Research Governance + Paper Layer (2026-04-24 COMPLETE)** —
 14-round ralph-loop ship. Execution PRD
@@ -1097,7 +1097,7 @@ modules, 0 bugs) + R2 scripts/IO (57 scripts + 13 modules, 0 bugs)
   `scripts/paper_enter.py` (S1→S2; S3 → NotImplementedError)
 - RCMv1 `rcm_v1_defensive_composite_01` traversed S0→S1→S2 via new
   tooling. Registry holds at S2_paper_candidate.
-Launch: `bash scripts/start_phase_e_loop.sh`.
+Launch: `bash dev/scripts/loop/start_phase_e_loop.sh`.
 
 **Deep Mining Phase PRD** (`docs/20260421-prd_deep_mining_50round.md` v1.1) —
 50-round **AUTONOMOUS** active phase. 7 tracks: daily+ML (R1-R15),
@@ -1123,7 +1123,7 @@ promotes to status=active.
 All M0-M8 + M10 + M13 + M15 + M16 shipped; critical path clean. Open:
 M11 (paper-BT consistency), M12 (concentration real gate), M14 (NaN),
 M17 (live feed), M18 (DSL funcs). See PRD §9-11.
-- [x] **M0** research baseline snapshot (`scripts/build_research_baseline_snapshot.py`)
+- [x] **M0** research baseline snapshot (`dev/scripts/baseline/build_research_baseline_snapshot.py`)
 - [x] **M1** `config/production_strategy.yaml` single source of truth (21 unit + 7 integration tests)
 - [x] **M2** promote CLI + acceptance pack v2 (18 unit tests; `scripts/acceptance_pack.py` + `scripts/promote_strategy.py` + `docs/20260421-promotion_flow.md`). v2 added `full_period_fresh_backtest` gate after first promote attempt caught quick-eval-vs-full-period CAGR gap (`6d15b735a64c` was rolled back; pack now re-runs fresh backtest by default)
 - [x] **M3** runtime alignment check WARN mode (12 unit tests; `core/alignment/alignment_check.py`; integrated in `run_backtest.py` + `run_paper.py`)

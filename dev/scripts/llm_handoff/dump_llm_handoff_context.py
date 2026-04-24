@@ -18,9 +18,9 @@ whatever LLM they have, and asks for N factor candidates.
 Output: docs/llm_handoff_seed_<timestamp>.md (ephemeral; regenerable)
 
 Usage:
-  python scripts/dump_llm_handoff_context.py
-  python scripts/dump_llm_handoff_context.py --out my_seed.md
-  python scripts/dump_llm_handoff_context.py --lookback-days 252
+  python dev/scripts/llm_handoff/dump_llm_handoff_context.py
+  python dev/scripts/llm_handoff/dump_llm_handoff_context.py --out my_seed.md
+  python dev/scripts/llm_handoff/dump_llm_handoff_context.py --lookback-days 252
 """
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(ROOT))
 
 

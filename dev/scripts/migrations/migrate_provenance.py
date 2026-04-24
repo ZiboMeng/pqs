@@ -20,7 +20,7 @@ Source heuristic per (symbol, date_range):
 After migration, every (ticker, freq) has at least one sidecar row.
 
 Run once:
-  python scripts/migrate_provenance.py [--dry-run]
+  python dev/scripts/migrations/migrate_provenance.py [--dry-run]
 
 Idempotent-ish: re-running adds new rows (for dates beyond prior coverage)
 without touching rows already in sidecar. `--reset-non-backfill` flag wipes

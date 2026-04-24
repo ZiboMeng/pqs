@@ -42,6 +42,9 @@ artifacts/
 # Paper trading runtime state (PnL DB, alignment reports, checkpoints)
 data/paper_trading/
 
+# Dev-process artifacts (baseline snapshots, coverage reports, etc.)
+dev/artifacts/
+
 # External LLM handoff seed dumps (M15); regenerable via
 # scripts/dump_llm_handoff_context.py
 docs/llm_handoff_seed_*.md

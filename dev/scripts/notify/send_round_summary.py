@@ -10,15 +10,15 @@ Stdout backend prints to console (useful when env var not set yet).
 Usage
 -----
     # From a markdown file (last N chars of docs/20260420-ralph_loop_log.md)
-    python scripts/send_round_summary.py --file docs/20260420-ralph_loop_log.md \
+    python dev/scripts/notify/send_round_summary.py --file docs/20260420-ralph_loop_log.md \
         --last-section
 
     # From a heredoc or echoed string
     echo "Round 11: 3 dedup candidates orthog FIXED — 1 MEDIUM" | \
-        python scripts/send_round_summary.py --title "LLM-Round 11"
+        python dev/scripts/notify/send_round_summary.py --title "LLM-Round 11"
 
     # Force stdout backend (testing)
-    python scripts/send_round_summary.py --title ... --stdout
+    python dev/scripts/notify/send_round_summary.py --title ... --stdout
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ import argparse
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from core.logging_setup import get_logger, setup_logging
 from core.notify import get_notifier, StdoutNotifier

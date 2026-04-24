@@ -43,7 +43,7 @@ PRE-FLIGHT CHECKLIST (run before pasting the command below):
 1. Current git status is clean:
        git status
 2. Regenerate baseline snapshot:
-       python scripts/build_research_baseline_snapshot.py
+       python dev/scripts/baseline/build_research_baseline_snapshot.py
        jq '.tests, .git.dirty, .archive.total_trials' data/baseline/latest.json
 3. Data freshness (daily data should be within last 3 days):
        python -c "from core.data.market_data_store import MarketDataStore; import pandas as pd; s=MarketDataStore(data_dir='data'); print(s.read('SPY','1d').index[-1])"

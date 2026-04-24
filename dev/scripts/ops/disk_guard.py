@@ -9,7 +9,7 @@ Designed for unattended overnight runs. Logs every poll to disk so the
 operator can see history in the morning.
 
 Run:
-  nohup python scripts/disk_guard.py \
+  nohup python dev/scripts/ops/disk_guard.py \
     --warn-gb 60 --kill-gb 30 --resume-gb 100 \
     > logs/disk_guard_<TS>.log 2>&1 &
 """
