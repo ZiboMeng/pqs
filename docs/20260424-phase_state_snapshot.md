@@ -1,7 +1,7 @@
 # Phase State Snapshot
 
-**Generated**: 2026-04-24T22:11:11+00:00
-**Git HEAD**: `511d870`
+**Generated**: 2026-04-24T22:16:57+00:00
+**Git HEAD**: `e651fde`
 **Registry DB**: `data/research_candidates/registry.db` (total rows: **2**)
 
 This is a read-only, git-committable snapshot of the research
@@ -35,11 +35,11 @@ python dev/scripts/export/dump_phase_state_snapshot.py \
 
 **Paper runs** (3):
 
-- `data/paper_runs/candidate_2_orthogonal_01/20260424T214644Z/`
+- `data/paper_runs/candidate_2_orthogonal_01/20260424T212809Z/`
     - `benchmark_relative_paper.csv`
-    - `drift_nav_20260424T214723Z.csv`
-    - `drift_positions_20260424T214723Z.csv`
-    - `drift_report_20260424T214723Z.md`
+    - `drift_nav_20260424T221344Z.csv`
+    - `drift_positions_20260424T221344Z.csv`
+    - `drift_report_20260424T221344Z.md`
     - `fills.csv`
     - `live_like_pnl.csv`
     - `pnl_daily.csv`
@@ -47,8 +47,11 @@ python dev/scripts/export/dump_phase_state_snapshot.py \
     - `signals_daily.csv`
     - `target_portfolio_daily.csv`
     - `turnover_log.csv`
-- `data/paper_runs/candidate_2_orthogonal_01/20260424T212809Z/`
+- `data/paper_runs/candidate_2_orthogonal_01/20260424T214644Z/`
     - `benchmark_relative_paper.csv`
+    - `drift_nav_20260424T214723Z.csv`
+    - `drift_positions_20260424T214723Z.csv`
+    - `drift_report_20260424T214723Z.md`
     - `fills.csv`
     - `live_like_pnl.csv`
     - `pnl_daily.csv`
@@ -84,6 +87,18 @@ python dev/scripts/export/dump_phase_state_snapshot.py \
 
 **Paper runs** (4):
 
+- `data/paper_runs/rcm_v1_defensive_composite_01/20260424T212806Z/`
+    - `benchmark_relative_paper.csv`
+    - `drift_nav_20260424T221341Z.csv`
+    - `drift_positions_20260424T221341Z.csv`
+    - `drift_report_20260424T221341Z.md`
+    - `fills.csv`
+    - `live_like_pnl.csv`
+    - `pnl_daily.csv`
+    - `run_meta.json`
+    - `signals_daily.csv`
+    - `target_portfolio_daily.csv`
+    - `turnover_log.csv`
 - `data/paper_runs/rcm_v1_defensive_composite_01/20260424T214642Z/`
     - `benchmark_relative_paper.csv`
     - `drift_nav_20260424T214720Z.csv`
@@ -92,15 +107,6 @@ python dev/scripts/export/dump_phase_state_snapshot.py \
     - `drift_positions_20260424T215119Z.csv`
     - `drift_report_20260424T214720Z.md`
     - `drift_report_20260424T215119Z.md`
-    - `fills.csv`
-    - `live_like_pnl.csv`
-    - `pnl_daily.csv`
-    - `run_meta.json`
-    - `signals_daily.csv`
-    - `target_portfolio_daily.csv`
-    - `turnover_log.csv`
-- `data/paper_runs/rcm_v1_defensive_composite_01/20260424T212806Z/`
-    - `benchmark_relative_paper.csv`
     - `fills.csv`
     - `live_like_pnl.csv`
     - `pnl_daily.csv`
