@@ -11757,3 +11757,158 @@ ir_threshold=0.5, walkforward_min_positive_folds=4, regime_min_positive=5)`
 **Phase E-1 complete**. E-2 paper layer begins at R8.
 
 → 继续 R8（run_paper_candidate.py）
+
+---
+
+## R-phase-e-round-08
+
+**时间**: 2026-04-24
+**Commit**: `8a07d15`
+**Sub-phase**: E-2 (begin)
+**Focus**: `scripts/run_paper_candidate.py` — MVP paper runner reading frozen spec, not production config
+
+### 1. 本轮主题
+PRD §2 E2-R8 + charter §6.1：启动 Phase E-2 paper layer。第一块是
+paper runner：给定 S1/S2 candidate，按 frozen spec 跑一段 paper 
+simulation，输出 artifacts。**关键 invariant：不读 production config**。
+
+### 2. 本轮目标
+- CLI `scripts/run_paper_candidate.py`
+- Reads FrozenStrategySpec via registry.frozen_spec_path
+- Composes signal → portfolio weights → simulation → 5 artifacts
+- Refuses S0 / revoked / missing candidates
+- Hard invariant: NEVER reads `config/production_strategy.yaml` 
+  (source grep + runtime mtime/content snapshot)
+- 4+ tests (实际 7)
+
+### 3. 为什么这轮优先做它
+E-2 最基础的 primitive —— 后续 E2-R9 artifact schema / E2-R10 drift
+report / E2-R11 paper_enter 都 depend on 这个 runner 能实打实产
+artifacts。先 build 这个，后续几轮都 consume 它。
+
+### 4. 做了什么
+
+**CLI pipeline** (~270 LOC):
+```
+args → _load_candidate(registry, id)          # status in {S1, S2}
+     → FrozenStrategySpec.from_yaml_file
+     → _load_panel(start, end)                # 79-sym OHLCV
+     → _compute_composite_signal(spec, frames)
+         - generate_all_factors with benchmark_map
+         - for each feature: zscore_cs * normalized weight
+         - composite = sum; then apply research_mask
+     → _composite_to_target_weights(composite, top_n)
+         - top-N by rank per date, equal-weight
+     → _simulate(frames, targets)
+         - BacktestEngine.run(signals_df=targets, price_df, open_df)
+         - flatten result.trades (List[Fill]) → DataFrame
+     → write 5 artifacts:
+         signals_daily.csv
+         target_portfolio_daily.csv
+         pnl_daily.csv
+         fills.csv
+         run_meta.json
+```
+
+**设计决策**:
+1. **MVP 等权 top-N**: 最简单的 composite→portfolio 映射。TPE weights
+   在 signal 层已经考虑；portfolio 层简单。可调 `--top-n` kwarg。
+2. **BacktestEngine 就是 simulation backend**: paper run 本质就是
+   "frozen spec + real past prices + T+1 execution"。直接用 BT 引擎
+   不重造轮子。区别在于：读 frozen YAML 不读 production config。
+3. **Artifact 放在 `data/paper_runs/<id>/<UTC-timestamp>/`**: 每次
+   跑一份，不覆盖，有 timestamp 便于 future drift analysis 翻记录。
+4. **No auto S1→S2**: S1 candidate 跑 paper 不自动 transition；
+   paper_enter.py (R11) 才做这件事。
+
+**False start**: 我最初在 CLI 里写了一个 `_assert_no_production_reads`
+runtime guardrail 去 grep 自己的源码。结果 false-positive —— 
+docstring 里 "DOES NOT read config/production_strategy.yaml" 被自己
+的检测命中。Lesson: 静态自检应该在测试层，用更严格的 regex (跳过
+docstring/comment)。删了 runtime guard，把逻辑放到测试侧。
+
+### 5. 修改了哪些文件
+```
+A  scripts/run_paper_candidate.py                    (+295)
+A  tests/unit/research/test_run_paper_candidate.py   (+263)
+```
+
+### 6. 跑了哪些测试/实验
+
+**7 新单测** (all PASS):
+- Script source grep (hard invariant; docstring-aware regex): 1
+- Refuses S0 / revoked (S5) / missing: 3
+- Happy path S1 writes all 5 artifacts: 1
+- Also runs on S2 candidate: 1
+- Live run does not modify production config (mtime + content snapshot): 1
+
+**Real-data smoke** (RCMv1 candidate, already S1 in registry):
+```
+$ python scripts/run_paper_candidate.py \
+    --candidate-id rcm_v1_defensive_composite_01 \
+    --start-date 2024-01-01 --end-date 2024-02-01
+
+Panel: 26 dates × 79 symbols
+Composite shape: (26, 79), 834 cells non-null
+Target weights: 16 active rows (of 26)
+Simulation: final equity=105085.18, trades=27
+Artifacts: /tmp/test_paper_run/
+  - signals_daily.csv          (19 KB)
+  - target_portfolio_daily.csv (9 KB)
+  - pnl_daily.csv              (1 KB)
+  - fills.csv                  (3 KB)
+  - run_meta.json              (428 B)
+```
+
+RCMv1 spec on Jan 2024 window gives +5.1% return / 27 trades. 
+Artifacts readable + loadable.
+
+### 7. 结果如何
+
+**Paper runner ships end-to-end on real data**. RCMv1 candidate now 
+has first real paper artifacts → future drift reports (R10) can 
+compare against backtest replay.
+
+**Hard invariant verified** both ways:
+- Source grep: no forbidden imports (production_strategy / 
+  load_production_strategy / promote_strategy import)
+- Live mtime+content snapshot: `config/production_strategy.yaml` and
+  `config/universe.yaml` identical after paper run
+
+**Phase E-2 foundation laid**: R9 artifact schema + R10 drift report +
+R11 paper_enter can all consume the output of this script.
+
+### 8. 当前发现的新问题/新机会
+
+**观察 — BacktestEngine output interface**: `BacktestResult.trades` is
+`List[Fill]`, not DataFrame. For artifact output I flatten in the CLI.
+Could be a future core-improvement opportunity to add
+`BacktestResult.trades_df` property, but non-blocker.
+
+**机会 — `--top-n` vs `--mode weighted_by_composite`**: MVP uses 
+equal-weight top-N. Future: add `--mode composite_weighted` that 
+weights by absolute composite value (not rank). Adds ~10 LOC. Out of
+Phase E scope.
+
+### 9. 剩余风险
+- 无。R8 纯 additive + tested hard invariant.
+
+### 10. 下一轮建议方向
+**R9 E-2 R2**: Paper artifacts schema documentation
+- `docs/20260424-paper_artifact_schema.md` 形式化本 round 产的 CSV
+  schemas
+- 每个 CSV 的列名 / dtype / missingness semantics
+- `live_like_pnl.csv` + `benchmark_relative_paper.csv` +
+  `turnover_log.csv` 扩展（per PRD E2-R9 spec）
+- 3+ tests
+
+### 11. Halt 条件检查 (§3)
+- 条件 1: NO (8/14 rounds used)
+- 条件 2: NO (+7, no regression)
+- 条件 3: NO
+- 条件 4: NO
+- 条件 5: NO
+- 条件 6: NO (hard invariant explicitly tested)
+- 条件 7: NO
+
+→ 继续 R9（paper artifact schema docs + extension）
