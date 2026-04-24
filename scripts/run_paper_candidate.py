@@ -120,6 +120,20 @@ def _load_panel(
             if col in df.columns:
                 frames[col][sym] = df[col]
     close = pd.DataFrame(frames["close"]).sort_index()
+    # Index contract: must be DatetimeIndex before slicing by Timestamps.
+    # Non-empty but non-DatetimeIndex (RangeIndex from empty-store
+    # fallback, string index from a misconfigured source, etc.) would
+    # otherwise crash on `close.index >= start` with a cryptic pandas
+    # TypeError. Fail clean instead.
+    if not close.empty and not isinstance(close.index, pd.DatetimeIndex):
+        try:
+            close.index = pd.to_datetime(close.index)
+        except (ValueError, TypeError) as exc:
+            raise RuntimeError(
+                f"_load_panel: close panel has non-DatetimeIndex "
+                f"({type(close.index).__name__}) and cannot be coerced "
+                f"to datetime: {exc}"
+            ) from exc
     close = close[(close.index >= start) & (close.index <= end)]
 
     def _df(col: str) -> Optional[pd.DataFrame]:
@@ -298,7 +312,11 @@ def main() -> int:
     store: PriceStore = create_default_store(cfg)
     start = pd.Timestamp(args.start_date)
     end = pd.Timestamp(args.end_date)
-    frames = _load_panel(cfg, store, start, end)
+    try:
+        frames = _load_panel(cfg, store, start, end)
+    except RuntimeError as exc:
+        logger.error("Panel load failed: %s", exc)
+        return 1
     if frames["close"].empty:
         logger.error("No price data in requested range %s to %s",
                      args.start_date, args.end_date)
