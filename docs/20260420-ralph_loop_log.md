@@ -12763,7 +12763,7 @@ Future ralph-loop 可选方向：
 
 **时间**: 2026-04-23
 **lineage_tag**: audit-2026-04-24-v2
-**Commit**: TBD (填入 R1 commit 后)
+**Commit**: 6b1d4f4
 
 ### 1. 本轮主题
 Round 1 — Core library audit (v2)。覆盖 `core/factors/`、`core/mining/`、
