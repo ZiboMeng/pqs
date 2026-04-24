@@ -38,7 +38,6 @@ from core.paper_trading.paper_trading_engine import PaperTradingEngine
 from core.paper_trading.pnl_tracker import PnLTracker
 from core.risk.kill_switch import KillSwitch, KillSwitchConfig
 from core.diagnostics.detectors import DiagnosticSuite
-from core.signals.left_side import LeftSideTrading, LeftSideConfig
 from core.logging_setup import setup_logging, get_logger
 
 setup_logging()
@@ -417,9 +416,6 @@ def main():
     ps_cfg = load_production_strategy()
     strategy = build_strategy_from_config(ps_cfg, cfg.risk, risk_syms)
     diagnostics = DiagnosticSuite()
-    left_side_cfg = LeftSideConfig.from_risk_config(cfg.risk)
-    left_side = LeftSideTrading(config=left_side_cfg)
-    logger.info("Left-side trading: %s", "enabled" if left_side_cfg.enabled else "disabled (config)")
 
     if args.mode == "replay":
         # 加载 60m K 线——按日期分组，每日一个 multi-symbol DataFrame
