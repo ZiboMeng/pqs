@@ -12895,7 +12895,7 @@ Round 2 覆盖。
 
 **时间**: 2026-04-23
 **lineage_tag**: audit-2026-04-24-v2
-**Commit**: TBD (填入 R2 commit 后)
+**Commit**: b902fae
 
 ### 1. 本轮主题
 Round 2 — Scripts + I/O audit。覆盖 `scripts/*.py`（quant ops 共 57
