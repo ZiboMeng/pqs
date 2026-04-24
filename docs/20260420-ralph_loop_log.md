@@ -14293,7 +14293,7 @@ R7 halt 条件：若发现 > 5 真 functional bug，halt + surface 给用户
 ## R-epost-cand2-round-07 — Exhaustive code audit on R1-R6 touched files
 
 **Lineage tag**: `phase-e-post-2026-04-24`
-**Commit**: TBD (本轮提交后回填)
+**Commit**: `29127c6`
 **Round scope**: PRD §10.5 R7 — AST 级 scan + --help sweep + full
 import sweep + full pytest on R1-R6 touched surface; verify R7 halt
 condition (§12.3 条件 6 + §10.6 D3) 不触发
