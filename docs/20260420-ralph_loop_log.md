@@ -13500,7 +13500,7 @@ R3 = E-post-4：revoke drill on rcm_v1 **clone** only（never real S2）。
 ## R-epost-cand2-round-03 — E-post-4 revoke drill (clone only)
 
 **Lineage tag**: `phase-e-post-2026-04-24`
-**Commit**: TBD (本轮提交后回填)
+**Commit**: `2efddf2`
 **Round scope**: PRD §4.4 E-post-4 — 在真实 candidate **clone** 上演练 revoke
 
 ### 1. 本轮主题
