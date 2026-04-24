@@ -13360,7 +13360,7 @@ PRD §10.1 顺序不变 — R1→R2→R3→R4→R5→R6→R7→R8。
 ## R-epost-cand2-round-02 — E-post-5A migration hermetic
 
 **Lineage tag**: `phase-e-post-2026-04-24`
-**Commit**: TBD (本轮提交后回填)
+**Commit**: `9a59631`
 **Round scope**: PRD §4.5 E-post-5A — migration dry-run / 测试 hermetic 化
 
 ### 1. 本轮主题
