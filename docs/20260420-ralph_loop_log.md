@@ -13079,7 +13079,7 @@ parse 缺陷，不是 X-1 引入的）。
 
 **时间**: 2026-04-24
 **lineage_tag**: audit-2026-04-24-v2
-**Commit**: TBD (填入 R3 commit 后)
+**Commit**: bf02c11
 
 ### 1. 本轮主题
 Round 3 — Tests + docs sync + baseline rebuild。覆盖
