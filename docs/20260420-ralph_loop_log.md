@@ -14863,7 +14863,7 @@ R2 是 docs-only，tuple 不应 drift。
 ## R-docs-audit-round-02 — README dev-process trim
 
 **Lineage tag**: `docs-audit-2026-04-24`
-**Commit**: TBD (本轮提交后回填)
+**Commit**: `edd7bd9`
 **Round scope**: PRD §3 R2 — 去除 README dev-process / ralph-loop
 内容；保留 user-facing 业务信息
 
