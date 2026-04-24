@@ -14474,7 +14474,7 @@ R8 需要做：
 ## R-epost-cand2-round-08 — Docs sync + CLAUDE.md slim + final synthesis + EPOST_CAND2_DONE
 
 **Lineage tag**: `phase-e-post-2026-04-24`
-**Commit**: TBD (本轮提交后回填)
+**Commit**: `35cfb74`
 **Round scope**: PRD §10.5 R8 — README v1.4 / CLAUDE.md 瘦身 / 最终
 synthesis doc / emit completion promise
 
