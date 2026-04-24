@@ -168,11 +168,17 @@ Baseline rebuild:
 
 Final synthesis:
 - New doc `docs/20260424-docs_audit_3round_final_synthesis.md`
-  covering: exec summary / round table / bug list across R1 / README
-  diff summary / CLAUDE.md diff summary / pytest tuple stability
-  / halt-condition summary / hard invariants preserved / follow-ups
-  / cross-reference
-- Concludes with `<promise>DOCSAUDITDONE</promise>`
+  covering 10 sections: exec summary / round table / bug list across
+  R1 / README diff summary / CLAUDE.md diff summary / pytest tuple
+  stability / halt-condition summary / hard invariants preserved /
+  follow-ups / cross-reference
+- Concludes with `<promise>DOCSAUDITDONE</promise>` inside the doc
+- **R3 final assistant-turn reply MUST ALSO emit the raw
+  `<promise>DOCSAUDITDONE</promise>` token at top level** — not only
+  inside the synthesis doc. Lesson from Phase E-post R8: the harness
+  detects promises in assistant-turn output, not inside committed
+  markdown files, so the in-doc promise alone will leave the
+  ralph-loop Stop hook firing. Emit both.
 
 ## 4. Rules of engagement
 
