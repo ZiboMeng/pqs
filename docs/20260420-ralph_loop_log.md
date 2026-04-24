@@ -12515,3 +12515,108 @@ complete" picture.
 - 条件 7: NO
 
 → 继续 R13（final synthesis doc）
+
+---
+
+## R-phase-e-round-13
+
+**时间**: 2026-04-24
+**Commit**: `fa05527`
+**Sub-phase**: Buffer (second of 3)
+**Focus**: `docs/20260424-phase_e_final_synthesis.md` — comprehensive R1-R12 summary
+
+### 1. 本轮主题
+Buffer round 2/3。写 Phase E 最终综合报告，补上 PHASEEDONE 的最后一条
+"final synthesis doc exists" 前提。
+
+### 2. 本轮目标
+- `docs/20260424-phase_e_final_synthesis.md` 包含 R1-R12 全部 deliverables
+- RCMv1 candidate journey illustrated (S0→S1→S2 pipeline)
+- Governance invariants 列出 + 每条对应 test
+- Design decisions + auditor corrections 落实记录
+- Future handoff (Phase F 需要做什么 / 运维 cadence / 不该做什么)
+
+### 3. 为什么这轮优先做它
+PRD §6 PHASEEDONE 条件之一："final synthesis doc exists"。若不单独
+成文，`docs/20260420-ralph_loop_log.md` 里 13 个 11-part 中文 log 块
+虽然覆盖全部细节但没法一眼看懂 Phase E 总体交付。Synthesis doc 是
+给 future 阶段/审计/新人的入口。
+
+### 4. 做了什么
+
+**`docs/20260424-phase_e_final_synthesis.md` (295 LOC)** 9 sections:
+
+| § | 内容 |
+|---|---|
+| 1 | Goal recap — 为何需要 governance primitives (R15 leakage precedent) |
+| 2 | Deliverables: code (14 files, ~3215 LOC) / tests (150 new) / docs / data |
+| 3 | RCMv1 candidate journey pipeline diagram |
+| 4 | **13 governance invariants** 每条对应 test + file pointer |
+| 5 | Design decisions — 4 auditor 修正 + 2 我加的 (pyarrow decouple / drift 50bps informational) |
+| 6 | Known limitations (Phase F 的 scope / test hygiene debt / methodology caveats) |
+| 7 | Ralph-loop execution summary table R1-R13 |
+| 8 | Future handoff: Phase F checklist / operational cadence / "do NOT do" 列表 |
+| 9 | One-sentence summary |
+
+**关键决定 — §4 的"13 invariants + tests"表**:
+每条 invariant 列明 "which test would fail if invariant breaks"。这
+样未来 audit 可快速 grep 出覆盖度。比如：
+- "research_promote never writes production_strategy.yaml"
+  → `test_promote_does_not_touch_production_config`
+- "S3 registry transition raises"
+  → `test_s3_transition_raises_notimplementederror`
+- "RCMv1 at S2 after R11" → `test_rcmv1_candidate_in_s2_after_r11`
+
+**关键决定 — §8 "do NOT do" 显式**:
+future phase 最容易犯的错就是"以为 PhaseE 没说所以可以做"。我把
+auditor 关注的 4 条反模式写进 §8.3，防止 regression。
+
+### 5. 修改了哪些文件
+```
+A  docs/20260424-phase_e_final_synthesis.md     (+295)
+```
+
+### 6. 跑了哪些测试/实验
+无。纯 synthesis doc。R12 已跑 full suite。
+
+### 7. 结果如何
+
+**PHASEEDONE 前提清单**:
+
+| Precondition | Status |
+|---|---|
+| Rounds 1-11 deliverables shipped | ✅ R1-R11 |
+| Full test suite passes (0 regressions) | ✅ 1536 pass (R12 check) |
+| RCMv1 candidate completed S0→S1→S2 via new tooling | ✅ R11 transition |
+| paper_drift_report.py produced real report | ✅ R10 smoke |
+| README.md synced | ✅ R12 |
+| CLAUDE.md synced | ✅ R12 |
+| `data/baseline/latest.json` regenerated | ✅ R12 |
+| Final synthesis doc exists | ✅ **R13 (this round)** |
+| No `config/production_strategy.yaml` write occurred | ✅ tested + git diff verified |
+
+**All PHASEEDONE conditions met**. R14 可以 emit promise。
+
+### 8. 当前发现的新问题/新机会
+
+无。R13 是 doc deliverable，不接触 code。
+
+### 9. 剩余风险
+无。所有 governance invariants 有 test，所有 PRD 前提都在 git 历史里。
+
+### 10. 下一轮建议方向
+**R14 buffer final**: 
+1. Re-run full suite 最后一次
+2. Verify registry RCMv1 still at S2 (no accidental revoke)
+3. Emit `<promise>PHASEEDONE</promise>`
+
+### 11. Halt 条件检查 (§3)
+- 条件 1: NO (13/14 rounds used)
+- 条件 2: NO (no code change R13)
+- 条件 3: NO
+- 条件 4: NO
+- 条件 5: NO
+- 条件 6: NO
+- 条件 7: NO
+
+→ 继续 R14（final verification + PHASEEDONE emit）
