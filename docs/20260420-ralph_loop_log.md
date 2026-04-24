@@ -14660,7 +14660,7 @@ README.md                                        (§1.4 refresh + v1.4 footer)
 ## R-docs-audit-round-01 — Code audit + bug fixes
 
 **Lineage tag**: `docs-audit-2026-04-24`
-**Commit**: TBD (本轮提交后回填)
+**Commit**: `b570dbc`
 **Round scope**: PRD §3 R1 — 代码 surface 全量 audit + unused import
 cleanup + 真 bug 修复（如有）
 
