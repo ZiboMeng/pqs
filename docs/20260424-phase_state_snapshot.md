@@ -1,7 +1,7 @@
 # Phase State Snapshot
 
-**Generated**: 2026-04-24T21:49:21+00:00
-**Git HEAD**: `102be39`
+**Generated**: 2026-04-24T22:11:11+00:00
+**Git HEAD**: `511d870`
 **Registry DB**: `data/research_candidates/registry.db` (total rows: **2**)
 
 This is a read-only, git-committable snapshot of the research
@@ -87,8 +87,11 @@ python dev/scripts/export/dump_phase_state_snapshot.py \
 - `data/paper_runs/rcm_v1_defensive_composite_01/20260424T214642Z/`
     - `benchmark_relative_paper.csv`
     - `drift_nav_20260424T214720Z.csv`
+    - `drift_nav_20260424T215119Z.csv`
     - `drift_positions_20260424T214720Z.csv`
+    - `drift_positions_20260424T215119Z.csv`
     - `drift_report_20260424T214720Z.md`
+    - `drift_report_20260424T215119Z.md`
     - `fills.csv`
     - `live_like_pnl.csv`
     - `pnl_daily.csv`
