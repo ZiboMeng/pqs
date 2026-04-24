@@ -520,14 +520,24 @@ v1.2) — shipped M0-M8 + M10 + M13 + M15 + M16 (see archive); open:
 
 - [ ] **M11** paper-BT consistency gate in pack v3 (P1.5, 1-2d). Replay
   spec over 126d, diff equity vs fresh backtest, fail if > 10 bps drift.
-  Currently skip-PASS.
+  Currently skip-PASS. **Upgraded active (2026-04-24)**: M14 fix exposed
+  a residual paper-vs-replay execution-state drift (18-65 bps with
+  monotone sign bias in 2022 RCMv1 78+/0−). Candidate mechanisms:
+  order-path divergence / cost double-count / integer-share rounding
+  asymmetry. See `docs/memos/20260424-m14_nan_equity_fix.md` §4.3.
 - [ ] **M12** concentration gate real enforcement (P2, 0.5d). Inspect
   fresh-backtest weight matrix for per-date top-1/top-3 concentration;
   reject if top-1 > 0.40 or top-3 > 0.70. Currently skip-PASS.
-- [ ] **M14** BacktestEngine NaN root-cause fix (P2, 1d; conditional).
-  Ghost-cleanup + NaN last-price can produce NaN as equity last bar.
-  Pack v2 workaround uses `.dropna()` before CAGR; also surfaces in
-  R6 Candidate-2 paper run `final_equity=NaN`.
+- [x] **M14** BacktestEngine NaN root-cause fix **(2026-04-24)**.
+  Root cause: `price_row.get(sym, 0)` returns NaN (not default 0) when
+  column exists with NaN value — panel union-merge across symbols with
+  non-aligned calendars produces held-symbol NaN close days. Fix:
+  fall back to `last_valid_close` (mirrors ghost-cleanup pattern).
+  Eliminated all NaN-equity rows across 4 paper cells + unblocked
+  10-30% previously-suppressed rebalance activity (+9.6% final NAV
+  2022 Cand-2). 5 regression tests in `test_m14_nan_equity.py`. See
+  `docs/memos/20260424-m14_nan_equity_fix.md` for root-cause / pre-post
+  / residual.
 - [ ] **M17** Realtime intraday live-feed infra — independent PRD
   `prd_live_feed.md` when validated best strategy exists.
 - [ ] **M18** Cross-ticker DSL function expansion (P3, 0.3d each).

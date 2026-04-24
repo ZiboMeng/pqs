@@ -259,10 +259,30 @@ class BacktestEngine:
                             )
                         stale_days_count.pop(sym, None)
 
-            portfolio_value = cash + sum(
-                shares.get(sym, 0) * price_row.get(sym, 0)
-                for sym in shares
-            )
+            # M14 fix (2026-04-24): when price_row[sym] is NaN (held
+            # symbol whose close is missing on this date — happens when
+            # the panel union-merges symbols with non-aligned calendars,
+            # e.g. some symbols missing a Monday other symbols have),
+            # `price_row.get(sym, 0)` returns NaN (not the 0 default;
+            # the default fires only on missing keys). NaN propagates
+            # through qty * NaN = NaN → portfolio_value = NaN → daily
+            # equity = NaN. Pre-fix this caused the Cand-2 paper-vs-
+            # replay drift to register ~100 bps mean drift across 16+
+            # NaN-Monday days per 75-day window (memo:
+            # docs/memos/20260424-cand2_drift_attribution.md).
+            #
+            # Fix: fall back to last_valid_close[sym] — the same fallback
+            # the ghost-cleanup logic already maintains a few lines up
+            # (lines 202-206). If the symbol never had a valid close
+            # (held-but-never-priced edge case), treat as 0 (write-off
+            # semantics, matching the ghost-cleanup write-off branch).
+            portfolio_value = cash
+            for sym, qty in shares.items():
+                p = price_row.get(sym, None)
+                p_f = float(p) if p is not None else float("nan")
+                if not np.isfinite(p_f) or p_f <= 0:
+                    p_f = float(last_valid_close.get(sym, 0.0))
+                portfolio_value += qty * p_f
 
             # 2. 当日权重快照（市值权重）
             cur_weights: Dict[str, float] = {}
