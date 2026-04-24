@@ -14287,3 +14287,184 @@ R7 halt 条件：若发现 > 5 真 functional bug，halt + surface 给用户
 - ✅ 无新 factor mining（3 factor 都已在 RESEARCH_FACTORS）
 - ✅ Candidate-2 走 S0→S1→S2 完整路径，rejection memo 未触发（happy path）
 
+
+---
+
+## R-epost-cand2-round-07 — Exhaustive code audit on R1-R6 touched files
+
+**Lineage tag**: `phase-e-post-2026-04-24`
+**Commit**: TBD (本轮提交后回填)
+**Round scope**: PRD §10.5 R7 — AST 级 scan + --help sweep + full
+import sweep + full pytest on R1-R6 touched surface; verify R7 halt
+condition (§12.3 条件 6 + §10.6 D3) 不触发
+
+### 1. 本轮主题
+
+对 R1-R6 共 17 个 Python 文件做 AST scan（unused imports, silent
+except, shadowed builtins），再对 `core/research/` + `core/paper_trading/`
++ `core/data/` 做全量 import sweep，再对所有 touched 脚本 `--help`
+rc=0 验证，最后跑全量 pytest。
+
+### 2. 本轮目标
+
+- 验证 R1-R6 未引入新 functional bug（PRD §12.3 halt 条件 6: `>5 真
+  bug` 触发 halt）
+- 清理在 R5 迁移脚本中碰到的 pre-existing unused imports（只碰我
+  touched 的文件，不扩 scope）
+- 给每类 findings 判 legitimacy（PRD §10.5 R7 要求"具体 bug list +
+  具体 fix list + 具体 delta"）
+
+### 3. 为什么这轮优先做它
+
+PRD §10.1 R7 顺序 + §10.6 D3 明确定义：R7 是 **verification**，
+不是 **remediation**；是看 R1-R6 有没有破东西，不是把 R1-R6 的坑
+顺便补了（防止 catch-all 垃圾桶）。
+
+### 4. 做了什么
+
+**Step 1 — R1-R6 touched files 枚举**:
+`git log --name-only cf15519..HEAD` 过滤 `*.py` 得到 17 个文件（覆盖
+所有 6 轮）。
+
+**Step 2 — AST scan**:
+
+| 维度 | Pass 1 findings | Pass 2 (post-cleanup) | 判定 |
+|------|----------|------|------|
+| Unused imports (exclude `__future__`) | 3 | **0** | R5 迁移顺手清理（pre-existing bit rot） |
+| Silent `except: pass` | 4 | 4 | **全部 legitimate**（非 bug） |
+| Shadowed builtins | 0 | 0 | - |
+
+**Unused imports 清理 (3 处，全部 pre-existing bit rot, 非 R1-R6 回归)**:
+1. `scripts/acceptance_research_composite.py:47`: `FAMILIES_V1` 未使用
+   → 移除（`from core.mining.research_miner import` 块去掉一行）
+2. `scripts/acceptance_research_composite.py:147`: `benchmark_relative_ic_summary`
+   未使用 → 移除（`from core.research.acceptance_helpers import` 块
+   去掉一行）
+3. `tests/unit/research/test_revoke_and_migration.py:14`: `import pytest`
+   未使用 → 移除
+
+**Silent excepts (4 处) 逐个 legitimacy 判定**:
+
+| 位置 | 上下文 | 判定 |
+|------|--------|------|
+| `scripts/run_paper.py:382,432,476` | `try: store.read(sym, "...") except: pass` — 读取单个 symbol，失败就跳过（不把此 symbol 加入 panel） | **Legitimate defensive**: 这是"部分数据缺失不致命"的典型模式；symbol 不在 store / 腐败 / 网络错 都应跳过。Pre-existing，与 R4 的 2 行 import 改动无关。 |
+| `tests/unit/research/test_revoke_and_migration.py:187` | `try: Path(revoke_memo_path).unlink(missing_ok=True) except: pass` 注释明确 `# Cleanup (best-effort)` | **Legitimate**: 测试清理，已有 `missing_ok=True`，再套 try 是 belt-and-suspenders。Pre-existing（R2 APPEND tests，未改此函数）。 |
+
+判定：4 个 silent excepts 全部 legitimate，**0 个 bug**。
+
+**Shadowed builtins (0)**: 无。
+
+**Step 3 — 重扫验证清理无新引入**:
+Re-run AST scan 后 unused imports 仅剩 `__future__.annotations`
+（所有 Python 3 项目都会有，非实际未用），silent excepts 数量不变（4
+个同源）。
+
+**Step 4 — `--help` smoke sweep (13 touched 脚本)**:
+全部 rc=0（包括两个 R6 新增脚本 `probe_candidate_2.py` +
+`construct_candidate_2_trial.py`，以及 R5 迁移的 9 个脚本等）。
+
+**Step 5 — Full import sweep**:
+`core.research` (5 modules) + `core.paper_trading` (2) + `core.data`
+(9) 共 16 个 module 全部 import 成功，**0 failed**。
+
+**Step 6 — Full pytest**:
+`pytest tests/ -q` → **1556 passed, 1 skipped, 1 xfailed** =
+R6 baseline 精确匹配，零 regression。
+
+### 5. 修改了哪些文件
+
+**R7 代码清理（unused import 移除，3 行净删除）**:
+```
+scripts/acceptance_research_composite.py        (-2 行 imports)
+tests/unit/research/test_revoke_and_migration.py  (-1 行 import pytest)
+```
+
+**文档**:
+```
+docs/20260420-ralph_loop_log.md                  (本报告)
+```
+
+**未改动**:
+- R1-R6 任何 core/ 逻辑
+- R1-R6 任何 test 逻辑（仅移 unused `import pytest`）
+- R1-R6 任何 production config / schema
+- `scripts/run_paper.py` silent excepts 保留（legitimate）
+
+### 6. 跑了哪些测试/实验
+
+1. **AST audit pass 1** (clean-up 前): 3 unused / 4 silent / 0 shadow
+2. **AST audit pass 2** (clean-up 后): 0 real unused / 4 silent / 0 shadow
+3. **`--help` sweep 13 scripts**: 全部 rc=0
+4. **`core/research + core/paper_trading + core/data` full import sweep**:
+   16/16 modules 成功
+5. **`pytest tests/ -q`**: **1556 passed, 1 skipped, 1 xfailed**
+   (= R6 baseline，零 regression)
+
+### 7. 结果如何
+
+- ✅ **0 真 functional bug** in R1-R6 —— 远低于 PRD §12.3 条件 6
+  的 `>5` halt 阈值
+- ✅ 3 pre-existing unused imports 清掉（R5 已 touched 的文件内，
+  低风险 cleanup）
+- ✅ 4 silent excepts 经 case-by-case 判定全部 legitimate，无 spurious
+  noise
+- ✅ 13 scripts `--help` rc=0
+- ✅ 3 个 core 子包 16 modules 全量 import OK
+- ✅ 全量 pytest 1556 passed === R6 baseline，零 regression
+- ✅ **R7 verification 成功，未演变为 remediation catch-all
+  （PRD §10.6 D3 约束遵守）**
+
+### 8. 当前发现的新问题/新机会
+
+**观察 (不阻塞)**:
+- `scripts/run_paper.py` 的 3 个 silent excepts 虽 legitimate，但若
+  加一行 `logger.debug("skipping %s: %s", sym, e)` 会更利于
+  troubleshoot —— 属 future chore（不在 R7 scope）
+- `core/research` / `core/paper_trading` 没有 `__all__` 控制公开
+  接口，未来若要 type-check 更严可考虑加 —— 同属 future chore
+
+**机会**:
+- R8 `CLAUDE.md` 瘦身可把 R1-R7 的 "Current TODO" 项目压成单行
+  摘要，指向本 log 中的 R-epost-cand2-round-01..07
+
+### 9. 剩余风险
+
+- 零 functional regression
+- 清理的 3 个 unused imports 是 pre-existing bit rot（R5 迁移时触及
+  这些文件，R7 顺手清掉；如 audit-v2 R1 同样模式）
+- 未改任何 production config / PRODUCTION_FACTORS / promote semantics
+  / archive schema / universe / broker
+- Silent excepts 的 legitimacy 判定已记录在本报告 §4 Step 2 表格
+
+### 10. 下一轮建议方向
+
+R8 = Docs sync + CLAUDE.md slim + final synthesis + emit `EPOST_CAND2_DONE`
+（PRD §10.5 R8）。
+
+R8 需要做：
+1. README.md §1.4 + §4 + §6 + §14.1 + §8 + footer v1.4 同步
+2. CLAUDE.md 瘦到 < 800 行（当前 ~1000+），archived tables 移到
+   `docs/20260424-claude_md_phase_e_history.md`
+3. 写 `docs/20260424-phase_e_post_cand2_final_synthesis.md` — 8
+   rounds summary + E-post 5 gap 交付清单 + Candidate-2 final spec
+   + registry state + orthogonality metrics + parallel paper initial
+   observation + decision readiness per §8.1/8.2/8.3 + **3 个与
+   audit-v2 launcher 的偏差 (PRD §10.6 D1/D2/D3)**
+4. Emit `<promise>EPOST_CAND2_DONE</promise>`
+
+### 11. Halt 条件检查 (PRD §12.3)
+
+- 条件 1 (8 rounds done): NO（R7/8 完成，1 轮剩余）
+- 条件 2 (test 回归 > 10): NO（1556 === R6 baseline）
+- 条件 3 (core import 断): NO（16/16 modules import OK）
+- 条件 4 (disk < 10GB): NO
+- 条件 5 (schema migration / 新 PRD 触发): NO
+- **条件 6 (R7 audit > 5 真 bug): NO** —— **0 真 bug**；
+  PRD §10.6 D3 "R7 是 verification 不是 remediation" 遵守
+
+**本轮 autonomous scope 检查 (PRD §12.1)**:
+- ✅ 清理 unused imports 属"Bug fixes inside existing files"授权范围
+- ✅ 未改 production config / PRODUCTION_FACTORS / promote semantics
+  / archive schema / broker / universe / factor mining
+- ✅ 未引入新测试 / 新依赖
+

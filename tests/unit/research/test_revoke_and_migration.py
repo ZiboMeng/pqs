@@ -11,8 +11,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 from core.research.candidate_registry import (
     CandidateRegistry,
     CandidateStatus,

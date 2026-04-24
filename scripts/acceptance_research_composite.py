@@ -45,7 +45,6 @@ from core.factors.factor_registry import RESEARCH_FACTORS
 from core.logging_setup import get_logger, setup_logging
 from core.mining.rcm_archive import RCMArchive
 from core.mining.research_miner import (
-    FAMILIES_V1,
     ResearchCompositeSpec,
     _spearman_ic_per_date,
     build_composite_series,
@@ -145,7 +144,6 @@ def _composite_ic(
 # so future research acceptance paths share the same pure evaluator code.
 # Thin wrappers kept below for backward-compat with the existing CLI.
 from core.research.acceptance_helpers import (
-    benchmark_relative_ic_summary,
     fmt as _fmt,
     ic_stability_decision as _ic_stability_decision,
     regime_stratified_ic as _regime_stratified_ic,
