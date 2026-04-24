@@ -27,6 +27,7 @@ data/mining/
 data/.yf_cache/
 data/_catalog.parquet
 data/baseline/
+data/paper_runs/
 data/trades_scanner_state*.json
 data/*.db
 data/*.db-shm
