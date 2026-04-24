@@ -59,10 +59,11 @@ in order; each builds on the previous.
 - [20260424-parallel_paper_checkpoint_20d.md](20260424-parallel_paper_checkpoint_20d.md) — TD20
 - [20260424-parallel_paper_checkpoint_10d.md](20260424-parallel_paper_checkpoint_10d.md) — TD10 (initial)
 
-## 4. Decision / drill / proposal memos — 5
+## 4. Decision / drill / proposal / attribution memos — 6
 
 One-off, candidate-specific or feature-specific decision documents.
 
+- [memos/20260424-cand2_drift_attribution.md](memos/20260424-cand2_drift_attribution.md) — **NEW** Cand-2 paper-vs-replay drift structurally attributed to M14 NaN, not execution noise; overturns TD60/TD75 narrative; M14 fix promoted to first-priority blocker
 - [20260424-rcmv1_clone_revoke_drill_memo.md](20260424-rcmv1_clone_revoke_drill_memo.md) — Phase E-post R3 revoke drill on rcm_v1 clones (3 paths exercised)
 - [20260424-candidate_2_decision_memo.md](20260424-candidate_2_decision_memo.md) — Candidate-2 construction + S0→S1 decision rationale
 - [20260424-rcm_v1_s1_candidate_memo.md](20260424-rcm_v1_s1_candidate_memo.md) — RCMv1 S1 candidate promotion memo

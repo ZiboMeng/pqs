@@ -16,6 +16,47 @@ two distinct regimes.
 
 ---
 
+## 0a. Auditor correction (added 2026-04-24, after initial commit)
+
+The "Cand-2 dominates RCMv1 in both regimes" framing in the original
+TD75 draft (sections 1.2, 4, and sundry) was too strong. It is a
+**paper-cumulative-return** statement, but Cand-2's paper-cum is
+materially polluted by execution-layer drift in the 2022 bear window:
+mean 100 bps, max 197 bps, **42/75 days breaching 50 bps (56%)**. That
+contamination is large enough to affect any economic ranking
+conclusion.
+
+What can be claimed at TD75:
+- The pair's structural orthogonality holds cross-regime
+  (corr 0.39 / 0.23, drawdown timing asynchronous).
+- The baseline-vs-tactical character allocation holds cross-regime.
+- Both candidates beat SPY in both regimes — this is robust under
+  any reasonable drift-replay-adjustment.
+
+What canNOT be claimed at TD75:
+- Strategic ranking between RCMv1 and Cand-2. The +5814 bps Cand-2
+  excess vs SPY in 2022 includes ~7500 bps-day of cumulative drift
+  noise. The replay-adjusted excess is meaningfully smaller; the
+  dispersion around the headline is large enough that "Cand-2 leads
+  by 2.4×" is not a sound conclusion.
+
+Decisions deferred until after Cand-2 execution-layer investigation:
+- All §3 "Candidate-3" assessment is unchanged (still NOT START), but
+  for a sharper reason: we do not yet know how much of the existing
+  pair's apparent diversification benefit is real signal vs
+  execution-layer noise on Cand-2.
+- The §1.2 mechanism narrative for RCMv1's regime-dependent factor
+  selection (QUAL / MTUM in up-tape vs VLUE in bear) is still useful
+  as observation, but should not motivate spec-redesign discussion
+  until the drift question is resolved.
+
+The TD75 cross-regime cadence (10/20/40/60/75 × 2 windows) is still
+COMPLETE as a cadence; the next-step workstream switches off
+checkpoint cadence and onto Cand-2 drift attribution. See
+`docs/20260424-cand2_drift_attribution.md` (separate doc).
+
+---
+
 ## 0. Headline (one table)
 
 | Metric @ TD75 | 2024 up-tape RCMv1 | 2024 Cand-2 | 2022 bear RCMv1 | 2022 Cand-2 |
