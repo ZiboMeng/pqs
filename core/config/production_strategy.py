@@ -18,7 +18,7 @@ Used by:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal
 
 import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator

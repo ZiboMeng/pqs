@@ -2,7 +2,6 @@
 
 import pytest
 from pathlib import Path
-from unittest.mock import patch
 
 from core.config.loader import load_config, _deep_merge, PQSConfig
 

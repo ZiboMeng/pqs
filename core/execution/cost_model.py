@@ -13,7 +13,6 @@ paper trading 使用完全一致的成本假设。
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 from core.config.schemas.cost_model import CostModelConfig
 from core.logging_setup import get_logger

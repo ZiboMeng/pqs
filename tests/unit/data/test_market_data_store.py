@@ -5,7 +5,6 @@ Uses a tmp_path fixture so tests never touch the real filesystem.
 """
 
 import pandas as pd
-import pytest
 
 from core.data.market_data_store import MarketDataStore
 

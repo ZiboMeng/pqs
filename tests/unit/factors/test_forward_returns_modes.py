@@ -1,7 +1,6 @@
 """Unit tests for compute_forward_returns mode extension (PRD 20260423 R04)."""
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 import pytest
 

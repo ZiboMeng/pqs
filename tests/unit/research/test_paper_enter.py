@@ -10,7 +10,6 @@ import pytest
 from core.research.candidate_registry import (
     CandidateRegistry,
     CandidateStatus,
-    InvalidTransitionError,
     RevokeReason,
 )
 

@@ -8,8 +8,6 @@ import pytest
 
 from core.config.schemas.regime import (
     RegimeConfig,
-    VixThresholdsConfig,
-    DrawdownThresholdsConfig,
     RegimePositionConstraintConfig,
 )
 from core.regime.regime_detector import RegimeDetector, RegimeReading, RegimeState
@@ -458,7 +456,7 @@ class TestMultiFactorInteraction:
 
 class TestImports:
     def test_can_import_from_package(self):
-        from core.regime import RegimeDetector, RegimeReading, RegimeState
+        from core.regime import RegimeDetector
         assert RegimeDetector is not None
 
     def test_regime_rank_ordering(self):

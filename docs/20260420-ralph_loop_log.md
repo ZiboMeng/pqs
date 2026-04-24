@@ -14654,3 +14654,206 @@ README.md                                        (§1.4 refresh + v1.4 footer)
 - ✅ Final synthesis doc exists
   (`docs/20260424-phase_e_post_cand2_final_synthesis.md`)
 
+
+---
+
+## R-docs-audit-round-01 — Code audit + bug fixes
+
+**Lineage tag**: `docs-audit-2026-04-24`
+**Commit**: TBD (本轮提交后回填)
+**Round scope**: PRD §3 R1 — 代码 surface 全量 audit + unused import
+cleanup + 真 bug 修复（如有）
+
+### 1. 本轮主题
+
+代码静态审计 + 清理 unused imports。依 PRD §4 halt 条件 7
+遇歧义 bug 必须 pause。
+
+### 2. 本轮目标
+
+- pytest tuple pre/post 必须一致或 +N regression tests 解释
+- pyflakes / AST scan 所有 `.py`：unused imports / silent excepts /
+  shadowed builtins / dead code
+- 清理 pre-existing unused imports（低风险）
+- 运行代表性 code path 验证
+
+### 3. 为什么这轮优先做它
+
+PRD §10.1 R1 顺序；也是 DOCSAUDITDONE 的前置（R2/R3 才做 docs）。
+
+### 4. 做了什么
+
+**Step 1 — pre-audit pytest tuple**:
+`1556 passed, 1 skipped, 1 xfailed` (147s) — 与 R8 baseline 一致。
+
+**Step 2 — 自研 AST scan**:
+扫 `core/ scripts/ dev/scripts/ tests/` 共 290 `.py` 文件。
+初筛：105 unused imports + 24 silent excepts + 0 shadowed builtins
++ 0 `if False:` dead branches.
+
+**Step 3 — pyflakes 作为 authoritative**:
+装 `pyflakes 3.4.0` + `autoflake 2.3.3`。pyflakes 结果：
+- **133 unused imports** (41 core/scripts/dev + 92 tests)
+- **4 redefinition-of-unused-module-level-by-function-local** 
+  （`optuna` in strategy_space / `WindowAnalyzer` + `copy` in
+  evaluator / `InvalidTransitionError` in test_paper_enter）
+- **7 undefined-name warnings** — **全部 false positive**：
+  string type annotations / forward refs (`"TimeframeOptimizer"` /
+  `"BrokerAdapter"` / `"ReconcileResult"` / `"EvalResult"`)
+- **10 f-string without placeholders** — 美观问题，非 bug
+- **6 assigned-but-never-used 局部变量** (见 Step 6 flag list)
+
+**Step 4 — autoflake 批量清理**:
+用 `autoflake --remove-all-unused-imports --in-place` 扫 85 files，
+按 pyflakes 输出精准移除。结果：**132 lines removed, 28 added,
+85 files changed**（每个 from-import 块可能多行）。
+
+**Step 5 — 修 autoflake 造成的唯一 bug**:
+`core/mining/strategy_space.py` 的 try/except 哨兵 block 被
+autoflake 误删 `import optuna` 一行，使 `_OPTUNA_AVAILABLE`
+在 optuna 缺失时永远为 True（正常 env 行为不变但 fresh env 会
+出错）。手动修复：恢复 `import optuna  # noqa: F401  # guards
+_OPTUNA_AVAILABLE sentinel`。
+
+**Step 6 — Flag for user review (PRD §4 halt 条件 7 触发的 pause)**:
+- **`scripts/run_paper.py:421 left_side = LeftSideTrading(config=...)`**
+  创建但**从未**传给 PaperTradingEngine 或任何 downstream。可能是：
+  (a) 功能应该 wire 但漏了（bug）；
+  (b) 功能放弃 / demo 代码（应删）。
+  **不能猜** → 留给用户决定。
+- **`core/signals/strategies/multi_factor.py:61 target_sum`** — 
+  `float(row.sum())` 赋值后未使用。可能是守恒量的验证占位。留给
+  人类判断。
+- **`core/data/yfinance_provider.py:193 price_level = 1 - ticker_level`** —
+  看似 dead，但可能 legacy yfinance 0.1.x 支持。保留。
+- **`scripts/universe_risk_labels.py:257-258 r2_spy_504/r2_qqq_504`**
+  在 fallback 分支 nan 赋值但未读 — 纯 cosmetic，保留。
+- **`core/features/feature_pipeline.py:272 aux_df_ohlcv = None`** —
+  注释指明是 "aux OHLCV not passed here" 的 doc placeholder，保留。
+- **10 f-string-without-placeholder** — 美学问题（`f""` 无
+  `{...}`）。**不改**（not a bug）。
+
+**Step 7 — 运行 representative code paths**:
+- `pytest tests/ -q` → **1556 passed, 1 skipped, 1 xfailed** (145s) ✓
+- `--help` smoke on 18 代表性 scripts (run_backtest / run_paper /
+  run_paper_candidate / run_research_miner / freeze_research_candidate
+  / research_promote / paper_enter / revoke_candidate /
+  run_xgb_importance / run_xgb_cv / run_factor_screen /
+  probe_candidate_2 / construct_candidate_2_trial /
+  acceptance_research_composite / run_multi_tf_backtest / run_mining
+  / acceptance_pack / migrate_rcm_v1_memo_to_registry) — **全部 rc=0**
+- Import sweep `core.research / core.paper_trading / core.data /
+  core.factors / core.mining / core.signals / core.backtest /
+  core.portfolio / core.reporting / core.regime / core.risk /
+  core.notify / core.universe / core.config / core.execution /
+  core.features / core.diagnostics / core.intraday / core.alignment
+  / core.ml` → **全部 import OK**
+
+**Step 8 — 再跑 pyflakes 确认**:
+- `imported but unused` 剩 **2**（optuna + torch，都是 try/except
+  import 哨兵模式 intentional；optuna 已加 `noqa: F401`，torch 在
+  `core/ml/transformer_encoder.py:23` 是 lazy 守卫）
+- 其他 minor cosmetic findings 见 Step 6
+
+### 5. 修改了哪些文件
+
+```
+85 files changed, 28 insertions(+), 132 deletions(-)
+  (autoflake cleanup: 41 core/scripts/dev + 92 tests unused imports)
++ core/mining/strategy_space.py (+1 line: restore import optuna in
+                                  try/except sentinel block)
+
+docs/20260420-ralph_loop_log.md                 (本报告)
+```
+
+**未改动**:
+- 零 `config/*.yaml`
+- 零 `PRODUCTION_FACTORS`
+- 零 schema migrations
+- 零 dependency add/remove
+- 零 public function rename
+- 零 test delete
+- 零 behavior change（optuna 哨兵修复是恢复 pre-autoflake 行为）
+
+### 6. 跑了哪些测试/实验
+
+1. **pytest start-of-round**: `1556, 1, 1`
+2. **pytest post-autoflake**: `1556, 1, 1` ✓
+3. **pytest post-strategy_space-fix**: `1556, 1, 1` ✓
+4. **pytest end-of-round**: `1556, 1, 1` ✓ (no drift)
+5. **`--help` smoke 18 scripts**: 18/18 rc=0
+6. **core.* import sweep 20 subpackages**: 全部成功
+7. **pyflakes leftover count**: 从 133 降到 2（两个都是 intentional
+   try/except 守卫）
+
+### 7. 结果如何
+
+- ✅ **pytest tuple 完全守恒** (1556/1/1 pre === post, zero drift)
+- ✅ **132 unused imports 清理** (85 files，净 -104 lines)
+- ✅ **1 autoflake-induced bug 修复** (strategy_space.py optuna 哨兵)
+- ✅ **0 regression** in 18 scripts + 20 core sub-packages
+- ✅ **6 dead local vars / 10 cosmetic f-strings flagged for user**
+  — 不自行修，因为每一项要么需要用户判断
+  (`run_paper.py left_side` / `multi_factor.py target_sum`)，
+  要么纯美学（f-string prefix） 
+- ✅ **2 false-positive "undefined name"** 确认为 forward-ref string
+  annotations，不修
+
+### 8. 当前发现的新问题/新机会
+
+**要 pause 给 user 决定的真 finding** (PRD §4 halt 条件 7)：
+- `scripts/run_paper.py:421 left_side = LeftSideTrading(...)` 创建后
+  从未 wire —— **不 autonomous 修**，因为两种可能性（应 wire 或
+  应删）都合理，需要用户判断本意。R1 不继续，留待用户 review 后
+  决定。**这不阻塞 R2/R3**（R2/R3 不碰 code）。
+
+**机会（非本轮 scope）**:
+- `multi_factor.py target_sum` 若确认死变量，可一行清理
+- 10 `f""` 无占位符：可一键 autoflake-like 工具清但风险极低收益
+- `core/paper_trading/paper_trading_engine.py`  76-style annotations
+  (BrokerAdapter / ReconcileResult) 是 placeholder future broker
+  adapter，应 TYPE_CHECKING 保护（pyflakes 免疑）。非紧急。
+
+### 9. 剩余风险
+
+- pytest 稳定性：1556 → 1556，无 flake
+- autoflake 扫了 85 files，只造成 1 处已修的 sentinel bug
+- 20 core subpackage import sweep 全绿
+- 18 script `--help` 全绿
+- real rcm_v1 / candidate_2_orthogonal_01 registry 未触碰
+- `config/*.yaml` 未碰
+- 依赖未改
+
+### 10. 下一轮建议方向
+
+R2 = README.md dev-process 去除。按 PRD §3 R2 清单：
+- v1.x footers
+- per-round commit hashes
+- launcher references
+- lineage tag 列表
+- EPOST_CAND2_DONE / AUDIT3DONE / DOCSAUDITDONE mentions
+- §17 压缩到 intro + 每 phase 一 bullet 指向 synthesis
+
+R2 是 docs-only，tuple 不应 drift。
+
+### 11. Halt 条件检查 (PRD §4)
+
+- 条件 1 (3 rounds done): NO（R1/3 完成，2 轮剩余）
+- 条件 2 (unexpected pytest drift): NO（1556/1/1 守恒）
+- 条件 3 (core import 断): NO（20 subpackage sweep 全绿）
+- 条件 4 (disk < 10GB): NO（801GB free）
+- 条件 5 (schema migration / 新 PRD): NO
+- 条件 6 (README/CLAUDE.md 引用断): N/A（R1 未改这两个）
+- **条件 7 (bug 需要用户决定)**: ⚠ **TRIGGERED** for
+  `run_paper.py left_side` — 已按 PRD 精神不猜测、flag 给 user
+  review，R1 其余清理工作未因此 halt（只对这**一**具体行为变更不
+  autonomous 推进，其他 non-ambiguous 清理可完成）
+
+**本轮 autonomous scope 检查 (PRD §4)**:
+- ✅ Unused-import removal: 132 lines，per-file test 验证
+- ✅ Bug fix (strategy_space.py sentinel restore) 是恢复 pre-autoflake
+  行为，未改语义
+- ✅ 未改 `config/*.yaml` / `PRODUCTION_FACTORS` / `promote_strategy.py`
+- ✅ 未改 archive.db / rcm_archive.db schema
+- ✅ 未加依赖、未 rename public API、未删测试
+

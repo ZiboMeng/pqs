@@ -1,12 +1,8 @@
 """Tests for get_notifier() factory + config loading."""
 from __future__ import annotations
 
-import os
 from pathlib import Path
-from typing import Any, Dict
-from unittest.mock import patch
 
-import pytest
 import yaml
 
 from core.notify import (

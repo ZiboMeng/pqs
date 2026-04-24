@@ -24,7 +24,7 @@ from typing import Callable, Dict, List, Optional
 import pandas as pd
 
 from core.execution.cost_model import CostModel
-from core.execution.execution_simulator import ExecutionSimulator, Order, OrderSide, Fill
+from core.execution.execution_simulator import Order, OrderSide, Fill
 from core.backtest.backtest_engine import BacktestEngine as _DailyEngine
 from core.backtest.intraday_engine import IntradayBacktestEngine, DayResult, BarUpdate
 from core.paper_trading.pnl_tracker import PnLTracker

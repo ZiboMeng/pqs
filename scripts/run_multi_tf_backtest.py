@@ -481,7 +481,6 @@ def _print_cost_sensitivity(cfg, all_dates, daily_weights, multi_bars, mt_symbol
 
 def _print_walk_forward(cfg, all_dates, daily_weights, multi_bars):
     """Walk-forward validation: 4-fold temporal split on 60m bars."""
-    import copy
 
     n = len(all_dates)
     fold_size = n // 4

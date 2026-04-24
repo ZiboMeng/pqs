@@ -4,7 +4,6 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
-import pytest
 
 from core.notify.base import (
     Level,

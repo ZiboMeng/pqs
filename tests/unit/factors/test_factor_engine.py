@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from core.factors.factor_engine import FactorEngine, FactorStats, _rolling_crosssection_corr
+from core.factors.factor_engine import FactorEngine, FactorStats
 
 
 # ── 辅助函数 ──────────────────────────────────────────────────────────────────

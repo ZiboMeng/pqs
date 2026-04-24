@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 try:
-    import optuna
+    import optuna  # noqa: F401  # guards _OPTUNA_AVAILABLE sentinel
     _OPTUNA_AVAILABLE = True
 except ImportError:
     _OPTUNA_AVAILABLE = False

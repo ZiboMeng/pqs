@@ -2,7 +2,6 @@
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from core.signals.strategies.multi_factor import MultiFactorStrategy
 

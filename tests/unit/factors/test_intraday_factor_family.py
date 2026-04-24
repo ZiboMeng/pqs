@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from core.factors.factor_generator import (
     generate_all_factors, _intraday_factors,

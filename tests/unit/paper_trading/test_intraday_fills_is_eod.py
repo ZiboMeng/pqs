@@ -17,7 +17,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from core.backtest.intraday_engine import BarUpdate
 from core.config.loader import load_config
 from core.execution.cost_model import CostModel
 from core.execution.execution_simulator import (

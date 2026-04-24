@@ -1,15 +1,12 @@
 """Tests for PaperTradingEngine intraday persistence, recovery, and idempotency."""
 
-import json
 import sqlite3
 import tempfile
-import numpy as np
 import pandas as pd
-import pytest
 
 from core.config.loader import load_config
 from core.execution.cost_model import CostModel
-from core.execution.execution_simulator import Order, OrderSide, Fill
+from core.execution.execution_simulator import Order, OrderSide
 from core.paper_trading.paper_trading_engine import PaperTradingEngine
 from core.paper_trading.pnl_tracker import PnLTracker
 from core.risk.kill_switch import KillSwitch, KillSwitchConfig

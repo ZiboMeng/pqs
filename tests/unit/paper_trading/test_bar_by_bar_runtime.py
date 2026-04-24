@@ -18,7 +18,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from core.backtest.intraday_engine import IntradayBacktestEngine, BarUpdate
 from core.config.loader import load_config

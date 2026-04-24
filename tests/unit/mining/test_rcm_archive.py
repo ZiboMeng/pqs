@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import json
-import tempfile
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -12,7 +10,6 @@ import pytest
 from core.mining.rcm_archive import (
     RCMArchive,
     _hash_spec,
-    _serialize_spec,
 )
 from core.mining.research_miner import (
     CompositeMetrics,

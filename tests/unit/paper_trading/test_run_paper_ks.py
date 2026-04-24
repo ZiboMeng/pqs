@@ -11,11 +11,9 @@ adjustments through the same kill-switch gate:
 from __future__ import annotations
 
 import importlib.util
-import sys
 import types
 from pathlib import Path
 
-import pandas as pd
 import pytest
 
 # Load run_paper.py as a module (it's a script, not a package entry).

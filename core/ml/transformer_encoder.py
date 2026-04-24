@@ -16,7 +16,6 @@ Usage:
 """
 from __future__ import annotations
 
-from typing import Optional
 
 
 def is_torch_available() -> bool:

@@ -172,7 +172,7 @@ class TestIntradayGhostCleanup:
         """PaperTradingEngine stores _intraday_stale_counts and threads
         it into every run_day_intraday call so that paper's multi-day
         halt semantics match."""
-        import sqlite3, tempfile
+        import tempfile
         from core.paper_trading.paper_trading_engine import PaperTradingEngine
         from core.paper_trading.pnl_tracker import PnLTracker
         from core.risk.kill_switch import KillSwitch, KillSwitchConfig

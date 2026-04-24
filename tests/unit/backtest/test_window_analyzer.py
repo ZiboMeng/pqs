@@ -131,7 +131,6 @@ class TestAcceptanceCheck:
         from core.backtest.backtest_engine import _empty_result
         analyzer  = WindowAnalyzer(_make_engine())
         empty_eq  = pd.Series([100.0, 101.0], index=pd.bdate_range("2022-01-03", periods=2))
-        from core.backtest.backtest_engine import BacktestResult
         r = _empty_result()
         bench = empty_eq
         acc = analyzer.acceptance_check(r, bench)
@@ -148,7 +147,6 @@ class TestAcceptanceCheck:
         bench_eq   = pd.Series(100.0 * np.cumprod(1 + np.full(n, bench_daily)), index=idx)
 
         from core.backtest.backtest_engine import BacktestResult
-        from core.execution.execution_simulator import Fill
         result = BacktestResult(
             equity_curve=strat_eq, positions=pd.DataFrame(),
             weights=pd.DataFrame(), cash_curve=strat_eq * 0,

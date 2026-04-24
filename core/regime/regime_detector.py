@@ -47,7 +47,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Optional
 
-import numpy as np
 import pandas as pd
 
 from core.config.schemas.regime import RegimeConfig, RegimePositionConstraintConfig

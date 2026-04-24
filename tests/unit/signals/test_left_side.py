@@ -2,7 +2,6 @@
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from core.signals.left_side import LeftSideTrading, LeftSideConfig
 

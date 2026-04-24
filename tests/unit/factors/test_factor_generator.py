@@ -2,7 +2,6 @@
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from core.factors.factor_generator import (
     apply_data_sensitivity_mask,

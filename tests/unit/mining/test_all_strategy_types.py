@@ -18,10 +18,8 @@ mining runs.
 
 from __future__ import annotations
 
-import sqlite3
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 

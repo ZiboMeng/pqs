@@ -18,7 +18,6 @@ or the network is unreachable.
 from __future__ import annotations
 
 import pytest
-import pandas as pd
 
 # Skip the whole module if there's no network (CI without internet)
 pytest.importorskip("yfinance")

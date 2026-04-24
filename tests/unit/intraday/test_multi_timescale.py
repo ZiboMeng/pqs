@@ -5,9 +5,8 @@ import pandas as pd
 import pytest
 
 from core.intraday.multi_timescale import (
-    TimescaleBar, MultiTimescaleContext, CrossTFSignal,
-    get_latest_completed_bar, build_context, check_higher_tf_alignment,
-    evaluate_cross_tf_signal,
+    TimescaleBar, MultiTimescaleContext, get_latest_completed_bar,
+    build_context, check_higher_tf_alignment, evaluate_cross_tf_signal,
 )
 
 

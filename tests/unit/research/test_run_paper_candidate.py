@@ -15,8 +15,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-import yaml
 
 from core.research.candidate_registry import (
     CandidateRegistry,

@@ -15,8 +15,6 @@ Scaffold for the auto-launch LLM factor mining phase (see
 
 from __future__ import annotations
 
-import tempfile
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -25,8 +23,6 @@ import yaml
 
 from core.factors.llm_candidate import (
     CandidateValidationError,
-    CandidateVerdict,
-    FactorCandidate,
     dedup_check,
     leakage_heuristic_check,
     load_candidate_from_dict,

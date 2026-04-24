@@ -20,7 +20,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from core.mining.acceptance_pack import (
     AcceptancePackError,
-    GateResult,
     _build_gates,
     run_acceptance_pack,
     write_acceptance_artifact,

@@ -6,7 +6,6 @@ All tests use synthetic data — no network calls.
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from core.data.validator import DataValidator, ValidationResult
 

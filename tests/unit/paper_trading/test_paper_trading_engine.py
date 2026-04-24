@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List
+from typing import List
 
-import numpy as np
 import pandas as pd
 import pytest
 
 from core.config.schemas.cost_model import CostModelConfig, CostTierConfig
 from core.execution.cost_model import CostModel
-from core.execution.execution_simulator import OrderSide
 from core.backtest.intraday_engine import DayResult
 from core.paper_trading.pnl_tracker import PnLTracker
 from core.paper_trading.paper_trading_engine import PaperTradingEngine

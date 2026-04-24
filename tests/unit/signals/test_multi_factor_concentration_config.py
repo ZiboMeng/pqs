@@ -71,7 +71,6 @@ class TestMiningSpacePicksUpConfig:
         assert "concentration_warn_threshold" in kw
 
     def test_concentration_kwargs_empty_when_disabled(self):
-        from core.config.loader import load_config as _lc
         from core.config.schemas.risk import StrategyConcentrationConfig
 
         class _FakeCfg:

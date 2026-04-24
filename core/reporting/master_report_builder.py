@@ -285,7 +285,6 @@ class MasterReportBuilder:
         ----------
         strategy_results : {name: {"result": BacktestResult, ...}} from run_backtest
         """
-        from core.backtest.backtest_engine import compute_metrics
 
         rows = []
         total_return = 0.0

@@ -61,7 +61,6 @@ from core.data.market_data_store import MarketDataStore
 from core.factors.factor_generator import generate_all_factors
 from core.factors.llm_candidate import (
     CandidateValidationError,
-    FactorCandidate,
     load_candidate_from_yaml,
     run_funnel,
 )

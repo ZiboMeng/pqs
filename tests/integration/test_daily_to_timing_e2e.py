@@ -27,13 +27,10 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pytest
 
-from core.backtest.intraday_engine import BarUpdate
 from core.config.loader import load_config
 from core.execution.cost_model import CostModel
 from core.intraday.multi_timescale import (
-    build_context, decide_timing,
     TimingThresholds, make_timing_target_provider,
 )
 from core.paper_trading.paper_trading_engine import PaperTradingEngine

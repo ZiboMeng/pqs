@@ -19,7 +19,6 @@ import sqlite3
 import tempfile
 from pathlib import Path
 
-import pandas as pd
 
 from core.mining.archive import MiningArchive
 from core.mining.evaluator import EvalResult

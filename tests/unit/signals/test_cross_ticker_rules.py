@@ -7,7 +7,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
-import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
@@ -17,7 +16,6 @@ from core.signals.cross_ticker_rules import (
     MultiTFConfirmationRule,
     RegimeBasketRule,
     RuleContext,
-    RuleType,
     _eval_expression,
     _validate_expression,
     apply_rules,

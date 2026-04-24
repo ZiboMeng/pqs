@@ -1,7 +1,7 @@
 """Universe / asset selection configuration schemas."""
 
 from typing import Dict, List, Optional
-from pydantic import BaseModel, Field, model_validator, ConfigDict
+from pydantic import BaseModel, Field, model_validator
 
 
 class UniverseLiquidityConfig(BaseModel):

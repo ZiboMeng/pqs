@@ -35,7 +35,7 @@ from core.notify.backends import (
     StdoutNotifier,
     WecomBotNotifier,
 )
-from core.notify.base import Level, Notifier, RateLimiter, parse_level
+from core.notify.base import Notifier, RateLimiter, parse_level
 
 _logger = logging.getLogger(__name__)
 

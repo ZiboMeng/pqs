@@ -234,7 +234,6 @@ class TestQQQOutperformance:
         """Load real market data for QQQ validation."""
         from core.data.market_data_store import MarketDataStore
         from core.regime.regime_detector import RegimeDetector
-        from core.signals.strategies.multi_factor import MultiFactorStrategy
         from core.portfolio.constructor import PortfolioConstructor
         cfg = load_config(Path("config"))
         store = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))

@@ -1,6 +1,6 @@
 """Regime detection configuration schemas."""
 
-from typing import Dict, Optional
+from typing import Dict
 from pydantic import BaseModel, Field, model_validator
 
 

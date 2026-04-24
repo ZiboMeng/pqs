@@ -48,7 +48,7 @@ Q5-B：Regime 感知 — 消费 RegimeDetector 输出，按当前市场环境约
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Optional
 
 import numpy as np
 import pandas as pd

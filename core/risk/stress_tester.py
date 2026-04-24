@@ -12,7 +12,7 @@ Monte Carlo 使用 Bootstrap 重采样（保留历史日收益的非正态特性
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 import numpy as np

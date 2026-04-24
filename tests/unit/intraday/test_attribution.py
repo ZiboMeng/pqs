@@ -4,7 +4,6 @@ import pandas as pd
 
 from core.intraday.multi_timescale import (
     AttributionAggregator,
-    CrossTFSignal,
     MultiTimescaleContext,
     TimescaleBar,
     evaluate_cross_tf_signal,

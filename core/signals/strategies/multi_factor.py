@@ -42,8 +42,6 @@ import pandas as pd
 
 from core.factors.base_factors import low_vol_factor, rel_strength_factor
 from core.factors.factor_registry import (
-    PRODUCTION_FACTORS,
-    check_execution_factor_names,
     enforce_execution_factor_names,
 )
 from core.logging_setup import get_logger

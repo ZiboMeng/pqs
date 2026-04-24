@@ -26,7 +26,6 @@ Stage 4 — Diversity check
 
 from __future__ import annotations
 
-import copy
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
@@ -34,8 +33,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from core.backtest.backtest_engine import BacktestEngine, compute_metrics
-from core.backtest.window_analyzer import WindowAnalyzer
+from core.backtest.backtest_engine import BacktestEngine
 from core.execution.cost_model import CostModel
 from core.portfolio.constructor import PortfolioConstructor
 from core.mining.strategy_space import StrategySpec, instantiate_strategy

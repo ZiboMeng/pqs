@@ -10,7 +10,7 @@ Provides:
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from functools import lru_cache
 
 import pandas as pd

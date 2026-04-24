@@ -1,7 +1,6 @@
 """Unit tests for core/mining/research_miner.py (PRD 20260424 §8, R09)."""
 from __future__ import annotations
 
-from typing import Any
 
 import pytest
 

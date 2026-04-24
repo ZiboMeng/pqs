@@ -3,12 +3,10 @@ Tests for execution cost accounting: slippage in price, commission in cash.
 Verifies no double-counting.
 """
 
-import numpy as np
 import pandas as pd
-import pytest
 
 from core.execution.execution_simulator import ExecutionSimulator, Order, OrderSide
-from core.execution.cost_model import CostModel, CostBreakdown
+from core.execution.cost_model import CostModel
 from core.config.loader import load_config
 from pathlib import Path
 

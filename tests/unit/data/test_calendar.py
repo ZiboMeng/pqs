@@ -6,7 +6,6 @@ regardless of when they are run.
 """
 
 import pandas as pd
-import pytest
 
 from core.data.calendar import (
     align_daily_index,
@@ -15,8 +14,6 @@ from core.data.calendar import (
     get_missing_trading_days,
     get_trading_days,
     is_trading_day,
-    localize_to_eastern,
-    to_et_naive,
 )
 
 

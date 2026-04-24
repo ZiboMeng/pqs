@@ -2,7 +2,6 @@
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from core.config.schemas.cost_model import CostModelConfig, CostTierConfig
 from core.execution.cost_model import CostModel
