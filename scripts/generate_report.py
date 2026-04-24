@@ -22,7 +22,6 @@ from core.config.loader import load_config
 from core.paper_trading.paper_trading_engine import PaperTradingEngine
 from core.paper_trading.pnl_tracker import PnLTracker
 from core.execution.cost_model import CostModel
-from core.risk.kill_switch import KillSwitch, KillSwitchConfig
 from core.mining.archive import MiningArchive
 from core.reporting.master_report_builder import MasterReportBuilder
 from core.logging_setup import setup_logging, get_logger

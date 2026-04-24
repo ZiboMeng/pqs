@@ -30,9 +30,7 @@ from __future__ import annotations
 
 import argparse
 import os
-import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd

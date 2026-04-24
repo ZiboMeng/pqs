@@ -23,8 +23,7 @@ Use by (post-R28):
 from __future__ import annotations
 
 import sys
-from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, Optional
 
 import pandas as pd
 

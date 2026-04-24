@@ -23,8 +23,6 @@ from typing import Callable, Dict, List, Optional
 
 import pandas as pd
 
-import numpy as np
-
 from core.execution.cost_model import CostModel
 from core.execution.execution_simulator import ExecutionSimulator, Order, OrderSide, Fill
 from core.backtest.backtest_engine import BacktestEngine as _DailyEngine

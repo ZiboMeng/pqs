@@ -40,7 +40,6 @@ from __future__ import annotations
 import hashlib
 import os
 import time
-from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 

@@ -56,7 +56,6 @@ from typing import Optional
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import numpy as np
 import pandas as pd
 
 from core.config.loader import load_config
@@ -64,7 +63,6 @@ from core.data.market_data_store import MarketDataStore
 from core.execution.cost_model import CostModel
 from core.factors.base_masks import apply_research_mask, research_mask
 from core.factors.factor_generator import generate_all_factors
-from core.factors.factor_registry import RESEARCH_FACTORS
 from core.logging_setup import get_logger, setup_logging
 from core.mining.research_miner import zscore_cs
 from core.research.candidate_registry import (

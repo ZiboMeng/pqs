@@ -33,7 +33,6 @@ from core.config.loader import load_config
 from core.data.market_data_store import MarketDataStore
 from core.execution.cost_model import CostModel
 from core.regime.regime_detector import RegimeDetector
-from core.signals.strategies.multi_factor import MultiFactorStrategy
 from core.portfolio.constructor import PortfolioConstructor
 from core.paper_trading.paper_trading_engine import PaperTradingEngine
 from core.paper_trading.pnl_tracker import PnLTracker

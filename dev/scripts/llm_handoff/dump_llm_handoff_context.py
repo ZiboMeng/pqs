@@ -92,7 +92,6 @@ def _get_recent_candidates(n: int = 10):
 
 def _get_regime_distribution(lookback_days: int = 252):
     try:
-        import pandas as pd
         from core.config.loader import load_config
         from core.data.market_data_store import MarketDataStore
         from core.regime.regime_detector import RegimeDetector

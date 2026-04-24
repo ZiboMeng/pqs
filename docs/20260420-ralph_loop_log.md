@@ -12888,3 +12888,187 @@ Round 2 覆盖。
 - 条件 3: NO（core import sweep 32/32 OK）
 - 条件 4: NO（disk 801GB free）
 - 条件 5: NO（无 schema migration / new PRD 触发）
+
+---
+
+## R-audit-v2-round-02
+
+**时间**: 2026-04-23
+**lineage_tag**: audit-2026-04-24-v2
+**Commit**: TBD (填入 R2 commit 后)
+
+### 1. 本轮主题
+Round 2 — Scripts + I/O audit。覆盖 `scripts/*.py`（quant ops 共 57
+个）+ `dev/scripts/**/*.py`（X-1 迁移后 7 个）+ `core/data/`（8）+
+`core/paper_trading/`（2）+ `core/reporting/`（3）。重点：argparse
+regression（特别针对 X-1 path-depth 变化）+ 运行时 I/O smoke tests。
+
+### 2. 本轮目标
+1. 每个 script `--help` smoke（64 个脚本）
+2. X-1 migration 后 dev/scripts/ 3-deep 嵌套的 ROOT path 是否仍然正确
+3. Round 2 scope 的 core/ 模块 import + dry-run
+4. Data store: 读一个已知 symbol 验证 shape
+5. Backtest entry: 短窗口 `run_backtest.py` 跑通
+6. Paper engine: `PaperTradingEngine` dry-init
+7. Reporting: 生成一个 master report artifact
+8. 静态 AST 扫描：unused imports / silent excepts / shadowed builtins
+
+### 3. 为什么这轮优先做它
+- X-1 migration 刚完成，7 个 Python 脚本从 `scripts/` 搬到 `dev/scripts/`
+  下更深的目录。`Path(__file__).parent.parent` 深度必须从 1 层改成 2-3
+  层，是经典 regression 源头
+- R1 已扫 core 库，Round 2 延续覆盖 core/data + core/paper_trading +
+  core/reporting + scripts 这 4 个 "I/O 边界" 模块
+- 新增 Phase E-2 三个 paper 脚本（run_paper_candidate.py /
+  paper_drift_report.py / paper_enter.py）从未 --help 过
+
+### 4. 做了什么
+
+**--help sweep (64 scripts)**:
+- scripts/: 54/57 OK, **3 FAIL**
+- dev/scripts/: 7/7 OK（X-1 迁移干净！）
+
+**3 个 --help 真 bug，已修复**:
+1. `scripts/feat_v1_topk_analysis.py` —— 缺 `sys.path.insert`，`from
+   core.mining.archive import MiningArchive` 报 `ModuleNotFoundError:
+   No module named 'core'`。修复：加 sys.path.insert，import 顺序调整
+2. `scripts/build_splits_parquet.py` —— 无 argparse，`--help` 直接落
+   进 main() 触发 FileNotFoundError（硬编码路径在 dev 环境不存在）。
+   修复：加 argparse（--src, --out）包装
+3. `scripts/run_multi_tf_backtest.py` —— 无 argparse，`--help` 落进
+   main()，执行 2+min 的数据加载直到 SIGTERM。修复：在 main() 入口加
+   `argparse.ArgumentParser(...).parse_args()`，--help 拦截后立即返回
+
+**AST-based 静态扫描 (Round 2 scope)**:
+- Unused imports：**44 findings**，全部移除（27 文件）
+- Silent `except: pass`：19 findings，全部确认 legitimate（best-effort
+  cleanup / ALTER TABLE 兼容 / 按 symbol 跳过等）
+- Shadowed builtins：0 findings
+
+**整合 smokes**:
+1. MarketDataStore.read: SPY/QQQ/AAPL 1d → 全部 (2842, 6) OHLCV+amount
+2. BarStore.load SPY 1d adjusted=True → (2842, 6)
+3. PaperTradingEngine dry-init（真实 cfg.cost_model + tmpdir DB）→ OK
+4. `scripts/run_backtest.py --start 2026-01-01 --end 2026-03-01
+   --no-walk-forward` → 4 strategies 完成，master_report.md 生成
+
+### 5. 修改了哪些文件
+
+**Bug fix (3 个 --help 失败脚本)**:
+- scripts/feat_v1_topk_analysis.py（加 sys.path.insert）
+- scripts/build_splits_parquet.py（加 argparse）
+- scripts/run_multi_tf_backtest.py（main 入口加 argparse）
+
+**Unused import 清理 (27 文件，44 import)**:
+
+| 文件 | 移除 |
+|------|------|
+| core/data/panel_loader.py | Path, List |
+| core/data/validator.py | date, Optional |
+| core/data/calendar.py | Optional |
+| core/data/market_data_store.py | timezone |
+| core/data/bar_store.py | lru_cache |
+| core/paper_trading/paper_trading_engine.py | numpy |
+| core/reporting/master_report.py | field |
+| core/reporting/intraday_report.py | Dict, List, numpy |
+| scripts/llm_candidate_orthogonalization.py | asdict, List, Optional |
+| scripts/generate_report.py | KillSwitch, KillSwitchConfig |
+| scripts/run_paper.py | MultiFactorStrategy |
+| scripts/validate_timing_value.py | numpy |
+| scripts/post_processing_pipeline.py | os, signal |
+| scripts/scanner_sequential_2026_2025.py | sys |
+| scripts/compare_multi_factor_shift.py | numpy |
+| scripts/run_paper_candidate.py | numpy, RESEARCH_FACTORS |
+| scripts/feat_v1_topk_analysis.py | Counter, pandas |
+| scripts/r33_weight_grid_search.py | product, numpy |
+| scripts/acceptance_research_composite.py | numpy |
+| scripts/llm_composite_backtest.py | asdict |
+| scripts/scanner_terminator.py | sys |
+| scripts/run_research_miner.py | numpy |
+| scripts/trades_scanner.py | numpy |
+| scripts/validate_vs_yfinance.py | os |
+| scripts/run_multi_tf_backtest.py | BacktestEngine（保留 compute_metrics）|
+| scripts/universe_admission_screen.py | List |
+| scripts/llm_candidate_deep_check.py | Optional |
+| dev/scripts/llm_handoff/dump_llm_handoff_context.py | pandas |
+| dev/scripts/demo/demo_cross_ticker_rules.py | numpy |
+| dev/scripts/migrations/migrate_provenance.py | sys, datetime, timezone |
+
+### 6. 跑了哪些测试/实验
+- --help sweep: 64 scripts
+- 3 fixed scripts 单独 --help：`scripts/feat_v1_topk_analysis.py --help` /
+  `scripts/build_splits_parquet.py --help` / `scripts/run_multi_tf_backtest.py
+  --help` → 全部 rc=0 秒级返回
+- `pytest tests/unit -q` post-cleanup → **1491 pass, 1 skip, 0 fail, 108.37s**
+  （pre-R2 baseline 1491）
+- Data store smoke: SPY/QQQ/AAPL 1d 全部 (2842, 6) shape
+- Paper engine dry-init via real cfg.cost_model → OK
+- Backtest 2-month window: 4 strategies 运行 + master_report.md 生成
+- Unused imports re-scan post-cleanup: **0 remaining**
+
+### 7. 结果如何
+
+**Script inventory (64 targets)**:
+| 状态 | 数量 |
+|------|------|
+| OK | 61 |
+| Bug-fixed | 3 |
+| Dead | 0 |
+
+**Bug list (3)**:
+1. feat_v1_topk_analysis.py — 缺 sys.path，ModuleNotFoundError
+2. build_splits_parquet.py — 无 argparse，--help 触发 main() crash
+3. run_multi_tf_backtest.py — 无 argparse，--help 触发 2+min data load
+
+**Bit-rot cleanup**:
+- 44 unused imports 移除（27 files）
+- 19 silent `except: pass` 全部 legitimate（无 bug）
+
+**Test-count delta**: 0（1491 → 1491）
+
+**X-1 migration 验证**:
+dev/scripts/ 7 个 Python 脚本全部 --help rc=0，说明 X-1 migration 中
+`Path(__file__).parent.parent.parent.parent` 等深度调整全部正确 —— 真
+实的 regression 反而全在 scripts/ 目录（3 个都是 pre-X-1 就存在的 arg-
+parse 缺陷，不是 X-1 引入的）。
+
+### 8. 当前发现的新问题/新机会
+
+- **观察 1**: `scripts/build_splits_parquet.py` 和
+  `scripts/run_multi_tf_backtest.py` 原先都缺 argparse — 意味着 v1
+  audit 的 --help smoke 其实也会失败；v1 report 说 "57 scripts OK"
+  可能是口径不同（或者 v1 只 smoke 了 subset）。本轮 cover 到了
+- **观察 2**: 19 个 silent excepts 全 legitimate，且分布符合"I/O 边界"
+  预期（ALTER TABLE / per-symbol read fallback / provenance attr set）
+  —— 不需要结构性修复
+- **机会 1**: 可考虑给 64 个 script 加个 `scripts/_smoke_all_help.sh`
+  一键跑全量 --help，作为 release hygiene gate
+
+### 9. 剩余风险
+
+- 修改面仅限 "unused imports 删除" + "--help 修复" —— 无运行时行为
+  变化。1491 tests 同前完全通过
+- 修改的 27 个 .py 文件中有 15 个曾在 R1 scope 或 mixed scope 被改过。
+  历史上合并多轮小改动在一起未引入 regression（test suite 保证）
+
+### 10. 下一轮建议方向
+
+**Round 3: Tests + docs sync + baseline rebuild**
+1. `pytest tests/integration -q`（integration suite 全量）
+2. README.md 全文精细 audit：脚本引用 / 数据路径 / 特性数量逐项对码，
+   fix 任何失真
+3. `dev/scripts/baseline/build_research_baseline_snapshot.py` 重新生成
+   `data/baseline/latest.json`（R2 已清理 44 import，应该不会改 schema
+   但要 refresh test count）
+4. CLAUDE.md 的 "Current TODO Checklist" 和 "Confirmed Done" 表逐行检查
+   是否有漂移（特别是 v1 audit 之后的 Phase E 状态更新）
+
+如果 Round 3 test count 无 > 10 tests 下降 + README 同步完成 + baseline
+刷新完成，则 emit `<promise>AUDIT3DONE</promise>`。
+
+### 11. Halt 条件检查 (§4)
+- 条件 1: **2/3 rounds 完成，继续**
+- 条件 2: NO（test count 1491 === baseline 1491）
+- 条件 3: NO（32 + 13 = 45 modules import sweep 全部 OK）
+- 条件 4: NO（disk 801GB free）
+- 条件 5: NO（无 schema migration / new PRD 触发）

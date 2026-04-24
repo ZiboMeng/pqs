@@ -24,7 +24,7 @@ from core.regime.regime_detector import RegimeDetector
 # core.config.production_strategy.build_strategy_from_config is now the
 # only construction path.
 from core.portfolio.constructor import PortfolioConstructor
-from core.backtest.backtest_engine import BacktestEngine, compute_metrics
+from core.backtest.backtest_engine import compute_metrics
 from core.backtest.intraday_engine import IntradayBacktestEngine
 from core.intraday.multi_timescale import (
     load_multi_timescale_bars, build_context,
@@ -37,6 +37,11 @@ logger = get_logger("multi_tf_backtest")
 
 
 def main():
+    import argparse
+    argparse.ArgumentParser(
+        description="Multi-timescale intraday backtest (60m + 30m).",
+    ).parse_args()
+
     cfg = load_config(Path("config"))
     store = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
 

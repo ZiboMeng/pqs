@@ -49,9 +49,8 @@ import argparse
 import importlib
 import json
 import sys
-from dataclasses import asdict
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
