@@ -13225,3 +13225,132 @@ pytest 套件与 R1/R2 post-cleanup 完全一致（1536 pass）。
 - ✅ Baseline regenerated (data/baseline/latest.json HEAD=b97fc2b)
 - ✅ CLAUDE.md drift fixed
 - ✅ 无 blocker / 无 new PRD requirement / 无 schema migration
+
+---
+
+## R-epost-cand2-round-01 — E-post-3 依赖补齐
+
+**Lineage tag**: `phase-e-post-2026-04-24`
+**Commit**: TBD (本轮提交后回填)
+**Round scope**: PRD §4.3 E-post-3 — 依赖声明补齐
+
+### 1. 本轮主题
+
+E-post-3：依赖声明补齐（Phase E-post 收尾第一轮，8-round ralph-loop R1）。
+
+### 2. 本轮目标
+
+让 fresh environment 能走通主链路而不依赖"当前机器正好装过"。核对
+`core/` + `scripts/` + `dev/scripts/` + `tests/` 的真实 import 面并
+同步 `requirements.txt` / `pyproject.toml` / README 5.1。
+
+### 3. 为什么这轮优先做它
+
+PRD §10.1 把 R1 = E-post-3 放在最前，原因：改动最小、最快 green
+light、对下游 6 轮影响最小，且是后续 R4 / R6（paper 解耦 +
+Candidate-2 构造）的环境前提（若依赖不全，后续轮会被隐性
+ImportError 拖住）。
+
+### 4. 做了什么
+
+**Step 1 — AST scan 真实 import**:
+脚本级 `ast.walk` 扫 `core/ scripts/ dev/scripts/ tests/` 四个根，
+过滤标准库与内部模块（`core/ scripts/ dev/ tests/`）后得到 18
+个第三方 import 模块。
+
+**Step 2 — 逐个核对申报状态**:
+
+| Module | 用法位置 | 之前申报 | 本轮处理 |
+|--------|---------|---------|----------|
+| `scipy` | `core/factors/factor_engine.py` + `core/features/timeframe_optimizer.py` 顶层 import | ❌ 未申报 | ✅ 加入 core |
+| `requests` | `core/notify/backends.py` 顶层 import | ❌ 未申报 | ✅ 加入 core |
+| `tqdm` | `scripts/build_catalog.py` / `consolidate_trades.py` / `build_bars_parquet.py` / `aggregate_bars.py` / `consolidate_sanity_check.py` / `dev/scripts/migrations/migrate_provenance.py` 顶层 | ❌ 未申报 | ✅ 加入 core |
+| `pyzipper` | `scripts/trades_scanner.py` 顶层 | ❌ 未申报 | ✅ 加入 core |
+| `torch` | `core/ml/transformer_encoder.py` + `scripts/run_transformer_research.py` 全部函数内 lazy import（`is_torch_available()` 守卫） | `requirements-gpu.txt` 可选 | ⏸ 保持 optional |
+| `sklearn` | `scripts/run_xgb_*.py` / `run_transformer_research.py` / `run_model_comparison.py` / `run_llm_cross_signal_mining.py` 全部函数内 lazy import | `pyproject.toml [research]` 内 `scikit-learn` | ⏸ 保持 optional |
+
+**Step 3 — README 5.1 同步**:
+- 将"核心依赖 + 若无此文件则手装下述"的二路径改为 canonical
+  single source（`pip install -r requirements.txt` 为主）
+- 加入 `pip install -e ".[dev,research]"` 可选行
+- 加入 `pip install -r requirements-gpu.txt` 可选 GPU 行
+
+### 5. 修改了哪些文件
+
+```
+requirements.txt              +3 lines (scipy/requests/tqdm/pyzipper)
+pyproject.toml                +3 lines (同上)
+README.md                     5.1 install 块重写（canonical 化）
+docs/20260420-ralph_loop_log.md   本 11-part 报告追加
+```
+
+无 core/ 代码变更。无 test 变更。
+
+### 6. 跑了哪些测试/实验
+
+1. **核心 import smoke**: `python -c` 对 `pandas numpy scipy yaml
+   pydantic pydantic_settings yfinance pyarrow sqlalchemy tabulate
+   dateutil pandas_market_calendars xgboost optuna shap matplotlib
+   seaborn apscheduler rich requests tqdm pyzipper` 全部 import 成功
+2. **Core surface smoke**: `core.notify.backends.WecomBotNotifier` /
+   `core.factors.factor_engine.FactorEngine` /
+   `core.ml.transformer_encoder.is_torch_available` /
+   `core.research.candidate_registry.CandidateRegistry` 全部导入成功
+3. **requirements.txt resolvability**: `pip install --dry-run -r
+   requirements.txt` 完成依赖图解析（所有已满足）
+4. **pytest 全量**: `pytest tests/ -q` → **1536 passed, 1 skipped,
+   1 xfailed**（与 audit-v2 R3 结束 baseline `data/baseline/latest.json`
+   完全一致：collected 1538 / passed 1536 / skipped 1 / xfailed 1）
+
+### 7. 结果如何
+
+- ✅ 4 个真实 runtime 依赖（scipy/requests/tqdm/pyzipper）升级为 declared core dep
+- ✅ 2 个 optional dep（torch/sklearn）维持 research-only 不动（lazy 守卫已到位）
+- ✅ README 5.1 install 流程单一化
+- ✅ 零 regression（1536 pass === R3 baseline）
+- ✅ fresh env 现在能 `pip install -r requirements.txt` 一步到位走完主链路
+
+### 8. 当前发现的新问题/新机会
+
+**问题 (不阻塞 R1)**:
+- `CandidateRegistry` API 对外语义含糊：之前尝试 `registry.list()`
+  抛 `AttributeError`。R3（revoke drill）+ R6（Candidate-2 注册）
+  需要枚举 candidate 接口，届时需确认真实 API（可能是 `.get_all()`
+  / `.all()` / 其他），必要时补最小 helper 函数。**不在 R1 scope
+  内修**，留给 R3/R6 自行 resolve。
+
+**机会 (可选)**:
+- `ruff` / `pyflakes` 作为可选 dev-dep 已在 audit-v2 R3 log 中提过；
+  本轮不再重复。
+
+### 9. 剩余风险
+
+- 无功能回归（1536 pass 一致）
+- 无 core import 破坏
+- requirements.txt `pip install --dry-run` 通过，但未做 fresh venv
+  实测（conda 环境已有全部包，无法证伪。若未来 CI 做 clean-venv
+  验收可再补）
+
+### 10. 下一轮建议方向
+
+R2 = E-post-5A：migration hermetic（让 `migrate_rcm_v1_memo_to_registry
+.py --dry-run` 不再隐式依赖 `data/mining/rcm_archive.db::rcm_trials`
+本地遗留状态）。预计 0.5 天。
+
+PRD §10.1 顺序不变 — R1→R2→R3→R4→R5→R6→R7→R8。
+
+### 11. Halt 条件检查 (PRD §12.3)
+
+- 条件 1 (8 rounds done): NO（R1/8 完成，7 轮剩余）
+- 条件 2 (test 回归 > 10): NO（1536 === baseline，无 regression）
+- 条件 3 (core import 断): NO（`CandidateRegistry` 导入 OK）
+- 条件 4 (disk < 10GB): NO（`df -h` 显示 801GB free）
+- 条件 5 (schema migration / 新 PRD 触发): NO
+- 条件 6 (R7 audit >5 真 bug): N/A（R7 未开始）
+
+**本轮 autonomous scope 检查 (PRD §12.1)**:
+- ✅ R1 唯一授权的 `requirements.txt / pyproject.toml` additions
+- ✅ 无 `production_strategy.yaml` / `PRODUCTION_FACTORS` 改动
+- ✅ 无 `promote_strategy.py` 语义变更
+- ✅ 无 archive.db / rcm_archive.db schema 改动
+

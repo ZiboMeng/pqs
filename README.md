@@ -235,13 +235,16 @@ pqs/
 conda create -n pqs python=3.14
 conda activate pqs
 
-# 核心依赖
-pip install -r requirements.txt   # （若无此文件则手装下述）
+# 核心依赖（canonical source）
+pip install -r requirements.txt
 
-# 主要包
-pip install pandas numpy scipy scikit-learn xgboost optuna pytest \
-             pydantic PyYAML pyarrow yfinance
-conda install -c conda-forge libomp   # XGBoost 需要
+# 可选：研究 / 开发依赖
+pip install -e ".[dev,research]"       # pytest + ruff + mypy + sklearn + lightgbm + jupyter
+
+# 可选：GPU / Transformer 研究（M8 research-only，默认不装）
+pip install -r requirements-gpu.txt    # torch
+
+conda install -c conda-forge libomp    # XGBoost 需要
 ```
 
 ### 5.2 数据准备
