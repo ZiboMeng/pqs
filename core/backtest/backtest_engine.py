@@ -379,7 +379,16 @@ class BacktestEngine:
           - 目标权重 > 当前 → 买入差额
           - 目标权重 < 当前（且 > 0）→ 卖出差额
         """
-        all_syms = set(list(cur_weights) + list(tgt_weights))
+        # Sorted iteration (M11a fix, 2026-04-24): plain `set(...)` order
+        # depends on Python's per-process hash randomization (PYTHONHASHSEED),
+        # so two runs of the same code on the same data in different
+        # processes can iterate symbols in different order. With a binding
+        # cash budget, the order in which BUY/SELL orders are fitted into
+        # available cash is observable in the resulting fills and equity
+        # curve — producing a monotone-signed paper-vs-replay drift artifact
+        # in run_paper_candidate vs paper_drift_report (different processes).
+        # Sorting makes order generation cross-process deterministic.
+        all_syms = sorted(set(list(cur_weights) + list(tgt_weights)))
         orders:  List[Order] = []
 
         for sym in all_syms:

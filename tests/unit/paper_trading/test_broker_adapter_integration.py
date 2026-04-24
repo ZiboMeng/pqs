@@ -78,10 +78,11 @@ class TestBackwardCompatNoAdapter:
         assert engine.get_broker_reconcile_results() == []
 
         engine.run_day_daily(
-            date=pd.Timestamp("2024-01-02"),
+            exec_date=pd.Timestamp("2024-01-02"),
             target_wts={"AAPL": 0.5},
-            prices={"AAPL": 100.0},
-            open_prices={"AAPL": 100.0},
+            prev_close={"AAPL": 100.0},
+            exec_open={"AAPL": 100.0},
+            eod_close={"AAPL": 100.0},
         )
         # No reconcile result should have been generated.
         assert engine.get_broker_reconcile_results() == []
@@ -111,10 +112,11 @@ class TestMirrorDailyPath:
 
         engine = _make_engine(tmp_path, cm, broker=broker)
         engine.run_day_daily(
-            date=pd.Timestamp("2024-01-02"),
+            exec_date=pd.Timestamp("2024-01-02"),
             target_wts={"AAPL": 0.5},
-            prices={"AAPL": 100.0},
-            open_prices={"AAPL": 100.0},
+            prev_close={"AAPL": 100.0},
+            exec_open={"AAPL": 100.0},
+            eod_close={"AAPL": 100.0},
         )
         # Broker should have received at least one fill via submit_order.
         from datetime import datetime, timedelta
@@ -130,10 +132,11 @@ class TestMirrorDailyPath:
         broker.set_default_fill_price(100.0)
         engine = _make_engine(tmp_path, cm, broker=broker)
         engine.run_day_daily(
-            date=pd.Timestamp("2024-01-02"),
+            exec_date=pd.Timestamp("2024-01-02"),
             target_wts={"AAPL": 0.5},
-            prices={"AAPL": 100.0},
-            open_prices={"AAPL": 100.0},
+            prev_close={"AAPL": 100.0},
+            exec_open={"AAPL": 100.0},
+            eod_close={"AAPL": 100.0},
         )
         results = engine.get_broker_reconcile_results()
         assert len(results) == 1
@@ -149,10 +152,11 @@ class TestMirrorDailyPath:
         broker.set_default_fill_price(100.0)
         engine = _make_engine(tmp_path, cm, broker=broker)
         engine.run_day_daily(
-            date=pd.Timestamp("2024-01-02"),
+            exec_date=pd.Timestamp("2024-01-02"),
             target_wts={"AAPL": 0.5},
-            prices={"AAPL": 100.0},
-            open_prices={"AAPL": 100.0},
+            prev_close={"AAPL": 100.0},
+            exec_open={"AAPL": 100.0},
+            eod_close={"AAPL": 100.0},
         )
         r = engine.get_broker_reconcile_results()[0]
         assert r.passed is True, (
@@ -172,10 +176,11 @@ class TestMirrorDailyPath:
         engine = _make_engine(tmp_path, cm, broker=broker)
         for d in ("2024-01-02", "2024-01-03", "2024-01-04"):
             engine.run_day_daily(
-                date=pd.Timestamp(d),
+                exec_date=pd.Timestamp(d),
                 target_wts={"AAPL": 0.5},
-                prices={"AAPL": 100.0},
-                open_prices={"AAPL": 100.0},
+                prev_close={"AAPL": 100.0},
+                exec_open={"AAPL": 100.0},
+                eod_close={"AAPL": 100.0},
             )
         results = engine.get_broker_reconcile_results()
         assert len(results) == 3
@@ -197,10 +202,11 @@ class TestBrokerInterfaceContract:
         # adapter rejects. Here we verify the engine survives regardless.
         engine = _make_engine(tmp_path, cm, broker=broker)
         engine.run_day_daily(
-            date=pd.Timestamp("2024-01-02"),
+            exec_date=pd.Timestamp("2024-01-02"),
             target_wts={"AAPL": 0.5},
-            prices={"AAPL": 100.0},
-            open_prices={"AAPL": 100.0},
+            prev_close={"AAPL": 100.0},
+            exec_open={"AAPL": 100.0},
+            eod_close={"AAPL": 100.0},
         )
         # Engine reconciled; should pass because pin-price path works.
         results = engine.get_broker_reconcile_results()

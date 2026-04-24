@@ -518,13 +518,22 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
 **Framework Completion PRD** (`docs/20260421-prd_framework_completion.md`
 v1.2) — shipped M0-M8 + M10 + M13 + M15 + M16 (see archive); open:
 
-- [ ] **M11** paper-BT consistency gate in pack v3 (P1.5, 1-2d). Replay
-  spec over 126d, diff equity vs fresh backtest, fail if > 10 bps drift.
-  Currently skip-PASS. **Upgraded active (2026-04-24)**: M14 fix exposed
-  a residual paper-vs-replay execution-state drift (18-65 bps with
-  monotone sign bias in 2022 RCMv1 78+/0−). Candidate mechanisms:
-  order-path divergence / cost double-count / integer-share rounding
-  asymmetry. See `docs/memos/20260424-m14_nan_equity_fix.md` §4.3.
+- [x] **M11a** paper-BT artifact-vs-replay consistency **(2026-04-24)**.
+  Root cause: `_generate_orders` iterated `set(...)` whose order depends
+  on per-process hash randomization (PYTHONHASHSEED). Cross-process
+  runs of run_paper_candidate produced different fills under
+  integer-share + binding cash → 18-65 bps monotone-signed drift
+  (2022 RCMv1 78+/0−). Fix: `sorted(set(...))`. Post-fix drift = 0 bps
+  across all 4 paper cells × 91-95 days. See
+  `docs/memos/20260424-m11_paper_engine_parity_fix.md`.
+- [x] **M11b** PaperTradingEngine vs BacktestEngine parity **(2026-04-24)**.
+  Two semantic bugs in `run_day_daily`: (a) EOD equity used prev-day
+  close instead of exec-day close (1-day stale), (b) signal_date was
+  exec_date instead of exec_date−1BDay (fill_date off by +1 BDay).
+  Fix: refactor signature into explicit `prev_close / exec_open /
+  eod_close` dicts; correct signal_date. New tests for parity (1bps/day,
+  5bps cumulative), fill_date contract, hash determinism. See same
+  memo §2.1 + §6 for legacy-vs-new artifact semantics.
 - [ ] **M12** concentration gate real enforcement (P2, 0.5d). Inspect
   fresh-backtest weight matrix for per-date top-1/top-3 concentration;
   reject if top-1 > 0.40 or top-3 > 0.70. Currently skip-PASS.

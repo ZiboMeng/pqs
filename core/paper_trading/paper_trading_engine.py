@@ -175,27 +175,61 @@ class PaperTradingEngine:
 
     def run_day_daily(
         self,
-        date:        pd.Timestamp,
+        exec_date:   pd.Timestamp,
         target_wts:  Dict[str, float],
-        prices:      Dict[str, float],
-        open_prices: Dict[str, float],
+        prev_close:  Dict[str, float],
+        exec_open:   Dict[str, float],
+        eod_close:   Optional[Dict[str, float]] = None,
         vix:         float = 15.0,
     ) -> DayResult:
         """
-        Daily-mode execution using BacktestEngine's order generation logic.
-        Ensures paper trading and backtest use identical rebalance semantics.
+        Daily-mode execution — single trading-day step.
+
+        The three price dicts pin the day's pricing semantics explicitly,
+        avoiding the M11b prev-vs-exec-close conflation:
+
+        * ``prev_close``  — close of the prior trading day (signal day = T).
+                            Used for SOD portfolio mark and current-weight
+                            computation that drives order generation.
+        * ``exec_open``   — open of ``exec_date`` (= T+1). Used as the
+                            fill price by ExecutionSimulator.
+        * ``eod_close``   — close of ``exec_date`` (= T+1). Used as the
+                            EOD equity mark. If omitted, falls back to
+                            ``prev_close`` and emits a warning (this
+                            preserves the legacy single-prices-arg behavior
+                            for tests that pass identical prev/eod, but
+                            production callers MUST pass eod_close).
+
+        ``signal_date`` stamped on every order is ``exec_date - 1 BDay``,
+        so ExecutionSimulator's ``fill_date = signal_date + 1 BDay`` lands
+        correctly on ``exec_date`` (was previously off by +1 BDay).
+
+        Persistent ``self._positions`` and ``self._cash`` are updated in
+        place. EOD equity recorded into the PnL tracker is the post-fill
+        cash + post-fill positions × eod_close.
         """
-        price_row = pd.Series(prices)
-        open_row = pd.Series(open_prices)
+        if eod_close is None:
+            logger.warning(
+                "run_day_daily(exec_date=%s): eod_close not supplied — "
+                "falling back to prev_close. EOD equity will be one trading "
+                "day stale (matches legacy run_paper.py behavior; new "
+                "callers must supply eod_close).",
+                exec_date.date(),
+            )
+            eod_close = prev_close
+
+        price_row = pd.Series(prev_close)
+        open_row = pd.Series(exec_open)
+        signal_date = exec_date - pd.tseries.offsets.BDay(1)
 
         portfolio_value = self._cash + sum(
-            self._positions.get(s, 0) * prices.get(s, 0) for s in self._positions
+            self._positions.get(s, 0) * prev_close.get(s, 0) for s in self._positions
         )
 
         cur_weights: Dict[str, float] = {}
         if portfolio_value > 0:
             for sym, qty in self._positions.items():
-                p = prices.get(sym, 0)
+                p = prev_close.get(sym, 0)
                 if p > 0:
                     cur_weights[sym] = (qty * p) / portfolio_value
 
@@ -210,12 +244,12 @@ class PaperTradingEngine:
             portfolio_val=portfolio_value,
             price_row=price_row,
             open_row=open_row,
-            signal_date=date,
+            signal_date=signal_date,
         )
 
         fills = daily_engine._sim.simulate_fills(
             orders=orders,
-            open_prices=open_prices,
+            open_prices=exec_open,
             vix=vix,
             cash=self._cash,
         )
@@ -230,31 +264,29 @@ class PaperTradingEngine:
 
         self._positions = {s: q for s, q in self._positions.items() if q > 1e-6}
 
-        # Mirror fills to broker adapter (Round 12 off-menu).
         if self._broker is not None and fills:
             self._mirror_fills_to_broker(fills)
 
         equity = self._cash + sum(
-            self._positions.get(s, 0) * prices.get(s, 0) for s in self._positions
+            self._positions.get(s, 0) * eod_close.get(s, 0) for s in self._positions
         )
         net_pnl = equity - portfolio_value
 
         result = DayResult(
-            date=date, trades=fills,
+            date=exec_date, trades=fills,
             eod_positions=dict(self._positions), eod_cash=self._cash,
             gross_pnl=net_pnl, net_pnl=net_pnl, forced_close=False,
         )
 
-        # EOD broker reconcile (diagnostic only).
         if self._broker is not None:
-            self._run_broker_reconcile(date=date, label="daily")
+            self._run_broker_reconcile(date=exec_date, label="daily")
 
         self._tracker.record(result, equity)
-        self._save_state(date, result, equity)
+        self._save_state(exec_date, result, equity)
 
         logger.info(
             "[%s] daily: equity=%.2f  pnl=%.2f  trades=%d",
-            date.date(), equity, net_pnl, len(fills),
+            exec_date.date(), equity, net_pnl, len(fills),
         )
         return result
 

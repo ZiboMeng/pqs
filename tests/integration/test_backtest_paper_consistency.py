@@ -105,19 +105,24 @@ class TestBacktestPaperConsistency:
             day_wts = signals.loc[date]
             target = {s: float(v) for s, v in day_wts.items() if v > 0.001}
 
-            prices_today = {s: float(price_df.loc[date, s]) for s in price_df.columns
-                           if not pd.isna(price_df.loc[date, s])}
-            opens_next = {s: float(open_df.loc[next_date, s]) for s in open_df.columns
-                          if not pd.isna(open_df.loc[next_date, s])}
+            prev_close = {s: float(price_df.loc[date, s]) for s in price_df.columns
+                          if not pd.isna(price_df.loc[date, s])}
+            exec_open = {s: float(open_df.loc[next_date, s]) for s in open_df.columns
+                         if not pd.isna(open_df.loc[next_date, s])}
+            eod_close = {s: float(price_df.loc[next_date, s]) for s in price_df.columns
+                         if not pd.isna(price_df.loc[next_date, s])}
 
             engine.run_day_daily(
-                date=next_date,
+                exec_date=next_date,
                 target_wts=target,
-                prices=prices_today,
-                open_prices=opens_next,
+                prev_close=prev_close,
+                exec_open=exec_open,
+                eod_close=eod_close,
             )
+            # M11b: EOD equity is now marked at exec-day close (= eod_close),
+            # which matches BacktestEngine.equity_curve at index next_date.
             eq = engine._cash + sum(
-                engine._positions.get(s, 0) * prices_today.get(s, 0) for s in engine._positions
+                engine._positions.get(s, 0) * eod_close.get(s, 0) for s in engine._positions
             )
             equities.append((next_date, eq))
 

@@ -24,6 +24,7 @@ scripts/run_paper.py — 内部模拟盘（Paper Trading）日常运行入口。
 import argparse
 import sys
 from pathlib import Path
+from typing import Dict
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -240,33 +241,49 @@ def run_replay(
             if result is not None:
                 engine.reconcile(date_ts, result)
         else:
-            # Daily fallback — only when NO intraday bars exist for the day
+            # Daily fallback — only when NO intraday bars exist for the day.
+            # Pricing semantics (M11b fix, 2026-04-24):
+            #   * date_ts   = T (signal day)
+            #   * next_date = T+1 (execution day, also row index)
+            #   * prev_close (T close)  → SOD mark / current-weight calc
+            #   * exec_open (T+1 open)  → fill price
+            #   * eod_close (T+1 close) → EOD equity mark
+            # Pre-fix this path passed only T-close as `prices` for both
+            # SOD and EOD valuation, producing a 1-day-stale equity.
             next_idx = i + 1
             if next_idx >= len(dates):
                 break
             next_date = dates[next_idx]
-            prices_today = {}
-            open_next = {}
+            prev_close: Dict[str, float] = {}
+            exec_open: Dict[str, float] = {}
+            eod_close: Dict[str, float] = {}
             for sym in price_df_1d.columns:
                 if date_ts in price_df_1d.index:
                     p = price_df_1d.loc[date_ts, sym]
                     if not pd.isna(p):
-                        prices_today[sym] = float(p)
+                        prev_close[sym] = float(p)
                 if next_date in open_df_1d.index and sym in open_df_1d.columns:
                     o = open_df_1d.loc[next_date, sym]
                     if not pd.isna(o):
-                        open_next[sym] = float(o)
-                        continue
+                        exec_open[sym] = float(o)
                 if next_date in price_df_1d.index:
-                    o = price_df_1d.loc[next_date, sym]
-                    if not pd.isna(o):
-                        open_next[sym] = float(o)
-            if not prices_today or not open_next:
+                    if sym not in exec_open:
+                        # Fallback for exec_open: same-day close (no lookahead).
+                        c = price_df_1d.loc[next_date, sym]
+                        if not pd.isna(c):
+                            exec_open[sym] = float(c)
+                    c = price_df_1d.loc[next_date, sym]
+                    if not pd.isna(c):
+                        eod_close[sym] = float(c)
+            if not prev_close or not exec_open:
                 continue
             try:
                 result = engine.run_day_daily(
-                    date=next_date, target_wts=target,
-                    prices=prices_today, open_prices=open_next,
+                    exec_date=next_date,
+                    target_wts=target,
+                    prev_close=prev_close,
+                    exec_open=exec_open,
+                    eod_close=eod_close,
                 )
                 engine.reconcile(next_date, result)
             except Exception as exc:
