@@ -1,7 +1,7 @@
 # Phase State Snapshot
 
-**Generated**: 2026-04-24T17:59:53+00:00
-**Git HEAD**: `a28f78d`
+**Generated**: 2026-04-24T18:07:33+00:00
+**Git HEAD**: `bccdafc`
 **Registry DB**: `data/research_candidates/registry.db` (total rows: **2**)
 
 This is a read-only, git-committable snapshot of the research
@@ -92,6 +92,8 @@ python dev/scripts/export/dump_phase_state_snapshot.py \
     - `drift_nav_20260424T165847Z.csv`
     - `drift_nav_20260424T175244Z.csv`
     - `drift_nav_20260424T175651Z.csv`
+    - `drift_nav_20260424T180216Z.csv`
+    - `drift_nav_20260424T180631Z.csv`
     - `drift_positions_20260424T002419Z.csv`
     - `drift_positions_20260424T002510Z.csv`
     - `drift_positions_20260424T003710Z.csv`
@@ -122,6 +124,8 @@ python dev/scripts/export/dump_phase_state_snapshot.py \
     - `drift_positions_20260424T165847Z.csv`
     - `drift_positions_20260424T175244Z.csv`
     - `drift_positions_20260424T175651Z.csv`
+    - `drift_positions_20260424T180216Z.csv`
+    - `drift_positions_20260424T180631Z.csv`
     - `drift_report_20260424T002419Z.md`
     - `drift_report_20260424T002510Z.md`
     - `drift_report_20260424T003710Z.md`
@@ -152,6 +156,8 @@ python dev/scripts/export/dump_phase_state_snapshot.py \
     - `drift_report_20260424T165847Z.md`
     - `drift_report_20260424T175244Z.md`
     - `drift_report_20260424T175651Z.md`
+    - `drift_report_20260424T180216Z.md`
+    - `drift_report_20260424T180631Z.md`
     - `fills.csv`
     - `live_like_pnl.csv`
     - `pnl_daily.csv`

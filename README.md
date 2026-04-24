@@ -35,7 +35,7 @@
 ### 1.1 一句话
 
 **PQS 是一个本地运行的量化研究框架**，帮助个人交易者基于 yfinance / 内部
-数据源，在 30-60 个美股标的上研究因子 / 组合策略 / 回测 / 模拟盘，
+数据源，在 ~80 个美股标的上研究因子 / 组合策略 / 回测 / 模拟盘，
 最终跑出可以真实落地的仓位建议。
 
 ### 1.2 定位边界
@@ -44,7 +44,7 @@
 |---|---|
 | 研究 + 模拟盘框架 | 自动下单系统（无真实 broker 对接） |
 | 本地 macOS / Linux 运行 | 云端 SaaS |
-| 中等规模（~50 标的）股票策略 | HFT / 毫秒级 |
+| 中等规模（~80 标的）股票策略 | HFT / 毫秒级 |
 | 长周期（天-月）持仓 | 日内短线 |
 | 长仓 + 现金 | 做空 / 杠杆（SQQQ 已黑名单） |
 | 初始 $10k 规划 / 当前 $100k 研究 → $1M 可扩展 | 大资金（百万美金以上） |
@@ -67,7 +67,7 @@
 - **Candidate registry** (Phase E + E-post): `data/research_candidates/registry.db` = **2 records, both S2_paper_candidate**. `rcm_v1_defensive_composite_01` (Phase E R11) + `candidate_2_orthogonal_01` (Phase E-post R6, features `{ret_5d, rs_vs_spy_126d, hl_range}` equally-weighted 1/3 each; composite correlation with RCMv1 = 0.404 < 0.5; turnover relative diff = 79.2% ≥ 20%). Parallel paper 参考系建立。Registry DB 是 gitignore 的；git-committed 快照见 `docs/20260424-phase_state_snapshot.md`（用 `dev/scripts/export/dump_phase_state_snapshot.py` 刷新）
 - **研究 mask**: `config/research_mask.yaml` 为 **single source of truth** (Phase E-post R5)；9 个脚本的 `{min_price=5.0, min_usd=20e6, window=20}` 硬编码已统一 config-driven，bit-identical invariant 在真 universe 上验证通过
 - **Paper data boundary**: `core/data/factory.py::PriceStore` Protocol + `create_default_store(cfg)` (Phase E-post R4)。Paper 脚本依赖 Protocol 而不是具体 `MarketDataStore` 类
-- **测试**: 见 `data/baseline/latest.json`（跑 `dev/scripts/baseline/build_research_baseline_snapshot.py` 刷新；当前 = **1556 passed, 1 skipped, 1 xfailed**, 1558 collected）
+- **测试**: 计数见 `data/baseline/latest.json`（跑 `dev/scripts/baseline/build_research_baseline_snapshot.py --run-tests` 刷新快照）
 - **Framework**: M0-M8 + M10 + M13 + M15 + M16 已交付。开放项 M11/M12/M14/M17/M18。详 `docs/20260421-prd_framework_completion.md`
 - **Deep-mining (complete)**: 50 rounds autonomous search across 7 tracks (daily+ML / intraday / DSL / universe / XGB / transformer / synthesis). 详 **`docs/20260422-deep_mining_50round_final_synthesis.md`**
 - **RCMv1 (complete)**: Research Composite Miner v1 — leakage fix (`evaluate_composite(lag=1)` default) + TPE-converged 4-feature defensive composite + acceptance passed. 详 **`docs/20260424-rcm_v1_final_synthesis.md`**
@@ -189,7 +189,7 @@ pqs/
 │   ├── notify/                  - 消息推送
 │   └── logging_setup.py         - 全局 logging 初始化
 ├── scripts/                     ← 全部 CLI 入口（详见 §8）
-├── tests/                       ← pytest 套件（1491 unit + 45 integration pass, 1 skipped + 1 xfailed）
+├── tests/                       ← pytest 套件（计数见 `data/baseline/latest.json`）
 │   ├── unit/
 │   └── integration/
 ├── data/                        ← 数据目录（gitignored）
@@ -270,7 +270,7 @@ python scripts/build_catalog.py                # coverage 目录
 # 若项目 Python 不在 PATH，用 env 绝对路径（WSL/conda 常见）
 PY=/home/zibo/miniconda3/envs/pqs/bin/python
 
-$PY -m pytest -q                        # 应该 ≈ 1491 unit + 45 integration pass, 1 skipped + 1 xfailed
+$PY -m pytest -q                        # 期望计数见 `data/baseline/latest.json`
 $PY scripts/run_backtest.py --help      # 验证 CLI 能进
 bash scripts/run_all.sh check           # 环境自检
 ```
@@ -1319,9 +1319,11 @@ for r in rows: print(r)
 
 ### 14.1 结构
 
-- `tests/unit/<module>/test_*.py` — 单元（1491 tests, ≈ 108s 跑完）
-- `tests/integration/test_*.py` — 集成（46 tests, ≈ 42s, I/O 密集）
-- 合计 **1536 pass + 1 skipped + 1 xfailed** (2026-04-24, post Phase E + audit-v2; 核对 `data/baseline/latest.json`)
+- `tests/unit/<module>/test_*.py` — 单元
+- `tests/integration/test_*.py` — 集成（I/O 密集）
+- 合计计数（pass / skipped / xfailed）以 `data/baseline/latest.json` 为准 —
+  跑 `dev/scripts/baseline/build_research_baseline_snapshot.py --run-tests`
+  可刷新快照
 
 ### 14.2 运行
 
