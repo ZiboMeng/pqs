@@ -24,10 +24,13 @@ scripts/research_promote.py (R6).
 Usage:
     python dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py
     python dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py --dry-run
+    python dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py \
+        --archive-db /path/to/rcm_archive.db        # hermetic fixture path
 """
 from __future__ import annotations
 
 import argparse
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -51,19 +54,25 @@ SOURCE_TRIAL_ID = "f24aefecc91a"
 SOURCE_LINEAGE_TAG = "post-2026-04-24-rcm-v1-lag1"
 FROZEN_SPEC_PATH = "data/research_candidates/rcm_v1_defensive_composite_01.yaml"
 DECISION_MEMO_PATH = "docs/20260424-rcm_v1_s1_candidate_memo.md"
+DEFAULT_ARCHIVE_DB = "data/mining/rcm_archive.db"
 
 
-def _validate_prerequisites() -> list[str]:
-    """Return list of missing prerequisites (empty = OK to proceed)."""
+def _validate_prerequisites(archive_db: str = DEFAULT_ARCHIVE_DB) -> list[str]:
+    """Return list of missing prerequisites (empty = OK to proceed).
+
+    archive_db: path to rcm_archive.db. Inject a fixture path to run the
+    migration hermetically in tests / minimal environments.
+    """
     missing = []
     if not Path(FROZEN_SPEC_PATH).exists():
         missing.append(f"frozen spec: {FROZEN_SPEC_PATH}")
     if not Path(DECISION_MEMO_PATH).exists():
         missing.append(f"decision memo: {DECISION_MEMO_PATH}")
-    # Spot-check: the source trial exists in rcm_archive
-    import sqlite3
+    if not Path(archive_db).exists():
+        missing.append(f"rcm_archive db: {archive_db}")
+        return missing
     try:
-        conn = sqlite3.connect("data/mining/rcm_archive.db")
+        conn = sqlite3.connect(archive_db)
         row = conn.execute(
             "SELECT trial_id FROM rcm_trials WHERE trial_id = ?",
             (SOURCE_TRIAL_ID,),
@@ -71,7 +80,7 @@ def _validate_prerequisites() -> list[str]:
         if row is None:
             missing.append(
                 f"rcm_archive trial: {SOURCE_TRIAL_ID} (not in "
-                "data/mining/rcm_archive.db::rcm_trials)"
+                f"{archive_db}::rcm_trials)"
             )
         conn.close()
     except Exception as e:
@@ -88,10 +97,14 @@ def main() -> int:
                         help="Validate prereqs + print plan but don't write")
     parser.add_argument("--registry-db",
                         default="data/research_candidates/registry.db")
+    parser.add_argument("--archive-db",
+                        default=DEFAULT_ARCHIVE_DB,
+                        help="Path to rcm_archive.db. Inject a fixture "
+                             "path for hermetic / dry-run validation.")
     args = parser.parse_args()
 
     # Prereq check
-    missing = _validate_prerequisites()
+    missing = _validate_prerequisites(args.archive_db)
     if missing:
         logger.error("Missing prerequisites:")
         for m in missing:
@@ -110,6 +123,7 @@ def main() -> int:
     print(f"  frozen_spec_path    : {FROZEN_SPEC_PATH}")
     print(f"  decision_memo_path  : {DECISION_MEMO_PATH}")
     print(f"  registry_db         : {args.registry_db}")
+    print(f"  archive_db          : {args.archive_db}")
     print()
 
     if args.dry_run:

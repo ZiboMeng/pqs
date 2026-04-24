@@ -6,6 +6,7 @@ contract behavior on top of the registry unit tests (R1).
 """
 from __future__ import annotations
 
+import sqlite3
 import subprocess
 import sys
 from pathlib import Path
@@ -245,6 +246,89 @@ def test_migration_produces_valid_s1_record(tmp_path):
     memo = Path(rec.decision_memo_path)
     assert frozen.exists(), f"frozen_spec missing at {frozen}"
     assert memo.exists(), f"decision_memo missing at {memo}"
+
+
+# ── Migration hermetic (E-post-5A) ──────────────────────────────────────────
+
+
+def _build_fixture_archive(db_path: Path, trial_id: str = "f24aefecc91a") -> None:
+    """Create a minimal rcm_archive.db with one row — just enough for
+    the migration prereq spot-check."""
+    conn = sqlite3.connect(str(db_path))
+    conn.execute(
+        "CREATE TABLE rcm_trials (trial_id TEXT PRIMARY KEY, "
+        "study_id TEXT, lineage_tag TEXT)"
+    )
+    conn.execute(
+        "INSERT INTO rcm_trials(trial_id, study_id, lineage_tag) "
+        "VALUES (?, ?, ?)",
+        (trial_id, "fixture_study", "post-2026-04-24-rcm-v1-lag1"),
+    )
+    conn.commit()
+    conn.close()
+
+
+def test_migration_dry_run_accepts_injected_archive(tmp_path):
+    """--dry-run + --archive-db pointing at a fixture db must succeed
+    without touching data/mining/rcm_archive.db."""
+    fixture = tmp_path / "fixture_archive.db"
+    _build_fixture_archive(fixture)
+    result = _run(
+        [sys.executable,
+         "dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py",
+         "--dry-run", "--archive-db", str(fixture)],
+    )
+    assert result.returncode == 0
+    assert "DRY-RUN" in result.stdout
+    assert str(fixture) in result.stdout  # plan echoes injected path
+
+
+def test_migration_dry_run_rejects_missing_archive(tmp_path):
+    """Injected path that doesn't exist → rc=1 with clear message."""
+    missing = tmp_path / "does_not_exist.db"
+    result = _run(
+        [sys.executable,
+         "dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py",
+         "--dry-run", "--archive-db", str(missing)],
+        check=False,
+    )
+    assert result.returncode == 1
+    assert "rcm_archive db" in result.stderr or "rcm_archive db" in result.stdout
+
+
+def test_migration_dry_run_rejects_archive_without_trial(tmp_path):
+    """Fixture archive without the expected trial_id → rc=1."""
+    fixture = tmp_path / "empty_archive.db"
+    # Build an archive with the table but no matching row
+    _build_fixture_archive(fixture, trial_id="some_other_trial")
+    result = _run(
+        [sys.executable,
+         "dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py",
+         "--dry-run", "--archive-db", str(fixture)],
+        check=False,
+    )
+    assert result.returncode == 1
+    combined = result.stdout + result.stderr
+    assert "f24aefecc91a" in combined
+
+
+def test_migration_full_run_accepts_injected_archive(tmp_path):
+    """Full run (write) with both --registry-db and --archive-db injected
+    — the hermetic path for the whole migration, no repo state touched."""
+    fixture_archive = tmp_path / "fixture_archive.db"
+    _build_fixture_archive(fixture_archive)
+    reg_db = tmp_path / "hermetic_registry.db"
+    result = _run(
+        [sys.executable,
+         "dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py",
+         "--registry-db", str(reg_db),
+         "--archive-db", str(fixture_archive)],
+    )
+    assert result.returncode == 0
+    reg = CandidateRegistry(reg_db)
+    rec = reg.get("rcm_v1_defensive_composite_01")
+    assert rec.status == CandidateStatus.S1_CANDIDATE
+    assert rec.source_trial_id == "f24aefecc91a"
 
 
 # ── Frozen YAML contract ────────────────────────────────────────────────────

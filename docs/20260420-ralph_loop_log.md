@@ -13354,3 +13354,143 @@ PRD §10.1 顺序不变 — R1→R2→R3→R4→R5→R6→R7→R8。
 - ✅ 无 `promote_strategy.py` 语义变更
 - ✅ 无 archive.db / rcm_archive.db schema 改动
 
+
+---
+
+## R-epost-cand2-round-02 — E-post-5A migration hermetic
+
+**Lineage tag**: `phase-e-post-2026-04-24`
+**Commit**: TBD (本轮提交后回填)
+**Round scope**: PRD §4.5 E-post-5A — migration dry-run / 测试 hermetic 化
+
+### 1. 本轮主题
+
+E-post-5A：`migrate_rcm_v1_memo_to_registry.py` 注入 archive path，
+去除对本地 `data/mining/rcm_archive.db` 的隐式依赖。
+
+### 2. 本轮目标
+
+让 migration 在最小 fixture 环境下可预测地跑通 `--dry-run` 与完整
+迁移，测试不再依赖仓库本地运行遗留状态。
+
+### 3. 为什么这轮优先做它
+
+PRD §10.1 把 R2 = E-post-5A 放在第二位，原因：bug 边界清晰（脚本
+line 63-78 硬编码 `data/mining/rcm_archive.db`）；patch 面小（纯
+argparse 注入 + 函数签名参数化）；风险最低；为后续 R3 revoke drill
+提供"可以在 clone / fixture 路径上演练"的先决条件。
+
+### 4. 做了什么
+
+**Step 1 — 定位硬编码**:
+`_validate_prerequisites()` 函数内 `sqlite3.connect("data/mining/
+rcm_archive.db")` 写死相对路径 + `import sqlite3` 位于函数体内部。
+
+**Step 2 — 注入 archive_db 参数**:
+- `_validate_prerequisites(archive_db: str = DEFAULT_ARCHIVE_DB)` 签名参数化
+- 新增 `--archive-db PATH` CLI 参数（默认 `data/mining/rcm_archive.db`
+  保持 back-compat）
+- main() 透传 `args.archive_db` 到 validator
+- 新增 "archive_db" 行到 plan 打印块（可审计）
+- `sqlite3` 提升到 module-level import（消除 side effect）
+- Docstring Usage 块补第三种调用方式（注入 fixture path）
+
+**Step 3 — 补 hermetic 回归测试**:
+新增 4 个测试到 `tests/unit/research/test_revoke_and_migration.py`：
+1. `test_migration_dry_run_accepts_injected_archive` — fixture
+   tmp_path 建 minimal schema（只含 rcm_trials 表 + 目标 trial_id
+   行），--dry-run + --archive-db 应 rc=0 且 plan 输出回显路径
+2. `test_migration_dry_run_rejects_missing_archive` — 不存在的路径
+   rc=1 + clear message
+3. `test_migration_dry_run_rejects_archive_without_trial` — 存在但
+   row 缺失 rc=1 + 输出包含目标 trial_id `f24aefecc91a`
+4. `test_migration_full_run_accepts_injected_archive` — 完整写入
+   路径同时注入 `--registry-db` + `--archive-db` → 证明完整 migration
+   可 hermetic 执行
+
+测试构造 `_build_fixture_archive(db_path, trial_id)` helper：
+`CREATE TABLE rcm_trials(trial_id PRIMARY KEY, study_id, lineage_tag)`
+最小 schema。不依赖 core mining 代码。
+
+### 5. 修改了哪些文件
+
+```
+dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py
+  - +5 lines (sqlite3 hoist + DEFAULT_ARCHIVE_DB + --archive-db CLI)
+  - _validate_prerequisites() 参数化 + archive_db 存在性前置检查
+
+tests/unit/research/test_revoke_and_migration.py
+  - +1 line (import sqlite3)
+  - +74 lines (4 hermetic tests + _build_fixture_archive helper)
+
+docs/20260420-ralph_loop_log.md
+  - 本 11-part 报告
+```
+
+无 core/ 代码变更。无 config 变更。
+
+### 6. 跑了哪些测试/实验
+
+1. **`--help` smoke**: argparse 输出含 `--archive-db PATH`（通过）
+2. **Back-compat dry-run**: 默认路径 `data/mining/rcm_archive.db`
+   存在时仍 rc=0（通过）
+3. **`pytest tests/unit/research/test_revoke_and_migration.py -v`**:
+   16 passed（12 原 + 4 新）
+4. **`pytest tests/ -q`**: **1540 passed, 1 skipped, 1 xfailed**
+   （= 1536 R1 baseline + 4 新 hermetic tests）
+
+### 7. 结果如何
+
+- ✅ migration 脚本现在支持 archive path 注入
+- ✅ hermetic fixture 演示：无需仓库 `data/mining/rcm_archive.db`
+  即可跑 --dry-run 与 full migration
+- ✅ 4 个新回归测试锁定注入契约（正路径 + 缺失 + 无 row + 完整写入）
+- ✅ back-compat 零破坏（默认路径行为未变，既有 3 个 migration 测试
+  仍全绿）
+- ✅ 零功能 regression（1540 === R1 baseline + 4 新）
+
+### 8. 当前发现的新问题/新机会
+
+**观察 (不阻塞)**:
+- PRD §4.5 原本把 E-post-5 分成 A（migration hermetic）+ B（paper
+  CLI clean-failure contract）。本轮只做了 A，符合 PRD §10.3 R2
+  scope 约束。B 部分 PRD 已说明："若存在非 empty panel 的 dtype /
+  tz / index mismatch 路径，则必须先提供可复现 repro 再纳入修复范围"
+  —— 本轮未发现此类 repro，所以 B 不触发修复（按 PRD 要求）。
+
+**机会**:
+- R3 revoke drill 现在可以利用本轮补的 fixture helper
+  `_build_fixture_archive` 做 isolated test — 若 R3 需要跨脚本
+  fixture 建议提升到 conftest.py 共享。
+
+### 9. 剩余风险
+
+- 零功能回归
+- migration default 路径未变，生产调用路径（若有）不受影响
+- 新测试使用 `tmp_path` fixture，自动清理，无落盘 side effect
+
+### 10. 下一轮建议方向
+
+R3 = E-post-4：revoke drill on rcm_v1 **clone** only（never real S2）。
+预计 0.5 天。
+
+重点 PAUSE 点（PRD §12.2 D2）：**任何 `--force` revoke 真实
+`rcm_v1_defensive_composite_01` 必须 PAUSE** — clone 路径演练
+是强制的。
+
+### 11. Halt 条件检查 (PRD §12.3)
+
+- 条件 1 (8 rounds done): NO（R2/8 完成，6 轮剩余）
+- 条件 2 (test 回归 > 10): NO（1540 === 1536 R1 + 4 新）
+- 条件 3 (core import 断): NO
+- 条件 4 (disk < 10GB): NO（801GB free）
+- 条件 5 (schema migration / 新 PRD 触发): NO
+- 条件 6 (R7 audit >5 真 bug): N/A
+
+**本轮 autonomous scope 检查 (PRD §12.1)**:
+- ✅ Bug fix + missing test 均在授权范围
+- ✅ 无 production config / PRODUCTION_FACTORS 改动
+- ✅ 无 archive.db / rcm_archive.db schema 改动（仅 fixture CREATE
+  在 tmp_path 内）
+- ✅ 无 broker / data vendor 改动
+
