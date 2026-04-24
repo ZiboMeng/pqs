@@ -56,7 +56,7 @@
 - **最大回撤 15-20%**，黑天鹅中不差于 SPY
 - **OOS walk-forward IR ≥ 0.20**（promote 到生产的门槛）
 
-### 1.4 当前状态（2026-04-24, post RCMv1 + 3-round audit）
+### 1.4 当前状态（2026-04-24, post Phase E governance + paper layer）
 
 - **生产策略**: `config/production_strategy.yaml` (M1 单一真源，当前 `status: conservative_default`；post-fix validated best **尚未存在** — pack v2 在 50-round R49 仍拒绝唯一候选 `6d15b735a64c`)
 - **Universe**: **79 交易标的** = `seed_pool` 59（含 Mag7 + SPY/QQQ/GLD + leveraged + R28 扩容 common stocks + R38 扩容；`SQQQ` + `SOXS` 在 blacklist）+ 11 sector ETFs + 5 factor ETFs + 4 cross-asset。另有 3 个 macro_reference（^VIX/^TNX/DX-Y.NYB）只作 features
@@ -64,12 +64,14 @@
 - **Alignment**: runtime WARN 模式（M3）；fingerprints hash 对 yaml 匹配
 - **Cross-ticker DSL**: `config/cross_ticker_rules.yaml` **enabled: true**，**5 条规则**（R24 加 Rule 4 `leveraged_etfs_dual_confirmation` + Rule 5 `xlu_outperformance_signals_defensive_rotation`）；M10 完成 production 集成（`core/signals/cross_ticker_wrapper.py`），`run_backtest.py` + `run_paper.py` 启动时默认应用；`--no-cross-ticker-rules` 可关闭；R23 A/B 测试证明 +2.3pt CAGR alpha，R25 stress 揭示 Rule 2/5 在 COVID V-recovery 下有非对称伤害
 - **数据**: 日线 2007-2026 / 60m intraday 2015-2026 / 1m 2015-2026（部分）/ S&P 500 pool 513 symbols (R34 sync)
-- **Mining archive**: Production `data/mining/archive.db` = 302 trials / 12 lineages (R1 Phase B ~40 + deep-mining 262). Research `data/mining/rcm_archive.db` = 222 trials / 3 lineages (RCMv1 R13 pre-fix + R16/R17 post-fix lag=1 converged + R19 random baseline); 1 converged spec `f24aefecc91a` 通过 research acceptance (S1 Research Candidate memo `docs/20260424-rcm_v1_s1_candidate_memo.md`)
-- **测试**: 见 `data/baseline/latest.json`（跑 `scripts/build_research_baseline_snapshot.py` 刷新；当前 snapshot = **1341 unit + 45 integration passed, 1 skipped + 1 xfailed**）
+- **Mining archive**: Production `data/mining/archive.db` = 302 trials / 12 lineages (R1 Phase B ~40 + deep-mining 262). Research `data/mining/rcm_archive.db` = 222 trials / 3 lineages (RCMv1 R13 pre-fix + R16/R17 post-fix lag=1 converged + R19 random baseline)
+- **Candidate registry** (Phase E): `data/research_candidates/registry.db` = 1 record. `rcm_v1_defensive_composite_01` 从 `f24aefecc91a` trial 冻结 → S0 → S1 → **S2_paper_candidate**（经 `freeze_research_candidate.py` / `research_promote.py` / `paper_enter.py` 走完 governance pipeline）
+- **测试**: 见 `data/baseline/latest.json`（跑 `scripts/build_research_baseline_snapshot.py` 刷新；当前 snapshot = **1536+ unit + 45 integration passed, 1 skipped + 1 xfailed**）
 - **Framework**: M0-M8 + M10 + M13 + M15 + M16 已交付。详 `docs/20260421-prd_framework_completion.md`
 - **Deep-mining 50-round (2026-04-22 complete)**: 7 tracks × 50 rounds autonomous execution 结束。详 **`docs/20260422-deep_mining_50round_final_synthesis.md`**
 - **RCMv1 20-round (2026-04-24 complete)**: Research Composite Miner v1 + 12 orthogonal features + R15 leakage fix (`lag=1` default in IC) + R17 TPE-converged 4-feature defensive composite + R18 acceptance passed + R19 due diligence + R20 S1 promotion memo. 详 **`docs/20260424-rcm_v1_final_synthesis.md`**
-- **Codebase audit (2026-04-24)**: 3-round audit found **0 bugs** across 27 core modules + 57 scripts + 13 I/O modules; full test suite 1341 unit + 45 integration pass
+- **Codebase audit (2026-04-24)**: 3-round audit found **0 bugs** across 27 core modules + 57 scripts + 13 I/O modules; fixed 1 bug in fetch_data.py (15m/30m lookback)
+- **Phase E governance + paper layer (2026-04-24 complete)**: 11-round ralph-loop ship. E-0 candidate registry + pyarrow decouple + revoke workflow; E-1 FrozenStrategySpec schema + freeze/research_promote/acceptance helpers; E-2 run_paper_candidate + paper artifact schema + drift report + paper_enter. RCMv1 candidate traversed S0→S1→S2 via new tooling. 详 **`docs/20260424-prd_phase_e_execution.md`**
 
 ---
 
@@ -1740,7 +1742,58 @@ df = store.load("SPY", freq="1m", fallback="auto")  # 自动尾部补全
 
 - R1: core library (27 modules) — 0 bugs
 - R2: scripts + I/O (57 scripts + 13 modules) — 0 bugs
-- R3: tests + README sync + baseline rebuild（本轮）
+- R3: tests + README sync + baseline rebuild — 1 bug fixed (fetch_data.py 15m/30m lookback)
+
+### 17.12 Phase E Governance + Paper Layer (2026-04-24, ✅ **14 rounds COMPLETED**)
+
+详 execution PRD **`docs/20260424-prd_phase_e_execution.md`** + charter
+**`docs/20260424-prd_phase_e_governance_and_paper.md`** + final
+synthesis (R13) **`docs/20260424-phase_e_final_synthesis.md`**.
+
+**E-0 foundation (R1-R3)**:
+- R1: `core/research/candidate_registry.py` — SQLite-backed registry
+  separate from rcm_archive; S0/S1/S2/S5 state machine + enforced
+  S3/S4 rejection (Phase F-scoped); Revoke workflow built into schema
+- R2: pyarrow decouple — `pyarrow.parquet` no longer eagerly loaded
+  when importing `PaperTradingEngine` or `MarketDataStore`
+- R3: `scripts/revoke_candidate.py` + `scripts/migrate_rcm_v1_memo_to_registry.py` — RCMv1 migrated as first S1 candidate
+
+**E-1 promote standard code-ification (R4-R7)**:
+- R4: `core/research/frozen_spec.py` — `FrozenStrategySpec` with 8
+  mandatory fields + 14 optional + YAML round-trip; pins RCMv1 schema
+  invariant
+- R5: `scripts/freeze_research_candidate.py` — trial → S0 row + YAML
+- R6: `scripts/research_promote.py` — S0 → S1 gate with stub-detection
+  + memo validation + acceptance outcome check; hard invariant tested
+  that it NEVER writes `config/production_strategy.yaml`
+- R7: `core/research/acceptance_helpers.py` — shared evaluator code
+  extracted; `acceptance_research_composite.py` refactored to use
+  helpers; byte-identical output preserved on RCMv1 real archive
+
+**E-2 minimal paper layer (R8-R11)**:
+- R8: `scripts/run_paper_candidate.py` — reads frozen spec + registry,
+  not production config; 8 artifacts per run
+- R9: `core/research/paper_artifacts.py` — `live_like_pnl`,
+  `benchmark_relative_paper`, `turnover_log` writers; formal schema
+  in `docs/20260424-paper_artifact_schema.md`
+- R10: `scripts/paper_drift_report.py` + `core/research/drift_metrics.py`
+  — NAV + position drift vs fresh replay; 50 bps informational threshold;
+  RCMv1 smoke: 0.25 bps mean drift (pipeline reproducibility verified)
+- R11: `scripts/paper_enter.py` — S1 → S2 transition with paper run +
+  drift report gating; S3 transition explicitly `NotImplementedError`
+
+**Candidate journey**: RCMv1 `rcm_v1_defensive_composite_01` traversed
+S0 freeze → S1 research_promote → S2 paper_enter via the new tooling.
+Registry currently holds it at **S2_paper_candidate**.
+
+**Governance invariants enforced by tests**:
+- No CLI writes `config/production_strategy.yaml` (mtime + content
+  snapshot around happy-path runs)
+- No CLI writes `config/universe.yaml`
+- `scripts/promote_strategy.py` semantics unchanged (production-only)
+- `data/mining/rcm_archive.db` schema unchanged
+- S3/S4 transitions reject with `InvalidTransitionError` /
+  `NotImplementedError` pointing at Phase F
 
 **Launch**: `bash scripts/start_codebase_audit_loop.sh`
 

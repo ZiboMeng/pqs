@@ -1079,6 +1079,26 @@ modules, 0 bugs) + R2 scripts/IO (57 scripts + 13 modules, 0 bugs)
 + R3 tests + README sync + baseline rebuild. Launch:
 `bash scripts/start_codebase_audit_loop.sh`.
 
+**Phase E Research Governance + Paper Layer (2026-04-24 COMPLETE)** —
+14-round ralph-loop ship. Execution PRD
+`docs/20260424-prd_phase_e_execution.md` + charter
+`docs/20260424-prd_phase_e_governance_and_paper.md` + final synthesis
+`docs/20260424-phase_e_final_synthesis.md`. Deliverables:
+- E-0 foundation: `core/research/candidate_registry.py` (S0/S1/S2/S5
+  state machine in `data/research_candidates/registry.db`) +
+  pyarrow.parquet decouple from paper layer + `scripts/revoke_candidate.py`
+- E-1 promote: `core/research/frozen_spec.py` (8 mandatory fields) +
+  `scripts/freeze_research_candidate.py` + `scripts/research_promote.py`
+  (S0→S1 gate; hard invariant: never writes
+  `config/production_strategy.yaml`) + `core/research/acceptance_helpers.py`
+- E-2 paper: `scripts/run_paper_candidate.py` (reads frozen spec, not
+  production config) + `core/research/paper_artifacts.py` +
+  `scripts/paper_drift_report.py` (50 bps informational threshold) +
+  `scripts/paper_enter.py` (S1→S2; S3 → NotImplementedError)
+- RCMv1 `rcm_v1_defensive_composite_01` traversed S0→S1→S2 via new
+  tooling. Registry holds at S2_paper_candidate.
+Launch: `bash scripts/start_phase_e_loop.sh`.
+
 **Deep Mining Phase PRD** (`docs/20260421-prd_deep_mining_50round.md` v1.1) —
 50-round **AUTONOMOUS** active phase. 7 tracks: daily+ML (R1-R15),
 intraday (R16-R25), DSL (R26-R33), universe expansion (R34-R41),
