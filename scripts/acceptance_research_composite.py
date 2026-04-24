@@ -141,47 +141,18 @@ def _composite_ic(
     return _spearman_ic_per_date(composite, fwd)
 
 
-def _fmt(x):
-    if x is None or not np.isfinite(x):
-        return "nan"
-    return f"{x:+.4f}"
-
-
-def _summarize_ic(ic_series: pd.Series, horizon: int) -> dict:
-    n = len(ic_series)
-    if n == 0:
-        return {"n_dates": 0, "ic_mean": None, "ic_std": None, "ic_ir": None,
-                "positive_rate": None}
-    mean = float(ic_series.mean())
-    std = float(ic_series.std()) if n > 1 else float("nan")
-    ir = (mean / std * np.sqrt(252 / horizon)
-          if std and np.isfinite(std) and std > 0 else float("nan"))
-    pos_rate = float((ic_series > 0).mean())
-    return {
-        "n_dates": int(n),
-        "ic_mean": mean,
-        "ic_std": std if np.isfinite(std) else None,
-        "ic_ir": ir if np.isfinite(ir) else None,
-        "positive_rate": pos_rate,
-    }
-
-
-def _walkforward(ic_series: pd.Series, horizon: int, n_folds: int = 4) -> list[dict]:
-    """4-fold temporal walk-forward on the IC series."""
-    if len(ic_series) < n_folds * 50:
-        return []
-    fold_size = len(ic_series) // n_folds
-    folds = []
-    for i in range(n_folds):
-        start = i * fold_size
-        end = len(ic_series) if i == n_folds - 1 else (i + 1) * fold_size
-        sub = ic_series.iloc[start:end]
-        summary = _summarize_ic(sub, horizon)
-        summary["fold"] = i + 1
-        summary["date_start"] = str(sub.index[0].date()) if len(sub) else None
-        summary["date_end"] = str(sub.index[-1].date()) if len(sub) else None
-        folds.append(summary)
-    return folds
+# R7 (Phase E-1) — the IC summary / walkforward / regime / decision
+# helpers used to live here. They moved to core/research/acceptance_helpers.py
+# so future research acceptance paths share the same pure evaluator code.
+# Thin wrappers kept below for backward-compat with the existing CLI.
+from core.research.acceptance_helpers import (
+    benchmark_relative_ic_summary,
+    fmt as _fmt,
+    ic_stability_decision as _ic_stability_decision,
+    regime_stratified_ic as _regime_stratified_ic,
+    summarize_ic as _summarize_ic,
+    walkforward_ic as _walkforward,
+)
 
 
 def _classify_regimes(cfg, store, dates: pd.DatetimeIndex) -> pd.Series:
@@ -198,62 +169,6 @@ def _classify_regimes(cfg, store, dates: pd.DatetimeIndex) -> pd.Series:
         return pd.Series("NEUTRAL", index=dates, dtype=str)
     regimes = detector.classify_series(spy, vix, tnx)
     return regimes.reindex(dates).ffill()
-
-
-def _regime_stratified_ic(
-    ic_series: pd.Series, regimes: pd.Series, horizon: int,
-) -> dict:
-    out = {}
-    common = ic_series.index.intersection(regimes.index)
-    ic_c = ic_series.reindex(common)
-    reg_c = regimes.reindex(common)
-    for state in reg_c.dropna().unique():
-        sub = ic_c[reg_c == state]
-        if len(sub) >= 20:
-            out[str(state)] = _summarize_ic(sub, horizon)
-            out[str(state)]["n_dates"] = int(len(sub))
-    return out
-
-
-def _ic_stability_decision(full: dict, wf: list[dict], regime: dict) -> dict:
-    """Apply PRD2 §7 / §8 criteria to produce decision."""
-    reasons = []
-    passed = True
-
-    # Performance: full-period IC_IR >= 0.2 (research-level threshold,
-    # deliberately modest; PRD2 says "OOS 达到预设门槛", defaulting low
-    # for research-acceptance NOT production-promotion)
-    full_ir = full.get("ic_ir")
-    if full_ir is None or full_ir < 0.2:
-        reasons.append(
-            f"Performance: full-period IC_IR={full_ir!r} below 0.2 threshold"
-        )
-        passed = False
-
-    # Walk-forward: at least 3 of 4 folds with positive IR
-    if wf:
-        positive_folds = sum(1 for f in wf
-                             if f.get("ic_ir") is not None and f["ic_ir"] > 0)
-        if positive_folds < 3:
-            reasons.append(
-                f"Walk-forward: only {positive_folds}/4 folds with positive IR"
-            )
-            passed = False
-
-    # Regime: at least 3 of 6 regimes with IC_IR > 0 (rough stability)
-    if regime:
-        pos_regimes = sum(
-            1 for r in regime.values()
-            if r.get("ic_ir") is not None and r["ic_ir"] > 0
-        )
-        if pos_regimes < 3:
-            reasons.append(
-                f"Regime: only {pos_regimes}/{len(regime)} regimes positive"
-            )
-            passed = False
-
-    outcome = "promote_to_paper" if passed else "hold_in_research"
-    return {"outcome": outcome, "blocking_reasons": reasons}
 
 
 def main() -> int:
