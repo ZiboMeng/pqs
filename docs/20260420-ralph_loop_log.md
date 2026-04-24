@@ -15046,7 +15046,7 @@ assistant-turn + doc.
 ## R-docs-audit-round-03 — CLAUDE.md slim + baseline rebuild + DOCSAUDITDONE
 
 **Lineage tag**: `docs-audit-2026-04-24`
-**Commit**: TBD (本轮提交后回填)
+**Commit**: `6952ba8`
 **Round scope**: PRD §3 R3 — CLAUDE.md 压到 <600 lines + baseline
 rebuild + final synthesis + emit DOCSAUDITDONE
 
