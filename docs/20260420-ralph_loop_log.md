@@ -15040,3 +15040,201 @@ assistant-turn + doc.
 - ✅ R1 flagged 的 `run_paper.py:421 left_side` 仍等用户 review，
   不被 R2 触碰
 
+
+---
+
+## R-docs-audit-round-03 — CLAUDE.md slim + baseline rebuild + DOCSAUDITDONE
+
+**Lineage tag**: `docs-audit-2026-04-24`
+**Commit**: TBD (本轮提交后回填)
+**Round scope**: PRD §3 R3 — CLAUDE.md 压到 <600 lines + baseline
+rebuild + final synthesis + emit DOCSAUDITDONE
+
+### 1. 本轮主题
+
+CLAUDE.md 从 770 行瘦到 <600 行；6 个 reference sections 归档到
+history doc；regenerate baseline；写 final synthesis；emit 完成
+承诺。
+
+### 2. 本轮目标
+
+- CLAUDE.md <600 lines（当前 770）
+- 压缩 `1m Bar Pipeline` / `Trades Backfill Pipeline` /
+  `Data Provenance Sidecar` / `Factor Pipeline Contract` /
+  `Multi-TF Timing Contract` / `Notify Module` 六个 reference section
+  为 summary + pointer
+- 原文完整归档到 `docs/20260424-claude_md_phase_e_history.md`
+- `dev/scripts/baseline/build_research_baseline_snapshot.py
+  --run-tests` 刷新 snapshot
+- 新写 `docs/20260424-docs_audit_3round_final_synthesis.md` (10 节)
+- 末尾 + 最终 assistant-turn reply 双发 `<promise>DOCSAUDITDONE</promise>`
+
+### 3. 为什么这轮优先做它
+
+PRD §10.3 R3 最终一轮；前两轮已完成 code + README 清理，R3 是收尾。
+
+### 4. 做了什么
+
+**Pre-round pytest tuple**: `1556 passed, 1 skipped, 1 xfailed` (143s)
+
+**Step 1 — Section size 审计**:
+`### 1m Bar Pipeline` 77 / `### Trades Backfill Pipeline` 74 /
+`### Multi-TF Timing Contract` 64 / `### Data Provenance Sidecar` 42 /
+`### Factor Pipeline Contract` 37 / `### Notify Module` 25 = 319 lines
+compressible。
+
+**Step 2 — Python rewrite 同时 compress + archive**:
+一个 script：
+- 从底向上按 (start_header, next_header) pair 切出 6 块
+- 原文追加到 `docs/20260424-claude_md_phase_e_history.md` 新节
+  "Reference sections archived from CLAUDE.md (2026-04-24 R3)"
+- CLAUDE.md 位置替换为 8-17 行 summary + pointer 块
+
+**压缩摘要字数**:
+| Section | 原 | 新 | 省 |
+|---|---|---|---|
+| 1m Bar Pipeline | 77 | 13 | -64 |
+| Trades Backfill Pipeline | 74 | 14 | -60 |
+| Data Provenance Sidecar | 42 | 12 | -30 |
+| Factor Pipeline Contract | 37 | 17 | -20 |
+| Multi-TF Timing Contract | 64 | 18 | -46 |
+| Notify Module | 25 | 13 | -12 |
+| **Total** | **319** | **87** | **−232** |
+
+**Step 3 — 结果验证**:
+`wc -l CLAUDE.md` → **549 lines** (目标 < 600 ✓)
+`wc -l docs/20260424-claude_md_phase_e_history.md` → 575 lines
+(原 229 + 313 新 archived + 其他 minor)
+
+**Step 4 — Baseline rebuild**:
+```
+python dev/scripts/baseline/build_research_baseline_snapshot.py --run-tests
+# Git HEAD: e4bf108a3b72 (dirty)
+# Tests: 1556 passed / 0 failed / 1 skipped / 1 xfailed  (collected=1558, 146.17s)
+# Factor registry: 7 PROD / 64 RESEARCH / 8 MAP
+# Universe: 79 tradable symbols
+# Archive: 65 trials across 1 lineages (0 promoted)
+```
+`data/baseline/latest.json` 刷新，`jq '.tests'` 显示
+`{collected: 1558, passed: 1556, skipped: 1, xfailed: 1,
+duration_sec: 146.17}`
+
+**Step 5 — Final synthesis doc**:
+`docs/20260424-docs_audit_3round_final_synthesis.md` 创建，10 节：
+1. Executive summary
+2. Round-by-round delivery table (R1/R2/R3 commits + tuples)
+3. R1 bug / cleanup list (unused imports / sentinel fix / flagged
+   for user / intentional retain)
+4. R2 README diff summary
+5. R3 CLAUDE.md diff summary
+6. Pytest tuple stability proof
+7. Halt-condition summary
+8. Hard invariants preserved
+9. Open follow-ups
+10. Artifacts cross-reference
+
+文末 `<promise>DOCSAUDITDONE</promise>` in-doc。
+
+**Step 6 — End-of-round pytest**:
+`1556 passed, 1 skipped, 1 xfailed` ✓（与 R1/R2 end + pre-audit
+baseline 全部一致）
+
+### 5. 修改了哪些文件
+
+```
+CLAUDE.md                                          (770 -> 549 lines, net -221 lines)
+docs/20260424-claude_md_phase_e_history.md         (229 -> 575 lines; +313 archive)
+docs/20260424-docs_audit_3round_final_synthesis.md (NEW, 10-section synthesis)
+data/baseline/latest.json                          (refreshed, HEAD e4bf108 pre-R3)
+data/baseline/snapshot_20260424T164417Z.json       (new timestamped snapshot)
+docs/20260420-ralph_loop_log.md                    (本报告)
+```
+
+### 6. 跑了哪些测试/实验
+
+1. **pytest start-of-round**: `1556, 1, 1` (142.69s)
+2. **Baseline --run-tests**: 1556 passed / 1 skipped / 1 xfailed (146.17s)
+   —— 写入 `data/baseline/latest.json`
+3. **pytest end-of-round (implicit via baseline)**: `1556, 1, 1` ✓
+4. Section count verify: `wc -l CLAUDE.md` = 549 ✓
+5. History doc append 验证: 新节 + 6 原始 reference sections 全文保留
+
+### 7. 结果如何
+
+- ✅ **CLAUDE.md 549 lines < 600 PRD 目标** (减 221 lines)
+- ✅ **6 个 reference section 压缩到 summary + pointer**；原文**完整**
+  归档到 history doc（零信息丢失）
+- ✅ **baseline snapshot 刷新**: `data/baseline/latest.json` =
+  1556/1/1/146.17s，与每轮 pytest tuple 一致
+- ✅ **Final synthesis doc 完成** (10 节，含 `<promise>DOCSAUDITDONE</promise>`)
+- ✅ **Pytest tuple 三轮全部守恒** (pre-R1 / R1-end / R2-end /
+  R3-end / baseline 全部 `1556, 1, 1`)
+- ✅ **零 code / config / schema / deps / tests 改动**（R3 pure docs）
+
+### 8. 当前发现的新问题/新机会
+
+- CLAUDE.md 现 549 lines。继续往下压的空间：Autonomous Decision
+  Authority / Work Method 等管理类 block 可合并，但 R3 scope 未
+  要求，不动。
+- `data/baseline/latest.json` 的 `git.head_sha` 指 `e4bf108`（
+  R2-log commit），**R3 本次 commit 还没产生时拿的**。这是 baseline
+  snapshot 流程的一般行为（先 rebuild 再 commit R3）。若要 baseline
+  指向 R3 commit，可以 R3 commit 后再跑一次 `--run-tests` —— 但
+  tuple 一样，信息增量为零。保留当前 snapshot。
+
+### 9. 剩余风险
+
+- 零 test regression（tuple 守恒）
+- 零 code 变更
+- 零 config 变更
+- 零 schema 变更
+- history doc 收纳的 archived content 可重新恢复到 CLAUDE.md（git
+  可审计）
+- R1 flagged 的 `scripts/run_paper.py:421 left_side` finding 仍等
+  用户决定；R3 未触碰
+
+### 10. 下一轮建议方向
+
+无下一轮 — loop 完结。Emit `DOCSAUDITDONE`。
+
+用户侧操作性后续（非 loop 职责）：
+- 决定 `scripts/run_paper.py:421 left_side` 是应该 wire 还是
+  delete
+- 若想进一步 slim CLAUDE.md，可在下个 docs audit loop 做
+
+### 11. Halt 条件检查 (PRD §4)
+
+- **条件 1 (3 rounds done): ✅ TRIGGERED** — 3/3 完成，emit
+  DOCSAUDITDONE
+- 条件 2 (unexpected pytest drift): NO（1556/1/1 守恒 through 3 轮）
+- 条件 3 (core import 断): NO（R1 已验证 20 core subpackage
+  import 全绿；R2/R3 不碰 code）
+- 条件 4 (disk < 10GB): NO（801 GB free）
+- 条件 5 (schema / 新 PRD): NO
+- 条件 6 (README/CLAUDE 引用断): NO（所有 docs/* 指针 resolve；
+  history doc 承接的 archive content 路径有效）
+- 条件 7 (bug 需要用户决定): R1 已 flag `run_paper.py left_side`，
+  R2/R3 不扩 scope
+
+**Final autonomous scope 检查 (PRD §4)**:
+- ✅ CLAUDE.md slim 在 PRD §4 "Authorized autonomously" 范围
+- ✅ History doc append 属授权
+- ✅ Baseline rebuild 属授权
+- ✅ Synthesis doc 属授权
+- ✅ 无 config / production / schema / deps / public API / test
+  变更
+
+---
+
+**LOOP CLOSURE**: `DOCSAUDITDONE` promise satisfied:
+- ✅ 3 rounds complete (R1=`b570dbc` / R2=`edd7bd9` / R3=this commit)
+- ✅ Pytest tuple matches pre-audit baseline exactly (1556/1/1)
+- ✅ README.md dev-process content removed (264 net lines cut)
+- ✅ CLAUDE.md under 600 lines (549)
+- ✅ `data/baseline/latest.json` regenerated with --run-tests
+- ✅ Final synthesis doc exists
+  (`docs/20260424-docs_audit_3round_final_synthesis.md`)
+- ✅ Raw `<promise>DOCSAUDITDONE</promise>` will be emitted at top
+  level of the final assistant reply (per PRD §3 R3 Lesson-from-R8
+  rule: in-doc promise alone does not close the harness).
+
