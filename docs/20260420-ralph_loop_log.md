@@ -13231,7 +13231,7 @@ pytest 套件与 R1/R2 post-cleanup 完全一致（1536 pass）。
 ## R-epost-cand2-round-01 — E-post-3 依赖补齐
 
 **Lineage tag**: `phase-e-post-2026-04-24`
-**Commit**: TBD (本轮提交后回填)
+**Commit**: `f395a24`
 **Round scope**: PRD §4.3 E-post-3 — 依赖声明补齐
 
 ### 1. 本轮主题
