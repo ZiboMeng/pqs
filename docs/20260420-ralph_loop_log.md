@@ -12407,3 +12407,111 @@ buffer 做这些 housekeeping。
 synthesis/promise emission.
 
 → 继续 R12（README + CLAUDE.md sync + baseline rebuild）
+
+---
+
+## R-phase-e-round-12
+
+**时间**: 2026-04-24
+**Commit**: `f0fb061`
+**Sub-phase**: Buffer (first of 3)
+**Focus**: README + CLAUDE.md sync + baseline regenerate
+
+### 1. 本轮主题
+Buffer round 1/3 per PRD §0 total 14 round budget. Phase E R1-R11 已
+全部 ship；R12 专门同步 on-disk 文档到当前状态，给后续人员/ loop 
+清晰的 "Phase E 到哪里了" 信号。
+
+### 2. 本轮目标
+- Full test suite regression (baseline check)
+- Regenerate `data/baseline/latest.json`
+- README.md: update 当前状态 + add §17.12 Phase E block
+- CLAUDE.md: add Phase E to Current TODO Checklist
+
+### 3. 为什么这轮优先做它
+未来 ralph-loop / 人员 / 审计 / R13 synthesis 写作都要从 README + 
+CLAUDE.md 读"系统现在在哪里"。如果同步 drift，新进来的工作会基于错
+信息决定。
+
+### 4. 做了什么
+
+**Full suite regression**:
+```
+1536 passed, 1 skipped, 1 xfailed (149s)
+baseline: 1386 pre-Phase-E → 1536 post-R11
+Delta: +150 tests from Phase E rounds 1-11 (all passing)
+```
+
+**README.md 更新** (2 blocks):
+1. §1.4 当前状态: 头改成 "post Phase E governance + paper layer"；
+   测试数更新；新增两个 bullet：
+   - "Candidate registry (Phase E)" 指向 
+     `data/research_candidates/registry.db` + RCMv1 S2 状态
+   - "Phase E governance + paper layer (2026-04-24 complete)" 指向
+     执行 PRD
+2. 新 §17.12 块：完整列 E-0/E-1/E-2 deliverables + RCMv1 journey +
+   governance invariants 
+3. §17.11 (Codebase Audit) 小修：标注 fetch_data.py 15m/30m lookback
+   fix
+
+**CLAUDE.md 更新**:
+Current TODO Checklist 加 "Phase E Research Governance + Paper Layer 
+(2026-04-24 COMPLETE)" 块，列 E-0/E-1/E-2 deliverables + launch 
+instruction.
+
+**Baseline snapshot 重建**:
+```
+scripts/build_research_baseline_snapshot.py
+Baseline: data/baseline/latest.json (gitignored)
+1538 tests collected
+7 PROD / 64 RESEARCH / 8 MAP factor registry
+79 tradable universe
+```
+
+### 5. 修改了哪些文件
+```
+M  README.md       (+20 lines, update header + new §17.12)
+M  CLAUDE.md       (+18 lines, Phase E TODO block)
+# regenerated, gitignored:
++  data/baseline/latest.json
++  data/baseline/snapshot_20260424T003800Z.json
+```
+
+### 6. 跑了哪些测试/实验
+- `pytest -q`: 1536 pass / 1 skipped / 1 xfailed (149s)
+- `scripts/build_research_baseline_snapshot.py`: baseline regen OK
+
+### 7. 结果如何
+
+**Docs + baseline fully synced to post-R11 state**. Any future audit
+/ ralph-loop reading README or CLAUDE.md will see accurate "Phase E 
+complete" picture.
+
+### 8. 当前发现的新问题/新机会
+
+无。R12 纯 doc sync + baseline regen。
+
+### 9. 剩余风险
+- 无。
+
+### 10. 下一轮建议方向
+**R13 buffer**: final synthesis doc
+`docs/20260424-phase_e_final_synthesis.md`
+- Condensed 11-round summary (not re-appending log content, since
+  that's already in this log)
+- Full deliverable inventory with LOC + test counts
+- RCMv1 candidate journey illustrated as a pipeline diagram
+- Governance invariants explicitly listed (the hard-tested ones)
+- Pending follow-ups for future phases (F production / ongoing paper
+  runs / multi-candidate flow)
+
+### 11. Halt 条件检查 (§3)
+- 条件 1: NO (12/14 rounds used)
+- 条件 2: NO (1536 baseline holds)
+- 条件 3: NO
+- 条件 4: NO
+- 条件 5: NO
+- 条件 6: NO
+- 条件 7: NO
+
+→ 继续 R13（final synthesis doc）
