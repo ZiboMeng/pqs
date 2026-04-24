@@ -14857,3 +14857,186 @@ R2 是 docs-only，tuple 不应 drift。
 - ✅ 未改 archive.db / rcm_archive.db schema
 - ✅ 未加依赖、未 rename public API、未删测试
 
+
+---
+
+## R-docs-audit-round-02 — README dev-process trim
+
+**Lineage tag**: `docs-audit-2026-04-24`
+**Commit**: TBD (本轮提交后回填)
+**Round scope**: PRD §3 R2 — 去除 README dev-process / ralph-loop
+内容；保留 user-facing 业务信息
+
+### 1. 本轮主题
+
+README.md 去 dev 相关痕迹，保留用户可操作的部分。
+
+### 2. 本轮目标
+
+- 删除所有 `v1.x` footer 条目
+- 删除 per-round commit hashes / lineage tags / launcher / completion
+  promise mentions
+- §13 Ralph-loop 整节删除
+- §17 研究历史压缩为 intro + 每 phase 一 bullet 指向 synthesis doc
+- §11.5 / §16.5 / §16.7 / §4 directory / §8.9 tools / §18.3 学习路径
+  等散落 dev 引用全部清理
+- 保留 `docs/20260420-ralph_loop_log.md` 一处（§17）作 full-history
+  pointer（PRD §3 R2 guardrail）
+- pytest tuple 必须 `1556/1/1` 不变（R2 不碰 code）
+
+### 3. 为什么这轮优先做它
+
+PRD §10.1 R2 顺序，在 R1 code audit 稳定后。用户明确要求"readme 中
+不需要加 dev 相关的信息"。
+
+### 4. 做了什么
+
+**Pre-round pytest tuple**: `1556 passed, 1 skipped, 1 xfailed` (148s) ✓
+
+**Edit 1 — footer (lines 1893-1897)**:
+删除 `v1.2` / `v1.3` / `v1.4` 三条 footer。
+
+**Edit 2 — §17 研究历史摘要 (lines 1613-1830, 218 lines → 68 lines)**:
+以 Python rewrite 替换整节为：
+- intro (3 行)
+- 关键阶段 bullet 列表（按时间逆序）：Phase B / Phase C / LLM Factor
+  Mining / Universe 扩容 / Framework Completion / Deep Mining /
+  RCMv1 / Phase E / Phase E-post，每个一段 + 指向 synthesis doc
+- §17.1 未解 blockers 摘要（4 点）
+- §17.2 术语约定
+
+**Edit 3 — §13 Ralph-loop 整节删除 (lines 1346-1408, 63 lines)**:
+Python rewrite 删除。TOC §13 entry 也一并删除。
+
+**Edit 4 — TOC**: 去掉 `[13. Ralph-loop（自动化循环）]` entry。
+
+**Edit 5 — §1.4 current state bullets**:
+- `14-round ralph-loop ship` → `complete` (无工具名)
+- `8-round ralph-loop ship (EPOST_CAND2_DONE)` → `complete` (去除
+  `EPOST_CAND2_DONE` token + 工具名)
+- 同时把 RCMv1 / Deep Mining bullets 简化，删除 R-level 详情
+  (R15/R17/R18/R20)
+
+**Edit 6 — §4 目录结构 docs/ 块**:
+原 16 行细节（列 `ralph_loop_log.md` / `ralph_loop_universe_mining_
+state_reconstructed.md` 等 per-file 条目）替换为 6 行泛化：
+`*_final_synthesis.md` / `prd_*.md` / `promotion_flow.md` /
+`llm_external_llm_handoff.md` / 其他。
+
+**Edit 7 — §8.9 tools**: 删除 `start_universe_mining_loop.sh` 条目。
+
+**Edit 8 — §11.5 研究日志**: 从 11-part report schema 细节（14 行）
+压缩到单段 (2 行) 指向 §17。
+
+**Edit 9 — §16 故障排查重编号**:
+- §16.5 `ralph_loop_log.md 太长` 删除
+- §16.7 `Ralph-loop 启动失败` 删除
+- 原 §16.6 微信推送 → §16.5
+- 原 §16.8 Intraday bar → §16.6
+
+**Edit 10 — §18.3 学习路径**:
+- 第 4 条 `读 ralph_loop_log.md` → `读 §17 + 最新 synthesis`
+- 第 5 条 `读 prd_universe_expanded_mining.md` → 合并
+- 重新编号为 6 步
+- §18.4 `Ralph-loop 协议：见 §13` 一行删除（§13 已不存在）
+
+**Edit 11 — §11.5 二次清理**: 去除对 `ralph_loop_log.md` 的直接
+pointer，改为只指向 §17（满足 PRD "EXCEPT one sentence" 的字面要求）。
+
+### 5. 修改了哪些文件
+
+```
+README.md                       (1897 -> 1633 lines, net -264 lines)
+docs/20260420-ralph_loop_log.md (本报告)
+```
+
+**唯一 ralph-loop mention 剩余**:
+- README.md:1514 `**全史**: docs/20260420-ralph_loop_log.md`
+  — 在 §17 开头，PRD §3 R2 explicit allow ("ONE sentence in §17
+  pointing at it as the full-history source")
+
+**未改动**:
+- 零代码变更
+- 零 config 变更
+- 零 test 变更
+- 零 CLAUDE.md 变更（R3 scope）
+
+### 6. 跑了哪些测试/实验
+
+1. **Pre-R2 pytest**: `1556, 1, 1`
+2. **Post-R2 pytest**: `1556, 1, 1` ✓ (docs-only edits, 守恒符合 PRD §2 drift policy)
+3. **grep 验证**: 除 §17 一处 `ralph_loop_log.md` 外，README 中无
+   `ralph-loop` / `EPOST_CAND2` / `AUDIT3DONE` / `DEEPDONE` /
+   `RALPHDONE` / `start_*_loop.sh` / `.claude/ralph` 残留
+
+### 7. 结果如何
+
+- ✅ **264 行 dev-process 内容从 README 删除** (1897 → 1633)
+- ✅ **pytest tuple 零 drift** (1556/1/1 pre === post)
+- ✅ **§17 从 218 行压到 68 行**，只列里程碑 + synthesis 指针
+- ✅ **§13 整节删除** + TOC entry 去掉 + §18.4 的 §13 引用清理
+- ✅ **§16 重编号**: 原 8 小节 → 6 小节 (删除 §16.5 / §16.7)
+- ✅ **§1.4 bullets 去除 completion promise / ralph-loop / 轮数**
+- ✅ 保留 1 句 `ralph_loop_log.md` 指针（PRD §3 R2 explicit allow）
+- ✅ `git show --stat HEAD --` 应显示 README.md 单文件改动（+ 本报告）
+
+### 8. 当前发现的新问题/新机会
+
+**观察**:
+- README 目前 1633 行，对用户手册来说仍偏长。但本 PRD scope 只说
+  "去 dev 内容"，未要求进一步 trim user-facing 内容；若未来做
+  "README readability audit"，可再评估 §9 (配置说明) / §15 (研究
+  方法论) 是否可进一步整合
+- §17 压缩后的 phase bullet 中 Deep Mining 仍提到 `6d15b735a64c` spec
+  hash —— 这是业务数据（promote 失败 candidate 的身份标识），非
+  dev-process 内容。保留。
+
+**机会 (R3 scope)**:
+- CLAUDE.md slim 目标 <600 lines，compression sources 已在 PRD §3 R3
+  列出；R2 的 §17 压缩模式（intro + bullets + synthesis pointers）
+  可借鉴到 R3
+
+### 9. 剩余风险
+
+- 零 test regression (pytest tuple 守恒)
+- 零 code 变更
+- 零 config 变更
+- `ralph_loop_log.md` 本身未动（audit 文档就在其中）
+- User-facing navigation 保持完整（TOC + §1 ~ §18 仍 intact）
+
+### 10. 下一轮建议方向
+
+R3 = CLAUDE.md slim < 600 lines + baseline rebuild + final synthesis
++ emit `<promise>DOCSAUDITDONE</promise>`。
+
+按 PRD §3 R3 压缩源：
+- `### 1m Bar Pipeline` (77 lines) → 10 lines + pointer
+- `### Trades Backfill Pipeline` (74 lines) → 10 lines
+- `### Multi-TF Timing Contract` (64 lines) → 10 lines
+- `### Data Provenance Sidecar` (42 lines) → 5 lines
+- `### Factor Pipeline Contract` (37 lines) → 10 lines
+- `### Notify Module` (25 lines) → 5 lines
+- "Phase D: Iterative Optimization Loop" 大块 → pointer 评估
+
+详情全部 append 到 `docs/20260424-claude_md_phase_e_history.md`。
+最后 `dev/scripts/baseline/build_research_baseline_snapshot.py`
+刷新 baseline，写 final synthesis，emit `DOCSAUDITDONE` in
+assistant-turn + doc.
+
+### 11. Halt 条件检查 (PRD §4)
+
+- 条件 1 (3 rounds done): NO（R2/3 完成，1 轮剩余）
+- 条件 2 (unexpected pytest drift): NO（1556/1/1 守恒，R2 不碰 code）
+- 条件 3 (core import 断): N/A (R2 纯 docs)
+- 条件 4 (disk < 10GB): NO
+- 条件 5 (schema / 新 PRD): NO
+- 条件 6 (README/CLAUDE 引用断): NO — 所有保留的链接 (`docs/*` / §17
+  内的 synthesis 指针 / PRD path) 在 git 工作树中可解析
+- 条件 7 (bug 需要用户决定): N/A
+
+**本轮 autonomous scope 检查 (PRD §4)**:
+- ✅ README 编辑在 PRD §4 "Authorized autonomously" 范围
+- ✅ 无 code / config / deps / schema / public API / test 改动
+- ✅ R1 flagged 的 `run_paper.py:421 left_side` 仍等用户 review，
+  不被 R2 触碰
+

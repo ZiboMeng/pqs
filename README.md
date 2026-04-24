@@ -23,7 +23,6 @@
 - [10. 关键概念](#10-关键概念)
 - [11. 报告与输出解读](#11-报告与输出解读)
 - [12. 常见任务 Recipes](#12-常见任务-recipes)
-- [13. Ralph-loop（自动化循环）](#13-ralph-loop自动化循环)
 - [14. 测试套件](#14-测试套件)
 - [15. 研究方法论](#15-研究方法论)
 - [16. 故障排查](#16-故障排查)
@@ -70,11 +69,10 @@
 - **Paper data boundary**: `core/data/factory.py::PriceStore` Protocol + `create_default_store(cfg)` (Phase E-post R4)。Paper 脚本依赖 Protocol 而不是具体 `MarketDataStore` 类
 - **测试**: 见 `data/baseline/latest.json`（跑 `dev/scripts/baseline/build_research_baseline_snapshot.py` 刷新；当前 = **1556 passed, 1 skipped, 1 xfailed**, 1558 collected）
 - **Framework**: M0-M8 + M10 + M13 + M15 + M16 已交付。开放项 M11/M12/M14/M17/M18。详 `docs/20260421-prd_framework_completion.md`
-- **Deep-mining 50-round (2026-04-22 complete)**: 7 tracks × 50 rounds autonomous execution 结束。详 **`docs/20260422-deep_mining_50round_final_synthesis.md`**
-- **RCMv1 20-round (2026-04-24 complete)**: Research Composite Miner v1 + R15 leakage fix (`lag=1` default) + R17 TPE-converged 4-feature defensive composite + R18 acceptance passed + R20 S1 promotion memo. 详 **`docs/20260424-rcm_v1_final_synthesis.md`**
-- **Codebase audit (2026-04-24)**: 3-round audit v1 + v2 合计找到 3 个 `--help` 真 bug + 63 unused imports 清理
-- **Phase E governance + paper layer (2026-04-24 complete)**: 14-round ralph-loop ship. 详 **`docs/20260424-phase_e_final_synthesis.md`**
-- **Phase E-post + Candidate-2 (2026-04-24 complete)**: 8-round ralph-loop ship (EPOST_CAND2_DONE). 5 E-post 收尾 gap + Candidate-2 orthogonal candidate @ S2。详 **`docs/20260424-phase_e_post_cand2_final_synthesis.md`**
+- **Deep-mining (complete)**: 50 rounds autonomous search across 7 tracks (daily+ML / intraday / DSL / universe / XGB / transformer / synthesis). 详 **`docs/20260422-deep_mining_50round_final_synthesis.md`**
+- **RCMv1 (complete)**: Research Composite Miner v1 — leakage fix (`evaluate_composite(lag=1)` default) + TPE-converged 4-feature defensive composite + acceptance passed. 详 **`docs/20260424-rcm_v1_final_synthesis.md`**
+- **Phase E governance + paper layer (complete)**: `candidate_registry` state machine + `FrozenStrategySpec` + freeze / promote / paper_enter / revoke pipeline. 详 **`docs/20260424-phase_e_final_synthesis.md`**
+- **Phase E-post + Candidate-2 (complete)**: 5 E-post 收尾 gap + Candidate-2 orthogonal candidate 走通 S0→S1→S2。详 **`docs/20260424-phase_e_post_cand2_final_synthesis.md`**
 
 ---
 
@@ -203,22 +201,12 @@ pqs/
 │   └── ml/                      - 研究产出（llm candidates, grid results 等）
 ├── research/                    ← 研究源码（tracked）
 │   └── llm_candidates/          - LLM 生成的 factor 候选 (R1-R14 各 round)
-├── docs/                        ← 研究文档 + PRD + 报告
-│   ├── ralph_loop_log.md        - **逐轮研究日志**（核心，50-round complete）
-│   ├── deep_mining_50round_final_synthesis.md  - ⭐ R50 最终报告（必读）
-│   ├── universe_expansion_proposal_v3.md  - R38 universe 扩容 proposal（等 user 决策）
-│   ├── xgboost_weight_model_R46_findings.md  - Track E PARK verdict
-│   ├── production_factor_promote_proposal_weak_market_and_gated_mom.md  - R7/R10 factor proposal
-│   ├── llm_phase_blocker_report.md
-│   ├── prd_framework_completion.md  - 框架闭环 PRD v1.2（M0-M16 done）
-│   ├── prd_deep_mining_50round.md   - **deep-mining PRD (executed 50/50 rounds)**
-│   ├── promotion_flow.md             - Mining → production 正式流程 (M2)
-│   ├── llm_external_llm_handoff.md  - Gemini/Codex 等外部 LLM 参与 (M15)
-│   ├── prd_universe_expanded_mining.md  - 上阶段 mining 循环 PRD
-│   ├── prd_llm_factor_mining.md
-│   ├── prd_intraday_mining_loop.md
-│   ├── universe_expansion_spec_v2_2.md
-│   └── ralph_loop_universe_mining_state_reconstructed.md
+├── docs/                        ← 研究文档 + PRD + 阶段性 synthesis（详见 §17）
+│   ├── *_final_synthesis.md     - 每个完成阶段的权威总结（Deep Mining / RCMv1 / Phase E / ...）
+│   ├── prd_*.md                 - PRD 文档（framework / deep_mining / phase_e / llm_factor_mining / ...）
+│   ├── promotion_flow.md        - Mining → production 正式流程 (M2)
+│   ├── llm_external_llm_handoff.md  - 外部 LLM 协作流程 (M15)
+│   └── (其他历史 audit / proposal / 报告)
 └── reports/                     ← 报告产出（部分 gitignored）
     ├── backtests/               - 回测 run artifacts (`backtest/runs/<ts>_backtest/`)
     ├── consolidate_sanity/      - 数据合并 sanity check 报告
@@ -657,9 +645,6 @@ python scripts/run_universe_rebalance.py
 - **作用**: 每轮研究总结发微信 / Server 酱
 - **依赖**: `PQS_WECOM_WEBHOOK_URL` 或 `PQS_SCT_SEND_KEY` 环境变量
 - **CLI**: `--title "..." --file path/to/log.md --last-section`
-
-#### `start_universe_mining_loop.sh`
-- **作用**: 打印 ralph-loop 启动命令（便于拷贝到 Claude Code）
 
 #### `dump_llm_handoff_context.py` ⭐ (PRD M15 reframed)
 - **作用**: 产出"喂给外部 LLM（Gemini/Codex/任意）的 context pack"markdown 文件
@@ -1189,20 +1174,9 @@ python scripts/run_mining.py --leaderboard --lineage-filter 'my_tag'
 - `universe_buckets_<tag>.csv`
 - `xgb_importance.parquet` + `xgb_run_summary.md`
 
-### 11.5 研究日志 `docs/20260420-ralph_loop_log.md`
+### 11.5 研究日志
 
-**最重要的人类可读日志**。每轮 research iteration 的 11-part Chinese report:
-1. 本轮主题
-2. 本轮目标
-3. 为什么这轮优先做它
-4. 做了什么
-5. 修改了哪些文件
-6. 跑了哪些测试/实验
-7. 结果如何
-8. 当前发现的新问题
-9. 剩余风险
-10. 下一轮建议方向
-11. TODO checklist
+每个完成阶段的权威总结（`docs/*_final_synthesis.md`）见 §17。
 
 从 2026-04-20 开始累计 ~35 轮工作记录，是了解项目进展的**必读文档**。
 
@@ -1340,71 +1314,6 @@ rows = c.execute('''
 for r in rows: print(r)
 "
 ```
-
----
-
-## 13. Ralph-loop（自动化循环）
-
-### 13.1 它是什么
-
-**Ralph-loop** 是 Claude Code 插件，把同一 prompt 反复喂回 AI，让 AI 在
-多轮迭代中自我改进。本项目用它跑多阶段研究（Phase B 50 轮 → LLM phase
-30 轮 → Universe-mining 32 轮）。
-
-### 13.2 启动
-
-```bash
-# 打印启动命令
-bash dev/scripts/loop/start_universe_mining_loop.sh
-
-# 复制打印的命令到 Claude Code，格式：
-# /ralph-loop:ralph-loop "... prompt ..." --max-iterations 32 --completion-promise RALPHDONE
-```
-
-**重要经验教训**:
-- Prompt 必须**单行 ASCII**，不能有中文标点（`，§（）→`）或换行
-- 否则 shell 会把 prompt 拆成多个命令 → 启动失败
-
-### 13.3 监控
-
-```bash
-# 看 loop 状态
-head -10 .claude/ralph-loop.local.md
-
-# 字段:
-#   active: true/false
-#   iteration: 当前第几轮
-#   max_iterations: 上限
-#   completion_promise: 必须输出此字符串才终止
-```
-
-### 13.4 停止
-
-AI 输出 `<promise>RALPHDONE</promise>`（或 `completion_promise` 指定字符串）即正常结束。
-
-手工取消：
-```bash
-rm .claude/ralph-loop.local.md
-```
-
-或用 `/ralph-loop:cancel-ralph` slash command.
-
-### 13.5 Per-round 结构
-
-每轮 AI 都该输出 **11-part 中文报告** 写入 `docs/20260420-ralph_loop_log.md`:
-1. 本轮主题 (A/B/C/D/E 或菜单 topic)
-2. 本轮目标
-3. 为什么这轮优先做它
-4. 做了什么
-5. 修改了哪些文件
-6. 跑了哪些测试/实验
-7. 结果如何
-8. 新问题/新机会
-9. 剩余风险
-10. 下一轮建议
-11. 本轮 commit 哈希
-
----
 
 ## 14. 测试套件
 
@@ -1560,12 +1469,7 @@ python scripts/run_mining.py ...   # 下次 run 会创建新 optuna.db
 2. 更新测试里的 `factor_weights={...}` 为新值
 3. 保留 `@pytest.mark.xfail` + 注 reason 如果暂不能解
 
-### 16.5 `docs/20260420-ralph_loop_log.md` 太长
-
-**正常现象**: 累计 35+ 轮，1000+ 行，~150KB。
-读法: 跳读 "## Round N" section 的 §1 主题 和 §7/§8 关键发现。
-
-### 16.6 微信推送不工作
+### 16.5 微信推送不工作
 
 **排查**:
 ```bash
@@ -1585,16 +1489,7 @@ python dev/scripts/notify/send_round_summary.py --title "test" --stdout <<< "hel
 export PQS_WECOM_WEBHOOK_URL="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=XXXX"
 ```
 
-### 16.7 Ralph-loop 启动失败
-
-**症状**: 输入 `/ralph-loop:ralph-loop ...` 后 shell 报错找不到命令。
-
-**原因**: prompt 里有中文标点或多行。
-
-**解决**: prompt 必须**单行 ASCII**，用双引号包起来。推荐用
-`bash dev/scripts/loop/start_universe_mining_loop.sh` 产出的命令。
-
-### 16.8 Intraday bar 数据不全
+### 16.6 Intraday bar 数据不全
 
 - 2015-2023: polygon flat files（全市场）
 - 2024-2025/11: 每 ticker CSV (**仅 stocks，无 ETF**)
@@ -1612,221 +1507,71 @@ df = store.load("SPY", freq="1m", fallback="auto")  # 自动尾部补全
 
 ## 17. 研究历史摘要
 
-**完整史**见 `docs/20260420-ralph_loop_log.md`. 关键阶段：
+项目已经过多个研究阶段。每个阶段的详细记录（每轮报告、决策过程、
+实验结果）都汇集在研究日志中。下面只列里程碑 + 最权威的阶段性总
+结文档指针。
 
-### 17.1 Phase B (LLM-Round 1-50, 2025-2026 early)
-- 基础架构 / kill switch / cost model / walk-forward OOS / regime detection
-- Best strategy at end: multi_factor CAGR 19%, Sharpe 0.98, MaxDD -19.7%
-- 745 passing tests (at end of Phase B; historical value, current count is in `data/baseline/latest.json`)
+**全史**: `docs/20260420-ralph_loop_log.md`
 
-### 17.2 Phase C (iteration 1-19, 2026-04-17+)
-- 19 次 loop 补齐测试 gap + bug 修
-- MFS unit tests / paper-BT consistency / commission double-count fix
-- Intraday 5 表 persistence + idempotency
-- 实 XGBoost / permutation importance
+**关键阶段**（按时间顺序，最新在前）:
 
-### 17.3 Intraday Closeout Sprint (2026-04-20)
-- Ghost position cleanup / archive lineage tagging / strategy concentration / QQQ acceptance gate
-- Factor registry / factor gate strict mode / shadowed-factor merge
-- Multi-TF timing contract repositioning (timing NOT standalone alpha)
-
-### 17.4 LLM Factor Mining Phase (R1-R28, 2026-04-20)
-
-详 `docs/20260420-prd_llm_factor_mining.md` + `docs/20260421-llm_phase_blocker_report.md`
-
-核心产出:
-- **12/12 menu topic 覆盖** (LLM-1 ~ LLM-12)
-- **26 结构化 LLM factor 候选** 走完 funnel
-- **1 factor promoted**: `drawup_from_252d_low` 到 RESEARCH_FACTORS (R10) 再到 PRODUCTION_FACTORS (R15, user-auth)
-- 7 新研究工具（deep_check / factor_backtest / cross_signal_mining / interaction_mine / composite_backtest / orthogonalization / send_round_summary）
-- 1 decisive blocker report: factor space 不足以产生 alpha on Mag7-heavy universe
-
-跨轮 research themes:
-1. Direction-of-momentum 因子是 mean-reverter (4 独立候选)
-2. IC PASS ≠ 整体 PASS（MaxDD invariant 必须把关）
-3. Univariate IC 与 cross-feature importance 正交
-4. Interaction mining 18/28 pairs 破坏 alpha
-5. Regime-gating 害强 IC factor（非通用 risk mgmt）
-6. Distance-from-extrema 强，time-since-extrema 弱
-
-### 17.5 Universe Expansion (R21-R28, 2026-04-21)
-
-- R20 audit: 原 32-sym universe 只 19% symbols 产 α > 3%，全 tech
-- R21 non-tech audit: LLY α +24.8%/yr / COST α +13.3%/yr 比 Mag7 强
-- R22-R24: 4-layer universe spec v2.2 (user 3 次 review)
-- R25-R27: pipeline tools (admission / risk labels / bucket assign)
-- R28: **user 授权 v2 扩容**，32 → 53 symbols
-
-### 17.6 Universe-Expanded Mining (R29-R35, 2026-04-21 afternoon)
-
-详 `docs/20260421-prd_universe_expanded_mining.md` + `docs/20260421-ralph_loop_universe_mining_state_reconstructed.md`
-
-32 轮预算，7 轮完成后 **user 请求 pause**；`.claude/ralph-loop.local.md` 状态文件意外消失，已在 reconstructed 文档里保留完整接续方案（Options A/B/C）。
-7 轮进度:
-- R29 multi_factor baseline: best OOS -0.028（vs pre-R28 -0.089, 70% closer）
-- R30 multi_factor regression: Optuna dedup 问题
-- **R31 dual_momentum ⭐**: 5 trials OOS > 0, best +0.121
-- R32 combined all-types: 0 new positive OOS
-- **R33 xfail RESOLVED** ⭐: grid best CAGR +3.13% vs QQQ, test update
-- R34 fresh Optuna multi_factor: walk-forward barrier persists
-- R35 fresh Optuna dual_momentum: 10 trials OOS > 0, plateau +0.121
-
-**Stage end state (pre deep-mining)**:
-- pytest 1109 passed, 0 xfailed
-- 170/200 cumulative trials in new lineage
-- Best OOS IR +0.121 (dual_momentum)
-- Best CAGR +3.13% vs QQQ (in-sample grid)
-- PRODUCTION_FACTORS 和 universe 未变（除 R28 扩容 + drawup promotion）
-
-(Post-deep-mining state in §17.9 / §1.4)
-
-### 17.7 未解 blockers (post 50-round)
-- **OOS IR ≥ 0.20 promote threshold 仍未跨过**（50-round best OOS IR 是 LLM-round-28 spec `6d15b735a64c` 的 +0.292，但 R49 v2 pack 的 `full_period_fresh_backtest` gate 揭示 -10.33pt CAGR vs QQQ）
-- **factor→forward-return 在 2021+ 系统性负**（R42/R43/R44/R47 跨 model class 一致 OOS R² ≤ 0）
-- **universe tech-concentrated**：当前 79 symbols 中约 10-12 个 alpha generators；S&P 500 pool audit (R35) 显示 177 α>3% 候选可用
-- 突破需求：universe 扩容 (R38 proposal 等授权) / 新数据源 (microstructure / order flow / sentiment) / structurally new factor family
-
-### 17.9 Deep Mining Phase (2026-04-22, ✅ **50 rounds COMPLETED**)
-
-详 `docs/20260421-prd_deep_mining_50round.md` + ⭐ `docs/20260422-deep_mining_50round_final_synthesis.md` (R50 最终报告)
-
-50 轮 autonomous execution，覆盖 7 tracks：
-
-| Track | Rounds | 主题 | Status |
-|---|---|---|---|
-| A | R1-R15 | Daily factor mining + ML (XGBoost / Claude LLM / Gemini via M15) | ✅ 15/15 |
-| B | R16-R25 | Intraday mining (60m / multi-TF / 15m 5m timing / DSL A/B) | ✅ 10/10 |
-| C | R26-R33 | Rule-based DSL exploration (3 rule types + new functions) | ✅ 8/8 |
-| D | R34-R41 | Universe expansion (S&P 500 pool → admission filter → re-mine) | ⚠ 5/8 (R39-R41 等 user auth) |
-| E | R42-R46 | XGBoost rigor (CV + SHAP + weight model → **PARK**) | ✅ 5/5 |
-| F | R47-R48 | Transformer hyperparameter sweep → **PARK** | ✅ 2/2 |
-| G | R49-R50 | Final synthesis + promote attempt | ✅ 2/2 |
-
-**硬目标状态**: ❌ **未达成** — 0/302 mining trials 通过 pack v2 全 10 gates。唯一 candidate `6d15b735a64c` (tier C, OOS IR +0.29) 被 fresh full-period backtest 挡掉 (-10.33pt vs QQQ)。
-
-**50-round 产出**:
-- ✅ 1 LLM factor promoted to PRODUCTION (`drawup_from_252d_low`, R15 user-auth)
-- ✅ 2 LLM factors added to RESEARCH (R7 `spy_trend_gated_mom_63d`, R10 `weak_market_relative_strength_63d`)
-- ✅ 2 新 DSL rules (R24 Rule 4 + Rule 5)
-- ✅ 26 LLM YAML candidates audit trail + 7 新 research scripts
-- ✅ S&P 500 pool (513 symbols) synced + R38 扩容 v3 proposal doc submitted
-
-**5 user decisions pending** (详 R50 synthesis §6):
-1. R38 universe 扩容 v3 (37 new symbols) A/B/C/D options
-2. R46 drawup demotion based on R42/R43 counter-evidence
-3. R25 DSL Rule 2 weight reduction (50%→25%) or fast-exit
-4. R46 R45 MFS+XGB ensemble test (run/skip)
-5. Post-decision-1 mining resubmit
-
-**Launch command** (historical): `/ralph-loop:ralph-loop ... --max-iterations 50 --completion-promise DEEPDONE`
-
-### 17.10 Research Composite Miner v1 (2026-04-24, ✅ **20 rounds COMPLETED**)
-
-详 `docs/20260424-prd_research_composite_miner_v1.md` + ⭐ `docs/20260424-rcm_v1_final_synthesis.md` + S1 candidate memo `docs/20260424-rcm_v1_s1_candidate_memo.md`
-
-**Deliverables**:
-- 12 新 orthogonal features 加入 `RESEARCH_FACTORS`（Family A/B/C/D，PRD §5.2）
-- 3 plumbing prereqs: multi-benchmark generator (SPY+QQQ), residualize helper, 8 downstream scripts 升级
-- `research_mask` hardening（panel/miner/diagnostics 共用）
-- `core/mining/research_miner.py`（~720 LOC）: FamilyConfig + sampler + evaluator + objective + ResearchMiner class
-- `core/mining/rcm_archive.py`（~300 LOC）: 独立 SQLite archive `data/mining/rcm_archive.db`
-- 4 scripts: `run_research_miner.py` / `analyze_research_miner_run.py` / `acceptance_research_composite.py` / `weight_sensitivity_research_composite.py`
-- 22 新单测 (`test_research_miner.py` + `test_rcm_archive.py`)
-
-**关键 findings**:
-- **R15 leakage fix (critical)**: pre-fix `mean_rev_sma20` 看似 IC=+0.33 实为 shared-close[t] 伪信号；修 `evaluate_composite(lag=1)` 后消失到 -0.005。所有 pct_change-based factor 受影响
-- **R16-R17 post-fix re-mining**: TPE 收敛到一个 4-feature defensive composite：
+- **Phase B** — 基础架构建设（kill switch / cost model / walk-forward
+  OOS / regime detection）。奠定当前的 backtest / paper consistency
+  契约与 MultiFactorStrategy 骨架。
+- **Phase C** — 测试 gap 补齐 + bug 修、Intraday 5 表 persistence、
+  真 XGBoost / permutation importance 上线。
+- **LLM Factor Mining** — 12 个 menu topic 覆盖、26 个 LLM 结构化候选
+  走完 funnel、1 factor (`drawup_from_252d_low`) 进入 PRODUCTION。
+  详 `docs/20260420-prd_llm_factor_mining.md` +
+  `docs/20260421-llm_phase_blocker_report.md`。
+- **Universe 扩容** (32 → 53 → 79 symbols) — 从 Mag7-heavy 扩到
+  4-layer sector / factor / cross-asset 结构。详
+  `docs/20260421-prd_universe_expanded_mining.md`。
+- **Framework Completion M0-M16** — 单一真源
+  `config/production_strategy.yaml`、promote 闭环、runtime alignment
+  hard gate 等 P0 工程 blocker 收口。详
+  `docs/20260421-prd_framework_completion.md`。
+- **Deep Mining 50-round** — 7 tracks autonomous 搜索。0/302 trials
+  通过 pack v2 全 10 gates（硬目标未达）；带出 R38 universe 扩容 v3
+  proposal + R46 XGB rigor park 等 5 个决策。详
+  **`docs/20260422-deep_mining_50round_final_synthesis.md`**。
+- **RCMv1 (Research Composite Miner v1)** — 12 orthogonal features +
+  TPE 收敛到 4-feature defensive composite
   `{beta_spy_60d, drawup_from_252d_low, days_since_52w_high, amihud_20d}`
-  IC_IR +0.50 (vs R13 pre-fix +4.77，10× 更现实)
-- **R18 acceptance**: 4/4 walk-forward folds 正、6/6 regime 正、CRISIS +1.59 最强（defensive 语义正确）
-- **R19 due diligence**: TPE +0.52 vs Random +0.34（TPE 真找到 basin）；weight sensitivity IR 范围 [+0.38, +0.51] std 0.032（parameter-flat）
-- **R20 S1 promotion memo**: 按 User PRD 2 §6 schema 写成，**doc-only**（未触碰 production_strategy.yaml）
+  IC_IR +0.50；关键里程碑是 leakage fix
+  (`evaluate_composite(lag=1)` default)。详
+  **`docs/20260424-rcm_v1_final_synthesis.md`**。
+- **Phase E Research Governance + Paper Layer** — `candidate_registry`
+  状态机（S0/S1/S2/S5）+ `FrozenStrategySpec` + freeze / promote /
+  paper_enter / revoke pipeline；RCMv1 从 memo 迁移到
+  S2_paper_candidate。详
+  **`docs/20260424-phase_e_final_synthesis.md`**。
+- **Phase E-post + Candidate-2** — 5 E-post 收尾 gap +
+  `candidate_2_orthogonal_01`
+  (`{ret_5d, rs_vs_spy_126d, hl_range}` 等权) 走完 S0 → S1 → S2。
+  Registry 现有 2 个 S2_paper_candidate，建立了 parallel paper 对照
+  参考系。详
+  **`docs/20260424-phase_e_post_cand2_final_synthesis.md`**。
 
-### 17.11 Codebase Audit 3-Round (2026-04-24, ✅ COMPLETED)
+### 17.1 未解 blockers 摘要
 
-详 `docs/20260424-prd_codebase_audit_3round.md`
+- **OOS IR ≥ 0.20 promote threshold 仍未跨过**（Deep Mining 唯一
+  candidate `6d15b735a64c` OOS IR +0.292，但 full-period fresh
+  backtest 揭示 -10.33pt CAGR vs QQQ 挡下）
+- **factor → forward-return 在 2021+ 系统性负**（XGBoost / Transformer
+  跨 model class 一致 OOS R² ≤ 0）
+- **universe 仍 tech-concentrated**：79 symbols 中约 10-12 个 alpha
+  generators
+- 突破方向候选：universe 再扩容 / 新数据源（microstructure /
+  order flow / sentiment）/ structurally new factor family
 
-- R1: core library (27 modules) — 0 bugs
-- R2: scripts + I/O (57 scripts + 13 modules) — 0 bugs
-- R3: tests + README sync + baseline rebuild — 1 bug fixed (fetch_data.py 15m/30m lookback)
+### 17.2 术语约定
 
-### 17.12 Phase E Governance + Paper Layer (2026-04-24, ✅ **14 rounds COMPLETED**)
-
-详 execution PRD **`docs/20260424-prd_phase_e_execution.md`** + charter
-**`docs/20260424-prd_phase_e_governance_and_paper.md`** + final
-synthesis (R13) **`docs/20260424-phase_e_final_synthesis.md`**.
-
-**E-0 foundation (R1-R3)**:
-- R1: `core/research/candidate_registry.py` — SQLite-backed registry
-  separate from rcm_archive; S0/S1/S2/S5 state machine + enforced
-  S3/S4 rejection (Phase F-scoped); Revoke workflow built into schema
-- R2: pyarrow decouple — `pyarrow.parquet` no longer eagerly loaded
-  when importing `PaperTradingEngine` or `MarketDataStore`
-- R3: `scripts/revoke_candidate.py` + `dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py` — RCMv1 migrated as first S1 candidate
-
-**E-1 promote standard code-ification (R4-R7)**:
-- R4: `core/research/frozen_spec.py` — `FrozenStrategySpec` with 8
-  mandatory fields + 14 optional + YAML round-trip; pins RCMv1 schema
-  invariant
-- R5: `scripts/freeze_research_candidate.py` — trial → S0 row + YAML
-- R6: `scripts/research_promote.py` — S0 → S1 gate with stub-detection
-  + memo validation + acceptance outcome check; hard invariant tested
-  that it NEVER writes `config/production_strategy.yaml`
-- R7: `core/research/acceptance_helpers.py` — shared evaluator code
-  extracted; `acceptance_research_composite.py` refactored to use
-  helpers; byte-identical output preserved on RCMv1 real archive
-
-**E-2 minimal paper layer (R8-R11)**:
-- R8: `scripts/run_paper_candidate.py` — reads frozen spec + registry,
-  not production config; 8 artifacts per run
-- R9: `core/research/paper_artifacts.py` — `live_like_pnl`,
-  `benchmark_relative_paper`, `turnover_log` writers; formal schema
-  in `docs/20260424-paper_artifact_schema.md`
-- R10: `scripts/paper_drift_report.py` + `core/research/drift_metrics.py`
-  — NAV + position drift vs fresh replay; 50 bps informational threshold;
-  RCMv1 smoke: 0.25 bps mean drift (pipeline reproducibility verified)
-- R11: `scripts/paper_enter.py` — S1 → S2 transition with paper run +
-  drift report gating; S3 transition explicitly `NotImplementedError`
-
-**Candidate journey**: RCMv1 `rcm_v1_defensive_composite_01` traversed
-S0 freeze → S1 research_promote → S2 paper_enter via the new tooling.
-Registry currently holds it at **S2_paper_candidate**.
-
-**Governance invariants enforced by tests**:
-- No CLI writes `config/production_strategy.yaml` (mtime + content
-  snapshot around happy-path runs)
-- No CLI writes `config/universe.yaml`
-- `scripts/promote_strategy.py` semantics unchanged (production-only)
-- `data/mining/rcm_archive.db` schema unchanged
-- S3/S4 transitions reject with `InvalidTransitionError` /
-  `NotImplementedError` pointing at Phase F
-
-**Launch**: `bash dev/scripts/loop/start_codebase_audit_loop.sh`
-
-### 17.8 Framework Completion (2026-04-21+，优先级高于恢复 mining)
-
-详 `docs/20260421-prd_framework_completion.md`（v1.1 双向审计确认版）
-
-Codex 审计 + self-audit 发现 3 个 P0 工程 blocker（在恢复 mining 之前必须收口）:
-1. **Single Source of Truth 缺失** —— `run_paper.py` / `run_backtest.py` 硬编码旧 MFS 权重互不一致，未含 R15 promoted `drawup`；而 `test_backtest_paper_consistency.py` 用 R33 新权重
-2. **Promote 闭环未建立** —— `archive.promote()` 存在但 production 入口不消费
-3. **Runtime alignment hard gate 缺失** —— 只有 consistency 测试，运行时不 check hash
-
-**关键设计前提** —— R29-R35 证明 **post-P0.1-fix 客观无 validated best**。
-PRD 单一真源 `config/production_strategy.yaml` 首版合法 status 包括
-`active` / `conservative_default` / `no_validated_best`，不假装已有 best。
-
-PRD 列出 M0-M9 里程碑。Critical path: M0 → M1 → M2 → M3。Post-M3 方可恢复
-`prd_universe_expanded_mining.md` R36+ 循环。M4-M8 为并行可延后的功能建设
-（cross-ticker DSL / multi-TF contract / LLM proposal template / XGB weight
-model / Transformer research）。
-
-**术语约定（本 PRD 起强制）**:
-- `intraday cached-runtime paper trading` — 当前能力（bar-by-bar 缓存数据）
-- `realtime intraday live-feed paper trading` — 未具备（留 `prd_live_feed.md`）
+- `intraday cached-runtime paper trading` — 当前能力（bar-by-bar
+  缓存数据）
+- `realtime intraday live-feed paper trading` — 未具备（独立 PRD
+  `prd_live_feed.md` 待开）
 - 禁止笼统叫 "intraday live"
-
----
 
 ## 18. 附录
 
@@ -1858,15 +1603,13 @@ model / Transformer research）。
 1. 读本 README 全文 (~1h)
 2. 运行 `pytest -q` 验证环境
 3. 运行 `scripts/run_backtest.py --no-walk-forward` 看一次完整流程
-4. 读 `docs/20260420-ralph_loop_log.md` 最近 5 轮了解研究节奏
-5. 读 `docs/20260421-prd_universe_expanded_mining.md` 了解当前方向
-6. 读 `CLAUDE.md` 了解约束细节
-7. 跑自己的第一次 mining: `scripts/run_mining.py --trials 10 --budget 300`
+4. 读 §17 研究历史 + 最新阶段的 `*_final_synthesis.md` 了解当前状态
+5. 读 `CLAUDE.md` 了解约束细节
+6. 跑自己的第一次 mining: `scripts/run_mining.py --trials 10 --budget 300`
 
 ### 18.4 提问 / 贡献
 
 - Issues: GitHub issues (claude.com/code 同步)
-- Ralph-loop 协议：见 §13
 
 ---
 
@@ -1888,10 +1631,3 @@ model / Transformer research）。
 
 小改动（typo / 排版）可直接编辑；结构性或语义性改动先和用户确认。
 
----
-
-*README v1.2 — 2026-04-22, audit pass 3 after Deep-Mining 50-round completion. Key updates: factor registry 39→41 / DSL rules 3→5 / universe 53→52 (K delisted) / tests 1109→1211 / added R50 synthesis + R38 proposal + R46 findings doc references / §17.9 marked complete.*
-
-*README v1.3 — 2026-04-24 (audit-v2 pass 3, lineage `audit-2026-04-24-v2`). Key updates: tests 1386→1536 (post Phase E 14-round ship) / factor registry 41→64 RESEARCH (RCMv1 12 orthogonal features + shadow exports) + 7 PRODUCTION / mining archive trimmed to `post-2026-04-23-feat-v1-expanded` 65 trials (prior history detached) / rcm_archive 222→216 trials (3 lineages unchanged) / universe 52→79 tradable / 63 unused imports removed in R1/R2 / 3 --help bugs fixed (feat_v1_topk_analysis / build_splits_parquet / run_multi_tf_backtest). No functional regressions — see `docs/20260420-ralph_loop_log.md` §R-audit-v2-round-01/02/03.*
-
-*README v1.4 — 2026-04-24 (phase-e-post 8-round, lineage `phase-e-post-2026-04-24`, EPOST_CAND2_DONE). Key updates: tests 1536→1556 (+20 new: 4 migration hermetic / 6 paper factory decoupling / 10 research mask bit-identical invariant) / registry 1→2 S2_paper_candidate records (Candidate-2 `candidate_2_orthogonal_01` {ret_5d, rs_vs_spy_126d, hl_range} equal-weight added; orthogonal to RCMv1 by corr 0.404 + turnover 79%) / new `core/data/factory.py` PriceStore Protocol + `config/research_mask.yaml` single source of truth / new 3 deps (scipy/requests/tqdm/pyzipper) declared / migration hermetic via `--archive-db` injection / revoke drill 3 paths exercised on rcm_v1 clones (real untouched) / R7 audit 0 real bugs + 3 pre-existing unused imports cleaned. Full synthesis `docs/20260424-phase_e_post_cand2_final_synthesis.md`.*
