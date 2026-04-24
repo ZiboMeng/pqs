@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import pandas as pd
 
 from core.config.loader import load_config
-from core.data.market_data_store import MarketDataStore
+from core.data.factory import create_default_store
 from core.execution.cost_model import CostModel
 from core.regime.regime_detector import RegimeDetector
 from core.portfolio.constructor import PortfolioConstructor
@@ -313,7 +313,7 @@ def main():
     args = parser.parse_args()
 
     cfg   = load_config(Path(args.config_dir))
-    store = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
+    store = create_default_store(cfg)
 
     # PRD M3/M13: runtime alignment check (mode from config/system.yaml;
     # FAIL mode in paper live blocks startup on hash mismatch)

@@ -59,7 +59,7 @@ sys.path.insert(0, str(ROOT))
 import pandas as pd
 
 from core.config.loader import load_config
-from core.data.market_data_store import MarketDataStore
+from core.data.factory import PriceStore, create_default_store
 from core.execution.cost_model import CostModel
 from core.factors.base_masks import apply_research_mask, research_mask
 from core.factors.factor_generator import generate_all_factors
@@ -99,7 +99,7 @@ def _load_candidate(
 
 
 def _load_panel(
-    cfg, store: MarketDataStore, start: pd.Timestamp, end: pd.Timestamp,
+    cfg, store: PriceStore, start: pd.Timestamp, end: pd.Timestamp,
 ) -> dict[str, pd.DataFrame]:
     """Build an OHLCV panel + benchmark_map over [start, end] for the
     tradable universe. Mirrors run_research_miner._load_price_volume."""
@@ -296,7 +296,7 @@ def main() -> int:
 
     # Load config + panel
     cfg = load_config(Path(args.config_dir))
-    store = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
+    store: PriceStore = create_default_store(cfg)
     start = pd.Timestamp(args.start_date)
     end = pd.Timestamp(args.end_date)
     frames = _load_panel(cfg, store, start, end)

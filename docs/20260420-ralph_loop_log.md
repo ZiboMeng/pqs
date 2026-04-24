@@ -13652,3 +13652,176 @@ R4 验收硬要求（PRD §4.1）：
 - ✅ 未改 archive.db / rcm_archive.db schema
 - ✅ 真 registry 完全只读
 
+
+---
+
+## R-epost-cand2-round-04 — E-post-1 paper path 解耦 MarketDataStore
+
+**Lineage tag**: `phase-e-post-2026-04-24`
+**Commit**: TBD (本轮提交后回填)
+**Round scope**: PRD §4.1 E-post-1 — paper 脚本 / 测试不再直接依赖
+`MarketDataStore`
+
+### 1. 本轮主题
+
+E-post-1：在 paper 层与数据 backend 之间加一层"数据访问边界"
+（`PriceStore` Protocol + `create_default_store` 工厂），让 paper
+脚本依赖 Protocol 而不是具体 parquet store 类。
+
+### 2. 本轮目标
+
+- 定义 `core/data/factory.py`：`PriceStore` Protocol +
+  `create_default_store(cfg)` 工厂
+- `scripts/run_paper.py` / `scripts/run_paper_candidate.py` 不再
+  直接 `import MarketDataStore`
+- paper unit test 面能在**不初始化 parquet stack** 的情况下跑通
+- 建立回归测试锁定上述不变式
+
+### 3. 为什么这轮优先做它
+
+PRD §10.1 R4 顺序，原因：
+- 本 PRD 最大技术债（1–1.5 天 refactor），越晚做风险越大
+- 是 R5 统一 research mask 的前置条件（mask 统一后调用方需要稳定
+  的 store 边界，而不是绑在具体类上）
+- 为 Phase 4 broker/vendor 分离埋伏笔（PRD Phase 4 §4.1
+  DataProvider/BrokerAdapter 分离已列在蓝图）
+
+### 4. 做了什么
+
+**Step 1 — 诊断**:
+- `import pandas` 本身（此 pandas 版本）即触发 `pyarrow` 加载（pandas
+  内部 `pandas/compat/pyarrow.py` 无条件 import）。PRD §4.1 文字目标
+  "PaperTradingEngine import 不触发 pyarrow" 是**环境性不可达**，
+  需以"代码路径上不拉 MarketDataStore"解读
+- `core/paper_trading/paper_trading_engine.py` **已无** `MarketDataStore`
+  module-level import（历史清理过）
+- 真问题在脚本层：`run_paper.py` line 33 + `run_paper_candidate.py`
+  line 62 仍直接 `from core.data.market_data_store import MarketDataStore`
+
+**Step 2 — 新增数据访问边界** (`core/data/factory.py`):
+- `PriceStore` (runtime_checkable `typing.Protocol`)，唯一方法
+  `read(symbol: str, freq: str) -> Optional[pd.DataFrame]` — 故意
+  窄化到 paper 实际用到的操作
+- `create_default_store(cfg) -> PriceStore` 工厂函数；`MarketDataStore`
+  的 import **延迟到函数体内**（保持 factory module 可在无 parquet
+  栈的情况下 type-check）
+- Docstring 明确声明：ingestion-only 的 `write/append/get_last_date`
+  **不在 Protocol 范围**，需要它们的 caller 仍可直接依赖 MarketDataStore
+
+**Step 3 — 迁移 paper 脚本**:
+- `scripts/run_paper_candidate.py`:
+  - Import: `from core.data.factory import PriceStore, create_default_store`（替换 `MarketDataStore`）
+  - `_load_panel(cfg, store: PriceStore, ...)` 签名使用 Protocol
+  - `store: PriceStore = create_default_store(cfg)` 构造
+- `scripts/run_paper.py`:
+  - Import: `from core.data.factory import create_default_store`
+  - `store = create_default_store(cfg)` 构造
+
+**Step 4 — 回归测试** (`tests/unit/paper_trading/test_data_factory_decoupling.py`):
+1. `test_paper_engine_does_not_import_market_data_store` —
+   AST 级静态检查，engine 不 import MarketDataStore 也不 import factory
+2. `test_paper_scripts_use_factory_not_direct_store` —
+   两个 paper 脚本必须 import `core.data.factory` 且不 import
+   `core.data.market_data_store`
+3. `test_protocol_recognizes_fake_store` —
+   提供 `_FakeStore`（纯 dict backed），`isinstance(fake, PriceStore)`
+   True（证明 paper-layer 测试可注入 fake 而不碰 parquet）
+4. `test_factory_returns_protocol_instance` —
+   工厂输出满足 Protocol，并且 `.read("SPY", "1d")` 返回
+   `DataFrame | None`
+5. `test_paper_scripts_do_not_instantiate_store_directly` —
+   文本级检查，`MarketDataStore(` 调用点在 paper 脚本中已消失
+6. `test_paper_engine_import_does_not_touch_parquet_files` —
+   通过 monkeypatch `builtins.open`，证明 `import PaperTradingEngine`
+   不触发任何 `/data/*.parquet` / `*.db` 文件访问（behavioral 保证
+   paper 单测面在无 data dir 时仍可跑）
+
+### 5. 修改了哪些文件
+
+```
+core/data/factory.py                                (NEW; 73 lines)
+scripts/run_paper.py                                (-1 +1 import; -1 +1 构造)
+scripts/run_paper_candidate.py                      (-1 +1 import; -1 +1 构造; -1 +1 类型注解)
+tests/unit/paper_trading/test_data_factory_decoupling.py (NEW; 6 tests)
+docs/20260420-ralph_loop_log.md                     (本报告)
+```
+
+**未动**：
+- `core/data/market_data_store.py` — 零改动；仍是唯一 concrete backend
+- `core/data/__init__.py` — 保持导出 `MarketDataStore`（ingestion
+  脚本仍可直接用）
+- `core/paper_trading/*` — 零改动；本来就不 import store
+- `core/data/panel_loader.py` — 零改动；其调用方仍可传
+  `MarketDataStore`（Protocol 兼容）
+
+### 6. 跑了哪些测试/实验
+
+1. **`--help` smoke**:
+   - `python scripts/run_paper.py --help` rc=0
+   - `python scripts/run_paper_candidate.py --help` rc=0
+2. **6 新测试**: 全通
+3. **全量 pytest**: **1546 passed, 1 skipped, 1 xfailed**
+   （= R3 baseline 1540 + 6 新；零 regression）
+
+### 7. 结果如何
+
+- ✅ paper 脚本已走 factory，不直接绑具体 store 类
+- ✅ Protocol 允许 paper 测试注入 `_FakeStore`
+- ✅ paper engine import behavior 验证：不触发 data/ 文件访问
+- ✅ 未重构整个 data layer（PRD §4.1 "不要求整个 data layer 全量
+  重构" 约束保持）
+- ✅ 零 regression (1546 === R3 baseline + 6 新)
+- ⚠ 诚实说明：PRD §4.1 文字"PaperTradingEngine import 不触发 pyarrow"
+  因 pandas 自身在 `import pandas` 时即拉 pyarrow（pandas 版本相关的
+  环境事实）而在文字层面不可达；本轮以 PRD 精神（代码路径去耦）为
+  准，并在测试注释中写明
+
+### 8. 当前发现的新问题/新机会
+
+**机会**:
+- `PriceStore` Protocol 的 `read` 是当前 paper 唯一用到的 store 方法；
+  如果未来 paper 需要 `get_last_date` / `is_stale`，应在 Protocol 中
+  扩展（而非直接在 paper 脚本 import MarketDataStore）— R7 审计时
+  可以加 lint 规则
+- 其他脚本（ingestion / backtest）仍直接 import MarketDataStore，
+  那是正确的（它们需要 write-side 方法）；**不要把 factory 推到那
+  些地方** —— 会错误地收窄接口
+
+**观察**:
+- `core/data/panel_loader.py` 的 `load_close_panel(store: MarketDataStore, ...)`
+  签名仍绑具体类。因为它实际上只调用 `store.read()`，完全满足 Protocol；
+  放到 R7 审计时再评估是否降级为 `store: PriceStore`。**不在 R4 scope**
+  (避免越界)
+
+### 9. 剩余风险
+
+- 零功能 regression
+- 向后兼容：`MarketDataStore` 仍在 `core.data.__init__` 导出，ingestion
+  callers 未受影响
+- `--help` smoke 证明 paper CLI 入口未被破坏
+- 未触碰 production config / PRODUCTION_FACTORS / promote 语义 /
+  archive.db schema
+
+### 10. 下一轮建议方向
+
+R5 = E-post-2：research mask unification + invariant diff 验证
+（PRD §10.2 硬要求 `post-2026-04-24-rcm-v1-lag1` 窗口 eligibility
+set bit-for-bit identical）。预计 1.5–2 天，本 PRD 风险最高的一轮。
+
+### 11. Halt 条件检查 (PRD §12.3)
+
+- 条件 1 (8 rounds done): NO（R4/8 完成，4 轮剩余）
+- 条件 2 (test 回归 > 10): NO（1546 = 1540 + 6 新）
+- 条件 3 (core import 断): NO
+- 条件 4 (disk < 10GB): NO（801GB free）
+- 条件 5 (schema migration / 新 PRD 触发): NO
+- 条件 6 (R7 audit >5 真 bug): N/A
+
+**本轮 autonomous scope 检查 (PRD §12.1)**:
+- ✅ Bug fix + new tests + factory module 均在授权范围
+- ✅ 未改 `config/production_strategy.yaml` / `PRODUCTION_FACTORS`
+- ✅ 未改 `scripts/promote_strategy.py` 语义
+- ✅ 未改 archive.db / rcm_archive.db schema
+- ✅ 未引入新 vendor / data layer backend / broker（只加 Protocol
+  边界，仍用唯一 MarketDataStore 实现）
+
