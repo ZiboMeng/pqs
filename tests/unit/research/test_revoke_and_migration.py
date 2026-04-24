@@ -188,65 +188,7 @@ def test_revoke_cli_auto_generates_memo_stub(tmp_path):
         pass
 
 
-# ── Migration script ────────────────────────────────────────────────────────
-
-
-def test_migration_dry_run_validates_prereqs():
-    result = _run(
-        [sys.executable, "dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py",
-         "--dry-run"],
-    )
-    assert result.returncode == 0
-    assert "DRY-RUN" in result.stdout
-    assert "rcm_v1_defensive_composite_01" in result.stdout
-    assert "f24aefecc91a" in result.stdout
-
-
-def test_migration_idempotent(tmp_path):
-    """Second run is a no-op."""
-    reg_db = tmp_path / "r.db"
-    # First run
-    r1 = _run(
-        [sys.executable, "dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py",
-         "--registry-db", str(reg_db)],
-    )
-    assert r1.returncode == 0
-    # Second run
-    r2 = _run(
-        [sys.executable, "dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py",
-         "--registry-db", str(reg_db)],
-    )
-    assert r2.returncode == 0
-    assert "no-op" in r2.stdout.lower()
-    # Registry still has exactly one row for this candidate
-    reg = CandidateRegistry(reg_db)
-    assert reg.count() == 1
-    rec = reg.get("rcm_v1_defensive_composite_01")
-    assert rec.status == CandidateStatus.S1_CANDIDATE
-    assert rec.source_trial_id == "f24aefecc91a"
-
-
-def test_migration_produces_valid_s1_record(tmp_path):
-    """End state after migration matches R3 contract."""
-    reg_db = tmp_path / "r.db"
-    _run(
-        [sys.executable, "dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py",
-         "--registry-db", str(reg_db)],
-    )
-    reg = CandidateRegistry(reg_db)
-    rec = reg.get("rcm_v1_defensive_composite_01")
-    assert rec.status == CandidateStatus.S1_CANDIDATE
-    assert rec.source_trial_id == "f24aefecc91a"
-    assert rec.source_lineage_tag == "post-2026-04-24-rcm-v1-lag1"
-    assert rec.promoted_at is not None
-    # Paths on disk
-    frozen = Path(rec.frozen_spec_path)
-    memo = Path(rec.decision_memo_path)
-    assert frozen.exists(), f"frozen_spec missing at {frozen}"
-    assert memo.exists(), f"decision_memo missing at {memo}"
-
-
-# ── Migration hermetic (E-post-5A) ──────────────────────────────────────────
+# ── Migration hermetic helper ───────────────────────────────────────────────
 
 
 def _build_fixture_archive(db_path: Path, trial_id: str = "f24aefecc91a") -> None:
@@ -264,6 +206,83 @@ def _build_fixture_archive(db_path: Path, trial_id: str = "f24aefecc91a") -> Non
     )
     conn.commit()
     conn.close()
+
+
+# ── Migration script (hermetic: every test injects its own fixture) ─────────
+#
+# Auditor P0-2 fix: these tests previously relied on the real repo
+# `data/mining/rcm_archive.db` being present + populated with the
+# f24aefecc91a trial. That made them non-hermetic (fail on a fresh
+# clone / minimal CI env). Each test now builds its own fixture
+# archive via _build_fixture_archive() and injects the path via
+# --archive-db. The real repo archive is never read.
+
+
+def test_migration_dry_run_validates_prereqs(tmp_path):
+    fixture = tmp_path / "fixture_archive.db"
+    _build_fixture_archive(fixture)
+    result = _run(
+        [sys.executable, "dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py",
+         "--dry-run", "--archive-db", str(fixture)],
+    )
+    assert result.returncode == 0
+    assert "DRY-RUN" in result.stdout
+    assert "rcm_v1_defensive_composite_01" in result.stdout
+    assert "f24aefecc91a" in result.stdout
+
+
+def test_migration_idempotent(tmp_path):
+    """Second run is a no-op."""
+    fixture = tmp_path / "fixture_archive.db"
+    _build_fixture_archive(fixture)
+    reg_db = tmp_path / "r.db"
+    # First run
+    r1 = _run(
+        [sys.executable, "dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py",
+         "--registry-db", str(reg_db),
+         "--archive-db", str(fixture)],
+    )
+    assert r1.returncode == 0
+    # Second run
+    r2 = _run(
+        [sys.executable, "dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py",
+         "--registry-db", str(reg_db),
+         "--archive-db", str(fixture)],
+    )
+    assert r2.returncode == 0
+    assert "no-op" in r2.stdout.lower()
+    # Registry still has exactly one row for this candidate
+    reg = CandidateRegistry(reg_db)
+    assert reg.count() == 1
+    rec = reg.get("rcm_v1_defensive_composite_01")
+    assert rec.status == CandidateStatus.S1_CANDIDATE
+    assert rec.source_trial_id == "f24aefecc91a"
+
+
+def test_migration_produces_valid_s1_record(tmp_path):
+    """End state after migration matches R3 contract."""
+    fixture = tmp_path / "fixture_archive.db"
+    _build_fixture_archive(fixture)
+    reg_db = tmp_path / "r.db"
+    _run(
+        [sys.executable, "dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py",
+         "--registry-db", str(reg_db),
+         "--archive-db", str(fixture)],
+    )
+    reg = CandidateRegistry(reg_db)
+    rec = reg.get("rcm_v1_defensive_composite_01")
+    assert rec.status == CandidateStatus.S1_CANDIDATE
+    assert rec.source_trial_id == "f24aefecc91a"
+    assert rec.source_lineage_tag == "post-2026-04-24-rcm-v1-lag1"
+    assert rec.promoted_at is not None
+    # Paths on disk
+    frozen = Path(rec.frozen_spec_path)
+    memo = Path(rec.decision_memo_path)
+    assert frozen.exists(), f"frozen_spec missing at {frozen}"
+    assert memo.exists(), f"decision_memo missing at {memo}"
+
+
+# ── Migration hermetic — injection contract (E-post-5A) ─────────────────────
 
 
 def test_migration_dry_run_accepts_injected_archive(tmp_path):
@@ -352,3 +371,31 @@ def test_frozen_yaml_parses_and_has_required_fields():
     # Source points back to rcm_archive
     assert d["source"]["trial_id"] == "f24aefecc91a"
     assert d["source"]["lineage_tag"] == "post-2026-04-24-rcm-v1-lag1"
+
+
+def test_migration_dry_run_rejects_archive_missing_rcm_trials_table(tmp_path):
+    """Archive file exists but has no rcm_trials table — rc=1 with
+    a message that preserves the sqlite error detail (auditor P0-2:
+    don't collapse to a vague 'rcm_archive query failed')."""
+    import sqlite3 as _sq
+    fixture = tmp_path / "schema_missing.db"
+    # Create an empty sqlite db (file exists, no tables)
+    conn = _sq.connect(str(fixture))
+    conn.execute("CREATE TABLE some_unrelated_table (x INTEGER)")
+    conn.commit()
+    conn.close()
+    result = _run(
+        [sys.executable,
+         "dev/scripts/migrations/migrate_rcm_v1_memo_to_registry.py",
+         "--dry-run", "--archive-db", str(fixture)],
+        check=False,
+    )
+    assert result.returncode == 1
+    combined = (result.stdout + result.stderr).lower()
+    # Must mention either the archive db OR the table name — not a
+    # bare 'query failed' with no context
+    assert "rcm_trials" in combined or "no such table" in combined or \
+        "rcm_archive" in combined, (
+        f"Error message too vague to diagnose missing-table case. "
+        f"Output: {result.stdout + result.stderr}"
+    )
