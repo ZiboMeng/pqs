@@ -8,12 +8,12 @@
 # Reference PRD: docs/20260424-prd_codebase_audit_3round.md (created below
 # by this script if missing).
 #
-# Lineage tag: audit-2026-04-24 (all 3 rounds share this tag)
+# Lineage tag: audit-2026-04-24-v2 (all 3 rounds share this tag)
 # Max iterations: 3 (hard ceiling — one audit focus per round)
 # Completion promise: AUDIT3DONE
 #
 # USAGE:
-#   bash scripts/start_codebase_audit_loop.sh
+#   bash dev/scripts/loop/start_codebase_audit_loop.sh
 #
 # WARNING: keep the prompt SINGLE-LINE with ASCII-only characters per
 # prior lesson (Chinese punctuation + multi-line prompts break argparse).
@@ -42,7 +42,7 @@ production_strategy edits unless the audit finds a concrete bug there.
 ## 2. Scope
 
 ### In scope (all 3 rounds share)
-- All files under `core/`, `scripts/`, `tests/`
+- All files under `core/`, `scripts/`, `dev/scripts/`, `tests/`
 - `README.md` + top-level `CLAUDE.md` accuracy
 - `data/baseline/latest.json` regeneration
 - Unit + integration test suite runs
@@ -60,10 +60,11 @@ production_strategy edits unless the audit finds a concrete bug there.
 ## 3. Round structure (per-round 11-part Chinese log)
 
 Each round targets ONE focused surface. Report per PRD convention in
-`docs/20260420-ralph_loop_log.md` under section `R-audit-round-NN`.
+`docs/20260420-ralph_loop_log.md` under section `R-audit-v2-round-NN`.
 
 ### Round 1: Core library audit
-Focus: `core/factors/`, `core/mining/`, `core/signals/`, `core/backtest/`.
+Focus: `core/factors/`, `core/mining/`, `core/signals/`, `core/backtest/`,
+`core/research/` (Phase E governance layer).
 - Run every public-API module at least once (import + a call)
 - Unit test suite: full run, any failure is a bug
 - Check for: dead imports, unreachable branches, wrong type hints,
@@ -72,18 +73,29 @@ Focus: `core/factors/`, `core/mining/`, `core/signals/`, `core/backtest/`.
   - `python scripts/run_factor_screen.py --help`
   - `python scripts/run_research_miner.py --help`
   - `python scripts/run_xgb_importance.py --help`
+  - `python -c "from core.research.candidate_registry import CandidateRegistry; print('registry OK')"`
+  - `python -c "from core.research.frozen_spec import FrozenStrategySpec; print('frozen_spec OK')"`
+  - `python -c "from core.research.drift_metrics import DriftThresholds; print('drift_metrics OK')"`
+  - `python -c "import core.research.paper_artifacts, core.research.acceptance_helpers; print('paper_artifacts + acceptance_helpers OK')"`
 - Fix bugs found; update inline docstrings if wrong
 - Output: bug list + fixes + test-count delta
 
 ### Round 2: Scripts + I/O audit
-Focus: all `scripts/*.py` + `core/data/` + `core/paper_trading/` +
-`core/reporting/`.
-- Each script gets a `--help` smoke test to catch arg-parse regressions
+Focus: all `scripts/*.py` (quant ops) + `dev/scripts/**/*.py` (dev tooling)
++ `core/data/` + `core/paper_trading/` + `core/reporting/`.
+- Each script gets a `--help` smoke test to catch arg-parse regressions.
+  Cover BOTH quant ops (`scripts/`) AND dev tooling (`dev/scripts/`) —
+  the X-1 migration moved 7 Python files to 3-deep nested locations, so
+  `Path(__file__).parent.parent` depth regressions are a real risk
 - Data store: read a known symbol, verify expected shape
 - Backtest entry: run `run_backtest.py` on a tiny window
 - Paper trading: instantiate `PaperTradingEngine`, dry-init
+- Paper runner: `python scripts/run_paper_candidate.py --help` +
+  `python scripts/paper_drift_report.py --help` +
+  `python scripts/paper_enter.py --help` (Phase E-2 paper layer)
 - Reporting: generate 1 master report artifact
-- Fix: broken paths, wrong default arg values, bit-rotted CLI flags
+- Fix: broken paths (especially ROOT path depth after X-1 migration),
+  wrong default arg values, bit-rotted CLI flags
 - Output: script inventory with status {OK / bug-fixed / dead}
 
 ### Round 3: Tests + docs sync + baseline rebuild
@@ -93,6 +105,7 @@ Focus: `tests/integration/`, README.md, baseline snapshot.
   feature count; FIX any claim that no longer matches code
 - `data/baseline/latest.json`: regenerate via
   `python dev/scripts/baseline/build_research_baseline_snapshot.py`
+  (moved to `dev/` in X-1 migration)
 - CLAUDE.md: check "Current TODO Checklist" + "Confirmed Done" table
   for drift; fix stale rows
 - Output: README diff summary + baseline snapshot commit + CLAUDE.md
@@ -129,7 +142,7 @@ Focus: `tests/integration/`, README.md, baseline snapshot.
 
 ## 5. Per-round output format (11-part Chinese, per existing convention)
 
-Append each round's report as `## R-audit-round-NN` to
+Append each round's report as `## R-audit-v2-round-NN` to
 `docs/20260420-ralph_loop_log.md` with:
 1. 本轮主题 (round focus)
 2. 本轮目标 (objectives)
@@ -161,7 +174,7 @@ fi
 # Single-line ASCII-only prompt.
 # AUTONOMOUS MODE: autopilot per PRD §4 "Authorized autonomously".
 # Halt conditions per PRD §4 "Halt conditions".
-PROMPT='Execute one round per docs/20260424-prd_codebase_audit_3round.md section 3 round structure. lineage_tag=audit-2026-04-24 for all audit artifacts. Round 1 = core library audit. Round 2 = scripts and IO audit. Round 3 = tests and docs sync and baseline rebuild. AUTONOMOUS MODE: follow section 4 Authorized autonomously rules; pause to surface per section 4 Pause-for-user rules. Halt per section 4 Halt conditions. Do NOT add new features. Do NOT modify PRODUCTION_FACTORS, config/universe.yaml, or config/production_strategy.yaml except to fix a concrete bug. Do NOT auto-promote any spec. Do NOT add new vendor or heavy data layer. Each round RUNS representative code paths not just reads them. Each round produces 11-part Chinese report appended to docs/20260420-ralph_loop_log.md as R-audit-round-NN. Round 3 must also update README.md to reflect current truth and regenerate data/baseline/latest.json via dev/scripts/baseline/build_research_baseline_snapshot.py. Emit AUDIT3DONE only after all 3 rounds complete and test suite passes and README is synced.'
+PROMPT='Execute one round per docs/20260424-prd_codebase_audit_3round.md section 3 round structure. lineage_tag=audit-2026-04-24-v2 for all audit artifacts. Round 1 = core library audit. Round 2 = scripts and IO audit. Round 3 = tests and docs sync and baseline rebuild. AUTONOMOUS MODE: follow section 4 Authorized autonomously rules; pause to surface per section 4 Pause-for-user rules. Halt per section 4 Halt conditions. Do NOT add new features. Do NOT modify PRODUCTION_FACTORS, config/universe.yaml, or config/production_strategy.yaml except to fix a concrete bug. Do NOT auto-promote any spec. Do NOT add new vendor or heavy data layer. Each round RUNS representative code paths not just reads them. Each round produces 11-part Chinese report appended to docs/20260420-ralph_loop_log.md as R-audit-v2-round-NN. Round 3 must also update README.md to reflect current truth and regenerate data/baseline/latest.json via dev/scripts/baseline/build_research_baseline_snapshot.py. Emit AUDIT3DONE only after all 3 rounds complete and test suite passes and README is synced.'
 
 cat <<EOF
 ================================================================================
@@ -169,19 +182,22 @@ cat <<EOF
 ================================================================================
 
 PRD:                 $PRD_PATH
-Lineage tag:         audit-2026-04-24
+Lineage tag:         audit-2026-04-24-v2
 Max iterations:      3 (hard ceiling)
 Completion promise:  AUDIT3DONE
 
 ROUND STRUCTURE (one focus per round):
   Round 1 — Core library audit
-            core/factors/ core/mining/ core/signals/ core/backtest/
+            core/factors/ core/mining/ core/signals/ core/backtest/ core/research/
             Run every public-API module at least once; fix bugs; update
-            docstrings.
+            docstrings. (core/research/ = Phase E governance layer)
   Round 2 — Scripts + I/O audit
-            scripts/*.py + core/data/ + core/paper_trading/ + core/reporting/
-            --help smoke test each script; run backtest on tiny window;
-            instantiate paper engine; generate 1 master report.
+            scripts/*.py + dev/scripts/**/*.py + core/data/ +
+            core/paper_trading/ + core/reporting/
+            --help smoke test each script (both quant ops AND dev tooling
+            — X-1 migration created path-depth regression risk); run
+            backtest on tiny window; instantiate paper engine; generate
+            1 master report.
   Round 3 — Tests + docs sync + baseline rebuild
             tests/integration/ full run; README.md accuracy sweep;
             regenerate data/baseline/latest.json; CLAUDE.md drift fixes.
@@ -222,7 +238,7 @@ During the loop (informational):
 --------------------------------------------------------------------------------
 
 - Per-round commit + 11-part Chinese report appended to
-  docs/20260420-ralph_loop_log.md (section header: "R-audit-round-NN")
+  docs/20260420-ralph_loop_log.md (section header: "R-audit-v2-round-NN")
 - Round commit message convention:
        audit R1: core library audit — N bugs fixed
        audit R2: scripts + IO audit — N bugs fixed

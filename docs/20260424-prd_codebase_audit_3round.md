@@ -14,7 +14,7 @@ production_strategy edits unless the audit finds a concrete bug there.
 ## 2. Scope
 
 ### In scope (all 3 rounds share)
-- All files under `core/`, `scripts/`, `tests/`
+- All files under `core/`, `scripts/`, `dev/scripts/`, `tests/`
 - `README.md` + top-level `CLAUDE.md` accuracy
 - `data/baseline/latest.json` regeneration
 - Unit + integration test suite runs
@@ -32,10 +32,11 @@ production_strategy edits unless the audit finds a concrete bug there.
 ## 3. Round structure (per-round 11-part Chinese log)
 
 Each round targets ONE focused surface. Report per PRD convention in
-`docs/20260420-ralph_loop_log.md` under section `R-audit-round-NN`.
+`docs/20260420-ralph_loop_log.md` under section `R-audit-v2-round-NN`.
 
 ### Round 1: Core library audit
-Focus: `core/factors/`, `core/mining/`, `core/signals/`, `core/backtest/`.
+Focus: `core/factors/`, `core/mining/`, `core/signals/`, `core/backtest/`,
+`core/research/` (Phase E governance layer).
 - Run every public-API module at least once (import + a call)
 - Unit test suite: full run, any failure is a bug
 - Check for: dead imports, unreachable branches, wrong type hints,
@@ -44,18 +45,29 @@ Focus: `core/factors/`, `core/mining/`, `core/signals/`, `core/backtest/`.
   - `python scripts/run_factor_screen.py --help`
   - `python scripts/run_research_miner.py --help`
   - `python scripts/run_xgb_importance.py --help`
+  - `python -c "from core.research.candidate_registry import CandidateRegistry; print('registry OK')"`
+  - `python -c "from core.research.frozen_spec import FrozenStrategySpec; print('frozen_spec OK')"`
+  - `python -c "from core.research.drift_metrics import DriftThresholds; print('drift_metrics OK')"`
+  - `python -c "import core.research.paper_artifacts, core.research.acceptance_helpers; print('paper_artifacts + acceptance_helpers OK')"`
 - Fix bugs found; update inline docstrings if wrong
 - Output: bug list + fixes + test-count delta
 
 ### Round 2: Scripts + I/O audit
-Focus: all `scripts/*.py` + `core/data/` + `core/paper_trading/` +
-`core/reporting/`.
-- Each script gets a `--help` smoke test to catch arg-parse regressions
+Focus: all `scripts/*.py` (quant ops) + `dev/scripts/**/*.py` (dev tooling)
++ `core/data/` + `core/paper_trading/` + `core/reporting/`.
+- Each script gets a `--help` smoke test to catch arg-parse regressions.
+  Cover BOTH quant ops (`scripts/`) AND dev tooling (`dev/scripts/`) —
+  the X-1 migration moved 7 Python files to 3-deep nested locations, so
+  `Path(__file__).parent.parent` depth regressions are a real risk
 - Data store: read a known symbol, verify expected shape
 - Backtest entry: run `run_backtest.py` on a tiny window
 - Paper trading: instantiate `PaperTradingEngine`, dry-init
+- Paper runner: `python scripts/run_paper_candidate.py --help` +
+  `python scripts/paper_drift_report.py --help` +
+  `python scripts/paper_enter.py --help` (Phase E-2 paper layer)
 - Reporting: generate 1 master report artifact
-- Fix: broken paths, wrong default arg values, bit-rotted CLI flags
+- Fix: broken paths (especially ROOT path depth after X-1 migration),
+  wrong default arg values, bit-rotted CLI flags
 - Output: script inventory with status {OK / bug-fixed / dead}
 
 ### Round 3: Tests + docs sync + baseline rebuild
@@ -64,7 +76,8 @@ Focus: `tests/integration/`, README.md, baseline snapshot.
 - README.md: scan every script reference, every data path, every
   feature count; FIX any claim that no longer matches code
 - `data/baseline/latest.json`: regenerate via
-  `python scripts/build_research_baseline_snapshot.py`
+  `python dev/scripts/baseline/build_research_baseline_snapshot.py`
+  (moved to `dev/` in X-1 migration)
 - CLAUDE.md: check "Current TODO Checklist" + "Confirmed Done" table
   for drift; fix stale rows
 - Output: README diff summary + baseline snapshot commit + CLAUDE.md
@@ -101,7 +114,7 @@ Focus: `tests/integration/`, README.md, baseline snapshot.
 
 ## 5. Per-round output format (11-part Chinese, per existing convention)
 
-Append each round's report as `## R-audit-round-NN` to
+Append each round's report as `## R-audit-v2-round-NN` to
 `docs/20260420-ralph_loop_log.md` with:
 1. 本轮主题 (round focus)
 2. 本轮目标 (objectives)
