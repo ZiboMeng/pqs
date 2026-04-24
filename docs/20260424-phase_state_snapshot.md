@@ -1,7 +1,7 @@
 # Phase State Snapshot
 
-**Generated**: 2026-04-24T21:13:55+00:00
-**Git HEAD**: `9ace47e`
+**Generated**: 2026-04-24T21:49:21+00:00
+**Git HEAD**: `102be39`
 **Registry DB**: `data/research_candidates/registry.db` (total rows: **2**)
 
 This is a read-only, git-committable snapshot of the research
@@ -33,8 +33,29 @@ python dev/scripts/export/dump_phase_state_snapshot.py \
 | promoted_at | 2026-04-24T15:28:35.242683+00:00 |
 | updated_at | 2026-04-24T15:28:51.363871+00:00 |
 
-**Paper runs** (1):
+**Paper runs** (3):
 
+- `data/paper_runs/candidate_2_orthogonal_01/20260424T214644Z/`
+    - `benchmark_relative_paper.csv`
+    - `drift_nav_20260424T214723Z.csv`
+    - `drift_positions_20260424T214723Z.csv`
+    - `drift_report_20260424T214723Z.md`
+    - `fills.csv`
+    - `live_like_pnl.csv`
+    - `pnl_daily.csv`
+    - `run_meta.json`
+    - `signals_daily.csv`
+    - `target_portfolio_daily.csv`
+    - `turnover_log.csv`
+- `data/paper_runs/candidate_2_orthogonal_01/20260424T212809Z/`
+    - `benchmark_relative_paper.csv`
+    - `fills.csv`
+    - `live_like_pnl.csv`
+    - `pnl_daily.csv`
+    - `run_meta.json`
+    - `signals_daily.csv`
+    - `target_portfolio_daily.csv`
+    - `turnover_log.csv`
 - `data/paper_runs/candidate_2_orthogonal_01/20260424T152840Z/`
     - `benchmark_relative_paper.csv`
     - `drift_nav_20260424T181643Z.csv`
@@ -61,19 +82,43 @@ python dev/scripts/export/dump_phase_state_snapshot.py \
 | promoted_at | 2026-04-23T23:39:14.783406+00:00 |
 | updated_at | 2026-04-24T00:30:37.898964+00:00 |
 
-**Paper runs** (2):
+**Paper runs** (4):
 
+- `data/paper_runs/rcm_v1_defensive_composite_01/20260424T214642Z/`
+    - `benchmark_relative_paper.csv`
+    - `drift_nav_20260424T214720Z.csv`
+    - `drift_positions_20260424T214720Z.csv`
+    - `drift_report_20260424T214720Z.md`
+    - `fills.csv`
+    - `live_like_pnl.csv`
+    - `pnl_daily.csv`
+    - `run_meta.json`
+    - `signals_daily.csv`
+    - `target_portfolio_daily.csv`
+    - `turnover_log.csv`
+- `data/paper_runs/rcm_v1_defensive_composite_01/20260424T212806Z/`
+    - `benchmark_relative_paper.csv`
+    - `fills.csv`
+    - `live_like_pnl.csv`
+    - `pnl_daily.csv`
+    - `run_meta.json`
+    - `signals_daily.csv`
+    - `target_portfolio_daily.csv`
+    - `turnover_log.csv`
 - `data/paper_runs/rcm_v1_defensive_composite_01/20260424T181619Z/`
     - `benchmark_relative_paper.csv`
     - `drift_nav_20260424T181640Z.csv`
     - `drift_nav_20260424T182056Z.csv`
     - `drift_nav_20260424T210529Z.csv`
+    - `drift_nav_20260424T211549Z.csv`
     - `drift_positions_20260424T181640Z.csv`
     - `drift_positions_20260424T182056Z.csv`
     - `drift_positions_20260424T210529Z.csv`
+    - `drift_positions_20260424T211549Z.csv`
     - `drift_report_20260424T181640Z.md`
     - `drift_report_20260424T182056Z.md`
     - `drift_report_20260424T210529Z.md`
+    - `drift_report_20260424T211549Z.md`
     - `fills.csv`
     - `live_like_pnl.csv`
     - `pnl_daily.csv`
