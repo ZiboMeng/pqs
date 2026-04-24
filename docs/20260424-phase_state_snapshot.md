@@ -1,7 +1,7 @@
 # Phase State Snapshot
 
-**Generated**: 2026-04-24T21:03:34+00:00
-**Git HEAD**: `23e0faa`
+**Generated**: 2026-04-24T21:13:55+00:00
+**Git HEAD**: `9ace47e`
 **Registry DB**: `data/research_candidates/registry.db` (total rows: **2**)
 
 This is a read-only, git-committable snapshot of the research
@@ -67,10 +67,13 @@ python dev/scripts/export/dump_phase_state_snapshot.py \
     - `benchmark_relative_paper.csv`
     - `drift_nav_20260424T181640Z.csv`
     - `drift_nav_20260424T182056Z.csv`
+    - `drift_nav_20260424T210529Z.csv`
     - `drift_positions_20260424T181640Z.csv`
     - `drift_positions_20260424T182056Z.csv`
+    - `drift_positions_20260424T210529Z.csv`
     - `drift_report_20260424T181640Z.md`
     - `drift_report_20260424T182056Z.md`
+    - `drift_report_20260424T210529Z.md`
     - `fills.csv`
     - `live_like_pnl.csv`
     - `pnl_daily.csv`
