@@ -12620,3 +12620,139 @@ A  docs/20260424-phase_e_final_synthesis.md     (+295)
 - 条件 7: NO
 
 → 继续 R14（final verification + PHASEEDONE emit）
+
+---
+
+## R-phase-e-round-14
+
+**时间**: 2026-04-24
+**Commit**: (log-only + promise emission)
+**Sub-phase**: Buffer (final of 3)
+**Focus**: PHASEEDONE precondition verification + promise emission
+
+### 1. 本轮主题
+Phase E last round. Verify every PHASEEDONE precondition objectively
++ emit `<promise>PHASEEDONE</promise>`.
+
+### 2. 本轮目标
+- Final full test suite regression (no 11th-hour break)
+- Per-round commit audit (R1-R11 each shipped)
+- Live registry check (RCMv1 still at S2)
+- Artifact inventory (drift report, synthesis, README sync)
+- Emit promise
+
+### 3. 为什么这轮优先做它
+Promise emission 必须建立在 **每条前提 objectively 可核对** 的证据
+上。不要因 "感觉做完了" emit false promise。
+
+### 4. 做了什么
+
+**Full test suite re-run**:
+```
+pytest -q
+1536 passed, 1 skipped, 1 xfailed (143s)
+Same as R12 baseline; no regression in R13/R14 doc-only edits
+```
+
+**Per-round commit audit** (git log grep):
+```
+R1:  08731af  candidate registry + state machine          OK
+R2:  33d5895  pyarrow decouple                            OK
+R3:  14e2493  revoke + RCMv1 migration                    OK
+R4:  d434d5f  FrozenStrategySpec                          OK
+R5:  76742b1  freeze_research_candidate.py                OK
+R6:  c8669c3  research_promote.py                         OK
+R7:  cfebef8  acceptance helpers                          OK
+R8:  8a07d15  run_paper_candidate.py                      OK
+R9:  18ccd68  paper_artifacts + schema doc                OK
+R10: 4e4cd04  paper_drift_report.py + gitignore           OK
+R11: f434412  paper_enter.py + S3 boundary                OK
+```
+All 11 rounds have code commits.
+
+**Registry state** (live check):
+```python
+>>> CandidateRegistry('data/research_candidates/registry.db').get(
+...     'rcm_v1_defensive_composite_01').status
+CandidateStatus.S2_PAPER
+```
+RCMv1 at `S2_paper_candidate`, `updated_at=2026-04-24T00:30:37Z`.
+
+**Artifact inventory**:
+- `data/paper_runs/rcm_v1_defensive_composite_01/*/drift_report_*.md`
+  → 3 drift reports present (from R10 initial + R12 auto-regenerate
+  during R10 reruns)
+- `docs/20260424-phase_e_final_synthesis.md` → 295 lines (R13)
+- `data/baseline/latest.json` → collected=1538, 7 PROD/64 RESEARCH
+  factors (R12 regenerate)
+- README.md grep "Phase E" → 2 refs (§1.4 + §17.12)
+- CLAUDE.md grep "Phase E Research Governance" → 1 ref
+
+**Production config integrity**:
+git log --grep="phase-e" → show --name-only across all 26 Phase E
+commits. `config/production_strategy.yaml` / `config/universe.yaml`
+/ `scripts/promote_strategy.py` do NOT appear in any Phase E commit's
+changed-files list. Hard invariant confirmed.
+
+### 5. 修改了哪些文件
+无（log-only + promise）. R14 纯 verification。
+
+### 6. 跑了哪些测试/实验
+- Full pytest suite: 1536 passed / 1 skipped / 1 xfailed / 143s
+- Registry query: RCMv1 at S2
+- Git log audit: R1-R11 each have code commit
+- Grep verification: production config files untouched across
+  Phase E commits
+
+### 7. 结果如何
+
+**PHASEEDONE 9 前提全部满足**:
+
+| Precondition | Status | Evidence |
+|---|---|---|
+| Rounds 1-11 delivered | ✅ | 11 code commits listed above |
+| Full test suite passes | ✅ | 1536 pass @ 143s |
+| RCMv1 candidate S0→S1→S2 via new tooling | ✅ | R11 paper_enter.py executed; registry at S2 |
+| paper_drift_report.py produced valid report | ✅ | 3 drift_report_*.md files on disk from R10 |
+| README.md updated | ✅ | §1.4 + §17.12 reflect Phase E |
+| CLAUDE.md updated | ✅ | TODO checklist Phase E block |
+| data/baseline/latest.json regenerated | ✅ | R12 regenerate, 1538 collected |
+| Final synthesis doc exists | ✅ | R13 docs/20260424-phase_e_final_synthesis.md |
+| No config/production_strategy.yaml write | ✅ | git diff audit clean |
+
+### 8. 当前发现的新问题/新机会
+
+无。Phase E 在此 round 完结。
+
+**后续可能的优化**（留给 future phases）:
+- Phase F (production layer): broker adapter / live feed / kill switch 
+  / monitoring
+- Multi-candidate aggregation in drift reports
+- Batch paper-run mode (cron-lite) — 若从手动 daily 过渡到 scheduled
+- `--paper-root` arg in `run_paper_candidate.py` for cleaner test
+  isolation (test hygiene debt)
+- `acceptance_pack.py` refactor to share `core/research/acceptance_helpers.py`
+  (auditor 说允许 future 合并，不急)
+
+### 9. 剩余风险
+无。Emission 前提 objectively 验证通过。
+
+### 10. 下一轮建议方向
+无 R15。Phase E 完结，Emit `<promise>PHASEEDONE</promise>`。
+
+Future ralph-loop 可选方向：
+- Phase F (production) — 独立 PRD，远期
+- 多 candidate 并行 paper 流程演练
+- RCMv2 (new feature family) — RCMv1 synthesis §10 提出
+- Paper Validation Standard PRD B — user PRD 2 预告的后续
+
+### 11. Halt 条件检查 (§3)
+- 条件 1: **YES (14/14)** — hard ceiling reached; promise ready
+- 条件 2: NO (1536 pass, no regression)
+- 条件 3: NO (all imports clean)
+- 条件 4: NO
+- 条件 5: NO
+- 条件 6: NO
+- 条件 7: YES — 14 rounds used (expected ceiling)
+
+**PHASEEDONE eligibility**: ✅ All 9 preconditions met. Emit now.
