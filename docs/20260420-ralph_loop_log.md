@@ -14032,7 +14032,7 @@ R6 硬约束（PRD §5.5）：
 ## R-epost-cand2-round-06 — Candidate-2 S0→S1→S2 完整链路
 
 **Lineage tag**: `phase-e-post-2026-04-24`
-**Commit**: TBD (本轮提交后回填)
+**Commit**: `cbd5f50`
 **Round scope**: PRD §5-6 — Candidate-2 构造 + 走完整治理路径
 
 ### 1. 本轮主题
