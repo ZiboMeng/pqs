@@ -11912,3 +11912,161 @@ Phase E scope.
 - 条件 7: NO
 
 → 继续 R9（paper artifact schema docs + extension）
+
+---
+
+## R-phase-e-round-09
+
+**时间**: 2026-04-24
+**Commit**: `18ccd68`
+**Sub-phase**: E-2
+**Focus**: paper artifact schema doc + 3 extended artifact writers
+
+### 1. 本轮主题
+PRD §2 E2-R9: 正式化 paper artifact 契约。把 R8 的 5 个 artifact 加上 
+PRD 指定的 3 个扩展 artifact，一起 document 在 schema 文档里让未来 R10 
+drift report / paper_enter 消费方有明确契约。
+
+### 2. 本轮目标
+- New `core/research/paper_artifacts.py` — 3 writer + 2 compute pure functions
+- `live_like_pnl.csv` + `benchmark_relative_paper.csv` + `turnover_log.csv`
+- `scripts/run_paper_candidate.py` 加 wiring 调用 writers
+- `docs/20260424-paper_artifact_schema.md` 正式 schema 文档
+- 3+ tests (实际 10)
+
+### 3. 为什么这轮优先做它
+R8 ship 了 runner 但 artifact 集合不完整。R10 drift report 需要
+`live_like_pnl.csv` 的 ret_cumulative + dd 以及
+`benchmark_relative_paper.csv` 的 excess_vs_SPY_bps。先建 schema + 
+writer, R10 才有 input source。
+
+### 4. 做了什么
+
+**New module `core/research/paper_artifacts.py`** (~180 LOC):
+
+| Function | Output |
+|----------|--------|
+| `write_live_like_pnl(equity, cash, initial_cap, path)` | `live_like_pnl.csv`: date, nav, cash, ret_daily, ret_cumulative, dd |
+| `compute_benchmark_relative(equity, {sym: close}, initial_cap)` | DataFrame with paper_cum_ret, <sym>_cum_ret, excess_vs_<sym>_bps |
+| `write_benchmark_relative_paper(...)` | `benchmark_relative_paper.csv` |
+| `compute_turnover(target_wts)` | DataFrame: turnover, n_positions, total_weight |
+| `write_turnover_log(...)` | `turnover_log.csv` |
+
+**设计决策**:
+1. **Turnover first-row convention**: `|w_0|/2` (entering positions)
+   not 0. 避免第一天完整建仓的 cost 漏掉。
+2. **Silent skip of all-NaN benchmarks**: 如果 panel 里没 SPY/QQQ
+   (比如窄 universe), 该列不写。避免全 NaN 列污染 artifact。
+3. **Pure writers, no side effects beyond write**: mkdir parent OK
+   但不读 config / 不 log 业务语义 / 不计算额外。单元测可完全 mock。
+4. **Schema doc 是契约载体**: `docs/20260424-paper_artifact_schema.md`
+   写明每列 dtype + semantics + 何时可能 missing。R10 drift
+   consumer 必读。
+
+**run_paper_candidate.py wiring**:
+在 R8 写完 5 个 core artifact 之后 append 3 R9 writers:
+```python
+from core.research.paper_artifacts import (
+    write_live_like_pnl, write_benchmark_relative_paper,
+    write_turnover_log,
+)
+write_live_like_pnl(pnl_df.equity_curve, pnl_df.cash_curve, 
+                    initial_capital=100_000.0, out_path=...)
+bench_closes = {sym: frames["close"][sym] for sym in ("SPY","QQQ")
+                if sym in frames["close"].columns}
+if bench_closes:
+    write_benchmark_relative_paper(pnl_df.equity_curve, bench_closes,
+                                   initial_capital=100_000.0, out_path=...)
+write_turnover_log(targets, out_path=...)
+```
+
+### 5. 修改了哪些文件
+```
+A  core/research/paper_artifacts.py                    (+180)
+M  scripts/run_paper_candidate.py                      (+34)
+A  docs/20260424-paper_artifact_schema.md              (+193)
+A  tests/unit/research/test_paper_artifacts.py         (+244)
+```
+
+### 6. 跑了哪些测试/实验
+
+**10 新单测** (all PASS):
+- live_like_pnl schema + non-Series input rejection (2)
+- benchmark_relative computation + file write + all-NaN skip (3)
+- turnover: stable portfolio (zero after row 0) / churning (IR~1.0) /
+  file write / empty weights safe (4)
+- **End-to-end**: `run_paper_candidate.py` writes all 3 R9 artifacts
+  with valid schemas (1)
+
+**Real-data smoke** (RCMv1 Jan 2024, 25 days):
+```
+Output directory:
+  signals_daily.csv          (~18 KB)
+  target_portfolio_daily.csv (~8 KB)
+  pnl_daily.csv              (~1 KB, legacy)
+  fills.csv                  (~3 KB)
+  run_meta.json              (428 B)
+  live_like_pnl.csv          (~2 KB)      ← R9
+  benchmark_relative_paper.csv (~2 KB)    ← R9
+  turnover_log.csv           (~700 B)     ← R9
+8 artifacts total, all schema-compliant per doc.
+```
+
+Sample `benchmark_relative_paper.csv` content (RCMv1 Jan 2024):
+```
+date,paper_cum_ret,SPY_cum_ret,excess_vs_SPY_bps,QQQ_cum_ret,excess_vs_QQQ_bps
+2024-01-04,0.0,-0.0081,81.05,-0.0110,109.52
+2024-01-05,0.0,-0.0113,112.58,-0.0159,158.94
+```
+Makes sense — paper 还没建仓，SPY 下跌 81bps，paper 相对跑赢 81bps。
+
+### 7. 结果如何
+
+**R8+R9 一起 ship 了 paper layer data plane**. 一次 paper run 产
+8 个 artifact，每个都有正式 schema。R10 drift report 有完整 input。
+
+**Doc as contract**: `docs/20260424-paper_artifact_schema.md` 列入
+Writer/Reader contract + versioning policy. 未来改 schema 要：
+1. 更新 doc
+2. bump `run_meta.json::schema_version`
+3. drift report tolerate old+new at least 1 release
+
+### 8. 当前发现的新问题/新机会
+
+**观察 — `benchmark_relative_paper.csv` 首行 NaN**: SPY/QQQ 在 
+`.reindex(equity.index).ffill()` 后，如果首日 bus 日 SPY 数据缺失,
+首行 cum_ret = NaN. R10 drift consumer 需容忍 skip 首 1-2 行。
+Non-blocker; 文档化了.
+
+**机会 — multi-run aggregation**: 同一 candidate 多个 paper runs
+将累积在 `data/paper_runs/<id>/<ts1>/...` / `<ts2>/...`. R10 drift 
+report 可能要 aggregate across runs。目前每 run 独立。Future R12+
+buffer 可 add aggregator。
+
+### 9. 剩余风险
+- 无。R9 纯 additive + 契约 doc + tests。
+
+### 10. 下一轮建议方向
+**R10 E-2 R3**: `scripts/paper_drift_report.py`
+- 读 `live_like_pnl.csv` + `benchmark_relative_paper.csv` + 
+  `turnover_log.csv` from a paper run
+- 与 "same-period backtest replay" 对比 (rebuild the same spec over 
+  the same date range freshly)
+- 输出 `drift_report_<YYYYMMDD>.md` with:
+  - NAV delta bps
+  - Position count delta per day
+  - Worst drift day + attribution
+  - Tolerance: > 50 bps mean drift or > 2% single day → manual review
+    (informational only, NO auto-action per auditor fix)
+- 3+ tests
+
+### 11. Halt 条件检查 (§3)
+- 条件 1: NO (9/14 rounds used)
+- 条件 2: NO (+10, no regression)
+- 条件 3: NO
+- 条件 4: NO
+- 条件 5: NO
+- 条件 6: NO
+- 条件 7: NO
+
+→ 继续 R10（paper drift report）
