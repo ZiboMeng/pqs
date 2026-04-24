@@ -79,9 +79,9 @@ def _build_panel(cfg, store, horizon: int):
             if df_ref is not None:
                 df_ref.drop(df_ref.index[df_ref.index < pd.Timestamp(start)], inplace=True)
 
-    from core.factors.base_masks import research_mask
+    from core.factors.base_masks import research_mask_default
     mask_panel = (
-        research_mask(price_df, vol_df, min_price=5.0, min_usd=20e6, window=20)
+        research_mask_default(price_df, vol_df)
         if vol_df is not None else None
     )
 

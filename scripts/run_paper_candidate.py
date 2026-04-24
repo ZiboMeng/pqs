@@ -61,7 +61,7 @@ import pandas as pd
 from core.config.loader import load_config
 from core.data.factory import PriceStore, create_default_store
 from core.execution.cost_model import CostModel
-from core.factors.base_masks import apply_research_mask, research_mask
+from core.factors.base_masks import apply_research_mask, research_mask_default
 from core.factors.factor_generator import generate_all_factors
 from core.logging_setup import get_logger, setup_logging
 from core.mining.research_miner import zscore_cs
@@ -173,8 +173,7 @@ def _compute_composite_signal(
         raise RuntimeError("Empty feature_set produced no composite")
     # Apply research mask
     if volume is not None:
-        mask = research_mask(close, volume, min_price=5.0,
-                             min_usd=20e6, window=20)
+        mask = research_mask_default(close, volume)
         composite = apply_research_mask(composite, mask)
     return composite
 

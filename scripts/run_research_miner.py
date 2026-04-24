@@ -30,7 +30,7 @@ sys.path.insert(0, str(ROOT))
 
 from core.config.loader import load_config
 from core.data.market_data_store import MarketDataStore
-from core.factors.base_masks import research_mask
+from core.factors.base_masks import research_mask_default
 from core.factors.factor_generator import (
     compute_forward_returns,
     generate_all_factors,
@@ -98,7 +98,7 @@ def _build_factor_panel_map(
 
     # Research mask (PRD §7): shared sample definition
     mask = (
-        research_mask(close, volume, min_price=5.0, min_usd=20e6, window=20)
+        research_mask_default(close, volume)
         if volume is not None else None
     )
 

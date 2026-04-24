@@ -92,9 +92,9 @@ def main():
     # mask (price_floor + tradable_dollar_vol combined). Used below to
     # exclude non-tradable (sample, date) pairs from training rows rather
     # than `.fillna(0)` which silently conflates 4 different states.
-    from core.factors.base_masks import research_mask
+    from core.factors.base_masks import research_mask_default
     mask_panel = (
-        research_mask(price_df, vol_df, min_price=5.0, min_usd=20e6, window=20)
+        research_mask_default(price_df, vol_df)
         if vol_df is not None else None
     )
     if mask_panel is not None:

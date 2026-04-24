@@ -36,7 +36,7 @@ sys.path.insert(0, str(ROOT))
 
 from core.config.loader import load_config
 from core.data.market_data_store import MarketDataStore
-from core.factors.base_masks import apply_research_mask, research_mask
+from core.factors.base_masks import apply_research_mask, research_mask_default
 from core.factors.factor_generator import (
     compute_forward_returns,
     generate_all_factors,
@@ -121,7 +121,7 @@ def _build_panel(cfg, store, horizon: int):
     )
     panel_map = {n: f for n, f in factors.items() if n in RESEARCH_FACTORS}
     mask = (
-        research_mask(close, volume, min_price=5.0, min_usd=20e6, window=20)
+        research_mask_default(close, volume)
         if volume is not None else None
     )
     fwd = compute_forward_returns(close, horizons=[horizon], mode="cc")[horizon]

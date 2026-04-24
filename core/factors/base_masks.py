@@ -16,11 +16,22 @@ Output: `pd.DataFrame` of bool, same shape/index/columns as input
 
 No side effects on generator output. Masks are distinct objects from
 factors; they don't go into `RESEARCH_FACTORS`.
+
+Phase E-post R5 (E-post-2): `research_mask_default()` loads the
+canonical `{min_price, min_usd, window}` triple from
+`config/research_mask.yaml`, replacing 9 call-sites' inline
+`{5.0, 20e6, 20}` literals. The values in the yaml MUST match the
+historical hardcoded defaults for bit-for-bit eligibility stability
+across the `post-2026-04-24-rcm-v1-lag1` lineage.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Optional
+
 import pandas as pd
+import yaml
 
 from core.factors.base_volatility import dollar_volume_ma
 
@@ -101,6 +112,80 @@ def research_mask(
 
 
 # ── PRD 20260424 §7 — Research-mask sample-definition hardening ──────────────
+
+
+_DEFAULT_CONFIG_PATH = Path("config/research_mask.yaml")
+
+# Frozen fallback: if the yaml is missing (CI / fresh clone before git
+# pull), callers still get the bit-identical historical behavior. If the
+# yaml IS present but has a different value, the yaml wins — this keeps
+# the config file authoritative for any intentional future change.
+_HISTORICAL_DEFAULTS = {
+    "min_price": 5.0,
+    "min_usd": 20_000_000.0,
+    "window": 20,
+}
+
+
+def load_research_mask_params(
+    config_path: Optional[Path | str] = None,
+) -> dict:
+    """Load the `{min_price, min_usd, window}` triple from config.
+
+    Parameters
+    ----------
+    config_path : optional path to the research_mask.yaml file.
+                  Defaults to `config/research_mask.yaml` (relative to
+                  cwd). If the file does not exist, returns the frozen
+                  historical defaults — so callers degrade gracefully
+                  on fresh clones / CI.
+
+    Returns
+    -------
+    dict with exactly the keys `{"min_price", "min_usd", "window"}`.
+    """
+    path = Path(config_path) if config_path else _DEFAULT_CONFIG_PATH
+    if not path.exists():
+        return dict(_HISTORICAL_DEFAULTS)
+    with path.open() as f:
+        doc = yaml.safe_load(f) or {}
+    section = doc.get("research_mask", {}) if isinstance(doc, dict) else {}
+    out = {
+        "min_price": float(section.get("min_price",
+                                       _HISTORICAL_DEFAULTS["min_price"])),
+        "min_usd": float(section.get("min_usd",
+                                     _HISTORICAL_DEFAULTS["min_usd"])),
+        "window": int(section.get("window",
+                                  _HISTORICAL_DEFAULTS["window"])),
+    }
+    return out
+
+
+def research_mask_default(
+    price_df: pd.DataFrame,
+    volume_df: pd.DataFrame,
+    config_path: Optional[Path | str] = None,
+) -> pd.DataFrame:
+    """Compute the unified research mask using config-driven params.
+
+    Equivalent to `research_mask(price_df, volume_df, **params)` where
+    `params` comes from `config/research_mask.yaml`. This is the
+    canonical entry point for research / acceptance / paper callers.
+
+    Use this instead of `research_mask(..., min_price=5.0, min_usd=20e6,
+    window=20)` so that a single config change propagates without
+    hunting 9+ scripts.
+
+    Bit-identical to the historical inline call today (PRD §10.2
+    invariant) because yaml values equal the historical defaults.
+    """
+    p = load_research_mask_params(config_path)
+    return research_mask(
+        price_df, volume_df,
+        min_price=p["min_price"],
+        min_usd=p["min_usd"],
+        window=p["window"],
+    )
 
 
 def apply_research_mask(
