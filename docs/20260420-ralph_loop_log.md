@@ -12248,3 +12248,162 @@ single candidate to show "drift trend over time". Out of Phase E scope.
 - 条件 7: NO
 
 → 继续 R11（paper_enter.py S1→S2）
+
+---
+
+## R-phase-e-round-11
+
+**时间**: 2026-04-24
+**Commit**: `f434412`
+**Sub-phase**: E-2 (complete)
+**Focus**: `scripts/paper_enter.py` (S1→S2) + explicit S3 NotImplementedError
+
+### 1. 本轮主题
+PRD §2 E2-R11: E-2 最后一块——S1→S2 transition CLI + S3 boundary 
+enforcement + execute RCMv1 transition via new tooling。
+
+### 2. 本轮目标
+- CLI `scripts/paper_enter.py`
+- Registry S1→S2 transition（gating on paper run + drift report 存在）
+- **Explicit S3 block**：paper_enter 暴露 `_assert_s3_path_is_blocked()`
+  helper 抛 NotImplementedError；registry.transition(S2→S3) 也拒绝
+- 4+ tests (实际 11)
+- **重要**：实际把 RCMv1 candidate S1→S2 transition 跑一次
+
+### 3. 为什么这轮优先做它
+E-2 所有前置都 ready (R8 runner / R9 artifacts / R10 drift)。R11 是
+把它们连起来的 registry state-machine transition。同时完成 PHASEEDONE
+的关键前提 "RCMv1 candidate has completed S0 to S1 to S2 via new 
+tooling"。
+
+### 4. 做了什么
+
+**CLI gate logic**:
+```
+1. registry[id].status == S1_research_candidate
+   - already-S2 → idempotent no-op 0
+   - S0 / S5 / else → exit 1
+2. At least 1 dir under data/paper_runs/<id>/ → has_paper_run
+   - bypass via --skip-paper-run-check (documented exception)
+3. At least 1 drift_report_*.md in latest run dir → has_drift_report
+   - bypass via --skip-drift-report-check
+4. registry.transition(S1 → S2)
+```
+
+**S3 boundary**:
+- R1 registry `_validate_status` 已经在 `transition(to=S3/S4)` 时 raise 
+  `InvalidTransitionError("out of scope for Phase E")`。
+- R11 `paper_enter.py` 里加 `_assert_s3_path_is_blocked()` helper 
+  显式 raise `NotImplementedError` 指向 Phase F。
+  - 测试显式调该 helper 验证 guard 工作
+  - 这是 future 尝试 S2→S3 的第一个被撞到的硬墙
+
+**Real execution — RCMv1 now at S2**:
+```
+$ python scripts/paper_enter.py \
+    --candidate-id rcm_v1_defensive_composite_01
+
+Prev status: S1_research_candidate
+New status : S2_paper_candidate
+updated_at : 2026-04-24T00:30:37.898964+00:00
+Latest paper run: data/paper_runs/.../20260424T002411Z
+```
+
+PHASEEDONE prereq "RCMv1 S0→S1→S2 via new tooling" 现已 **真实达成**：
+- S0 freeze：`freeze_research_candidate.py` (R5)（migration version: R3)
+- S1 promote：`research_promote.py` (R6)（migration version: R3)
+- **S2 enter：`paper_enter.py` (R11, this commit)**
+
+### 5. 修改了哪些文件
+```
+A  scripts/paper_enter.py                       (+175)
+A  tests/unit/research/test_paper_enter.py      (+245)
++ real registry updated:
+   research_candidates[rcm_v1_defensive_composite_01].status
+   = S2_paper_candidate (was S1)
+```
+
+### 6. 跑了哪些测试/实验
+
+**11 新单测** (all PASS):
+- Happy path S1→S2 + idempotent S2 no-op (2)
+- Refuse S0 / revoked-S5 / missing candidate / no paper run / no drift
+  report (5)
+- `--skip-paper-run-check + --skip-drift-report-check` documented
+  escape hatch works (1)
+- **S3 boundary (2)**: registry transition raises
+  InvalidTransitionError + paper_enter module helper raises
+  NotImplementedError
+- **`test_rcmv1_candidate_in_s2_after_r11`**: end-to-end assertion
+  that live registry has RCMv1 at S2 (skip if registry missing;
+  catches silent revocation)
+
+**Live smoke**: `paper_enter.py --candidate-id 
+rcm_v1_defensive_composite_01` → transition success; registry 
+确认 S2_paper_candidate。
+
+### 7. 结果如何
+
+**E-2 complete**. Full Phase E end-to-end pipeline now on disk:
+```
+rcm_archive.rcm_trials[trial_id]
+  ─ freeze_research_candidate.py (R5) ──► S0 registry row + frozen YAML
+  ─ (user authors memo + runs acceptance + edits stubs) ─┐
+  ─ acceptance_research_composite.py (pre-existing refactored R7) ───┐
+  ─ research_promote.py (R6) ───────────────► S1 (decision memo recorded)
+  ─ run_paper_candidate.py (R8) ────────────► 8 paper artifacts
+  ─ paper_drift_report.py (R10) ────────────► drift markdown + CSVs
+  ─ paper_enter.py (R11) ─────────────────► S2 paper candidate
+  ─ (S2 → S3 NotImplementedError: Phase F scope)
+```
+
+RCMv1 is the first candidate to traverse this whole pipeline. Registry
+currently holds it at S2_paper_candidate; `data/paper_runs/
+rcm_v1_defensive_composite_01/20260424T002411Z/` has 8 core artifacts
++ 2 drift artifacts (CSV + markdown).
+
+### 8. 当前发现的新问题/新机会
+
+**观察 — test hygiene**: 几个 R11 tests 在 `data/paper_runs/` 真实
+目录下创建临时 fake run (since script reads `_DEFAULT_PAPER_ROOT`
+fixed path)。用 `try/finally + shutil.rmtree` 清理。Future refactor
+可让 `--paper-root` 成 CLI arg 让 tests 完全隔离到 `tmp_path`，但
+not a blocker。
+
+**机会 — 最终可以 emit `PHASEEDONE`**: 所有 PRD §6 promise 条件现已
+满足（pending R12/R13 的 README sync + final synthesis doc）。R12+ 
+buffer 做这些 housekeeping。
+
+### 9. 剩余风险
+- 无代码风险
+- 若 future schema change 让 registry S3 不再 raise，
+  `test_s3_transition_raises_notimplementederror` 会立刻失败 —— 好事
+
+### 10. 下一轮建议方向
+**R12 buffer**: README + CLAUDE.md sync
+- README: add Phase E section + point at new docs
+- CLAUDE.md TODO: mark E-0/E-1/E-2 all complete
+- Regenerate `data/baseline/latest.json` via
+  `scripts/build_research_baseline_snapshot.py`
+
+**R13 buffer**: final synthesis doc
+- `docs/20260424-phase_e_final_synthesis.md`
+- Summary of all 11 rounds + deliverables + RCMv1 journey through
+  S0→S1→S2
+
+**R14 buffer or early emit**: verify all PHASEEDONE conditions + emit
+`<promise>PHASEEDONE</promise>`
+
+### 11. Halt 条件检查 (§3)
+- 条件 1: NO (11/14 rounds used; **rounds 1-11 complete**)
+- 条件 2: NO (+11, no regression)
+- 条件 3: NO
+- 条件 4: NO
+- 条件 5: NO
+- 条件 6: NO (no production config writes)
+- 条件 7: NO
+
+**Phase E rounds 1-11 all shipped**. Buffer R12-R14 remain for README/
+synthesis/promise emission.
+
+→ 继续 R12（README + CLAUDE.md sync + baseline rebuild）
