@@ -13494,3 +13494,161 @@ R3 = E-post-4：revoke drill on rcm_v1 **clone** only（never real S2）。
   在 tmp_path 内）
 - ✅ 无 broker / data vendor 改动
 
+
+---
+
+## R-epost-cand2-round-03 — E-post-4 revoke drill (clone only)
+
+**Lineage tag**: `phase-e-post-2026-04-24`
+**Commit**: TBD (本轮提交后回填)
+**Round scope**: PRD §4.4 E-post-4 — 在真实 candidate **clone** 上演练 revoke
+
+### 1. 本轮主题
+
+E-post-4: revoke drill on rcm_v1 clone（禁止碰真实 S2 样本）。
+
+### 2. 本轮目标
+
+在隔离的 drill registry 上完整演练 revoke 治理原语，覆盖 3 条代表性
+reason 路径 + 1 条负路径，并留下可审计的 artifact 与 memo。
+
+### 3. 为什么这轮优先做它
+
+PRD §10.1 R3 顺序。原因：
+- 治理原语 coverage 欠完整 —— `revoke_candidate.py` 有单测，但从未
+  在 real-shaped S2 candidate 上做过端到端演练
+- R15 leakage 教训：如果当时没抓到，真要用 revoke 路径
+- 本轮是 PAUSE 点（PRD §12.2 D2）—— 只能 clone，绝不碰真 rcm_v1，
+  所以必须人工 drive 而非自动化扫
+
+### 4. 做了什么
+
+**Step 1 — 安全 snapshot (pre-drill)**:
+- 从 `data/research_candidates/registry.db` (real) READ rcm_v1 记录
+- 验证 `status=S2_paper_candidate`, `revoked_at=None`
+- 目的：drill 结束后做 bit-stable 对比
+
+**Step 2 — 构建隔离 drill registry**:
+- 新建 `data/research_candidates/drill_registry.db`（若已存在先删）
+- 注册 3 个 clone，shape 与 real rcm_v1 parity：
+  - `rcm_v1_clone_drill_superseded`  (S2_paper)
+  - `rcm_v1_clone_drill_reprofail`   (S2_paper)
+  - `rcm_v1_clone_drill_leakage`     (S2_paper)
+- 同 `source_trial_id=f24aefecc91a`, 同 `source_lineage_tag`, 同
+  `frozen_spec_path` / `decision_memo_path`（只引用，不改写）
+
+**Step 3 — 预写 3 份 memo**:
+- `data/research_candidates/drill_artifacts/memo_superseded.md`
+- `data/research_candidates/drill_artifacts/memo_reprofail.md`
+- `data/research_candidates/drill_artifacts/memo_leakage.md`
+
+每份 memo 含：drill type 标签、reason、decision rationale、impact、
+follow-up，格式可复用到未来真实 revoke。
+
+**Step 4 — 通过 CLI 执行 3 条 revoke 路径**:
+全部走 `scripts/revoke_candidate.py`（非直调 API），证明 CLI 层
+也在覆盖内：
+- Path 1: `--reason candidate_superseded` → S5_deprecated ✓
+- Path 2: `--reason reproducibility_failed` → **S0_research_prototype**
+  (retry 分支，CLI stdout 显式打印 Note 块) ✓
+- Path 3: `--reason leakage_found` → S5_deprecated ✓
+
+**Step 5 — 负路径**:
+对已 S5 的 `rcm_v1_clone_drill_superseded` 再次 revoke → `rc=1` +
+logger.error "already revoked"（通过）
+
+**Step 6 — 写 drill memo**:
+`docs/20260424-rcmv1_clone_revoke_drill_memo.md`（10 节中文+英文
+混排 audit 文档，含 PRD §4.4 验收 criteria mapping）
+
+**Step 7 — 后验证**:
+- 真 rcm_v1：status/revoked_at/revoke_reason 全部 **bit-stable**
+- 3 个 drill clone 全部到达预期终态 + memo_path + revoked_at 齐备
+- 真 registry row count 仍为 1
+
+### 5. 修改了哪些文件
+
+```
+data/research_candidates/drill_artifacts/memo_superseded.md   (NEW)
+data/research_candidates/drill_artifacts/memo_reprofail.md    (NEW)
+data/research_candidates/drill_artifacts/memo_leakage.md      (NEW)
+docs/20260424-rcmv1_clone_revoke_drill_memo.md                (NEW)
+docs/20260420-ralph_loop_log.md                               (本报告)
+```
+
+Side effect: `data/research_candidates/drill_registry.db` 生成
+（`.gitignore` 规则 `*.db` 自动忽略，不入 git；audit 证据由 memo
++ drill doc 承载）。
+
+无 core/ 代码变更。无 scripts/revoke_candidate.py 语义变更。
+无 production config 变更。**无 real registry 变更**。
+
+### 6. 跑了哪些测试/实验
+
+1. **CLI 执行 3 条真 revoke 路径**: 均 rc=0，stdout 内容符合预期
+2. **CLI 负路径 (double-revoke)**: rc=1（通过）
+3. **真 rcm_v1 bit-stability 断言**: 通过（status/revoked_at/
+   revoke_reason 全部未变）
+4. **Drill 终态断言**: 3 clone 全部到达预期 status + reason + memo
+5. **`pytest tests/ -q`**: **1540 passed, 1 skipped, 1 xfailed**
+   （= R2 baseline；零 regression）
+
+### 7. 结果如何
+
+- ✅ 3 条 revoke reason 路径端到端覆盖 + CLI 层覆盖
+- ✅ 真 rcm_v1 S2 样本 bit-stable，未被污染
+- ✅ Audit artifact 完整：3 memo + 1 drill doc + ralph-loop log
+- ✅ `reproducibility_failed` 的 retry 分支语义被显式验证（→ S0
+  而非 S5，memo/revoked_at 仍写入）
+- ✅ Negative path (double-revoke) 被验证
+- ✅ Zero regression (1540 === R2 baseline)
+
+### 8. 当前发现的新问题/新机会
+
+**观察 (不阻塞)**:
+- `scripts/revoke_candidate.py` 的 `--force` 标志并不存在 —— PRD
+  §12.2 D2 的"任何 `--force` revoke 真实 rcm_v1 必须 PAUSE"在当前
+  CLI 下其实默认就是 pause（因为脚本对已 S5 会 rc=1；对合法状态
+  转换不需要 force）。此条 PRD 条款是 future-proof 的约束，目前
+  无代码层面变更需求。
+
+**机会 (可选)**:
+- 本轮预写的 3 份 memo 模板可抽成 `docs/revoke_memo_templates/*.md`
+  供未来真实 revoke 复用 —— 但这是 R8 docs 同步阶段的决定，R3 不动
+- Drill registry 可作为 R5/R6 integration test 的 fixture 来源
+
+### 9. 剩余风险
+
+- 零
+- 真 registry 在 pre/post-drill 完全 bit-identical
+- 未涉及 production config / archive.db / rcm_archive.db schema
+- 未触发 PAUSE（全程 clone 路径）
+
+### 10. 下一轮建议方向
+
+R4 = E-post-1：paper path 解耦 `MarketDataStore`（
+`scripts/run_paper.py` + `scripts/run_paper_candidate.py`）。
+预计 1–1.5 天，中等 refactor，是本 PRD 最大的技术债。
+
+R4 验收硬要求（PRD §4.1）：
+- `from core.paper_trading.paper_trading_engine import
+  PaperTradingEngine` 不触发 `pyarrow`
+- paper 关键单测在不初始化 parquet stack 时可运行
+- `run_paper_candidate.py` 不因直接 store 依赖强绑数据后端
+
+### 11. Halt 条件检查 (PRD §12.3)
+
+- 条件 1 (8 rounds done): NO（R3/8 完成，5 轮剩余）
+- 条件 2 (test 回归 > 10): NO（1540 === R2）
+- 条件 3 (core import 断): NO
+- 条件 4 (disk < 10GB): NO（801GB free）
+- 条件 5 (schema migration / 新 PRD 触发): NO
+- 条件 6 (R7 audit >5 真 bug): N/A
+
+**本轮 autonomous scope 检查 (PRD §12.1 + §12.2)**:
+- ✅ 全程 clone 路径，**从未** `--force` revoke 真 rcm_v1
+- ✅ 未修改 `config/production_strategy.yaml` / `PRODUCTION_FACTORS`
+- ✅ 未修改 `scripts/revoke_candidate.py` / `promote_strategy.py` 语义
+- ✅ 未改 archive.db / rcm_archive.db schema
+- ✅ 真 registry 完全只读
+
