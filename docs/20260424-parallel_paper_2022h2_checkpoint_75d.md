@@ -16,6 +16,110 @@ two distinct regimes.
 
 ---
 
+## 0b. Post-M11 refresh (added 2026-04-24, supersedes §0a)
+
+The drift contamination flagged in §0a has been **fully attributed and
+fixed** under the M11 batch
+(`docs/memos/20260424-m11_paper_engine_parity_fix.md`). Post-M11
+paper-vs-replay drift is **literal zero** across all 4 cells × 91-95
+days each. The "drift confounds the ranking" caveat in §0a is no
+longer in force; the cross-regime pair comparison is now internally
+consistent and reproducible.
+
+### 0b.1 Canonical post-M11 baselines (replaces §0 headline numbers)
+
+The numbers in §0 (and downstream §1.x sections) were generated
+pre-M11 with hash-randomized `_generate_orders` iteration order, so
+exact fills and final NAVs are **not reproducible** under the
+post-M11 codebase. The post-M11 baselines are the canonical
+comparison surface for any future TD80+ work.
+
+| Cell | Pre-M11 paper cum ret (legacy §0) | Post-M11 paper cum ret | Pre-M11 excess vs SPY | Post-M11 excess vs SPY | Post-M11 excess vs QQQ |
+|------|----------------------------------:|-----------------------:|----------------------:|-----------------------:|-----------------------:|
+| 2024 up-tape RCMv1  | +16.64% | +9.83%  | +1017 bps | +409 bps  | +465 bps  |
+| 2024 up-tape Cand-2 | +36.30% | +35.27% | +2983 bps | +2953 bps | +3009 bps |
+| 2022 bear  RCMv1    | +18.57% | +23.67% | +2408 bps | +2834 bps | +3430 bps |
+| 2022 bear  Cand-2   | +52.63% | +74.57% | +5814 bps | +7924 bps | +8520 bps |
+
+Drift: was 3.63 / 23.07 / 0.00 / 100.12 bps mean abs (legacy §0);
+**now 0.00 bps in all four cells**.
+
+Trade counts: 95/675/84/685 (legacy §0); now 126/764/149/883 post-M11.
+The post-M11 count is the deterministic baseline.
+
+### 0b.2 Which §0a / §1.x conclusions to retain, revise, or drop
+
+**Retained (still defensible, possibly stronger after refresh):**
+- "Both candidates beat SPY in both regimes" — confirmed; the
+  excess vs SPY in every cell is well outside any reasonable
+  drift-uncertainty (now zero anyway).
+- Orthogonality construction (§1.1) — not affected by drift; turnover
+  ratio + Top-5 weight-day share + signal-correlation 0.385 / 0.225
+  hold.
+- "Position-set diff = 0/75 across all 4 cells" (signal layer is
+  bit-stable) — strengthened: now both signal AND fill paths are
+  bit-stable post-M11.
+- §1.4 "RCMv1 has zero drift cross-regime" — was **always** zero
+  in 2022 (legacy reading; this was actually masked NaN-curtain +
+  hash-randomization noise, post-M11 is genuinely zero).
+- §1.5 "Both candidates' daily excess std nearly doubles in bear" —
+  not drift-sensitive, still holds.
+
+**Revised (rephrase with post-M11 numbers; conclusion direction
+unchanged):**
+- §0 headline table → use the post-M11 numbers in §0b.1 above.
+- §1.2 "Cand-2 dominates excess vs SPY in BOTH regimes" — now
+  defensible under zero-drift; the magnitude in 2022 is **even
+  larger** post-M11 (+7924 vs +5814 bps). The auditor's §0a
+  rejection of this framing was correct given the pre-M11 data;
+  post-M11 the framing recovers.
+- §1.3 "Cand-2's drift signature is structural" — **drop entirely**
+  for the live data; what was observed pre-M11 was 100%
+  PYTHONHASHSEED-induced, not a Cand-2-specific structural property.
+
+**Dropped:**
+- §0a's deferral on "strategic ranking between RCMv1 and Cand-2".
+  The M11 fix removed the contamination that motivated the
+  deferral. Ranking by paper cum ret post-M11 is now a clean
+  comparison; Cand-2 outperforms RCMv1 by ~10 percentage points in
+  2024 and ~50 percentage points in 2022.
+- §0a's "Cand-2 execution-layer investigation" workstream — closed
+  by the M11 batch.
+
+### 0b.3 Caveats that DO survive M11
+
+- **"M11 passed" is a 4-cell-cohort claim, not a permanent system
+  guarantee.** Two engines, two windows, two candidates, 91-95 days
+  each. New candidates / new code paths / longer windows should
+  re-run the parity tests
+  (`tests/unit/paper_trading/test_paper_engine_parity_gap_open.py`,
+  `tests/unit/backtest/test_hash_determinism.py`,
+  `tests/unit/paper_trading/test_run_paper_candidate_immediate_rerun.py`)
+  and reproduce zero drift before any new headline claim is made.
+- **The 2022 BarStore Saturday-row data integrity issue is
+  independent of M11 and unresolved.** The numbers above are
+  internally consistent (paper and replay use the same misdated
+  panel), but cross-references to specific 2022 calendar dates
+  (Mondays mislabeled as Saturdays) carry a label-vs-real-exchange
+  caveat. See M11 memo §5 for details. This is a deferred
+  data-integrity workstream item; it does NOT invalidate any
+  M11-level NAV comparison or pair-orthogonality claim.
+
+### 0b.4 Forward direction (cadence pause + workstream switch)
+
+- TD75 cadence is closed; no TD80 / TD100 unless a new question
+  motivates it.
+- Per-user direction at M11 closeout (2026-04-24): main-line
+  technical-debt focus switches off the M14/M11 stack and onto the
+  **data-integrity workstream** (split-adjustment + date-label
+  integrity, of which the 2022 Saturday-row finding is one
+  observation). When that work lands, re-run the 4 paper cells to
+  verify post-data-fix drift remains zero.
+- Universe extension / new mining / new data tier / Candidate-3 /
+  retroactive RCMv1 spec change: **all still frozen**.
+
+---
+
 ## 0a. Auditor correction (added 2026-04-24, after initial commit)
 
 The "Cand-2 dominates RCMv1 in both regimes" framing in the original
