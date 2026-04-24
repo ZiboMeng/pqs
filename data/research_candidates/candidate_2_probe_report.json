@@ -1,0 +1,79 @@
+{
+  "lineage_tag": "phase-e-post-2026-04-24",
+  "candidate_id": "candidate_2_orthogonal_01",
+  "feature_set": [
+    "ret_5d",
+    "rs_vs_spy_126d",
+    "hl_range"
+  ],
+  "weights": [
+    0.3333333333333333,
+    0.3333333333333333,
+    0.3333333333333333
+  ],
+  "window_start": "2015-01-01",
+  "fwd_horizon_days": 21,
+  "lag_bars": 1,
+  "per_factor": {
+    "ret_5d": {
+      "ic_mean": 0.03347576019523661,
+      "ic_std": 0.31293758273061595,
+      "ic_ir": 0.10697264260504742,
+      "ic_p_value": 1.1631432924718036e-09,
+      "n_ics": 3255,
+      "regime_ic": {
+        "NEUTRAL_LO": -0.0035,
+        "BEAR_LO": 0.0005,
+        "BULL_LO": 0.0056,
+        "BEAR_HI": -0.0096,
+        "BULL_HI": 0.0153,
+        "NEUTRAL_HI": -0.0269
+      },
+      "n_positive_regimes": 3,
+      "n_total_regimes": 6
+    },
+    "rs_vs_spy_126d": {
+      "ic_mean": 0.030218224839945965,
+      "ic_std": 0.2898919190217152,
+      "ic_ir": 0.10423962469122205,
+      "ic_p_value": 2.2035516795333602e-06,
+      "n_ics": 2074,
+      "regime_ic": {
+        "NEUTRAL_LO": 0.0529,
+        "BEAR_LO": 0.0297,
+        "BEAR_HI": -0.0296,
+        "BULL_HI": 0.0708,
+        "NEUTRAL_HI": -0.0373,
+        "BULL_LO": 0.0366
+      },
+      "n_positive_regimes": 4,
+      "n_total_regimes": 6
+    },
+    "hl_range": {
+      "ic_mean": 0.03723878499481571,
+      "ic_std": 0.27311327590964346,
+      "ic_ir": 0.1363492304453168,
+      "ic_p_value": 1.3133685646507712e-14,
+      "n_ics": 3223,
+      "regime_ic": {
+        "NEUTRAL_LO": 0.0237,
+        "BULL_LO": -0.0086,
+        "BEAR_LO": 0.0549,
+        "BEAR_HI": 0.049,
+        "BULL_HI": 0.0324,
+        "NEUTRAL_HI": 0.048
+      },
+      "n_positive_regimes": 5,
+      "n_total_regimes": 6
+    }
+  },
+  "orthogonality": {
+    "composite_corr_stacked": 0.394374904968618,
+    "composite_corr_per_date_mean": 0.40430833023713836,
+    "turnover_cand2": 0.6360294117647058,
+    "turnover_rcm_v1": 0.3549104385423101,
+    "turnover_relative_diff_pct": 79.20842632214736
+  },
+  "decision": "PASS",
+  "blocking_reasons": []
+}

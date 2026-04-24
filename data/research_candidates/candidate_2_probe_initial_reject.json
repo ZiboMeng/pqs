@@ -1,0 +1,84 @@
+{
+  "lineage_tag": "phase-e-post-2026-04-24",
+  "candidate_id": "candidate_2_orthogonal_01",
+  "feature_set": [
+    "residual_mom_spy_20d",
+    "return_per_risk_21d",
+    "trend_tstat_20d"
+  ],
+  "weights": [
+    0.3333333333333333,
+    0.3333333333333333,
+    0.3333333333333333
+  ],
+  "window_start": "2015-01-01",
+  "fwd_horizon_days": 21,
+  "lag_bars": 1,
+  "per_factor": {
+    "residual_mom_spy_20d": {
+      "ic_mean": -0.0017520728151270487,
+      "ic_std": 0.33461337971943106,
+      "ic_ir": -0.00523611105028407,
+      "ic_p_value": 0.7672386366923393,
+      "n_ics": 3196,
+      "regime_ic": {
+        "NEUTRAL_LO": -0.078,
+        "BEAR_LO": -0.0194,
+        "BULL_LO": -0.0346,
+        "BEAR_HI": -0.0445,
+        "BULL_HI": -0.0781,
+        "NEUTRAL_HI": -0.0527
+      },
+      "n_positive_regimes": 0,
+      "n_total_regimes": 6
+    },
+    "return_per_risk_21d": {
+      "ic_mean": -0.029822964285552974,
+      "ic_std": 0.30839879136852116,
+      "ic_ir": -0.09670259780564223,
+      "ic_p_value": 1.0090246993415197e-07,
+      "n_ics": 3047,
+      "regime_ic": {
+        "BEAR_HI": -0.0206,
+        "NEUTRAL_HI": -0.0267,
+        "BULL_HI": 0.0113,
+        "BULL_LO": -0.026,
+        "NEUTRAL_LO": -0.0389,
+        "BEAR_LO": -0.0379
+      },
+      "n_positive_regimes": 1,
+      "n_total_regimes": 6
+    },
+    "trend_tstat_20d": {
+      "ic_mean": -0.033512297455830155,
+      "ic_std": 0.3124352253128739,
+      "ic_ir": -0.1072615849322481,
+      "ic_p_value": 3.478428085036535e-09,
+      "n_ics": 3051,
+      "regime_ic": {
+        "BEAR_HI": -0.0048,
+        "NEUTRAL_HI": -0.0475,
+        "BULL_HI": 0.0268,
+        "BULL_LO": -0.0284,
+        "NEUTRAL_LO": -0.0427,
+        "BEAR_LO": -0.0418
+      },
+      "n_positive_regimes": 1,
+      "n_total_regimes": 6
+    }
+  },
+  "orthogonality": {
+    "composite_corr_stacked": 0.30008205792202486,
+    "composite_corr_per_date_mean": 0.2695216365104825,
+    "turnover_cand2": 0.09731876861966236,
+    "turnover_rcm_v1": 0.3549104385423101,
+    "turnover_relative_diff_pct": 72.57934451875506
+  },
+  "decision": "REJECT",
+  "blocking_reasons": [
+    "residual_mom_spy_20d: IC p-value = 0.7672 (>= 0.05)",
+    "residual_mom_spy_20d: only 0 positive regimes (need >= 3)",
+    "return_per_risk_21d: only 1 positive regimes (need >= 3)",
+    "trend_tstat_20d: only 1 positive regimes (need >= 3)"
+  ]
+}
