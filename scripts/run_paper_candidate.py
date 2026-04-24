@@ -331,11 +331,40 @@ def main() -> int:
                 if len(pnl_df) else float("nan"),
                 len(fills_df))
 
-    # Write artifacts
+    # Write core artifacts
     composite.to_csv(out_dir / "signals_daily.csv")
     targets.to_csv(out_dir / "target_portfolio_daily.csv")
     pnl_df.to_csv(out_dir / "pnl_daily.csv")
     fills_df.to_csv(out_dir / "fills.csv", index=False)
+
+    # R9: extended paper artifacts (live-like + benchmark-relative + turnover)
+    from core.research.paper_artifacts import (
+        write_live_like_pnl,
+        write_benchmark_relative_paper,
+        write_turnover_log,
+    )
+    initial_capital = 100_000.0  # matches BacktestEngine default in _simulate
+    if len(pnl_df):
+        write_live_like_pnl(
+            equity_curve=pnl_df["equity_curve"],
+            cash_curve=pnl_df["cash_curve"],
+            initial_capital=initial_capital,
+            out_path=out_dir / "live_like_pnl.csv",
+        )
+        # Benchmark-relative using SPY + QQQ closes already on panel
+        bench_closes = {
+            sym: frames["close"][sym]
+            for sym in ("SPY", "QQQ")
+            if sym in frames["close"].columns
+        }
+        if bench_closes:
+            write_benchmark_relative_paper(
+                equity_curve=pnl_df["equity_curve"],
+                benchmark_closes=bench_closes,
+                initial_capital=initial_capital,
+                out_path=out_dir / "benchmark_relative_paper.csv",
+            )
+    write_turnover_log(targets, out_dir / "turnover_log.csv")
 
     # Meta JSON (self-documenting for drift report consumers)
     import json
