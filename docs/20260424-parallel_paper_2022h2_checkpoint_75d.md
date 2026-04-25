@@ -104,6 +104,27 @@ unchanged):**
   caveat. See M11 memo §5 for details. This is a deferred
   data-integrity workstream item; it does NOT invalidate any
   M11-level NAV comparison or pair-orthogonality claim.
+- **The four post-M11 paper returns are in-sample replays, NOT
+  out-of-sample evidence.** Both `rcm_v1_defensive_composite_01`
+  and `candidate_2_orthogonal_01` were frozen on 2026-04-24 using
+  spec-selection processes (RCMv1: 4-fold walk-forward IC IR over
+  2007-2026 history; Cand-2: IC probe on ≥ 2015-01) that **had
+  full visibility** into the 2024-Q1 and 2022-H2 windows used
+  here as the canonical paper cells. The +9.83% / +35.27% /
+  +23.67% / +74.57% returns therefore carry selection bias and
+  cannot be read as "expected live performance in the
+  corresponding regime". Any OOS claim about either candidate
+  requires either (a) a forward window strictly after the
+  2026-04-24 frozen date, or (b) a deliberately-held-out
+  historical segment that the spec-selection process did not see.
+  Neither currently exists.
+  - The walk-forward fold-OOS in RCMv1's spec file is
+    factor-IC-layer in-sample-fold OOS, not paper-NAV OOS.
+  - The Cand-2 spec-file full-period IC IR ≈ 0.116 is factor-
+    layer marginal; the paper-NAV +75% / 95d is amplified by
+    top-10 concentration + equal-weight + risk exposure rather
+    than by IC alone, which itself reinforces "do not interpret
+    paper NAV as IC-grade evidence".
 
 ### 0b.4 Forward direction (cadence pause + workstream switch)
 
