@@ -288,12 +288,12 @@ def test_incomplete_day_quarantined_not_filled():
     bars = bars.loc[~drop_mask]
 
     daily, audit = aggregate_1m_to_daily(bars, partial_day_whitelist=set())
-    # 06-04 must be in audit (low_bar_count), NOT in daily
+    # 06-04 (10 bars) is well below the 300 thin_data floor → quarantine
     assert target_day not in daily.index
     assert target_day in audit.index
     row = audit.loc[target_day]
-    assert "low_bar_count" in row["reason"], (
-        f"expected n_bars-threshold reason, got {row['reason']}"
+    assert "low_bar_count<300" in row["reason"], (
+        f"expected low_bar_count<300 (post-two-tier), got {row['reason']}"
     )
     assert int(row["n_bars"]) == 10
     assert bool(row["partial_day_whitelisted"]) is False
@@ -319,6 +319,67 @@ def test_missing_open_bar_quarantined():
     daily, audit = aggregate_1m_to_daily(bars, partial_day_whitelist=set())
     assert pd.Timestamp("2024-08-06") not in daily.index
     assert audit.loc[pd.Timestamp("2024-08-06"), "reason"] == "missing_0930_open"
+
+
+def test_thin_data_accept_tier_300_to_350():
+    """Two-tier threshold (round-3 user pinning, post step-3a audit):
+    n_bars in [300, 350) on a full-session day with both endpoints
+    is accepted into daily_df with thin_data=True. Below 300 → quarantine."""
+    days = ["2024-09-04", "2024-09-05", "2024-09-06", "2024-09-09",
+            "2024-09-10"]
+    bars = _build_synthetic_1m(days)
+    # Drop bars on 2024-09-05 to land at n_bars=320 (between 300 and 350).
+    target_day = pd.Timestamp("2024-09-05")
+    is_target = bars.index.normalize() == target_day
+    rt_min = bars.index.hour * 60 + bars.index.minute
+    # Keep 09:30 + 15:59 + 318 mids (every minute step 1, take first 318)
+    # Range 09:31..15:58 = 388 minutes; take any 318 → 320 RT total.
+    mid_pool = list(range(9*60+31, 15*60+59))[:318]
+    keep_minutes_thin = {9*60+30, 15*60+59, *mid_pool}
+    keep_mask = is_target & pd.Series(rt_min, index=bars.index).isin(keep_minutes_thin).values
+    drop_mask = is_target & ~keep_mask
+    bars_thin = bars.loc[~drop_mask]
+
+    daily, audit = aggregate_1m_to_daily(bars_thin, partial_day_whitelist=set())
+    assert audit.empty, f"unexpected audit: {audit}"
+    assert target_day in daily.index, "thin_data day must be in daily output"
+    assert bool(daily.loc[target_day, "thin_data"]) is True, (
+        f"target should be thin_data=True; got "
+        f"{daily.loc[target_day, 'thin_data']}"
+    )
+    # Other days remain complete (thin_data=False)
+    for d in [pd.Timestamp(x) for x in days if pd.Timestamp(x) != target_day]:
+        if d in daily.index:
+            assert bool(daily.loc[d, "thin_data"]) is False
+
+
+def test_quarantine_below_300_threshold():
+    """Below 300 bars (and with both endpoints) → quarantine."""
+    days = ["2024-09-04", "2024-09-05"]
+    bars = _build_synthetic_1m(days)
+    target_day = pd.Timestamp("2024-09-05")
+    is_target = bars.index.normalize() == target_day
+    rt_min = bars.index.hour * 60 + bars.index.minute
+    # Keep 09:30 + 15:59 + 248 mids = 250 RT bars (< 300 → quarantine)
+    mid_pool = list(range(9*60+31, 15*60+59, 2))[:248]
+    keep_minutes = {9*60+30, 15*60+59, *mid_pool}
+    keep_mask = is_target & pd.Series(rt_min, index=bars.index).isin(keep_minutes).values
+    drop_mask = is_target & ~keep_mask
+    bars_q = bars.loc[~drop_mask]
+
+    daily, audit = aggregate_1m_to_daily(bars_q, partial_day_whitelist=set())
+    assert target_day not in daily.index, "below 300 must NOT be in daily"
+    assert target_day in audit.index, "below 300 must be in audit"
+    assert "low_bar_count<300" in audit.loc[target_day, "reason"]
+
+
+def test_full_session_above_350_is_NOT_thin_data():
+    """Standard full session: thin_data=False."""
+    days = ["2024-09-04", "2024-09-05"]
+    bars = _build_synthetic_1m(days)  # 390 bars per day
+    daily, _ = aggregate_1m_to_daily(bars, partial_day_whitelist=set())
+    for d in daily.index:
+        assert bool(daily.loc[d, "thin_data"]) is False
 
 
 def test_partial_day_whitelist_accepts_short_session():

@@ -44,11 +44,16 @@ _RT_CLOSE_FULL = pd.Timedelta(hours=15, minutes=59)  # last full-session 1m bar
 _RT_CLOSE_HALF = pd.Timedelta(hours=12, minutes=59)  # last half-session 1m bar
                                                       # (NYSE half-day closes 13:00 ET)
 
-# Default minimum bar count for "complete" full session.
-# Full session: 09:30 -> 15:59 inclusive = 390 minutes.
-# Threshold 350 ≈ 90% of full session — partial day below this gets
-# quarantined rather than accepted.
-_DEFAULT_N_MIN = 350
+# Two-tier bar-count thresholds for full sessions (09:30..15:59 = 390 min):
+#   n_bars >= _DEFAULT_N_MIN_COMPLETE (350, ~90%): "complete"
+#   _DEFAULT_N_MIN_THIN <= n_bars < _DEFAULT_N_MIN_COMPLETE: "thin_data" —
+#       still written, flagged as thin_data=True in the sidecar
+#   n_bars < _DEFAULT_N_MIN_THIN (300, ~77%): quarantined
+# Half-session days (NYSE half-day whitelist) bypass the n_bars
+# threshold entirely; they expect ~210 bars and are accepted on
+# the strength of the whitelist.
+_DEFAULT_N_MIN_COMPLETE = 350
+_DEFAULT_N_MIN_THIN = 300
 
 
 def _half_session_days_from_calendar(
@@ -94,7 +99,8 @@ def _half_session_days_from_calendar(
 def aggregate_1m_to_daily(
     bars_1m: pd.DataFrame,
     *,
-    n_min_threshold: int = _DEFAULT_N_MIN,
+    n_min_threshold: int = _DEFAULT_N_MIN_COMPLETE,
+    n_min_thin_threshold: int = _DEFAULT_N_MIN_THIN,
     partial_day_whitelist: Optional[Iterable[pd.Timestamp]] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
@@ -107,8 +113,15 @@ def aggregate_1m_to_daily(
         open, high, low, close, volume.
     n_min_threshold : int, default 350
         Minimum regular-session 1m bar count for a full-session day
-        to be considered "complete". Days below this and not on the
-        partial-day whitelist are QUARANTINED (NOT silently filled).
+        to be flagged as "complete" (`thin_data=False`).
+    n_min_thin_threshold : int, default 300
+        Lower bound for "thin_data accepted" rows. Days with
+        `n_min_thin_threshold <= n_bars < n_min_threshold` AND both
+        endpoint bars present are accepted into daily_df with
+        `thin_data=True` flagged in a sidecar column. Days with
+        `n_bars < n_min_thin_threshold` (or missing 09:30 / 15:59
+        anchor) are QUARANTINED into audit_df. NO silent fallback
+        to a different source.
     partial_day_whitelist : iterable of Timestamp, optional
         Set of dates known to be NYSE half-sessions. If None, the
         whitelist is derived dynamically from `pandas_market_calendars`
@@ -118,7 +131,10 @@ def aggregate_1m_to_daily(
     -------
     daily_df : pd.DataFrame
         Index = real ET trading day (no Sat/Sun, no offset).
-        Columns: open, high, low, close, volume, partial_day.
+        Columns: open, high, low, close, volume, partial_day, thin_data.
+        - partial_day=True only on NYSE half-session days.
+        - thin_data=True only on full-session days with bar count
+          between [n_min_thin_threshold, n_min_threshold).
     audit_df : pd.DataFrame
         Quarantined incomplete days. Columns: reason, n_bars,
         first_bar_ts, last_bar_ts. Empty if no incomplete days.
@@ -214,18 +230,24 @@ def aggregate_1m_to_daily(
                 "partial_day_whitelisted": is_partial_known,
             })
             continue
-        if not is_partial_known and n_bars < n_min_required:
-            # Full-session day with too few bars + NOT on whitelist
-            # → QUARANTINE; do NOT silent-fallback.
-            rows_audit.append({
-                "date": pd.Timestamp(day),
-                "reason": f"low_bar_count<{n_min_required}",
-                "n_bars": n_bars,
-                "first_bar_ts": rt_bars.index.min(),
-                "last_bar_ts": rt_bars.index.max(),
-                "partial_day_whitelisted": False,
-            })
-            continue
+        # Full-session two-tier classification (half-days bypass).
+        # n_bars >= n_min_threshold       → complete (thin_data=False)
+        # n_min_thin <= n_bars < n_min   → thin_data accepted (thin_data=True)
+        # n_bars < n_min_thin             → quarantine
+        if not is_partial_known:
+            if n_bars < n_min_thin_threshold:
+                rows_audit.append({
+                    "date": pd.Timestamp(day),
+                    "reason": f"low_bar_count<{n_min_thin_threshold}",
+                    "n_bars": n_bars,
+                    "first_bar_ts": rt_bars.index.min(),
+                    "last_bar_ts": rt_bars.index.max(),
+                    "partial_day_whitelisted": False,
+                })
+                continue
+            thin_data_flag = n_bars < n_min_threshold
+        else:
+            thin_data_flag = False  # half-day, by-whitelist accepted
 
         rows_daily.append({
             "date": pd.Timestamp(day),
@@ -235,6 +257,7 @@ def aggregate_1m_to_daily(
             "close": float(close_bar["close"].iloc[0]),
             "volume": float(rt_bars["volume"].sum()),
             "partial_day": is_partial_known,
+            "thin_data": thin_data_flag,
         })
 
     if not rows_daily:
@@ -254,7 +277,8 @@ def aggregate_1m_to_daily(
 
 def _empty_daily() -> pd.DataFrame:
     return pd.DataFrame(
-        columns=["open", "high", "low", "close", "volume", "partial_day"],
+        columns=["open", "high", "low", "close", "volume", "partial_day",
+                 "thin_data"],
         index=pd.DatetimeIndex([], name="date"),
     )
 
