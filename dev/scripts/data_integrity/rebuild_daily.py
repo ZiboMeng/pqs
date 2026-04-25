@@ -64,12 +64,34 @@ QUAR_PCT_FLAG = 10.0      # symbols with quarantine_pct > 10% get watch flag
 
 
 def _load_universe() -> list[str]:
+    """Union of every executable-symbol field in config/universe.yaml.
+
+    The yaml splits the executable universe across `seed_pool`,
+    `sector_etfs`, `factor_etfs`, and `cross_asset` (see header comment
+    in universe.yaml). Daily-store rebuild MUST cover the union — if
+    any field is missed, downstream panel-union (e.g. in the QQQ
+    outperformance test fixture) reads the un-rebuilt symbols' old
+    daily files which still carry the +1d offset bug, polluting the
+    union index with Sat/Sun rows.
+
+    Returns the deterministically-ordered union (preserves first-seen
+    ordering across the four fields).
+    """
     cfg = yaml.safe_load(DEFAULT_UNIVERSE_YAML.read_text())
-    return list(cfg.get("seed_pool", []))
+    out: list[str] = []
+    seen: set[str] = set()
+    for field in ("seed_pool", "sector_etfs", "factor_etfs", "cross_asset"):
+        for sym in cfg.get(field, []):
+            if sym not in seen:
+                seen.add(sym)
+                out.append(sym)
+    return out
 
 
 def _load_existing_daily_row_count(symbol: str) -> int:
-    p = DAILY_DIR / f"{symbol}.parquet"
+    # Use the same safe_symbol convention as MarketDataStore so we
+    # find e.g. data/daily/BRK_B.parquet for symbol "BRK-B".
+    p = DAILY_DIR / f"{_safe_filename(symbol)}.parquet"
     if not p.exists():
         return 0
     try:
@@ -165,9 +187,14 @@ def _empty_audit_df() -> pd.DataFrame:
     )
 
 
+def _safe_filename(symbol: str) -> str:
+    """Match MarketDataStore._parquet_path's symbol-to-filename convention."""
+    return symbol.replace("^", "_").replace("-", "_")
+
+
 def _emit_daily_parquet(symbol: str, daily_df: pd.DataFrame) -> None:
     """Write daily parquet at data/daily/<sym>.parquet (overwrite)."""
-    out_path = DAILY_DIR / f"{symbol}.parquet"
+    out_path = DAILY_DIR / f"{_safe_filename(symbol)}.parquet"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     # Match existing daily schema: ['open','high','low','close','volume','amount']
     # plus the new 'partial_day' and 'thin_data' sidecar flags.
@@ -176,6 +203,26 @@ def _emit_daily_parquet(symbol: str, daily_df: pd.DataFrame) -> None:
     out = daily_df[cols].copy()
     out.index.name = "date"
     out.to_parquet(out_path, index=True)
+
+
+def _quarantine_dropped_parquet(symbol: str, drop_reason: str) -> Optional[Path]:
+    """When a symbol is dropped during rebuild, move any pre-existing
+    daily parquet aside so downstream panel-union does NOT silently
+    pick up the stale (pre-fix) data.
+
+    Returns the new path under data/daily/.quarantined/ if a stale file
+    existed; otherwise None.
+    """
+    stale_path = DAILY_DIR / f"{_safe_filename(symbol)}.parquet"
+    if not stale_path.exists():
+        return None
+    quar_dir = DAILY_DIR / ".quarantined"
+    quar_dir.mkdir(parents=True, exist_ok=True)
+    new_path = quar_dir / f"{_safe_filename(symbol)}.parquet"
+    if new_path.exists():
+        new_path.unlink()
+    stale_path.rename(new_path)
+    return new_path
 
 
 def _build_watch_sidecar(manifest: pd.DataFrame) -> pd.DataFrame:
@@ -266,6 +313,14 @@ def main():
             if args.apply:
                 _emit_daily_parquet(sym, daily_df)
                 m_row["written"] = True
+        else:
+            # Dropped symbol: quarantine any pre-existing stale daily
+            # parquet so the QQQ-test panel-union (and any other
+            # downstream union) doesn't pick up old +1d-offset rows.
+            if args.apply:
+                quar_path = _quarantine_dropped_parquet(sym, m_row["drop_reason"])
+                if quar_path is not None:
+                    m_row["quarantined_stale_parquet"] = str(quar_path.relative_to(ROOT))
 
         manifest_rows.append(m_row)
 
