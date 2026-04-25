@@ -309,16 +309,24 @@ yfinance pull + compare timestamps against the parquet).
 
 ### 2.5 Repair-path options (no decision in this memo)
 
-| Option | Description | Cost | Blast radius |
-|--------|-------------|-----:|-------------:|
-| α. **Read-time relabel.** Add a BarStore read-path step: for any row whose label is Saturday, shift its date to the next valid trading day (NYSE / NASDAQ calendar). Keep on-disk parquet unchanged. | low | small (only `BarStore` reads) |
-| β. **Rebuild on-disk daily from the 1m pipeline.** The 1m bars are stored by minute timestamp, so the date-label issue does not exist there. Re-aggregating 1m → 1d gives a clean daily store. | medium-high | high (every daily-derived artifact recomputes) |
-| γ. **Re-fetch from yfinance with explicit date conversion.** Pull yfinance with explicit `tz_localize('America/New_York')` and write fresh daily parquet. | medium | medium (replaces yfinance-sourced daily; keeps polygon-sourced unchanged) |
-| δ. **Skip-list the Saturday rows at write-time** (the original Task E plan I rejected during M11). Drops real Monday data, kept here only for completeness — **NOT recommended**. | low | low but lossy |
+> ⚠️ Amended by §2.8 round-1.1 update: α validation rejected the
+> simple "Sat = next trading day" hypothesis. The table below now
+> applies per the II-a / II-b split, not as a uniform menu.
 
-α has the cleanest cost / risk profile if the 1:1 Sat→Mon shift
-hypothesis is confirmed and the trading calendar is reliable. β is
-the most thorough but most expensive. γ is yfinance-only.
+| Option | Description | Cost | Blast radius | Applies to |
+|--------|-------------|-----:|-------------:|------------|
+| α. **Read-time relabel** of Saturday rows to the next trading day. Conditional on II-a's "right data, wrong label" sub-hypothesis being confirmed against a vendor-stable oracle. | low | small (only `BarStore` reads) | **II-a only**; cannot fix II-b |
+| β. **Rebuild on-disk daily from the 1m pipeline.** | medium-high | high (every daily-derived artifact recomputes) | II-a; II-b only if 1m pipeline data for polygon-sourced symbols is itself reliable, which is now in doubt |
+| γ. **Re-fetch from yfinance with explicit `tz_localize('America/New_York')`.** | medium | medium (replaces yfinance-sourced daily) | II-a only; abandons polygon-sourced symbols' history or forces them to switch source |
+| δ. **Skip-list Saturday rows at write-time.** Drops real data — **NOT recommended.** | low | low but lossy | n/a |
+| ε. **Source-specific II-b investigation + remediation.** Polygon-gz daily appears structurally unreliable for at least DG 2022-08 (post-α-validation finding). Requires a separate scoping pass to determine whether the 8-year polygon-gz window is salvageable, partially salvageable per-symbol, or must be replaced wholesale (yfinance / 1m re-aggregate). | unknown | unknown — could be very large (9 of 24 universe symbols × 8 years) | II-b only |
+
+α / γ are no longer "the cheapest universal patches" — they're
+candidates for II-a only, with α further conditional on oracle
+validation. β remains the only option that could in principle cover
+both classes, but its applicability to II-b depends on whether the
+underlying 1m polygon data is consistent with the daily polygon
+data (a question that cannot be answered without ε first).
 
 ### 2.6 Repair risks
 
@@ -373,6 +381,114 @@ If sub-issue II is fixed (α / β / γ):
 - All hand-coded date references in PRDs, decision memos, and
   readmes need a sweep against the post-fix calendar; non-trivial.
 
+### 2.8 Round-1.1 update — α simple-relabel rejected; II must split
+
+**Date appended**: 2026-04-25 (same day as round-1; addendum
+reflects α validation results that postdate §2.5's framing.)
+
+α validation was run as the first step under the §3 recommended
+order. 170 samples × 10 symbols × 3 provenance sources × 9 years
+were drawn from BarStore Saturday rows; for each, the predicted
+"next valid trading day" (after `CustomBusinessDay` with
+`USFederalHolidayCalendar`) was pulled fresh from yfinance and
+compared on volume (split-neutral fingerprint) + close (raw +
+adjusted).
+
+**Result: α simple-relabel hypothesis is rejected.**
+
+| Metric | Result |
+|--------|-------:|
+| Volume match (1% tolerance) | **3 / 170** |
+| Volume mismatch | 167 / 170 |
+| Close match (raw, 1% tolerance) | 113 / 170 |
+| Close match (adjusted, 1% tolerance) | 29 / 170 |
+
+Close-raw matches at ~66% but volume mismatches dominate, and the
+two never co-occur cleanly. This is incompatible with "Saturday row
+holds a single calendar day's complete OHLCV under a wrong label".
+
+A drill-down on individual rows surfaced a structural finding that
+forces a sub-issue II split:
+
+#### II-a (yfinance_daily symbols) — Mon → Sat replacement
+
+For mega-cap stocks + ETFs sourced from yfinance_daily (AAPL, MSFT,
+NVDA, TSLA, AMZN, META, GOOGL, SPY, QQQ, SOXL, TQQQ, MTUM, QUAL,
+SLV, XLRE, ED-via-yfinance ones), the panel's Mondays are missing
+and the preceding Saturdays carry data. Per-row OHLCV is consistent
+in shape with a real trading day, but volume drift vs current
+yfinance pulls suggests the data is from an older pull whose volume
+has since been revised (split-volume cascade or vendor revision).
+The Mon → Sat replacement structure is consistent with
+the original §2.4 H-2a (TZ-floor) hypothesis.
+
+α-style read-time relabel **could** in principle work for this
+class IF we accept "BarStore has the right OHLCV but the wrong date
+label" — the relabel just shifts the index and leaves OHLCV alone.
+The 30-65% volume mismatch vs current yfinance is then explained by
+yfinance revising volumes over time, NOT by the BarStore data being
+wrong-day. This is plausible but unverified; needs a vendor-stable
+oracle (e.g. polygon flat files) to confirm.
+
+#### II-b (polygon_gz symbols) — extra Saturday "ghost" rows
+
+For mid-cap stocks sourced from polygon_gz (DG, ED, GILD, GIS,
+LRCX, MU, TJX, TSN, VICI 2018-2023), **every Monday is present in
+BarStore**, AND a Saturday row also exists each week. Saturday
+close, open, high, low, volume are all distinct from the adjacent
+Friday and Monday — independent values, not duplicates. Adjacent-
+day close ratios within these symbols also show ~7% intra-week
+swings during 2022-08 (e.g. DG Mon 8-15 close=235.76 → Tue 8-16
+close=252.92 → Wed 8-17 close=238.19), which is implausible for a
+non-split symbol on calm trading days.
+
+Two distinct problems are entangled here:
+- A "ghost Saturday row" of unknown origin (could be intra-week
+  trade aggregation, after-hours block, vendor-feed artifact, or
+  pure ingest bug)
+- An apparent **polygon_gz daily quality issue** that is unrelated
+  to date labels — closes themselves bounce in ways the underlying
+  symbol's real prices did not (cross-checked vs yfinance for DG
+  2022-08: yfinance shows smooth ~$235 to ~$245 trajectory, no 7%
+  intra-week swings).
+
+α relabel cannot fix II-b: there's no "wrong label" to correct,
+and the Monday data is already there. Whatever II-b actually is,
+it needs source-specific investigation — either polygon_gz daily
+is an unreliable source (in which case the entire 2015-2023 polygon
+segment is suspect, not just the Saturday ghosts), or there's a
+per-symbol ingest mode-switch we haven't identified.
+
+#### Implications for §2.5 / §3 / §5
+
+- §2.5 option α: **NOT a universal fix.** At best a partial fix
+  for II-a only; needs a vendor-stable oracle to verify II-a's
+  "right data, wrong label" assumption first. § 2.5 wording below
+  amended; original options β / γ / δ remain on the table.
+- §3 recommended order: II validation can no longer be "0.5d ship
+  or reject" — it's now "audit II-a vs II-b separately, decide on
+  per-source remedies". §3 wording below amended.
+- §5 question 1: was "pick α / β / γ"; now "decide II-a remediation
+  strategy AND scope II-b as a separate workstream item". §5 wording
+  below amended.
+- New round-1.5 deliverable required before any II fix execution:
+  a separate II-b root-cause memo. polygon_gz is the source for 9
+  of 24 universe symbols across 2015-2023 (an 8-year span), and if
+  the daily aggregation is structurally unreliable there, the
+  decision space for sub-issue I narrows materially (option E
+  "rebuild from 1m" is then inapplicable to those years for those
+  symbols).
+- "24 / 24 universe symbols affected" headline in §2.2 still
+  holds, but now reads as a UNION of two distinct mechanisms, not
+  a single uniform shift.
+
+#### What's NOT changed
+
+- Sub-issue I scope, hypotheses, options, risks, and re-run
+  obligations (§1.x) are unaffected by this addendum.
+- Frozen list (§4) is unchanged.
+- Mining-lineage quarantine decision (§5 q4) is unchanged.
+
 ---
 
 ## 3. Independence and order between sub-issues
@@ -396,20 +512,34 @@ in cause and in repair path. But repair order matters:
   paper NAV moves, mining ranking moves). The date-label hazard is
   primarily an *external-calendar* concern — internal comparisons
   (M11-style parity, drift, replay determinism) are unaffected.
-- **However, II's option α is the cheapest patch by far** (read-
-  time relabel, no parquet writes, no test-fixture churn). If α is
-  validated, II can be closed in a half-day without prejudicing I.
-  That's an opportunistic win-win order.
+- ~~However, II's option α is the cheapest patch by far~~
+  **Superseded by §2.8: α failed validation. There is no longer a
+  single cheap universal patch for II.** II now bifurcates into
+  II-a (yfinance Mon→Sat replacement) and II-b (polygon-gz extra
+  ghost rows + apparent daily-aggregation quality issue), each
+  requiring its own remedy.
 
-Recommended **per-issue priority** for next round:
+Recommended **per-issue priority** for next round
+(amended after §2.8):
 
-1. **First**: II option α validation (read-time relabel feasibility +
-   trading-calendar audit). Half-day. Either ships or rejects α.
-2. **Second**: I hypothesis verification (read-only diffs against
+1. **First**: I hypothesis verification (read-only diffs against
    yfinance + splits.parquet). 1-2 days. Picks among A / B / C / D / E.
-3. **Third**: chosen sub-issue I fix execution. Time depends on the
-   pick (low-medium-high in §1.5).
-4. **Fourth**: re-run obligations from §1.7 + §2.7 batch.
+   Promoted to first because II's quick-α path is gone, AND I's
+   NAV-level hazard is the bigger semantic risk.
+2. **Second**: II-a oracle validation. Confirm or reject "right
+   data, wrong label" by cross-checking BarStore Saturday rows
+   against polygon flat files (vendor-stable, contemporaneous to
+   the original ingest) for 5-10 symbols × 5 years. Half-day to
+   one day. If confirmed, α becomes a viable II-a-only fix.
+3. **Third**: II-b scoping. Separate memo. Determine whether
+   polygon-gz daily 2015-2023 is structurally unreliable for the
+   9 mid-cap universe symbols, and what the path forward looks
+   like (re-aggregate from 1m / switch source / accept reduced
+   coverage). 1 day for the scoping; remediation cost downstream
+   depends on the finding.
+4. **Fourth**: chosen sub-issue I fix execution. Cost per §1.5.
+5. **Fifth**: chosen II-a + II-b fix execution.
+6. **Sixth**: re-run obligations from §1.7 + §2.7 batch.
 
 ---
 
@@ -437,8 +567,13 @@ Plus a new freeze specific to this workstream:
 Listing the decisions that this scoping memo deliberately does not
 take:
 
-1. Pick II's repair path among α / β / γ (α leading by cost-risk;
-   needs trading-calendar feasibility check first).
+1. **Decide II-a remediation strategy** (among α-conditional / β /
+   γ; α is conditional on oracle validation per §2.8, was previously
+   the leading low-cost option but is no longer "the universal cheap
+   fix"). **Separately, scope II-b** as its own source-specific
+   data-quality investigation (option ε in §2.5) — this is now a
+   prerequisite to any II-b remediation, not a remediation choice
+   itself.
 2. Pick I's repair path among A / B / C / D / E.
 3. Decide whether to attempt sub-issue I's full clean-up
    (B or E) or to live with C/D for now and revisit later.
