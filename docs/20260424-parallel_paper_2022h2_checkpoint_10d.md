@@ -1,5 +1,16 @@
 # Parallel Paper (2022-H2 bear) — Checkpoint TD10 (Operational Sanity)
 
+> **Post-step-3b caveat (added 2026-04-25)**: NAVs / drift bps /
+> trade counts / specific dates cited in this memo are **pre-step-3b**.
+> The data-integrity workstream rebuilt `data/daily/<sym>.parquet`
+> from polygon 1m as the single canonical source on 2026-04-25
+> (round-3). Post-rebuild canonical numbers for the four paper cells
+> live in TD75 §0c. Specific dates here are BarStore-label dates;
+> under the rebuilt store every weekday is a real ET trading day
+> with the correct label, and the Saturday pad rows that used to
+> follow each Friday are gone. See
+> `docs/memos/20260425-data_integrity_round3_step3b_complete.md`.
+
 **Date**: 2026-04-24
 **Window**: **2022-08-26 → 2022-12-15** (79 real trading days; 10/20/40/60/75
 TD checkpoints planned)

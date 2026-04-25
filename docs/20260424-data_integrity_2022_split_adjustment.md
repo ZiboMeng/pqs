@@ -1,5 +1,19 @@
 # Pre-2022-Aug Split-Adjustment Data Integrity Issue
 
+> **Status update (2026-04-25): RESOLVED in round-3 step 3b.** This
+> memo's narrative diagnosis (TSLA / GOOGL mixed-adjustment in
+> 2022-Q1 / 2020 windows) was correct as far as it went. The
+> data-integrity workstream subsequently traced the broader root
+> cause (multi-source ingest cascade with no scale / label
+> reconciliation) and rebuilt `data/daily/<sym>.parquet` from
+> polygon 1m as the single canonical source on 2026-04-25. The
+> alternation pattern in TSLA / GOOGL / TJX history is gone in the
+> rebuilt store. The window-selection rationale (use 2022-08-26
+> through 2022-12-15 for the bear cell) remains the canonical
+> choice but for the further reason that in pre-step-3b state
+> those were the contiguous "clean" windows.
+> See `docs/memos/20260425-data_integrity_round3_step3b_complete.md`.
+
 **Date**: 2026-04-24
 **Status**: parked as a separate data-integrity issue; not on the parallel
 paper main line.

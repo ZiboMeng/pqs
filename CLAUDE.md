@@ -514,6 +514,15 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
 - **Phase E-post + Candidate-2** (2026-04-24 ✅) — 8 rounds; 5 E-post
   gaps + Candidate-2 `{ret_5d, rs_vs_spy_126d, hl_range}` equal-weight
   @ S2_paper_candidate; `docs/20260424-phase_e_post_cand2_final_synthesis.md`
+- **Data-integrity round-3** (2026-04-25 ✅) — 6 steps. Single
+  canonical source = polygon 1m → daily, label = real ET trading
+  day, two-tier N_min (350/300), incomplete-day quarantine policy,
+  splits.parquet TJX+GOOGL fixes. `data/daily/*.parquet` rebuilt
+  for 78 syms (BRK-B drop). 4 paper cells re-run drift = 0 bps but
+  NAVs −5 to −71 pp vs pre-step3b (largest: 2022 Cand-2 +74.57% →
+  +3.47% honest). Headline-4 docs refreshed; full caveat sweep done.
+  Standing freeze (universe / mining / Candidate-3 / OOS / spec
+  changes) remains. `docs/memos/20260425-data_integrity_round3_close.md`
 
 **Framework Completion PRD** (`docs/20260421-prd_framework_completion.md`
 v1.2) — shipped M0-M8 + M10 + M13 + M15 + M16 (see archive); open:

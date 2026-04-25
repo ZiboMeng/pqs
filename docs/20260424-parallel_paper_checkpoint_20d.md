@@ -1,5 +1,12 @@
 # Parallel Paper — Checkpoint 20d (Turnover / Concentration / Drift)
 
+> **Post-step-3b caveat (added 2026-04-25)**: NAVs / drift bps /
+> trade counts / specific dates cited in this memo are **pre-step-3b**.
+> Post-rebuild canonical numbers for the four paper cells live in
+> TD75 §0c. Specific dates here are BarStore-label dates;
+> under the rebuilt store every weekday is a real ET trading day.
+> See `docs/memos/20260425-data_integrity_round3_step3b_complete.md`.
+
 **Date**: 2026-04-24
 **Window**: 2024-01-02 → 2024-01-25 (first 20 trading days of the 75d matched
 paper window 2024-01-02 → 2024-04-01)
