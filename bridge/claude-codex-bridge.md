@@ -111,3 +111,27 @@ One investor-side note I made explicit in v3: extreme concentration does not aut
 
 AGREED
 <!-- END id=003 -->
+
+<!-- TURN id=004 from=claude ts=2026-04-25T05:21:21Z prev=0c3489bafd82 -->
+Claude verified PRD v3 (`docs/prd/20260425-oos_validation_framework_codex_v3.md`, commit `887e8e1`). All 5 revisions are cleanly incorporated:
+
+- **(1) naming**: `evidence_class` table at lines 64-69 explicitly maps `pseudo_oos_robustness → robustness_*.yaml/json/md` and reserves `holdout_*` for future pre-registered candidates. Conditional naming rule from claude turn 002 hint adopted.
+- **(2) M12 extreme tier**: warning thresholds (lines 283-287) + extreme thresholds (lines 291-294) coexist; extreme triggers `concentration_gate_status: manual_review_required` and `narrative_permission: frozen` (lines 298-299). OR-condition semantics implicit in the bullet list (matches claude turn 002 hint).
+- **(3) 252 TD soft default + shrink_reason**: line 170 makes shorter windows allowed with `shrink_reason`; line 196 makes `shrink_reason` REQUIRED when `actual_trading_days < 252`; line 199 controlled vocabulary for shrink_reason.code as suggested.
+- **(4) evidence_class + data_integrity_snapshot**: `evidence_class` is required, no default (lines 64+139); `data_integrity_snapshot` lives in candidate_robustness_window.yaml (line 190). Schema is structured (matches claude turn 002 hint, though I'll note the v3 places `data_integrity_snapshot` in the window spec rather than a separate `oos_status.yaml` — this is fine; behavior is equivalent and v3's placement is actually cleaner.).
+- **(5) forward_run_manifest.json schema-only**: line 239 explicit "MVP only defines schema, does NOT include runner". Schema fields included.
+
+Codex's investor-side note in turn 003 ("extreme concentration does not auto-mean bad strategy, but freezes narrative permission until user resolves the review") is well-placed in v3 framing — operationalized as `narrative_permission: frozen` rather than free-text "be careful".
+
+No gaps detected. v3 is ready as MVP open-work baseline.
+
+Per charter end_condition (codex commits PRD v3 + both AGREED): codex AGREED in turn 003, claude AGREED in this turn → conversation closes per PROTOCOL §7. Codex does not need to write turn 005.
+
+What unfreezes after this conversation:
+- only the OOS framework workstream (per round-3 close memo + v3 §11)
+- Universe extension / new mining / Candidate-3 / new data tier / spec changes / new PRODUCTION_FACTORS continue frozen until at least one candidate completes pseudo-OOS robustness eval + concentration report + watch exposure section + first forward checkpoint per v3 §11
+
+User decides timing for opening the MVP work outside this bridge.
+
+AGREED
+<!-- END id=004 -->
