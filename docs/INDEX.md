@@ -59,11 +59,12 @@ in order; each builds on the previous.
 - [20260424-parallel_paper_checkpoint_20d.md](20260424-parallel_paper_checkpoint_20d.md) — TD20
 - [20260424-parallel_paper_checkpoint_10d.md](20260424-parallel_paper_checkpoint_10d.md) — TD10 (initial)
 
-## 4. Decision / drill / proposal / attribution memos — 9
+## 4. Decision / drill / proposal / attribution memos — 10
 
 One-off, candidate-specific or feature-specific decision documents.
 
-- [memos/20260425-data_integrity_scoping.md](memos/20260425-data_integrity_scoping.md) — **NEW** Round-1 scoping for the data-integrity workstream; splits into split-adjustment consistency (3 systemic + 5 episodic affected symbols, 16 clean / 24 universe) + date-label integrity (24/24 universe symbols Monday→Saturday systemic shift, ~50/yr); 4 hypotheses + 5/4 repair options each; 6 decisions deferred to user
+- [memos/20260425-data_integrity_round2_diagnosis.md](memos/20260425-data_integrity_round2_diagnosis.md) — **NEW** Round-2 diagnosis: collapses round-1's "two sub-issues" into ONE root cause (multi-source ingest cascade, A=yfinance auto_adjust=True / label real-date vs B=polygon 1m / label real+1day, never reconciled). 97% of BS daily rows classify into A or B−1d. Repair options reduced to B/E/A+I/D; recommended default B with E preferred IF polygon 1m verified clean
+- [memos/20260425-data_integrity_scoping.md](memos/20260425-data_integrity_scoping.md) — Round-1 scoping for the data-integrity workstream; splits into split-adjustment consistency (3 systemic + 5 episodic affected symbols, 16 clean / 24 universe) + date-label integrity (24/24 universe symbols Monday→Saturday systemic shift, ~50/yr); 4 hypotheses + 5/4 repair options each; 6 decisions deferred to user. **Partially superseded by round-2 diagnosis above (single root cause unification).**
 - [memos/20260424-m11_paper_engine_parity_fix.md](memos/20260424-m11_paper_engine_parity_fix.md) — M11a (set-iteration hash-randomization in BacktestEngine) + M11b (run_day_daily prev/exec/eod-close + signal_date semantics) fixed; post-fix paper-vs-replay drift = 0 bps across all 4 cells; retracts M14 memo §5.1 Saturday-row claim (misdated Monday data, deferred to BarStore workstream)
 - [memos/20260424-m14_nan_equity_fix.md](memos/20260424-m14_nan_equity_fix.md) — M14 root-cause (`price_row.get` NaN-vs-default bug) + fix + pre/post across 4 paper cells (NaN-equity days → 0) + 10-30% unblocked rebalances + residual paper-vs-replay execution-state drift attribution
 - [memos/20260424-cand2_drift_attribution.md](memos/20260424-cand2_drift_attribution.md) — Cand-2 paper-vs-replay drift structurally attributed to M14 NaN, not execution noise; overturns TD60/TD75 narrative; M14 fix promoted to first-priority blocker
