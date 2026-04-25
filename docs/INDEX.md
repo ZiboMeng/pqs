@@ -59,11 +59,12 @@ in order; each builds on the previous.
 - [20260424-parallel_paper_checkpoint_20d.md](20260424-parallel_paper_checkpoint_20d.md) — TD20
 - [20260424-parallel_paper_checkpoint_10d.md](20260424-parallel_paper_checkpoint_10d.md) — TD10 (initial)
 
-## 4. Decision / drill / proposal / attribution memos — 8
+## 4. Decision / drill / proposal / attribution memos — 9
 
 One-off, candidate-specific or feature-specific decision documents.
 
-- [memos/20260424-m11_paper_engine_parity_fix.md](memos/20260424-m11_paper_engine_parity_fix.md) — **NEW** M11a (set-iteration hash-randomization in BacktestEngine) + M11b (run_day_daily prev/exec/eod-close + signal_date semantics) fixed; post-fix paper-vs-replay drift = 0 bps across all 4 cells; retracts M14 memo §5.1 Saturday-row claim (misdated Monday data, deferred to BarStore workstream)
+- [memos/20260425-data_integrity_scoping.md](memos/20260425-data_integrity_scoping.md) — **NEW** Round-1 scoping for the data-integrity workstream; splits into split-adjustment consistency (3 systemic + 5 episodic affected symbols, 16 clean / 24 universe) + date-label integrity (24/24 universe symbols Monday→Saturday systemic shift, ~50/yr); 4 hypotheses + 5/4 repair options each; 6 decisions deferred to user
+- [memos/20260424-m11_paper_engine_parity_fix.md](memos/20260424-m11_paper_engine_parity_fix.md) — M11a (set-iteration hash-randomization in BacktestEngine) + M11b (run_day_daily prev/exec/eod-close + signal_date semantics) fixed; post-fix paper-vs-replay drift = 0 bps across all 4 cells; retracts M14 memo §5.1 Saturday-row claim (misdated Monday data, deferred to BarStore workstream)
 - [memos/20260424-m14_nan_equity_fix.md](memos/20260424-m14_nan_equity_fix.md) — M14 root-cause (`price_row.get` NaN-vs-default bug) + fix + pre/post across 4 paper cells (NaN-equity days → 0) + 10-30% unblocked rebalances + residual paper-vs-replay execution-state drift attribution
 - [memos/20260424-cand2_drift_attribution.md](memos/20260424-cand2_drift_attribution.md) — Cand-2 paper-vs-replay drift structurally attributed to M14 NaN, not execution noise; overturns TD60/TD75 narrative; M14 fix promoted to first-priority blocker
 - [20260424-rcmv1_clone_revoke_drill_memo.md](20260424-rcmv1_clone_revoke_drill_memo.md) — Phase E-post R3 revoke drill on rcm_v1 clones (3 paths exercised)
