@@ -11,10 +11,11 @@ If you want chronological order, sort by filename — the
 
 ---
 
-## 1. PRDs (specs, mandates, governing docs) — 14
+## 1. PRDs (specs, mandates, governing docs) — 15
 
 Prescriptive documents that define what to build / what to constrain.
 
+- [prd/20260425-oos_validation_framework_codex_v3.md](prd/20260425-oos_validation_framework_codex_v3.md) — OOS validation framework v3 final pre-MVP review; robustness naming, manual-review concentration tier, evidence_class, data_integrity_snapshot, forward manifest schema
 - [prd/20260425-oos_validation_framework_codex_v2.md](prd/20260425-oos_validation_framework_codex_v2.md) — Post-data-integrity OOS validation framework v2; Claude/Codex reviewed, artifact-first MVP, current candidates' historical holdout explicitly pseudo-OOS
 - [20260424-prd_phase_e_post_cand2.md](20260424-prd_phase_e_post_cand2.md) — Phase E-post + Candidate-2 cross-regime parallel paper plan
 - [20260424-prd_phase_e_execution.md](20260424-prd_phase_e_execution.md) — Phase E execution PRD (governance + paper layer R1-R14)
