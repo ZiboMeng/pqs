@@ -11,6 +11,43 @@ This memo closes that loop.
 
 ---
 
+## Status update (2026-04-25, post-step-3b)
+
+The data-integrity workstream round-3 step 3b
+(`docs/memos/20260425-data_integrity_round3_step3b_complete.md`)
+rebuilt `data/daily/<sym>.parquet` from polygon 1m as the single
+canonical source. Under the rebuilt store:
+
+- **There are no Sat/Sun-labeled rows** (the +1d offset bug that
+  produced "NaN-equity days at Saturdays" is gone)
+- **NaN-equity day patterns documented in §1 / §3 below no longer
+  exist** under the new store. The "13 / 16 NaN days per cell"
+  enumerations were a vocabulary artifact of the bug.
+- **Specific dates cited below (e.g. "2022-10-17 Monday NaN day",
+  "2022-08-29 missing Mon") are BarStore-label dates from the
+  pre-step-3b era**. Under the rebuilt store every real ET trading
+  day exists with the correct label and the corresponding "Sat
+  pad row" does not exist.
+
+The M14 fix code (`backtest_engine.py` `last_valid_close` fallback)
+is still in place and still load-bearing — under the rebuilt store
+some symbols (BKNG / CMG / SOXL / etc.) have legitimate quarantine
+days where `price_row[sym]` is NaN; the M14 fallback prevents those
+from poisoning portfolio_value. The fix is no longer the *primary*
+defense (the data is now clean enough that NaN closes are rare),
+but it remains a defense-in-depth backstop.
+
+For canonical NAV / drift numbers post-step-3b, see TD75 §0c
+(`docs/20260424-parallel_paper_2022h2_checkpoint_75d.md` §0c) and
+the step 4 memo
+(`docs/memos/20260425-data_integrity_round3_step4_complete.md`).
+
+The §1-§5 narrative below is preserved as the historical
+investigation record. Read it as "what we learned in the M14 round
+that fed into the data-integrity workstream", not "current state."
+
+---
+
 ## 1. Root cause — exact path
 
 **File**: `core/backtest/backtest_engine.py`

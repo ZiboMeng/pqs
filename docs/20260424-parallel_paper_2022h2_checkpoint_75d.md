@@ -16,7 +16,100 @@ two distinct regimes.
 
 ---
 
-## 0b. Post-M11 refresh (added 2026-04-24, supersedes §0a)
+## 0c. Post-step-3b canonical refresh (added 2026-04-25, supersedes §0b)
+
+After the data-integrity workstream round-3 step 3b daily rebuild
+(see `docs/memos/20260425-data_integrity_round3_step3b_complete.md`
++ `docs/memos/20260425-data_integrity_round3_step4_complete.md`),
+the underlying daily store is now:
+- single canonical source = polygon 1m → daily aggregate
+- label = real ET trading day (no Sat/Sun rows; +1d offset bug gone)
+- two-tier N_min: complete (n≥350) / thin_data (300-349) / quarantine (<300)
+- splits.parquet TJX/GOOGL reference fixes applied
+
+**The §0b post-M11 numbers are no longer canonical**; they were
+computed on the pre-step-3b daily store which contained:
+- Saturday-labeled rows holding what should have been the next
+  Monday's data (+1d offset bug, 13-17 rows per cell)
+- mixed-scale price alternation in TSLA / GOOGL / TJX history
+  (split-adjustment toggle artifact, round-2 §1.1)
+
+### 0c.1 Canonical post-step-3b numbers
+
+| Cell | Panel days | NAV final | cum_ret | Trades | Drift mean abs |
+|------|-----------:|----------:|--------:|-------:|---------------:|
+| 2024 up-tape RCMv1  | 76 | 104,444.77 |  +4.44% |  85 | 0.00 bps |
+| 2024 up-tape Cand-2 | 76 | 110,949.80 | +10.95% | 573 | 0.00 bps |
+| 2022 bear  RCMv1    | 78 | 105,514.23 |  +5.51% |  99 | 0.00 bps |
+| 2022 bear  Cand-2   | 78 | 103,473.22 |  +3.47% | 605 | 0.00 bps |
+
+Drift parity holds (M11 batch survives the data refresh). NAV
+magnitudes shifted materially because the +1d offset rows that
+silently inflated pre-step-3b returns are gone. Panel sizes drop
+from 91/95 → 76/78 trading days (Sat pad rows correctly removed).
+Trade counts drop 25-32% across the board.
+
+### 0c.2 Three-stage cell evolution
+
+| Cell | Pre-M11 (legacy §0) | Post-M11 (§0b.1) | Post-step-3b (§0c.1) |
+|------|--------------------:|-----------------:|---------------------:|
+| 2024 RCMv1 cum_ret  | +16.64% | +9.83%  | **+4.44%** |
+| 2024 Cand-2 cum_ret | +36.30% | +35.27% | **+10.95%** |
+| 2022 RCMv1 cum_ret  | +18.57% | +23.67% | **+5.51%** |
+| 2022 Cand-2 cum_ret | +52.63% | +74.57% | **+3.47%** |
+
+**The 2022 Cand-2 +74.57% in §0b.1 was the largest single artifact
+of the data bugs** — only ~5% of it was real return; the rest was
++1d offset rows × mixed-scale price alternation. Post-step-3b
+delivers the honest +3.47%.
+
+### 0c.3 Conclusion shifts vs §0b
+
+The §0b "post-M11 framing" had:
+- "Cand-2 dominates RCMv1 in both regimes by ~10pp / ~50pp" —
+  this was true of the pre-step-3b numbers but those numbers were
+  contaminated by data bugs. Under §0c.1 honest numbers:
+  - 2024: Cand-2 +10.95% vs RCMv1 +4.44%, Cand-2 leads by ~6.5pp
+  - 2022: Cand-2 +3.47% vs RCMv1 +5.51%, **RCMv1 leads by ~2.0pp**
+- The cross-regime "Cand-2 dominates" framing therefore **does not
+  survive the data refresh**. In the 2022 bear regime, Cand-2 is
+  actually marginally behind RCMv1 once data artifacts are removed.
+
+### 0c.4 What still holds
+
+- **M11 paper-vs-replay parity** = 0 bps drift across all 4 cells
+  on the rebuilt store. The hash-determinism + run_day_daily
+  semantic fixes are independent of the data fix and continue to
+  hold.
+- **Pair orthogonality** at the signal-construction level (turnover
+  ratios, top-5 share, composite-correlation in §1.1) — not
+  drift-sensitive, still meaningful.
+- **Both candidates beat SPY in both regimes** — but the SPY /
+  QQQ benchmark numbers in §0b.1 are also pre-step-3b artifacts
+  and need re-derivation. SPY/QQQ benchmark daily are now from
+  rebuilt store; cum-ret over the canonical real-trading-day
+  panel is the apples-to-apples comparator. Computing this
+  requires re-running the benchmark_relative computation; since
+  step 4 captured it via paper artifacts, exact bps numbers are in
+  the run dirs and can be lifted on demand. (Inline bps not
+  refreshed here for memo brevity; future TD80+ should regenerate.)
+
+### 0c.5 What still doesn't apply
+
+- §1.3 "Cand-2's drift signature is structural" — already dropped in
+  §0b.2; remains dropped.
+- §0a's "Cand-2 dominates" was contaminated by drift. The M11 fix
+  removed the drift contamination but left the data-bug contamination.
+  Step 3b removes that. **The framing should not be reinstated.**
+- All §1.x supporting numerical claims that cited specific NAV /
+  excess-bps values from §0 / §0b — those numbers don't apply
+  post-step-3b. The qualitative properties (orthogonality, beat
+  SPY, etc.) survive.
+
+---
+
+## 0b. Post-M11 refresh (added 2026-04-24, supersedes §0a — but
+## now itself superseded by §0c above for canonical numbers)
 
 The drift contamination flagged in §0a has been **fully attributed and
 fixed** under the M11 batch

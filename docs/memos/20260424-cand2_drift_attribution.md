@@ -14,6 +14,42 @@ interaction), and is **not** a Cand-2-specific execution-noise signal.
 
 ---
 
+## Status update (2026-04-25, post-step-3b)
+
+This memo's specific dates and "next-day-after-NaN" lists below are
+**BarStore-label dates from the pre-step-3b daily store**. The
+underlying root cause has now been fully traced and fixed across
+M14 → M11 → round-3 data-integrity workstream:
+
+- **M14 fix (2026-04-24)**: `backtest_engine.py` `last_valid_close`
+  fallback — eliminated NaN-equity rows even when held symbols had
+  NaN close on a given panel date.
+- **M11 fix (2026-04-24)**: hash-determinism + run_day_daily semantics
+  — collapsed paper-vs-replay drift to literal zero on the pre-fix
+  data store.
+- **Round-3 data-integrity workstream (2026-04-25)**: rebuilt
+  `data/daily/<sym>.parquet` from polygon 1m as single canonical
+  source — eliminated +1d label offset, mixed-scale alternation,
+  and Sat/Sun pad rows universe-wide.
+
+Under the rebuilt store:
+- All four canonical paper cells re-run with drift = 0 bps.
+- The "NaN-Monday" days enumerated in §2.2 below (e.g. 2022-10-17,
+  2022-12-12, etc.) are BarStore-label-date references from the
+  pre-step-3b era. Under the rebuilt store, every weekday is a real
+  ET trading day with the correct label, and the Saturday pad rows
+  that used to follow each Friday are gone — so the "NaN day +
+  next day jump" pattern documented below cannot recur.
+
+The substantive conclusion of this memo (drift was M14-driven, not
+Cand-2-execution-driven) was correct and remains historically
+important. The numerical specifics are post-step-3b stale.
+
+For canonical NAV / drift numbers see TD75 §0c
+(`docs/20260424-parallel_paper_2022h2_checkpoint_75d.md` §0c).
+
+---
+
 ## 1. Headline finding
 
 The Cand-2 paper-vs-replay drift in both windows is dominated by a

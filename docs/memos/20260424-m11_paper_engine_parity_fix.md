@@ -221,7 +221,43 @@ No second round needed.
 
 ---
 
-## 5. Caveats — Saturday-row finding (DEFERRED to BarStore workstream)
+## 5. Caveats — Saturday-row finding (RESOLVED 2026-04-25 in round-3 step 3b)
+
+### 5.0 Status update (2026-04-25)
+
+The Saturday-row finding documented below was the entry point into
+the **data-integrity workstream**, which has now completed
+(`docs/memos/20260425-data_integrity_round3_step3b_complete.md`).
+
+The root cause was confirmed (multi-source ingest cascade, A=yfinance
+auto_adjust=True with label real-date vs B=polygon 1m → daily with
+label real_date+1day, never reconciled). The fix (path E in round-2
+diagnosis) re-aggregated the daily store from polygon 1m as the
+single canonical source, with a NYSE-real-trading-date label
+contract and two-tier N_min coverage policy.
+
+**Post-step-3b state**:
+- `data/daily/<sym>.parquet` for all 78 written symbols (BRK-B
+  dropped) has 0 Sat/Sun rows under any read path.
+- The +1d offset is gone universe-wide, not just in the 2022 cells.
+- The 4 paper cells re-ran on the rebuilt store with drift = 0 bps;
+  M11 parity holds.
+
+The narrative below is preserved as historical context but should
+be read as "the problem we surfaced", not "the current state."
+Subsection §5.4 parking lot items are all now closed by step 3b.
+For canonical NAV / drift numbers see TD75 §0c
+(`docs/20260424-parallel_paper_2022h2_checkpoint_75d.md` §0c).
+
+---
+
+### 5.0a Original framing (preserved as historical context)
+
+The remainder of §5 below was written 2026-04-24 when the
+Saturday-row finding was being deferred to a then-future
+BarStore workstream. It is preserved verbatim for historical
+context. Step 3b has since shipped the resolution; treat
+"deferred" wording as "now done".
 
 While preparing the original "Saturday pad-row cleanup" task (E),
 discovered the rows are NOT empty `pd.bdate_range` padding as the
