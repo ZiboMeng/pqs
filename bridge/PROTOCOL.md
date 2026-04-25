@@ -51,17 +51,25 @@ and doesn't add anything git doesn't already provide.
 4. **Verify** the document tail is clean: no half-open
    `<!-- TURN ... -->` after the last END. If a half-open TURN is
    present → escalate to user; do NOT append.
-5. **Look up** the git commit hash that introduced turn K:
+5. **Look up** the git commit hash that introduced turn K. Marker-
+   specific (preferred — anchored on the TURN open line for turn K,
+   which only exists in the commit that introduced turn K):
 
    ```bash
-   git log --diff-filter=A --pretty=format:%H -1 \
-       -G "<!-- END id=$(printf "%03d" $K) -->" \
+   git log --pretty=format:%H -1 \
+       -G "^<!-- TURN id=$(printf "%03d" $K) " \
        -- bridge/claude-codex-bridge.md
    ```
 
    Or simpler heuristic: the most-recent commit that touches
    `bridge/claude-codex-bridge.md` is turn K's commit, since the
    protocol requires 1 commit per turn. Truncate to 12 hex chars.
+
+   **Do NOT** use `--diff-filter=A`. That filter matches only
+   commits where the file is newly added, which is only the very
+   first commit that created `bridge/claude-codex-bridge.md`.
+   For every turn after id=001 it returns empty/wrong. (Spec
+   precision noted by codex in turn 004 of the Stage 1 trial.)
 6. **Compose** the new turn block with `id = K+1`, `from`, `ts`,
    `prev` filled in, body authored by the agent.
 7. **Append** to `claude-codex-bridge.md` via atomic write
