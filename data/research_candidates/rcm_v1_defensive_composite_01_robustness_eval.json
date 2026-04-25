@@ -1,0 +1,20 @@
+{
+  "candidate_id": "rcm_v1_defensive_composite_01",
+  "evidence_class": "pseudo_oos_robustness",
+  "window": {
+    "start_date": "2025-04-16",
+    "end_date": "2026-04-17",
+    "actual_trading_days": 252,
+    "target_trading_days": 252
+  },
+  "metrics": {
+    "cum_ret": 0.6275675573144528,
+    "sharpe": 1.878694656462261,
+    "max_dd": -0.1657464453228845,
+    "vs_spy": 0.2931246063949753,
+    "vs_qqq": 0.18598195668750428,
+    "turnover_daily_mean": 0.08214285714285716,
+    "fill_count": 336,
+    "n_dates": 252
+  }
+}

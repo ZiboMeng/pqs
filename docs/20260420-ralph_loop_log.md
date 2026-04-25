@@ -15389,3 +15389,223 @@ data/daily / splits.parquet / 公共 API rename / test 删除）。
 
 → **R1 acceptance gate PASS，可以进入 R2**。
 
+---
+
+## R-oos-mvp-2026-04-25-round-02 — robustness eval real run for RCMv1 + Cand-2
+
+### 1. 本轮主题
+OOS MVP R2：robustness eval real runner + 对两个 frozen candidate
+（RCMv1 / Cand-2）跑 252 TD before frozen-date 的 pseudo-OOS
+robustness eval，产出全套 artifacts。lineage_tag = `oos-mvp-2026-04-25`。
+
+### 2. 本轮目标
+把 R1 留在 `core/research/robustness/runner.py` 的
+`NotImplementedError` stub 替换成完整的 `evaluate(candidate_id, ...)`
+真实实现：复用 `scripts/run_paper_candidate.py` 的 panel/composite/
+target-weight pipeline + `BacktestEngine.run` 跑回放，计算
+cum_ret / sharpe / max_dd / vs_spy / vs_qqq / turnover / fill_count，
+然后在 `data/research_candidates/` 下产出
+`<id>_robustness_window.yaml` + `<id>_robustness_eval.{json,md}`，
+对 RCMv1 + Cand-2 两个候选都产出完整 artifact 集。
+`evidence_class` 必须显式 set 成 `pseudo_oos_robustness`（NOT
+deployable OOS，per PRD v3 §1.1 + §1.3）。Acceptance gate：pytest
+no regression + 两个 candidate 都有完整 artifact 集 + 252 TD window
+能 carve 出（如 short 必须填 shrink_reason）。
+
+### 3. 为什么这轮优先做它
+R1 把 schema 锁死了；R2 是把 schema 落到真实 backtest 上的第一道
+工程检查。具体说，R2 必须证明：(a) candidate 的 frozen feature_set
++ weights 可以在当前 polygon-1m → daily store 上重放无错；
+(b) 252 TD window 在数据末端真能 carve 出 252（不需要 shrink）；
+(c) 现有的 `_compute_composite_signal` + `_simulate` 可被
+robustness 模块复用，而不是 fork 一份。如果这三点中任一不成立，
+后面 R3 (concentration report)、R4 (watch exposure) 都无从挂载。
+本轮也是测试 PRD §3 R1 的"evidence_class 强制必填"是否真能在 runner
+代码路径里发挥拒绝作用——`evaluate()` 是 R2 唯一的入口，
+runner 内部硬编码 `EvidenceClass.pseudo_oos_robustness` 是把 PRD
+"NOT deployable OOS"约束落到不可绕过的位置。
+
+### 4. 做了什么
+- 重写 `core/research/robustness/runner.py`（R1 stub → 真实实现）：
+  - 入口：`evaluate(candidate_id, *, frozen_date=None,
+    target_trading_days=252, output_dir=DEFAULT_OUTPUT_DIR,
+    registry_db=..., baseline_snapshot_path=...,
+    daily_store_rebuild_commit=None, initial_capital=100k,
+    top_n=10, cfg=None, store=None) -> RobustnessEvalResult`
+  - 解析 frozen-date：默认从 candidate_registry 取 `promoted_at`
+    （RCMv1: 2026-04-23 / Cand-2: 2026-04-24）；可显式覆盖
+  - 内部辅助（全部 module-private）：
+    - `_carve_window(price_index, frozen_date, target)`：取最后 252
+      TD <= frozen-date；不足时返回 `ShrinkReason(data_coverage_short)`
+    - `_load_panel(cfg, store, start, end)`：复用
+      `run_paper_candidate.py::_load_panel` 模式（universe = seed_pool
+      + sector_etfs + factor_etfs + cross_asset 减 blacklist + macro_ref）
+    - `_compute_composite(spec, frames)`：z-score cross-sectional +
+      weight-sum + research_mask
+    - `_composite_to_target_weights(composite, top_n)`：top-N
+      equal-weight
+    - `_compute_metrics(pnl_df, fills_df, target_wts, close)`：cum_ret /
+      sharpe（年化×√252）/ max_dd / vs_spy / vs_qqq / turnover_daily_mean /
+      fill_count / n_dates
+    - `_data_integrity_snapshot(...)`：解析 git HEAD commit + baseline
+      path + UTC 现在时
+    - `_write_artifacts(...)`：YAML + JSON + MD 三件套，路径
+      `data/research_candidates/<id>_robustness_*.yaml/.json/.md`
+    - `_format_eval_md(...)`：人读 markdown 含 caveat 段（明确写 "NOT
+      deployable OOS"）
+  - dataclass `RobustnessEvalResult` 装 `(window, metrics,
+    artifact_paths)` 三元组返回给调用方
+  - HARD CODED `evidence_class = EvidenceClass.pseudo_oos_robustness`：
+    runner 唯一入口；caller 不能要别的 evidence_class
+- 新增 `dev/scripts/oos_mvp/__init__.py` + `run_robustness_eval.py`：
+  CLI（默认两个 candidate）。--candidate-id / --target-trading-days /
+  --top-n / --output-dir 全可覆写
+- 新增 `tests/unit/research/test_robustness_runner.py` 7 个测试：
+  - `_carve_window` 三种情况（exact / shrunk-with-reason / no-data-raise）
+  - `_data_integrity_snapshot` 显式 commit
+  - `_write_artifacts` 产 3 件套
+  - `_format_eval_md` 含 pseudo_oos + "NOT deployable OOS" + "PRD v3"
+  - 真数据 smoke：RCMv1 + 20 TD short window + top_n=3 → 真跑通
+    BacktestEngine + 产 artifact + assert
+    `evidence_class == pseudo_oos_robustness`
+- 改写 `tests/unit/research/test_robustness_schema.py` 中的
+  `test_runner_raises_notimplementederror` → `test_runner_evaluate_signature_callable`：
+  - HARD invariant"do NOT delete tests" 严格遵守：test 数量保持 10，
+    body rewrite 而非 remove（改 assert "raises NotImplementedError"
+    → assert "signature has candidate_id positional + 全 kwargs 默认"）
+  - rewrite 理由内嵌 docstring 说明：R1 stub → R2 real impl，coverage
+    strengthen 而非 weaken
+- 跑 CLI：`python dev/scripts/oos_mvp/run_robustness_eval.py` 对两个
+  candidate 各跑一次，落 6 个 artifact 文件
+
+### 5. 修改了哪些文件
+新增：
+- `core/research/robustness/runner.py`（重写，R1 stub → R2 真实现）
+- `dev/scripts/oos_mvp/__init__.py`
+- `dev/scripts/oos_mvp/run_robustness_eval.py`
+- `tests/unit/research/test_robustness_runner.py`
+- `data/research_candidates/rcm_v1_defensive_composite_01_robustness_window.yaml`
+- `data/research_candidates/rcm_v1_defensive_composite_01_robustness_eval.json`
+- `data/research_candidates/rcm_v1_defensive_composite_01_robustness_eval.md`
+- `data/research_candidates/candidate_2_orthogonal_01_robustness_window.yaml`
+- `data/research_candidates/candidate_2_orthogonal_01_robustness_eval.json`
+- `data/research_candidates/candidate_2_orthogonal_01_robustness_eval.md`
+
+修改：
+- `tests/unit/research/test_robustness_schema.py`：1 个 test rename + body
+  rewrite（保 coverage，无删除）
+
+无任何 frozen candidate spec yaml 修改。
+
+### 6. 跑了哪些测试/实验
+- 子集：`pytest tests/unit/research/test_robustness_schema.py
+  tests/unit/research/test_robustness_runner.py -v` →
+  10+7 = 17 pass，2.14s 含 smoke 真跑
+- 全量：`pytest tests/ -q --tb=no` → 1634 passed / 1 skipped /
+  1 xpassed / 4 warnings / 163.05s
+- CLI 真跑：`python dev/scripts/oos_mvp/run_robustness_eval.py` →
+  RCMv1 + Cand-2 都成功，落 6 个 artifact 文件，summary JSON 输出
+
+### 7. 结果如何
+**pytest tuple**（PRD §2 drift 规则）：
+- 起始：passed=1627, skipped=1, xfailed=0
+- 结束：passed=1634, skipped=1, xfailed=0（1 xpassed 不变 = round-3
+  长期 xpass）
+- drift：+7 passed，正好等于本轮新增的 7 个 R2 测试，
+  全部 explained
+- HARD invariants 全保（已逐项核对）
+
+**RCMv1 robustness eval**：
+- window: 2025-04-16 → 2026-04-17（252 TD / 252 target / shrink_reason=null）
+- cum_ret: +62.76% / sharpe: +1.879 / max_dd: -16.57%
+- vs SPY: +29.31% / vs QQQ: +18.60%
+- turnover (daily mean): 0.0821 / fill_count: 336 / n_dates: 252
+
+**Cand-2 robustness eval**：
+- window: 2025-04-16 → 2026-04-17（252 TD / 252 target / shrink_reason=null）
+- cum_ret: +191.57% / sharpe: +3.740 / max_dd: -11.32%
+- vs SPY: +158.13% / vs QQQ: +147.41%
+- turnover (daily mean): 0.3520 / fill_count: 1872 / n_dates: 252
+
+**Acceptance gate** 全 pass：
+- ✓ 两个 candidate 都有完整 artifact 集（yaml + json + md）
+- ✓ evidence_class 显式 set 成 `pseudo_oos_robustness`
+- ✓ 252 TD window 真 carve 出（实际 252，不需要 shrink_reason）
+- ✓ pytest no regression
+
+**注意**：上述数字 *绝不能* 当作 OOS 证据使用。
+- Cand-2 的 +191.6%/Sharpe 3.74 在 1 年 252 TD 窗口里属于异常强；
+  Cand-2 的 IC probe window per yaml 是 `>= 2015-01-01`，覆盖了
+  这整个 252 TD 窗口 → 这是 *in-sample replay*，不是真 pseudo-OOS。
+- RCMv1 的 +62.8%/Sharpe 1.88 同理：feature_set 用同期数据构造过。
+- PRD v3 §1.3 警告的 "在更可信的数据上重新做一轮更高级的
+  in-sample 叙事" 陷阱，在这两组数字上都成立。R7 closeout memo
+  必须把这两组数字 framed 成 pseudo-OOS robustness done，
+  *绝不* 是"OOS validated" 或 "deployable evidence"。
+
+### 8. 当前发现的新问题/新机会
+- **窗口与构造期重叠**：两个 candidate 的 feature 都是基于
+  >=2015-01 的全历史构造的，252 TD pre-frozen-date 完全在构造期内。
+  这正是 PRD v3 §1.3 警告的 "把 in-sample 当 OOS" 风险。R6 smoke
+  里 deliberately set evidence_class=historical_replay 验证 schema
+  reject 的设计就是为了让这种"窗口和构造期高度重叠"的情况在文档
+  层被显式标注。R3-R7 的所有报告必须保留 pseudo_oos 而不是
+  historical_replay 的命名（per PRD v3 §1.1 + §1.3 这是 by design）。
+- **turnover 差异**：Cand-2 daily turnover 0.35 vs RCMv1 0.08（4×）。
+  Cand-2 frozen yaml 里 `turnover_relative_diff_pct: 79.2` 已经预告
+  这是 by-design 高换手；本轮 robustness 只是 reproduce 这个事实。
+  R3 的 concentration report 应该会把 Cand-2 的 fill_count=1872 揭
+  出来。
+- **artifact yaml 是 read-only**：本轮没有加 round-trip test
+  （`yaml.safe_dump → safe_load → CandidateRobustnessWindow`）。
+  R6 smoke 里加这一道更稳；本轮 artifacts 已经验证可被 schema
+  parse（`model_dump(mode="json")` + `safe_dump`），但反序列化
+  side 没测。
+
+### 9. 剩余风险
+- 当前 runner 用 `subprocess git rev-parse HEAD` 取 daily_store
+  rebuild commit。这其实捕获的是 **当前 repo HEAD**（即 R1
+  commit `22d1ff3`），不是 *daily 数据 rebuild 的 commit*（round-3
+  step-3b 的 commit）。这是个 known-issue：daily store 实际是 round-3
+  下落地的，commit hash 应该是 round-3 step-3b commit。R7 closeout
+  memo 应该明确这一点，并在 R5 forward manifest schema 里把这个
+  hash 字段定义得更清晰（pin to data-rebuild commit, not eval-time
+  HEAD）。本轮先按 PRD §3 R1 schema 字段名 `daily_store_rebuild_commit`
+  填，但内容是 R1 commit，不是数据 rebuild commit。
+- BacktestEngine 在 252 TD 窗口跑出 ghost-position cleanup（APD /
+  KLAC / VLUE / TKO / MCK 等）：这是 round-3 close memo §parking-lot
+  里 watch-list 名字。本轮没把这些 ghost-cleanup 报告进 artifact，
+  R4 watch exposure section 才会显式 surface 这些。
+
+### 10. 下一轮建议方向
+按 PRD 进入 **R3 = M12 concentration report 模块**：
+- `core/research/concentration/__init__.py` + `report.py`
+- `compute(candidate_id, weights_df) -> ConcentrationReport`
+- 6 dimensions: top-1 / top-3 / top-5 / name-days / sector / watch-list
+- warning 阈值 vs extreme 阈值 + tier 分类
+- 集成到 R2 runner：跑 robustness eval 时同时产
+  `<id>_concentration_report.{json,md}`
+- 8+ tier classification tests
+- **Report-only**，NO hard block：candidate 即使 `manual_review_required`
+  也仍 emit artifact，只是带状态字段
+
+### 11. Halt 条件检查 (PRD §4)
+- HARD invariant 是否被 violated？**否**（已逐项核对：config
+  yaml / frozen_spec / PRODUCTION_FACTORS / requirements /
+  pyproject / candidate spec yaml / registry.db / public API
+  rename / test 删除 / candidate_registry state-machine /
+  data/daily / splits.parquet — 全保。`evaluate()` 函数名不变 →
+  非 rename；R1 stub 与 R2 实现是同一函数体的演进）
+- 同 round 是否被重试 2 次？**否**（首次执行）
+- pytest drift 是否 unexplained？**否**（+7 正好等于本轮新增
+  7 个 regression tests）
+- 单 round 是否 > 30 min？**否**（< 10 min 包括 pytest 全跑 163 s
+  + CLI 跑两个 candidate 各 ~30s）
+- artifact 大小异常？**否**（最大 artifact ~972 bytes md，远小于
+  10 MB 上限；累计 ~3 KB << 100 MB 上限）
+- 出 R1-R7 scope？**否**（全部在 `core/research/robustness/` +
+  `dev/scripts/oos_mvp/` + `tests/unit/research/` +
+  `data/research_candidates/<id>_robustness_*` 授权范围内）
+
+→ **R2 acceptance gate PASS，可以进入 R3**。
+

@@ -1,0 +1,11 @@
+candidate_id: rcm_v1_defensive_composite_01
+evidence_class: pseudo_oos_robustness
+start_date: '2025-04-16'
+end_date: '2026-04-17'
+actual_trading_days: 252
+target_trading_days: 252
+shrink_reason: null
+data_integrity_snapshot:
+  daily_store_rebuild_commit: 22d1ff303ef76d82d59ee8ee83f1bcbd5b7469c9
+  baseline_snapshot_path: data/baseline/latest.json
+  generated_at_utc: '2026-04-25T23:38:01.200696Z'

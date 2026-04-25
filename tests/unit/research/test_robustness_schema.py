@@ -133,8 +133,23 @@ def test_end_date_before_start_date_rejected():
     assert "end_date" in str(exc.value)
 
 
-def test_runner_raises_notimplementederror():
-    """R1 runner is a stub; calling it must raise NotImplementedError."""
-    win = CandidateRobustnessWindow(**_full_window_kwargs())
-    with pytest.raises(NotImplementedError):
-        evaluate(win)
+def test_runner_evaluate_signature_callable():
+    """R2 replaced the R1 NotImplementedError stub with a real runner.
+
+    Coverage preserved: the R1 stub-assertion is replaced (not deleted)
+    by a contract check on the new ``evaluate`` signature — it must be
+    callable, accept ``candidate_id`` as the first positional argument,
+    and return a ``RobustnessEvalResult`` (smoke-tested separately in
+    test_robustness_runner.py).
+    """
+    import inspect
+
+    sig = inspect.signature(evaluate)
+    params = list(sig.parameters)
+    assert params[0] == "candidate_id"
+    # All other params must be keyword-only (have default), so signature
+    # stays additive across rounds.
+    for name in params[1:]:
+        assert sig.parameters[name].default is not inspect.Parameter.empty, (
+            f"param {name} should be keyword with default"
+        )
