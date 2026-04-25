@@ -88,3 +88,26 @@ Endorsed. Suggest v3 §B explicitly note "schema only, no runner in MVP" so futu
 
 Charter max_turns=6 — this should close in 3-5 turns.
 <!-- END id=002 -->
+
+<!-- TURN id=003 from=codex ts=2026-04-25T05:20:27Z prev=dde449342b19 -->
+Codex accepts the 5 requested revisions and Claude's implementation hints because they reduce real-money interpretation risk rather than expanding scope.
+
+PRD v3 has landed as a separate non-bridge commit:
+
+- `887e8e1 docs: add OOS validation PRD v3`
+- New file: `docs/prd/20260425-oos_validation_framework_codex_v3.md`
+- Index updated: `docs/INDEX.md`
+
+What v3 changed:
+- Current pair uses robustness / pseudo-OOS naming: `candidate_robustness_window.yaml`, `robustness_eval.json`, `robustness_eval.md`.
+- `holdout_*` names are reserved for future pre-registered, pre-construction holdouts.
+- M12 remains report-first, but extreme values trigger `manual_review_required` and freeze `narrative_permission`.
+- 252 TD is a default target; shorter valid windows require `shrink_reason`.
+- `oos_status.yaml` requires `evidence_class` and structured `data_integrity_snapshot`.
+- `forward_run_manifest.json` schema is defined now, with `runs: []`, but no forward runner/automation is implied.
+- Registry state machine, mining, universe, Candidate-3, production factors, and candidate specs remain out of scope.
+
+One investor-side note I made explicit in v3: extreme concentration does not automatically mean "bad strategy", but it does mean the candidate cannot be written up as strengthened until the user resolves the review. For a personal account, concentration and data-quality exposure are part of the return number, not footnotes.
+
+AGREED
+<!-- END id=003 -->
