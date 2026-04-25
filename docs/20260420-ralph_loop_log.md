@@ -15238,3 +15238,154 @@ docs/20260420-ralph_loop_log.md                    (本报告)
   level of the final assistant reply (per PRD §3 R3 Lesson-from-R8
   rule: in-doc promise alone does not close the harness).
 
+---
+
+## R-oos-mvp-2026-04-25-round-01 — robustness window schema + runner skeleton
+
+### 1. 本轮主题
+OOS MVP R1：robustness window schema + runner skeleton。lineage_tag
+= `oos-mvp-2026-04-25`。
+
+### 2. 本轮目标
+落地 `core/research/robustness/` 子包：pydantic v2 schema 描述
+`<candidate_id>_robustness_window.yaml`（PRD §3 R1 必含字段），
+runner.py 暂留 `NotImplementedError` stub（R2 才实现真正的 eval），
+对应 ≥5 个 schema validation 测试。Acceptance gate：5+ schema
+test 全 pass + pytest no regression + runner.py import 通过。
+
+### 3. 为什么这轮优先做它
+PRD v3 + 执行 PRD 都把 robustness window 当作整个 MVP 的"第一块
+合同"。R1 不真跑 eval，只把数据契约 + 拒绝规则锁进 schema：
+- evidence_class 没有 default（避免 yaml 漏写时静默 fall back 到
+  permissive 值，触发 PRD v3 §1.3 "把 in-sample 当 OOS"陷阱）
+- shrink_reason 在 actual<target 时强制必填 + 受限 enum（避免
+  "数据其实只有 200 天我也叫它 252TD eval" 这类隐性偷换）
+- data_integrity_snapshot 三字段全必填（绑死 commit hash + baseline
+  snapshot + UTC 时间戳，eval 必须可复现）
+R2 写真 runner 之前先把这些 invariant 编进类型层，后面所有 round
+都构建在这个 schema 之上，不会再松。
+
+### 4. 做了什么
+- 新增子包 `core/research/robustness/`：
+  - `__init__.py` 导出 5 个公共符号（`CandidateRobustnessWindow`,
+    `DataIntegritySnapshot`, `EvidenceClass`, `ShrinkReason`,
+    `ShrinkReasonCode`）
+  - `window_spec.py`：pydantic v2 BaseModel + Field + model_validator
+    - `EvidenceClass` enum：`pseudo_oos_robustness` /
+      `forward_oos` / `historical_replay`
+    - `ShrinkReasonCode` enum：4 种 code（data_coverage_short /
+      regime_boundary / candidate_history_short / other）
+    - `ShrinkReason`：code + non-empty note
+    - `DataIntegritySnapshot`：commit hash ≥12 chars + path non-empty
+      + UTC datetime
+    - `CandidateRobustnessWindow`：候选 id + evidence_class（无 default）
+      + start/end_date + actual/target_trading_days + 可选 shrink_reason
+      + data_integrity_snapshot
+    - 两个 model_validator：actual<target 必带 shrink_reason；
+      end_date >= start_date
+  - `runner.py`：`evaluate(spec)` 签名 + `NotImplementedError`
+    stub（R2 实现）
+- 新增测试 `tests/unit/research/test_robustness_schema.py`，10 个
+  test case（PRD 要求 ≥5）：
+  1. `test_valid_full_window_accepted`
+  2. `test_missing_evidence_class_rejected`
+  3. `test_evidence_class_has_no_default`（直接 assert
+     `model_fields["evidence_class"].is_required()`）
+  4. `test_actual_lt_target_without_shrink_reason_rejected`
+  5. `test_actual_lt_target_with_shrink_reason_accepted`
+  6. `test_shrink_reason_code_invalid_rejected`
+  7. `test_data_integrity_snapshot_missing_field_rejected`（3 个 sub-case）
+  8. `test_data_integrity_snapshot_short_commit_rejected`
+  9. `test_end_date_before_start_date_rejected`
+  10. `test_runner_raises_notimplementederror`
+
+### 5. 修改了哪些文件
+新增：
+- `core/research/robustness/__init__.py`
+- `core/research/robustness/window_spec.py`
+- `core/research/robustness/runner.py`
+- `tests/unit/research/test_robustness_schema.py`
+
+无修改、无删除。HARD invariants 全保（无 config / frozen_spec /
+PRODUCTION_FACTORS / requirements / candidate spec yaml /
+data/daily / splits.parquet / 公共 API rename / test 删除）。
+
+### 6. 跑了哪些测试/实验
+- Import smoke：`python -c "from core.research.robustness import ...; from core.research.robustness.runner import evaluate"` → ok
+- 子集：`pytest tests/unit/research/test_robustness_schema.py -v` →
+  10/10 pass，0.10s
+- 全量：`pytest tests/ -q --tb=no` → 1627 passed / 1 skipped /
+  1 xpassed / 4 warnings / 164.51s
+
+### 7. 结果如何
+**pytest tuple**（PRD §2 drift 规则）：
+- 起始（baseline `data/baseline/latest.json`）：
+  passed=1617, skipped=1, xfailed=0
+- 结束：passed=1627, skipped=1, xfailed=0
+- drift：+10 passed，正好等于本轮新增的 10 个 schema 测试，
+  全部 explained
+- 1 xpassed 是 round-3 留下的 long-standing
+  `test_full_period_cagr_beats_qqq` xpass（数据重建后策略意外
+  跑赢 QQQ；rounded-3 close memo §parking-lot 已记录待 stable-runs
+  跟踪）— 不是本轮引入。
+- HARD invariants 全保（已逐项核对，无任一红线触发）
+
+**Acceptance gate** 全 pass：
+- ✓ 5+ schema test：10 个，全过
+- ✓ pytest no regression
+- ✓ runner.py import 通过
+
+### 8. 当前发现的新问题/新机会
+- yaml 一侧的反序列化代码现在没写。R2 真跑 eval 要 emit
+  `<id>_robustness_window.yaml` 时才会用到 `model_dump()` /
+  `model_validate(yaml.safe_load(...))`，那时再加 yaml round-trip
+  测试。R1 schema 仅校验 in-memory 构造，与 PRD §3 R1
+  scope 一致。
+- `EvidenceClass.historical_replay` 在 R1 仅作为 enum 成员存在；
+  PRD §3 R6 要求 smoke 阶段 deliberately 把 evidence_class 设成
+  historical_replay 验证 schema "拒绝"。但 schema 本身是接受这个
+  值的（rejection 在 acceptance smoke 层做，不在 schema 层）。
+  R6 阶段需要在 smoke 测试里实现这个语义层 reject，而非靠 schema。
+  本轮没有提前实现，避免越界。
+
+### 9. 剩余风险
+- R2 真跑 eval 时如果 252 TD window before frozen-date `2026-04-24`
+  carve 不出（pre-2024-04-24 至少 252 TD 实测 OK，但 RCMv1 / Cand-2
+  各自的 candidate-spec start 可能更晚），需要触发 shrink_reason。
+  R1 schema 已经为此做好了类型层支撑，但 R2 runner 必须正确填
+  `code`（应为 `candidate_history_short` 而非 `data_coverage_short`，
+  二者语义不同）。
+- pydantic v2 在 `ShrinkReason(code="not_a_real_code", note="x")`
+  这一构造层就会 raise（test_shrink_reason_code_invalid_rejected
+  改写过一次，原本想通过 `CandidateRobustnessWindow.__init__`
+  路径触发，但 pydantic v2 会先在 `ShrinkReason.__init__` 层 reject
+  enum）。该行为符合预期，但记录于此以防 R2/R3 撞到类似边界。
+
+### 10. 下一轮建议方向
+按 PRD 不变量进入 **R2 = robustness_eval real runner**：
+- 实现 `evaluate(spec)` 真正的 eval 逻辑：load frozen spec →
+  load 252 TD before frozen-date → replay candidate composite signal
+  + paper run → 计算 cum_ret / sharpe / max_dd / vs_spy / vs_qqq /
+  turnover / fill_count
+- 对 RCMv1 + Cand-2 各产出 `<id>_robustness_window.yaml` +
+  `<id>_robustness_eval.{json,md}`
+- evidence_class 显式设 `pseudo_oos_robustness`（NOT
+  forward_oos，NOT historical_replay）
+- 252 TD 真 carve 不出时填 shrink_reason 而非降低 target
+
+### 11. Halt 条件检查 (PRD §4)
+- HARD invariant 是否被 violated？**否**（已逐项核对：config
+  yaml / frozen_spec / PRODUCTION_FACTORS / requirements /
+  pyproject / candidate spec yaml / registry.db / public API
+  rename / test 删除 / candidate_registry state-machine /
+  data/daily / splits.parquet — 全保）
+- 同 round 是否被重试 2 次？**否**（首次执行）
+- pytest drift 是否 unexplained？**否**（+10 正好等于本轮新增
+  10 个 regression tests）
+- 单 round 是否 > 30 min？**否**（< 5 min 包括 pytest 全跑 164 s）
+- artifact 大小异常？**否**（4 个新文件，最大 `window_spec.py`
+  ~3 KB）
+- 出 R1-R7 scope？**否**
+
+→ **R1 acceptance gate PASS，可以进入 R2**。
+
