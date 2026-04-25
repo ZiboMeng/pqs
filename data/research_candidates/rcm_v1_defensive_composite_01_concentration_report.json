@@ -1,0 +1,27 @@
+{
+  "candidate_id": "rcm_v1_defensive_composite_01",
+  "n_dates": 252,
+  "top1_weight_max": 0.1,
+  "top3_weight_max": 0.30000000000000004,
+  "top5_weight_max": 0.5,
+  "distinct_names_count": 38,
+  "name_days_max_share": 0.09628099173553745,
+  "watchlist_single_max_share": 0.09628099173553745,
+  "watchlist_total_share": 0.5772727272727273,
+  "thin_data_total_share": 0.5685950413223142,
+  "sector_concentration": {
+    "status": "not_computed"
+  },
+  "benchmark_beta_concentration": {
+    "status": "not_computed"
+  },
+  "triggered_warnings": [
+    "thin_data_share=0.5686>0.05",
+    "watch_single_share=0.0963>=0.08"
+  ],
+  "triggered_extremes": [
+    "thin_data_share=0.5686>0.1"
+  ],
+  "concentration_gate_status": "manual_review_required",
+  "narrative_permission": "frozen"
+}

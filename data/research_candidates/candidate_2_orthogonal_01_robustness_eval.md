@@ -25,6 +25,6 @@
 
 ## Data integrity snapshot
 
-- daily_store_rebuild_commit: `22d1ff303ef76d82d59ee8ee83f1bcbd5b7469c9`
+- daily_store_rebuild_commit: `9fa4118b497a4c01abcb7c3d13939be29ba2ff61`
 - baseline_snapshot_path: `data/baseline/latest.json`
-- generated_at_utc: 2026-04-25T23:38:03.458400+00:00
+- generated_at_utc: 2026-04-25T23:47:56.612151+00:00

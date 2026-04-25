@@ -15609,3 +15609,214 @@ runner 内部硬编码 `EvidenceClass.pseudo_oos_robustness` 是把 PRD
 
 → **R2 acceptance gate PASS，可以进入 R3**。
 
+---
+
+## R-oos-mvp-2026-04-25-round-03 — M12 concentration report module + R2 integration
+
+### 1. 本轮主题
+OOS MVP R3：M12 concentration report 模块（warning + extreme tier per
+PRD v3 §C）+ 集成进 R2 runner。**Report-only — 不 hard block**。
+
+### 2. 本轮目标
+落地 `core/research/concentration/` 子包：`compute(candidate_id,
+weights_df, watch_symbols, thin_data_symbols) -> ConcentrationReport`
+计算 6 个 dimension 的 concentration 指标，按 PRD v3 §C 阈值表分
+warning / extreme / pass 三档，extreme 触发即 set
+`concentration_gate_status: manual_review_required` +
+`narrative_permission: frozen`。集成进 R2 runner，evaluate() 现在同
+时 emit `<id>_concentration_report.{json,md}` 到 candidate 目录。
+两个 candidate 都要产 concentration_report，即使 manual_review
+也仍 emit（不 block）。Acceptance gate：8+ tier classification
+tests + pytest no regression + 两个 candidate 完整 artifact 集。
+
+### 3. 为什么这轮优先做它
+M12 是 PRD v3 §C 写得最显式的 "report-but-block-narrative" 设计：
+- robustness eval 出来的数字（R2 已经做完）如果不附 concentration
+  报告，narrative permission 就没有约束 — 用户可能直接基于 +191%
+  cum_ret 写 "策略很稳" 而忽视实际持仓集中
+- thin-data exposure 这一维必须在 R3 落地，否则 R2 跑出的两个
+  candidate 实际上各有 28-57% 的 thin-data weight-day share，但没
+  人知道
+- 集成进 R2 runner（而非独立 CLI）是 PRD 明文要求："集成到 R2 的
+  runner: 调 robustness eval 时同时产出"——保证 concentration 报
+  告永远跟着 robustness eval 一起出生，不会落下
+- R4 watch exposure section 集成需要 R3 已经跑出 watch / thin
+  exposure 数字，所以 R3 是 R4 的前置
+
+### 4. 做了什么
+- 新增子包 `core/research/concentration/`：
+  - `__init__.py` 导出 `ConcentrationReport / ConcentrationGateStatus
+    / NarrativePermission / compute / write_artifacts`
+  - `report.py`：
+    - 阈值常量（数字 1:1 抄 PRD v3 §C 行 281-294）：
+      WARNING_TOP1=0.40 / WARNING_TOP3=0.70 / WARNING_THIN_DATA=0.05 /
+      WARNING_WATCH_SINGLE=0.08；EXTREME_TOP1=0.50 /
+      EXTREME_TOP3=0.80 / EXTREME_THIN_DATA=0.10 /
+      EXTREME_WATCH_SINGLE=0.15
+    - 两个 enum：`ConcentrationGateStatus(pass_/warning/
+      manual_review_required)` + `NarrativePermission(allowed/frozen)`
+    - dataclass `ConcentrationReport` 带 6 维度字段 + tier 字段
+    - `_classify(top1, top3, thin_data, watch_single)` → 返回
+      (warnings, extremes, status, permission)，extreme 触发即 freeze
+      narrative
+    - 三个 helper: `_row_topk`（per-date top-k weight sum） /
+      `_weight_day_share` / `_per_symbol_weight_day_share`
+    - 主函数 `compute(candidate_id, weights_df, *, watch_symbols,
+      thin_data_symbols)`：返回完整 ConcentrationReport
+    - `_format_md(report)`：人读 markdown 含 tier 触发清单 + caveat
+      段（明确 "read-only 不 block / sector + beta not_computed"）
+    - `write_artifacts(report, output_dir)` → 落 JSON + MD
+    - sector + benchmark_beta 都标 `{"status": "not_computed"}`
+      （MVP 内不参与 tier 分类；PRD v3 §C extreme 阈值表本身也只用
+      top-1/3/thin/watch 这 4 维）
+- 集成到 `core/research/robustness/runner.py`：
+  - import `core.research.concentration` 模块
+  - `RobustnessEvalResult` 加 `concentration: Optional[ConcentrationReport]
+    = None` 字段
+  - 新增 `_load_watch_symbols(watch_path)`：读
+    `data/ref/data_quality_watch.parquet` → 返回
+    (watch_symbols, thin_data_symbols)；sidecar 缺失即返回 ([],[])
+    （graceful degrade，不报错）
+  - `evaluate()` 加 `watch_parquet=DEFAULT_WATCH_PARQUET` kwarg
+  - `evaluate()` 在写 robustness artifacts 之后，调
+    `compute_concentration` 再 `write_concentration_artifacts`，
+    最后把 paths 合并进 `artifact_paths`
+- 新增 `tests/unit/research/test_concentration.py` 14 个测试（PRD
+  要求 ≥8）：
+  - `test_pass_below_all_thresholds`
+  - `test_top1_warning_only`
+  - `test_top1_extreme_freezes_narrative`
+  - `test_top3_warning`（top-1 < 40 但 top-3 > 70）
+  - `test_top3_extreme`
+  - `test_watch_single_warning`（同时触发 extreme — 验证 multi-trigger）
+  - `test_watch_single_warning_only`（精确控制只触发 warning，10 names
+    + 1 watch 0.085 → 避免 top-3 误触发 extreme）
+  - `test_thin_data_warning`（同上控制）
+  - `test_thin_data_extreme`
+  - `test_multiple_extremes_all_listed`（top-1 + top-3 同时 extreme）
+  - `test_empty_weights_returns_pass`
+  - `test_write_artifacts_emits_two_files`
+  - `test_thresholds_match_prd_v3`（数字 1:1 校验）
+  - `test_md_renders_status_and_caveats`（包含 manual_review_required
+    + frozen + read-only + not_computed）
+- 重跑 CLI 在两个真 candidate 上，6 个新 artifact 落地
+
+### 5. 修改了哪些文件
+新增：
+- `core/research/concentration/__init__.py`
+- `core/research/concentration/report.py`
+- `tests/unit/research/test_concentration.py`
+- `data/research_candidates/rcm_v1_defensive_composite_01_concentration_report.json`
+- `data/research_candidates/rcm_v1_defensive_composite_01_concentration_report.md`
+- `data/research_candidates/candidate_2_orthogonal_01_concentration_report.json`
+- `data/research_candidates/candidate_2_orthogonal_01_concentration_report.md`
+
+修改：
+- `core/research/robustness/runner.py`：import + watch sidecar loader +
+  evaluate() 集成 concentration 调用 + RobustnessEvalResult 加字段
+- 4 个既有 robustness eval JSON/MD（重跑 CLI 顺带刷了 timestamp）
+
+无任何 frozen candidate spec yaml 修改。
+
+### 6. 跑了哪些测试/实验
+- 子集：`pytest tests/unit/research/test_concentration.py -v` →
+  14 pass，0.44s
+- 全量：`pytest tests/ -q --tb=no` → 1648 passed / 1 skipped /
+  1 xpassed / 4 warnings / 166.20s
+- CLI 真跑：`python dev/scripts/oos_mvp/run_robustness_eval.py` →
+  两个 candidate 各 5 个 artifact 完整落地
+
+### 7. 结果如何
+**pytest tuple**（PRD §2 drift 规则）：
+- 起始：passed=1634, skipped=1, xfailed=0
+- 结束：passed=1648, skipped=1, xfailed=0（1 xpassed 不变）
+- drift：+14 passed，正好等于本轮新增 14 个 R3 测试，
+  全部 explained
+- HARD invariants 全保（已逐项核对）
+
+**RCMv1 concentration**（实跑结果）：
+- top-1 max: 10.00% / top-3 max: 30.00% / top-5 max: 50.00%
+- distinct names: 38 / name-days max: 9.63%
+- watch single max: 9.63% / watch total: 57.73%
+- **thin_data total: 56.86%** ← 触发 extreme
+- triggered_warnings: thin_data > 5% + watch_single >= 8%
+- triggered_extremes: **thin_data > 10%**
+- **concentration_gate_status: manual_review_required**
+- **narrative_permission: frozen**
+
+**Cand-2 concentration**：
+- top-1 max: 10.00% / top-3 max: 30.00% / top-5 max: 50.00%
+- distinct names: 57 / name-days max: 9.26%
+- watch single max: 9.26% / watch total: 31.07%
+- **thin_data total: 28.48%** ← 触发 extreme
+- triggered_warnings: thin_data > 5% + watch_single >= 8%
+- triggered_extremes: **thin_data > 10%**
+- **concentration_gate_status: manual_review_required**
+- **narrative_permission: frozen**
+
+**Acceptance gate** 全 pass：
+- ✓ 8+ tier classification tests（实际 14）
+- ✓ 两个 candidate 都产出 concentration_report.{json,md}
+- ✓ 不 hard block — artifact 仍 emit，仅状态字段标 manual_review_required
+- ✓ pytest no regression
+
+### 8. 当前发现的新问题/新机会
+- **真实信号 = 两个 candidate 都 manual_review_required**：
+  thin_data total share 都超过 PRD v3 §C 10% extreme 阈值（RCMv1
+  57%, Cand-2 28%）。这不是 bug，是 round-3 step-3a/3b 真发现的
+  watch-list 符号在两个候选 top-N 选择中的实际暴露。M12 工作正
+  确——它正是为了 surface 这种"看起来 robust 但实际重度依赖低质
+  量数据"的情况。R7 closeout memo 必须显式记录这个状态：narrative
+  permission frozen until user resolves。
+- **watch list = 26 symbols 全标 thin_data_pct>0**：当前我用
+  `thin_data_pct > 0.0` 作为 thin_data_symbols 过滤条件。这把所有
+  watch-list 符号都当 thin-data，过于保守。一种更合理的口径是
+  `thin_data_pct >= 50%` 或 `thin_data_count >= partial_count`。
+  但 PRD §C 没明文定义 thin-data 的 single-symbol 阈值，目前实现
+  保守可接受。R4 / R7 期间如发现这造成误报，再调。
+- **sector + benchmark beta 不计算**：MVP 折中，文档已说明。
+  R3 不在 scope，留待未来轮。
+
+### 9. 剩余风险
+- 两个 candidate 都触发 manual_review_required 是 expected
+  outcome，但下游消费者（R4 master/drift report，R7 closeout
+  memo）必须正确读出 `narrative_permission: frozen` 并据此约束
+  叙事。如果 R4 没接到这个字段就把 R2 的 +62.8% / +191.6% 当成
+  candidate strength 写出去，PRD v3 §1.3 的陷阱直接踩中。
+- 测试用 _wts 拼出来的浮点权重可能在边界值上有 IEEE 754 精度
+  问题（已在 test_watch_single_warning_only 撞过 0.08 vs
+  0.07999...）。当前测试都用了远离阈值的安全值；新加 case 时
+  注意。
+
+### 10. 下一轮建议方向
+按 PRD 进入 **R4 = Watch exposure section integration**：
+- 修改 `core/reporting/master_report.py` 加
+  `_render_watch_exposure_section(candidate_id, paper_run_dir)`
+- 修改 `scripts/paper_drift_report.py` 同样集成
+- top-table per-symbol weight-day-share / watch_reason / thin_data_days /
+  quarantine_days
+- prose 段："candidate has X% weight-day-share on watch-list names; ..."
+- 必须读 R3 的 concentration_report.json 来 surface
+  `narrative_permission: frozen` 状态
+- watch sidecar 缺失时 graceful degrade（"no watch sidecar; data
+  quality unknown"，不 crash）
+- `tests/unit/reporting/test_watch_exposure_section.py`
+
+### 11. Halt 条件检查 (PRD §4)
+- HARD invariant 是否被 violated？**否**（已逐项核对：config
+  yaml / frozen_spec / PRODUCTION_FACTORS / requirements /
+  pyproject / candidate spec yaml / registry.db / public API
+  rename / test 删除 / candidate_registry state-machine /
+  data/daily / splits.parquet — 全保）
+- 同 round 是否被重试 2 次？**否**（首次执行，仅 fixture 测试值
+  调优一次，未触发 retry 计数）
+- pytest drift 是否 unexplained？**否**（+14 正好等于本轮新增
+  14 个 regression tests）
+- 单 round 是否 > 30 min？**否**（< 10 min）
+- artifact 大小异常？**否**（最大新 artifact ~1.4 KB md）
+- 出 R1-R7 scope？**否**（全部在 `core/research/concentration/` +
+  `core/research/robustness/runner.py` 集成 + `tests/unit/research/` +
+  `data/research_candidates/<id>_concentration_report.*` 授权范围内）
+
+→ **R3 acceptance gate PASS，可以进入 R4**。
+

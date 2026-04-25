@@ -1,0 +1,27 @@
+{
+  "candidate_id": "candidate_2_orthogonal_01",
+  "n_dates": 252,
+  "top1_weight_max": 0.1,
+  "top3_weight_max": 0.30000000000000004,
+  "top5_weight_max": 0.5,
+  "distinct_names_count": 57,
+  "name_days_max_share": 0.0925925925925928,
+  "watchlist_single_max_share": 0.0925925925925928,
+  "watchlist_total_share": 0.31069958847736623,
+  "thin_data_total_share": 0.2847736625514403,
+  "sector_concentration": {
+    "status": "not_computed"
+  },
+  "benchmark_beta_concentration": {
+    "status": "not_computed"
+  },
+  "triggered_warnings": [
+    "thin_data_share=0.2848>0.05",
+    "watch_single_share=0.0926>=0.08"
+  ],
+  "triggered_extremes": [
+    "thin_data_share=0.2848>0.1"
+  ],
+  "concentration_gate_status": "manual_review_required",
+  "narrative_permission": "frozen"
+}

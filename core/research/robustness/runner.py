@@ -38,6 +38,11 @@ from core.factors.base_masks import apply_research_mask, research_mask_default
 from core.factors.factor_generator import generate_all_factors
 from core.mining.research_miner import zscore_cs
 from core.research.candidate_registry import CandidateRegistry
+from core.research.concentration import (
+    ConcentrationReport,
+    compute as compute_concentration,
+    write_artifacts as write_concentration_artifacts,
+)
 from core.research.frozen_spec import FrozenStrategySpec
 
 from .window_spec import (
@@ -51,6 +56,7 @@ from .window_spec import (
 DEFAULT_OUTPUT_DIR = Path("data/research_candidates")
 DEFAULT_REGISTRY_DB = "data/research_candidates/registry.db"
 DEFAULT_BASELINE_PATH = "data/baseline/latest.json"
+DEFAULT_WATCH_PARQUET = Path("data/ref/data_quality_watch.parquet")
 DEFAULT_TOP_N = 10
 DEFAULT_INITIAL_CAPITAL = 100_000.0
 DEFAULT_TARGET_TRADING_DAYS = 252
@@ -71,6 +77,27 @@ class RobustnessEvalResult:
     window: CandidateRobustnessWindow
     metrics: dict
     artifact_paths: dict
+    concentration: Optional[ConcentrationReport] = None
+
+
+def _load_watch_symbols(watch_path: Path) -> tuple[list, list]:
+    """Read data_quality_watch sidecar -> (watch_symbols, thin_data_symbols).
+
+    Returns ([], []) if the sidecar is missing or unparseable: concentration
+    report still computes, watch + thin metrics just come out as 0.0.
+    """
+    if not watch_path.exists():
+        return [], []
+    try:
+        df = pd.read_parquet(watch_path)
+    except Exception:
+        return [], []
+    watch = df["symbol"].astype(str).tolist() if "symbol" in df.columns else []
+    if "thin_data_pct" in df.columns:
+        thin = df.loc[df["thin_data_pct"] > 0.0, "symbol"].astype(str).tolist()
+    else:
+        thin = []
+    return watch, thin
 
 
 def _resolve_frozen_date(
@@ -371,6 +398,7 @@ def evaluate(
     daily_store_rebuild_commit: Optional[str] = None,
     initial_capital: float = DEFAULT_INITIAL_CAPITAL,
     top_n: int = DEFAULT_TOP_N,
+    watch_parquet: Path = DEFAULT_WATCH_PARQUET,
     cfg=None,
     store: Optional[PriceStore] = None,
 ) -> RobustnessEvalResult:
@@ -458,6 +486,22 @@ def evaluate(
     )
 
     artifact_paths = _write_artifacts(candidate_id, window, metrics, output_dir)
+
+    # M12 concentration report — runs alongside robustness eval (PRD R3).
+    # Report-only; does not block the candidate even on extreme tier.
+    watch_syms, thin_syms = _load_watch_symbols(watch_parquet)
+    concentration = compute_concentration(
+        candidate_id=candidate_id,
+        weights_df=target_wts,
+        watch_symbols=watch_syms,
+        thin_data_symbols=thin_syms,
+    )
+    conc_paths = write_concentration_artifacts(concentration, output_dir)
+    artifact_paths.update(conc_paths)
+
     return RobustnessEvalResult(
-        window=window, metrics=metrics, artifact_paths=artifact_paths
+        window=window,
+        metrics=metrics,
+        artifact_paths=artifact_paths,
+        concentration=concentration,
     )
