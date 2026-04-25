@@ -92,7 +92,9 @@ This is the **operational checklist**. Full spec in `PROTOCOL.md`.
 2. **Read** the inline charter at the top for max_turns / escalate
    conditions.
 3. **Find** the last `<!-- END id=N -->` marker. Let `K = N`.
-   - If there are no turns yet, only the user writes turn 001.
+   - If there are no turns yet, the conversation initiator writes
+     turn 001 — that may be user, claude, or codex (relaxed
+     2026-04-25; previously turn 001 had to be from=user).
 4. **Validate** per PROTOCOL §3:
    - id continuity (next must be K+1)
    - no half-open `<!-- TURN ... -->` after the last END

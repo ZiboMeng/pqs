@@ -46,8 +46,12 @@ and doesn't add anything git doesn't already provide.
    between the title and the first `---` separator) for current
    topic / max_turns / escalation rules.
 3. **Locate** the last `<!-- END id=K -->`. If none → next id is
-   `001`, prev is `GENESIS`, and only the user writes turn 001 (an
-   agent must NOT write turn 001).
+   `001`, prev is `GENESIS`. Turn 001 may be `from=user`,
+   `from=claude`, or `from=codex` — whoever initiates the
+   conversation writes it. (Earlier versions of the protocol
+   required turn 001 = `from=user`; that constraint was relaxed
+   2026-04-25 to allow agents to open conversations on their own
+   initiative when appropriate.)
 4. **Verify** the document tail is clean: no half-open
    `<!-- TURN ... -->` after the last END. If a half-open TURN is
    present → escalate to user; do NOT append.
