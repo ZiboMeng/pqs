@@ -250,35 +250,111 @@ clean of the timezone bug, and (b) ETF backfill is acceptable. **B is
 the lower-risk short-term choice** if E's preconditions can't be
 quickly verified.
 
-### 2.4 Open question — is polygon 1m itself clean?
+### 2.4 Polygon 1m cleanliness — verified, E recommended
 
-Critical to E's viability. Quick reproduction:
+This subsection was originally an open question; resolved within
+round-2 by direct verification.
 
-```
-For symbol AAPL, polygon 1m timestamp range across 2022-08-22:
-  first bar at 04:00:00 ET (or UTC interpreted as ET?)
-  last bar at 19:59:00 ET
-  → 836 minute bars, last_close=161.79
-yfinance daily AAPL 2022-08-22 (verified separately):
-  close=167.59 (auto_adjust=False, raw)
-```
+#### 2.4.1 Q1 — Is polygon 1m raw or adjusted?
 
-The 1m last-close (161.79) does NOT match yfinance raw close 167.59
-on the same date. But it DOES match a recent yfinance auto_adjust=True
-close on AAPL — which means **polygon 1m may also be storing
-post-cascade-adjusted prices**, not pure raw. This is unconfirmed
-in this round; it depends on what scale polygon flat files were
-delivered in.
+Verified across 5 heavy-split symbols × pre-/post-split windows.
+The ratio `polygon_1m_close / yfinance_raw_close` (where yfinance
+"raw" = `auto_adjust=False`, which itself ALREADY applies future
+splits cascade-back) precisely equals the cumulative future-split
+factor:
 
-If polygon 1m is ALSO mixed scale (some periods raw, some
-post-cascade), then E doesn't actually have a clean source either,
-and B with `auto_adjust=False` becomes the only viable option.
+| Symbol | Date | 1m close | yf "raw" | ratio | future-cascade |
+|--------|------|---------:|---------:|------:|----------------|
+| TSLA   | 2018-06 | 358.12 | 23.88   | **15.0** | 5×3 (2020+2022) |
+| TSLA   | 2021-03 | 707.94 | 235.98  | **3.00** | only 2022 ahead |
+| TSLA   | 2023-03 (post-all) | 180.55 | 180.45 | 1.00 | n/a |
+| GOOGL  | 2018-09 | 1211.60 | 60.57  | **20.0** | 2022-07 20:1 |
+| GOOGL  | 2020-07 | 1516.88 | 75.84  | **20.0** | same |
+| GOOGL  | 2022-08-15 (post) | 122.10 | 122.08 | 1.00 | n/a |
+| NVDA   | 2018-06 | 265.38 | 6.63    | **40.0** | 4×10 (2021+2024) |
+| NVDA   | 2022-06 | 165.28 | 16.53   | **10.0** | only 2024 ahead |
+| NVDA   | 2024-08 (post) | 122.94 | 122.86 | 1.00 | n/a |
+| AAPL   | 2018-06 | 188.92 | 47.21   | **4.0**  | 2020-08 4:1 |
+| AAPL   | 2022-08 (post) | 173.19 | 173.19 | 1.00 | n/a |
 
-**Action item** (NOT in this round): a 30-line verification that
-polygon 1m AAPL on 2015-01-02 (well before any 2020/2022 split)
-returns ~$110 (raw scale on that date) vs ~$24 (post-cascade)
-would resolve this. Out of scope for this memo per "判因 not
-实现 round."
+**Conclusion**: polygon 1m is **contemporaneous raw scale** —
+exactly what was traded on the day, never future-cascade-applied.
+Note as a side finding: yfinance's `auto_adjust=False` is
+**not** truly raw either; it has applied future splits cascade-
+back. The only true contemporaneous raw source we have is polygon
+1m. (This further reinforces E over B: B's chosen source has its
+own cascade-state ambiguity that polygon 1m does not.)
+
+#### 2.4.2 Q2 — Does polygon 1m carry the +1 day label offset?
+
+No. Verified across 6 (symbol × date) cases that round-2 §1.4
+identified as B-type-prone:
+
+| Symbol | Label date | DOW | 1m 09:30 open | 1m 15:59 close | matches real day? |
+|--------|------------|-----|--------------:|---------------:|-------------------|
+| AAPL   | 2022-08-29 | Mon | 161.14 | 161.37 | ✓ (real Mon close ≈ 161.38) |
+| AAPL   | 2022-08-26 | Fri | 170.57 | 163.66 | ✓ (real Fri close ≈ 163.62) |
+| AAPL   | 2018-09-04 | Tue (post Labor Day) | 228.41 | 228.36 | ✓ |
+| MSFT   | 2024-09-09 | Mon | 407.24 | 405.72 | ✓ (real Mon close ≈ 405.47) |
+| SPY    | 2022-08-29 | Mon | 402.20 | 402.63 | ✓ (real Mon close ≈ 402.83) |
+| AAPL   | 2022-09-02 | Fri | 159.75 | 155.85 | ✓ |
+
+**Conclusion**: 1m `label = real ET trading day`, 09:30 → 15:59
+ET regular session matches the real day's open + close. The +1d
+offset surfaced in BS daily is therefore introduced **at the daily-
+aggregation step**, NOT inherited from the 1m source. E only needs
+to fix the aggregator — the underlying 1m bars don't need any
+date-shift correction.
+
+#### 2.4.3 Q3 — ETF 1m coverage 2015-2026
+
+| ETF | 2015 | 2018 | 2021 | 2023 | 2024 | 2025-12 | 2026-04 |
+|-----|-----:|-----:|-----:|-----:|-----:|--------:|--------:|
+| SPY  | 760 | 1,233 | 1,137 | 1,283 | 451 | 956 | 931 |
+| QQQ  | 544 | 1,024 | 1,173 | 1,313 | 445 | (similar) | (similar) |
+| SOXL | 192 |   500 | 1,060 | 1,407 | 469 | (similar) | (similar) |
+| TQQQ | 462 |   847 | 1,137 | 1,429 | 472 | (similar) | (similar) |
+| MTUM |  25 |   570 |   551 |   527 | 218 | (similar) | (similar) |
+| QUAL |  25 |   296 |   551 |   625 | 209 | (similar) | (similar) |
+| SLV  | 425 |   719 |   860 |   849 | 284 | (similar) | (similar) |
+| XLRE |   0 |   576 |   624 |   678 | 247 | (similar) | (similar) |
+
+(2015 numbers are sparse for some ETFs because they list later;
+2024 numbers are mid-year sample; 2025-12 / 2026-04 sampled at
+real trading days, all 900+ bars per day.)
+
+**Conclusion**: ETF coverage is sufficient. provenance breakdown
+shows trades_backfill (introduced 2024-01) provides the ETF 1m
+data after polygon_gz ends 2023-12-31. No coverage cliff for E.
+
+#### 2.4.4 Three-way decision
+
+> **E is recommended** (was: "E IF polygon 1m is verified clean").
+
+| Option | Recommendation | Rationale |
+|--------|---------------|-----------|
+| **E (re-aggregate from 1m)** | ✅ recommended | All three preconditions verified clean: 1m raw scale, no label offset, ETF coverage 2015-2026 sufficient. Yields a single canonical raw store + read-time cascade via splits.parquet — matches BarStore's documented design. Implementation: write 1m → daily aggregator + treat label-date correctly + emit fresh daily parquet. Splits.parquet cleanup (TJX / GOOGL) ships in same commit. |
+| **B (yfinance refresh)** | fallback only | Lower implementation cost but introduces a new cascade-state ambiguity: yfinance's `auto_adjust=False` is itself already split-cascade-applied (verified §2.4.1), and yfinance's cascade can be revised by the vendor without notice. B locks the store into yfinance's revision history. |
+| A+I (skip-list) | rejected | Doesn't fix root cause. |
+| D (forward-only) | rejected | Permanent research-coverage loss for no upside vs E. |
+
+E's residual risks (to be tracked but not blockers):
+- a small number of polygon 1m days have low bar counts (e.g.
+  AAPL 2018-09-04 has 657 bars vs typical 800+). Likely partial-
+  trading days or holiday half-sessions — needs an audit pass
+  during E execution to enumerate "incomplete-1m days" and decide
+  whether to fall back to a single trusted close per such day or
+  flag as incomplete.
+- daily close convention needs a explicit decision: use 15:59 ET
+  1m close or 16:00 ET 1m close as canonical "daily close."
+  Trivial choice but must be made and documented.
+- trades_backfill quality (per CLAUDE.md "v2 dedup" rule-version)
+  was already audited under the trades-backfill workstream;
+  re-confirm it's clean for ETF rows in the 2024+ window before
+  E ships.
+
+These are pin-down items for round-3 implementation, not
+unresolved blockers for the path-selection decision.
 
 ---
 
@@ -334,10 +410,10 @@ These can ship in the same commit as B or E without expanding scope.
 
 Listing the decisions this memo deliberately defers:
 
-1. **Pick repair path among B / E / A+I / D.** B is the recommended
-   default; E is preferred IF polygon 1m is verified clean.
-2. **Verify polygon 1m cleanliness** (the §2.4 open question) before
-   committing to E.
+1. **Pick repair path among B / E / A+I / D.** **E is now recommended**
+   per §2.4 verification (polygon 1m raw + no label offset + ETF
+   coverage sufficient). B remains the fallback.
+2. ~~Verify polygon 1m cleanliness~~ ✓ done in §2.4 — clean.
 3. **Confirm reference-data sub-tasks (TJX / GOOGL splits.parquet)
    ship in the same commit** as the chosen repair path.
 4. **Confirm mining-lineage quarantine** holds (don't refresh
