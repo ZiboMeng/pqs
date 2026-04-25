@@ -403,6 +403,41 @@ def test_rejects_missing_columns():
         aggregate_1m_to_daily(bars, partial_day_whitelist=set())
 
 
+def test_half_session_whitelist_DST_robustness():
+    """Regression: the dynamic half-session whitelist used to compare
+    market_close to '21:00 UTC' which is only correct in winter (EST).
+    During DST (March–November) NYSE close in UTC is 20:00, not 21:00,
+    so the naive UTC compare mislabeled every DST-summer regular day
+    as a half-session — turning ~half the universe-history into bogus
+    'partial' rows in the aggregator output.
+
+    Fix: compare in ET (close-hour ≠ 16). This test pins the fix by
+    asserting that representative DST-summer regular trading days
+    (Mon-Fri full sessions in May / July) are NOT classified as
+    half-session, while a known half-session (day after Thanksgiving)
+    IS."""
+    from core.data.daily_aggregator import _half_session_days_from_calendar
+    half = _half_session_days_from_calendar(
+        pd.Timestamp("2022-01-01"), pd.Timestamp("2022-12-31"),
+    )
+    # 2022-11-25 (Black Friday) is a documented NYSE half-session
+    assert pd.Timestamp("2022-11-25") in half, (
+        "Black Friday 2022 should be in half-session whitelist"
+    )
+    # DST-summer regular trading days must NOT appear in the whitelist
+    for d in ("2022-05-09", "2022-06-13", "2022-07-11", "2022-08-15"):
+        assert pd.Timestamp(d) not in half, (
+            f"{d} (DST-summer regular full session) should NOT be in "
+            f"half-session whitelist; DST-aware compare regression"
+        )
+    # Whitelist size for 2022 should be small (~5-10 half-days), not
+    # ~half the year (~125+).
+    assert len(half) < 20, (
+        f"2022 half-session whitelist has {len(half)} entries — "
+        f"DST regression suspected (real NYSE half-days/yr is 5-10)"
+    )
+
+
 def test_empty_input_returns_empty():
     bars = pd.DataFrame(
         columns=["open", "high", "low", "close", "volume"],

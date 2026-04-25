@@ -58,8 +58,12 @@ def _half_session_days_from_calendar(
     NYSE half-session whitelist between [start, end] inclusive,
     derived dynamically from `pandas_market_calendars` schedule.
 
-    A day is half-session iff market_close < 21:00 UTC (= 16:00 ET).
-    The standard half-session close is 13:00 ET (= 18:00 UTC).
+    A day is half-session iff its ET market_close hour ≠ 16. The
+    standard half-session close is 13:00 ET. Comparing in **ET**, not
+    UTC, is critical: NYSE close in UTC shifts between 21:00 (winter,
+    EST) and 20:00 (summer, EDT) due to daylight saving time, so a
+    naive UTC compare to "21:00 UTC" mislabels every DST-summer day
+    as half-session.
 
     Returns a set of normalized ET-naive timestamps.
     """
@@ -79,10 +83,11 @@ def _half_session_days_from_calendar(
     )
     if sched.empty:
         return set()
-    full_close_utc = pd.Timestamp("21:00:00", tz="UTC").time()
-    half_mask = sched["market_close"].dt.time != full_close_utc
+    # Convert market_close to America/New_York then check the local
+    # clock. Standard NYSE close hour in ET is 16; half-day is 13.
+    close_et = sched["market_close"].dt.tz_convert("America/New_York")
+    half_mask = close_et.dt.hour != 16
     half_days = sched.index[half_mask]
-    # Schedule index already has trading-date naturally; normalise.
     return {pd.Timestamp(d).normalize() for d in half_days}
 
 
