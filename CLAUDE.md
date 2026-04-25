@@ -524,6 +524,16 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   Standing freeze (universe / mining / Candidate-3 / OOS / spec
   changes) remains. `docs/memos/20260425-data_integrity_round3_close.md`
 
+**Active workstream**:
+- **OOS Framework MVP** (2026-04-25, UNFROZEN narrow scope) — PRD v3
+  `docs/prd/20260425-oos_validation_framework_codex_v3.md` + execution
+  PRD `docs/prd/20260425-oos_mvp_ralph_loop_execution.md` (R1-R7) +
+  ralph-loop launcher `dev/scripts/ralph_loop/oos_mvp_launcher.md`.
+  Lineage `oos-mvp-2026-04-25`; promise `OOSMVPDONE`. Unfreeze scope
+  + halt conditions: `docs/memos/20260425-oos_framework_unfreeze.md`.
+  Auto re-freeze at promise emit. All other round-3 freeze items
+  remain frozen.
+
 **Framework Completion PRD** (`docs/20260421-prd_framework_completion.md`
 v1.2) — shipped M0-M8 + M10 + M13 + M15 + M16 (see archive); open:
 
