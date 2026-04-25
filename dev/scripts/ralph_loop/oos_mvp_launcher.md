@@ -183,6 +183,29 @@ true naturally. Do not force it by lying.
 
 ## How to invoke
 
+### Option A — bash launcher (preferred)
+
+```bash
+bash dev/scripts/ralph_loop/launch_oos_mvp.sh
+```
+
+The launcher does five preflight checks (required files / unfreeze
+authorization / clean working tree / baseline tests / prompt body
+extraction) and then stages `.claude/ralph-loop.local.md` with the
+prompt body extracted from this file's first ``` block. After the
+launcher exits, just send any first turn in Claude Code (e.g.,
+"begin oos mvp loop") — the plugin's stop hook reads the staged
+state file on the assistant's first Stop and re-feeds the prompt
+to start round 1.
+
+Flags:
+- `--check-only` — preflight only, do not write state file
+- `--force` — skip the working-tree-clean prompt
+
+Halt early: `rm .claude/ralph-loop.local.md`.
+
+### Option B — slash command (manual)
+
 Inside Claude Code:
 ```
 /ralph-loop --max-iterations 8 --completion-promise OOSMVPDONE
