@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from typing import Optional
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -49,9 +50,23 @@ setup_logging()
 logger = get_logger("research_miner_cli")
 
 
-def _load_price_volume(cfg, store) -> dict[str, pd.DataFrame]:
+def _load_price_volume(
+    cfg, store, end_date: Optional[str] = None,
+    drop_symbols: Optional[list] = None,
+) -> dict[str, pd.DataFrame]:
     """Return {close, open, high, low, volume} DataFrames for the tradable
     universe + SPY/QQQ benchmarks.
+
+    ``end_date`` (post-2026-04-26 audit, research-cycle pre-registration):
+    if provided, filters the panel to dates ≤ end_date. Used by mining
+    cycles that pre-register a panel cutoff per
+    ``docs/memos/20260426-research_layer_partial_unfreeze.md`` §G4.
+
+    ``drop_symbols`` (same audit): symbols to exclude from the panel
+    even if present in universe.yaml. Used to honor a research-cycle
+    criteria's ``drop_symbols`` declaration without modifying
+    universe.yaml itself (which remains frozen under the partial
+    unfreeze).
     """
     uni = cfg.universe
     all_syms = list(dict.fromkeys(
@@ -61,6 +76,9 @@ def _load_price_volume(cfg, store) -> dict[str, pd.DataFrame]:
     # Include SPY & QQQ whether or not blacklisted (always needed as benchmarks)
     tradable = [s for s in all_syms
                 if s not in uni.blacklist and s not in uni.macro_reference]
+    if drop_symbols:
+        drop_set = set(drop_symbols)
+        tradable = [s for s in tradable if s not in drop_set]
     frames = {k: {} for k in ("close", "open", "high", "low", "volume")}
     for sym in tradable:
         df = store.read(sym, "1d")
@@ -79,7 +97,10 @@ def _load_price_volume(cfg, store) -> dict[str, pd.DataFrame]:
             out[col] = None
     # Start date
     start = cfg.backtest.start_date or "2007-01-02"
-    out["close"] = out["close"][out["close"].index >= pd.Timestamp(start)]
+    mask = out["close"].index >= pd.Timestamp(start)
+    if end_date is not None:
+        mask = mask & (out["close"].index <= pd.Timestamp(end_date))
+    out["close"] = out["close"][mask]
     for col in ("open", "high", "low", "volume"):
         if out[col] is not None:
             out[col] = out[col].reindex(out["close"].index)
@@ -205,6 +226,19 @@ def main() -> int:
                              "1 prevents shared-close leakage; 0 allows "
                              "contemporaneous IC for benchmarking)")
     parser.add_argument("--config-dir", default="config")
+    parser.add_argument(
+        "--end-date", default=None,
+        help="ISO date upper bound on panel data (e.g. 2023-12-31). "
+             "Used by mining cycles that pre-register a panel cutoff per "
+             "docs/memos/20260426-research_layer_partial_unfreeze.md §G4.",
+    )
+    parser.add_argument(
+        "--drop-symbols", nargs="*", default=None,
+        help="Symbols to exclude from the panel (e.g. BRK-B). Used to "
+             "honor research-cycle criteria's drop_symbols list without "
+             "modifying universe.yaml (which is frozen under the "
+             "partial unfreeze).",
+    )
     args = parser.parse_args()
 
     study_id = args.study or (
@@ -217,7 +251,16 @@ def main() -> int:
     store = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
 
     logger.info("Loading price/volume frames...")
-    frames, tradable = _load_price_volume(cfg, store)
+    if args.end_date:
+        logger.info("Panel end_date cap: %s (G4 cutoff)", args.end_date)
+    if args.drop_symbols:
+        logger.info("Drop symbols: %s (criteria yaml drop_symbols)",
+                    args.drop_symbols)
+    frames, tradable = _load_price_volume(
+        cfg, store,
+        end_date=args.end_date,
+        drop_symbols=args.drop_symbols,
+    )
     n_syms = frames["close"].shape[1]
     n_dates = frames["close"].shape[0]
     logger.info("Panel: %d dates × %d symbols (%d tradable)",
