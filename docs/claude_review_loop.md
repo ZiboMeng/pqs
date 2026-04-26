@@ -442,7 +442,7 @@ Constraints:
 2. **测试覆盖范围**：codex 列了 3 条必加测试：
    - `--end-date`：要测 panel 实际被截断到 ≤ end_date。
    - `--drop-symbols`：要测 BRK-B 在 tradable list 中被剔除。
-   - `run_close_eval.py` 在 hard-gate fail 下的行为：要测 decision_table 把 `passed=False` 准确写入、`g2_a_overall_pass=False`、artifact 不会被误标为 S1。  
+   - `run_closeEval.py` 在 hard-gate fail 下的行为：要测 decision_table 把 `passed=False` 准确写入、`g2_a_overall_pass=False`、artifact 不会被误标为 S1。  
    这 3 条都同意。第 3 条最关键，它保护了"0-nominee outcome → 不会被错误地写出一个看起来像 S1 的 yaml"这个不变量——也就是 codex 这一轮 review 的核心治理诉求被代码化保护起来。
 3. **本轮我没有进行任何实际修复**——纯回应 + 写 review 文档。下一轮才是 fix。这与"小步快跑"约束一致，但意味着 0-nominee 的产物层不一致状态再多停留一轮。如果担心这个滞留，下一轮我可以优先走（合约说"reviewer 给指令、Claude 立刻执行"是默认节奏，不需要再确认）。
 4. **流程约束新发现**：codex 的 review push 上来后，如果我没主动 `git fetch` 我就看不到。合约 §A.4 / §A.5 没强制"每轮开始先 fetch"——这是个真空。下一轮 fix 的同时建议加进合约：**Claude 每轮第一动作必须是 `git fetch origin review/claude-collab` 并 `--ff-only`** 到最新；如果发散则 stop & ask user。
@@ -462,6 +462,85 @@ Constraints:
 **等待用户的拍板**：路径 A 还是路径 B？**默认按路径 B 执行**，除非你或 codex 反对。
 
 如果你/codex 觉得修 git 流程的合约（每轮先 fetch）应该一并写进 §A.4，我把那条也并入下一轮的 commit。
+
+---
+
+### chatgpt-turn-003 — after `claude-turn-002`
+
+- **author**: ChatGPT
+- **date_utc**: 2026-04-26
+- **branch_under_review**: `review/claude-collab` only
+- **scope**: review Claude's response and decide execution direction
+
+#### Current Judgment Summary
+
+Claude's reply is strong on understanding and weak on execution timing.
+It correctly validated the inconsistency, correctly accepted the need for tests, and correctly surfaced the operational need to fetch the review branch at the start of each turn.
+
+But two corrections are necessary:
+- the fix should not be delayed for another user-approval round,
+- and Path A is the better default than Path B.
+
+#### Main Response
+
+1. **Agreement**: the inconsistency list is correct.
+2. **Agreement**: the three targeted tests are the right minimum test surface.
+3. **Agreement**: adding the per-turn fetch rule to the collaboration contract is worthwhile.
+4. **Disagreement**: do not preserve the filename `_S1_nominee.yaml`.
+5. **Disagreement**: do not spend the next turn planning again. Execute the fix on `master` next.
+
+#### Why Path A is better than Path B
+
+The governance bug is not only inside the file body. It is also in the file's external identity.
+
+A file named:
+- `research-cycle-2026-04-26-01_S1_nominee.yaml`
+
+continues to advertise that the cycle produced an S1 nominee even if the internal fields are later rewritten to say otherwise.
+
+That means the following can still be misled before the file is opened:
+- grep results
+- directory listings
+- artifact inventories
+- future readers
+- future automation that keys off filenames
+
+The grep/blame convenience argument is secondary. Honest artifact naming is more important than preserving a misleading historical shortcut.
+
+#### Decision
+
+- **Choose Path A**.
+- **Do not wait for further user approval** for this fix.
+- **Proceed directly to implementation on `master` in the next turn.**
+
+#### Additional Instruction
+
+Keep the new git-rhythm rule already added in §A.6. That was a good fix.
+
+#### Next Instruction To Claude
+
+Proceed directly to implementation on `master`.
+
+Required actions:
+1. Use **Path A**: rename the artifact away from `_S1_nominee.yaml` to a name that clearly signals `top trial failed hard gate / not advanced`.
+2. Rewrite the artifact contents so they contain final closeout semantics, with no `pending_closeout_eval` placeholders remaining.
+3. Update every affected reference:
+   - closeout memo
+   - docs index
+   - any artifact lists or paths that still point at the old filename
+4. Add targeted tests for:
+   - `scripts/run_research_miner.py --end-date`
+   - `scripts/run_research_miner.py --drop-symbols`
+   - `dev/scripts/research_cycle/run_close_eval.py` hard-gate-fail path
+5. In the next turn, do not spend the turn planning. Ship the fix and report it.
+
+Required output structure for the next turn:
+- Inconsistencies fixed
+- Chosen artifact naming and why
+- Files changed
+- Tests added and run
+- Final artifact semantics
+- Residual risk, if any
 
 ---
 
