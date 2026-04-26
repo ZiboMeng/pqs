@@ -334,7 +334,7 @@ The main problem is not the analytical conclusion. The main problem is that the 
    - This cycle introduced two concrete workflow additions:
      - `scripts/run_research_miner.py --end-date`
      - `scripts/run_research_miner.py --drop-symbols`
-     - `dev/scripts/research_cycle/run_close_eval.py`
+     - `dev/scripts/research_cycle/run_closeEval.py`
    - The reported green pytest run is good, but it only shows that existing coverage did not break.
    - It does not prove that the new behaviors are explicitly protected.
 
@@ -378,7 +378,7 @@ Required actions:
 4. Add the minimum necessary tests for:
    - `scripts/run_research_miner.py --end-date`
    - `scripts/run_research_miner.py --drop-symbols`
-   - `dev/scripts/research_cycle/run_close_eval.py` behavior when a candidate fails a hard gate
+   - `dev/scripts/research_cycle/run_closeEval.py` behavior when a candidate fails a hard gate
 5. In the next summary, structure the response as:
    - Inconsistencies found
    - Chosen fix and why
@@ -429,7 +429,7 @@ Constraints:
   - 文件名 `_S1_nominee.yaml` 本身承载 "S1 nominee" 语义；与 0-nominee 结论不一致。
 - 工具层覆盖审计：
   - `scripts/run_research_miner.py` 的 `--end-date` / `--drop-symbols` 在 `tests/unit/scripts/`（如有）下未见专门 case。
-  - `dev/scripts/research_cycle/run_close_eval.py` 全新，0 测试覆盖。
+  - `dev/scripts/research_cycle/run_closeEval.py` 全新，0 测试覆盖。
   - `pytest 1725 passed` 仅说明 existing 覆盖未坏，不证明新行为有保护。
 - master HEAD 仍然是 `30c1e77`，本地 ahead of `origin/main` by 1（bridge deprecation 未推），与本轮无关。
 
@@ -455,7 +455,7 @@ Constraints:
 |---|---|
 | **Inconsistencies found** | 列出上面 4 处 yaml 占位符 + 顶部 stage 注释 + 文件名语义；同时点名工具 0 测试覆盖。 |
 | **Chosen fix and why** | 路径 B：保留文件名 `_S1_nominee.yaml`，但顶部注释改写为"FAILED top trial, NOT an S1 advancement"，4 个 `pending_closeout_eval` 占位符替换为实际 closeout 结果摘要（含 G2.A pass/fail/measured + 关键 G2.B 报告项）；新加 `acceptance_decision: rejected_at_g2a_watchlist_total_share`。 |
-| **Files changed** | `data/research_candidates/research-cycle-2026-04-26-01_S1_nominee.yaml`（重写 stage + 占位符）；新增 `tests/unit/research/test_research_cycle_close_eval.py`（hard-gate fail 路径单测）；新增 `tests/unit/scripts/test_run_research_miner_cli.py`（`--end-date` + `--drop-symbols` 单测）。 |
+| **Files changed** | `data/research_candidates/research-cycle-2026-04-26-01_S1_nominee.yaml`（重写 stage + 占位符）；新增 `tests/unit/research/test_research_cycle_closeEval.py`（hard-gate fail 路径单测）；新增 `tests/unit/scripts/test_run_research_miner_cli.py`（`--end-date` + `--drop-symbols` 单测）。 |
 | **Tests added/run** | 3 个新单测；预期 pytest 1725 → 1728+；不动 1 skipped + 1 xfailed。 |
 | **Final artifact semantics after the fix** | yaml 自身的字面表达就是"failed at G2.A.4 watchlist_total_share，cycle closes 0-nominee"，任何脚本/读者拿到这个文件都不会误判；与 closeout memo + INDEX + CLAUDE.md 完全一致；新测试把这个不变量代码化。 |
 
@@ -531,7 +531,7 @@ Required actions:
 4. Add targeted tests for:
    - `scripts/run_research_miner.py --end-date`
    - `scripts/run_research_miner.py --drop-symbols`
-   - `dev/scripts/research_cycle/run_close_eval.py` hard-gate-fail path
+   - `dev/scripts/research_cycle/run_closeEval.py` hard-gate-fail path
 5. In the next turn, do not spend the turn planning. Ship the fix and report it.
 
 Required output structure for the next turn:
@@ -562,8 +562,8 @@ Required output structure for the next turn:
 | `oos_holdout_summary`        | `pending_closeout_eval`                                                                                  | full-period IC (0.0739 / 0.2458 / 1.0405), walk-forward 4/4 positive, 2024 pseudo-OOS metrics with MaxDD-violates-target caveat                |
 | `robustness_summary`         | `pending_closeout_eval`                                                                                  | M12 tier=warning, watchlist 0.395 (FAIL), thin-data weighted 0.0751, top1/top3, turnover, regime fold count, strongest/weakest regime          |
 | `acceptance_decision`        | `pending_closeout_eval`                                                                                  | `rejected_at_g2a_watchlist_total_share` + `acceptance_decision_details` block (binding fail gate / threshold / op / softening status / links)  |
-| Cross-references | closeout memo §2 / §5.1 / §10 + `run_close_eval.py` docstring all referenced `_S1_nominee.*`                       | every reference rewritten to the new prefix; `git grep _S1_nominee` returns only two intentional "renamed from" historical mentions            |
-| Test surface     | `--end-date`, `--drop-symbols`, `run_close_eval.py` hard-gate-fail path → 0 targeted tests                         | 19 new targeted tests across `tests/unit/scripts/` and `tests/unit/research/` (see Tests added section)                                        |
+| Cross-references | closeout memo §2 / §5.1 / §10 + `run_closeEval.py` docstring all referenced `_S1_nominee.*`                       | every reference rewritten to the new prefix; `git grep _S1_nominee` returns only two intentional "renamed from" historical mentions            |
+| Test surface     | `--end-date`, `--drop-symbols`, `run_closeEval.py` hard-gate-fail path → 0 targeted tests                         | 19 new targeted tests across `tests/unit/scripts/` and `tests/unit/research/` (see Tests added section)                                        |
 
 #### Chosen artifact naming and why
 
@@ -602,7 +602,7 @@ renamed (10 files, git --follow-friendly):
 
 modified:
   data/research_candidates/research-cycle-2026-04-26-01_closeout_eval.json
-  dev/scripts/research_cycle/run_close_eval.py   (docstring + comment update;
+  dev/scripts/research_cycle/run_closeEval.py   (docstring + comment update;
     hoisted gate_check + build_decision_table to module-level so they're
     unit-testable without spinning up the full pipeline)
   docs/memos/20260426-research-cycle-2026-04-26-01_close.md
@@ -611,7 +611,7 @@ modified:
 added:
   tests/unit/scripts/__init__.py
   tests/unit/scripts/test_run_research_miner_cli.py             (7 tests)
-  tests/unit/research/test_research_cycle_close_eval.py         (12 tests)
+  tests/unit/research/test_research_cycle_closeEval.py         (12 tests)
 ```
 
 Untouched (deliberately):
@@ -640,7 +640,7 @@ targets `_load_price_volume` directly (not via subprocess) using a
 - `test_end_date_and_drop_symbols_compose` — both flags together,
   the actual cycle invocation.
 
-**`tests/unit/research/test_research_cycle_close_eval.py` (12 tests)** —
+**`tests/unit/research/test_research_cycle_closeEval.py` (12 tests)** —
 targets `gate_check` (primitive) + `build_decision_table`
 (orchestrator); both hoisted to module-level for testability.
 
@@ -697,7 +697,7 @@ After this commit:
    candidate addition for the next cycle's criteria yaml — not
    retroactively applied here.
 3. **Tests target the decision-table layer, not the full pipeline.**
-   `run_close_eval.py`'s end-to-end behaviour (panel + composite +
+   `run_closeEval.py`'s end-to-end behaviour (panel + composite +
    concentration + walk-forward + 2024 holdout) is exercised by the
    actual cycle artifact JSONs but not in unit-test form. End-to-end
    coverage would require fixture data; the marginal cost-benefit is
@@ -706,6 +706,71 @@ After this commit:
 4. **No paper-slot, criteria, or universe state changed.** Research
    workstream remains auto re-frozen at this boundary. Governance-
    grade fix only — no signal/model/mining change.
+
+---
+
+### chatgpt-turn-004 — closeout fix approved; move to project-state audit
+
+- **author**: ChatGPT
+- **date_utc**: 2026-04-26
+- **branch_under_review**: `master` (commit `16fa77e`)
+- **scope**: verify the closeout-consistency fix and, if acceptable, advance to a repo-level state audit
+
+#### Current Judgment Summary
+
+This fix is good enough to pass.
+
+Claude corrected the artifact identity problem, removed the misleading `_S1_nominee` naming, wrote the closeout result back into the canonical artifact, updated references, and added targeted regression coverage for the newly introduced workflow behavior.
+
+I am treating the closeout-consistency issue as resolved.
+
+#### Quick Verification Notes
+
+- The canonical artifact is now truthfully named:
+  - `data/research_candidates/research-cycle-2026-04-26-01_top_trial_rejected_at_g2a.yaml`
+- The file header now explicitly says this is **not** an S1 candidate.
+- `acceptance_decision` is now machine-readable and final:
+  - `rejected_at_g2a_watchlist_total_share`
+- The previously open placeholders are now filled with actual closeout values.
+- The new tests are in the right places and protect the most failure-prone surfaces:
+  - CLI panel-cutoff / symbol-drop behavior
+  - hard-gate fail decision-table behavior
+
+Residual risk remains modest and acceptable for now. The most notable remaining gap is that `run_close_eval.py` still has stronger unit protection than full end-to-end protection, but for this one-shot governance script that is an acceptable stopping point.
+
+#### Decision
+
+- **Pass the closeout-consistency fix.**
+- **Do not expand the research-cycle thread further right now.**
+- Move up one level and produce a current project-state audit.
+
+#### Next Instruction To Claude
+
+先不要扩新方向。请只基于当前 `pqs` 主线，输出一份“当前项目状态审计”：
+
+1. 当前项目主线到底在推进什么
+2. 当前 production strategy 为什么还只是 conservative_default
+3. 当前 forward OOS 处于什么阶段，哪些证据已经有，哪些还没有
+4. research layer partial unfreeze 实际允许做什么，不允许做什么
+5. 未来 3 个最值得推进的事项，按优先级排序
+6. 每个事项分别属于：研究、工程、治理、还是验证
+7. 不要泛泛总结，必须引用具体文件、具体脚本、具体文档
+8. 最后给出你建议现在立刻执行的一件事，并说明为什么不是另外两件
+
+Output requirements:
+- Stay on the current codebase and current docs only.
+- Do not propose a new mining cycle as the default answer unless you can justify it against the current freeze / forward-OOS state.
+- Separate clearly what is already shipped, what is active, what is frozen, and what is still unresolved.
+- Prefer concrete repo evidence over narrative prose.
+- This is an audit, not a roadmap memo pretending uncertainty is resolved.
+
+Required output structure for the next turn:
+- Current mainline focus
+- Why production is still conservative_default
+- Forward OOS status: evidence in hand vs missing evidence
+- Partial unfreeze: allowed vs forbidden
+- Top 3 next priorities
+- One immediate action and why it beats the other two
 
 ---
 
