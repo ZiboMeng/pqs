@@ -205,24 +205,48 @@ def test_round_trip_via_model_dump():
 # ── no runner code in the package ──────────────────────────────────────
 
 
-def test_forward_package_has_no_runner_module():
-    """PRD v3 §B + execution PRD §3 R5: schema only, no runner.
+def test_forward_runner_writes_go_through_schema_validation():
+    """Replaces the original "no runner" guard.
 
-    Enforce this contract at the package level — fail if any module name
-    that suggests a runner appears in core/research/forward/.
+    PRD v3 §B's "schema only no runner" constraint applied during the
+    OOS MVP (R5). The user has since authorized the forward runner
+    (PRD `docs/prd/20260426-forward_oos_runner_prd.md`), so the
+    package now legitimately contains runner modules.
+
+    The harder structural invariant we still need to lock in is:
+    **every module under core/research/forward that materializes a
+    forward manifest from a dict MUST go through
+    ``ForwardRunManifest.model_validate``** (or an equivalent path
+    that runs the schema's ``_check_evidence_class`` validator).
+    Raw ``json.dump(some_dict, ...)`` writes that bypass the schema
+    are forbidden because they would let an attacker (or careless
+    refactor) silently flip ``evidence_class`` away from
+    ``forward_oos``.
+
+    Implementation: scan every .py file in the forward package
+    (excluding the schema module itself); any file that imports
+    ``json`` AND contains the literal string ``"forward_run_manifest"``
+    OR mentions ``runs``/``manifest`` in the function bodies must
+    also import ``ForwardRunManifest`` from manifest_schema. A
+    grep-based check is sufficient and cheap.
     """
     import core.research.forward as pkg
-    pkg_path = pkg.__path__[0]
-
     from pathlib import Path
-    files = [p.name for p in Path(pkg_path).iterdir() if p.suffix == ".py"]
 
-    forbidden_substrings = ["runner", "executor", "execute", "run_forward"]
-    for name in files:
-        lowered = name.lower()
-        for bad in forbidden_substrings:
-            assert bad not in lowered, (
-                f"forward/ package has forbidden file {name!r}: "
-                f"PRD v3 §B mandates schema-only, no runner. "
-                f"matched substring: {bad!r}"
+    pkg_path = Path(pkg.__path__[0])
+    schema_module = "manifest_schema.py"
+    for py in pkg_path.iterdir():
+        if py.suffix != ".py":
+            continue
+        if py.name == schema_module or py.name == "__init__.py":
+            continue
+        src = py.read_text()
+        # Heuristic: if the file talks about manifests at all, it
+        # MUST also reference the schema model (importing it ensures
+        # validation paths are reachable).
+        if "manifest" in src.lower() or "ForwardRun" in src:
+            assert "ForwardRunManifest" in src, (
+                f"{py.name} touches manifests but does not import "
+                f"ForwardRunManifest — schema bypass risk. Add an "
+                f"explicit import + use model_validate."
             )

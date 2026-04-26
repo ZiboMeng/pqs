@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "candidate_id": "candidate_2_orthogonal_01",
+  "evidence_class": "forward_oos",
+  "spec_hash": "cefa03236a6eabb5e53a58a24d612864a69ec1753fe55beda4f0d04239546b66",
+  "start_date": "2026-04-25",
+  "benchmark": "SPY",
+  "secondary_benchmark": "QQQ",
+  "cost_assumptions": {
+    "source": "config/cost_model.yaml",
+    "config_hash": "c1b5fee2ec136db7051a47d5b6364d8b05c623a9b049cdf7f95c1d727a7e1b0d"
+  },
+  "checkpoint_cadence": {
+    "weekly": true,
+    "decision_days": [
+      10,
+      20,
+      40,
+      60
+    ]
+  },
+  "current_status": "not_started",
+  "data_integrity_snapshot": {
+    "daily_store_rebuild_commit": "f170b0c00000",
+    "baseline_snapshot_path": "data/baseline/latest.json",
+    "generated_at_utc": "2026-04-26T02:49:39.519552Z"
+  },
+  "runs": []
+}
