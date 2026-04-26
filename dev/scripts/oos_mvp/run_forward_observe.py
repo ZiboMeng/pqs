@@ -24,6 +24,7 @@ sys.path.insert(0, str(ROOT))
 from core.research.forward import (  # noqa: E402
     ForwardHaltError,
     ForwardRunStatus,
+    check_readiness,
     decide,
     init,
     observe,
@@ -84,6 +85,12 @@ def _cmd_observe(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_readiness(args: argparse.Namespace) -> int:
+    report = check_readiness(args.candidate_id)
+    print(json.dumps(report.to_dict(), indent=2, default=str))
+    return 0
+
+
 def _cmd_decide(args: argparse.Namespace) -> int:
     new_status = ForwardRunStatus(args.status)
     decide(
@@ -123,6 +130,13 @@ def main() -> int:
     p_status = sub.add_parser("status", help="Print manifest summary")
     p_status.add_argument("--candidate-id", required=True)
     p_status.set_defaults(func=_cmd_status)
+
+    p_ready = sub.add_parser(
+        "readiness",
+        help="Forward data readiness / freshness guard (read-only)",
+    )
+    p_ready.add_argument("--candidate-id", required=True)
+    p_ready.set_defaults(func=_cmd_readiness)
 
     p_observe = sub.add_parser("observe", help="Append-only multi-day catch-up")
     p_observe.add_argument("--candidate-id", required=True)

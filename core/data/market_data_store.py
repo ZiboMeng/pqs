@@ -78,6 +78,15 @@ class MarketDataStore:
         Incrementally append new rows to existing parquet.
         Deduplicates on index; newer rows win on conflict.
 
+        Source-boundary contract (post-2026-04-26 audit):
+        Every yfinance-source append to ``freq=='1d'`` is recorded in
+        ``data/ref/daily_source_boundaries.parquet`` so downstream
+        readers (forward runner, drift report) can detect when an
+        observation window crosses the polygon→yfinance boundary
+        and flag the artifact accordingly. Daily store is the only
+        freq with multi-source mixing; intraday writes don't trigger
+        the sidecar.
+
         Returns:
             Number of new rows actually added.
         """
@@ -86,8 +95,12 @@ class MarketDataStore:
         path = self._parquet_path(symbol, freq)
         path.parent.mkdir(parents=True, exist_ok=True)
 
+        prev_max_date = None
+        appended_dates: list = []
         if path.exists():
             existing = _read_parquet(path)
+            if not existing.empty and isinstance(existing.index, pd.DatetimeIndex):
+                prev_max_date = existing.index.max().date()
             combined = pd.concat([existing, new_df]).sort_index()
             combined = combined[~combined.index.duplicated(keep="last")]
         else:
@@ -99,6 +112,38 @@ class MarketDataStore:
         logger.debug(
             "[%s/%s] Appended +%d rows (total %d)", symbol, freq, new_count, len(combined)
         )
+
+        # Record the source-boundary sidecar entry for daily yfinance
+        # appends. We record dates that are NEW relative to prev_max_date
+        # (i.e. genuine yfinance-frontier extensions, not dedup-overwrites
+        # of polygon dates).
+        if freq == "1d" and isinstance(new_df.index, pd.DatetimeIndex):
+            if prev_max_date is None:
+                # First-time write — no canonical history to defend.
+                # Treat the whole append as the symbol's initial range;
+                # do NOT mark a frontier (there's nothing to be a
+                # frontier OF).
+                pass
+            else:
+                appended_dates = [
+                    ts.date() for ts in new_df.index
+                    if ts.date() > prev_max_date
+                ]
+                if appended_dates:
+                    try:
+                        from core.data.source_boundaries import (
+                            record_yfinance_append,
+                        )
+                        record_yfinance_append(
+                            symbol=symbol,
+                            appended_dates=appended_dates,
+                            prev_max_date=prev_max_date,
+                        )
+                    except Exception as exc:  # pragma: no cover — defense
+                        logger.warning(
+                            "[%s/1d] failed to record source-boundary "
+                            "sidecar entry: %s", symbol, exc,
+                        )
         return new_count
 
     def read(

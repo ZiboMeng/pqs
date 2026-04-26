@@ -106,6 +106,15 @@ class ForwardRun(BaseModel):
     one entry per checkpoint as forward observation accumulates. The
     schema defines the entry shape now so future writers don't have to
     re-version the manifest.
+
+    ``source_mix`` (post-2026-04-26 audit, additive optional field):
+    True if the bars used to compute this entry come from a different
+    source layer than the candidate's frozen construction layer (i.e.,
+    the observation window includes any held-symbol bar that is in
+    that symbol's yfinance frontier — see
+    ``core.data.source_boundaries``). False if the entry is entirely
+    on the candidate's construction source layer. None if boundary
+    state cannot be determined.
     """
 
     checkpoint_label: str = Field(min_length=1, description="e.g. '10TD' / 'weekly_w03'")
@@ -117,6 +126,7 @@ class ForwardRun(BaseModel):
     vs_spy: Optional[float] = None
     vs_qqq: Optional[float] = None
     notes: Optional[str] = None
+    source_mix: Optional[bool] = None
 
 
 class ForwardRunManifest(BaseModel):

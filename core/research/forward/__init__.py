@@ -12,6 +12,7 @@ from .manifest_schema import (
     ForwardRunManifest,
     ForwardRunStatus,
 )
+from .readiness import ReadinessReport, check_readiness
 from .runner import (
     ForwardHaltError,
     decide,
@@ -27,6 +28,8 @@ __all__ = [
     "ForwardRun",
     "ForwardRunManifest",
     "ForwardRunStatus",
+    "ReadinessReport",
+    "check_readiness",
     "decide",
     "init",
     "load_manifest",

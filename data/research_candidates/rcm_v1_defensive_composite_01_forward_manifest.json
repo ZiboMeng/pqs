@@ -19,11 +19,24 @@
       60
     ]
   },
-  "current_status": "not_started",
+  "current_status": "in_progress",
   "data_integrity_snapshot": {
     "daily_store_rebuild_commit": "f170b0c00000",
     "baseline_snapshot_path": "data/baseline/latest.json",
     "generated_at_utc": "2026-04-26T03:08:41.492653Z"
   },
-  "runs": []
+  "runs": [
+    {
+      "checkpoint_label": "TD001",
+      "as_of_date": "2026-04-24",
+      "n_observed_trading_days": 1,
+      "cum_ret": 0.0,
+      "sharpe": null,
+      "max_dd": 0.0,
+      "vs_spy": null,
+      "vs_qqq": null,
+      "notes": "fills_today=0",
+      "source_mix": true
+    }
+  ]
 }

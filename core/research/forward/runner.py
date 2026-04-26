@@ -37,6 +37,7 @@ import pandas as pd
 
 from core.config.loader import load_config
 from core.data.factory import PriceStore, create_default_store
+from core.data.source_boundaries import get_boundary
 from core.execution.cost_model import CostModel
 from core.research.candidate_registry import CandidateRegistry
 from core.research.frozen_spec import FrozenStrategySpec
@@ -413,6 +414,20 @@ def observe(
 
     appended: list = []
     start_ts = pd.Timestamp(manifest.start_date)
+
+    # Pre-cache per-symbol canonical_end_date so each TD entry's
+    # source_mix flag can be computed without re-reading the sidecar
+    # repeatedly. None canonical_end_date = no boundary recorded for
+    # that symbol; treat as "unknown" → does not contribute to
+    # source_mix=True.
+    boundary_cache: dict = {}
+    for sym in target_wts.columns:
+        b = get_boundary(sym)
+        boundary_cache[sym] = (
+            b["canonical_end_date"] if b and b.get("canonical_end_date")
+            else None
+        )
+
     for d in new_dates:
         ts = pd.Timestamp(d)
         # NAV-based metrics use the slice [start_date .. d].
@@ -447,6 +462,25 @@ def observe(
         n_td = int(len(available_index[
             (available_index >= start_ts) & (available_index <= ts)
         ]))
+
+        # Source-mix detection: if any held symbol on this date has a
+        # canonical_end_date BEFORE d, the bar driving today's NAV
+        # came from yfinance frontier (different source layer than
+        # the candidate's polygon-canonical construction). Mark the
+        # entry so downstream consumers don't conflate forward
+        # observation NAV with construction-layer NAV.
+        held_today = [
+            sym for sym in target_wts.columns
+            if abs(target_wts.loc[ts, sym]) > 0.0
+        ] if ts in target_wts.index else []
+        source_mix: Optional[bool] = None
+        if held_today:
+            source_mix = False
+            for sym in held_today:
+                ce = boundary_cache.get(sym)
+                if ce is not None and d > ce:
+                    source_mix = True
+                    break
         appended.append(ForwardRun(
             checkpoint_label=f"TD{n_td:03d}",
             as_of_date=d,
@@ -457,6 +491,7 @@ def observe(
             vs_spy=vs_spy,
             vs_qqq=vs_qqq,
             notes=f"fills_today={fills_by_date.get(d, 0)}",
+            source_mix=source_mix,
         ))
 
     if not appended:
