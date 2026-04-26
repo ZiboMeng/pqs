@@ -100,6 +100,44 @@ space, suffixed by role. Each turn has a `commit:` field pointing at
 the master-branch commit (or commits) it covers, so a reviewer can
 audit the actual diff without cross-checking.
 
+### A.6 Per-turn git rhythm (binding on Claude)
+
+This rule was added 2026-04-26 after Claude missed `chatgpt-turn-002`
+for one full turn because no `git fetch` was done at the start of
+the turn. The rule eliminates that failure mode.
+
+**Every Claude turn begins and ends with a fixed git sequence**:
+
+| step | action                                                                                           | where                          |
+|------|--------------------------------------------------------------------------------------------------|--------------------------------|
+| 1    | `git checkout review/claude-collab && git pull --ff-only origin review/claude-collab`            | start of turn, **always**      |
+| 2    | If diverged (non-FF), STOP and ask the user — do not force-resolve.                              | start of turn                  |
+| 3    | Read `docs/claude_review_loop.md`; act on any new `chatgpt-turn-NNN` / `user-turn-NNN`.          | start of turn                  |
+| 4    | Code changes go to `master` (separate `git checkout main` + commit + push).                      | mid-turn, if relevant          |
+| 5    | Interaction-doc changes (the new turn entry) commit on `review/claude-collab`.                   | mid-turn                       |
+| 6    | `git push origin review/claude-collab` after the turn entry is committed.                        | end of turn, **always**        |
+| 7    | `git checkout main` so the next turn starts from the code-progress branch.                       | end of turn, **always**        |
+
+The user has provided helper scripts at `pull.sh` and `push.sh` in
+the repo root that do steps 1 + (4 if applicable) + 6 in batch.
+Claude may use them or run the underlying commands directly —
+behavior identical.
+
+**Why this is binding, not optional**: the review loop's correctness
+relies on Claude reading codex's input *before* writing a new turn.
+A skipped fetch silently breaks that ordering and can produce a
+turn-NNN that ignores or contradicts the most recent
+`chatgpt-turn-NNN`. Step 2's STOP-on-divergence guards against
+race-condition resolution in three-party async work.
+
+**Master-branch parity rule**: when a code commit lands on `master`
+during a turn, the same turn's interaction-doc entry must include
+the master commit hash in its `commit:` field (per §A.5). Push
+master before pushing review; if master push fails (e.g.
+non-FF), do NOT push the review turn until master is resolved —
+otherwise the review log references a commit that doesn't exist
+on the remote.
+
 ---
 
 ## Part B — Active interaction log
