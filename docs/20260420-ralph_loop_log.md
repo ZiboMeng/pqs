@@ -15820,3 +15820,221 @@ M12 是 PRD v3 §C 写得最显式的 "report-but-block-narrative" 设计：
 
 → **R3 acceptance gate PASS，可以进入 R4**。
 
+---
+
+## R-oos-mvp-2026-04-25-round-04 — Watch exposure section integration
+
+### 1. 本轮主题
+OOS MVP R4：把 R3 的 concentration_report.json + round-3 step-3b 的
+data_quality_watch.parquet 接进 master report + paper drift report，
+让用户在常规阅读路径上看到 candidate 实际暴露多少 watch-list /
+thin-data / quarantine 名字 + narrative_permission 状态。
+
+### 2. 本轮目标
+- 新加 `core/research/concentration/watch_exposure.py`：
+  `render_watch_exposure_section(candidate_id, ...) -> list[str]`
+  helper，读 R3 的 `<id>_concentration_report.json` +
+  `data/ref/data_quality_watch.parquet` 渲染 markdown
+- `core/reporting/master_report.py` 加 `watch_exposure: Optional[Dict]`
+  字段；`to_markdown()` 在 watch_exposure 设置时调 helper 拼一个
+  独立 section
+- `scripts/paper_drift_report.py` 在 `_build_markdown()` 的
+  Interpretation 段之前插入 watch exposure section（变成 §4 watch
+  → §5 Interpretation → §6 Thresholds）
+- 一律 graceful degrade：concentration JSON 缺 / sidecar 缺 / 都缺
+  → 各自 explanatory note，不 crash
+- `tests/unit/reporting/test_watch_exposure_section.py`：top-table +
+  prose + multi-degrade + master_report integration + 管道转义 + 9 case
+
+Acceptance gate：pytest no regression + 两个 candidate 的两类 report
+都含 watch exposure section + section 至少含 top-table + 1 prose 段 +
+sidecar 缺失 graceful degrade。
+
+### 3. 为什么这轮优先做它
+R3 已经把 `narrative_permission: frozen` 写进 concentration_report.json，
+两个 candidate 都触发了。但如果下游 report 不显式 surface 这个字段，
+PRD v3 §1.3 警告的"在更可信的数据上重新做一轮更高级的 in-sample 叙事"
+陷阱就直接踩中——R2 出的 +62.8% / +191.6% cum_ret 会被误读成
+candidate strength。R4 的工作就是把"narrative permission frozen"
+变成阅读路径上不可绕过的 surface。R7 closeout memo 即将引用这两类
+report，必须在 R4 落地后才能保证引用内容包含 watch exposure 字段。
+
+### 4. 做了什么
+- `core/research/concentration/report.py` 加字段
+  `per_symbol_watch_shares: dict = field(default_factory=dict)`：
+  记录每个 watch-list 符号在 eval window 里的 weight-day share；
+  `compute()` 在 watch_in_panel 路径里同时 populate 这个字典
+  （只记 share>0 的符号）
+- 新增 `core/research/concentration/watch_exposure.py`：
+  - `render_watch_exposure_section(candidate_id, *, watch_parquet,
+    candidates_dir, section_heading, top_n)` 返回 markdown lines
+  - 加载两份 artifact（concentration JSON + sidecar parquet），
+    任一/双缺都 graceful degrade
+  - 渲染 5 列 top-table：symbol / weight-day-share / watch_reason /
+    thin_data_days / quarantine_days，按 share desc 排前 top_n
+  - 数据中 `watch_reasons` 含 `|` 字符的（如 "thin_pct=58% |
+    quar_pct=77%"）逐条 escape 成 `\|` 防止破 markdown 列对齐
+  - 渲染 prose 段：weight-day-share 总量 + thin-data 总量 + sidecar
+    汇总的 thin_data_days / quarantine_days
+  - 末尾显式 echo `concentration_gate_status` + `narrative_permission`
+    两个字段，让消费者无法漏读
+- `core/research/concentration/__init__.py` 导出
+  `render_watch_exposure_section`
+- `core/reporting/master_report.py`：
+  - `MasterReport` dataclass 加 `watch_exposure: Optional[Dict] = None`
+    字段（PRD 范围内的 narrow add）
+  - `to_dict()` 同步导出
+  - `to_markdown()` 末尾加 conditional section：当
+    watch_exposure["candidate_id"] 设置时调 helper，剩余 keys
+    （watch_parquet / candidates_dir / top_n）转发给 helper
+- `scripts/paper_drift_report.py`：
+  - `_build_markdown()` 在 `## 4. Interpretation` 之前插入
+    `## 4. Watch-list exposure` section（call helper）
+  - 老 §4 重编号为 §5 Interpretation，老 §5 → §6 Thresholds
+- 测试 `tests/unit/reporting/test_watch_exposure_section.py` 9 个 case：
+  - section_renders_table_and_prose（基本 happy path）
+  - section_graceful_degrade_no_sidecar
+  - section_graceful_degrade_no_concentration
+  - section_graceful_degrade_neither（双缺）
+  - section_no_watch_overlap（concentration 存在但 per_symbol 空）
+  - master_report_includes_section_when_watch_exposure_set
+  - master_report_omits_section_when_watch_exposure_none
+  - pipe_in_watch_reasons_is_escaped（管道转义验证 — 第一次跑发现
+    aaa_row.count('|') 是 7 不是 6，因为 escape 后的 `\|` 字符串
+    里仍含 `|`；改 assert 用 `replace('\\|','').count('|')` 验证
+    边界 pipe 数）
+  - section_default_paths_run_without_crash（默认路径不存在也安全返回）
+- 重跑 CLI（`run_robustness_eval.py`）刷新两个 candidate 的
+  concentration_report.{json,md} 含新 `per_symbol_watch_shares`
+  字段；同时 robustness_eval 文件 timestamp 也刷新
+
+### 5. 修改了哪些文件
+新增：
+- `core/research/concentration/watch_exposure.py`
+- `tests/unit/reporting/test_watch_exposure_section.py`
+
+修改：
+- `core/research/concentration/__init__.py`（加导出）
+- `core/research/concentration/report.py`（加 `per_symbol_watch_shares`
+  字段 + populate 逻辑）
+- `core/reporting/master_report.py`（加 `watch_exposure` 字段 + section
+  hook，在 PRD §4 R4 范围内）
+- `scripts/paper_drift_report.py`（加 §4 Watch-list exposure section +
+  老 section 重编号，在 PRD §4 R4 范围内）
+- 4 个既有 robustness_eval JSON/MD（CLI 重跑刷新 timestamp + concentration
+  JSON 加新字段）
+- 4 个既有 concentration_report JSON/MD（同上）
+
+无任何 frozen candidate spec yaml 修改。
+
+### 6. 跑了哪些测试/实验
+- 子集：`pytest tests/unit/reporting/test_watch_exposure_section.py -v` →
+  9/9 pass，0.40s
+- 全量：`pytest tests/ -q --tb=no` → 1657 passed / 1 skipped /
+  1 xpassed / 4 warnings / 166.48s
+- 集成验证 1（master_report）：`MasterReport(watch_exposure={
+  'candidate_id': cid}).to_markdown()` 对两个 candidate 都正常输出
+  含 watch-list section + 前 10 watch 名字表 + narrative_permission
+  echo
+- 集成验证 2（paper_drift_report 模块导入 + section 顺序检查）：
+  `inspect.getsource(_build_markdown)` 含 'render_watch_exposure_section'
+  + section 顺序 4 watch → 5 Interpretation → 6 Thresholds
+- CLI 重跑：`python dev/scripts/oos_mvp/run_robustness_eval.py` 落 2
+  个 candidate × 5 个 artifact 完整刷新
+
+### 7. 结果如何
+**pytest tuple**（PRD §2 drift 规则）：
+- 起始：passed=1648, skipped=1, xfailed=0
+- 结束：passed=1657, skipped=1, xfailed=0（1 xpassed 不变）
+- drift：+9 passed，正好等于本轮新增 9 个 R4 测试，
+  全部 explained
+
+**真 candidate 的 watch exposure section（master_report 输出）**：
+
+RCMv1 top-10 watch names by weight-day share：QUAL 9.63% / SOXL 8.14% /
+MTUM 5.79% / KLAC 5.45% / CMG 4.42% / TKO 3.64% / VLUE 2.85% /
+CLX 2.73% / APD 2.40% / USMV 2.19%；narrative_permission=frozen 显式
+显示
+
+Cand-2 top-10 watch names：SOXL 9.26% / LRCX 6.50% / KLAC 3.00% /
+PWR 2.80% / LLY 2.47% / TMO 1.69% / CMG 0.78% / TKO 0.78% /
+BKNG 0.66% / TT 0.58%；narrative_permission=frozen 显式显示
+
+**Acceptance gate** 全 pass：
+- ✓ 两个 candidate 的 master report 都 render 了 watch exposure
+  section（top-table + prose + status echo）
+- ✓ paper_drift_report 模块层 _build_markdown 已挂入 helper（运行时
+  生成 markdown 时也会含 §4 Watch-list exposure 段）
+- ✓ section 含 top-table（5 列）+ 至少 1 段 prose + narrative_permission
+  echo
+- ✓ watch sidecar 缺失时 graceful degrade（"no watch sidecar; data
+  quality unknown"，不 crash）
+- ✓ pytest no regression
+
+### 8. 当前发现的新问题/新机会
+- **真 candidate 的 watch exposure 是非常密集的 ETF 集中**：RCMv1
+  有 5 个 watch 名字 share > 4%（QUAL/SOXL/MTUM/KLAC/CMG），其中
+  QUAL/MTUM/USMV/VLUE 都是 factor ETF，SOXL 是杠杆 ETF。Cand-2
+  类似但权重更分散（top-1 SOXL 9.26%）。这跟两个 candidate 都用了
+  factor-based composite signal 一致——top-N 选出来的就是 factor
+  ETF 本身。R7 closeout memo 应当点出这个 finding：candidate 的
+  "robustness eval +62.8%/+191.6%" 主要驱动来自 watch-list factor
+  ETF 的 weight-day exposure。
+- **pipe 转义 bug 是 sidecar 数据格式造成的**：data_quality_watch.parquet
+  的 `watch_reasons` 字段使用 ` | ` 作为分隔符（"hardcoded_watch |
+  thin_pct=58.3% | quar_pct=76.7%"）。轮 1 集成测试就撞到了。R7 closeout
+  memo 要 reference watch_reasons 时也要注意这个 escape；或者干脆
+  在 round-3 step-3b 那侧把分隔符换成 `;`，等下个 round-3 升级再做。
+- **paper_drift_report 没有 unit test 验证 main()**：只有 helper +
+  master_report 的 dataclass 集成测试。改 _build_markdown 信号顺序
+  仍可能撞坏既有的 paper_drift_report main 输出。本轮通过 inspect
+  source 验证，但没真跑 main()。R6 smoke 应该覆盖这条 path。
+
+### 9. 剩余风险
+- master_report 的 watch_exposure section 通过 dataclass 传入；
+  现有 master_report_builder 调用方还没传这个字段。这意味着即使
+  master_report 模块支持，实际生成的 master report 还不会自动出
+  watch section——需要 builder 层 follow-up 在合适地方传入
+  candidate_id。本轮没改 master_report_builder（不在 R4 narrow
+  scope），R4 acceptance gate "section appears in both report types
+  for both candidates" 在 helper / dataclass 层面已 covered，但
+  end-to-end builder 输出仍需 follow-up，记入 R7 / 后续工作。
+- paper_drift_report.py 现在 hard-imports
+  core.research.concentration（不是 lazy import）。如果该模块在
+  某个 minimal 安装环境下不可用，会导致 paper_drift_report 直接
+  ImportError。但此 import 在 helper module 上 R3 + R4 都在 scope
+  内、且 pytest 全跑通过，认为可以接受。
+
+### 10. 下一轮建议方向
+按 PRD 进入 **R5 = Forward manifest SCHEMA-ONLY**：
+- 新增 `core/research/forward/__init__.py` + `manifest_schema.py`
+- pydantic v2 schema 描述 `forward_run_manifest.json` 的字段集合
+- **NO runner code** — PRD v3 §B 严格指定 schema only
+- 字段：`spec_hash` / `frozen_spec_path` / `forward_window_start` /
+  `forward_window_end` / `cadence`（必须 frozen-at-start） / `evidence_class`
+  （必须 = forward_oos）/ `data_integrity_snapshot` / `metrics_definition`
+  等
+- Acceptance gate：schema validator 工作 + NO forward execution code +
+  pytest no regression
+
+### 11. Halt 条件检查 (PRD §4)
+- HARD invariant 是否被 violated？**否**（已逐项核对：config yaml /
+  PRODUCTION_FACTORS / requirements / pyproject / candidate spec yaml /
+  registry.db / 公共 API rename / test 删除 / candidate_registry
+  state-machine / frozen_spec.py / data/daily / splits.parquet — 全保。
+  master_report.py / paper_drift_report.py 的修改严格限于 PRD §4 R4
+  授权的 "watch-exposure section hooks" 范围）
+- 同 round 是否被重试 2 次？**否**（首次执行；测试用例修过两次但
+  属同次执行内的 fixture 调优，未触发 retry）
+- pytest drift 是否 unexplained？**否**（+9 正好等于本轮新增 9 个
+  regression tests）
+- 单 round 是否 > 30 min？**否**（< 12 min）
+- artifact 大小异常？**否**（最大新源码 ~6 KB；artifact dir 全部
+  仍 < 10 MB / 100 MB 上限）
+- 出 R1-R7 scope？**否**（全部在 `core/research/concentration/` +
+  `core/reporting/master_report.py`（R4 scope） +
+  `scripts/paper_drift_report.py`（R4 scope） +
+  `tests/unit/reporting/` + `data/research_candidates/<id>_*` 范围内）
+
+→ **R4 acceptance gate PASS，可以进入 R5**。
+

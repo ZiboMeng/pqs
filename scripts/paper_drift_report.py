@@ -226,9 +226,21 @@ def _build_markdown(
     for f in flags:
         lines.append(f"- {f}")
 
+    # OOS MVP R4: watch-list / thin-data exposure section.
+    # Reads <candidate_id>_concentration_report.json + data_quality_watch.parquet
+    # produced by the R3 robustness pipeline. Graceful degrade if either is
+    # missing.
+    from core.research.concentration import render_watch_exposure_section
+
+    watch_lines = render_watch_exposure_section(
+        candidate_id,
+        section_heading="## 4. Watch-list exposure",
+    )
+    lines += ["", *watch_lines]
+
     lines += [
         "",
-        "## 4. Interpretation",
+        "## 5. Interpretation",
         "",
         (
             "A drift between paper artifacts and fresh replay indicates "
@@ -245,7 +257,7 @@ def _build_markdown(
             "broker is wired (out of Phase E scope).\n"
         ),
         "",
-        "## 5. Thresholds (informational)",
+        "## 6. Thresholds (informational)",
         "",
         f"- mean |delta| above {thresholds.mean_drift_bps:.0f} bps flagged",
         f"- any single day above {thresholds.worst_day_fraction * 100:.1f}%"

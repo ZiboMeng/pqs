@@ -80,6 +80,10 @@ class MasterReport:
     regime_performance:      Optional[Dict] = None
     strategy_attribution:    Optional[Dict] = None
     bt_paper_reconciliation: Optional[Dict] = None
+    # OOS MVP R4: optional watch-list / thin-data exposure section.
+    # Set to {"candidate_id": "<id>"} (and optionally "watch_parquet" /
+    # "candidates_dir" overrides) to render. None → section omitted.
+    watch_exposure:          Optional[Dict] = None
 
     # ── 序列化 ────────────────────────────────────────────────────────────────
 
@@ -96,6 +100,7 @@ class MasterReport:
             "regime_performance":      self.regime_performance,
             "strategy_attribution":    self.strategy_attribution,
             "bt_paper_reconciliation": self.bt_paper_reconciliation,
+            "watch_exposure":          self.watch_exposure,
         }
 
     def to_markdown(self) -> str:
@@ -350,6 +355,27 @@ class MasterReport:
                 f"- Kill Switch: **{ks_status}**",
                 "",
             ]
+
+        # OOS MVP R4: watch-list exposure section (optional, candidate-scoped).
+        if self.watch_exposure is not None and self.watch_exposure.get("candidate_id"):
+            from core.research.concentration import render_watch_exposure_section
+
+            section_idx += 1
+            cid = self.watch_exposure["candidate_id"]
+            kwargs = {
+                k: v for k, v in self.watch_exposure.items()
+                if k in {"watch_parquet", "candidates_dir", "top_n"}
+            }
+            lines += [
+                "---",
+                f"## {section_idx}. Watch-list exposure (`{cid}`)",
+                "",
+            ]
+            sub = render_watch_exposure_section(
+                cid, section_heading="", **kwargs
+            )
+            sub = [s for s in sub if s != ""] + [""]  # tighten and trail one blank
+            lines.extend(sub)
 
         return "\n".join(lines)
 

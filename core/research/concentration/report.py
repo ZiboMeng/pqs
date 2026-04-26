@@ -70,6 +70,12 @@ class ConcentrationReport:
     watchlist_total_share: float
     thin_data_total_share: float
 
+    # per-symbol watch-list shares (for the R4 watch_exposure section
+    # downstream). Includes any symbol in watch_symbols that had non-zero
+    # weight-day exposure during the eval window. Empty dict if no
+    # watch_symbols passed or none overlapped the panel.
+    per_symbol_watch_shares: dict = field(default_factory=dict)
+
     # not computed for MVP (sector mapping + beta data not wired here)
     sector_concentration: dict = field(default_factory=lambda: {"status": "not_computed"})
     benchmark_beta_concentration: dict = field(default_factory=lambda: {"status": "not_computed"})
@@ -205,9 +211,14 @@ def compute(
 
     watch_in_panel = [s for s in watch_set if s in weights_df.columns]
     if watch_in_panel:
-        watch_single_max = float(name_share.reindex(watch_in_panel).fillna(0.0).max())
+        watch_shares_series = name_share.reindex(watch_in_panel).fillna(0.0)
+        watch_single_max = float(watch_shares_series.max())
+        per_symbol_watch_shares = {
+            s: float(v) for s, v in watch_shares_series.items() if v > 0.0
+        }
     else:
         watch_single_max = 0.0
+        per_symbol_watch_shares = {}
     watch_total = _weight_day_share(weights_df, watch_in_panel)
 
     thin_in_panel = [s for s in thin_set if s in weights_df.columns]
@@ -228,6 +239,7 @@ def compute(
         watchlist_single_max_share=watch_single_max,
         watchlist_total_share=watch_total,
         thin_data_total_share=thin_total,
+        per_symbol_watch_shares=per_symbol_watch_shares,
         triggered_warnings=warnings,
         triggered_extremes=extremes,
         concentration_gate_status=status,

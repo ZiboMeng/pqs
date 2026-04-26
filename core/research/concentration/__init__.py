@@ -6,11 +6,13 @@ from .report import (
     compute,
     write_artifacts,
 )
+from .watch_exposure import render_watch_exposure_section
 
 __all__ = [
     "ConcentrationReport",
     "ConcentrationGateStatus",
     "NarrativePermission",
     "compute",
+    "render_watch_exposure_section",
     "write_artifacts",
 ]
