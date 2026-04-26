@@ -1,0 +1,20 @@
+{
+  "candidate_id": "research-cycle-2026-04-26-01_S1_nominee",
+  "evidence_class": "pseudo_oos_robustness",
+  "window": {
+    "start_date": "2024-01-01",
+    "end_date": "2024-12-31",
+    "actual_trading_days": 252,
+    "target_trading_days": 252
+  },
+  "metrics": {
+    "cum_ret": 0.2800964607831091,
+    "sharpe": 0.8888162600337344,
+    "max_dd": -0.2883975947887526,
+    "vs_spy": 0.040126079493548295,
+    "vs_qqq": 0.010230394870842208,
+    "turnover_daily_mean": 0.09365079365079365,
+    "fill_count": 400,
+    "n_dates": 252
+  }
+}

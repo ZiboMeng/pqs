@@ -1,0 +1,134 @@
+# Research-cycle-2026-04-26-01 — S1 nominee candidate
+#
+# Pre-registered criteria: data/research_candidates/research-cycle-2026-04-26-01_promotion_criteria.yaml
+#   sha256: 5e88d0cf9e97dfe4f1aaf50a9a6ba11d83a3d25522487936f53dbc880d03ad28
+#   recorded in commit 4100f7b
+#
+# Lineage authority: docs/memos/20260426-research_layer_partial_unfreeze.md
+# Source mining run: data/ml/research_miner/research-cycle-2026-04-26-01/
+# Source archive trial: 62445bdc62ae (top objective in TPE study)
+#
+# CURRENT STAGE: S1 RESEARCH_CANDIDATE (research stockpile only)
+#   - NOT promoted to S2_paper_candidate. Research-unfreeze ≠ paper-slot
+#     opening (unfreeze memo §3).
+#   - Eligibility for the next paper slot: pending the user-authored
+#     paper-slot decision memo per unfreeze memo §5.4. This file only
+#     captures research evidence; paper-promotion is separate.
+
+candidate_id: research-cycle-2026-04-26-01_S1_nominee
+strategy_version: research-cycle-2026-04-26-01-2026-04-26
+strategy_type: single_factor_composite
+family: research_composite        # NOT in PRODUCTION_FACTORS
+
+decision_memo: docs/memos/20260426-research-cycle-2026-04-26-01_close.md
+
+# ── Feature set (frozen from trial 62445bdc62ae) ─────────────────────
+# Composite shape: low-beta × low-liquidity × medium-term momentum.
+# Family coverage: A (benchmark-relative) + C (liquidity/risk) + D
+# (trend-quality). Family B (position/breakout) absent — deliberately
+# different shape from RCMv1 (which leans heavily on family B), which
+# is what the unfreeze memo's "stockpile diverse candidates" guidance
+# wants.
+feature_set:
+  - name: beta_spy_60d
+    family: A_benchmark_relative
+    weight: 0.333333
+    source: core/factors/factor_generator.py::_family_a_benchmark_relative
+  - name: amihud_20d
+    family: C_liquidity_risk
+    weight: 0.296296
+    source: core/factors/factor_generator.py::_family_c_liquidity_risk
+  - name: mom_126d
+    family: D_trend_quality
+    weight: 0.370370
+    source: core/factors/factor_generator.py::_momentum_factors
+
+transforms:
+  standardization: zscore_cross_sectional
+  min_periods: 5
+  implementation: core/mining/research_miner.py::zscore_cs
+
+composite_rule:
+  method: weighted_sum
+  formula: "sum(weight[i] * zscore_cs(feature[i])) for i in feature_set"
+  implementation: core/mining/research_miner.py::build_composite_series
+
+labels:
+  fwd_return_horizon_days: 21
+  fwd_return_mode: cc
+  ic_evaluation_lag_bars: 1       # R15 leakage-safe semantic
+
+panel_contract:
+  universe: "config/universe.yaml::seed_pool + sector_etfs + factor_etfs + cross_asset (BRK-B dropped per round-3 step-3b)"
+  n_tradable_at_proposal: 78       # 79 - BRK-B
+  start_date: 2007-01-02
+  end_date_for_construction: 2023-12-31  # G4 cutoff, criteria-tightened
+  benchmark_map:
+    SPY: close_series
+    QQQ: close_series
+  mask:
+    type: research_mask
+    min_price: 5.0
+    min_usd_volume: 20000000
+    rolling_window_days: 20
+    implementation: core/factors/base_masks.py::research_mask_default
+    config_source: config/research_mask.yaml
+
+rebalance:
+  frequency: monthly
+  schedule: TBD
+
+weighting_rule: TBD
+
+benchmark_definition:
+  primary: SPY
+  secondary: QQQ
+
+risk_overlay:
+  inherits_from: config/risk.yaml
+  composite_specific:
+    max_single_symbol_weight: 0.40
+    max_top_3_weight: 0.70
+
+cost_model_version: config/cost_model.yaml
+
+# ── Source trial reference ───────────────────────────────────────────
+source:
+  trial_id: 62445bdc62ae
+  lineage_tag: research-cycle-2026-04-26-01
+  archive_db: data/mining/rcm_archive.db
+  optuna_db: data/mining/rcm_optuna.db
+  study: research-cycle-2026-04-26-01
+  sampler: TPESampler
+  seed: 42
+  n_trials_in_study: 200
+  n_trials_completed: 190
+  archive_n_trials_for_lineage: 176
+
+# ── Source-trial in-sample evidence (from rcm_archive.db) ────────────
+# These numbers are FULL-PERIOD IS on the construction panel
+# 2007-01-02 → 2023-12-31. They satisfy G2.A.1 (min_ic_ir_full_period
+# ≥ 0.25), but G2.A.2 (walk-forward 3/4 positive) and G2.A.3-7
+# (concentration) are evaluated separately and recorded in
+# benchmark_relative_summary / oos_holdout_summary / robustness_summary
+# below — those are the binding fields for promotion eligibility.
+research_evidence:
+  full_period:
+    ic_mean: 0.073925
+    ic_std: 0.245769
+    ic_ir: 1.041973
+    n_dates: 2232
+    turnover_proxy: 0.033105
+    corr_concentration: 0.087559
+  family_counts:
+    A_benchmark_relative: 1
+    B_position_breakout: 0
+    C_liquidity_risk: 1
+    D_trend_quality: 1
+  family_count_active: 3      # passes min_families: 3
+
+# ── Acceptance summaries — populated by closeout eval ────────────────
+benchmark_relative_summary: pending_closeout_eval
+oos_holdout_summary: pending_closeout_eval
+robustness_summary: pending_closeout_eval
+acceptance_decision: pending_closeout_eval

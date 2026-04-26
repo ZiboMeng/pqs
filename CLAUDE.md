@@ -563,6 +563,23 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   14.97% > 10% extreme — real, not implementation artifact). pytest
   1681 → 1685 (+4 audit regression tests A/B/C + percent-scale).
 
+- **Research cycle 2026-04-26 #01** (2026-04-26 ✅, **0 nominee**) —
+  partial unfreeze authorized in
+  `docs/memos/20260426-research_layer_partial_unfreeze.md`. Pre-
+  registered immutable criteria yaml at
+  `data/research_candidates/research-cycle-2026-04-26-01_promotion_criteria.yaml`
+  (sha256 `5e88d0c…d03ad28` recorded in commit `4100f7b`). 200-trial
+  TPE mining on the 78-symbol × 2007-2023 panel produced top trial
+  `62445bdc62ae` with composite `beta_spy_60d × amihud_20d × mom_126d`
+  (IC_IR=1.04 full-period, 4/4 walk-forward folds positive). FAILED
+  G2.A on `watchlist_total_share=39.50% > 30% ceiling` — exactly the
+  failure mode the strict ceiling was designed to prevent. Per
+  criteria immutability, no retroactive softening: cycle closes
+  0-nominee. Closeout memo:
+  `docs/memos/20260426-research-cycle-2026-04-26-01_close.md`.
+  Research-mining workstream auto re-frozen at this boundary;
+  forward-OOS observation of RCMv1 + Cand-2 unaffected.
+
 **Forward OOS active workstream (observation mode)**:
 - **R-fwd-1 done** — forward runner minimum closed loop (init /
   status / observe / decide / readiness) + source-boundary sidecar

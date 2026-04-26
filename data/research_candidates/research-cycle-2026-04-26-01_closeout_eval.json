@@ -1,0 +1,217 @@
+{
+  "lineage_tag": "research-cycle-2026-04-26-01",
+  "candidate_id": "research-cycle-2026-04-26-01_S1_nominee",
+  "criteria_path": "data/research_candidates/research-cycle-2026-04-26-01_promotion_criteria.yaml",
+  "criteria_sha256": "5e88d0cf9e97dfe4f1aaf50a9a6ba11d83a3d25522487936f53dbc880d03ad28",
+  "evaluated_at_utc": "2026-04-26T19:11:13.654652+00:00",
+  "horizon": 21,
+  "lag": 1,
+  "top_n_basket": 10,
+  "construction_panel": {
+    "start_date": "2007-01-02",
+    "end_date": "2023-12-31",
+    "n_dates": 2264,
+    "n_symbols": 78,
+    "drop_symbols": [
+      "BRK-B"
+    ]
+  },
+  "g2_a_decision_table": [
+    {
+      "gate": "min_ic_ir_full_period",
+      "measured": 1.04052097383196,
+      "op": "ge",
+      "threshold": 0.25,
+      "passed": true
+    },
+    {
+      "gate": "min_walk_forward_folds_positive",
+      "measured": 4,
+      "op": "ge",
+      "threshold": 3,
+      "passed": true
+    },
+    {
+      "gate": "m12_concentration_tier",
+      "measured": "warning",
+      "op": "in_set",
+      "threshold": [
+        "pass",
+        "warning"
+      ],
+      "passed": true
+    },
+    {
+      "gate": "watchlist_total_share",
+      "measured": 0.39498669032830525,
+      "op": "le",
+      "threshold": 0.3,
+      "passed": false
+    },
+    {
+      "gate": "thin_data_weighted_share",
+      "measured": 0.07511613132209247,
+      "op": "le",
+      "threshold": 0.1,
+      "passed": true
+    },
+    {
+      "gate": "top1_weight_max",
+      "measured": 0.1,
+      "op": "le",
+      "threshold": 0.4,
+      "passed": true
+    },
+    {
+      "gate": "top3_weight_max",
+      "measured": 0.30000000000000004,
+      "op": "le",
+      "threshold": 0.7,
+      "passed": true
+    }
+  ],
+  "g2_a_overall_pass": false,
+  "g2_b_report_only": {
+    "regime_breakdown": {
+      "BULL": {
+        "n_dates": 568,
+        "ic_mean": 0.031222719667773124,
+        "ic_std": 0.2692472213003677,
+        "ic_ir": 0.40170766891393916,
+        "positive_rate": 0.5563380281690141
+      },
+      "BEAR": {
+        "n_dates": 393,
+        "ic_mean": 0.08786615693724792,
+        "ic_std": 0.2527109230021767,
+        "ic_ir": 1.2044485159022833,
+        "positive_rate": 0.6310432569974554
+      },
+      "RISK_ON": {
+        "n_dates": 168,
+        "ic_mean": 0.09129890157236764,
+        "ic_std": 0.2335531966776041,
+        "ic_ir": 1.3541611799632853,
+        "positive_rate": 0.75
+      },
+      "RISK_OFF": {
+        "n_dates": 266,
+        "ic_mean": 0.07374135744256788,
+        "ic_std": 0.22451950462310574,
+        "ic_ir": 1.1377521781373163,
+        "positive_rate": 0.6654135338345865
+      },
+      "CRISIS": {
+        "n_dates": 75,
+        "ic_mean": 0.24405470522312336,
+        "ic_std": 0.18990675532048015,
+        "ic_ir": 4.451817930956015,
+        "positive_rate": 0.88
+      },
+      "SIDEWAYS": {
+        "n_dates": 762,
+        "ic_mean": 0.07888616255138267,
+        "ic_std": 0.23365520171786494,
+        "ic_ir": 1.1695424758239839,
+        "positive_rate": 0.6509186351706037
+      }
+    },
+    "benchmark_beta_statistics": {
+      "portfolio_weighted_mean_beta": 1.7957463564750313,
+      "portfolio_weighted_std_beta": 1.328840719654379,
+      "max_abs_per_symbol_beta": 4.877886831795855,
+      "n_symbols_with_beta": 73
+    },
+    "pseudo_oos_2024": {
+      "cum_ret": 0.2800964607831091,
+      "sharpe": 0.8888162600337344,
+      "max_dd": -0.2883975947887526,
+      "vs_spy": 0.040126079493548295,
+      "vs_qqq": 0.010230394870842208,
+      "turnover_daily_mean": 0.09365079365079365,
+      "fill_count": 400,
+      "n_dates": 252
+    },
+    "turnover_full_period": 0.08144876325088339,
+    "correlation_vs_existing_pair": {
+      "rcm_v1_defensive_composite_01": 0.6147787920360036,
+      "candidate_2_orthogonal_01": 0.6136835003453691
+    }
+  },
+  "concentration_report_summary": {
+    "candidate_id": "research-cycle-2026-04-26-01_S1_nominee",
+    "n_dates": 2264,
+    "top1_weight_max": 0.1,
+    "top3_weight_max": 0.30000000000000004,
+    "top5_weight_max": 0.5,
+    "distinct_names_count": 60,
+    "name_days_max_share": 0.09081632653060899,
+    "watchlist_single_max_share": 0.08620230700975744,
+    "watchlist_total_share": 0.39498669032830525,
+    "thin_data_weighted_share": 0.07511613132209247,
+    "thin_data_binary_share": 0.3866903283052352,
+    "per_symbol_watch_shares": {
+      "APD": 0.007275953859804775,
+      "CMG": 0.002883762200532384,
+      "SOXL": 0.06286601597160436,
+      "QUAL": 0.003904170363797686,
+      "CLX": 0.003460514640638859,
+      "LLY": 0.007187222715173008,
+      "TMO": 0.0004880212954747116,
+      "USMV": 0.0011978704525288382,
+      "ABT": 0.0011091393078970723,
+      "KLAC": 0.06792369121561473,
+      "SCHD": 0.009804791481810135,
+      "XLRE": 0.00022182786157941438,
+      "ACGL": 0.056388642413485825,
+      "TKO": 0.00266193433895297,
+      "TT": 0.006921029281277711,
+      "ISRG": 0.011579414374445474,
+      "VLUE": 0.007453416149068309,
+      "LRCX": 0.048669032830522645,
+      "PWR": 0.08620230700975744,
+      "TRV": 0.00022182786157941438,
+      "MCK": 0.0035492457852706245,
+      "MTUM": 0.003016858917480032
+    },
+    "sector_concentration": {
+      "status": "computed",
+      "per_sector_weight_day_share": {
+        "Information Technology": 0.341171251109132,
+        "Communication Services": 0.03881987577639765,
+        "Consumer Discretionary": 0.057497781721384617,
+        "Leveraged ETF": 0.14108251996450333,
+        "Industrials": 0.10133096716947347,
+        "Consumer Staples": 0.01424134871339842,
+        "Health Care": 0.06322094055013293,
+        "Energy": 0.10283939662821448,
+        "Utilities": 0.008296362023070082,
+        "Financials": 0.08158828748890734,
+        "Real Estate": 0.015084294587400269,
+        "Materials": 0.007275953859804775,
+        "Factor / Multi-sector ETF": 0.025377107364685,
+        "Commodity": 0.00217391304347826
+      },
+      "top_sector_label": "Information Technology",
+      "top_sector_weight_day_share": 0.341171251109132,
+      "block_for_review_threshold": 0.5,
+      "block_for_review": false,
+      "unknown_symbol_count": 0
+    },
+    "benchmark_beta_concentration": {
+      "status": "computed",
+      "portfolio_weighted_mean_beta": 1.720314214294195,
+      "portfolio_weighted_std_beta": 1.1383294454202777,
+      "max_abs_per_symbol_beta": 4.877886831795855,
+      "n_symbols_with_beta": 56
+    },
+    "triggered_warnings": [
+      "thin_data_weighted_share=0.0751>0.05",
+      "watch_single_share=0.0862>=0.08"
+    ],
+    "triggered_extremes": [],
+    "concentration_gate_status": "warning",
+    "narrative_permission": "allowed",
+    "tier": "warning"
+  }
+}
