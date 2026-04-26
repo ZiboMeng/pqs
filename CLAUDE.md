@@ -59,13 +59,29 @@
 | Context | Price Type | Rationale |
 |---------|-----------|-----------|
 | Factor research (IC, screening) | Adjusted (split + dividend) | Factors measure return-based signals; adjusted prices give correct returns |
-| Backtest execution (order fill) | Adjusted (auto_adjust=True from yfinance) | T+1 open is adjusted; consistent with factor signals |
+| Backtest execution (order fill) | Adjusted close/open | T+1 open is adjusted; consistent with factor signals |
 | Portfolio mark-to-market | Adjusted close | Consistent with execution price basis |
-| Corporate actions | Handled by yfinance auto_adjust | Splits and dividends baked into price series |
+| Corporate actions | Splits via `data/ref/splits.parquet`; dividends not currently applied | Splits handled deterministically at read time |
 
-**Current implementation:** yfinance `auto_adjust=True` is used everywhere. All price series (open, high, low, close) are split- and dividend-adjusted. This is consistent across backtest, paper trading, and factor research.
+**Current implementation (post-round-3 step-3b, 2026-04-25):**
+- Canonical source = polygon 1m → daily aggregation
+  (`core/data/daily_aggregator.py`); stored raw (unadjusted) at
+  `data/daily/<sym>.parquet` and `data/intraday/1m/<sym>.parquet`.
+- Splits applied at **read time** via
+  `BarStore.load(..., adjusted=True)` using `data/ref/splits.parquet`
+  cascade.
+- Dividends are NOT currently applied in adjustment (deferred).
+  Strategy returns therefore exclude dividend yield component until a
+  dividends sidecar is added.
+- yfinance is **fallback only** for ETF 2024+ daily gaps where polygon
+  1m did not cover (round-3 close memo §parking-lot). Stocks-only
+  paths never touch yfinance post round-3.
 
-**Constraint:** When switching DataProvider in the future, the replacement MUST produce price series with identical adjustment semantics. A price semantics regression test must exist before any vendor swap.
+**Constraint:** When switching DataProvider in the future, the
+replacement MUST produce price series with identical adjustment
+semantics (raw bars + splits.parquet read-time cascade) AND must
+write to `data/ref/bar_provenance.parquet` synchronously. A price
+semantics regression test must exist before any vendor swap.
 
 #### Signal, Execution, and Valuation Price Convention
 

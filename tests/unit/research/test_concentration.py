@@ -196,7 +196,7 @@ def test_md_renders_status_and_caveats():
     assert "manual_review_required" in md
     assert "frozen" in md
     assert "read-only" in md
-    assert "not_computed" in md  # sector + beta MVP caveat
+    assert "not computed" in md  # sector + beta default-not-computed caveat
     # Post-audit fix: md must show both metrics with explicit gate vs
     # diagnostic labels (so future readers can't conflate them).
     assert "WEIGHTED share (gate metric)" in md
@@ -306,3 +306,104 @@ def test_weighted_share_handles_percent_scale():
     )
     # Should be normalized to 0.30 fraction → weighted = 0.50 × 0.30 = 0.15
     assert 0.10 < r.thin_data_weighted_share < 0.20
+
+
+# ── post-MVP audit (2026-04-26): sector + benchmark beta concentration ──
+
+
+def test_sector_concentration_default_not_computed():
+    """No sector_map → legacy not_computed status preserved."""
+    df = _wts({"AAA": 0.5, "BBB": 0.5})
+    r = compute("c", df)
+    assert r.sector_concentration == {"status": "not_computed"}
+    assert r.benchmark_beta_concentration == {"status": "not_computed"}
+
+
+def test_sector_concentration_top_sector_label_and_block_for_review():
+    """Top sector > 50% weight-days → block_for_review label set; tier
+    classification UNCHANGED (sector is not in warning/extreme tier).
+    """
+    df = _wts(
+        {"XLK_a": 0.20, "XLK_b": 0.20, "XLK_c": 0.20,
+         "JNJ_a": 0.20, "WMT_a": 0.20},
+    )
+    sector_map = {
+        "XLK_a": "Information Technology",
+        "XLK_b": "Information Technology",
+        "XLK_c": "Information Technology",
+        "JNJ_a": "Health Care",
+        "WMT_a": "Consumer Staples",
+    }
+    r = compute("c", df, sector_map=sector_map)
+    sect = r.sector_concentration
+    assert sect["status"] == "computed"
+    assert sect["top_sector_label"] == "Information Technology"
+    # 3 × 0.20 = 0.60 > 0.50 → block_for_review True
+    assert sect["block_for_review"] is True
+    assert sect["top_sector_weight_day_share"] > 0.50
+    # Sector concentration does NOT participate in warning/extreme tier
+    assert r.concentration_gate_status == ConcentrationGateStatus.pass_
+
+
+def test_sector_concentration_unknown_symbols_counted():
+    """Symbols not in sector_map are bucketed under 'Unknown' and counted."""
+    df = _wts({"KNOWN_a": 0.5, "GHOST": 0.5})
+    sector_map = {"KNOWN_a": "Health Care"}
+    r = compute("c", df, sector_map=sector_map)
+    sect = r.sector_concentration
+    assert sect["status"] == "computed"
+    assert sect["unknown_symbol_count"] == 1
+    assert "Unknown" in sect["per_sector_weight_day_share"]
+
+
+def test_sector_concentration_under_threshold_no_block():
+    """Top sector ≤ 50% → no block_for_review."""
+    df = _wts({"XLK_a": 0.30, "JNJ_a": 0.35, "WMT_a": 0.35})
+    sector_map = {
+        "XLK_a": "Information Technology",
+        "JNJ_a": "Health Care",
+        "WMT_a": "Consumer Staples",
+    }
+    r = compute("c", df, sector_map=sector_map)
+    sect = r.sector_concentration
+    # No sector exceeds 50%
+    assert sect["block_for_review"] is False
+    assert sect["top_sector_weight_day_share"] <= 0.50
+
+
+def test_benchmark_beta_concentration_computed_when_beta_map_passed():
+    """beta_map populates portfolio-weighted statistics."""
+    df = _wts({"AAA": 0.40, "BBB": 0.40, "CCC": 0.20})
+    beta_map = {"AAA": 1.20, "BBB": 1.10, "CCC": 0.50}
+    r = compute("c", df, beta_map=beta_map)
+    beta = r.benchmark_beta_concentration
+    assert beta["status"] == "computed"
+    # weighted mean = 0.40*1.20 + 0.40*1.10 + 0.20*0.50 = 1.02
+    assert abs(beta["portfolio_weighted_mean_beta"] - 1.02) < 1e-6
+    assert beta["max_abs_per_symbol_beta"] == 1.20
+    assert beta["n_symbols_with_beta"] == 3
+
+
+def test_benchmark_beta_concentration_handles_partial_beta_map():
+    """Symbols missing from beta_map are excluded from stats; status
+    still 'computed' if at least one symbol has a beta."""
+    df = _wts({"AAA": 0.50, "GHOST": 0.50})
+    r = compute("c", df, beta_map={"AAA": 1.50})
+    beta = r.benchmark_beta_concentration
+    assert beta["status"] == "computed"
+    assert beta["n_symbols_with_beta"] == 1
+
+
+def test_benchmark_beta_does_not_drive_tier_classification():
+    """High |β| should NOT trigger warning/extreme on its own — beta
+    is report-only per PRD v3 §C. Use a diluted 8-symbol fixture so
+    no top-N axis tripped on its own."""
+    base = {f"S{i:02d}": 0.125 for i in range(8)}
+    df = _wts(base)
+    r = compute("c", df, beta_map={s: 5.0 for s in base})
+    # Even with absurd betas, gate stays pass (no other dims tripped)
+    assert r.concentration_gate_status == ConcentrationGateStatus.pass_
+    assert r.narrative_permission == NarrativePermission.allowed
+    # And the beta payload IS populated as report-only.
+    assert r.benchmark_beta_concentration["status"] == "computed"
+    assert r.benchmark_beta_concentration["max_abs_per_symbol_beta"] == 5.0

@@ -93,8 +93,20 @@ class ConcentrationReport:
     # watch_symbols passed or none overlapped the panel.
     per_symbol_watch_shares: dict = field(default_factory=dict)
 
-    # not computed for MVP (sector mapping + beta data not wired here)
+    # Sector concentration — populated when a sector mapping is provided.
+    # Pre-2026-04-26 audit-fix: shipped as ``{"status": "not_computed"}``
+    # (no mapping wired). Post-fix: per-sector weight-day shares + the
+    # max share + a "block_for_review" flag (PRD v3 §C line 287:
+    # single-sector weight-days > 50% → block-for-review label, not
+    # part of the warning/extreme tier classification).
     sector_concentration: dict = field(default_factory=lambda: {"status": "not_computed"})
+
+    # Benchmark beta concentration — portfolio-level beta dispersion.
+    # PRD v3 §C lists this as a dimension but specifies no numeric
+    # threshold. We therefore SHIP IT AS REPORT-ONLY (no tier
+    # classification): the field carries portfolio-weighted beta
+    # statistics so consumers can flag visually, but no automatic
+    # warning/extreme tier is set on this axis.
     benchmark_beta_concentration: dict = field(default_factory=lambda: {"status": "not_computed"})
 
     # tier classification
@@ -188,6 +200,15 @@ def _per_symbol_weight_day_share(weights_df: pd.DataFrame) -> pd.Series:
     return weights_df.abs().sum(axis=0) / total
 
 
+# PRD v3 §C line 287: "single-sector weight-days > 50% → block-for-review".
+# This label is separate from warning/extreme tiers and does NOT freeze
+# narrative permission on its own (only thin-data extreme + top-1/3
+# extreme + watch-single extreme freeze). It IS surfaced on the report
+# so that downstream paper / report consumers can flag the candidate
+# for an explicit sector-exposure conversation.
+SECTOR_BLOCK_REVIEW = 0.50
+
+
 def compute(
     candidate_id: str,
     weights_df: pd.DataFrame,
@@ -195,6 +216,8 @@ def compute(
     watch_symbols: Optional[Iterable[str]] = None,
     thin_data_symbols: Optional[Iterable[str]] = None,
     thin_data_pct_map: Optional[Mapping[str, float]] = None,
+    sector_map: Optional[Mapping[str, str]] = None,
+    beta_map: Optional[Mapping[str, float]] = None,
 ) -> ConcentrationReport:
     """Compute concentration metrics + tier classification for a candidate.
 
@@ -276,6 +299,70 @@ def compute(
         thin_weighted += float(share) * float(pct)
     thin_weighted = float(thin_weighted)
 
+    # Sector concentration (post-MVP audit fix). Populates only if a
+    # sector_map is provided; otherwise leaves the legacy not_computed
+    # placeholder.
+    sector_payload: dict = {"status": "not_computed"}
+    if sector_map is not None:
+        sector_shares: dict = {}
+        unknown_count = 0
+        for sym, share in name_share.items():
+            if share <= 0.0:
+                continue
+            sector = sector_map.get(sym, "Unknown")
+            sector_shares[sector] = sector_shares.get(sector, 0.0) + float(share)
+            if sector == "Unknown":
+                unknown_count += 1
+        if sector_shares:
+            top_sector_label, top_sector_share = max(
+                sector_shares.items(), key=lambda kv: kv[1]
+            )
+            block_for_review = top_sector_share > SECTOR_BLOCK_REVIEW
+        else:
+            top_sector_label = None
+            top_sector_share = 0.0
+            block_for_review = False
+        sector_payload = {
+            "status": "computed",
+            "per_sector_weight_day_share": sector_shares,
+            "top_sector_label": top_sector_label,
+            "top_sector_weight_day_share": float(top_sector_share),
+            "block_for_review_threshold": SECTOR_BLOCK_REVIEW,
+            "block_for_review": bool(block_for_review),
+            "unknown_symbol_count": unknown_count,
+        }
+
+    # Benchmark beta concentration (post-MVP audit fix). PRD v3 §C lists
+    # the dimension; thresholds are NOT specified, so we ship report-only
+    # statistics (weighted mean / weighted std / max abs |beta|) and let
+    # the consumer flag visually. Tier classification is unchanged.
+    beta_payload: dict = {"status": "not_computed"}
+    if beta_map is not None and len(name_share) > 0:
+        weighted_betas = []
+        weight_sum = 0.0
+        max_abs_beta = 0.0
+        for sym, share in name_share.items():
+            if share <= 0.0:
+                continue
+            beta = beta_map.get(sym)
+            if beta is None:
+                continue
+            weighted_betas.append((float(share), float(beta)))
+            weight_sum += float(share)
+            if abs(beta) > max_abs_beta:
+                max_abs_beta = abs(float(beta))
+        if weight_sum > 0.0:
+            mean_beta = sum(s * b for s, b in weighted_betas) / weight_sum
+            var_beta = sum(s * (b - mean_beta) ** 2 for s, b in weighted_betas) / weight_sum
+            std_beta = var_beta ** 0.5
+            beta_payload = {
+                "status": "computed",
+                "portfolio_weighted_mean_beta": float(mean_beta),
+                "portfolio_weighted_std_beta": float(std_beta),
+                "max_abs_per_symbol_beta": float(max_abs_beta),
+                "n_symbols_with_beta": int(len(weighted_betas)),
+            }
+
     warnings, extremes, status, permission = _classify(
         top1=top1,
         top3=top3,
@@ -295,6 +382,8 @@ def compute(
         watchlist_total_share=watch_total,
         thin_data_weighted_share=thin_weighted,
         thin_data_binary_share=thin_binary,
+        sector_concentration=sector_payload,
+        benchmark_beta_concentration=beta_payload,
         per_symbol_watch_shares=per_symbol_watch_shares,
         triggered_warnings=warnings,
         triggered_extremes=extremes,
@@ -341,6 +430,50 @@ def _format_md(report: ConcentrationReport) -> str:
     else:
         lines.append("  - (none)")
 
+    # Sector concentration section (computed only if sector_map passed).
+    sect = report.sector_concentration
+    if sect.get("status") == "computed":
+        top_sector = sect.get("top_sector_label")
+        top_share = sect.get("top_sector_weight_day_share", 0.0)
+        block = sect.get("block_for_review")
+        block_thresh = sect.get("block_for_review_threshold", SECTOR_BLOCK_REVIEW)
+        per_sector = sect.get("per_sector_weight_day_share", {})
+        lines.extend([
+            "",
+            "## Sector concentration",
+            "",
+            f"- top sector: `{top_sector}` ({top_share * 100:.2f}%)",
+            f"- block-for-review (top > {block_thresh * 100:.0f}%): "
+            f"**{'YES' if block else 'no'}**",
+            f"- unknown-sector symbols: {sect.get('unknown_symbol_count', 0)}",
+            "",
+            "Per-sector weight-day shares:",
+        ])
+        for s, v in sorted(per_sector.items(), key=lambda kv: -kv[1]):
+            lines.append(f"  - {s}: {v * 100:.2f}%")
+    elif sect.get("status") == "not_computed":
+        lines.extend(["", "## Sector concentration", "",
+                      "_not computed (no sector_map passed to compute())_"])
+
+    # Benchmark beta concentration section (computed only if beta_map passed).
+    beta = report.benchmark_beta_concentration
+    if beta.get("status") == "computed":
+        lines.extend([
+            "",
+            "## Benchmark beta concentration",
+            "",
+            f"- portfolio-weighted mean β: {beta['portfolio_weighted_mean_beta']:.3f}",
+            f"- portfolio-weighted std β: {beta['portfolio_weighted_std_beta']:.3f}",
+            f"- max |per-symbol β|: {beta['max_abs_per_symbol_beta']:.3f}",
+            f"- n symbols with β: {beta['n_symbols_with_beta']}",
+            "",
+            "_(Report-only — PRD v3 §C lists the dimension but does not "
+            "specify numeric thresholds; tier classification is unchanged.)_",
+        ])
+    elif beta.get("status") == "not_computed":
+        lines.extend(["", "## Benchmark beta concentration", "",
+                      "_not computed (no beta_map passed to compute())_"])
+
     lines.extend([
         "",
         "## Caveats",
@@ -348,10 +481,14 @@ def _format_md(report: ConcentrationReport) -> str:
         "- This report is **read-only**: it never auto-blocks or auto-revokes",
         "  a candidate. `manual_review_required` freezes narrative permission",
         "  but does not stop further paper runs.",
-        "- Sector + benchmark-beta concentration are not computed in this MVP",
-        "  (no per-symbol sector mapping wired); both are marked",
-        "  `not_computed` in the JSON. Neither participates in tier",
-        "  classification per PRD v3 §C extreme thresholds.",
+        "- Sector concentration: warning when top-sector > 50% weight-days",
+        "  (block-for-review label per PRD v3 §C line 287). This label is",
+        "  separate from the warning/extreme tier and does NOT freeze",
+        "  narrative permission; it surfaces a candidate for explicit",
+        "  sector-exposure review by the user.",
+        "- Benchmark beta concentration is REPORT-ONLY (no automatic tier).",
+        "  PRD v3 §C lists it as a dimension but specifies no numeric",
+        "  thresholds; statistics are surfaced for visual review.",
         "- **Thin-data metric semantics (post-MVP audit fix 2026-04-25)**:",
         "  the gate uses `thin_data_weighted_share` =",
         "  Σ weight_day_share[s] × thin_data_pct[s], which honestly",

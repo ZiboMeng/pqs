@@ -42,6 +42,7 @@ from core.research.concentration import (
     compute as compute_concentration,
     write_artifacts as write_concentration_artifacts,
 )
+from core.research.concentration.sector_map import SECTOR_MAP
 from core.research.frozen_spec import FrozenStrategySpec
 
 from .window_spec import (
@@ -215,7 +216,16 @@ def _load_panel(cfg, store: PriceStore, start: pd.Timestamp, end: pd.Timestamp) 
     }
 
 
-def _compute_composite(spec: FrozenStrategySpec, frames: dict) -> pd.DataFrame:
+def _compute_composite(
+    spec: FrozenStrategySpec, frames: dict,
+) -> tuple[pd.DataFrame, dict]:
+    """Compute composite signal + return the full factor panel dict.
+
+    The factor dict is returned so downstream callers (e.g. concentration
+    report) can pull individual factor panels (notably ``beta_spy_60d``
+    for benchmark beta concentration) without re-invoking
+    ``generate_all_factors``.
+    """
     close = frames["close"]
     benchmark_map = {b: close[b] for b in ("SPY", "QQQ") if b in close.columns}
     all_factors = generate_all_factors(
@@ -242,7 +252,20 @@ def _compute_composite(spec: FrozenStrategySpec, frames: dict) -> pd.DataFrame:
     if frames["volume"] is not None:
         mask = research_mask_default(close, frames["volume"])
         composite = apply_research_mask(composite, mask)
-    return composite
+    return composite, all_factors
+
+
+def _extract_beta_map(all_factors: dict) -> dict:
+    """Pull last-observation per-symbol β from ``beta_spy_60d`` panel.
+
+    Returns ``{symbol: float_beta}`` for symbols with a non-NaN last
+    value. Returns an empty dict if the factor isn't in the panel.
+    """
+    panel = all_factors.get("beta_spy_60d")
+    if panel is None or panel.empty:
+        return {}
+    last_row = panel.iloc[-1].dropna()
+    return {str(s): float(v) for s, v in last_row.items()}
 
 
 def _composite_to_target_weights(composite: pd.DataFrame, top_n: int) -> pd.DataFrame:
@@ -468,8 +491,9 @@ def evaluate(
         start=pd.Timestamp(carve.start),
         end=pd.Timestamp(carve.end),
     )
-    composite = _compute_composite(spec, panel)
+    composite, all_factors = _compute_composite(spec, panel)
     target_wts = _composite_to_target_weights(composite, top_n=top_n)
+    beta_map = _extract_beta_map(all_factors)
 
     from core.backtest.backtest_engine import BacktestEngine
 
@@ -530,6 +554,8 @@ def evaluate(
         watch_symbols=watch_syms,
         thin_data_symbols=thin_syms,
         thin_data_pct_map=thin_pct_map,
+        sector_map=SECTOR_MAP,
+        beta_map=beta_map,
     )
     conc_paths = write_concentration_artifacts(concentration, output_dir)
     artifact_paths.update(conc_paths)

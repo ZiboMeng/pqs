@@ -24,15 +24,49 @@ Triggered warnings:
 Triggered extremes:
   - (none)
 
+## Sector concentration
+
+- top sector: `Information Technology` (33.09%)
+- block-for-review (top > 50%): **no**
+- unknown-sector symbols: 0
+
+Per-sector weight-day shares:
+  - Information Technology: 33.09%
+  - Leveraged ETF: 12.88%
+  - Health Care: 10.82%
+  - Consumer Discretionary: 8.52%
+  - Industrials: 7.16%
+  - Communication Services: 6.75%
+  - Energy: 6.54%
+  - Financials: 4.90%
+  - Commodity: 4.69%
+  - Consumer Staples: 2.30%
+  - Utilities: 1.81%
+  - Materials: 0.41%
+  - Real Estate: 0.12%
+
+## Benchmark beta concentration
+
+- portfolio-weighted mean β: 1.991
+- portfolio-weighted std β: 1.730
+- max |per-symbol β|: 6.261
+- n symbols with β: 56
+
+_(Report-only — PRD v3 §C lists the dimension but does not specify numeric thresholds; tier classification is unchanged.)_
+
 ## Caveats
 
 - This report is **read-only**: it never auto-blocks or auto-revokes
   a candidate. `manual_review_required` freezes narrative permission
   but does not stop further paper runs.
-- Sector + benchmark-beta concentration are not computed in this MVP
-  (no per-symbol sector mapping wired); both are marked
-  `not_computed` in the JSON. Neither participates in tier
-  classification per PRD v3 §C extreme thresholds.
+- Sector concentration: warning when top-sector > 50% weight-days
+  (block-for-review label per PRD v3 §C line 287). This label is
+  separate from the warning/extreme tier and does NOT freeze
+  narrative permission; it surfaces a candidate for explicit
+  sector-exposure review by the user.
+- Benchmark beta concentration is REPORT-ONLY (no automatic tier).
+  PRD v3 §C lists it as a dimension but specifies no numeric
+  thresholds; statistics are surfaced for visual review.
 - **Thin-data metric semantics (post-MVP audit fix 2026-04-25)**:
   the gate uses `thin_data_weighted_share` =
   Σ weight_day_share[s] × thin_data_pct[s], which honestly

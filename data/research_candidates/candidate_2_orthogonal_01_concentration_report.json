@@ -11,29 +11,53 @@
   "thin_data_weighted_share": 0.05192559670781894,
   "thin_data_binary_share": 0.2847736625514403,
   "per_symbol_watch_shares": {
-    "ABT": 0.001234567901234568,
-    "CLX": 0.004115226337448559,
-    "APD": 0.004115226337448559,
-    "BKNG": 0.006584362139917697,
-    "LRCX": 0.06502057613168707,
-    "ISRG": 0.005761316872427984,
-    "ACGL": 0.0049382716049382715,
-    "SOXL": 0.0925925925925928,
-    "KLAC": 0.030041152263374445,
+    "PWR": 0.02798353909465017,
+    "LLY": 0.024691358024691336,
     "TRV": 0.0024691358024691358,
     "TMO": 0.0168724279835391,
-    "CMG": 0.007818930041152266,
+    "ACGL": 0.0049382716049382715,
+    "ABT": 0.001234567901234568,
+    "ISRG": 0.005761316872427984,
     "TT": 0.005761316872427984,
+    "KLAC": 0.030041152263374445,
+    "CLX": 0.004115226337448559,
+    "BKNG": 0.006584362139917697,
+    "SOXL": 0.0925925925925928,
+    "CMG": 0.007818930041152266,
+    "MCK": 0.0028806584362139915,
     "TKO": 0.007818930041152266,
-    "LLY": 0.024691358024691336,
-    "PWR": 0.02798353909465017,
-    "MCK": 0.0028806584362139915
+    "APD": 0.004115226337448559,
+    "LRCX": 0.06502057613168707
   },
   "sector_concentration": {
-    "status": "not_computed"
+    "status": "computed",
+    "per_sector_weight_day_share": {
+      "Commodity": 0.0469135802469135,
+      "Information Technology": 0.3308641975308638,
+      "Communication Services": 0.06748971193415633,
+      "Consumer Discretionary": 0.0851851851851851,
+      "Leveraged ETF": 0.12880658436214004,
+      "Industrials": 0.07160493827160486,
+      "Consumer Staples": 0.023045267489711935,
+      "Health Care": 0.10823045267489712,
+      "Energy": 0.06543209876543206,
+      "Utilities": 0.01810699588477367,
+      "Financials": 0.048971193415637874,
+      "Real Estate": 0.001234567901234568,
+      "Materials": 0.004115226337448559
+    },
+    "top_sector_label": "Information Technology",
+    "top_sector_weight_day_share": 0.3308641975308638,
+    "block_for_review_threshold": 0.5,
+    "block_for_review": false,
+    "unknown_symbol_count": 0
   },
   "benchmark_beta_concentration": {
-    "status": "not_computed"
+    "status": "computed",
+    "portfolio_weighted_mean_beta": 1.991296537218393,
+    "portfolio_weighted_std_beta": 1.7297782644969006,
+    "max_abs_per_symbol_beta": 6.2614871017413956,
+    "n_symbols_with_beta": 56
   },
   "triggered_warnings": [
     "thin_data_weighted_share=0.0519>0.05",

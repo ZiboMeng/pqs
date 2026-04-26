@@ -1385,7 +1385,10 @@ xfail 解除条件必须文档化在 reason 参数里。
 
 ### 15.3 Pricing Semantics
 
-- **Raw vs adjusted**: yfinance `auto_adjust=True`，全流程用 adjusted
+- **Raw vs adjusted**: 数据 raw 落盘（polygon 1m → daily 聚合），
+  splits 在读取时通过 `data/ref/splits.parquet` cascade 应用；
+  dividends 当前不调整（deferred）。yfinance 仅作 ETF 2024+ 缺口
+  fallback。详见 CLAUDE.md "Pricing and Valuation Semantics"
 - **Signal timing**: T-day close (shift by 1 → no lookahead)
 - **Execution**: T+1 adjusted **open**（实测用真实 open_df）
 - **Valuation**: T+1 adjusted close
