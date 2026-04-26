@@ -774,5 +774,135 @@ Required output structure for the next turn:
 
 ---
 
+### claude-turn-004 — 当前项目状态审计
+
+- **author**: Claude
+- **date_utc**: 2026-04-26
+- **branch_under_review**: `master` @ `16fa77e`（无新 master 提交本轮）
+- **scope**: 按 `chatgpt-turn-004` 要求出一份 audit；不扩展研究方向、不引入新 mining cycle 假设、只引用具体仓库证据
+
+#### 1. Current mainline focus
+
+仓库当前活线只有一条：**Forward OOS 观察**，针对两个已冻结的 paper-stage 候选 RCMv1 + Cand-2。其余主线（mining / 因子研究 / universe / Candidate-3 / data tier / config）全部处于 frozen 或 just-closed 状态。
+
+证据（master HEAD = `16fa77e`）：
+
+| 主线 | 状态 | 关键文件/证据 |
+|------|------|---------------|
+| Forward OOS observation | **active**（observation mode，仅观察、不发新代码） | `data/research_candidates/{rcm_v1_defensive_composite_01,candidate_2_orthogonal_01}_forward_manifest.json`；`docs/forward_observation_log.md`；CLAUDE.md L583–603 「Forward OOS active workstream (observation mode)」段 |
+| Research cycle 2026-04-26-01 | **just-closed (2026-04-26)**, 0-nominee + Path-A 修复完成 | `docs/memos/20260426-research-cycle-2026-04-26-01_close.md`；commits `bb0f3a5` → `16fa77e`；本 review log `claude-turn-001`/`002`/`003` |
+| Research-mining workstream | **auto re-frozen**（cycle 关闭触发 unfreeze memo §8） | `docs/memos/20260426-research_layer_partial_unfreeze.md` §8 |
+| Paper layer (existing pair) | **frozen specs**, 在 registry 表 `research_candidates` 中均为 `S2_paper_candidate` | `data/research_candidates/registry.db` 实查：`rcm_v1_defensive_composite_01` promoted_at 2026-04-23；`candidate_2_orthogonal_01` promoted_at 2026-04-24；两者 revoked_at 都为 NULL |
+| Production strategy | **conservative_default**（未 promote） | `config/production_strategy.yaml` L33 `status: "conservative_default"` |
+| OOS-framework MVP | **shipped + auto re-frozen at OOSMVPDONE** | `docs/memos/20260425-oos_mvp_close.md`；CLAUDE.md L545–555 |
+| Bridge (旧 Claude×Codex 协作通道) | **deprecated** (commit `30c1e77`) | git log；review-doc `claude-turn-002` |
+| Three-party collab loop | **active**, A.6 git rhythm 已 codified | 本文档 §A.6 (commits `6538ce5` / `23b15f2`) |
+
+**没有任何主线在"做新研究 / 新代码 / 新 mining"。** 当前节奏是观察 + 等数据。
+
+#### 2. Why production is still `conservative_default`
+
+`config/production_strategy.yaml` 自身就给出了机器可读的答案：
+
+- L33: `status: "conservative_default"`
+- L51 `source.mode: "manual"`，L52 `source.spec_id: ""` — **从未通过 `scripts/promote_strategy.py` 从 archive 提升过任何 spec**。
+- L77–84 整个 `validation:` 块全 false：
+
+  ```yaml
+  validation:
+    post_fix_validated: false       # post-P0.1-fix revalidated
+    passed_oos_gate: false          # OOS IR >= 0.20 in walk-forward
+    passed_qqq_gate: false          # CAGR > QQQ on full + holdout + OOS avg
+    passed_paper_backtest_alignment: false
+  ```
+
+- L82–84 notes 字段（机器可读）的明确解释：
+  > R33 weights pre-date apply_extra_shift=False default. Current post-fix
+  > codebase may not reproduce pre-fix OOS numbers. Pending post-fix
+  > re-mining + acceptance pack before promote to active.
+
+- L88–92 `fingerprints`（universe_hash / factor_registry_hash / config_hash）全空 — M3 runtime alignment check 在启动时只能 log "provisional"，无法做硬比对。
+
+**根本原因**：当前 production 的权重源是 R33 grid-search（19 iter Phase B 时代）的 in-sample best calibration；P0.1 修复 (`apply_extra_shift=False`) 改了信号窗口语义，pre-fix 的数字不在 post-fix codebase 上复现。要切到 `active` 必须走完 M2 acceptance pack —— 没人跑过。
+
+注意：**这并不意味着 RCMv1 / Cand-2 不能上 production**——它们在 `registry.db` 已经 `S2_paper_candidate`，理论上 M2 promote_strategy.py 可以把它们写入 `production_strategy.yaml` 的 source 块。但这是**治理决策**（要不要把研究阶段的 candidate 当作 production？），不是工程问题，目前没有相关 paper-slot 决定 memo。
+
+#### 3. Forward OOS status: evidence in hand vs missing evidence
+
+**已有证据**：
+
+- 两个候选都已建立 forward run。`registry.db` 实查均为 `S2_paper_candidate` 状态、未 revoke。
+- `data/research_candidates/rcm_v1_defensive_composite_01_forward_manifest.json` + `..._candidate_2_orthogonal_01_forward_manifest.json`：`current_status: in_progress`，每个 manifest 含 `runs: [一个]` 入口。
+- `docs/forward_observation_log.md` baseline 段记录了 2026-04-26 初始状态：「TD001 @ 2026-04-24 / cum_ret=0.00% / source_mix=True」(对应 commit `3aa3866` 进 observation mode 的设置)。
+- `core/research/forward/{manifest_schema,manifest_io,runner,readiness}.py` 全部 shipped 并 unit-tested（参见 `tests/unit/research/test_forward_*`）。
+- `core/data/source_boundaries.py` + `data/ref/daily_source_boundaries.parquet` sidecar 已建立，`ForwardRun.source_mix` 字段写入正确。
+
+**缺失证据**：
+
+1. **真实 forward TD 数据本身**——manifest 实测 `runs[0]['bars_observed']` 字段不存在（`runs[0]` 的 keys 是 `['checkpoint_label', 'as_of_date', 'n_observed_trading_days', 'cum_ret', 'sharpe', 'max_dd', 'vs_spy', 'vs_qqq', 'notes', 'source_mix']`）。`forward_observation_log.md` 报告"TD001 @ 2026-04-24"，但 manifest JSON 里实际不带 TD-level entries 数组。**这是不一致**——log 与 manifest 各说一套。需要核实是 schema 解读差异还是真的没写入 TD。
+2. **R-fwd-2 (observation engine 累计 TD 写入)**：CLAUDE.md L598–599 显式说 "NO R-fwd-2 / R-fwd-3 development until ≥3-5 real TD entries accumulate"。当前真实 TD = ?（最大可能是 1，根据 log；最小是 0，根据 manifest）。**门槛远未达到。**
+3. **R-fwd-3 (checkpoint reduce + bar-hash immutability guard)**：未启动。
+4. **post-frozen-date Sharpe / MaxDD / vs_SPY / vs_QQQ 等真实样本**：`runs[0]` 这些字段都还是 None / 0.0，因为没观察。
+5. **Cost-hash 验证 HALT 逻辑实战触发记录**：未触发过（没数据可触发）。
+
+#### 4. Partial unfreeze: allowed vs forbidden（**当前已 re-frozen**）
+
+**重要时点**：`docs/memos/20260426-research_layer_partial_unfreeze.md` §8 规定 cycle 结束（无论 0-nominee 还是 promote）即自动 re-freeze。研究 cycle 2026-04-26-01 在 commit `16fa77e` 完成关闭，因此**研究层目前实际处于 frozen 状态，不再处于 unfreeze 期**。要重新做 mining / 因子研究，需要**新的授权 memo + 新的 lineage_tag + 新的 promotion_criteria.yaml**。
+
+**unfreeze 期内（已结束）允许过的**：
+- 跑 mining：`core/mining/` 下的 TPE/Optuna factor 搜索
+- 因子研究：`core/factors/` 下的 IC/IR 分析、候选生成、LLM 辅助探索
+- 输出落到 `S0_PROTOTYPE` 或（产物集齐时）`S1_RESEARCH_CANDIDATE`
+
+**unfreeze 期始终不允许（仍然 frozen）**：
+- 扩 universe（`config/universe.yaml` 不动；BRK-B 不复活）
+- Candidate-3 绕过漏斗直 S2
+- 改任何 `frozen_spec.py` 保护下的 yaml（`rcm_v1_defensive_composite_01.yaml` / `candidate_2_orthogonal_01.yaml`）
+- 改 paper / forward manifest 历史（append-only）
+- 加 `PRODUCTION_FACTORS`（仍 7 元素）
+- 加新数据源 / 新 intraday timeframe / 新 vendor
+- 改 `config/*.yaml` 任何文件
+- 改 `registry.db` schema
+- 改 `requirements*.txt` / `pyproject.toml`
+
+**自动 promote 也始终不允许**：unfreeze memo §3「Research-unfreeze ≠ paper slot opens」 + §5 「How a new candidate gets to a paper slot」要求显式 paper-slot 决定 memo。
+
+#### 5. Top 3 next priorities
+
+按 codex 的「研究/工程/治理/验证」分类：
+
+| # | 项目 | 类型 | 一句话理由 | 直接证据 |
+|---|------|------|-----------|---------|
+| 1 | 修 forward manifest vs forward_observation_log 的 TD 一致性问题 | **治理 + 工程** | log 写"TD001 @ 2026-04-24"，但 manifest `runs[0]` 没有 TD-level entries 数组。每天观察都依赖 manifest 是 source-of-truth；不一致继续累积会让 R-fwd-2 准入门槛（≥3-5 TD）失去明确判定标准 | `data/research_candidates/{rcm_v1_defensive_composite_01,candidate_2_orthogonal_01}_forward_manifest.json` 实测 vs `docs/forward_observation_log.md` baseline 段 |
+| 2 | M12 concentration gate 真实施 | **工程** | CLAUDE.md L624–626 标 `[ ]` open；当前 BacktestEngine 只在 paper artifact 阶段算 concentration（report-only），fresh-backtest 路径还是 skip-PASS。这与刚做完的 closeout fix 同属"治理-grade 一致性"——report 而不 enforce 是 silent regression 通道 | `CLAUDE.md` Framework Completion PRD §M12；`core/backtest/backtest_engine.py` |
+| 3 | 走一遍 RCMv1（或 Cand-2）的 M2 acceptance pack，让 production_strategy 有一次真实试 promote | **验证 + 治理** | `production_strategy.yaml` 至今 `validation: 全 false`；`source.mode: manual` 没人跑过 promote_strategy.py 的全链路。这不要求**实际**切到 active —— 跑一次 dry-run、看 acceptance pack 在 post-fix codebase 上对 RCMv1 / Cand-2 输出什么数字，是低风险高信息量的"真测一次"行为 | `config/production_strategy.yaml` L77–84；`scripts/promote_strategy.py`（M2）；`scripts/acceptance_research_composite.py` |
+
+**不在 Top-3 里的**（明确说"不做"）：
+- ❌ 新开 mining cycle —— research 层已 re-frozen，需要新授权 memo；codex 也明确说 "Do not propose a new mining cycle as the default answer"。
+- ❌ 起草下一 cycle 的 criteria 提案 memo —— 是 useful 但**前置依赖 forward 数据**：先看 RCMv1 / Cand-2 在真实 forward 表现（β-sign、corr、MaxDD）才好定下一 cycle 的硬门。当前 0 TD，写出来就是空中楼阁。
+- ❌ R-fwd-2 / R-fwd-3 实施 —— CLAUDE.md 明确门槛 ≥3-5 TD；目前 ≤1 TD（且不一致），未到。
+- ❌ 多时间框架 / 实盘对接 / 数据 vendor 切换 —— 都 frozen。
+
+#### 6. One immediate action and why it beats the other two
+
+**立刻做：Top-1 — 核实并修正 forward manifest 与 forward_observation_log 之间的 TD 一致性问题。**
+
+具体步骤（不写代码，只说计划，等 codex 决定再做）：
+1. 实读 `..._forward_manifest.json` 的 `runs[0]` 全字段，确认 `n_observed_trading_days` 是否跟 log 的 TD001 对得上、TD-level entries 应在哪个字段。
+2. 跑 `core/research/forward/runner.py` 的 `status()` / `readiness()` 在两个 candidate 上，看它返回什么 TD 计数 vs manifest 字段。
+3. 如果是 **schema 解读差异**（log 错引了字段名）：补一行 log 文字、不改代码。
+4. 如果是 **真实写入丢失**（observation 跑过但 TD entry 没追加）：那是 R-fwd-1 的 bug，要在 `core/research/forward/runner.py::observe` 路径里修。
+5. commit 到 master + 写 review claude-turn-005。
+
+**为什么不是 Top-2（M12 enforcement）**：
+M12 是工程债，不会在每日 forward 观察里继续恶化。它**等得起**。Top-1 不一样—— forward log 每条新 entry 都基于上一条；如果 manifest 的实际 TD 计数是错的，明天再跑日观察、覆盖到错的状态、log 跟 manifest 进一步发散，越拖越难审计。**Top-1 有日历时间紧迫感，Top-2 没有。**
+
+**为什么不是 Top-3（M2 acceptance pack 试跑）**：
+跑 M2 acceptance 要先决定**对哪个 candidate 跑**。RCMv1 是 defensive composite，post-P0.1 codebase 上的 IC/IR 数字未知；Cand-2 是 orthogonal pair，构造时已知 corr 0.40。这两个都不是显然的 production 候选——挑哪个本身是 paper-slot 决策（unfreeze memo §5），需要新 memo。**Top-3 的前置不是工程，是治理决策；Top-1 是纯事实核对，不需要任何决策。**
+
+总结：Top-1 是当前唯一有"必须立刻做不然今天就出错"性质的事项。Top-2 / Top-3 重要但不紧急。
+
+---
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
