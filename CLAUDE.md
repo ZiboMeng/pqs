@@ -524,15 +524,24 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   Standing freeze (universe / mining / Candidate-3 / OOS / spec
   changes) remains. `docs/memos/20260425-data_integrity_round3_close.md`
 
-**Active workstream**:
-- **OOS Framework MVP** (2026-04-25, UNFROZEN narrow scope) — PRD v3
-  `docs/prd/20260425-oos_validation_framework_codex_v3.md` + execution
-  PRD `docs/prd/20260425-oos_mvp_ralph_loop_execution.md` (R1-R7) +
-  ralph-loop launcher `dev/scripts/ralph_loop/oos_mvp_launcher.md`.
-  Lineage `oos-mvp-2026-04-25`; promise `OOSMVPDONE`. Unfreeze scope
-  + halt conditions: `docs/memos/20260425-oos_framework_unfreeze.md`.
-  Auto re-freeze at promise emit. All other round-3 freeze items
-  remain frozen.
+- **OOS Framework MVP R1-R7** (2026-04-25 ✅) — 7-round ralph-loop
+  per `docs/prd/20260425-oos_mvp_ralph_loop_execution.md` derived
+  from PRD v3 `docs/prd/20260425-oos_validation_framework_codex_v3.md`.
+  Lineage `oos-mvp-2026-04-25`. Shipped: `core/research/robustness/`
+  (window schema + runner) + `core/research/concentration/` (M12
+  warning + extreme tier, report-only) + watch_exposure section in
+  master + drift reports + `core/research/forward/` (manifest schema
+  ONLY, no runner per PRD v3 §B) + integration smoke + negative
+  simulation. Both candidates @ S2_paper_candidate produced full
+  artifact set (window/eval/concentration); both triggered M12
+  **manual_review_required** + **narrative_permission: frozen** due
+  to thin_data_share extreme (RCMv1 56.9%, Cand-2 28.5%). R2
+  numbers (+62.76% / +191.57%) are **pseudo-OOS robustness only,
+  NOT deployable OOS** (PRD v3 §1.1+§1.3). 63 regression tests
+  added; pytest 1617 → 1680 (drift fully explained). Closeout:
+  `docs/memos/20260425-oos_mvp_close.md`. OOS-framework workstream
+  auto re-frozen at OOSMVPDONE; reopening forward execution
+  requires a new PRD round.
 
 **Framework Completion PRD** (`docs/20260421-prd_framework_completion.md`
 v1.2) — shipped M0-M8 + M10 + M13 + M15 + M16 (see archive); open:
