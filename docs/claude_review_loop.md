@@ -544,5 +544,170 @@ Required output structure for the next turn:
 
 ---
 
+### claude-turn-003 — closeout consistency fix shipped (Path A, master `16fa77e`)
+
+- **author**: Claude
+- **date_utc**: 2026-04-26
+- **branch_under_review**: `master` (commit `16fa77e`)
+- **scope**: implements every required action from `chatgpt-turn-003` end-to-end
+- **commit**: `16fa77e research-cycle 2026-04-26-01: closeout consistency fix (Path A — rename + state rewrite)`
+
+#### Inconsistencies fixed
+
+| layer            | before                                                                                                              | after                                                                                                                                           |
+|------------------|--------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
+| Filename         | `_S1_nominee.yaml` (advertised an S1 advancement that never happened)                                              | `_top_trial_rejected_at_g2a.yaml` (clearly signals top-trial that failed a hard gate)                                                          |
+| Top-of-file note | "CURRENT STAGE: S1 RESEARCH_CANDIDATE (research stockpile only)"                                                   | "⚠️ THIS IS NOT AN S1 CANDIDATE." + outcome explainer + Codex-audit attribution                                                                |
+| `benchmark_relative_summary` | `pending_closeout_eval`                                                                                  | corr-vs-existing-pair (0.6148 / 0.6137), realized portfolio β stats, β-sign anomaly note                                                       |
+| `oos_holdout_summary`        | `pending_closeout_eval`                                                                                  | full-period IC (0.0739 / 0.2458 / 1.0405), walk-forward 4/4 positive, 2024 pseudo-OOS metrics with MaxDD-violates-target caveat                |
+| `robustness_summary`         | `pending_closeout_eval`                                                                                  | M12 tier=warning, watchlist 0.395 (FAIL), thin-data weighted 0.0751, top1/top3, turnover, regime fold count, strongest/weakest regime          |
+| `acceptance_decision`        | `pending_closeout_eval`                                                                                  | `rejected_at_g2a_watchlist_total_share` + `acceptance_decision_details` block (binding fail gate / threshold / op / softening status / links)  |
+| Cross-references | closeout memo §2 / §5.1 / §10 + `run_close_eval.py` docstring all referenced `_S1_nominee.*`                       | every reference rewritten to the new prefix; `git grep _S1_nominee` returns only two intentional "renamed from" historical mentions            |
+| Test surface     | `--end-date`, `--drop-symbols`, `run_close_eval.py` hard-gate-fail path → 0 targeted tests                         | 19 new targeted tests across `tests/unit/scripts/` and `tests/unit/research/` (see Tests added section)                                        |
+
+#### Chosen artifact naming and why
+
+`research-cycle-2026-04-26-01_top_trial_rejected_at_g2a` (and the 9
+parallel suffixed artifacts).
+
+Reasoning:
+- The criteria yaml's `acceptance_decision` field is now
+  `rejected_at_g2a_watchlist_total_share`. Aligning the filename
+  with the same vocabulary (`rejected_at_g2a`) means a future
+  reader sees one consistent vocabulary in filenames + yaml fields
+  + memo prose — no translation gap to bridge.
+- "top_trial" makes it unambiguous that this **was** the cycle's
+  top-objective trial — preserving the audit trail without
+  pretending it was advanced.
+- "rejected_at_g2a" (vs e.g. "failed_g2a" or "g2a_fail") avoids
+  ambiguity between "the gate failed" (gate broke) vs "the
+  candidate failed the gate" (candidate was rejected). The verb
+  "rejected" is unmistakably about the candidate.
+- I considered Path B (keep filename, rewrite internals only). I
+  flipped to Path A after re-reading `chatgpt-turn-003` §"Why
+  Path A is better than Path B" — the external-identity argument
+  (grep / ls / automation / future readers) is structurally
+  stronger than the historical-commit-grep convenience I had used
+  to argue for B in `claude-turn-002`. Codex was right; I was wrong.
+
+#### Files changed
+
+```
+master commit 16fa77e — 17 files, 787 insertions, 220 deletions
+
+renamed (10 files, git --follow-friendly):
+  data/research_candidates/research-cycle-2026-04-26-01_S1_nominee.yaml
+    → research-cycle-2026-04-26-01_top_trial_rejected_at_g2a.yaml
+       (+ 9 sibling artifact files with the same prefix swap)
+
+modified:
+  data/research_candidates/research-cycle-2026-04-26-01_closeout_eval.json
+  dev/scripts/research_cycle/run_close_eval.py   (docstring + comment update;
+    hoisted gate_check + build_decision_table to module-level so they're
+    unit-testable without spinning up the full pipeline)
+  docs/memos/20260426-research-cycle-2026-04-26-01_close.md
+    (§2 top-trial shape; §5.1 artifact link; §10 artifact tree)
+
+added:
+  tests/unit/scripts/__init__.py
+  tests/unit/scripts/test_run_research_miner_cli.py             (7 tests)
+  tests/unit/research/test_research_cycle_close_eval.py         (12 tests)
+```
+
+Untouched (deliberately):
+`data/research_candidates/research-cycle-2026-04-26-01_promotion_criteria.yaml`
+(criteria immutability), `CLAUDE.md`, `docs/INDEX.md` (already had no
+`_S1_nominee` references — the cycle's TODO entry only used the
+cycle-level lineage tag).
+
+#### Tests added and run
+
+**`tests/unit/scripts/test_run_research_miner_cli.py` (7 tests)** —
+targets `_load_price_volume` directly (not via subprocess) using a
+`_FakeStore` + `SimpleNamespace` cfg.
+
+- `test_end_date_truncates_panel_to_at_or_before_cutoff` — pins the
+  cycle-2026-04-26-01 G4 cutoff at 2023-12-31.
+- `test_end_date_none_keeps_full_panel`
+- `test_end_date_filters_open_high_low_volume_too` — guards against
+  OHLCV index mismatch downstream.
+- `test_drop_symbols_excludes_named_tickers_from_tradable`
+- `test_drop_symbols_none_keeps_all`
+- `test_drop_symbols_does_not_mutate_universe_config_object` — proves
+  the runtime arg does NOT leak into `cfg.universe.seed_pool`. This
+  is the property that lets the criteria yaml's `drop_symbols` clause
+  be enforced WITHOUT unfreezing the universe config.
+- `test_end_date_and_drop_symbols_compose` — both flags together,
+  the actual cycle invocation.
+
+**`tests/unit/research/test_research_cycle_close_eval.py` (12 tests)** —
+targets `gate_check` (primitive) + `build_decision_table`
+(orchestrator); both hoisted to module-level for testability.
+
+- 6 tests on `gate_check`: ge / le / in_set semantics + None-measured
+  hard-fail + unknown-op raises.
+- `test_build_decision_table_cycle_2026_04_26_01_actual_failure` —
+  **PINS THE CYCLE OUTCOME**. If this test ever flips to "passed=True"
+  on the watchlist row, a regression silently advanced a rejected
+  candidate.
+- `test_build_decision_table_all_pass_path_works` — counter-case so
+  a future regression that hard-codes `passed=False` is also caught.
+- `test_build_decision_table_walk_forward_3_of_4_passes` — boundary.
+- `test_build_decision_table_tier_manual_review_required_blocks` —
+  M12 tier ceiling enforcement.
+- `test_build_decision_table_missing_concentration_metric_fails` —
+  defensive: a future eval bug that drops a metric must NOT silently
+  pass.
+
+pytest before/after on master @ `16fa77e`:
+
+```
+before: 1725 passed / 1 skipped / 1 xfailed
+after:  1744 passed / 1 skipped / 1 xfailed     (+19, no skips/xfailed drift)
+```
+
+#### Final artifact semantics
+
+After this commit:
+- `data/research_candidates/` contains zero files whose names suggest
+  cycle 2026-04-26-01 produced an S1 candidate. `ls research-cycle-2026-04-26-01_*`
+  returns: `promotion_criteria.yaml`, `closeout_eval.json`, and 10
+  `top_trial_rejected_at_g2a*` files.
+- Inside the canonical YAML, every field previously `pending_closeout_eval`
+  is a real numeric or string value drawn from the closeout JSONs.
+- `acceptance_decision: rejected_at_g2a_watchlist_total_share` is the
+  canonical machine-readable signal.
+- Any human or script that lands on this artifact (directory listing,
+  grep, automation, or memo cross-reference) gets one consistent
+  message: top trial, REJECTED at G2.A.4, cycle closed 0-nominee,
+  no S1 advancement.
+- The hard-gate-fail path is CODE-PROTECTED. A regression that flipped
+  the watchlist gate decision to silently pass breaks the unit test.
+
+#### Residual risk
+
+1. **β-sign convention question recorded but not solved.** The yaml's
+   `benchmark_relative_summary.note` flags that realized portfolio
+   β=1.80 contradicts the "defensive" reading suggested by naming
+   `beta_spy_60d` as a feature. Future cycles intending to mine a
+   defensive composite must answer this convention question *before*
+   mining. Intentionally out-of-scope for this closeout fix.
+2. **Corr 0.61 vs both existing candidates recorded but not gated.**
+   A `composite_corr_vs_existing_pair_ceiling` hard gate is a
+   candidate addition for the next cycle's criteria yaml — not
+   retroactively applied here.
+3. **Tests target the decision-table layer, not the full pipeline.**
+   `run_close_eval.py`'s end-to-end behaviour (panel + composite +
+   concentration + walk-forward + 2024 holdout) is exercised by the
+   actual cycle artifact JSONs but not in unit-test form. End-to-end
+   coverage would require fixture data; the marginal cost-benefit is
+   low for a one-shot research-cycle script. If this script is ever
+   generalized to drive multiple cycles, that gap should close first.
+4. **No paper-slot, criteria, or universe state changed.** Research
+   workstream remains auto re-frozen at this boundary. Governance-
+   grade fix only — no signal/model/mining change.
+
+---
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
