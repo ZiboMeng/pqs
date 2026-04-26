@@ -1,0 +1,269 @@
+# Claude × ChatGPT Review Loop — Collaboration Contract & Interaction Log
+
+This document is the **single coordination surface** between three
+parties working on `pqs`:
+
+- **Claude (executor)** — first-line execution: research, design, code,
+  backtest, docs, iteration, commits.
+- **ChatGPT (reviewer)** — second-line audit: checks logic, research
+  quality, engineering quality, risk control, verifiability; returns
+  corrections + next-step instructions.
+- **User (decision-maker)** — final-decision authority + context relay
+  between Claude and ChatGPT (each side cannot directly read the
+  other's output).
+
+It lives on the `review/claude-collab` branch. The `master` branch
+holds the actual code progress; this branch holds **only** interaction
+docs. Do not cross-contaminate: code commits go to `master`, review
+turns go here.
+
+---
+
+## Part A — Contract (the rules)
+
+### A.1 Required output structure (every Claude turn)
+
+Every Claude turn — both in-session text and the entry written to
+this document — uses these six sections in this order:
+
+1. **Current Task** — the specific problem this turn is solving.
+2. **What I Did** — what was actually done (modules touched, scripts
+   run, decisions made). Past tense. Specific.
+3. **Key Assumptions** — what I'm taking as given without re-deriving.
+   The reviewer's first job is to challenge these.
+4. **Evidence** — files, data, logs, backtests, commits. Concrete
+   pointers (paths, commit hashes, JSON keys), not narrative.
+5. **Risks / Uncertainties** — what could be wrong, where the
+   boundary conditions sit, what I deliberately did not check.
+6. **Proposed Next Step** — the single most valuable thing to do
+   next, with enough specificity that the user can say "yes / no /
+   different".
+
+### A.2 Discipline checks (must surface, not bury)
+
+For every **strategy / research task**, Claude must actively check
+and report on:
+
+- **Leakage** — does any feature use info not available at decision time?
+- **Future functions** — are any panels / labels / regimes constructed
+  with non-causal data?
+- **Sample-selection bias** — universe construction reasoning;
+  excluded symbols disclosed and motivated.
+- **Survivorship** — delisted / merged / dropped symbols handled?
+- **Overfit** — degrees of freedom in the search; pre-registration
+  status; in-sample-vs-OOS framing.
+- **Cost / slippage / liquidity / turnover / capacity / execution** —
+  what the strategy assumes about transactionability; where the
+  assumption breaks.
+
+If a check is N/A or deferred, say so and why — do not silently skip.
+
+For every **engineering / code task**, Claude must report:
+
+- **Modules changed** — file paths + line ranges.
+- **Why this shape** — the design intent, not just the diff.
+- **Blast radius** — who else touches this code path; what regresses
+  if it breaks.
+- **Missing tests / logs / monitoring / error handling / docs** —
+  enumerated explicitly, not handwaved.
+
+### A.3 Hard constraints (binding on Claude's output)
+
+- **No unnecessary complexity.** Three similar lines beats premature
+  abstraction. Don't design for hypothetical futures.
+- **Prefer robust + verifiable over clever.** If two designs are
+  close, pick the one with the smaller verification surface.
+- **Do not mix research / engineering / trading concerns** in a single
+  PR or memo — separate them.
+- **Unverified strategies are not deployable by default.** Backtest
+  pass ≠ paper-deployable. Paper pass ≠ real-deployable.
+- **Don't over-interpret backtest numbers.** State the caveat that
+  belongs to the number; if it's pseudo-OOS, say pseudo-OOS.
+
+### A.4 Branch & file convention
+
+| concern                  | branch              | path                                |
+|--------------------------|---------------------|-------------------------------------|
+| Code progress            | `master`            | repo files                          |
+| Interaction log          | `review/claude-collab` | `docs/claude_review_loop.md` (this file) |
+| ChatGPT review responses | `review/claude-collab` | append to log below as `chatgpt-turn-NNN` |
+| User decisions / relay   | `review/claude-collab` | append to log below as `user-turn-NNN`    |
+| Claude turn metadata     | `review/claude-collab` | append to log below as `claude-turn-NNN`  |
+
+Append-only. Never edit a closed turn — clarify in a new turn.
+
+### A.5 Turn ID convention
+
+Claude turn IDs are zero-padded three-digit serials (`claude-turn-001`,
+`claude-turn-002`, ...). User and ChatGPT turns share the same serial
+space, suffixed by role. Each turn has a `commit:` field pointing at
+the master-branch commit (or commits) it covers, so a reviewer can
+audit the actual diff without cross-checking.
+
+---
+
+## Part B — Active interaction log
+
+Append new turns at the bottom. Most-recent turn last.
+
+---
+
+### claude-turn-001 — `research-cycle-2026-04-26-01` closeout (0 nominee)
+
+- **author**: Claude
+- **date_utc**: 2026-04-26
+- **branch_under_review**: `master` (commits `4100f7b`, `6b82191`, `bb0f3a5`)
+- **scope**: research-mining cycle from authorization → mining → eval → closeout
+
+#### Current Task
+
+Process the pre-registered research cycle `research-cycle-2026-04-26-01`
+end-to-end: stand up the immutable promotion criteria, run the
+authorized mining (200-trial TPE on 78-sym × 2007-2023, panel cutoff
+2023-12-31), evaluate the top trial against the 7 G2.A hard
+thresholds + the G2.B report-only fields, and write a closeout memo
+**regardless of pass/fail**. Decide nominee or 0-nominee per the
+criteria's immutability contract — no retroactive softening.
+
+#### What I Did
+
+1. Pre-registered the criteria yaml (`4100f7b`) with sha256
+   `5e88d0cf9e97dfe4f1aaf50a9a6ba11d83a3d25522487936f53dbc880d03ad28`
+   recorded in the commit message (immutability contract).
+2. Extended `scripts/run_research_miner.py` (`6b82191`) with
+   `--end-date` + `--drop-symbols` so G4 / drop_symbols enforce from
+   the CLI without mutating frozen `config/universe.yaml`.
+3. Ran TPE mining: 200 trials, 190 with finite objective, 176 archive
+   rows, ≈13 min wall-clock, top trial `62445bdc62ae` =
+   `beta_spy_60d × amihud_20d × mom_126d` (IC_IR full-period 1.04).
+4. Built the candidate spec yaml
+   `data/research_candidates/research-cycle-2026-04-26-01_S1_nominee.yaml`.
+5. Wrote a one-shot eval pipeline
+   `dev/scripts/research_cycle/run_close_eval.py` that produces all
+   required artifacts (robustness window + concentration + walk-
+   forward + 2024 pseudo-OOS + per-regime IR + corr-vs-pair) and the
+   G2.A decision table JSON.
+6. Outcome: **G2.A FAIL on `watchlist_total_share = 39.50% > 30%
+   ceiling`** (only failing gate of seven). Per criteria
+   immutability + unfreeze memo §G2 ("0-nominee acceptable"): cycle
+   closes 0-nominee.
+7. Wrote the closeout memo
+   `docs/memos/20260426-research-cycle-2026-04-26-01_close.md`.
+8. Updated `CLAUDE.md` (active workstream entry) + `docs/INDEX.md`
+   (memo cross-link, section count 14→15).
+9. Committed atomically as `bb0f3a5` on `master`.
+
+#### Key Assumptions
+
+1. **Tiebreaker for G1's "≤1 nominee per lineage"**: highest IC_IR
+   (then earliest trial_id) — points at trial `62445bdc62ae`. Top-5
+   share the same 3-feature set with weight perturbations only, so
+   the choice is robust against the exact tiebreak rule.
+2. **`min_families: 3` semantics**: counts non-zero family slots
+   (the miner's interpretation). Top trial is `{A:1, B:0, C:1, D:1}`
+   = 3 active families → satisfies. If the criteria intended 3
+   distinct features each from a different family, this still
+   satisfies (3 features × 3 distinct families).
+3. **Pseudo-OOS framing preserved** per PRD v3 §1.1+§1.3: the 2024
+   numbers are pseudo-OOS robustness, NOT deployable OOS.
+4. **Closeout pipeline (`run_close_eval.py`) is single-cycle
+   scaffolding** — not a maintained tool. The next cycle may reuse
+   or rewrite as it sees fit.
+5. **The watch-list parquet (`data/ref/data_quality_watch.parquet`)
+   is authoritative for G2.A.4 / G2.A.5** — the same sidecar
+   round-3 step-3b produced. No sanity check of the sidecar's
+   contents was done this cycle.
+
+#### Evidence
+
+| field                        | value                                                                                                |
+|------------------------------|------------------------------------------------------------------------------------------------------|
+| criteria yaml                | `data/research_candidates/research-cycle-2026-04-26-01_promotion_criteria.yaml` (commit `4100f7b`)   |
+| criteria sha256              | `5e88d0cf9e97dfe4f1aaf50a9a6ba11d83a3d25522487936f53dbc880d03ad28`                                   |
+| mining run summary           | `data/ml/research_miner/research-cycle-2026-04-26-01/run_summary.json`                               |
+| top trial id                 | `62445bdc62ae` (best objective +0.9379, IC_IR +1.0420)                                               |
+| candidate spec               | `data/research_candidates/research-cycle-2026-04-26-01_S1_nominee.yaml`                              |
+| closeout decision JSON       | `data/research_candidates/research-cycle-2026-04-26-01_closeout_eval.json`                           |
+| closeout memo                | `docs/memos/20260426-research-cycle-2026-04-26-01_close.md`                                          |
+| eval pipeline                | `dev/scripts/research_cycle/run_close_eval.py`                                                       |
+| pytest at HEAD               | 1725 passed / 1 skipped / 1 xfailed (no drift)                                                       |
+| commit landed on master      | `bb0f3a5`                                                                                            |
+
+**G2.A decision table** (full numbers in `_closeout_eval.json` §`g2_a_decision_table`):
+
+| gate                                | measured  | op  | threshold      | pass |
+|-------------------------------------|-----------|-----|----------------|------|
+| min_ic_ir_full_period               | +1.0405   | ≥   | 0.25           | ✓    |
+| min_walk_forward_folds_positive (4) | 4         | ≥   | 3              | ✓    |
+| m12_concentration_tier              | warning   | ∈   | {pass,warning} | ✓    |
+| **watchlist_total_share**           | **0.3950**| ≤   | **0.30**       | **✗**|
+| thin_data_weighted_share            | 0.0751    | ≤   | 0.10           | ✓    |
+| top1_weight_max                     | 0.10      | ≤   | 0.40           | ✓    |
+| top3_weight_max                     | 0.30      | ≤   | 0.70           | ✓    |
+
+**G2.B report-only highlights**:
+- 2024 pseudo-OOS (252 TD): cum_ret +28.01%, Sharpe +0.889, **MaxDD −28.84%** (violates the 15-20% system MaxDD target), vs SPY +4.01pp, vs QQQ +1.02pp.
+- Per-regime IC_IR: BULL 0.40 / BEAR 1.20 / RISK_ON 1.35 / RISK_OFF 1.14 / CRISIS 4.45 / SIDEWAYS 1.17 (all 6 positive).
+- Cross-section-avg corr: 0.61 vs RCMv1, 0.61 vs Cand-2 (partially redundant, not orthogonal).
+- Realized portfolio β = **+1.80** with std 1.33 — composite naming `beta_spy_60d` lands a HIGH-β basket, not defensive (sign-convention question).
+
+#### Discipline checks (research / strategy task)
+
+| check                | status / finding                                                                                                                                                                                                                                                                                                                                            |
+|----------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Leakage              | `lag=1` applied at IC computation (R15 leakage-safe semantic). Construction panel ends `2023-12-31`; 2024 pseudo-OOS holdout strictly post-panel. **Not independently re-audited beyond the `_ic_series` shift** — reviewer should challenge.                                                                                                              |
+| Future functions     | Forward returns built via `compute_forward_returns(close, horizons=[21], mode=cc)`. Regime labels for §5.2 use causal SPY rolling stats (60d return + 60d std + drawdown vs trailing cummax). No look-ahead detected, but quantile breakpoints `q_r.iloc[0..1]`, `q_v.iloc[0]` are computed on the **full** SPY index — mild forward-quantile contamination acceptable for a report-only field, NOT acceptable if it ever gates promotion. |
+| Sample-selection     | Universe = 78 sym (= seed_pool + sector_etfs + factor_etfs + cross_asset, blacklist + macro_reference removed, BRK-B dropped). Drop reason for BRK-B: round-3 step-3b (no polygon 1m source). All exclusions are explicit + auditable.                                                                                                                       |
+| Survivorship         | Universe is constructed from `config/universe.yaml`, which is itself frozen. The catalog includes only currently-listed names — **standard survivorship bias unaddressed**. This is a known systemic limitation predating this cycle; not introduced by it.                                                                                                  |
+| Overfit              | TPE 200 trials over 61 candidate factors × 4 families × weight space — degrees of freedom non-trivial. Pre-registration of criteria (sha256 + commit) frames the search a-priori, not retroactively. Top-5 trials cluster on the same 3-feature set → cluster size is meaningful evidence, but does NOT bound out-of-sample variance.                          |
+| Cost / slippage      | 2024 pseudo-OOS uses `config/cost_model.yaml` slip+commission as configured for the paper layer. Construction-window IC numbers are cost-free (rank correlation, not return). Turnover full-period 0.0814 daily-mean → low. **Capacity / liquidity not stress-tested**: the 10-name basket includes leveraged ETFs (SOXL) — capacity could break at scale.    |
+
+#### Risks / Uncertainties
+
+1. **Realized-β anomaly is unresolved**. Portfolio β=1.80 with a feature
+   named `beta_spy_60d` indicates a sign-convention question. The
+   memo flags it but does not fix it. If the *next* cycle wants a
+   defensive composite, the convention question must be answered
+   first — otherwise the same anomaly reproduces.
+2. **Correlation 0.61 vs both existing candidates**. The min-families
+   gate doesn't enforce signal orthogonality. Reviewer may want a
+   `composite_corr_vs_existing_pair_ceiling` hard gate added to the
+   *next* cycle's criteria yaml.
+3. **MaxDD −29% in the 2024 holdout** would have been a serious
+   paper-slot concern even if G2.A had passed. Future criteria might
+   include a hard MaxDD ceiling (~25%).
+4. **Survivorship bias** in the construction universe — out of
+   scope for this cycle but should not be quietly inherited forever.
+5. **Watch-share gate FAIL is real, not artifact**. Inspected the
+   per-symbol contributions (PWR 8.6%, KLAC 6.8%, SOXL 6.3%, ACGL
+   5.6%, LRCX 4.9% — all watch-listed). Not a sidecar misclassification.
+6. **0-nominee outcome could be politically uncomfortable** but is
+   the criterion-correct outcome. Reviewer should NOT push to lower
+   the gate; that path is contractually closed for this lineage.
+
+#### Proposed Next Step
+
+The cycle is closed and the research-mining workstream is auto
+re-frozen at this boundary per unfreeze memo §8. There are three
+candidate next moves; I lean toward (1):
+
+1. **Resume the daily forward-OOS observation ritual** for RCMv1 +
+   Cand-2 (no model changes; just keep the manifest growing). This
+   is the only active workstream that consumes calendar time.
+2. **Stage a "next-cycle criteria proposal" memo** that answers the
+   three questions surfaced by this cycle (β-sign convention;
+   correlation-vs-pair gate; MaxDD ceiling) — but write it as a
+   *proposal*, not a criteria yaml. The criteria yaml itself
+   requires fresh authorization before it can be committed.
+3. **Defer everything**: do nothing on the research workstream until
+   real forward TD entries accumulate (≥3-5 per the open R-fwd-2/3
+   pause condition).
+
+Reviewer: please challenge the discipline checks above (especially
+leakage / overfit) and tell me whether (1) / (2) / (3) is the right
+next call, or if there's a fourth move I'm missing.
+
+---
+
+<!-- next turn appends here. Convention: increment serial; mark role
+in suffix; include `commit:` if covering master-branch work. -->
