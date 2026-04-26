@@ -16216,3 +16216,155 @@ data_integrity_snapshot 等字段在 forward 真启动前必须 frozen。这就
 
 → **R5 acceptance gate PASS，可以进入 R6**。
 
+---
+
+## R-oos-mvp-2026-04-25-round-06 — Integration smoke + negative simulation
+
+### 1. 本轮主题
+OOS MVP R6：integration smoke 在两个真 candidate + R5 schema negative
+simulation 上的 end-to-end 一致性检查。
+
+### 2. 本轮目标
+- `dev/scripts/oos_mvp/smoke.py`：CLI + importable `run_smoke()`
+- 5 步 per-candidate 验证：window yaml parse / evidence_class 检查 /
+  robustness eval artifacts 存在 / concentration_report.json 字段齐
+  全 / watch_exposure section 渲染非空且含 narrative_permission
+- Negative simulation：构造 forward_run_manifest payload，把
+  `evidence_class` 分别设为 `historical_replay` 和
+  `pseudo_oos_robustness`，`ForwardRunManifest.model_validate(...)` 必
+  须 raise `ValidationError` 含 "forward_oos"
+- `tests/integration/test_oos_mvp_smoke.py`：5 个 case 含真数据 +
+  合成数据 + wrong-class detection + missing-artifacts graceful
+- Acceptance gate：smoke passes both candidates + negative simulation
+  correctly rejected + pytest no regression
+
+### 3. 为什么这轮优先做它
+R1-R5 各自跑通了自己的契约，但 end-to-end 还没在一个执行路径上
+全部走过。R6 用一个 ~250 行的 smoke 脚本把 5 段（schema parse /
+evidence class / 三套 artifact 一致性 / watch exposure 渲染 / forward
+schema reject）串起来跑一遍，确保任一段被破坏时下一轮（甚至 R7
+docs sync）能立刻发现而不是悄悄通过。Negative simulation 是 PRD §3
+R6 explicit 要求，验证 R5 schema 的硬合同：
+`evidence_class != forward_oos` 必须 reject，否则未来某个无意改动
+（比如有人把 `EvidenceClass.forward_oos` 检查写成 `in [forward_oos,
+pseudo_oos_robustness]`）会让 schema 静默失效，PRD v3 §1.3 陷阱
+直接踩中。
+
+### 4. 做了什么
+- `dev/scripts/oos_mvp/smoke.py`（新增）：
+  - `CandidateSmokeResult` / `NegativeSimResult` / `SmokeResult`
+    三个 dataclass，all_ok 属性给 caller 一目了然的 pass/fail
+  - `_smoke_one_candidate(cid, candidates_dir, watch_parquet)`：5 步
+    检查，每步独立 try/except 收集 errors，bail-early 仅在 window
+    parse 完全失败时（因为后续步骤需要 window 对象）
+  - `_negative_simulation()`：用同一个 base payload 跑两次，
+    `evidence_class` 分别设 `historical_replay` 和
+    `pseudo_oos_robustness`，期待 `ValidationError` 且 message 含
+    "forward_oos"
+  - `run_smoke(candidate_ids, candidates_dir, watch_parquet) ->
+    SmokeResult`：importable 入口
+  - `_format_result(result) -> str`：✓/✗ 标记 + per-candidate 子状态
+    + errors 缩进
+  - `main()`：argparse + `run_smoke()` + 打印 + exit 0/1
+- `tests/integration/test_oos_mvp_smoke.py`（新增）5 个 case：
+  - `test_negative_simulation_rejects_pseudo_and_replay`（独立，不依赖
+    数据）
+  - `test_smoke_real_artifacts_passes`（skip 如 R1-R5 artifacts 缺失）
+  - `test_smoke_synthetic_artifacts_pass`（tmp_path 构造完整 fixture
+    跑一遍）
+  - `test_smoke_detects_wrong_evidence_class`（构造 evidence_class=
+    forward_oos 的"错配" window，smoke 必须 fail 该 candidate
+    但运行不 crash）
+  - `test_smoke_handles_missing_artifacts`（空目录，smoke 记录 errors
+    + negative_sim 仍 PASS 独立工作）
+
+### 5. 修改了哪些文件
+新增：
+- `dev/scripts/oos_mvp/smoke.py`（249 行，含 CLI + 导出 API）
+- `tests/integration/test_oos_mvp_smoke.py`（5 个 case）
+
+无修改、无删除。
+
+### 6. 跑了哪些测试/实验
+- 子集：`pytest tests/integration/test_oos_mvp_smoke.py -v` →
+  5/5 pass，0.43s
+- 全量：`pytest tests/ -q --tb=no` → 1680 passed / 1 skipped /
+  1 xpassed / 4 warnings / 164.53s
+- CLI 真跑：`python dev/scripts/oos_mvp/smoke.py` → 两个 candidate
+  全 5 项 ✓ + negative_sim 双拒绝 ✓ + overall PASS + exit 0
+
+### 7. 结果如何
+**pytest tuple**（PRD §2 drift 规则）：
+- 起始：passed=1675, skipped=1, xfailed=0
+- 结束：passed=1680, skipped=1, xfailed=0（1 xpassed 不变）
+- drift：+5 passed，正好等于本轮新增 5 个 R6 测试，全部 explained
+
+**真数据 smoke 输出**：
+```
+[oos-mvp smoke]
+  ✓ rcm_v1_defensive_composite_01: window=True class=True robustness=True
+    concentration=True watch_exposure=True
+  ✓ candidate_2_orthogonal_01: window=True class=True robustness=True
+    concentration=True watch_exposure=True
+  ✓ negative_sim: historical_replay=True pseudo_oos=True
+overall: PASS
+```
+
+**Acceptance gate** 全 pass：
+- ✓ smoke passes both candidates（5 项 / candidate × 2 = 10 项全 ✓）
+- ✓ negative simulation correctly rejected（historical_replay 和
+  pseudo_oos_robustness 双拒，且 message 含 "forward_oos"）
+- ✓ pytest no regression
+- ✓ HARD invariants 全保
+
+### 8. 当前发现的新问题/新机会
+- **Smoke 不重跑 backtest**：design choice。R6 smoke 仅做 parser /
+  contract 验证，不重新跑 BacktestEngine（耗时太长会撞 30 min halt）。
+  这意味着 smoke 通过 ≠ artifacts 数值正确，仅 ≠ schema/字段一致性
+  正确。R7 / 后续如要 numeric-level 比对（pre-existing artifact vs
+  fresh re-run），需要单独的"replay smoke"——不在本轮 scope。
+- **CLI exit code 0/1 已加，但没接 CI**：本仓库目前没有 CI workflow
+  把 `python dev/scripts/oos_mvp/smoke.py` 当成 PR gate。R7 / 后续
+  可考虑把它接进 GitHub Actions 当 PR check，让 PRD v3 §1.3 陷阱
+  在 PR 层就被拦截。本轮不做，PRD §4 scope 不包含 CI。
+
+### 9. 剩余风险
+- `test_smoke_real_artifacts_passes` 用 `pytest.skipif` 当 R1-R5
+  artifacts 缺失时跳过。如果未来某轮删了或弄坏了 artifacts 但又
+  不重跑 R2 CLI，这个测试静默 skip 不报错——可能掩盖问题。R7
+  baseline rebuild 会触发完整 pytest 重跑，那时如果 artifacts
+  错了会通过 `test_smoke_synthetic_artifacts_pass` / 直接的
+  contract 测试发现，但绕开了真数据这一层。可接受，但记入风险。
+- Smoke 的 negative simulation 用的 fake `data_integrity_snapshot`
+  字段填的是 dummy hash，不绑真 commit。这是 by design——negative
+  sim 关心的是 schema 拒不拒，不关心 hash 真不真。R7 closeout 不
+  影响。
+
+### 10. 下一轮建议方向
+按 PRD 进入 **R7 = Docs sync + baseline rebuild + emit OOSMVPDONE**：
+- `docs/memos/20260425-oos_mvp_close.md` 写 closeout memo，必须
+  framed 成 "pseudo-OOS robustness eval done" — 绝不 frame 成
+  "OOS validated" 或 "deployable evidence"，并显式引用 PRD v3
+  §1.1 + §1.3
+- `CLAUDE.md` "Current TODO" 下加 OOS MVP done 条目（含 promise tag
+  + 主要 finding：两个 candidate concentration_gate_status=
+  manual_review_required + narrative_permission=frozen）
+- `docs/INDEX.md` 加 closeout memo 引用
+- 跑 `dev/scripts/baseline/build_research_baseline_snapshot.py
+  --run-tests` rebuild `data/baseline/latest.json`
+- 在 R7 assistant-turn 顶层 emit `<promise>OOSMVPDONE</promise>`
+  （per PRD §3 R7 explicit：harness 检测顶层 promise，commit 内的
+  promise 不算）
+
+### 11. Halt 条件检查 (PRD §4)
+- HARD invariant 是否被 violated？**否**（已逐项核对，全保。新加
+  的 `dev/scripts/oos_mvp/smoke.py` + `tests/integration/test_oos_mvp_smoke.py`
+  全在授权路径内）
+- 同 round 是否被重试 2 次？**否**（首次执行）
+- pytest drift 是否 unexplained？**否**（+5 = 5 R6 tests）
+- 单 round 是否 > 30 min？**否**（< 6 min，含 pytest 全跑 + CLI 跑）
+- artifact 大小异常？**否**（smoke.py ~7 KB；测试 ~5 KB）
+- 出 R1-R7 scope？**否**
+
+→ **R6 acceptance gate PASS，可以进入 R7**。
+
