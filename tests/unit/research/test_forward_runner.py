@@ -155,6 +155,49 @@ def test_init_refuses_to_clobber_existing(tmp_path: Path):
              output_dir=out_dir, cost_model_path=cost_path)
 
 
+def test_first_post_freeze_trading_day_pre_close_freeze():
+    """Freeze at 15:28 UTC (before 20:00 UTC market close) → that day's
+    close IS post-freeze → start on that day.
+
+    This is Cand-2's exact case: frozen_at_utc=2026-04-24T15:28 → 4-24
+    close at 20:00 UTC is post-freeze. Pre-fix bug pushed start_date
+    to 4-27 (Mon), losing 4-24 as a legitimate forward observation.
+    """
+    from core.research.forward.runner import _first_post_freeze_trading_day
+    frozen = datetime(2026, 4, 24, 15, 28, 35, tzinfo=timezone.utc)
+    # If SPY parquet is unavailable, falls back to BDay; should still
+    # land on 4-24 because 4-24 was a Friday.
+    result = _first_post_freeze_trading_day(frozen)
+    assert result == date(2026, 4, 24), (
+        f"freeze before market close should observe same-day's close; "
+        f"got {result}"
+    )
+
+
+def test_first_post_freeze_trading_day_post_close_freeze():
+    """Freeze at 23:39 UTC (after 20:00 UTC market close) → that day's
+    close is pre-freeze → start on next trading day.
+
+    This is RCMv1's case: frozen_at_utc=2026-04-23T23:39 → 4-23 close
+    at 20:00 UTC is pre-freeze → start_date = 4-24.
+    """
+    from core.research.forward.runner import _first_post_freeze_trading_day
+    frozen = datetime(2026, 4, 23, 23, 39, 14, tzinfo=timezone.utc)
+    result = _first_post_freeze_trading_day(frozen)
+    assert result == date(2026, 4, 24)
+
+
+def test_first_post_freeze_trading_day_freeze_on_weekend():
+    """Freeze on a weekend (any time) → start at next trading day."""
+    from core.research.forward.runner import _first_post_freeze_trading_day
+    # Saturday afternoon
+    frozen = datetime(2026, 4, 25, 14, 0, tzinfo=timezone.utc)
+    result = _first_post_freeze_trading_day(frozen)
+    # 4-25 is Saturday, so candidate = 4-25 (since 14 < 20), and the
+    # next trading day on-or-after 4-25 is Monday 4-27.
+    assert result == date(2026, 4, 27)
+
+
 def test_init_advances_weekend_start_date_to_next_trading_day(tmp_path: Path):
     """Post-MVP audit fix (2026-04-26): start_date must be a trading day.
 

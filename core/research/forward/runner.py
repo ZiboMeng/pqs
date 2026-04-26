@@ -98,6 +98,12 @@ def _file_sha256_hex(path: Path) -> str:
 
 _DEFAULT_DAILY_DIR = Path("data/daily")
 _NYSE_CALENDAR_PROXY = "SPY"  # SPY's daily index is the NYSE proxy
+# NYSE regular-session close ≈ 16:00 ET ≈ 20:00 UTC during winter EST,
+# 19:00 UTC during DST. We use 20:00 UTC as the conservative boundary;
+# the 1-hour DST shift only matters when frozen_at_utc.hour falls in
+# [19, 20], which is uncommon. Edge cases falling exactly on the close
+# minute round down (treated as pre-close).
+_NYSE_CLOSE_UTC_HOUR = 20
 
 
 def _next_trading_day(
@@ -105,10 +111,9 @@ def _next_trading_day(
 ) -> date:
     """Return the first trading day on-or-after ``d``.
 
-    Uses SPY's daily index (NYSE proxy) when available — that handles
-    both weekends and US market holidays. Falls back to ``BDay`` (next
-    business day, weekends only) if SPY parquet is missing or ``d``
-    is beyond SPY's index. Pure-function helper; no IO mutation.
+    Uses SPY's daily index (NYSE proxy) when available — handles both
+    weekends and US market holidays. Falls back to ``BDay`` (weekends
+    only) if SPY parquet is missing or ``d`` is beyond SPY's index.
     """
     spy_path = Path(daily_dir) / f"{_NYSE_CALENDAR_PROXY}.parquet"
     if spy_path.exists():
@@ -121,11 +126,43 @@ def _next_trading_day(
                     return future[0].date()
         except Exception:
             pass
-    # Fallback: BDay-based (weekends only; doesn't know holidays).
     ts = pd.Timestamp(d)
     if ts.weekday() < 5:
         return ts.date()
     return (ts + pd.tseries.offsets.BDay(1)).date()
+
+
+def _first_post_freeze_trading_day(
+    frozen_at_utc: datetime, daily_dir: Path = _DEFAULT_DAILY_DIR,
+) -> date:
+    """Return the first trading day whose 16:00 ET close is strictly
+    AFTER ``frozen_at_utc``.
+
+    Why this matters: a candidate frozen at, say, 15:28 UTC on a
+    trading day has its construction-window's last data point at the
+    PREVIOUS day's close. The current day's 20:00 UTC close hasn't
+    occurred yet, so that close is genuinely post-freeze and SHOULD
+    be the first forward-observable bar.
+
+    Pre-fix, ``init()`` used ``frozen_date + 1 calendar day → next
+    trading day`` which conservatively skipped the frozen-date itself
+    even when the freeze occurred BEFORE that day's market close. For
+    a Friday-mid-day freeze that pushed start_date all the way to the
+    following Monday, losing a legitimate forward observation day.
+
+    Logic:
+      - if ``frozen_at_utc.hour < NYSE_CLOSE_UTC_HOUR``: that day's
+        close is post-freeze → start at first trading day on-or-after
+        ``frozen_at_utc.date()``.
+      - else: that day's close is pre-freeze → start at first trading
+        day strictly after ``frozen_at_utc.date()``.
+    """
+    frozen_date = frozen_at_utc.date()
+    if frozen_at_utc.hour < _NYSE_CLOSE_UTC_HOUR:
+        candidate = frozen_date
+    else:
+        candidate = (pd.Timestamp(frozen_date) + pd.Timedelta(days=1)).date()
+    return _next_trading_day(candidate, daily_dir=daily_dir)
 
 
 def _build_data_integrity_snapshot(
@@ -234,9 +271,16 @@ def init(
     spec = FrozenStrategySpec.from_yaml_file(spec_path)
     spec_hash = _file_sha256_hex(spec_path)
 
-    # Resolve start_date — must be a TRADING DAY (post-MVP audit fix
-    # 2026-04-26: previously used `frozen + 1 calendar day` which could
-    # land on a weekend, dirtying the forward contract semantics).
+    # Resolve start_date — first trading day whose CLOSE is strictly
+    # post-freeze. Uses ``promoted_at`` timestamp (not just date) so a
+    # mid-day freeze correctly identifies that trading day's close as
+    # post-freeze. (Two audit fixes layered:
+    #   2026-04-26 P0: advance non-trading inputs to next trading day
+    #   2026-04-26 P0v2: timestamp-aware close comparison vs
+    #                    calendar-day arithmetic — fixes Cand-2 case
+    #                    where frozen_at=15:28 UTC was incorrectly
+    #                    pushing start_date 3 days forward to Mon
+    #                    instead of correctly observing same-day close)
     if start_date is None:
         registry = CandidateRegistry(registry_db)
         rec = registry.get(candidate_id)
@@ -245,16 +289,14 @@ def init(
                 f"candidate {candidate_id} has no promoted_at; pass "
                 f"start_date explicitly"
             )
-        frozen = datetime.fromisoformat(rec.promoted_at).date()
-        # The next trading day strictly AFTER frozen-date (i.e. >= frozen+1d
-        # advanced to the next calendar day in the trading-day index).
-        proposed = (pd.Timestamp(frozen) + pd.Timedelta(days=1)).date()
-        start_date = _next_trading_day(proposed)
+        frozen_dt = datetime.fromisoformat(rec.promoted_at)
+        start_date = _first_post_freeze_trading_day(frozen_dt)
     elif isinstance(start_date, str):
         start_date = date.fromisoformat(start_date)
-    # If the user passed an explicit date that happens to be a non-trading
-    # day, also advance — keeps the contract honest regardless of input.
-    start_date = _next_trading_day(start_date)
+        start_date = _next_trading_day(start_date)
+    else:
+        # date object passed — still advance non-trading days
+        start_date = _next_trading_day(start_date)
 
     cost_path = Path(cost_model_path)
     if not cost_path.exists():

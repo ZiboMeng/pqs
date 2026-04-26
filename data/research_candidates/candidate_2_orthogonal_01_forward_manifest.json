@@ -3,7 +3,7 @@
   "candidate_id": "candidate_2_orthogonal_01",
   "evidence_class": "forward_oos",
   "spec_hash": "cefa03236a6eabb5e53a58a24d612864a69ec1753fe55beda4f0d04239546b66",
-  "start_date": "2026-04-27",
+  "start_date": "2026-04-24",
   "benchmark": "SPY",
   "secondary_benchmark": "QQQ",
   "cost_assumptions": {
@@ -19,11 +19,24 @@
       60
     ]
   },
-  "current_status": "not_started",
+  "current_status": "in_progress",
   "data_integrity_snapshot": {
     "daily_store_rebuild_commit": "f170b0c00000",
     "baseline_snapshot_path": "data/baseline/latest.json",
-    "generated_at_utc": "2026-04-26T03:08:42.794948Z"
+    "generated_at_utc": "2026-04-26T03:33:41.492542Z"
   },
-  "runs": []
+  "runs": [
+    {
+      "checkpoint_label": "TD001",
+      "as_of_date": "2026-04-24",
+      "n_observed_trading_days": 1,
+      "cum_ret": 0.0,
+      "sharpe": null,
+      "max_dd": 0.0,
+      "vs_spy": null,
+      "vs_qqq": null,
+      "notes": "fills_today=11",
+      "source_mix": true
+    }
+  ]
 }
