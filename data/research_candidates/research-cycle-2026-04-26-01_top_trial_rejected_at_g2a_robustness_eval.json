@@ -1,5 +1,5 @@
 {
-  "candidate_id": "research-cycle-2026-04-26-01_S1_nominee",
+  "candidate_id": "research-cycle-2026-04-26-01_top_trial_rejected_at_g2a",
   "evidence_class": "pseudo_oos_robustness",
   "window": {
     "start_date": "2024-01-01",
@@ -16,6 +16,5 @@
     "turnover_daily_mean": 0.09365079365079365,
     "fill_count": 400,
     "n_dates": 252
-  },
-  "note": "2024 calendar year is genuinely OUTSIDE the construction window (panel_cutoff_max_date=2023-12-31). Still pseudo-OOS, NOT deployable OOS, per PRD v3 \u00a71.1+\u00a71.3."
+  }
 }

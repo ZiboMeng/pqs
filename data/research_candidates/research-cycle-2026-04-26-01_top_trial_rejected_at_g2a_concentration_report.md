@@ -1,4 +1,4 @@
-# Concentration report — research-cycle-2026-04-26-01_S1_nominee
+# Concentration report — research-cycle-2026-04-26-01_top_trial_rejected_at_g2a
 
 **concentration_gate_status**: `warning`
 **narrative_permission**: `allowed`

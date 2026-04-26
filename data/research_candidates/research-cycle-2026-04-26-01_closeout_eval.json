@@ -1,6 +1,6 @@
 {
   "lineage_tag": "research-cycle-2026-04-26-01",
-  "candidate_id": "research-cycle-2026-04-26-01_S1_nominee",
+  "candidate_id": "research-cycle-2026-04-26-01_top_trial_rejected_at_g2a",
   "criteria_path": "data/research_candidates/research-cycle-2026-04-26-01_promotion_criteria.yaml",
   "criteria_sha256": "5e88d0cf9e97dfe4f1aaf50a9a6ba11d83a3d25522487936f53dbc880d03ad28",
   "evaluated_at_utc": "2026-04-26T19:11:13.654652+00:00",
@@ -139,7 +139,7 @@
     }
   },
   "concentration_report_summary": {
-    "candidate_id": "research-cycle-2026-04-26-01_S1_nominee",
+    "candidate_id": "research-cycle-2026-04-26-01_top_trial_rejected_at_g2a",
     "n_dates": 2264,
     "top1_weight_max": 0.1,
     "top3_weight_max": 0.30000000000000004,

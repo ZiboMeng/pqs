@@ -21,7 +21,7 @@ only produces the numeric artifacts.
 CLI:
     python dev/scripts/research_cycle/run_close_eval.py \\
         --criteria data/research_candidates/research-cycle-2026-04-26-01_promotion_criteria.yaml \\
-        --candidate research-cycle-2026-04-26-01_S1_nominee
+        --candidate research-cycle-2026-04-26-01_top_trial_rejected_at_g2a
 """
 from __future__ import annotations
 
@@ -216,6 +216,95 @@ def _load_watch_symbols(watch_path: Path):
     return watch, thin, pct
 
 
+def gate_check(name: str, measured, op: str, threshold) -> dict:
+    """Evaluate a single G2.A hard gate against its measured value.
+
+    Returns ``{gate, measured, op, threshold, passed}``. Public so the
+    closeout decision table is unit-testable without running the full
+    backtest pipeline.
+
+    `op` values: ``"ge"``, ``"le"``, ``"in_set"``. Other ops raise.
+    A ``None`` measured value never passes ``ge`` / ``le`` (we treat
+    "no measurement" as a hard fail rather than silently passing).
+    """
+    if op == "ge":
+        passed = (measured is not None) and (measured >= threshold)
+    elif op == "le":
+        passed = (measured is not None) and (measured <= threshold)
+    elif op == "in_set":
+        passed = measured in threshold
+    else:
+        raise ValueError(f"unknown gate op: {op!r}")
+    return {
+        "gate": name,
+        "measured": measured,
+        "op": op,
+        "threshold": threshold,
+        "passed": bool(passed),
+    }
+
+
+def build_decision_table(
+    *,
+    hard: dict,
+    ic_ir_full_period,
+    folds_positive: int,
+    concentration_dict: dict,
+) -> list:
+    """Build the 7-row G2.A decision table for a candidate.
+
+    Pure function — no I/O. Tests can construct synthetic inputs and
+    assert pass/fail on each row without invoking the full eval
+    pipeline.
+    """
+    rows = []
+    rows.append(gate_check(
+        "min_ic_ir_full_period",
+        ic_ir_full_period,
+        "ge",
+        hard["min_ic_ir_full_period"],
+    ))
+    rows.append(gate_check(
+        "min_walk_forward_folds_positive",
+        folds_positive,
+        "ge",
+        hard["min_walk_forward_folds_positive"],
+    ))
+    rows.append(gate_check(
+        "m12_concentration_tier",
+        concentration_dict.get("tier"),
+        "in_set",
+        ["pass", "warning"]
+        if hard["m12_concentration_tier_ceiling"] == "warning"
+        else ["pass"],
+    ))
+    rows.append(gate_check(
+        "watchlist_total_share",
+        concentration_dict.get("watchlist_total_share"),
+        "le",
+        hard["watchlist_total_share_ceiling"],
+    ))
+    rows.append(gate_check(
+        "thin_data_weighted_share",
+        concentration_dict.get("thin_data_weighted_share"),
+        "le",
+        hard["thin_data_weighted_share_ceiling"],
+    ))
+    rows.append(gate_check(
+        "top1_weight_max",
+        concentration_dict.get("top1_weight_max"),
+        "le",
+        hard["top1_weight_max_ceiling"],
+    ))
+    rows.append(gate_check(
+        "top3_weight_max",
+        concentration_dict.get("top3_weight_max"),
+        "le",
+        hard["top3_weight_max_ceiling"],
+    ))
+    return rows
+
+
 def _regime_for_date_index(idx: pd.DatetimeIndex, spy_close: pd.Series) -> pd.Series:
     """Lightweight 6-regime label series mapping each date to one of
     {BULL, BEAR, RISK_ON, RISK_OFF, CRISIS, SIDEWAYS}.
@@ -361,7 +450,7 @@ def run_close_eval(
 
     # ── Robustness window artifact (label semantics) ─────────────────
     # The "robustness_window" yaml documents the window semantics. For
-    # this S1 nominee the meaningful window is the 2024 pseudo-OOS
+    # this candidate the meaningful window is the 2024 pseudo-OOS
     # holdout (G2.B). We write it as the pseudo_oos_robustness window.
     print("[close-eval] running pseudo-OOS 2024 holdout backtest ...", flush=True)
     pseudo_frames, _ = _load_panel(
@@ -521,67 +610,12 @@ def run_close_eval(
     # Map concentration_gate_status enum value -> tier string for the gate.
     conc_dict["tier"] = conc_dict.get("concentration_gate_status")
 
-    def _gate(name, measured, op, threshold):
-        if op == "ge":
-            passed = (measured is not None) and (measured >= threshold)
-        elif op == "le":
-            passed = (measured is not None) and (measured <= threshold)
-        elif op == "in_set":
-            passed = measured in threshold
-        else:
-            raise ValueError(op)
-        return {
-            "gate": name,
-            "measured": measured,
-            "op": op,
-            "threshold": threshold,
-            "passed": bool(passed),
-        }
-
-    decision_rows = []
-    decision_rows.append(_gate(
-        "min_ic_ir_full_period",
-        full_summary.get("ic_ir"),
-        "ge",
-        hard["min_ic_ir_full_period"],
-    ))
-    decision_rows.append(_gate(
-        "min_walk_forward_folds_positive",
-        folds_positive,
-        "ge",
-        hard["min_walk_forward_folds_positive"],
-    ))
-    decision_rows.append(_gate(
-        "m12_concentration_tier",
-        conc_dict.get("tier"),
-        "in_set",
-        ["pass", "warning"] if hard["m12_concentration_tier_ceiling"] == "warning" else ["pass"],
-    ))
-    decision_rows.append(_gate(
-        "watchlist_total_share",
-        conc_dict.get("watchlist_total_share"),
-        "le",
-        hard["watchlist_total_share_ceiling"],
-    ))
-    decision_rows.append(_gate(
-        "thin_data_weighted_share",
-        conc_dict.get("thin_data_weighted_share"),
-        "le",
-        hard["thin_data_weighted_share_ceiling"],
-    ))
-    decision_rows.append(_gate(
-        "top1_weight_max",
-        conc_dict.get("top1_weight_max"),
-        "le",
-        hard["top1_weight_max_ceiling"],
-    ))
-    decision_rows.append(_gate(
-        "top3_weight_max",
-        conc_dict.get("top3_weight_max"),
-        "le",
-        hard["top3_weight_max_ceiling"],
-    ))
-
+    decision_rows = build_decision_table(
+        hard=hard,
+        ic_ir_full_period=full_summary.get("ic_ir"),
+        folds_positive=folds_positive,
+        concentration_dict=conc_dict,
+    )
     all_pass = all(r["passed"] for r in decision_rows)
 
     closeout_payload = {
