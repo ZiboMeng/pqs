@@ -16038,3 +16038,181 @@ BKNG 0.66% / TT 0.58%；narrative_permission=frozen 显式显示
 
 → **R4 acceptance gate PASS，可以进入 R5**。
 
+---
+
+## R-oos-mvp-2026-04-25-round-05 — Forward manifest SCHEMA-ONLY
+
+### 1. 本轮主题
+OOS MVP R5：定义 `forward_run_manifest.json` 的 pydantic v2 schema。
+**严格遵守 PRD v3 §B**："schema only, no runner"——本轮不实现任何
+forward execution 代码、不挂自动化、不写状态机推进逻辑。
+
+### 2. 本轮目标
+落地 `core/research/forward/` 子包：
+- `manifest_schema.py`：pydantic v2 schemas 描述 PRD v3 §B 的
+  `forward_run_manifest.json` 字段集合
+- `__init__.py`：公共 re-exports
+- 强制 `evidence_class == EvidenceClass.forward_oos`（其他两个值
+  `pseudo_oos_robustness` / `historical_replay` schema 层 reject——这
+  是 R6 negative simulation 要触发的契约）
+- ≥8 个 schema validation tests（实际写 18 个 case）
+- `tests/unit/research/test_forward_manifest_schema.py`
+- 测试同时验证 "no runner code in package" 这条 PRD 硬约束
+
+Acceptance gate：schema validator 工作 + NO forward execution code +
+pytest no regression。
+
+### 3. 为什么这轮优先做它
+PRD v3 §B 给的 schema 定义已经是最完整的——再延后 R5 没有任何意义。
+R5 落 schema 之后，R6 的 negative simulation（"set evidence_class=
+historical_replay and verify schema validator rejects"）可以直接复用
+本轮的 ForwardRunManifest 类做 schema-rejection 测试，不用再造 fixture。
+另外 R5 schema 把 forward_run 的"承诺接口"锁死：candidate_id /
+spec_hash / cost_assumptions / checkpoint_cadence /
+data_integrity_snapshot 等字段在 forward 真启动前必须 frozen。这就
+保证 PRD v3 §B 提到的 "forward 不得被 hindsight 调参污染" 在类型层
+有第一道防线（runner 没写也没事，等真做 forward 时类型已就位）。
+
+### 4. 做了什么
+- 新增子包 `core/research/forward/`：
+  - `__init__.py` 导出 5 个公共符号（`CheckpointCadence` /
+    `CostAssumptions` / `ForwardRun` / `ForwardRunManifest` /
+    `ForwardRunStatus`）
+  - `manifest_schema.py`：
+    - `ForwardRunStatus(str, Enum)` 6 值（not_started / in_progress /
+      decision_pending / completed_success / completed_fail / aborted）—
+      MVP 只用 not_started，其他值是 forward-compatibility
+    - `CostAssumptions(BaseModel)`：source（path）+ config_hash（≥12
+      chars）— PRD v3 §B 要求 cost model + hash 在 forward 开始前
+      pin 死，防 "改 cost model 让 forward 看起来更好"
+    - `CheckpointCadence(BaseModel)`：weekly bool（默认 True）+
+      decision_days（默认 [10,20,40,60]）+ 三条 model_validator
+      （positive / ascending / unique）
+    - `ForwardRun(BaseModel)`：单次 checkpoint 条目（label / as_of_date /
+      n_observed_trading_days / cum_ret / sharpe / max_dd / vs_spy /
+      vs_qqq / notes 全可选）。MVP 不写但 schema 锁结构以避免未来
+      manifest 升版
+    - `ForwardRunManifest(BaseModel)`：主 schema，10 个字段
+      （schema_version / candidate_id / evidence_class / spec_hash /
+      start_date / benchmark / secondary_benchmark / cost_assumptions /
+      checkpoint_cadence / current_status / data_integrity_snapshot /
+      runs）
+    - **Hard invariant** in `_check_evidence_class` model_validator：
+      `evidence_class is not EvidenceClass.forward_oos` → raise
+      ValueError，错误消息明引 "Pseudo-OOS robustness and historical
+      replay never qualify as forward OOS evidence (PRD v3 §1.1 + §1.3)"
+    - 复用 `core.research.robustness.window_spec.DataIntegritySnapshot`
+      和 `EvidenceClass`，保持跨模块语义一致
+- 新增测试 `tests/unit/research/test_forward_manifest_schema.py`，
+  18 个 case（PRD 要求 ≥8）：
+  - happy path：valid manifest accepted（含 default 字段验证）
+  - **evidence_class hard contract（R6 target）**：pseudo_oos /
+    historical_replay / missing 三种全 reject
+  - required field rejection：candidate_id missing / spec_hash short /
+    cost.config_hash short / data_integrity_snapshot missing
+  - checkpoint cadence：positive / ascending / unique 三条 model_validator
+    各自 reject + 自定义 cadence accepted
+  - ForwardRun entry：valid + n_observed_trading_days 负值 reject
+  - status enum：default = not_started + invalid string reject
+  - **Round-trip**：`model_dump(mode="json")` →
+    `model_validate(payload)` 同等
+  - **No-runner guard**：扫 `core.research.forward` 包目录，发现
+    含 "runner" / "executor" / "execute" / "run_forward" 子串的
+    .py 文件 → 测试失败。这把 "schema only no runner" 落到 CI 强制
+
+### 5. 修改了哪些文件
+新增：
+- `core/research/forward/__init__.py`
+- `core/research/forward/manifest_schema.py`
+- `tests/unit/research/test_forward_manifest_schema.py`
+
+无修改、无删除。
+
+### 6. 跑了哪些测试/实验
+- 子集：`pytest tests/unit/research/test_forward_manifest_schema.py -v`
+  → 18/18 pass，0.11s
+- 全量：`pytest tests/ -q --tb=no` → 1675 passed / 1 skipped /
+  1 xpassed / 4 warnings / 163.61s
+
+### 7. 结果如何
+**pytest tuple**（PRD §2 drift 规则）：
+- 起始：passed=1657, skipped=1, xfailed=0
+- 结束：passed=1675, skipped=1, xfailed=0（1 xpassed 不变）
+- drift：+18 passed，正好等于本轮新增 18 个 R5 测试，
+  全部 explained
+- HARD invariants 全保（已逐项核对）
+
+**Acceptance gate** 全 pass：
+- ✓ schema validator 工作（18/18 测试，含 happy path + 多种 reject 路径）
+- ✓ NO forward execution code（package 目录扫描测试 enforces：
+  没有 runner.py / executor.py / execute_*.py / run_forward_*.py）
+- ✓ pytest no regression
+- ✓ R6 negative simulation contract 已锁定（schema 在 evidence_class
+  != forward_oos 时直接 raise ValidationError，R6 只需把它当成 fixture
+  用即可）
+
+### 8. 当前发现的新问题/新机会
+- **DataIntegritySnapshot 跨模块复用**：robustness eval 和 forward
+  manifest 现在共享同一个 `DataIntegritySnapshot` 类。这在语义上
+  是对的（两类 artifact 都需要 pin 数据层 commit hash + baseline
+  path + UTC 时间戳），但耦合点上了 robustness 模块。如果未来
+  forward 模块想独立演进 snapshot schema，就得拆开。R6 / R7 暂不
+  动这条耦合。
+- **schema_version 硬编码默认 "1.0"**：未来若 manifest 字段升版
+  会用到 schema migration 逻辑——但 PRD v3 §B 没要求 R5 实现
+  migration。本轮先用 default value 占位。
+- **CostAssumptions.config_hash 没有 sha256-format 校验**：本轮只
+  约束 ≥12 chars，没有强制为合法 hex。如果未来要严格 hash 比对，
+  应改成 pydantic 的 `Annotated[str, StringConstraints(pattern=
+  '^[0-9a-f]+$')]`。R6 / R7 不在 scope。
+
+### 9. 剩余风险
+- 当前 schema 的 `start_date` 仅是 `date` 类型，没有约束 "必须 >=
+  candidate frozen-date"。也就是说 schema 层不能阻止
+  start_date=2020-01-01 这种"forward 时间倒流"输入。R6 negative
+  simulation 应该考虑加这条约束（也可由 R5 schema 内部添加，但
+  PRD 没明文要求；本轮保守不加，留在 R6 / 后续调整）。
+- ForwardRun 字段全可选意味着空 `runs=[]` 的 manifest 完全合法，
+  R5 验证 PASS。但下游消费者（未来 forward runner）会发现 runs
+  长期空 = forward 没启动，需自己处理这种状态。
+- pydantic 在 `evidence_class` 接受 enum value 字符串和 enum 实例
+  两种构造方式（test_evidence_class_must_be_forward_oos_*_rejected
+  里用了 enum 实例）。从外部 JSON 读 `"evidence_class": "historical_replay"`
+  时 pydantic 会先把字符串转成 enum 实例，再触发 _check_evidence_class
+  reject。这条路径也 covered 通过 round-trip 测试 + R6 smoke
+  即将复用。
+
+### 10. 下一轮建议方向
+按 PRD 进入 **R6 = Integration smoke**：
+- 新增 `dev/scripts/oos_mvp/smoke.py`：
+  - end-to-end 跑两个 candidate 的完整 OOS MVP pipeline（R2 robustness
+    eval + R3 concentration + R4 watch exposure section + R5 manifest
+    schema validate）
+  - **Negative-result simulation**：deliberately 构造一个
+    forward_run_manifest.json 设 `evidence_class=historical_replay`，
+    `ForwardRunManifest.model_validate(payload)` 应当抛
+    `ValidationError` 含 "forward_oos" 字符串。本轮 R5 已锁定该契约，
+    R6 只需 fixture 化为正/反两条 case 即可
+  - 不重跑 BacktestEngine（耗时太长），smoke 用现有 R2 artifacts
+    断言 happy path
+- Acceptance gate：smoke 跑通两个 candidate + negative simulation
+  正确 reject + pytest no regression
+
+### 11. Halt 条件检查 (PRD §4)
+- HARD invariant 是否被 violated？**否**（已逐项核对：config yaml /
+  PRODUCTION_FACTORS / requirements / pyproject / candidate spec yaml /
+  registry.db / 公共 API rename / test 删除 / candidate_registry
+  state-machine / frozen_spec.py / data/daily / splits.parquet / 出
+  R1-R7 scope — 全保。新加的 forward/ 子包严格 schema-only，no runner，
+  通过包目录扫描测试自验证）
+- 同 round 是否被重试 2 次？**否**（首次执行）
+- pytest drift 是否 unexplained？**否**（+18 正好等于本轮新增 18 个
+  regression tests）
+- 单 round 是否 > 30 min？**否**（< 5 min，schema-only 无 backtest
+  调用）
+- artifact 大小异常？**否**（最大 ~5 KB schema source；测试源 ~6 KB）
+- 出 R1-R7 scope？**否**（全部在 `core/research/forward/` +
+  `tests/unit/research/` 授权范围内）
+
+→ **R5 acceptance gate PASS，可以进入 R6**。
+
