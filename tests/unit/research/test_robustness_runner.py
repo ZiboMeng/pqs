@@ -64,6 +64,22 @@ def test_data_integrity_snapshot_uses_explicit_commit():
     assert snap.baseline_snapshot_path == "data/baseline/latest.json"
 
 
+def test_data_integrity_snapshot_default_is_pinned_to_data_rebuild_commit():
+    """`daily_store_rebuild_commit` must default to the module pin
+    (round-3 step-3b commit), NOT the repo HEAD at eval time.
+
+    Pre-audit bug: runner used ``subprocess git rev-parse HEAD`` so the
+    field captured the eval-time HEAD, conflating "data state" with
+    "repo state". Fixed in audit pass; this test pins the contract.
+    """
+    from core.research.robustness.runner import DAILY_STORE_REBUILD_COMMIT
+    snap = _data_integrity_snapshot(
+        daily_store_rebuild_commit=None,  # default path
+        baseline_snapshot_path="data/baseline/latest.json",
+    )
+    assert snap.daily_store_rebuild_commit.startswith(DAILY_STORE_REBUILD_COMMIT)
+
+
 def test_write_artifacts_emits_three_files(tmp_path: Path):
     snap = _data_integrity_snapshot(
         daily_store_rebuild_commit="cafebabe1234",

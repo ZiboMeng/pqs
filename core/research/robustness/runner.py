@@ -21,7 +21,6 @@ PRD v3: docs/prd/20260425-oos_validation_framework_codex_v3.md §B/§C
 from __future__ import annotations
 
 import json
-import subprocess
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -60,6 +59,13 @@ DEFAULT_WATCH_PARQUET = Path("data/ref/data_quality_watch.parquet")
 DEFAULT_TOP_N = 10
 DEFAULT_INITIAL_CAPITAL = 100_000.0
 DEFAULT_TARGET_TRADING_DAYS = 252
+
+# Pinned to the commit that rebuilt data/daily/*.parquet end-to-end
+# (round-3 step-3b: full universe daily parquet rebuild from polygon 1m).
+# This is the SEMANTIC value of `daily_store_rebuild_commit`: it identifies
+# the data state, NOT the eval-time repo HEAD. Update only when the daily
+# store is rebuilt by a new commit.
+DAILY_STORE_REBUILD_COMMIT = "f170b0c"
 
 
 @dataclass
@@ -285,14 +291,22 @@ def _data_integrity_snapshot(
     daily_store_rebuild_commit: Optional[str],
     baseline_snapshot_path: str,
 ) -> DataIntegritySnapshot:
+    """Build the data_integrity_snapshot for a robustness eval.
+
+    ``daily_store_rebuild_commit`` semantics: the commit that produced
+    the daily store this eval reads from — NOT the repo HEAD at eval
+    time. Defaults to the module-level pin (``DAILY_STORE_REBUILD_COMMIT``).
+    Pass an explicit value to override (e.g., from a fresh rebuild).
+    Schema requires >=12 chars; we right-pad if the pin is shorter.
+    """
     if daily_store_rebuild_commit is None:
-        try:
-            commit = subprocess.check_output(
-                ["git", "rev-parse", "HEAD"], cwd=Path.cwd(), text=True
-            ).strip()
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            commit = "unknown_unknown"
-        daily_store_rebuild_commit = commit[:40]
+        daily_store_rebuild_commit = DAILY_STORE_REBUILD_COMMIT
+    if len(daily_store_rebuild_commit) < 12:
+        # Schema requires >=12 chars; pad with zeros and append a comment-
+        # like suffix so debuggers see the truncation, not silent padding.
+        daily_store_rebuild_commit = daily_store_rebuild_commit.ljust(
+            12, "0"
+        )
     return DataIntegritySnapshot(
         daily_store_rebuild_commit=daily_store_rebuild_commit,
         baseline_snapshot_path=baseline_snapshot_path,
