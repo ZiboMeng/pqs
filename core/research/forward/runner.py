@@ -95,6 +95,38 @@ def _file_sha256_hex(path: Path) -> str:
     return h.hexdigest()
 
 
+_DEFAULT_DAILY_DIR = Path("data/daily")
+_NYSE_CALENDAR_PROXY = "SPY"  # SPY's daily index is the NYSE proxy
+
+
+def _next_trading_day(
+    d: date, daily_dir: Path = _DEFAULT_DAILY_DIR,
+) -> date:
+    """Return the first trading day on-or-after ``d``.
+
+    Uses SPY's daily index (NYSE proxy) when available — that handles
+    both weekends and US market holidays. Falls back to ``BDay`` (next
+    business day, weekends only) if SPY parquet is missing or ``d``
+    is beyond SPY's index. Pure-function helper; no IO mutation.
+    """
+    spy_path = Path(daily_dir) / f"{_NYSE_CALENDAR_PROXY}.parquet"
+    if spy_path.exists():
+        try:
+            idx = pd.read_parquet(spy_path).index
+            if isinstance(idx, pd.DatetimeIndex):
+                ts = pd.Timestamp(d)
+                future = idx[idx >= ts]
+                if len(future) > 0:
+                    return future[0].date()
+        except Exception:
+            pass
+    # Fallback: BDay-based (weekends only; doesn't know holidays).
+    ts = pd.Timestamp(d)
+    if ts.weekday() < 5:
+        return ts.date()
+    return (ts + pd.tseries.offsets.BDay(1)).date()
+
+
 def _build_data_integrity_snapshot(
     baseline_snapshot_path: str,
     daily_store_rebuild_commit: Optional[str] = None,
@@ -201,7 +233,9 @@ def init(
     spec = FrozenStrategySpec.from_yaml_file(spec_path)
     spec_hash = _file_sha256_hex(spec_path)
 
-    # Resolve start_date.
+    # Resolve start_date — must be a TRADING DAY (post-MVP audit fix
+    # 2026-04-26: previously used `frozen + 1 calendar day` which could
+    # land on a weekend, dirtying the forward contract semantics).
     if start_date is None:
         registry = CandidateRegistry(registry_db)
         rec = registry.get(candidate_id)
@@ -210,12 +244,16 @@ def init(
                 f"candidate {candidate_id} has no promoted_at; pass "
                 f"start_date explicitly"
             )
-        # Forward observation begins the day AFTER frozen-date.
         frozen = datetime.fromisoformat(rec.promoted_at).date()
-        start_date = pd.Timestamp(frozen) + pd.Timedelta(days=1)
-        start_date = start_date.date()
+        # The next trading day strictly AFTER frozen-date (i.e. >= frozen+1d
+        # advanced to the next calendar day in the trading-day index).
+        proposed = (pd.Timestamp(frozen) + pd.Timedelta(days=1)).date()
+        start_date = _next_trading_day(proposed)
     elif isinstance(start_date, str):
         start_date = date.fromisoformat(start_date)
+    # If the user passed an explicit date that happens to be a non-trading
+    # day, also advance — keeps the contract honest regardless of input.
+    start_date = _next_trading_day(start_date)
 
     cost_path = Path(cost_model_path)
     if not cost_path.exists():

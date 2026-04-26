@@ -23,7 +23,7 @@
   "data_integrity_snapshot": {
     "daily_store_rebuild_commit": "f170b0c00000",
     "baseline_snapshot_path": "data/baseline/latest.json",
-    "generated_at_utc": "2026-04-26T02:49:37.912376Z"
+    "generated_at_utc": "2026-04-26T03:08:41.492653Z"
   },
   "runs": []
 }

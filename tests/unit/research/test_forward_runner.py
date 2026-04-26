@@ -155,6 +155,32 @@ def test_init_refuses_to_clobber_existing(tmp_path: Path):
              output_dir=out_dir, cost_model_path=cost_path)
 
 
+def test_init_advances_weekend_start_date_to_next_trading_day(tmp_path: Path):
+    """Post-MVP audit fix (2026-04-26): start_date must be a trading day.
+
+    Previously ``init`` used ``frozen + 1 calendar day`` which could
+    land on a weekend (e.g. Cand-2 promoted_at=2026-04-24 → start_date=
+    2026-04-25 Saturday). This test pins the corrected behavior:
+    explicit weekend start_date is advanced to the next trading day.
+    """
+    out_dir, cost_path, _ = _setup_fake_repo(tmp_path)
+    # 2026-04-25 is a Saturday. Real SPY index has 2026-04-24 (Fri)
+    # and 2026-04-27 (Mon next), so next-trading-day after Sat is Mon.
+    # If the test runs without a SPY parquet at the test path, BDay
+    # fallback should still advance past the weekend.
+    m = init(
+        candidate_id="fake_cand",
+        start_date="2026-04-25",  # Saturday
+        output_dir=out_dir,
+        cost_model_path=cost_path,
+    )
+    # Saturday → at minimum next Monday (or whatever SPY says).
+    assert m.start_date.weekday() < 5, (
+        f"start_date {m.start_date} is still a non-trading day "
+        f"(weekday={m.start_date.weekday()})"
+    )
+
+
 def test_init_overwrite_resets(tmp_path: Path):
     out_dir, cost_path, _ = _setup_fake_repo(tmp_path)
     init(candidate_id="fake_cand", start_date="2026-04-25",

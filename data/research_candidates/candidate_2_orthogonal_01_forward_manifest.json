@@ -3,7 +3,7 @@
   "candidate_id": "candidate_2_orthogonal_01",
   "evidence_class": "forward_oos",
   "spec_hash": "cefa03236a6eabb5e53a58a24d612864a69ec1753fe55beda4f0d04239546b66",
-  "start_date": "2026-04-25",
+  "start_date": "2026-04-27",
   "benchmark": "SPY",
   "secondary_benchmark": "QQQ",
   "cost_assumptions": {
@@ -23,7 +23,7 @@
   "data_integrity_snapshot": {
     "daily_store_rebuild_commit": "f170b0c00000",
     "baseline_snapshot_path": "data/baseline/latest.json",
-    "generated_at_utc": "2026-04-26T02:49:39.519552Z"
+    "generated_at_utc": "2026-04-26T03:08:42.794948Z"
   },
   "runs": []
 }
