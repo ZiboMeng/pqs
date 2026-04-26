@@ -113,15 +113,13 @@ the turn. The rule eliminates that failure mode.
 | 1    | `git checkout review/claude-collab && git pull --ff-only origin review/claude-collab`            | start of turn, **always**      |
 | 2    | If diverged (non-FF), STOP and ask the user — do not force-resolve.                              | start of turn                  |
 | 3    | Read `docs/claude_review_loop.md`; act on any new `chatgpt-turn-NNN` / `user-turn-NNN`.          | start of turn                  |
-| 4    | Code changes go to `master` (separate `git checkout main` + commit + push).                      | mid-turn, if relevant          |
+| 4    | Code changes go to `master` (separate `git checkout main` + commit + `git push origin main`).    | mid-turn, if relevant          |
 | 5    | Interaction-doc changes (the new turn entry) commit on `review/claude-collab`.                   | mid-turn                       |
 | 6    | `git push origin review/claude-collab` after the turn entry is committed.                        | end of turn, **always**        |
 | 7    | `git checkout main` so the next turn starts from the code-progress branch.                       | end of turn, **always**        |
 
-The user has provided helper scripts at `pull.sh` and `push.sh` in
-the repo root that do steps 1 + (4 if applicable) + 6 in batch.
-Claude may use them or run the underlying commands directly —
-behavior identical.
+Claude runs these git commands directly. No helper scripts at the
+repo root — that adds clutter without adding capability.
 
 **Why this is binding, not optional**: the review loop's correctness
 relies on Claude reading codex's input *before* writing a new turn.
