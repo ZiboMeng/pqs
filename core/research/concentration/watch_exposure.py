@@ -135,9 +135,16 @@ def render_watch_exposure_section(
             "",
         ])
 
-    # Prose summary.
+    # Prose summary. Use the WEIGHTED thin metric (post-2026-04-25 audit
+    # fix is the gate); also surface the binary diagnostic alongside so
+    # readers can compare. Pre-fix artifacts may carry the old
+    # ``thin_data_total_share`` key — fall back to it for back-compat.
     watch_total = conc.get("watchlist_total_share")
-    thin_total = conc.get("thin_data_total_share")
+    thin_weighted = conc.get(
+        "thin_data_weighted_share",
+        conc.get("thin_data_total_share"),
+    )
+    thin_binary = conc.get("thin_data_binary_share", thin_weighted)
     n_dates = conc.get("n_dates")
 
     distinct_thin_days_total = (
@@ -151,12 +158,18 @@ def render_watch_exposure_section(
         else 0
     )
 
+    # Day counters from the sidecar are summed across all watch symbols —
+    # they are SYMBOL-DAYS, not unique calendar days. Spell that out so
+    # readers don't conflate "9523 thin_data flagged days" with calendar
+    # days during the eval window.
     prose = (
         f"Candidate has {_format_pct(watch_total)} weight-day-share on watch-list "
-        f"names over {n_dates} eval days; thin-data total share "
-        f"{_format_pct(thin_total)}; watch-list sidecar reports "
-        f"{distinct_thin_days_total} thin_data flagged days and "
-        f"{distinct_quar_days_total} quarantined days across all watch symbols."
+        f"names over {n_dates} eval days; thin-data WEIGHTED share (gate) "
+        f"{_format_pct(thin_weighted)}, thin-data binary share (diagnostic) "
+        f"{_format_pct(thin_binary)}; watch-list sidecar reports "
+        f"{distinct_thin_days_total} thin_data flagged symbol-days and "
+        f"{distinct_quar_days_total} quarantined symbol-days summed across all "
+        f"watch symbols (NOT unique calendar days)."
     )
     lines.extend([prose, ""])
 

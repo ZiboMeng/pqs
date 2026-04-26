@@ -8,25 +8,26 @@
   "name_days_max_share": 0.0925925925925928,
   "watchlist_single_max_share": 0.0925925925925928,
   "watchlist_total_share": 0.31069958847736623,
-  "thin_data_total_share": 0.2847736625514403,
+  "thin_data_weighted_share": 0.05192559670781894,
+  "thin_data_binary_share": 0.2847736625514403,
   "per_symbol_watch_shares": {
-    "TKO": 0.007818930041152266,
+    "ABT": 0.001234567901234568,
+    "CLX": 0.004115226337448559,
     "APD": 0.004115226337448559,
     "BKNG": 0.006584362139917697,
-    "MCK": 0.0028806584362139915,
-    "LLY": 0.024691358024691336,
-    "ACGL": 0.0049382716049382715,
-    "KLAC": 0.030041152263374445,
-    "ABT": 0.001234567901234568,
-    "SOXL": 0.0925925925925928,
-    "PWR": 0.02798353909465017,
-    "CMG": 0.007818930041152266,
-    "CLX": 0.004115226337448559,
-    "TMO": 0.0168724279835391,
-    "TRV": 0.0024691358024691358,
     "LRCX": 0.06502057613168707,
     "ISRG": 0.005761316872427984,
-    "TT": 0.005761316872427984
+    "ACGL": 0.0049382716049382715,
+    "SOXL": 0.0925925925925928,
+    "KLAC": 0.030041152263374445,
+    "TRV": 0.0024691358024691358,
+    "TMO": 0.0168724279835391,
+    "CMG": 0.007818930041152266,
+    "TT": 0.005761316872427984,
+    "TKO": 0.007818930041152266,
+    "LLY": 0.024691358024691336,
+    "PWR": 0.02798353909465017,
+    "MCK": 0.0028806584362139915
   },
   "sector_concentration": {
     "status": "not_computed"
@@ -35,12 +36,10 @@
     "status": "not_computed"
   },
   "triggered_warnings": [
-    "thin_data_share=0.2848>0.05",
+    "thin_data_weighted_share=0.0519>0.05",
     "watch_single_share=0.0926>=0.08"
   ],
-  "triggered_extremes": [
-    "thin_data_share=0.2848>0.1"
-  ],
-  "concentration_gate_status": "manual_review_required",
-  "narrative_permission": "frozen"
+  "triggered_extremes": [],
+  "concentration_gate_status": "warning",
+  "narrative_permission": "allowed"
 }

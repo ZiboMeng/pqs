@@ -86,24 +86,42 @@ class RobustnessEvalResult:
     concentration: Optional[ConcentrationReport] = None
 
 
-def _load_watch_symbols(watch_path: Path) -> tuple[list, list]:
-    """Read data_quality_watch sidecar -> (watch_symbols, thin_data_symbols).
+def _load_watch_symbols(watch_path: Path) -> tuple[list, list, dict]:
+    """Read data_quality_watch sidecar.
 
-    Returns ([], []) if the sidecar is missing or unparseable: concentration
-    report still computes, watch + thin metrics just come out as 0.0.
+    Returns ``(watch_symbols, thin_data_symbols, thin_data_pct_map)``:
+
+      - ``watch_symbols``: every symbol in the sidecar.
+      - ``thin_data_symbols``: symbols with ``thin_data_pct > 0`` (legacy
+        binary list — diagnostic only post-audit-fix).
+      - ``thin_data_pct_map``: ``{symbol: thin_data_pct_in_[0,1]}`` —
+        feeds the WEIGHTED gate metric in the concentration report.
+
+    Returns ``([], [], {})`` if the sidecar is missing or unparseable:
+    concentration report still computes, watch + thin metrics just come
+    out as 0.0.
     """
     if not watch_path.exists():
-        return [], []
+        return [], [], {}
     try:
         df = pd.read_parquet(watch_path)
     except Exception:
-        return [], []
+        return [], [], {}
     watch = df["symbol"].astype(str).tolist() if "symbol" in df.columns else []
     if "thin_data_pct" in df.columns:
-        thin = df.loc[df["thin_data_pct"] > 0.0, "symbol"].astype(str).tolist()
+        thin_mask = df["thin_data_pct"] > 0.0
+        thin = df.loc[thin_mask, "symbol"].astype(str).tolist()
+        # The sidecar stores thin_data_pct as percent (e.g. 23.3 means 23.3%);
+        # divide by 100 to land in [0, 1] for the weighted-share calc.
+        pct_map = {
+            str(row["symbol"]): float(row["thin_data_pct"]) / 100.0
+            for _, row in df.iterrows()
+            if pd.notna(row.get("thin_data_pct"))
+        }
     else:
         thin = []
-    return watch, thin
+        pct_map = {}
+    return watch, thin, pct_map
 
 
 def _resolve_frozen_date(
@@ -503,12 +521,15 @@ def evaluate(
 
     # M12 concentration report — runs alongside robustness eval (PRD R3).
     # Report-only; does not block the candidate even on extreme tier.
-    watch_syms, thin_syms = _load_watch_symbols(watch_parquet)
+    # Post-MVP audit (2026-04-25): the GATE metric is now
+    # thin_data_weighted_share, computed via thin_data_pct_map.
+    watch_syms, thin_syms, thin_pct_map = _load_watch_symbols(watch_parquet)
     concentration = compute_concentration(
         candidate_id=candidate_id,
         weights_df=target_wts,
         watch_symbols=watch_syms,
         thin_data_symbols=thin_syms,
+        thin_data_pct_map=thin_pct_map,
     )
     conc_paths = write_concentration_artifacts(concentration, output_dir)
     artifact_paths.update(conc_paths)

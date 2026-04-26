@@ -113,27 +113,42 @@ def test_watch_single_warning_only():
 
 
 def test_thin_data_warning():
-    """thin-data share ∈ (0.05, 0.10] with no top-N triggers."""
-    base = {f"S{i:02d}": 0.092 for i in range(10)}
-    base["THIN1"] = 0.06
+    """thin-data WEIGHTED share ∈ (0.05, 0.10] with no top-N triggers.
+
+    Post-audit-fix (2026-04-25): gate uses weighted = Σ share[s] *
+    thin_pct[s], not binary. Fixture: 5 equal positions × 0.20 weight,
+    THIN1 with thin_pct=0.30 → weighted = 0.20 * 0.30 = 0.06 → warning.
+    """
+    base = {f"S{i:02d}": 0.20 for i in range(5)}
+    base.pop("S00")
+    base["THIN1"] = 0.20
     df = _wts(base, base)
-    r = compute("c", df, thin_data_symbols=["THIN1"])
-    # thin total = 0.06 / 0.98 ≈ 0.061 → > 0.05 warning; < 0.08 watch warning;
-    # top-3 = 0.276; top-1 = 0.092 → warning only on thin_data
+    r = compute(
+        "c", df,
+        thin_data_symbols=["THIN1"],
+        thin_data_pct_map={"THIN1": 0.30},
+    )
     assert r.concentration_gate_status == ConcentrationGateStatus.warning
-    assert any("thin_data_share" in w for w in r.triggered_warnings)
-    assert not any("thin_data_share" in e for e in r.triggered_extremes)
+    assert any("thin_data_weighted_share" in w for w in r.triggered_warnings)
+    assert not any("thin_data_weighted_share" in e for e in r.triggered_extremes)
+    # Binary share is HIGHER than weighted (full 0.20 instead of 0.06):
+    # diagnostic only, doesn't drive tier.
+    assert r.thin_data_binary_share > r.thin_data_weighted_share
 
 
 def test_thin_data_extreme():
-    df = _wts(
-        {"THIN1": 0.15, "BBB": 0.20, "CCC": 0.20, "DDD": 0.20},
-        {"THIN1": 0.15, "BBB": 0.20, "CCC": 0.20, "DDD": 0.20},
+    """thin-data WEIGHTED share > 0.10 with no top-N triggers."""
+    base = {f"S{i:02d}": 0.20 for i in range(5)}
+    base.pop("S00")
+    base["THIN1"] = 0.20
+    df = _wts(base, base)
+    r = compute(
+        "c", df,
+        thin_data_symbols=["THIN1"],
+        thin_data_pct_map={"THIN1": 0.55},  # weighted = 0.20 * 0.55 = 0.11
     )
-    r = compute("c", df, thin_data_symbols=["THIN1"])
-    # thin total = 0.30 / 1.50 = 0.20 → > 0.10 extreme
     assert r.concentration_gate_status == ConcentrationGateStatus.manual_review_required
-    assert any("thin_data_share" in e for e in r.triggered_extremes)
+    assert any("thin_data_weighted_share" in e for e in r.triggered_extremes)
 
 
 def test_multiple_extremes_all_listed():
@@ -182,3 +197,112 @@ def test_md_renders_status_and_caveats():
     assert "frozen" in md
     assert "read-only" in md
     assert "not_computed" in md  # sector + beta MVP caveat
+    # Post-audit fix: md must show both metrics with explicit gate vs
+    # diagnostic labels (so future readers can't conflate them).
+    assert "WEIGHTED share (gate metric)" in md
+    assert "binary share (diagnostic" in md
+
+
+# ── post-MVP audit (2026-04-25) regression tests for weighted gate ────
+
+
+def test_weighted_thin_metric_correctly_dilutes_low_thin_pct_symbols():
+    """Audit fix regression A: large weight on a SLIGHTLY-thin symbol
+    must not be over-counted by the gate.
+
+    Pre-fix bug: binary gate counted the symbol's FULL weight share
+    even if its thin_data_pct was tiny (e.g. 5%). Post-fix: weighted
+    share scales linearly with thin_data_pct, so a 5% thin symbol
+    contributes only 0.05× of its weight.
+    """
+    df = _wts({"BIG": 0.30, "AAA": 0.20, "BBB": 0.15, "CCC": 0.10, "DDD": 0.10, "EEE": 0.10})
+    # BIG has 5% thin history — barely thin.
+    r = compute(
+        "c", df,
+        thin_data_symbols=["BIG"],
+        thin_data_pct_map={"BIG": 0.05},
+    )
+    # Binary: BIG full weight share = 0.30 / 0.95 ≈ 0.316 — would have
+    # extreme-tripped pre-fix.
+    assert r.thin_data_binary_share > 0.30
+    # Weighted: 0.316 × 0.05 = 0.0158 — far below 0.05 warning threshold.
+    assert r.thin_data_weighted_share < 0.05
+    # Gate: pass on thin axis (no thin-data trigger in either tier).
+    assert not any(
+        "thin_data" in w for w in r.triggered_warnings
+    )
+    assert not any(
+        "thin_data" in e for e in r.triggered_extremes
+    )
+
+
+def test_weighted_gate_demotes_cand2_style_from_extreme_to_warning():
+    """Audit fix regression B: Cand-2-style fixture.
+
+    Pre-fix: binary gate ~50% → extreme + frozen.
+    Post-fix: weighted gate ~6% → warning + allowed.
+
+    Demonstrates the "implementation false-positive" the audit found
+    and fixed — Cand-2-shaped exposure unfreezes once the gate metric
+    is honest. Fixture is a uniform 6 watch + 6 non-watch panel so
+    no top-1 / top-3 confound triggers; watch thin_pct = 0.12 (real
+    Cand-2 average is in this band).
+    """
+    base = {f"NW{i:02d}": 0.10 for i in range(6)}
+    base.update({f"W{i:02d}": 0.10 for i in range(6)})
+    df = _wts(base)
+    watch_syms = [f"W{i:02d}" for i in range(6)]
+    r = compute(
+        "c", df,
+        watch_symbols=watch_syms,
+        thin_data_symbols=watch_syms,
+        thin_data_pct_map={s: 0.12 for s in watch_syms},
+    )
+    # Binary share = 6 × 0.0833 = 0.50 (would extreme-trip pre-fix).
+    assert r.thin_data_binary_share > 0.40
+    # Weighted = 0.50 × 0.12 = 0.06 → warning (between 0.05 and 0.10).
+    assert 0.05 < r.thin_data_weighted_share < 0.10
+    # Gate: warning, NOT manual_review_required.
+    assert r.concentration_gate_status == ConcentrationGateStatus.warning
+    assert r.narrative_permission == NarrativePermission.allowed
+
+
+def test_weighted_gate_keeps_rcm_v1_style_in_extreme():
+    """Audit fix regression C: RCMv1-style fixture.
+
+    Pre-fix binary gate ~57% → extreme + frozen.
+    Post-fix weighted gate ~15% → STILL extreme. The candidate's
+    extreme status is real, not implementation false-positive — heavy
+    exposure to symbols that are themselves substantially thin.
+
+    Same uniform 6+6 panel as the Cand-2 test, but watch thin_pct = 0.30
+    (RCMv1 real top contributors average ~25-30%).
+    """
+    base = {f"NW{i:02d}": 0.10 for i in range(6)}
+    base.update({f"W{i:02d}": 0.10 for i in range(6)})
+    df = _wts(base)
+    watch_syms = [f"W{i:02d}" for i in range(6)]
+    r = compute(
+        "c", df,
+        watch_symbols=watch_syms,
+        thin_data_symbols=watch_syms,
+        thin_data_pct_map={s: 0.30 for s in watch_syms},
+    )
+    # Weighted = 0.50 × 0.30 = 0.15 → extreme (> 0.10).
+    assert r.thin_data_weighted_share > 0.10
+    assert r.concentration_gate_status == ConcentrationGateStatus.manual_review_required
+    assert r.narrative_permission == NarrativePermission.frozen
+
+
+def test_weighted_share_handles_percent_scale():
+    """If sidecar passes thin_data_pct as percent (>1, e.g. 23.3 instead
+    of 0.233), the gate must still behave correctly — divide-by-100
+    normalization applies."""
+    df = _wts({"AAA": 0.50, "BBB": 0.50})
+    r = compute(
+        "c", df,
+        thin_data_symbols=["AAA"],
+        thin_data_pct_map={"AAA": 30.0},  # raw percent, not fraction
+    )
+    # Should be normalized to 0.30 fraction → weighted = 0.50 × 0.30 = 0.15
+    assert 0.10 < r.thin_data_weighted_share < 0.20

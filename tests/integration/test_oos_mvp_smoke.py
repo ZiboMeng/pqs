@@ -91,7 +91,8 @@ def test_smoke_synthetic_artifacts_pass(tmp_path: Path):
         '"concentration_gate_status": "warning", '
         '"narrative_permission": "allowed", '
         '"watchlist_total_share": 0.10, '
-        '"thin_data_total_share": 0.04, "n_dates": 252}'
+        '"thin_data_weighted_share": 0.04, '
+        '"thin_data_binary_share": 0.10, "n_dates": 252}'
     )
     (cand_dir / f"{cid}_concentration_report.md").write_text("# conc")
 
@@ -139,7 +140,8 @@ def test_smoke_detects_wrong_evidence_class(tmp_path: Path):
     (cand_dir / f"{cid}_concentration_report.json").write_text(
         '{"per_symbol_watch_shares": {}, "concentration_gate_status": "pass", '
         '"narrative_permission": "allowed", "watchlist_total_share": 0, '
-        '"thin_data_total_share": 0, "n_dates": 252}'
+        '"thin_data_weighted_share": 0, "thin_data_binary_share": 0, '
+        '"n_dates": 252}'
     )
     (cand_dir / f"{cid}_concentration_report.md").write_text("# conc")
 

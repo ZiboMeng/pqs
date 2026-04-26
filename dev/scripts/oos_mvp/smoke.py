@@ -151,7 +151,12 @@ def _smoke_one_candidate(
                 "concentration_gate_status",
                 "narrative_permission",
                 "watchlist_total_share",
-                "thin_data_total_share",
+                # Post-2026-04-25 audit: weighted is the gate, binary is
+                # diagnostic; both must appear in fresh artifacts. Legacy
+                # ``thin_data_total_share`` is no longer required (and is
+                # not produced by current runner).
+                "thin_data_weighted_share",
+                "thin_data_binary_share",
             }
             missing = required - set(conc.keys())
             if missing:

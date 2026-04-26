@@ -532,16 +532,20 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   warning + extreme tier, report-only) + watch_exposure section in
   master + drift reports + `core/research/forward/` (manifest schema
   ONLY, no runner per PRD v3 §B) + integration smoke + negative
-  simulation. Both candidates @ S2_paper_candidate produced full
-  artifact set (window/eval/concentration); both triggered M12
-  **manual_review_required** + **narrative_permission: frozen** due
-  to thin_data_share extreme (RCMv1 56.9%, Cand-2 28.5%). R2
-  numbers (+62.76% / +191.57%) are **pseudo-OOS robustness only,
-  NOT deployable OOS** (PRD v3 §1.1+§1.3). 63 regression tests
-  added; pytest 1617 → 1680 (drift fully explained). Closeout:
+  simulation. R2 numbers (+62.76% / +191.57%) are **pseudo-OOS
+  robustness only, NOT deployable OOS** (PRD v3 §1.1+§1.3). Closeout:
   `docs/memos/20260425-oos_mvp_close.md`. OOS-framework workstream
   auto re-frozen at OOSMVPDONE; reopening forward execution
   requires a new PRD round.
+- **OOS MVP audit fix — M12 weighted thin gate** (2026-04-25 ✅) —
+  per `docs/memos/20260425-m12_review_decision.md`. Replaced the
+  pre-fix binary thin-data gate with a weight-day-weighted share
+  (Σ share[s] × thin_data_pct[s]) which is the PRD-§C-thresholds gate
+  going forward. Old binary share kept as `thin_data_binary_share`
+  diagnostic only. **Cand-2 unfrozen** (weighted 5.19% → warning,
+  narrative_permission: allowed); **RCMv1 still frozen** (weighted
+  14.97% > 10% extreme — real, not implementation artifact). pytest
+  1681 → 1685 (+4 audit regression tests A/B/C + percent-scale).
 
 **Framework Completion PRD** (`docs/20260421-prd_framework_completion.md`
 v1.2) — shipped M0-M8 + M10 + M13 + M15 + M16 (see archive); open:

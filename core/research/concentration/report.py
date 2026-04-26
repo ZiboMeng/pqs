@@ -21,7 +21,7 @@ import json
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable, Mapping, Optional
 
 import pandas as pd
 
@@ -68,7 +68,24 @@ class ConcentrationReport:
     # weight-day shares
     watchlist_single_max_share: float
     watchlist_total_share: float
-    thin_data_total_share: float
+
+    # Thin-data exposure — TWO metrics shipped per post-MVP M12 fix
+    # (2026-04-25 audit, see docs/memos/20260425-m12_review_decision.md):
+    #
+    #   thin_data_weighted_share  ← the GATE metric (used by tier
+    #     classification). Sum over symbols of weight_day_share[s] *
+    #     thin_data_pct[s]. Reflects "how much of this candidate's
+    #     PnL/exposure actually depends on thin-data bars".
+    #
+    #   thin_data_binary_share    ← DIAGNOSTIC ONLY. Old definition
+    #     (pre-2026-04-25): weight-day share on symbols that have ANY
+    #     thin_data history. Kept for backward comparability with
+    #     pre-fix artifacts; does NOT participate in tier classification.
+    #
+    # The PRD v3 §C "thin-data exposure > 5% / > 10%" thresholds map to
+    # the WEIGHTED metric per the audit decision memo.
+    thin_data_weighted_share: float = 0.0
+    thin_data_binary_share: float = 0.0
 
     # per-symbol watch-list shares (for the R4 watch_exposure section
     # downstream). Includes any symbol in watch_symbols that had non-zero
@@ -97,9 +114,15 @@ def _classify(
     *,
     top1: float,
     top3: float,
-    thin_data: float,
+    thin_data_weighted: float,
     watch_single: float,
 ) -> tuple[list, list, ConcentrationGateStatus, NarrativePermission]:
+    """Tier classification.
+
+    ``thin_data_weighted`` is THE gate metric (post-MVP audit fix
+    2026-04-25). The pre-fix binary share is kept on the report for
+    backward comparability but is NOT classified here.
+    """
     warnings: list = []
     extremes: list = []
 
@@ -107,8 +130,10 @@ def _classify(
         warnings.append(f"top1_weight={top1:.4f}>{WARNING_TOP1}")
     if top3 > WARNING_TOP3:
         warnings.append(f"top3_weight={top3:.4f}>{WARNING_TOP3}")
-    if thin_data > WARNING_THIN_DATA:
-        warnings.append(f"thin_data_share={thin_data:.4f}>{WARNING_THIN_DATA}")
+    if thin_data_weighted > WARNING_THIN_DATA:
+        warnings.append(
+            f"thin_data_weighted_share={thin_data_weighted:.4f}>{WARNING_THIN_DATA}"
+        )
     if watch_single >= WARNING_WATCH_SINGLE:
         warnings.append(f"watch_single_share={watch_single:.4f}>={WARNING_WATCH_SINGLE}")
 
@@ -116,8 +141,10 @@ def _classify(
         extremes.append(f"top1_weight={top1:.4f}>{EXTREME_TOP1}")
     if top3 > EXTREME_TOP3:
         extremes.append(f"top3_weight={top3:.4f}>{EXTREME_TOP3}")
-    if thin_data > EXTREME_THIN_DATA:
-        extremes.append(f"thin_data_share={thin_data:.4f}>{EXTREME_THIN_DATA}")
+    if thin_data_weighted > EXTREME_THIN_DATA:
+        extremes.append(
+            f"thin_data_weighted_share={thin_data_weighted:.4f}>{EXTREME_THIN_DATA}"
+        )
     if watch_single > EXTREME_WATCH_SINGLE:
         extremes.append(f"watch_single_share={watch_single:.4f}>{EXTREME_WATCH_SINGLE}")
 
@@ -167,6 +194,7 @@ def compute(
     *,
     watch_symbols: Optional[Iterable[str]] = None,
     thin_data_symbols: Optional[Iterable[str]] = None,
+    thin_data_pct_map: Optional[Mapping[str, float]] = None,
 ) -> ConcentrationReport:
     """Compute concentration metrics + tier classification for a candidate.
 
@@ -181,7 +209,14 @@ def compute(
         Symbols on the data_quality_watch list. Used for watch-list
         concentration (single-name max share + total share).
     thin_data_symbols : iterable of str, optional
-        Symbols flagged thin_data. Used for thin-data exposure.
+        Symbols with ANY thin-data history. Used for the legacy
+        ``thin_data_binary_share`` diagnostic. Pre-2026-04-25 audit fix
+        this drove tier classification; post-fix it is diagnostic only.
+    thin_data_pct_map : Mapping[str, float], optional
+        Per-symbol thin-data fraction in (0, 1]. Used to compute
+        ``thin_data_weighted_share`` — the GATE metric that drives tier
+        classification (audit fix per docs/memos/20260425-m12_review_decision.md).
+        Symbols not in the map default to 0.0 contribution.
     """
     n_dates = int(weights_df.shape[0])
     if n_dates == 0:
@@ -195,7 +230,8 @@ def compute(
             name_days_max_share=0.0,
             watchlist_single_max_share=0.0,
             watchlist_total_share=0.0,
-            thin_data_total_share=0.0,
+            thin_data_weighted_share=0.0,
+            thin_data_binary_share=0.0,
         )
 
     top1 = float(_row_topk(weights_df, 1).max())
@@ -221,11 +257,30 @@ def compute(
         per_symbol_watch_shares = {}
     watch_total = _weight_day_share(weights_df, watch_in_panel)
 
+    # Legacy binary share (diagnostic only post-audit): every symbol in
+    # ``thin_data_symbols`` contributes its FULL weight-day share.
     thin_in_panel = [s for s in thin_set if s in weights_df.columns]
-    thin_total = _weight_day_share(weights_df, thin_in_panel)
+    thin_binary = _weight_day_share(weights_df, thin_in_panel)
+
+    # Audit-fix weighted share (THE gate metric):
+    # Σ_s name_share[s] * thin_data_pct[s] over s in panel ∩ map.
+    pct_map = dict(thin_data_pct_map or {})
+    thin_weighted = 0.0
+    for sym, share in name_share.items():
+        pct = pct_map.get(sym, 0.0)
+        if pct < 0.0:
+            pct = 0.0
+        if pct > 1.0:
+            # tolerate sidecar that stores percent (0–100) instead of (0–1)
+            pct = pct / 100.0
+        thin_weighted += float(share) * float(pct)
+    thin_weighted = float(thin_weighted)
 
     warnings, extremes, status, permission = _classify(
-        top1=top1, top3=top3, thin_data=thin_total, watch_single=watch_single_max
+        top1=top1,
+        top3=top3,
+        thin_data_weighted=thin_weighted,
+        watch_single=watch_single_max,
     )
 
     return ConcentrationReport(
@@ -238,7 +293,8 @@ def compute(
         name_days_max_share=name_days_max,
         watchlist_single_max_share=watch_single_max,
         watchlist_total_share=watch_total,
-        thin_data_total_share=thin_total,
+        thin_data_weighted_share=thin_weighted,
+        thin_data_binary_share=thin_binary,
         per_symbol_watch_shares=per_symbol_watch_shares,
         triggered_warnings=warnings,
         triggered_extremes=extremes,
@@ -263,7 +319,10 @@ def _format_md(report: ConcentrationReport) -> str:
         f"- max single-name weight-day share: {report.name_days_max_share * 100:.2f}%",
         f"- watch-list single-name max share: {report.watchlist_single_max_share * 100:.2f}%",
         f"- watch-list total share: {report.watchlist_total_share * 100:.2f}%",
-        f"- thin-data total share: {report.thin_data_total_share * 100:.2f}%",
+        f"- thin-data WEIGHTED share (gate metric): "
+        f"{report.thin_data_weighted_share * 100:.2f}%",
+        f"- thin-data binary share (diagnostic, pre-2026-04-25 definition): "
+        f"{report.thin_data_binary_share * 100:.2f}%",
         "",
         "## Tier classification (PRD v3 §C)",
         "",
@@ -293,6 +352,15 @@ def _format_md(report: ConcentrationReport) -> str:
         "  (no per-symbol sector mapping wired); both are marked",
         "  `not_computed` in the JSON. Neither participates in tier",
         "  classification per PRD v3 §C extreme thresholds.",
+        "- **Thin-data metric semantics (post-MVP audit fix 2026-04-25)**:",
+        "  the gate uses `thin_data_weighted_share` =",
+        "  Σ weight_day_share[s] × thin_data_pct[s], which honestly",
+        "  measures how much of the candidate's PnL depends on thin-data",
+        "  bars. The legacy `thin_data_binary_share` (any-thin-history",
+        "  flag × full weight) is kept for diagnostic continuity but",
+        "  systematically over-counts; it does NOT participate in tier",
+        "  classification anymore. See",
+        "  `docs/memos/20260425-m12_review_decision.md`.",
         "",
     ])
     return "\n".join(lines)
