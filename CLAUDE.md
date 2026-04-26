@@ -563,6 +563,28 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   14.97% > 10% extreme — real, not implementation artifact). pytest
   1681 → 1685 (+4 audit regression tests A/B/C + percent-scale).
 
+**Forward OOS active workstream (observation mode)**:
+- **R-fwd-1 done** — forward runner minimum closed loop (init /
+  status / observe / decide / readiness) + source-boundary sidecar
+  + `source_mix` flag on ForwardRun. PRD:
+  `docs/prd/20260426-forward_oos_runner_prd.md`. Both candidates
+  (RCMv1 / Cand-2) have first real forward TD entries:
+  ```
+  RCMv1   start_date=2026-04-24  TD001 / 2026-04-24 / source_mix=True
+  Cand-2  start_date=2026-04-24  TD001 / 2026-04-24 / source_mix=True
+  ```
+  source_mix=True because forward observes yfinance frontier bars
+  while candidates were constructed on polygon canonical (different
+  adjustment semantics, surfaced honestly).
+- **Status: observation mode** — daily `forward observe` to let
+  manifest grow naturally. NO R-fwd-2 / R-fwd-3 development until
+  ≥3-5 real TD entries accumulate. NO new mining / universe /
+  spec / Candidate-3 / data tier work — all still frozen.
+- R-fwd-2/3 scope explicitly includes (per 2026-04-26 user audit):
+  bar-hash immutability guard against yfinance revisions; checkpoint
+  reduce surfacing source_mix_days / canonical_only_days /
+  frontier_only_days breakdowns.
+
 **Framework Completion PRD** (`docs/20260421-prd_framework_completion.md`
 v1.2) — shipped M0-M8 + M10 + M13 + M15 + M16 (see archive); open:
 

@@ -191,6 +191,19 @@ Flags computed at each checkpoint:
   window (would warrant aborted status if confirmed at next
   checkpoint)
 
+**Source-layer breakdown (R-fwd-3 must include)**, per
+2026-04-26 user audit feedback:
+
+- `source_mix_days`: count of TD entries where `source_mix=True`
+- `canonical_only_days`: count where `source_mix=False`
+- `frontier_only_days`: count where source_layer (computed via
+  per-day held-symbol boundary lookup) is purely on the frontier
+  side — distinct from "mixed within window"
+
+Surfaces these prominently in the checkpoint markdown narrative
+because in the early forward sample (3-5 TDs), source-layer
+context matters more than the raw return numbers.
+
 **Hard rule**: checkpoints are REPORT-ONLY. They never mutate
 candidate_registry status, never re-write the manifest's
 `current_status`, never auto-promote / auto-revoke.
@@ -308,6 +321,39 @@ The forward runner workstream MUST honor:
 - Cron-friendly: `python dev/scripts/oos_mvp/run_forward_observe.py
   --candidate-id <id>` returns 0 even when no new bars are
   available; that's a no-op.
+
+### 4.6 fetch_data overlap-fetch caveat (post-2026-04-26 audit note)
+
+`scripts/fetch_data.py` uses `start = last_date` (NOT `last_date + 1d`)
+when calling yfinance, so each daily fetch re-downloads the most
+recent stored day and lets `MarketDataStore.append`'s
+`drop_duplicates(keep="last")` overwrite the existing row with the
+new value. This is BY DESIGN — yfinance occasionally retroactively
+revises the latest 1-2 days' adjusted close / volume / dividend
+adjustment, and the overlap fetch catches those revisions.
+
+Implication for forward observation: a TD entry's stored
+``cum_ret`` is computed at the moment of observation. If yfinance
+later revises the underlying bar, a SUBSEQUENT TD's backtest
+re-run uses the revised bar, while the earlier TD's stored
+``cum_ret`` keeps the OLD bar's value. The two TDs are then
+internally inconsistent at the underlying-data level, even though
+neither manifest entry is "wrong" relative to its observation
+moment.
+
+R-fwd-1 accepts this risk (option A — document only). Mitigation
+options for R-fwd-2 / R-fwd-3:
+
+- **Option C: bar-hash immutability guard** — record the
+  per-symbol bar hash at first observation in the manifest; on
+  subsequent fetch_data writes, detect mismatches and flag
+  ``data_revision_event=true`` on the affected TD entries.
+- (Option B = "make fetch_data not re-fetch the latest day"
+  rejected by user 2026-04-26: fetch_data's overlap is the
+  intentional yfinance-revision catch.)
+
+R-fwd-2/3 SCOPE: include Option C, gated on having ≥5 real TD
+entries to actually test against.
 
 ## 9. Out-of-scope (deferred)
 
