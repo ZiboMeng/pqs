@@ -226,3 +226,308 @@ def test_build_decision_table_missing_concentration_metric_fails():
     by_gate = {r["gate"]: r for r in rows}
     assert by_gate["watchlist_total_share"]["measured"] is None
     assert by_gate["watchlist_total_share"]["passed"] is False
+
+
+# ── canonical-YAML finalize step (post Round-2 audit, 2026-04-27) ────
+
+
+def _synthetic_closeout_payload_fail() -> dict:
+    """Mirror the cycle 2026-04-26-01 hard-gate-fail closeout shape."""
+    return {
+        "lineage_tag": "research-cycle-2026-04-26-01",
+        "candidate_id": "research-cycle-2026-04-26-01_top_trial_rejected_at_g2a",
+        "evaluated_at_utc": "2026-04-26T19:01:00+00:00",
+        "g2_a_decision_table": [
+            {"gate": "min_ic_ir_full_period", "measured": 1.0405, "op": "ge", "threshold": 0.25, "passed": True},
+            {"gate": "min_walk_forward_folds_positive", "measured": 4, "op": "ge", "threshold": 3, "passed": True},
+            {"gate": "m12_concentration_tier", "measured": "warning", "op": "in_set", "threshold": ["pass", "warning"], "passed": True},
+            {"gate": "watchlist_total_share", "measured": 0.3950, "op": "le", "threshold": 0.30, "passed": False},
+            {"gate": "thin_data_weighted_share", "measured": 0.0751, "op": "le", "threshold": 0.10, "passed": True},
+            {"gate": "top1_weight_max", "measured": 0.10, "op": "le", "threshold": 0.40, "passed": True},
+            {"gate": "top3_weight_max", "measured": 0.30, "op": "le", "threshold": 0.70, "passed": True},
+        ],
+        "g2_a_overall_pass": False,
+        "g2_b_report_only": {
+            "regime_breakdown": {
+                "BULL":     {"ic_ir": 0.402, "n_dates": 568},
+                "BEAR":     {"ic_ir": 1.204, "n_dates": 393},
+                "RISK_ON":  {"ic_ir": 1.354, "n_dates": 168},
+                "RISK_OFF": {"ic_ir": 1.138, "n_dates": 266},
+                "CRISIS":   {"ic_ir": 4.452, "n_dates": 75},
+                "SIDEWAYS": {"ic_ir": 1.170, "n_dates": 762},
+            },
+            "benchmark_beta_statistics": {
+                "portfolio_weighted_mean_beta": 1.7957,
+                "portfolio_weighted_std_beta": 1.3288,
+            },
+            "pseudo_oos_2024": {
+                "cum_ret": 0.2801, "sharpe": 0.8888, "max_dd": -0.2884,
+                "vs_spy": 0.0401, "vs_qqq": 0.0102,
+            },
+            "turnover_full_period": 0.0814,
+            "correlation_vs_existing_pair": {
+                "rcm_v1_defensive_composite_01": 0.6148,
+                "candidate_2_orthogonal_01": 0.6137,
+            },
+        },
+        "concentration_report_summary": {
+            "tier": "warning",
+            "watchlist_total_share": 0.3950,
+            "watchlist_single_max_share": 0.0862,
+            "thin_data_weighted_share": 0.0751,
+            "thin_data_binary_share": 0.3867,
+            "top1_weight_max": 0.10,
+            "top3_weight_max": 0.30,
+        },
+    }
+
+
+def _synthetic_full_summary() -> dict:
+    return {"ic_mean": 0.0739, "ic_std": 0.2458, "ic_ir": 1.0405, "n_dates": 2232}
+
+
+def test_build_summary_blocks_from_payload_fail_case_shape():
+    """Pin the exact shape produced for the cycle 2026-04-26-01 fail."""
+    mod = _load_close_eval_module()
+    blocks = mod.build_summary_blocks_from_payload(
+        closeout_payload=_synthetic_closeout_payload_fail(),
+        full_summary=_synthetic_full_summary(),
+        candidate_id="research-cycle-2026-04-26-01_top_trial_rejected_at_g2a",
+        output_dir=ROOT / "data" / "research_candidates",
+        walk_n_folds=4,
+        walk_lag_bars=1,
+    )
+
+    assert set(blocks.keys()) == {
+        "benchmark_relative_summary", "oos_holdout_summary",
+        "robustness_summary", "acceptance_decision",
+        "acceptance_decision_details",
+    }
+
+    # Acceptance decision: rejected, naming the binding fail gate
+    assert blocks["acceptance_decision"] == "rejected_at_g2a_watchlist_total_share"
+    details = blocks["acceptance_decision_details"]
+    assert details["g2_a_overall_pass"] is False
+    assert details["binding_fail_gate"] == "watchlist_total_share"
+    assert details["binding_fail_measured"] == 0.3950
+    assert details["binding_fail_threshold"] == 0.30
+    assert details["binding_fail_op"] == "le"
+    assert details["retroactive_softening_applied"] is False
+
+    # OOS holdout: numeric IR + walk-forward + pseudo-OOS preserved
+    oos = blocks["oos_holdout_summary"]
+    assert oos["full_period_ic_ir"] == 1.0405
+    assert oos["walk_forward_n_folds"] == 4
+    assert oos["walk_forward_folds_positive"] == 4
+    assert oos["walk_forward_lag_bars"] == 1
+    assert oos["pseudo_oos_2024_max_dd"] == -0.2884
+
+    # Robustness: tier + watchlist + regime stats
+    rob = blocks["robustness_summary"]
+    assert rob["m12_concentration_tier"] == "warning"
+    assert rob["watchlist_total_share"] == 0.3950
+    assert rob["regime_n_total"] == 6
+    assert rob["regime_folds_positive"] == 6
+    assert rob["regime_strongest"] == "CRISIS"   # max IC_IR
+    assert rob["regime_weakest"] == "BULL"        # min IC_IR
+
+    # Benchmark relative: corr vs existing pair + realized beta
+    bench = blocks["benchmark_relative_summary"]
+    assert bench["composite_corr_vs_rcm_v1_defensive_composite_01"] == 0.6148
+    assert bench["composite_corr_vs_candidate_2_orthogonal_01"] == 0.6137
+    assert bench["realized_portfolio_weighted_mean_beta"] == 1.7957
+    assert bench["vs_spy_qqq"] == "deferred_to_paper_layer"
+
+
+def test_build_summary_blocks_never_emits_S1_or_pending_tokens():
+    """Critical contract test: the finalize output must never re-introduce
+    the forbidden tokens that Codex's Round 2 acceptance bar enumerates,
+    even on a synthetic pass case."""
+    import json
+    mod = _load_close_eval_module()
+
+    fail_blocks = mod.build_summary_blocks_from_payload(
+        closeout_payload=_synthetic_closeout_payload_fail(),
+        full_summary=_synthetic_full_summary(),
+        candidate_id="research-cycle-2026-04-26-01_top_trial_rejected_at_g2a",
+        output_dir=ROOT / "data" / "research_candidates",
+        walk_n_folds=4, walk_lag_bars=1,
+    )
+
+    pass_payload = _synthetic_closeout_payload_fail()
+    pass_payload["g2_a_overall_pass"] = True
+    for row in pass_payload["g2_a_decision_table"]:
+        row["passed"] = True
+    pass_blocks = mod.build_summary_blocks_from_payload(
+        closeout_payload=pass_payload,
+        full_summary=_synthetic_full_summary(),
+        candidate_id="research-cycle-2026-04-26-01_top_trial_rejected_at_g2a",
+        output_dir=ROOT / "data" / "research_candidates",
+        walk_n_folds=4, walk_lag_bars=1,
+    )
+
+    for blocks in (fail_blocks, pass_blocks):
+        flat = json.dumps(blocks, default=str)
+        for forbidden in ("S1_nominee", "S1_RESEARCH_CANDIDATE", "pending_closeout_eval"):
+            assert forbidden not in flat, (
+                f"build_summary_blocks_from_payload emitted forbidden "
+                f"token {forbidden!r}; output={flat[:300]}"
+            )
+
+
+def _make_fixture_yaml(tmp_path, body_inside_markers: str = "") -> object:
+    """Write a minimal canonical YAML fixture with the marker pair."""
+    p = tmp_path / "fixture.yaml"
+    text = (
+        "candidate_id: fixture_top_trial_rejected_at_g2a\n"
+        "feature_set: []\n"
+        "\n"
+        "# ── BEGIN closeout finalize block (auto-written by run_close_eval.py) ─\n"
+        f"{body_inside_markers}"
+        "# ── END closeout finalize block ──────────────────────────────────────\n"
+    )
+    p.write_text(text)
+    return p
+
+
+def test_finalize_canonical_yaml_replaces_marker_block(tmp_path):
+    mod = _load_close_eval_module()
+    spec_path = _make_fixture_yaml(tmp_path, body_inside_markers="placeholder line\n")
+
+    blocks = mod.build_summary_blocks_from_payload(
+        closeout_payload=_synthetic_closeout_payload_fail(),
+        full_summary=_synthetic_full_summary(),
+        candidate_id="fixture_top_trial_rejected_at_g2a",
+        output_dir=tmp_path,
+        walk_n_folds=4, walk_lag_bars=1,
+    )
+    new_text = mod._finalize_canonical_yaml(spec_path, blocks)
+
+    # Marker pair survives
+    assert mod.CLOSEOUT_BEGIN_MARKER in new_text
+    assert mod.CLOSEOUT_END_MARKER in new_text
+    # Content outside markers untouched
+    assert "candidate_id: fixture_top_trial_rejected_at_g2a" in new_text
+    # Region content replaced (placeholder line gone)
+    assert "placeholder line" not in new_text
+    # Critical canonical fields present
+    assert "acceptance_decision: rejected_at_g2a_watchlist_total_share" in new_text
+    assert "benchmark_relative_summary:" in new_text
+    assert "oos_holdout_summary:" in new_text
+    assert "robustness_summary:" in new_text
+    assert "acceptance_decision_details:" in new_text
+
+
+def test_finalize_canonical_yaml_strips_forbidden_tokens(tmp_path):
+    mod = _load_close_eval_module()
+    # Seed the fixture with the forbidden tokens inside the marker region
+    seeded = (
+        "acceptance_decision: pending_closeout_eval\n"
+        "stage: S1_RESEARCH_CANDIDATE\n"
+        "candidate_label: S1_nominee\n"
+    )
+    spec_path = _make_fixture_yaml(tmp_path, body_inside_markers=seeded)
+
+    blocks = mod.build_summary_blocks_from_payload(
+        closeout_payload=_synthetic_closeout_payload_fail(),
+        full_summary=_synthetic_full_summary(),
+        candidate_id="fixture_top_trial_rejected_at_g2a",
+        output_dir=tmp_path,
+        walk_n_folds=4, walk_lag_bars=1,
+    )
+    new_text = mod._finalize_canonical_yaml(spec_path, blocks)
+
+    for tok in ("S1_nominee", "S1_RESEARCH_CANDIDATE", "pending_closeout_eval"):
+        assert tok not in new_text, f"finalize did not strip token {tok!r}"
+
+
+def test_finalize_canonical_yaml_preserves_notes(tmp_path):
+    """Editorial `note:` fields inside summary blocks must survive a re-run."""
+    mod = _load_close_eval_module()
+    seeded = (
+        "benchmark_relative_summary:\n"
+        "  evidence_artifact: data/x.json\n"
+        "  note: this editorial note must survive\n"
+        "oos_holdout_summary:\n"
+        "  full_period_ic_ir: 0.0\n"
+        "  note: oos editorial prose\n"
+        "robustness_summary:\n"
+        "  note: rob editorial prose\n"
+        "acceptance_decision: stale_will_be_overwritten\n"
+    )
+    spec_path = _make_fixture_yaml(tmp_path, body_inside_markers=seeded)
+
+    blocks = mod.build_summary_blocks_from_payload(
+        closeout_payload=_synthetic_closeout_payload_fail(),
+        full_summary=_synthetic_full_summary(),
+        candidate_id="fixture_top_trial_rejected_at_g2a",
+        output_dir=tmp_path,
+        walk_n_folds=4, walk_lag_bars=1,
+    )
+    new_text = mod._finalize_canonical_yaml(spec_path, blocks)
+
+    assert "this editorial note must survive" in new_text
+    assert "oos editorial prose" in new_text
+    assert "rob editorial prose" in new_text
+    # And the canonical decision was still re-written
+    assert "rejected_at_g2a_watchlist_total_share" in new_text
+    assert "stale_will_be_overwritten" not in new_text
+
+
+def test_finalize_canonical_yaml_is_idempotent(tmp_path):
+    """Running finalize twice with the same payload yields the same file."""
+    mod = _load_close_eval_module()
+    spec_path = _make_fixture_yaml(tmp_path, body_inside_markers="seed\n")
+
+    blocks = mod.build_summary_blocks_from_payload(
+        closeout_payload=_synthetic_closeout_payload_fail(),
+        full_summary=_synthetic_full_summary(),
+        candidate_id="fixture_top_trial_rejected_at_g2a",
+        output_dir=tmp_path,
+        walk_n_folds=4, walk_lag_bars=1,
+    )
+    first = mod._finalize_canonical_yaml(spec_path, blocks)
+    second = mod._finalize_canonical_yaml(spec_path, blocks)
+    assert first == second
+
+
+def test_finalize_canonical_yaml_missing_markers_raises(tmp_path):
+    """If markers are absent the function must refuse to silently
+    rewrite the whole file."""
+    mod = _load_close_eval_module()
+    bad = tmp_path / "no_markers.yaml"
+    bad.write_text("candidate_id: x\nfeature_set: []\n")
+    blocks = mod.build_summary_blocks_from_payload(
+        closeout_payload=_synthetic_closeout_payload_fail(),
+        full_summary=_synthetic_full_summary(),
+        candidate_id="x",
+        output_dir=tmp_path,
+        walk_n_folds=4, walk_lag_bars=1,
+    )
+    with pytest.raises(RuntimeError, match="missing the closeout finalize"):
+        mod._finalize_canonical_yaml(bad, blocks)
+
+
+def test_finalize_canonical_yaml_pass_case_emits_no_S1_advancement_token(tmp_path):
+    """Even on a synthetic g2_a pass, the acceptance_decision string
+    must not use any forbidden token. (We do not advance to a paper
+    slot from this pipeline; that is a separate manual decision.)"""
+    mod = _load_close_eval_module()
+    spec_path = _make_fixture_yaml(tmp_path)
+
+    pass_payload = _synthetic_closeout_payload_fail()
+    pass_payload["g2_a_overall_pass"] = True
+    for row in pass_payload["g2_a_decision_table"]:
+        row["passed"] = True
+    blocks = mod.build_summary_blocks_from_payload(
+        closeout_payload=pass_payload,
+        full_summary=_synthetic_full_summary(),
+        candidate_id="fixture_top_trial_rejected_at_g2a",
+        output_dir=tmp_path,
+        walk_n_folds=4, walk_lag_bars=1,
+    )
+    new_text = mod._finalize_canonical_yaml(spec_path, blocks)
+
+    for tok in ("S1_nominee", "S1_RESEARCH_CANDIDATE", "pending_closeout_eval"):
+        assert tok not in new_text
+    assert "passed_g2a" in new_text   # something honest about the pass
