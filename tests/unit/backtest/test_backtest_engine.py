@@ -286,3 +286,66 @@ class TestComputeMetrics:
         eq  = pd.Series([100_000.0] * 10, index=idx)
         m   = compute_metrics(eq)
         assert m.get("volatility", 0.0) == pytest.approx(0.0, abs=1e-6)
+
+
+# ── M12 concentration metrics surfaced in BacktestResult.metrics ──────────────
+#
+# Per codex Round-5 audit (`docs/claude_review_loop.md`): every
+# BacktestEngine.run() must expose `m12_top1_weight_max` and
+# `m12_top3_weight_max` so research / acceptance flows can opt-in
+# enforce concentration without re-running the backtest. These are
+# pure metrics — no policy is applied here; enforcement lives in
+# acceptance_pack.Gate 7.
+
+
+class TestBacktestResultM12Metrics:
+    def test_m12_top1_top3_present_in_metrics(self):
+        price   = _make_price_df()
+        signals = _make_signals(price)
+        engine  = BacktestEngine(_make_cost_model())
+        result  = engine.run(signals, price)
+        assert "m12_top1_weight_max" in result.metrics
+        assert "m12_top3_weight_max" in result.metrics
+        assert "m12_n_dates_with_weights" in result.metrics
+
+    def test_m12_metrics_match_compute_concentration_metrics(self):
+        """Sanity: the M12 fields in BacktestResult.metrics are identical
+        to what compute_concentration_metrics(weights_df) returns
+        directly. This confirms no transformation is happening between
+        the engine and the helper."""
+        from core.backtest.concentration_metrics import compute_concentration_metrics
+
+        price   = _make_price_df()
+        signals = _make_signals(price)
+        engine  = BacktestEngine(_make_cost_model())
+        result  = engine.run(signals, price)
+
+        recomputed = compute_concentration_metrics(result.weights)
+        assert result.metrics["m12_top1_weight_max"] == pytest.approx(
+            recomputed["m12_top1_weight_max"]
+        )
+        assert result.metrics["m12_top3_weight_max"] == pytest.approx(
+            recomputed["m12_top3_weight_max"]
+        )
+
+    def test_m12_metrics_do_not_break_default_run(self):
+        """Equal-weight 2-symbol portfolio realizes top-1 ≈ 0.5 and
+        would fail the opt-in validator, but the engine itself does
+        NOT raise — M12 is opt-in in research / acceptance flows, not
+        a default in BacktestEngine.
+
+        This pins codex Round-5 §"do not make concentration enforcement
+        break unrelated diagnostic or single-asset tests by default"."""
+        price   = _make_price_df(syms=("SPY", "QQQ"))   # only 2 symbols
+        signals = _make_signals(price)
+        engine  = BacktestEngine(_make_cost_model())
+        # Must NOT raise — just record metrics. The realized top-1 will
+        # drift around 0.5 due to price action between rebalances; the
+        # exact value is not the contract — engine-doesn't-raise is.
+        result  = engine.run(signals, price)
+        assert "m12_top1_weight_max" in result.metrics
+        assert 0.4 < result.metrics["m12_top1_weight_max"] < 0.7, (
+            "concentrated 2-symbol equal-weight should land in 0.4-0.7 "
+            "neighborhood; getting outside this range likely indicates "
+            "the metric extractor regressed"
+        )

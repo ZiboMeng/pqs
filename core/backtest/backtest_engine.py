@@ -350,6 +350,13 @@ class BacktestEngine:
         bench = benchmark_series.reindex(equity_curve.index, method="ffill") if benchmark_series is not None else None
         metrics = compute_metrics(equity_curve, initial_capital=self._capital, benchmark=bench)
 
+        # M12 concentration metrics (codex Round-5): always exposed in
+        # BacktestResult.metrics so research / acceptance flows can
+        # opt-in enforce without re-running the backtest. Pure metric
+        # extraction — no policy, no side effect.
+        from core.backtest.concentration_metrics import compute_concentration_metrics
+        metrics.update(compute_concentration_metrics(weights_df))
+
         return BacktestResult(
             equity_curve = equity_curve,
             positions    = positions_df,

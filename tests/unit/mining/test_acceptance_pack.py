@@ -173,6 +173,114 @@ def test_fresh_backtest_gate_skip_pass_when_none():
     assert fresh_gate.values.get("skipped") is True
 
 
+# ── Gate 7 M12 concentration enforcement (codex Round-5) ──────────────
+
+
+def test_concentration_gate_skip_pass_when_no_fresh_backtest():
+    """Without a fresh backtest, Gate 7 has no realized weight matrix
+    to inspect, so it falls back to skip-PASS (with an explicit note)."""
+    gates = _build_gates(_PERFECT_TRIAL, fresh_check=None)
+    g = next(g for g in gates if g.name == "concentration")
+    assert g.passed is True
+    assert "SKIP-PASS" in g.notes
+    assert g.values.get("m12_top1_weight_max") is None
+    assert g.values.get("m12_top3_weight_max") is None
+
+
+def test_concentration_gate_pass_when_within_ceilings():
+    """Fresh backtest within both ceilings → Gate 7 passes."""
+    fresh = {
+        "strategy_cagr": 0.20, "qqq_cagr": 0.15, "excess": 0.05, "passed": True,
+        "m12_top1_weight_max": 0.30,
+        "m12_top3_weight_max": 0.65,
+    }
+    gates = _build_gates(_PERFECT_TRIAL, fresh_check=fresh)
+    g = next(g for g in gates if g.name == "concentration")
+    assert g.passed is True
+    assert g.values["m12_top1_weight_max"] == pytest.approx(0.30)
+    assert g.values["m12_top3_weight_max"] == pytest.approx(0.65)
+    assert g.values["breaches"] == []
+
+
+def test_concentration_gate_fail_when_top1_breaches():
+    """Top-1 = 0.45 > 0.40 ceiling → Gate 7 fails. Notes call it out."""
+    fresh = {
+        "strategy_cagr": 0.20, "qqq_cagr": 0.15, "excess": 0.05, "passed": True,
+        "m12_top1_weight_max": 0.45,    # over 0.40 ceiling
+        "m12_top3_weight_max": 0.60,
+    }
+    gates = _build_gates(_PERFECT_TRIAL, fresh_check=fresh)
+    g = next(g for g in gates if g.name == "concentration")
+    assert g.passed is False
+    assert any("top1_weight_max" in b for b in g.values["breaches"])
+    assert "concentrated bet" in g.notes
+
+
+def test_concentration_gate_fail_when_top3_breaches():
+    """Top-3 = 0.75 > 0.70 ceiling → Gate 7 fails."""
+    fresh = {
+        "strategy_cagr": 0.20, "qqq_cagr": 0.15, "excess": 0.05, "passed": True,
+        "m12_top1_weight_max": 0.30,
+        "m12_top3_weight_max": 0.75,    # over 0.70 ceiling
+    }
+    gates = _build_gates(_PERFECT_TRIAL, fresh_check=fresh)
+    g = next(g for g in gates if g.name == "concentration")
+    assert g.passed is False
+    assert any("top3_weight_max" in b for b in g.values["breaches"])
+
+
+def test_concentration_gate_fail_closed_when_metrics_missing():
+    """Fresh backtest reported but with None for the M12 fields →
+    fail-closed. Cannot certify concentration without observed weights."""
+    fresh = {
+        "strategy_cagr": 0.20, "qqq_cagr": 0.15, "excess": 0.05, "passed": True,
+        "m12_top1_weight_max": None,
+        "m12_top3_weight_max": None,
+    }
+    gates = _build_gates(_PERFECT_TRIAL, fresh_check=fresh)
+    g = next(g for g in gates if g.name == "concentration")
+    assert g.passed is False
+    assert "fail-closed" in g.notes
+
+
+def test_concentration_gate_uses_default_ceilings_in_threshold_dict():
+    """Threshold dict reports the 0.40 / 0.70 ceilings so a reader of
+    the artifact can see the contract without re-reading the code."""
+    from core.backtest.concentration_metrics import (
+        DEFAULT_TOP1_CEILING,
+        DEFAULT_TOP3_CEILING,
+    )
+    fresh = {
+        "strategy_cagr": 0.20, "qqq_cagr": 0.15, "excess": 0.05, "passed": True,
+        "m12_top1_weight_max": 0.30, "m12_top3_weight_max": 0.50,
+    }
+    gates = _build_gates(_PERFECT_TRIAL, fresh_check=fresh)
+    g = next(g for g in gates if g.name == "concentration")
+    assert g.threshold["top1_ceiling"] == DEFAULT_TOP1_CEILING
+    assert g.threshold["top3_ceiling"] == DEFAULT_TOP3_CEILING
+
+
+def test_concentration_gate_no_longer_skip_pass_when_fresh_provides_metrics():
+    """Pre-fix Gate 7 said:
+        passed=True, max_single_position_observed=None,
+        notes='Runtime-enforced ... not re-validated in pack v1.'
+    Post-fix with fresh_check carrying metrics, the gate must NOT
+    look like that anymore — it must contain real values and a
+    decision based on those values."""
+    fresh = {
+        "strategy_cagr": 0.20, "qqq_cagr": 0.15, "excess": 0.05, "passed": True,
+        "m12_top1_weight_max": 0.50, "m12_top3_weight_max": 0.65,
+    }
+    gates = _build_gates(_PERFECT_TRIAL, fresh_check=fresh)
+    g = next(g for g in gates if g.name == "concentration")
+    # Concrete values populated
+    assert g.values.get("m12_top1_weight_max") == pytest.approx(0.50)
+    # NOT the skip-pass shape (max_single_position_observed=None)
+    assert g.values.get("max_single_position_observed") is None or "max_single_position_observed" not in g.values
+    # NOT the legacy "Runtime-enforced" notes
+    assert "Runtime-enforced" not in g.notes
+
+
 def test_gate_values_populated():
     gates = _build_gates(_PERFECT_TRIAL)
     quick_gate = next(g for g in gates if g.name == "quick")
