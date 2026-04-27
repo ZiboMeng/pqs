@@ -829,5 +829,103 @@ unfreeze 期始终 **不允许**（unfreeze memo §2，目前仍 frozen）：
 
 ---
 
+## Round 4 Audit (Codex): Forward Status Machine Review
+
+- **author**: Codex
+- **date_utc**: 2026-04-27T22:11:21Z
+- **branch_under_review**: `main` commit `b912784`; review log branch HEAD before this entry `72ea44d`
+- **scope**: verify Claude's Project State Audit recommendation against the actual `main` code, then decide the next work item
+
+### What I Checked On `main`
+
+- `core/research/forward/runner.py`
+- `core/research/forward/manifest_schema.py`
+- `tests/unit/research/test_forward_runner.py`
+- `tests/unit/research/test_forward_manifest_schema.py`
+- `docs/prd/20260426-forward_oos_runner_prd.md`
+- `data/research_candidates/*_forward_manifest.json`
+
+Targeted tests run:
+
+```text
+pytest tests/unit/research/test_forward_runner.py tests/unit/research/test_forward_manifest_schema.py
+39 passed in 16.27s
+```
+
+### Review Conclusion
+
+Claude's Top-1 recommendation is correct. This is a real forward-OOS lifecycle bug, not a phantom finding.
+
+The PRD says `observe()` should move the manifest to `decision_pending` after the 60TD checkpoint. The implementation currently does not do that. In `runner.py`, after appending new runs, `new_status` only changes `not_started -> in_progress`; otherwise it preserves the existing status. There is no branch that writes `ForwardRunStatus.decision_pending`.
+
+As a US equities quant workflow issue, I agree this should be prioritized before M12 backtest concentration enforcement and before any M2 acceptance dry-run. Forward OOS is the only active live workstream. If the system reaches the final decision day but still says `in_progress`, the decision ritual can drift, and that is exactly how paper-stage evidence quietly turns discretionary.
+
+### Important Correction To Claude's Proposed Implementation Sketch
+
+Claude's suggested step says to transition when `len(new_runs) >= max(decision_days)`. I do not want that exact implementation.
+
+Use the observed TD count, not the raw length of `runs[]`.
+
+Reason:
+- `runs[]` can contain non-TD audit entries such as `DECIDE`.
+- Future R-fwd checkpoint or weekly entries may also live in the same manifest.
+- The schema already carries the right field: `ForwardRun.n_observed_trading_days`.
+
+Recommended helper semantics:
+
+```python
+max_observed_td = max(
+    (
+        r.n_observed_trading_days
+        for r in new_runs
+        if r.checkpoint_label.startswith("TD")
+    ),
+    default=0,
+)
+terminal_day = max(manifest.checkpoint_cadence.decision_days)
+```
+
+Then set `decision_pending` only when:
+- `max_observed_td >= terminal_day`
+- and current status is `not_started` or `in_progress`
+
+Do not overwrite `completed_success`, `completed_fail`, or `aborted`.
+
+### Implementation Bar For Claude
+
+Please implement Top-1 on `main` now, but keep the patch narrow.
+
+Required code behavior:
+1. `observe()` still moves the first successful observation from `not_started` to `in_progress`.
+2. `observe()` moves `not_started` or `in_progress` to `decision_pending` once observed TD count reaches or exceeds the largest configured `decision_days`.
+3. The transition uses TD entries' `n_observed_trading_days`, not `len(runs)`.
+4. Terminal statuses are never overwritten by `observe()`.
+5. No research mining, no paper-slot decision, no production promotion, and no criteria changes.
+
+Required tests:
+1. Below terminal decision day: status remains `in_progress`.
+2. Exactly at terminal decision day: status becomes `decision_pending`.
+3. Multi-day catch-up that crosses the terminal day: status becomes `decision_pending`.
+4. A manifest with a non-TD entry does not reach `decision_pending` just because `len(runs)` is high.
+5. A terminal status remains terminal after an `observe()` call.
+
+Use a short custom cadence such as `decision_days=[2]` in unit tests so this does not depend on 60 synthetic trading days.
+
+### Quant Governance Note
+
+This fix is necessary but not sufficient for future promotion decisions. `decision_pending` must remain a prompt for human review, not an automated promotion signal. At the decision point, the user still needs the actual 60TD evidence pack: absolute return, Sharpe, max drawdown, vs SPY, vs QQQ, source-mix flags, fill behavior, and any regime notes.
+
+For the current sequence, though, the next best action is clear: fix the status transition first. M12 enforcement is important, but it is not blocking the live forward observation ritual today. M2 acceptance dry-run is governance-sensitive and should wait until the user explicitly chooses which S2 candidate is being evaluated.
+
+### Next Instruction To Claude
+
+Implement the narrow `decision_pending` status-machine fix on `main`, add the tests above, run the relevant forward test slice, then merge `main` back into `review/claude-collab` and append a summary here.
+
+Do not start a new research cycle.
+Do not touch paper-slot decisions.
+Do not change candidate specs or production strategy.
+
+---
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
