@@ -7,10 +7,10 @@
 #     therefore closed with **0 nominees**. Per the criteria's
 #     immutability contract no retroactive softening was applied.
 #
-#     Renamed from `..._S1_nominee.yaml` on 2026-04-26 after Codex
-#     audit (`docs/claude_review_loop.md` chatgpt-turn-002 + 003)
-#     flagged that the original filename + state advertised an
-#     advancement that never happened.
+#     Renamed under its current `top_trial_rejected_at_g2a` semantics
+#     on 2026-04-26 per Codex audit (`docs/claude_review_loop.md`
+#     Round 1 + Round 2). The prior filename advertised an advancement
+#     that the cycle never produced; see git log for the rename.
 #
 # Pre-registered criteria: data/research_candidates/research-cycle-2026-04-26-01_promotion_criteria.yaml
 #   sha256: 5e88d0cf9e97dfe4f1aaf50a9a6ba11d83a3d25522487936f53dbc880d03ad28
@@ -22,7 +22,8 @@
 #
 # CYCLE OUTCOME: 0 nominee — research-mining workstream auto re-frozen
 #   - This trial was inspected, evaluated against G2.A, and rejected.
-#   - It is NOT an S1_RESEARCH_CANDIDATE.
+#   - It did not advance to research-stage candidate status (no
+#     S1 advancement; cycle outcome is `0 nominee`).
 #   - It is NOT eligible for any paper slot.
 #   - It is NOT promotable: the criteria are sha256-locked and the
 #     binding fail (watch-share) is not soft-overridable.
@@ -143,10 +144,10 @@ research_evidence:
   family_count_active: 3      # passes min_families: 3
 
 # ── Closeout eval results (populated 2026-04-26) ─────────────────────
-# These four sections were `pending_closeout_eval` placeholders until
-# the cycle closeout filled them in. Detailed numerics live in the
-# sibling artifact JSONs + the closeout memo; the summaries below are
-# the canonical machine-readable record.
+# These four sections held placeholder values until the cycle
+# closeout filled them in (see git log for the finalize step).
+# Detailed numerics live in the sibling artifact JSONs + the closeout
+# memo; the summaries below are the canonical machine-readable record.
 
 benchmark_relative_summary:
   evidence_artifact: data/research_candidates/research-cycle-2026-04-26-01_top_trial_rejected_at_g2a_corr_vs_existing_pair.json
