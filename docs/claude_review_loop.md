@@ -684,6 +684,149 @@ Same table as Round 2 Audit Re-check, but now provably true on `review/claude-co
 - ❌ Test-path renames not done (per codex's stated Option-A preference, conditional on this sync — that condition is now met).
 - ❌ No new mining cycle / criteria edits / paper-slot decisions / advisory-item work.
 
+## Project State Audit (Claude) — 2026-04-27
+
+- **author**: Claude
+- **date_utc**: 2026-04-27
+- **branch_under_review**: `review/claude-collab` HEAD `4d3db75` (synced with `main` `b912784`)
+- **scope**: 8-question project audit per user request; investigated against the actual repo tree (no audit-from-memory). Every claim links to a concrete file, line range, or commit.
+
+### 1. 当前项目主线到底在推进什么
+
+仓库当前**只有一条活线**：**Forward OOS observation**——针对两个 frozen paper-stage candidates。其余主线（mining / 因子研究 / universe / Candidate-3 / data tier / config）全部 frozen 或 just-closed。
+
+证据（master `b912784` / review HEAD `4d3db75`）：
+
+| workstream | 当前状态 | 关键证据 |
+|-----------|---------|---------|
+| Forward OOS observation | **active** (observation-only) | `data/research_candidates/{rcm_v1_defensive_composite_01,candidate_2_orthogonal_01}_forward_manifest.json` 都 `current_status: in_progress`，各 1 条 TD001 entry；`docs/forward_observation_log.md` 写了 baseline 段；`feedback_forward_observation_ritual.md` memory rule 在 |
+| Research-mining workstream | **auto re-frozen** (cycle 2026-04-26-01 closed 0-nominee) | `docs/memos/20260426-research-cycle-2026-04-26-01_close.md` §9 + `docs/memos/20260426-research_layer_partial_unfreeze.md` §8 |
+| OOS-framework MVP | **auto re-frozen** at OOSMVPDONE | `docs/memos/20260425-oos_mvp_close.md` §6 |
+| Paper layer | **frozen specs**；两个候选都 `S2_paper_candidate` | `data/research_candidates/registry.db`：`rcm_v1_defensive_composite_01` promoted 2026-04-23T23:39:14Z；`candidate_2_orthogonal_01` promoted 2026-04-24T15:28:35Z；两个 `revoked_at` 都 NULL |
+| Production strategy | **conservative_default** (从未 promote) | `config/production_strategy.yaml` L34 |
+| Bridge (旧 Claude×Codex 协作通道) | **deprecated** | commit `30c1e77` |
+| Three-party review loop (此 review/claude-collab 分支) | **active** | A.6 git rhythm + 新 paste-flow rule（feedback_codex_review_paste_flow.md）+ 新 sync rule（feedback_review_branch_sync.md） |
+
+**没有任何主线在做新研究 / 新代码 / 新 mining。** 节奏是观察 + 等数据。
+
+### 2. 当前 production strategy 为什么还只是 `conservative_default`
+
+`config/production_strategy.yaml` 自身给出机器可读的答案：
+
+- **L34**: `status: "conservative_default"`
+- **L41**: `source.mode: "manual"` — 从未通过 `scripts/promote_strategy.py` (M2) 从 archive 提升任何 spec
+- **L42**: `source.spec_id: ""` — 空
+- **L77-86**: 整个 `validation:` 块全 `false`：
+
+  ```yaml
+  validation:
+    post_fix_validated: false       # post-P0.1-fix revalidated
+    passed_oos_gate: false          # OOS IR >= 0.20 in walk-forward
+    passed_qqq_gate: false          # CAGR > QQQ on full + holdout + OOS avg
+    passed_paper_backtest_alignment: false
+    notes: |
+      R33 weights pre-date apply_extra_shift=False default. Current post-fix
+      codebase may not reproduce pre-fix OOS numbers. Pending post-fix
+      re-mining + acceptance pack before promote to active.
+  ```
+
+- **L89-92**: `fingerprints` (universe_hash / factor_registry_hash / config_hash) 全 `""` — M3 runtime alignment check 启动时只能 log "provisional"
+
+**根本原因**：当前 production 权重源是 R33 grid-search（Phase B 19-iter 时代）的 in-sample best calibration；P0.1 修复（`apply_extra_shift=False`）改了信号窗口语义，pre-fix 的数字在 post-fix codebase 上不复现。要切到 `active` 必须走完 M2 acceptance pack，**没人跑过**。
+
+### 3. 当前 Forward OOS 处于什么阶段，证据 vs 缺失
+
+**已有证据**（review/claude-collab HEAD `4d3db75` 直接核对）：
+
+- 两个候选 `registry.db` 状态 `S2_paper_candidate`、`revoked_at = NULL`
+- 两个 `..._forward_manifest.json` schema_version=1.0、current_status=in_progress、各 1 个 `runs[]` entry：
+  ```
+  RCMv1   TD001 / as_of=2026-04-24 / cum_ret=0.0 / source_mix=true / fills_today=0
+  Cand-2  TD001 / as_of=2026-04-24 / cum_ret=0.0 / source_mix=true / fills_today=11
+  ```
+- `core/research/forward/{runner,manifest_schema,manifest_io,readiness}.py` 全 shipped + 单测覆盖
+- `core/data/source_boundaries.py` + `data/ref/daily_source_boundaries.parquet` sidecar shipped
+- `docs/forward_observation_log.md` baseline 段已记
+- 每日 ritual 由 user "数据来了" 信号触发（memory `feedback_forward_observation_ritual.md`）
+
+**缺失证据**：
+
+1. **真实 forward TD ≥ 2** — 当前只有 TD001（baseline 入场点），还没等到任何后续真实交易日观察
+2. **`forward_oos_runner_prd.md` Round R-fwd-2 未启动**（observation engine 的 cost-hash HALT 等强化）— PRD §6 "Round R-fwd-2: observation engine"；CLAUDE.md L598-599 显式门槛 "≥3-5 real TD entries accumulate"
+3. **`forward_oos_runner_prd.md` Round R-fwd-3 未启动**（checkpoint pipeline `<id>_forward_checkpoint_{N}d.{json,md}`）— PRD §6 "Round R-fwd-3"
+4. **`runner.py::observe` 永远不写 `decision_pending`**——`runner.py` L544-548 的状态机只能从 `not_started → in_progress`，到达 `decision_days[-1]=60` 时不会自动标记需决策状态；这是 codex Round-1 advisory 仍然成立的项
+5. **post-frozen-date Sharpe / MaxDD / vs_SPY / vs_QQQ** — 全部 None（runs[0] 是 baseline，没真实回报）
+6. **Cost-hash HALT 实战触发记录** — 没数据可触发
+
+### 4. Research layer partial unfreeze 实际允许做什么 / 不允许做什么
+
+**核心约束**：`docs/memos/20260426-research_layer_partial_unfreeze.md` §8 规定 cycle 结束（无论 0-nominee 还是 promote）即自动 re-freeze。Cycle 2026-04-26-01 已在 `bb0f3a5` (closeout) + `16fa77e/87d9de9/b912784` (consistency fix) 完成关闭，因此**当前 research 层处于 frozen 状态，不在 unfreeze 期内**。
+
+要重启 research 层需要：**新授权 memo + 新 lineage_tag + 新 promotion_criteria.yaml**（unfreeze memo §8 "next research cycle requires fresh authorization"）。
+
+unfreeze 期内（已结束）允许过的（仅参考，不是当前可做项）：
+- 跑 mining：`core/mining/` 下 TPE/Optuna factor 搜索（unfreeze memo §1）
+- 因子研究：`core/factors/` 下 IC/IR 分析、候选生成、LLM 辅助探索
+- 输出落 `S0_PROTOTYPE` 或（产物集齐时）`S1_RESEARCH_CANDIDATE`
+
+unfreeze 期始终 **不允许**（unfreeze memo §2，目前仍 frozen）：
+- 扩 universe（`config/universe.yaml` 不动；BRK-B 不复活）
+- Candidate-3 绕过漏斗直 S2
+- 改 `frozen_spec.py` 保护下任何 yaml（RCMv1 / Cand-2 immutable）
+- 改 paper / forward manifest 历史（append-only）
+- 加 `PRODUCTION_FACTORS`（`core/factors/factor_registry.py` 仍 7 元素）
+- 加新数据源 / intraday timeframe / vendor
+- 改 `config/*.yaml`
+- 改 `registry.db` schema
+- 改 `requirements*.txt` / `pyproject.toml`
+
+**自动 promote 始终不允许**（unfreeze memo §3「Research-unfreeze ≠ paper slot opens」+ §5「How a new candidate gets to a paper slot」）：要显式 paper-slot 决定 memo。
+
+### 5. 未来 3 个最值得推进的事项（按优先级）
+
+每条都引用具体文件 + 注明类型：
+
+| # | 项目 | 类型 | 一句话理由 | 直接证据 |
+|---|------|------|-----------|---------|
+| 1 | **`forward_runner.observe` 最大 decision_day 触发 `decision_pending` 状态机转换** | 工程 + 治理 | `runner.py` L544-548 永不进入 `decision_pending`；当 manifest 累计到 60 TD（最后一个 decision_day），系统看不出"该决策了"。codex Round-1 advisory 单独标过这点，至今未修。这是 forward observation 工作流唯一已知的状态机 bug | `core/research/forward/runner.py:544-548`；`docs/prd/20260426-forward_oos_runner_prd.md` §4；codex Round-1 advisory in `docs/claude_review_loop.md` (Priority Clarification 段) |
+| 2 | **M12 concentration gate 真正在 `BacktestEngine` enforce** | 工程 | `core/backtest/backtest_engine.py` 整个文件 0 处 `concentration` / `M12` 引用——CLAUDE.md L624-626 显式标 `[ ]` open，"Currently skip-PASS"。research 层有 weighted thin-data + watch-share 的 enforcement 了（M12 audit 2026-04-25），但执行层 (backtest 路径) 还是 PASS-by-skip。这是 silent regression 通道 | `core/backtest/backtest_engine.py` (no concentration enforcement)；CLAUDE.md L624-626；`docs/memos/20260425-m12_review_decision.md` |
+| 3 | **跑一次 `M2 acceptance pack dry-run` 在 RCMv1 / Cand-2 上**（不实际 promote） | 验证 + 治理 | `config/production_strategy.yaml` 至今 `validation: 全 false`；`source.mode: manual` 没人跑过 promote_strategy.py 的全链路。dry-run 跑一次，看 acceptance pack 在 post-fix codebase 上对两个候选输出什么数字——是低风险高信息量的"真测一次"行为，但**前置依赖 paper-slot 决策 memo**（unfreeze memo §5），所以要先决定对哪个候选跑 | `config/production_strategy.yaml` L77-86；`scripts/promote_strategy.py` (M2)；`scripts/acceptance_research_composite.py`；`docs/memos/20260426-research_layer_partial_unfreeze.md` §5 |
+
+**不在 Top-3 里的（明确说"不做"）**：
+
+- ❌ 新开 mining cycle — research 层 auto re-frozen，需要新授权 memo
+- ❌ 起草下一 cycle 的 criteria 提案 — 前置依赖 forward 数据；当前 1 TD（baseline）远不够
+- ❌ R-fwd-2 / R-fwd-3 主体实施 — CLAUDE.md L598-599 门槛 ≥3-5 TD，未到
+- ❌ 多时间框架 / 实盘对接 / 数据 vendor 切换 — 都 frozen
+- ❌ test-file rename（codex Option A 已敲定不动）
+
+### 6. 立刻执行的一件事，为什么不是另两件
+
+**立刻做：Top-1 — 修 `forward_runner.observe` 的状态机转换**。
+
+**步骤**（每步 < 30 行代码）：
+1. 读 `runner.py::_resolve_dates_to_observe` + `observe` 现状
+2. 找到 `manifest.checkpoint_cadence.decision_days`，定义 "已到/已过最后 decision_day" 判断
+3. 在 `observe()` 末尾——append 完 runs 后——加一个 transition：当 `len(new_runs) >= max(decision_days)`，把 `current_status` 从 `in_progress` 改成 `decision_pending`
+4. 加 2-3 个 unit tests：(a) 未达 decision_day 时 status 保持 in_progress；(b) 刚到 max(decision_days) 时 status → decision_pending；(c) decide() 之后 status 不被 observe() 自动覆盖回去
+5. 同步 main → review
+
+**为什么不是 Top-2 (M12 enforcement)**：M12 是工程债，**不会在每日 forward 观察里继续恶化**。它等得起。Top-1 不一样——forward observation 是当前唯一活线，`decide()` 触发条件取决于状态机正确转换。如果 user 在 Day 60 看到 "in_progress" 而不是 "decision_pending"，他不知道现在该不该决策——这是当前唯一活线的 UX 缺陷。
+
+**为什么不是 Top-3 (M2 acceptance dry-run)**：跑 M2 acceptance 要先决定**对哪个 candidate 跑**——RCMv1 还是 Cand-2。这是**治理决策**（paper-slot 决策 memo），不是工程任务。前置门槛比 Top-1 / Top-2 都高。Top-1 是纯工程修复 + 不依赖任何外部决策。
+
+**总结**：Top-1 修一个**当前活线**的状态机 bug，无前置依赖、范围小、testable、并且每天 forward observation 都需要它正确工作。Top-2 / Top-3 重要但不紧急或有前置。
+
+### 7-8.（已答；并入 1-6 各表）
+
+每条都引用了具体文件路径 / 行号 / commit hash / memo 路径。Top-3 的"立刻做的一件"已在 §6 给出，并显式说明为什么不是另外两件。
+
+### Out-Of-Scope This Turn
+
+- ❌ 不在本轮做 Top-1 修复——这是审计轮次，不是动手轮次。等 user / codex 同意 Top-1 优先级再动 master。
+- ❌ 不重启 research mining / 不写新 cycle criteria。
+- ❌ 不动 paper-slot 决策。
+
 ---
 
 <!-- next turn appends here. Convention: increment serial; mark role
