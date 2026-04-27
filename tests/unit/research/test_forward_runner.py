@@ -474,3 +474,154 @@ def test_runner_module_imports_schema():
         "core/research/forward/manifest_io.py"
     ).read_text()
     assert "ForwardRunManifest" in io_src
+
+
+# ── decision_pending status-machine transition (codex Round-4) ──────────
+#
+# The PRD says ``observe()`` should move the manifest to
+# ``decision_pending`` once the largest observed TD count reaches the
+# largest configured ``decision_days`` checkpoint. The pre-fix code only
+# ever transitioned ``not_started → in_progress``, leaving the manifest
+# stuck at ``in_progress`` after the terminal day. The fix lives in
+# ``_next_status_after_observe`` and is exercised by ``observe`` end-to-
+# end, but the helper is unit-tested here directly so we don't need 60
+# synthetic trading days per case.
+
+
+def _make_td_run(n_td: int, *, label: str = None) -> "ForwardRun":  # type: ignore[name-defined]
+    from core.research.forward.manifest_schema import ForwardRun
+    return ForwardRun(
+        checkpoint_label=label or f"TD{n_td:03d}",
+        as_of_date=date(2026, 4, 24) + pd.Timedelta(days=n_td).to_pytimedelta(),
+        n_observed_trading_days=n_td,
+        cum_ret=0.0,
+        max_dd=0.0,
+        notes="synthetic",
+    )
+
+
+def test_observe_status_below_terminal_day_stays_in_progress():
+    from core.research.forward.runner import _next_status_after_observe
+    runs = [_make_td_run(1)]  # only TD001, terminal_day = 2
+    result = _next_status_after_observe(
+        current_status=ForwardRunStatus.in_progress,
+        new_runs=runs,
+        decision_days=[2],
+    )
+    assert result is ForwardRunStatus.in_progress
+
+
+def test_observe_status_at_terminal_day_transitions_to_decision_pending():
+    from core.research.forward.runner import _next_status_after_observe
+    runs = [_make_td_run(1), _make_td_run(2)]   # last TD == terminal_day
+    result = _next_status_after_observe(
+        current_status=ForwardRunStatus.in_progress,
+        new_runs=runs,
+        decision_days=[2],
+    )
+    assert result is ForwardRunStatus.decision_pending
+
+
+def test_observe_status_multi_day_catchup_crosses_terminal_day():
+    """A multi-day catch-up that goes from below to past the terminal
+    day in one observe() call must still land at decision_pending."""
+    from core.research.forward.runner import _next_status_after_observe
+    runs = [_make_td_run(1), _make_td_run(3)]  # crossed terminal_day=2
+    result = _next_status_after_observe(
+        current_status=ForwardRunStatus.in_progress,
+        new_runs=runs,
+        decision_days=[2],
+    )
+    assert result is ForwardRunStatus.decision_pending
+
+
+def test_observe_status_ignores_non_TD_entries_for_terminal_check():
+    """Non-TD audit / checkpoint / weekly entries do not contribute to
+    the terminal-day check. A manifest with 3 DECIDE entries must NOT
+    reach decision_pending unless the TD count itself qualifies.
+    """
+    from core.research.forward.manifest_schema import ForwardRun
+    from core.research.forward.runner import _next_status_after_observe
+
+    decide_entry = ForwardRun(
+        checkpoint_label="DECIDE",
+        as_of_date=date(2026, 4, 30),
+        n_observed_trading_days=10,   # decoy: high count on a non-TD row
+        cum_ret=0.0,
+        max_dd=0.0,
+        notes="user decision audit",
+    )
+    runs = [decide_entry, decide_entry, decide_entry, _make_td_run(1)]
+    result = _next_status_after_observe(
+        current_status=ForwardRunStatus.in_progress,
+        new_runs=runs,
+        decision_days=[2],
+    )
+    assert result is ForwardRunStatus.in_progress, (
+        "non-TD entries' n_observed_trading_days must NOT count toward "
+        "the terminal-day check; only TD-prefixed rows do"
+    )
+
+
+def test_observe_status_never_overwrites_terminal_status():
+    """completed_success / completed_fail / aborted are user-driven
+    terminal states. observe() must never push them back to
+    in_progress or decision_pending.
+    """
+    from core.research.forward.runner import _next_status_after_observe
+    # Build runs that WOULD trip decision_pending if status were not terminal.
+    runs = [_make_td_run(2), _make_td_run(3)]
+    for terminal in (
+        ForwardRunStatus.completed_success,
+        ForwardRunStatus.completed_fail,
+        ForwardRunStatus.aborted,
+    ):
+        result = _next_status_after_observe(
+            current_status=terminal,
+            new_runs=runs,
+            decision_days=[2],
+        )
+        assert result is terminal, (
+            f"terminal status {terminal!r} must not be overwritten by observe()"
+        )
+
+
+def test_observe_status_decision_pending_is_sticky():
+    """Once a manifest reaches decision_pending, subsequent observe()
+    calls must keep it there — only decide() should move it forward.
+    """
+    from core.research.forward.runner import _next_status_after_observe
+    runs = [_make_td_run(2), _make_td_run(3), _make_td_run(4)]
+    result = _next_status_after_observe(
+        current_status=ForwardRunStatus.decision_pending,
+        new_runs=runs,
+        decision_days=[2],
+    )
+    assert result is ForwardRunStatus.decision_pending
+
+
+def test_observe_status_first_successful_observation_promotes_not_started():
+    """Pre-existing contract: first successful observation moves
+    not_started → in_progress (when terminal day not yet crossed)."""
+    from core.research.forward.runner import _next_status_after_observe
+    runs = [_make_td_run(1)]
+    result = _next_status_after_observe(
+        current_status=ForwardRunStatus.not_started,
+        new_runs=runs,
+        decision_days=[2],
+    )
+    assert result is ForwardRunStatus.in_progress
+
+
+def test_observe_status_not_started_can_jump_directly_to_decision_pending():
+    """Edge case: a manifest that goes from not_started straight past
+    terminal day in one catch-up must land at decision_pending, not
+    in_progress."""
+    from core.research.forward.runner import _next_status_after_observe
+    runs = [_make_td_run(1), _make_td_run(2)]
+    result = _next_status_after_observe(
+        current_status=ForwardRunStatus.not_started,
+        new_runs=runs,
+        decision_days=[2],
+    )
+    assert result is ForwardRunStatus.decision_pending
