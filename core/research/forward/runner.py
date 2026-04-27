@@ -90,6 +90,61 @@ class ForwardHaltError(RuntimeError):
 # ── helpers ──────────────────────────────────────────────────────────────
 
 
+# Statuses that observe() must never overwrite — these reflect a
+# user-driven terminal decision and re-running observe() against the
+# manifest must be a no-op for the status field.
+TERMINAL_FORWARD_STATUSES = frozenset({
+    ForwardRunStatus.completed_success,
+    ForwardRunStatus.completed_fail,
+    ForwardRunStatus.aborted,
+})
+
+
+def _next_status_after_observe(
+    *,
+    current_status: ForwardRunStatus,
+    new_runs: list,
+    decision_days: list,
+) -> ForwardRunStatus:
+    """Compute the manifest status after an ``observe()`` call.
+
+    Status-machine rules (PRD §4 + codex Round-4 audit):
+      - terminal statuses (``completed_success`` / ``completed_fail`` /
+        ``aborted``) and ``decision_pending`` are never overwritten
+        here; only ``decide()`` may move them.
+      - ``not_started`` / ``in_progress`` transition to
+        ``decision_pending`` once the largest observed TD count has
+        reached the largest configured ``decision_days`` checkpoint.
+      - ``not_started`` transitions to ``in_progress`` on the first
+        successful observation when the terminal day has not yet been
+        crossed.
+
+    The TD count is taken from each ``ForwardRun.n_observed_trading_days``
+    over entries whose ``checkpoint_label`` starts with ``"TD"``. Non-TD
+    audit entries (e.g. ``DECIDE``) and future checkpoint / weekly
+    entries are intentionally ignored so a future schema extension that
+    adds non-TD rows cannot accidentally trip this gate.
+    """
+    if current_status in TERMINAL_FORWARD_STATUSES:
+        return current_status
+    if current_status is ForwardRunStatus.decision_pending:
+        return ForwardRunStatus.decision_pending
+    max_observed_td = max(
+        (
+            r.n_observed_trading_days
+            for r in new_runs
+            if r.checkpoint_label.startswith("TD")
+        ),
+        default=0,
+    )
+    terminal_day = max(decision_days) if decision_days else 0
+    if terminal_day > 0 and max_observed_td >= terminal_day:
+        return ForwardRunStatus.decision_pending
+    if current_status is ForwardRunStatus.not_started:
+        return ForwardRunStatus.in_progress
+    return current_status
+
+
 def _file_sha256_hex(path: Path) -> str:
     h = hashlib.sha256()
     h.update(Path(path).read_bytes())
@@ -541,10 +596,10 @@ def observe(
 
     # Reconstruct manifest with appended entries (append-only contract).
     new_runs = list(manifest.runs) + appended
-    new_status = (
-        ForwardRunStatus.in_progress
-        if manifest.current_status is ForwardRunStatus.not_started
-        else manifest.current_status
+    new_status = _next_status_after_observe(
+        current_status=manifest.current_status,
+        new_runs=new_runs,
+        decision_days=list(manifest.checkpoint_cadence.decision_days or []),
     )
     new_manifest = manifest.model_copy(
         update={"runs": new_runs, "current_status": new_status}
