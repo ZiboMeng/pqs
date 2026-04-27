@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 """Research-cycle closeout evaluator.
 
-Given a pre-registered criteria yaml + a frozen S1-nominee candidate
-spec, compute the full G2.A hard-requirements decision table + the
-G2.B report-only fields, and write the artifacts the unfreeze memo §9
-+ criteria yaml require for closeout:
+Given a pre-registered criteria yaml + a frozen candidate spec,
+compute the full G2.A hard-requirements decision table + the G2.B
+report-only fields, write the sidecar artifacts, AND finalize the
+four canonical-summary blocks back into the candidate YAML so that
+re-running the script produces a fully consistent end state from a
+single command (no manual memo editing required).
+
+Sidecar artifacts written:
 
   - candidate <id>_robustness_window.yaml
   - candidate <id>_robustness_eval.{json,md}
@@ -15,13 +19,26 @@ G2.B report-only fields, and write the artifacts the unfreeze memo §9
   - candidate <id>_corr_vs_existing_pair.json
   - cycle <lineage>_closeout_eval.json (the decision table)
 
-The closeout MEMO is written by hand using these JSONs; this script
-only produces the numeric artifacts.
+Canonical-YAML finalize step (post Round-2 audit, 2026-04-27):
+
+  - The canonical candidate YAML carries a `# BEGIN closeout finalize
+    block` … `# END closeout finalize block` marker pair.
+  - At the end of `run_close_eval`, the block between markers is
+    regenerated from `closeout_payload` + `full_summary` so the
+    `benchmark_relative_summary`, `oos_holdout_summary`,
+    `robustness_summary`, and `acceptance_decision[_details]` fields
+    are kept in lock-step with the rest of the closeout artifacts.
+  - `note:` fields inside each block are merged from the prior YAML
+    so editorial prose survives re-runs.
+
+The closeout MEMO is written by hand once per cycle (it carries
+narrative the pipeline cannot generate), but the canonical YAML
+state is no longer separable from the pipeline output.
 
 CLI:
     python dev/scripts/research_cycle/run_close_eval.py \\
         --criteria data/research_candidates/research-cycle-2026-04-26-01_promotion_criteria.yaml \\
-        --candidate research-cycle-2026-04-26-01_S1_nominee
+        --candidate research-cycle-2026-04-26-01_top_trial_rejected_at_g2a
 """
 from __future__ import annotations
 
@@ -216,6 +233,95 @@ def _load_watch_symbols(watch_path: Path):
     return watch, thin, pct
 
 
+def gate_check(name: str, measured, op: str, threshold) -> dict:
+    """Evaluate a single G2.A hard gate against its measured value.
+
+    Returns ``{gate, measured, op, threshold, passed}``. Public so the
+    closeout decision table is unit-testable without running the full
+    backtest pipeline.
+
+    `op` values: ``"ge"``, ``"le"``, ``"in_set"``. Other ops raise.
+    A ``None`` measured value never passes ``ge`` / ``le`` (we treat
+    "no measurement" as a hard fail rather than silently passing).
+    """
+    if op == "ge":
+        passed = (measured is not None) and (measured >= threshold)
+    elif op == "le":
+        passed = (measured is not None) and (measured <= threshold)
+    elif op == "in_set":
+        passed = measured in threshold
+    else:
+        raise ValueError(f"unknown gate op: {op!r}")
+    return {
+        "gate": name,
+        "measured": measured,
+        "op": op,
+        "threshold": threshold,
+        "passed": bool(passed),
+    }
+
+
+def build_decision_table(
+    *,
+    hard: dict,
+    ic_ir_full_period,
+    folds_positive: int,
+    concentration_dict: dict,
+) -> list:
+    """Build the 7-row G2.A decision table for a candidate.
+
+    Pure function — no I/O. Tests can construct synthetic inputs and
+    assert pass/fail on each row without invoking the full eval
+    pipeline.
+    """
+    rows = []
+    rows.append(gate_check(
+        "min_ic_ir_full_period",
+        ic_ir_full_period,
+        "ge",
+        hard["min_ic_ir_full_period"],
+    ))
+    rows.append(gate_check(
+        "min_walk_forward_folds_positive",
+        folds_positive,
+        "ge",
+        hard["min_walk_forward_folds_positive"],
+    ))
+    rows.append(gate_check(
+        "m12_concentration_tier",
+        concentration_dict.get("tier"),
+        "in_set",
+        ["pass", "warning"]
+        if hard["m12_concentration_tier_ceiling"] == "warning"
+        else ["pass"],
+    ))
+    rows.append(gate_check(
+        "watchlist_total_share",
+        concentration_dict.get("watchlist_total_share"),
+        "le",
+        hard["watchlist_total_share_ceiling"],
+    ))
+    rows.append(gate_check(
+        "thin_data_weighted_share",
+        concentration_dict.get("thin_data_weighted_share"),
+        "le",
+        hard["thin_data_weighted_share_ceiling"],
+    ))
+    rows.append(gate_check(
+        "top1_weight_max",
+        concentration_dict.get("top1_weight_max"),
+        "le",
+        hard["top1_weight_max_ceiling"],
+    ))
+    rows.append(gate_check(
+        "top3_weight_max",
+        concentration_dict.get("top3_weight_max"),
+        "le",
+        hard["top3_weight_max_ceiling"],
+    ))
+    return rows
+
+
 def _regime_for_date_index(idx: pd.DatetimeIndex, spy_close: pd.Series) -> pd.Series:
     """Lightweight 6-regime label series mapping each date to one of
     {BULL, BEAR, RISK_ON, RISK_OFF, CRISIS, SIDEWAYS}.
@@ -284,6 +390,284 @@ def _sha256_of_file(p: Path) -> str:
     h = hashlib.sha256()
     h.update(p.read_bytes())
     return h.hexdigest()
+
+
+# ── canonical-YAML finalize (post Round-2 audit) ─────────────────────
+
+
+CLOSEOUT_BEGIN_MARKER = "# ── BEGIN closeout finalize block (auto-written by run_close_eval.py) ─"
+CLOSEOUT_END_MARKER = "# ── END closeout finalize block ──────────────────────────────────────"
+
+
+def _canonical_artifact_path(output_dir: Path, candidate_id: str, suffix: str) -> str:
+    """Return a stable repo-relative path string for a sidecar artifact.
+
+    The canonical YAML records artifacts with the `data/research_candidates/...`
+    prefix even when `output_dir` is overridden in tests, so consumers can
+    rely on a single canonical reference scheme.
+    """
+    if str(output_dir).endswith("data/research_candidates"):
+        return f"data/research_candidates/{candidate_id}{suffix}"
+    return str((output_dir / f"{candidate_id}{suffix}").as_posix())
+
+
+def _find_decision_row(decision_rows: list, gate_name: str):
+    for row in decision_rows:
+        if row.get("gate") == gate_name:
+            return row
+    return None
+
+
+def _binding_fail_row(decision_rows: list):
+    """Return the first row with `passed=False`, or None if all pass."""
+    for row in decision_rows:
+        if not row.get("passed", False):
+            return row
+    return None
+
+
+def build_summary_blocks_from_payload(
+    *,
+    closeout_payload: dict,
+    full_summary: dict,
+    candidate_id: str,
+    output_dir: Path,
+    walk_n_folds: int,
+    walk_lag_bars: int,
+    cycle_close_memo: str = "docs/memos/20260426-research-cycle-2026-04-26-01_close.md",
+) -> dict:
+    """Compose the four canonical-YAML summary blocks from closeout outputs.
+
+    Pure function — no I/O. Tests can supply a synthetic payload and
+    assert the resulting block shape without invoking the full eval
+    pipeline.
+
+    The returned dict contains exactly the keys that
+    `_finalize_canonical_yaml` will write between the markers:
+
+      - benchmark_relative_summary
+      - oos_holdout_summary
+      - robustness_summary
+      - acceptance_decision
+      - acceptance_decision_details
+    """
+    decision_rows = closeout_payload["g2_a_decision_table"]
+    g2_b = closeout_payload.get("g2_b_report_only", {})
+    conc = closeout_payload.get("concentration_report_summary", {})
+    beta = g2_b.get("benchmark_beta_statistics", {}) or {}
+    pseudo = g2_b.get("pseudo_oos_2024", {}) or {}
+    regime = g2_b.get("regime_breakdown", {}) or {}
+    corr_map = g2_b.get("correlation_vs_existing_pair", {}) or {}
+    turnover = g2_b.get("turnover_full_period")
+
+    folds_positive_row = _find_decision_row(decision_rows, "min_walk_forward_folds_positive")
+    folds_positive = folds_positive_row.get("measured") if folds_positive_row else None
+
+    benchmark_relative = {
+        "evidence_artifact": _canonical_artifact_path(
+            output_dir, candidate_id, "_corr_vs_existing_pair.json"
+        ),
+        "realized_portfolio_weighted_mean_beta": beta.get("portfolio_weighted_mean_beta"),
+        "realized_portfolio_weighted_std_beta": beta.get("portfolio_weighted_std_beta"),
+        "vs_spy_qqq": "deferred_to_paper_layer",
+    }
+    for other_id, corr_value in corr_map.items():
+        benchmark_relative[f"composite_corr_vs_{other_id}"] = corr_value
+
+    oos_holdout = {
+        "evidence_artifact": _canonical_artifact_path(
+            output_dir, candidate_id, "_walk_forward.json"
+        ),
+        "full_period_ic_mean": full_summary.get("ic_mean"),
+        "full_period_ic_std": full_summary.get("ic_std"),
+        "full_period_ic_ir": full_summary.get("ic_ir"),
+        "full_period_n_dates": full_summary.get("n_dates")
+            or full_summary.get("n_obs"),
+        "walk_forward_n_folds": walk_n_folds,
+        "walk_forward_folds_positive": folds_positive,
+        "walk_forward_lag_bars": walk_lag_bars,
+        "pseudo_oos_2024_evidence_artifact": _canonical_artifact_path(
+            output_dir, candidate_id, "_pseudo_oos_2024.json"
+        ),
+        "pseudo_oos_2024_cum_ret": pseudo.get("cum_ret"),
+        "pseudo_oos_2024_sharpe": pseudo.get("sharpe"),
+        "pseudo_oos_2024_max_dd": pseudo.get("max_dd"),
+        "pseudo_oos_2024_vs_spy": pseudo.get("vs_spy"),
+        "pseudo_oos_2024_vs_qqq": pseudo.get("vs_qqq"),
+    }
+
+    regime_items = sorted(regime.items(), key=lambda kv: (kv[1].get("ic_ir") or 0))
+    regime_strongest = regime_items[-1][0] if regime_items else None
+    regime_weakest = regime_items[0][0] if regime_items else None
+    regime_folds_positive = sum(
+        1 for _, stats in regime.items() if (stats.get("ic_ir") or 0) > 0
+    )
+    robustness = {
+        "concentration_evidence_artifact": _canonical_artifact_path(
+            output_dir, candidate_id, "_concentration_report.json"
+        ),
+        "m12_concentration_tier": conc.get("tier") or conc.get("concentration_gate_status"),
+        "watchlist_total_share": conc.get("watchlist_total_share"),
+        "watchlist_single_max_share": conc.get("watchlist_single_max_share"),
+        "thin_data_weighted_share": conc.get("thin_data_weighted_share"),
+        "thin_data_binary_share": conc.get("thin_data_binary_share"),
+        "top1_weight_max": conc.get("top1_weight_max"),
+        "top3_weight_max": conc.get("top3_weight_max"),
+        "turnover_full_period_daily_mean": turnover,
+        "regime_n_total": len(regime),
+        "regime_folds_positive": regime_folds_positive,
+        "regime_strongest": regime_strongest,
+        "regime_weakest": regime_weakest,
+        "regime_evidence_artifact": _canonical_artifact_path(
+            output_dir, candidate_id, "_regime_breakdown.json"
+        ),
+    }
+
+    overall_pass = bool(closeout_payload.get("g2_a_overall_pass"))
+    binding = None if overall_pass else _binding_fail_row(decision_rows)
+    if overall_pass:
+        acceptance_decision = "passed_g2a_pending_paper_slot_decision"
+        details = {
+            "g2_a_overall_pass": True,
+            "binding_fail_gate": None,
+            "binding_fail_measured": None,
+            "binding_fail_threshold": None,
+            "binding_fail_op": None,
+            "retroactive_softening_applied": False,
+        }
+    else:
+        gate_name = (binding or {}).get("gate", "unknown_gate")
+        acceptance_decision = f"rejected_at_g2a_{gate_name}"
+        details = {
+            "g2_a_overall_pass": False,
+            "binding_fail_gate": gate_name,
+            "binding_fail_measured": (binding or {}).get("measured"),
+            "binding_fail_threshold": (binding or {}).get("threshold"),
+            "binding_fail_op": (binding or {}).get("op"),
+            "retroactive_softening_applied": False,
+        }
+    details.update({
+        "cycle_close_memo": cycle_close_memo,
+        "cycle_close_decision_table_artifact": _canonical_artifact_path(
+            output_dir,
+            closeout_payload.get("lineage_tag", candidate_id),
+            "_closeout_eval.json",
+        ),
+        "cycle_close_eval_pipeline": "dev/scripts/research_cycle/run_close_eval.py",
+        "cycle_close_evaluated_at_utc": closeout_payload.get("evaluated_at_utc"),
+    })
+
+    return {
+        "benchmark_relative_summary": benchmark_relative,
+        "oos_holdout_summary": oos_holdout,
+        "robustness_summary": robustness,
+        "acceptance_decision": acceptance_decision,
+        "acceptance_decision_details": details,
+    }
+
+
+def _extract_existing_notes(spec_path: Path) -> dict:
+    """Extract `note:` fields from the prior YAML's three summary blocks.
+
+    Returns {block_name: note_string} for blocks that already had a note.
+    Used by `_finalize_canonical_yaml` to preserve editorial prose
+    across re-runs.
+    """
+    if not spec_path.exists():
+        return {}
+    try:
+        existing = yaml.safe_load(spec_path.read_text())
+    except yaml.YAMLError:
+        return {}
+    if not isinstance(existing, dict):
+        return {}
+    notes = {}
+    for key in ("benchmark_relative_summary", "oos_holdout_summary", "robustness_summary"):
+        block = existing.get(key)
+        if isinstance(block, dict) and "note" in block:
+            notes[key] = block["note"]
+    return notes
+
+
+def _finalize_canonical_yaml(
+    spec_path: Path,
+    summary_blocks: dict,
+    *,
+    preserve_notes: bool = True,
+) -> str:
+    """Replace the closeout-finalize marker block in `spec_path`.
+
+    Locates the BEGIN/END marker pair in the existing YAML and replaces
+    everything between them with a freshly-rendered version of
+    `summary_blocks`. The markers themselves are preserved. Notes from
+    the prior YAML are merged into the corresponding blocks unless
+    `preserve_notes=False`.
+
+    Returns the new file content as a string (also writes it to disk).
+
+    Raises:
+      FileNotFoundError: if `spec_path` does not exist.
+      RuntimeError: if either marker is missing.
+    """
+    if not spec_path.exists():
+        raise FileNotFoundError(f"canonical YAML not found: {spec_path}")
+    text = spec_path.read_text()
+    if CLOSEOUT_BEGIN_MARKER not in text or CLOSEOUT_END_MARKER not in text:
+        raise RuntimeError(
+            f"canonical YAML {spec_path} is missing the closeout finalize "
+            f"markers. Add them once manually around the closeout summary "
+            f"region; subsequent runs will replace the region in-place."
+        )
+
+    blocks = {k: v for k, v in summary_blocks.items()}
+    if preserve_notes:
+        prior_notes = _extract_existing_notes(spec_path)
+        for key, note in prior_notes.items():
+            if isinstance(blocks.get(key), dict):
+                blocks[key]["note"] = note
+
+    body_lines = [
+        "# This region is regenerated by `dev/scripts/research_cycle/run_close_eval.py`",
+        "# at the end of the closeout pipeline. Re-running the pipeline replaces",
+        "# this region; manual edits inside the markers will be overwritten.",
+        "# To preserve editorial prose across re-runs use the `note:` field",
+        "# within each block — those are merged from the prior YAML by",
+        "# `_finalize_canonical_yaml` and survive regeneration.",
+        "",
+    ]
+    for key in (
+        "benchmark_relative_summary",
+        "oos_holdout_summary",
+        "robustness_summary",
+    ):
+        rendered = yaml.safe_dump({key: blocks[key]}, sort_keys=False, default_flow_style=False, allow_unicode=True)
+        body_lines.append(rendered.rstrip())
+        body_lines.append("")
+
+    decision_text = yaml.safe_dump(
+        {
+            "acceptance_decision": blocks["acceptance_decision"],
+            "acceptance_decision_details": blocks["acceptance_decision_details"],
+        },
+        sort_keys=False,
+        default_flow_style=False,
+        allow_unicode=True,
+    )
+    body_lines.append(decision_text.rstrip())
+    body_lines.append("")
+
+    body = "\n".join(body_lines)
+
+    begin_idx = text.index(CLOSEOUT_BEGIN_MARKER)
+    end_idx = text.index(CLOSEOUT_END_MARKER)
+    new_text = (
+        text[: begin_idx + len(CLOSEOUT_BEGIN_MARKER)]
+        + "\n"
+        + body
+        + text[end_idx:]
+    )
+    spec_path.write_text(new_text)
+    return new_text
 
 
 # ── main pipeline ────────────────────────────────────────────────────
@@ -361,7 +745,7 @@ def run_close_eval(
 
     # ── Robustness window artifact (label semantics) ─────────────────
     # The "robustness_window" yaml documents the window semantics. For
-    # this S1 nominee the meaningful window is the 2024 pseudo-OOS
+    # this candidate the meaningful window is the 2024 pseudo-OOS
     # holdout (G2.B). We write it as the pseudo_oos_robustness window.
     print("[close-eval] running pseudo-OOS 2024 holdout backtest ...", flush=True)
     pseudo_frames, _ = _load_panel(
@@ -521,67 +905,12 @@ def run_close_eval(
     # Map concentration_gate_status enum value -> tier string for the gate.
     conc_dict["tier"] = conc_dict.get("concentration_gate_status")
 
-    def _gate(name, measured, op, threshold):
-        if op == "ge":
-            passed = (measured is not None) and (measured >= threshold)
-        elif op == "le":
-            passed = (measured is not None) and (measured <= threshold)
-        elif op == "in_set":
-            passed = measured in threshold
-        else:
-            raise ValueError(op)
-        return {
-            "gate": name,
-            "measured": measured,
-            "op": op,
-            "threshold": threshold,
-            "passed": bool(passed),
-        }
-
-    decision_rows = []
-    decision_rows.append(_gate(
-        "min_ic_ir_full_period",
-        full_summary.get("ic_ir"),
-        "ge",
-        hard["min_ic_ir_full_period"],
-    ))
-    decision_rows.append(_gate(
-        "min_walk_forward_folds_positive",
-        folds_positive,
-        "ge",
-        hard["min_walk_forward_folds_positive"],
-    ))
-    decision_rows.append(_gate(
-        "m12_concentration_tier",
-        conc_dict.get("tier"),
-        "in_set",
-        ["pass", "warning"] if hard["m12_concentration_tier_ceiling"] == "warning" else ["pass"],
-    ))
-    decision_rows.append(_gate(
-        "watchlist_total_share",
-        conc_dict.get("watchlist_total_share"),
-        "le",
-        hard["watchlist_total_share_ceiling"],
-    ))
-    decision_rows.append(_gate(
-        "thin_data_weighted_share",
-        conc_dict.get("thin_data_weighted_share"),
-        "le",
-        hard["thin_data_weighted_share_ceiling"],
-    ))
-    decision_rows.append(_gate(
-        "top1_weight_max",
-        conc_dict.get("top1_weight_max"),
-        "le",
-        hard["top1_weight_max_ceiling"],
-    ))
-    decision_rows.append(_gate(
-        "top3_weight_max",
-        conc_dict.get("top3_weight_max"),
-        "le",
-        hard["top3_weight_max_ceiling"],
-    ))
-
+    decision_rows = build_decision_table(
+        hard=hard,
+        ic_ir_full_period=full_summary.get("ic_ir"),
+        folds_positive=folds_positive,
+        concentration_dict=conc_dict,
+    )
     all_pass = all(r["passed"] for r in decision_rows)
 
     closeout_payload = {
@@ -618,6 +947,19 @@ def run_close_eval(
         print(f"  {row['gate']:35s} measured={row['measured']!r:25s} {row['op']} {row['threshold']!r}: pass={row['passed']}")
     print(f"\n[close-eval] artifacts written to {output_dir}")
     print(f"[close-eval] closeout decision table: {out_close}")
+
+    # ── Canonical-YAML finalize (post Round-2 audit, 2026-04-27) ─────
+    summary_blocks = build_summary_blocks_from_payload(
+        closeout_payload=closeout_payload,
+        full_summary=full_summary,
+        candidate_id=candidate_id,
+        output_dir=output_dir,
+        walk_n_folds=len(walk),
+        walk_lag_bars=lag,
+    )
+    _finalize_canonical_yaml(spec_path, summary_blocks)
+    print(f"[close-eval] canonical YAML finalized in-place: {spec_path}")
+
     return closeout_payload
 
 

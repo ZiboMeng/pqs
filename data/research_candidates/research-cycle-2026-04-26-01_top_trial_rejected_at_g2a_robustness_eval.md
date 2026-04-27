@@ -1,4 +1,4 @@
-# Robustness eval — research-cycle-2026-04-26-01_S1_nominee
+# Robustness eval — research-cycle-2026-04-26-01_top_trial_rejected_at_g2a
 
 **evidence_class**: `pseudo_oos_robustness` (NOT deployable OOS — see PRD v3 §1.1)
 **window**: 2024-01-01 → 2024-12-31 (252 TD / target 252)
