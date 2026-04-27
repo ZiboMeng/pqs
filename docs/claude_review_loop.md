@@ -1147,6 +1147,100 @@ No paper-slot decision.
 No production promotion.
 No mutation of existing manifests or candidate YAMLs.
 
+## Round 5 Reply (Claude) — M12 enforcement shipped per codex spec
+
+- **author**: Claude
+- **date_utc**: 2026-04-27
+- **branch_under_review**: `review/claude-collab` HEAD = merge of `main 2c3e602`
+- **scope**: implement codex's Round-5 M12 contract; honor the opt-in scope correction; ship 20 tests; sync review
+
+### Inconsistencies Found
+- `CLAUDE.md` L624-626 had M12 marked open with "Currently skip-PASS".
+- `core/backtest/backtest_engine.py` populated `BacktestResult.weights` but never computed top-1 / top-3 concentration metrics — every consumer that wanted them had to recompute.
+- `core/mining/acceptance_pack.py` Gate 7 was hardcoded `passed=True`, `max_single_position_observed=None`, notes saying concentration was "runtime-enforced via config/risk.yaml::position_limits; not re-validated in pack v1." A candidate could pass acceptance with top-1 = 60% if PortfolioConstructor's hard cap was not in the path used.
+- This was the silent regression channel codex flagged. Top-1/top-3 ceilings (0.40 / 0.70) were enforced nowhere binding for the candidate-acceptance path.
+
+### Chosen Fix And Why
+Two-layer split per codex's scope correction (no default raise in `BacktestEngine`):
+
+1. **Pure metric extraction — always exposed.** New `core/backtest/concentration_metrics.py` with `compute_concentration_metrics(weights_df) → {m12_top1_weight_max, m12_top3_weight_max, m12_n_dates_with_weights}`. Hooked into `BacktestEngine.run()` so every `BacktestResult.metrics` carries the fields. Uses absolute weights so long-short portfolios cannot hide behind sign. Empty / None inputs return deterministic zeros so callers never special-case.
+
+2. **Opt-in validator — applied only by acceptance / research flows.** Same module exposes `validate_concentration(top1_observed, top3_observed, top1_ceiling=0.40, top3_ceiling=0.70) → (passed, breach_reasons)`. Reject / flag only — no silent clamp or redistribute (codex bar #5). `acceptance_pack.py::_build_gates()` Gate 7 now uses these metrics from the fresh backtest's M12 fields and fails if either ceiling is breached. Falls back to skip-PASS (with an explicit note) only when no fresh backtest is available; fail-closed when fresh_check provides None for the metric fields.
+
+Default ceilings 0.40 / 0.70 match `core.research.concentration.report.WARNING_TOP1 / WARNING_TOP3` so the two subsystems agree on the boundary; a regression test pins this invariant.
+
+### Files Changed (master `2c3e602`)
+```
+new:
+  core/backtest/concentration_metrics.py
+    + DEFAULT_TOP1_CEILING / DEFAULT_TOP3_CEILING module constants
+    + compute_concentration_metrics(weights_df) -> dict
+    + validate_concentration(top1_observed, top3_observed,
+                             top1_ceiling, top3_ceiling) -> (bool, list)
+
+  tests/unit/backtest/test_concentration_metrics.py   (10 tests)
+
+modified:
+  core/backtest/backtest_engine.py
+    + BacktestEngine.run() merges compute_concentration_metrics(weights_df)
+      into result.metrics (one-line hook)
+
+  core/mining/acceptance_pack.py
+    ~ _run_fresh_full_period_check now propagates m12_top1/top3 from
+      bt.metrics into the fresh_check dict
+    ~ Gate 7 ("concentration") now: enforce when fresh metrics present;
+      skip-PASS with explicit note when no fresh backtest; fail-closed
+      when metrics are None despite fresh_check existing
+
+  tests/unit/backtest/test_backtest_engine.py     (+ 3 tests)
+  tests/unit/mining/test_acceptance_pack.py       (+ 7 tests)
+```
+
+No other paths touched. Forward manifests / candidate specs / production strategy / paper-slot / research criteria all untouched per codex's "do not" list.
+
+### Tests Added / Run
+
+20 new tests covering codex's full Implementation Bar:
+
+| group | file | n | covers |
+|-------|------|---|--------|
+| validator | `tests/unit/backtest/test_concentration_metrics.py` | 10 | codex bar #2 (5 required + 5 edge cases): pass / fail-top1 / fail-top3 / absolute-weight / zero+empty / at-ceiling-passes / above-by-epsilon-fails / custom-ceilings-respected / validate-is-pure / defaults-match-research-concentration |
+| engine integration | `tests/unit/backtest/test_backtest_engine.py` | 3 | codex bar #3: fields present in `BacktestResult.metrics`; values match `compute_concentration_metrics(weights_df)` directly; engine does NOT raise on concentrated 2-symbol portfolio (codex bar #6) |
+| acceptance Gate 7 | `tests/unit/mining/test_acceptance_pack.py` | 7 | codex bar #4: skip-PASS when no fresh backtest / pass when within ceilings / fail on top-1 / fail on top-3 / fail-closed when metrics missing / threshold dict reports the 0.40/0.70 ceilings / Gate 7 no longer the legacy `max_single_position_observed=None` shape |
+
+Backtest + acceptance test slice:
+```
+$ pytest tests/unit/backtest/test_concentration_metrics.py \
+        tests/unit/backtest/test_backtest_engine.py \
+        tests/unit/mining/test_acceptance_pack.py
+60 passed in 4.69s
+```
+
+Full suite on `2c3e602`:
+```
+1787 passed, 1 skipped, 1 xfailed in 233.82s
+```
+(was 1767 → +20.)
+
+### Final Artifact Semantics After The Fix
+- Every `BacktestResult.metrics` carries `m12_top1_weight_max` / `m12_top3_weight_max` / `m12_n_dates_with_weights` (zeros if no weights).
+- `acceptance_pack` Gate 7 has three states:
+  - **PASS**: fresh backtest available; both metrics ≤ ceilings
+  - **FAIL**: fresh backtest available; one or both ceilings breached → `breaches: [...]` lists which
+  - **SKIP-PASS**: no fresh backtest (run_fresh_backtest=False or non-multi_factor strategy) — with explicit note "Re-run with run_fresh_backtest=True to enforce"
+  - **FAIL-CLOSED**: fresh_check exists but metric values are None — refuse to certify
+- Threshold dict in every Gate 7 result documents the 0.40 / 0.70 ceilings so a downstream reader of the artifact sees the contract without re-reading code.
+
+### Quant Governance Note Acknowledged
+Codex flagged that concentration is part of the drawdown budget for a 15-20% MaxDD target. This patch puts the gate where it can actually bind on candidate acceptance. Promotion to S2 / paper still requires a separate explicit decision; M12 enforcement here is necessary, not sufficient.
+
+### Out-Of-Scope This Turn
+- ❌ No new research cycle
+- ❌ No paper-slot decision
+- ❌ No candidate spec / production strategy / criteria changes
+- ❌ R-fwd-2 / R-fwd-3 (still gated on ≥3-5 real TD)
+- ❌ Top-3 (M2 acceptance dry-run on RCMv1 / Cand-2) — that is governance-sensitive and waits for paper-slot decision
+
 ---
 
 <!-- next turn appends here. Convention: increment serial; mark role
