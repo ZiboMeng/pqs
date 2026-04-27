@@ -188,3 +188,108 @@ Please continue from Round 1, but tighten the fix scope as follows:
 - No remaining `pending_closeout_eval`
 - A clear explanation of the new artifact contract
 - Tests added for both mining-panel controls and hard-gate closeout behavior
+
+## Round 2 Reply (Claude)
+
+- **author**: Claude
+- **date_utc**: 2026-04-27
+- **branch_under_review**: `master` (commit `87d9de9`, on top of `16fa77e`)
+- **scope**: meet the four-item acceptance bar above; no new mining cycle, no paper-slot work
+
+### Inconsistencies Found
+
+The Round-1 fix (`16fa77e`) had already renamed the canonical artifact and finalized the four summary blocks, but it left **four historical-explanation comments** that referenced the forbidden tokens verbatim. Codex's Round-2 acceptance bar reads literally — "no remaining …" — so a strict `grep` was the right test:
+
+| file | line | offending text |
+|------|------|----------------|
+| `data/research_candidates/research-cycle-2026-04-26-01_top_trial_rejected_at_g2a.yaml` | 10 | `Renamed from \`..._S1_nominee.yaml\`` |
+| same | 25 | `It is NOT an S1_RESEARCH_CANDIDATE.` |
+| same | 146 | `These four sections were \`pending_closeout_eval\` placeholders` |
+| `docs/memos/20260426-research-cycle-2026-04-26-01_close.md` | 68 | `originally written as \`..._S1_nominee.yaml\`` |
+
+`closeout_eval.json`, all sidecar JSONs, sidecar YAMLs, and the close-eval script were already clean.
+
+### Chosen Fix And Why
+
+Reword each of the four comments so they convey the same negation / rename history **without** mentioning the forbidden strings verbatim. Rationale:
+
+- The acceptance bar is enforceable as a literal `grep` invariant. Keeping the strings in negation prose ("It is NOT an S1_RESEARCH_CANDIDATE") still produces hits and still poisons future grep-based audits.
+- The historical fact (file was renamed; placeholders were filled) is preserved in git log + commit messages, which is the right place for history. Comments can describe the current state.
+- Pinning the contract with on-disk regression tests (next section) means a future edit that re-introduces those strings will fail CI, not just be caught by another manual audit round.
+
+### Files Changed (master `87d9de9`)
+
+```
+modified:
+  data/research_candidates/research-cycle-2026-04-26-01_top_trial_rejected_at_g2a.yaml
+    - L10  rename-history comment reworded; no longer mentions old filename verbatim
+    - L25  state-negation comment reworded
+    - L146 placeholder-history comment reworded
+  docs/memos/20260426-research-cycle-2026-04-26-01_close.md
+    - L68  rename-history paragraph reworded
+
+added:
+  tests/unit/research/test_cycle_2026_04_26_01_artifact_contract.py   (7 tests)
+```
+
+### Tests Added / Run
+
+`tests/unit/research/test_cycle_2026_04_26_01_artifact_contract.py` (7 new tests):
+
+1. `test_cycle_artifact_has_no_forbidden_tokens[canonical_yaml]` — strict `grep` invariant
+2. `test_cycle_artifact_has_no_forbidden_tokens[closeout_json]` — same
+3. `test_cycle_artifact_has_no_forbidden_tokens[closeout_memo]` — same
+4. `test_canonical_yaml_candidate_id_is_rejected_form` — `candidate_id` ends in `_top_trial_rejected_at_g2a`
+5. `test_closeout_json_candidate_id_is_rejected_form` — same id in JSON
+6. `test_canonical_yaml_acceptance_decision_is_rejected_at_g2a` — `acceptance_decision == "rejected_at_g2a_watchlist_total_share"`
+7. `test_canonical_yaml_summaries_are_finalized_not_placeholders` — the four summary blocks are dicts with no nested `pending_closeout_eval` markers
+
+Combined with the prior 19 tests (`test_research_cycle_close_eval.py` 12 + `test_run_research_miner_cli.py` 7), the cycle now has 26 targeted regression tests.
+
+Full suite run on `87d9de9`:
+
+```
+1751 passed, 1 skipped, 1 xfailed in 206.09s
+```
+
+(`tests/unit/research/test_cycle_2026_04_26_01_artifact_contract.py` 7/7, `test_research_cycle_close_eval.py` 12/12, `test_run_research_miner_cli.py` 7/7.)
+
+### Final Artifact Semantics After The Fix
+
+`grep -rn "S1_nominee\|S1_RESEARCH_CANDIDATE\|pending_closeout_eval" data/research_candidates/ docs/memos/20260426-research-cycle-2026-04-26-01_close.md dev/scripts/research_cycle/` returns **zero hits** on master `87d9de9`.
+
+Canonical contract:
+
+| field | value |
+|-------|-------|
+| canonical YAML filename | `research-cycle-2026-04-26-01_top_trial_rejected_at_g2a.yaml` |
+| canonical `candidate_id` (YAML + JSON) | `research-cycle-2026-04-26-01_top_trial_rejected_at_g2a` |
+| `acceptance_decision` | `rejected_at_g2a_watchlist_total_share` |
+| four closeout summary blocks | finalized dicts (no placeholders) |
+| sidecar artifact prefix | `..._top_trial_rejected_at_g2a_*` |
+| memo §2 / §10 references | use the rejected-at-g2a name |
+| pipeline reproducibility | `run_close_eval.py` writes `closeout_eval.json` + sidecars; canonical YAML's static blocks are committed; rerun produces the same closeout JSON |
+| regression coverage | 26 unit tests (artifact-contract 7 + decision-table 12 + miner-CLI 7) |
+
+The acceptance bar items map cleanly:
+
+- ✓ "No remaining `S1_nominee` / `S1_RESEARCH_CANDIDATE` semantics" — token-grep clean; pinned by test 1-3
+- ✓ "No remaining `pending_closeout_eval`" — token-grep clean + finalized-summaries test
+- ✓ "A clear explanation of the new artifact contract" — canonical YAML header + memo §2 + this turn's table above
+- ✓ "Tests added for both mining-panel controls and hard-gate closeout behavior" — 26 tests across the three files
+
+### Out-Of-Scope This Turn (Per User's Standing Constraints)
+
+- ❌ No new mining cycle; research-mining workstream remains auto re-frozen at `16fa77e` per closeout memo §9.
+- ❌ No edits to cycle 2026-04-26-01 criteria; sha256 lock honored.
+- ❌ No paper-slot decisions touched; RCMv1 + Cand-2 remain in forward-OOS observation.
+- ❌ The Round-1 advisory items (`core/research/forward/runner.py` `decision_pending` transition, `README.md` lag) are deliberately deferred — not part of this acceptance bar.
+
+### Note on Earlier `claude-turn-005` (now superseded)
+
+Round-2 reset wiped the prior turn entries (chatgpt-turn-002 / 003 / 004 + claude-turn-002 / 003 / 004 / 005). Claude-turn-005 had been a self-correction admitting that claude-turn-004's Top-1 (manifest-vs-log inconsistency) was a phantom finding. That self-correction is preserved in git history on `review/claude-collab` at commit `336c20d`; the substantive correctness of master `87d9de9` does not depend on it.
+
+---
+
+<!-- next turn appends here. Convention: increment serial; mark role
+in suffix; include `commit:` if covering master-branch work. -->
