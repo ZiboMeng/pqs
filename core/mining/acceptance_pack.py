@@ -297,11 +297,18 @@ def _run_fresh_full_period_check(trial: Dict[str, Any]) -> Optional[Dict[str, An
                 "note": "NaN in CAGR; BacktestEngine may have produced invalid equity curve",
             }
         excess = strat_cagr - qqq_cagr
+        # M12 concentration metrics from the freshly-computed weight matrix.
+        # These pass through verbatim from BacktestResult.metrics
+        # (populated by core.backtest.concentration_metrics during run()).
+        m12_top1 = bt.metrics.get("m12_top1_weight_max")
+        m12_top3 = bt.metrics.get("m12_top3_weight_max")
         return {
             "strategy_cagr": strat_cagr,
             "qqq_cagr": qqq_cagr,
             "excess": excess,
             "passed": excess > 0,
+            "m12_top1_weight_max": m12_top1,
+            "m12_top3_weight_max": m12_top3,
         }
     except Exception as exc:
         return {"error": f"fresh backtest failed: {exc}"}
@@ -406,15 +413,80 @@ def _build_gates(
                "v1 acceptance pack enforces absolute floor only."),
     ))
 
-    # Gate 7: Concentration — trivially pass here; MFS soft_cap is enforced at runtime.
-    # (A future enhancement can inspect equity_curve / weights series if stored.)
-    gates.append(GateResult(
-        name="concentration",
-        passed=True,
-        values={"max_single_position_observed": None},
-        threshold={"max_single_position_hard": 0.35},
-        notes="Runtime-enforced via config/risk.yaml::position_limits; not re-validated in pack v1.",
-    ))
+    # Gate 7: M12 concentration enforcement (codex Round-5).
+    # When a fresh backtest is available, use the per-date top-1 / top-3
+    # weight maxima to enforce the hard ceilings (40% / 70%). When no
+    # fresh backtest is available, fall back to skip-PASS with an
+    # explicit note — Gate 7 cannot adjudicate concentration without
+    # the realized weight matrix, and refusing to score it would
+    # block all archive-only acceptance runs.
+    from core.backtest.concentration_metrics import (
+        DEFAULT_TOP1_CEILING,
+        DEFAULT_TOP3_CEILING,
+        validate_concentration,
+    )
+    if fresh_check and "m12_top1_weight_max" in fresh_check:
+        m12_top1 = fresh_check.get("m12_top1_weight_max")
+        m12_top3 = fresh_check.get("m12_top3_weight_max")
+        if m12_top1 is None or m12_top3 is None:
+            gates.append(GateResult(
+                name="concentration",
+                passed=False,
+                values={
+                    "m12_top1_weight_max": m12_top1,
+                    "m12_top3_weight_max": m12_top3,
+                },
+                threshold={
+                    "top1_ceiling": DEFAULT_TOP1_CEILING,
+                    "top3_ceiling": DEFAULT_TOP3_CEILING,
+                },
+                notes=(
+                    "FAIL — fresh backtest returned no concentration metrics; "
+                    "treat as fail-closed (cannot certify concentration "
+                    "without observed weights)."
+                ),
+            ))
+        else:
+            passed, breaches = validate_concentration(
+                top1_observed=float(m12_top1),
+                top3_observed=float(m12_top3),
+            )
+            gates.append(GateResult(
+                name="concentration",
+                passed=passed,
+                values={
+                    "m12_top1_weight_max": float(m12_top1),
+                    "m12_top3_weight_max": float(m12_top3),
+                    "breaches": breaches,
+                },
+                threshold={
+                    "top1_ceiling": DEFAULT_TOP1_CEILING,
+                    "top3_ceiling": DEFAULT_TOP3_CEILING,
+                },
+                notes=(
+                    "PASS — observed top-1 / top-3 within ceilings."
+                    if passed else
+                    "FAIL — observed concentration breaches ceiling; "
+                    "candidate is a concentrated bet, not a diversified "
+                    "systematic strategy."
+                ),
+            ))
+    else:
+        gates.append(GateResult(
+            name="concentration",
+            passed=True,
+            values={"m12_top1_weight_max": None, "m12_top3_weight_max": None},
+            threshold={
+                "top1_ceiling": DEFAULT_TOP1_CEILING,
+                "top3_ceiling": DEFAULT_TOP3_CEILING,
+            },
+            notes=(
+                "SKIP-PASS — no fresh backtest available "
+                "(run_fresh_backtest=False or non-multi_factor strategy); "
+                "concentration not re-validated. Re-run with "
+                "run_fresh_backtest=True to enforce."
+            ),
+        ))
 
     # Gate 8: Paper-backtest alignment — skipped in v1 pack (runtime contract
     # in M1 ensures same strategy instance in both). Future v2: run a small
