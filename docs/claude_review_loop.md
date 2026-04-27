@@ -417,6 +417,83 @@ Mapping back to Round-2 Recommended-Implementation list:
 - ❌ No paper-slot decisions touched.
 - ❌ Round-2 advisory items (forward runner `decision_pending` transition, `README.md` lag) — still deferred per the "only fix this cycle's closeout consistency" constraint.
 
+## Round 2 Completion Audit + One Open Decision (Claude)
+
+- **author**: Claude
+- **date_utc**: 2026-04-27
+- **branch_under_review**: `master` (commit `b912784`; no new code this turn)
+- **scope**: closeout-consistency completion audit per the user's request; surface one remaining naming-only deviation for codex to weigh in on before any further code change
+
+### Why This Turn Exists
+
+User asked Claude to verify, against the original Round 2 acceptance bar, whether anything is still unfinished. This is a no-code audit-only turn that maps every Round-2 requirement to a master-commit citation. One pedantic deviation from codex's literal preference is surfaced for explicit ruling before more git churn.
+
+### Round 2 Required-Actions Audit
+
+| # | Codex Round-2 instruction | Status | Master commit |
+|---|--------------------------|--------|--------------|
+| Required-actions #1 | Audit `..._S1_nominee.yaml` for state/wording mismatches | ✓ four mismatches identified and itemized in turn-002 / turn-003 | `16fa77e` |
+| Required-actions #2 | Implement one clear correction path (rename or rewrite) | ✓ rename Path A: `..._top_trial_rejected_at_g2a.yaml`; `candidate_id` and JSON references aligned | `16fa77e` |
+| Required-actions #3 | Remove all `pending_closeout_eval`; write final closeout result | ✓ four summary blocks + acceptance_decision finalized as dicts; pipeline can regenerate | `16fa77e` + `b912784` |
+| Required-actions #4 | Tests for `--end-date`, `--drop-symbols`, hard-gate-fail closeout | ✓ all three behaviours covered (see test breakdown below) | `16fa77e` + `b912784` |
+| Required-actions #5 | Response in five-section format | ✓ turn-003 / Round 2 Reply / Round 2 Audit Re-check all use the format | — |
+
+### Round 2 Minimum-Required-Implementation-Work Audit
+
+| # | Codex Round-2 instruction | Status | Master commit |
+|---|--------------------------|--------|--------------|
+| Min-impl #1 | Naming/semantics consistent across YAML / sidecars / closeout JSON / memo | ✓ `grep "S1_nominee\|S1_RESEARCH_CANDIDATE\|pending_closeout_eval"` returns **0 hits** across `data/research_candidates/`, `docs/memos/20260426-research-cycle-2026-04-26-01_close.md`, `dev/scripts/research_cycle/` | `16fa77e` + `87d9de9` |
+| Min-impl #2 | Remove all `pending_closeout_eval` placeholders | ✓ same grep | `16fa77e` |
+| Min-impl #3 | Explicit closeout result block with final (non-placeholder) values for the four summary blocks | ✓ test `test_canonical_yaml_summaries_are_finalized_not_placeholders` pins this | `16fa77e` + `b912784` |
+| Min-impl #4 | Close pipeline gap (one-command reproducible — auto-writeback) | ✓ `_finalize_canonical_yaml` + `build_summary_blocks_from_payload` shipped; called automatically at end of `run_close_eval`; idempotent + note-preserving + pinned by 8 tests | `b912784` |
+| Min-impl #5 | Add tests | ✓ 34 cycle-targeted tests | `16fa77e` + `87d9de9` + `b912784` |
+
+### Round 2 Acceptance-Bar Audit
+
+| Bar item | Status | Evidence |
+|---------|--------|----------|
+| No remaining `S1_nominee` / `S1_RESEARCH_CANDIDATE` semantics for the failed cycle's artifact family | ✓ literal token-grep returns 0 hits; 3 fixture-seeded tests prove `_finalize_canonical_yaml` strips the tokens on re-run; `build_summary_blocks_from_payload` never emits them on either pass or fail path | master `b912784` |
+| No remaining `pending_closeout_eval` | ✓ same grep + `test_canonical_yaml_summaries_are_finalized_not_placeholders` checks every block is a finalized dict (no nested placeholder strings) | master `b912784` |
+| Clear explanation of the new artifact contract | ✓ four authoritative sources: (a) canonical YAML header + BEGIN/END marker comments, (b) closeout memo §2 + §10, (c) `run_close_eval.py` module docstring (rewritten in `b912784`), (d) the Round 2 Audit Re-check turn's contract table on this branch | master `b912784` |
+| Tests added for both mining-panel controls and hard-gate closeout behaviour | ✓ 7 mining-CLI tests + 8 finalize tests + 12 decision-table tests + 7 contract tests = 34 cycle-targeted | master `b912784` |
+
+### Test Coverage Mapping (Codex's "Tests I Want Added" → Reality)
+
+Codex named two test-file paths in Round 2. The substantive coverage is delivered, but at slightly different file locations than the literal paths:
+
+| Codex's named path | What I actually shipped | Substance covered |
+|-------------------|-------------------------|-------------------|
+| `tests/unit/mining/test_research_miner.py` (extend with `--end-date` + `--drop-symbols` tests) | `tests/unit/scripts/test_run_research_miner_cli.py` (new file, 7 tests) | `--end-date` truncates panel ✓; `--end-date` truncates open/high/low/volume too ✓; `--drop-symbols` excludes named tickers from tradable panel ✓; `--drop-symbols` does not mutate universe-config ✓; both flags compose ✓ |
+| `tests/unit/research/test_run_close_eval.py` *(stated as "e.g.")* | `tests/unit/research/test_research_cycle_close_eval.py` (decision-table + finalize, 20 tests) + `tests/unit/research/test_cycle_2026_04_26_01_artifact_contract.py` (static on-disk contract, 7 tests) | hard-gate fail produces `g2_a_overall_pass = false` ✓; closeout artifacts reflect the fail cleanly ✓; canonical artifact finalization removes `pending_closeout_eval` ✓; candidate naming / acceptance semantics non-S1 on hard-gate fail ✓ |
+
+The reasoning behind the path divergence:
+
+- For mining-panel controls: `tests/unit/mining/test_research_miner.py` exists to test `core/mining/research_miner.py` (the algorithm module). The CLI tests cover `scripts/run_research_miner.py` (the CLI driver). I split them into a sibling file under `tests/unit/scripts/` to keep "test file ↔ source file" 1:1.
+- For closeout: codex's "`e.g.`" qualifier marks the path as a suggestion. I split coverage by concern: decision-table-layer + finalize-step in one file, static on-disk artifact-contract assertions in a separate file. This keeps fixture-heavy tests away from pure-function tests.
+
+Substance is identical to what codex asked for. Locations differ.
+
+### One Open Decision For Codex
+
+I see two reasonable resolutions and want explicit input before doing more git churn on test files (which were just renamed once already as part of the rename Path A artifact-rename):
+
+- **Option A — leave as-is**: substance is fully covered, file naming is more specific than codex's path, no further work. Risks: a strict reading of Round-2 might still flag the path divergence.
+- **Option B — rename to match codex's literal paths**:
+  1. Move the 7 CLI tests from `tests/unit/scripts/test_run_research_miner_cli.py` *into* `tests/unit/mining/test_research_miner.py` (append; delete the sibling file + its `__init__.py` if no other tests live there).
+  2. Rename `tests/unit/research/test_research_cycle_close_eval.py` → `tests/unit/research/test_run_close_eval.py`. Leave `test_cycle_2026_04_26_01_artifact_contract.py` (it's a separately-themed file, not in scope of codex's named paths).
+
+  Cost: ~10 minutes of mechanical work + 1 commit on master + 1 review-log turn. No semantic change.
+
+I default to **A** because (a) `tests/unit/mining/` files cluster around the mining algorithm module and CLI tests don't belong there per the existing convention, (b) the `e.g.` qualifier on the second path explicitly invites a different file name, and (c) further renames after the recent artifact rename make git history harder to follow without buying any test-coverage gain.
+
+If codex prefers **B**, I will execute it next turn. If the user prefers **B** independently, same.
+
+### Out-Of-Scope This Turn
+
+- ❌ No master-branch code changes; this is a no-code completion-audit turn so codex can see exactly what's done before any further work.
+- ❌ No new mining cycle / criteria edits / paper-slot decisions / advisory-item work — same standing constraints.
+- ❌ No acceptance-bar widening — Round 2 bar is treated as authoritative; this turn only verifies completion against the bar that was already issued.
+
 ---
 
 <!-- next turn appends here. Convention: increment serial; mark role
