@@ -115,17 +115,47 @@ def test_signal_input_hash_handles_nan_bars():
     # Inject NaN into AAPL close on a few dates
     panel["close"].loc[pd.Timestamp("2026-04-20"), "AAPL"] = np.nan
     panel["close"].loc[pd.Timestamp("2026-04-21"), "AAPL"] = np.nan
+    # track_per_cell=True so the NaN-cell digest entry is captured
+    # for the assertion below; production runner uses default
+    # track_per_cell=False (rolling hash alone is sufficient + 100x
+    # smaller manifest).
     h1, inputs1 = compute_signal_input_hash(
         spec=spec, universe=universe, panel=panel, as_of_date=date(2026, 4, 27),
+        track_per_cell=True,
     )
     h2, inputs2 = compute_signal_input_hash(
         spec=spec, universe=universe, panel=panel, as_of_date=date(2026, 4, 27),
+        track_per_cell=True,
     )
     assert h1 == h2
     # NaN must surface in per_cell_digest under a deterministic key
     digest_aapl = inputs1.per_cell_digest.get("AAPL", {})
     assert digest_aapl  # cells captured
     assert all(isinstance(v, dict) for v in digest_aapl.values())
+
+
+def test_signal_input_hash_per_cell_digest_empty_by_default():
+    """Storage guard (post-audit fix): the rolling hash alone is
+    sufficient for revision detection on signal_input scope, and
+    storing the full ~80×252×2 cell grid would balloon the manifest
+    to >100 MB by TD60. Default must be empty per_cell_digest."""
+    spec = _spec(f"{CAND_DIR}/rcm_v1_defensive_composite_01.yaml")
+    universe = ["AAPL", "MSFT", "SPY"]
+    panel = _panel(universe + ["QQQ"], "2026-01-02", "2026-04-28")
+    _, inputs = compute_signal_input_hash(
+        spec=spec, universe=universe, panel=panel, as_of_date=date(2026, 4, 27),
+    )
+    assert inputs.per_cell_digest == {}, (
+        "signal_input.per_cell_digest must default to empty to keep "
+        "manifest size bounded; pass track_per_cell=True to opt in."
+    )
+    # And track_per_cell=True still works for tests that need fine
+    # cell-level attribution.
+    _, inputs_tracked = compute_signal_input_hash(
+        spec=spec, universe=universe, panel=panel, as_of_date=date(2026, 4, 27),
+        track_per_cell=True,
+    )
+    assert inputs_tracked.per_cell_digest != {}
 
 
 def test_execution_nav_hash_handles_nan_open():

@@ -59,6 +59,16 @@ CHECKPOINT_DRIFT_BPS_THRESHOLD = 25.0
 # E5: raw close/open drift secondary guard (fraction).
 RAW_DRIFT_PCT_THRESHOLD = 0.005   # = 0.50%
 
+# Float-precision tolerance for boundary comparisons. yfinance-style
+# revisions are typically expressed as multiplicative scalars (e.g.
+# ``*= 1.005`` for +0.5%) which yield drift values like
+# 0.004999999... after binary float arithmetic. Using strict ``>=``
+# would silently miss boundary cases that the user clearly intended
+# to fire. Tolerances below are absolute, conservative, and several
+# orders of magnitude smaller than any decision-relevant precision.
+_BPS_EPS = 1e-6     # 1e-6 bps is far below any decision-relevant bps
+_PCT_EPS = 1e-9     # 1 ulp at the 0.5% scale
+
 
 # ── public dataclass for revalidation summary ──────────────────────
 
@@ -287,41 +297,65 @@ def _revalidate_entry(
             w = float(held_today_weights.get(sym, 0.0))
             nav_impact_bps += abs(w) * d_pct * 10000.0
 
-    # signal_input scope revisions: fail-closed per §4.4 coverage matrix
-    # ONLY when the revised cell is on a non-held symbol OR on an
-    # attribute (volume/high/low) that's not anchored by execution_nav.
-    # Revisions on held-set close/open are already captured by the
-    # execution_nav scope above and don't need to bound_only.
+    # signal_input scope revisions (PRD §4.4 coverage matrix):
+    #
+    # Default config (track_per_cell=False on signal_input) produces an
+    # empty per_cell_digest because storing the full 79×252×2 grid
+    # would balloon the manifest. The rolling hash alone is sufficient
+    # for detection. Materiality decision logic:
+    #
+    #   - signal_input scope differs AND execution_nav scope ALSO differs:
+    #       The revised cell is on a held name's close/open inside the
+    #       execution_nav window. Materiality is already computed via
+    #       execution_nav (E1/E5 above). NO additional bound_only.
+    #   - signal_input scope differs AND execution_nav scope does NOT differ:
+    #       The revision is outside execution_nav's coverage (signal-
+    #       only revision: non-held name, or held name's high/low/volume,
+    #       or held name's close/open OUTSIDE [start_date..as_of]).
+    #       Cannot deterministically map to NAV impact → bound_only.
+    #
+    # When per_cell_digest IS populated (track_per_cell=True, e.g. in
+    # tests), the cell-level diff is checked for finer attribution.
     if "signal_input" in affected_scopes_set:
         sig_diffs = _diff_cells(
             entry.bar_hash_inputs.signal_input.per_cell_digest,
             sig_inputs.per_cell_digest,
         )
-        held_set = set(entry.bar_hash_inputs.execution_nav.symbols)
         # Compute the set of (sym, iso) cells anchored by execution_nav
-        # (i.e., within the 10-day materiality_anchor_values ring, on
-        # close/open attributes). Only those cells can have their NAV
-        # impact computed deterministically; everything else fails-
-        # closed to bound_only.
+        # (i.e., within the 10-day materiality_anchor_values ring on
+        # close/open attributes). Used both for cell-level diff checks
+        # below and for the no-digest fallback.
+        held_set = set(entry.bar_hash_inputs.execution_nav.symbols)
         anchored_cells: set[tuple[str, str]] = set()
         for sym, by_date in (exec_anchors or {}).items():
             for iso in by_date.keys():
                 anchored_cells.add((sym, iso))
-        for sym, iso, attr in sig_diffs:
-            covered_by_anchor = (
-                sym in held_set
-                and attr in ("close", "open")
-                and (sym, iso) in anchored_cells
-            )
-            if not covered_by_anchor:
+
+        if not sig_diffs:
+            # Empty per_cell_digest path: fall back to scope-level check.
+            if "execution_nav" not in affected_scopes_set:
                 bound_only_reason = bound_only_reason or (
-                    f"signal_input revision on {sym}/{iso}/{attr} "
-                    f"(outside execution_nav anchor ring or non-anchored "
-                    f"attribute) — NAV impact cannot be computed "
-                    f"deterministically without re-running cross-"
-                    f"sectional ranking"
+                    "signal_input scope diff with no overlap on "
+                    "execution_nav — signal-only revision cannot be "
+                    "mapped to deterministic NAV impact without "
+                    "re-running cross-sectional ranking"
                 )
-                break
+        else:
+            for sym, iso, attr in sig_diffs:
+                covered_by_anchor = (
+                    sym in held_set
+                    and attr in ("close", "open")
+                    and (sym, iso) in anchored_cells
+                )
+                if not covered_by_anchor:
+                    bound_only_reason = bound_only_reason or (
+                        f"signal_input revision on {sym}/{iso}/{attr} "
+                        f"(outside execution_nav anchor ring or non-"
+                        f"anchored attribute) — NAV impact cannot be "
+                        f"computed deterministically without re-running "
+                        f"cross-sectional ranking"
+                    )
+                    break
 
     # E2/E3: checkpoint metric drift via benchmark anchor reconstruction
     cum_ret_drift_bps = None
@@ -358,12 +392,18 @@ def _revalidate_entry(
     if "execution_nav" in affected_scopes_set and held_today_weights:
         cum_ret_drift_bps = nav_impact_bps  # proxy
 
-    # cum_ret sign flip: stored cum_ret + drift crosses zero
+    # cum_ret sign flip: |drift| could plausibly cross zero in either
+    # direction. nav_impact_bps is unsigned (a magnitude — we don't
+    # know the sign of the revision a priori), so the worst-case
+    # check is symmetric: if |drift| >= |stored_cum|, sign COULD flip
+    # depending on which direction the revision pushes NAV.
     stored_cum = entry.cum_ret
     if (stored_cum is not None and cum_ret_drift_bps is not None
             and abs(cum_ret_drift_bps) > 0):
-        new_cum_implied = stored_cum + cum_ret_drift_bps / 10000.0
-        if (stored_cum >= 0) != (new_cum_implied >= 0):
+        drift_magnitude = abs(cum_ret_drift_bps) / 10000.0
+        if drift_magnitude >= abs(stored_cum):
+            # Magnitude is large enough that at least one revision
+            # direction would flip the sign — fire E4 conservatively.
             decision_sign_flip = True
 
     # ── apply E1-E5 escalation table ────────────────────────────
@@ -372,7 +412,7 @@ def _revalidate_entry(
     if bound_only_reason is not None:
         invalidate = True
         triggers.append(f"bound_only ({bound_only_reason})")
-    if nav_impact_bps >= NAV_IMPACT_BPS_THRESHOLD:
+    if nav_impact_bps >= NAV_IMPACT_BPS_THRESHOLD - _BPS_EPS:
         invalidate = True
         triggers.append(f"E1 NAV {nav_impact_bps:.2f} bps")
     for label, val in (
@@ -380,13 +420,13 @@ def _revalidate_entry(
         ("vs_spy", vs_spy_drift_bps),
         ("vs_qqq", vs_qqq_drift_bps),
     ):
-        if val is not None and abs(val) >= CHECKPOINT_DRIFT_BPS_THRESHOLD:
+        if val is not None and abs(val) >= CHECKPOINT_DRIFT_BPS_THRESHOLD - _BPS_EPS:
             invalidate = True
             triggers.append(f"E2/E3 {label} {val:.2f} bps")
     if decision_sign_flip:
         invalidate = True
         triggers.append("E4 cum_ret sign flip")
-    if raw_max_drift >= RAW_DRIFT_PCT_THRESHOLD:
+    if raw_max_drift >= RAW_DRIFT_PCT_THRESHOLD - _PCT_EPS:
         invalidate = True
         triggers.append(f"E5 raw drift {raw_max_drift * 100:.3f}%")
 

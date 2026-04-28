@@ -468,6 +468,20 @@ def observe(
             f"expected forward_oos"
         )
 
+    # PRD v2.1 §4.4: when revalidate has previously surfaced a
+    # material revision and flipped the manifest into
+    # ``requires_data_review``, observe() refuses to do anything until
+    # the user clears it via decide(). Otherwise we'd silently overwrite
+    # the data_revision_event events on the next pass.
+    if manifest.current_status is ForwardRunStatus.requires_data_review:
+        raise ForwardHaltError(
+            f"candidate {candidate_id} is in requires_data_review "
+            f"status; revalidate previously detected a material data "
+            f"revision. User must call decide() (e.g. completed_fail "
+            f"or aborted) to acknowledge before further observe() "
+            f"runs are permitted."
+        )
+
     cost_path = Path(cost_model_path)
     _verify_cost_hash_or_halt(manifest, cost_path)
 
@@ -491,12 +505,65 @@ def observe(
         )
     available_index = close.index
 
+    spec_path = Path(output_dir) / f"{candidate_id}.yaml"
+    spec = FrozenStrategySpec.from_yaml_file(spec_path)
+
+    # ── PRD v2.1 §4.6: revalidate runs FIRST, regardless of whether ─
+    # any new TD bars are available. This catches retroactive yfinance
+    # revisions that land on existing TDs even on days where no new
+    # bar arrives (e.g. weekends, holidays, or just before the close
+    # of a trading day). Behavior:
+    #   - Pre-v2 entries (TD001 with no bar_hash + no legacy marker)
+    #     are silently skipped; they get the legacy marker further down.
+    #   - v2 entries: all three input-scope hashes are recomputed; any
+    #     mismatch becomes a DataRevisionEvent on that entry.
+    #   - If any event escalates to invalidated, we persist + flip
+    #     status to requires_data_review + return [] without appending
+    #     any new TDs. The next observe() call halts above until
+    #     decide() clears the state.
+    v2_universe_for_reval: list = sorted(panel["close"].columns.tolist())
+    bench_syms_for_reval: list = sorted({manifest.benchmark} | (
+        {manifest.secondary_benchmark} if manifest.secondary_benchmark else set()
+    ))
+    reval = revalidate_manifest(
+        manifest,
+        spec=spec,
+        universe=v2_universe_for_reval,
+        panel=panel,
+        benchmark_symbols=bench_syms_for_reval,
+        detected_by_run_label=(
+            f"observe@{datetime.now(timezone.utc).isoformat(timespec='seconds')}"
+        ),
+    )
+    if reval.events:
+        affected_id_to_event = {id(e): ev for (e, ev) in reval.events}
+        revalidated_runs: list = []
+        for entry in manifest.runs:
+            ev = affected_id_to_event.get(id(entry))
+            if ev is not None:
+                revalidated_runs.append(
+                    entry.model_copy(update={"data_revision_event": ev})
+                )
+            else:
+                revalidated_runs.append(entry)
+        update: dict = {"runs": revalidated_runs}
+        if reval.requires_data_review:
+            update["current_status"] = ForwardRunStatus.requires_data_review
+        manifest = manifest.model_copy(update=update)
+        if reval.requires_data_review:
+            # Halt — save the events + flipped status, then return
+            # without appending. Next observe() call will halt at the
+            # top-of-function status guard until decide() clears it.
+            if not dry_run:
+                save_manifest(manifest, out_path)
+            return []
+        # Non-invalidated events (flagged_only): events stay on the
+        # rebound `manifest` variable; the bottom save_manifest call
+        # below will persist them along with any new TDs.
+
     new_dates = _resolve_dates_to_observe(manifest, available_index, up_to=up_to)
     if not new_dates:
         return []
-
-    spec_path = Path(output_dir) / f"{candidate_id}.yaml"
-    spec = FrozenStrategySpec.from_yaml_file(spec_path)
 
     composite, _all_factors = _compute_composite(spec, panel)
     target_wts = _composite_to_target_weights(composite, top_n=top_n)
@@ -525,10 +592,11 @@ def observe(
     start_ts = pd.Timestamp(manifest.start_date)
 
     # ── v2.1 evidence-hardening prep ────────────────────────────────
-    # Universe for signal_input scope = full pre-top_n universe = the
-    # columns of panel["close"] (the loader already filters to the
-    # candidate's tradable universe).
-    v2_universe: list = sorted(panel["close"].columns.tolist())
+    # Reuse v2_universe + bench_syms already computed for the top-of-
+    # function revalidate pass. Held-or-traded set is per-window so
+    # it's still computed here.
+    v2_universe = v2_universe_for_reval
+    bench_syms  = bench_syms_for_reval
     # Held-or-traded set for execution_nav scope = union of all
     # symbols with non-zero weight on any date inside
     # [start_date..max(new_dates)]. This stays anchored at start_date
@@ -539,10 +607,6 @@ def observe(
     held_or_traded: list = sorted(
         s for s in in_window.columns if (in_window[s].abs() > 0).any()
     )
-    # Benchmark symbols: primary + secondary (drop None / duplicates)
-    bench_syms: list = sorted({manifest.benchmark} | (
-        {manifest.secondary_benchmark} if manifest.secondary_benchmark else set()
-    ))
 
     # Pre-cache per-symbol canonical_end_date so each TD entry's
     # source_mix flag can be computed without re-reading the sidecar
@@ -726,38 +790,12 @@ def observe(
         update={"runs": new_runs, "current_status": new_status}
     )
 
-    # ── PRD v2.1 §4.6: revalidate prior TDs against current store ──
-    # observe() calls revalidate at the end of each successful append
-    # so daily ritual catches yfinance retroactive revisions. If any
-    # event escalates to invalidated, force the manifest into
-    # requires_data_review and persist the events on the affected
-    # entries — observe() will refuse to append further until decide()
-    # clears the state.
-    last_label = appended[-1].checkpoint_label
-    summary = revalidate_manifest(
-        new_manifest,
-        spec=spec,
-        universe=v2_universe,
-        panel=panel,
-        benchmark_symbols=bench_syms,
-        detected_by_run_label=f"{last_label} / {appended[-1].as_of_date.isoformat()}",
-    )
-    if summary.events:
-        # Persist the data_revision_event onto each affected TD entry.
-        affected_id_to_event = {id(e): ev for (e, ev) in summary.events}
-        revalidated_runs: list = []
-        for entry in new_manifest.runs:
-            ev = affected_id_to_event.get(id(entry))
-            if ev is not None:
-                revalidated_runs.append(
-                    entry.model_copy(update={"data_revision_event": ev})
-                )
-            else:
-                revalidated_runs.append(entry)
-        update: dict = {"runs": revalidated_runs}
-        if summary.requires_data_review:
-            update["current_status"] = ForwardRunStatus.requires_data_review
-        new_manifest = new_manifest.model_copy(update=update)
+    # NOTE: revalidate already ran at the top of observe() against
+    # pre-existing entries. New TDs in `appended` were just hashed from
+    # the same panel they'd be revalidated against, so re-running
+    # revalidate here would be a no-op for them. Skipping avoids
+    # redundant work + the risk of double-persisting flagged_only
+    # events from the top pass.
 
     if not dry_run:
         save_manifest(new_manifest, out_path)

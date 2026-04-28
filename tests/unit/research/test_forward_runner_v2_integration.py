@@ -188,6 +188,133 @@ def test_observe_marks_pre_v2_td_legacy_unhashed_inputs(tmp_path: Path):
     assert td1_post.signal_input_hash is None
 
 
+def test_observe_revalidates_when_no_new_bars(tmp_path: Path):
+    """PRD §4.6: revalidate runs at the top of every observe(),
+    regardless of whether new TD bars are appended. Daily-ritual
+    contract: a yfinance retroactive revision that lands between
+    observations on a no-new-bar day MUST still be detected.
+    Bug-fix regression test (post-audit).
+    """
+    cand = "rcm_v1_defensive_composite_01"
+    out = _setup_repo(tmp_path, cand)
+    init(
+        candidate_id=cand, start_date="2025-01-02",
+        output_dir=out, cost_model_path="config/cost_model.yaml",
+    )
+    # Observe once with a capped end date so we have v2 TD entries
+    # but more bars exist beyond the cap. Then re-observe with the
+    # same cap → no new TDs, but revalidate must still run.
+    appended_first = observe(
+        candidate_id=cand, output_dir=out,
+        cost_model_path="config/cost_model.yaml",
+        top_n=10, up_to="2025-01-15",
+    )
+    assert len(appended_first) > 0
+    # Patch the manifest in-memory: simulate a stale stored hash by
+    # corrupting one TD entry's signal_input_hash. On the next
+    # observe, revalidate must surface a divergence event.
+    from core.research.forward.manifest_io import save_manifest
+    m = load_manifest(out / f"{cand}_forward_manifest.json")
+    target_idx = -1   # last v2 entry
+    while m.runs[target_idx].legacy_unhashed_inputs is True:
+        target_idx -= 1
+    target = m.runs[target_idx]
+    corrupted = target.model_copy(update={
+        "signal_input_hash": "deadbeefdeadbeefdeadbeef",
+    })
+    new_runs = list(m.runs)
+    new_runs[target_idx] = corrupted
+    m_corrupted = m.model_copy(update={"runs": new_runs})
+    save_manifest(m_corrupted, out / f"{cand}_forward_manifest.json")
+
+    # No new bars (same up_to) — observe must STILL run revalidate
+    # and surface the divergence on the corrupted entry.
+    appended_second = observe(
+        candidate_id=cand, output_dir=out,
+        cost_model_path="config/cost_model.yaml",
+        top_n=10, up_to="2025-01-15",
+    )
+    assert appended_second == []
+    m_after = load_manifest(out / f"{cand}_forward_manifest.json")
+    target_after = m_after.runs[target_idx]
+    assert target_after.data_revision_event is not None, (
+        "revalidate should fire on the corrupted entry even when "
+        "no new TDs are appended"
+    )
+
+
+def test_observe_halts_when_requires_data_review(tmp_path: Path):
+    """PRD §4.4: once revalidate flips status to requires_data_review,
+    observe() must halt until decide() clears the state."""
+    from core.research.forward import ForwardHaltError
+    from core.research.forward.manifest_io import save_manifest
+
+    cand = "rcm_v1_defensive_composite_01"
+    out = _setup_repo(tmp_path, cand)
+    init(
+        candidate_id=cand, start_date="2025-01-02",
+        output_dir=out, cost_model_path="config/cost_model.yaml",
+    )
+    observe(
+        candidate_id=cand, output_dir=out,
+        cost_model_path="config/cost_model.yaml",
+        top_n=10, up_to="2025-01-15",
+    )
+    # Manually flip status to simulate a previous revalidate having
+    # fired invalidation. Subsequent observe() must halt.
+    m = load_manifest(out / f"{cand}_forward_manifest.json")
+    m_review = m.model_copy(update={
+        "current_status": ForwardRunStatus.requires_data_review,
+    })
+    save_manifest(m_review, out / f"{cand}_forward_manifest.json")
+
+    with pytest.raises(ForwardHaltError) as exc:
+        observe(
+            candidate_id=cand, output_dir=out,
+            cost_model_path="config/cost_model.yaml",
+            top_n=10, up_to="2025-01-31",
+        )
+    assert "requires_data_review" in str(exc.value)
+    assert "decide()" in str(exc.value)
+
+
+def test_signal_input_per_cell_digest_empty_in_runner(tmp_path: Path):
+    """Storage guard: runner must NOT enable track_per_cell on
+    signal_input scope. Manifest size for a few TDs must stay <100KB
+    per the audit fix; signal_input.per_cell_digest must be empty."""
+    cand = "rcm_v1_defensive_composite_01"
+    out = _setup_repo(tmp_path, cand)
+    init(
+        candidate_id=cand, start_date="2025-01-02",
+        output_dir=out, cost_model_path="config/cost_model.yaml",
+    )
+    appended = observe(
+        candidate_id=cand, output_dir=out,
+        cost_model_path="config/cost_model.yaml",
+        top_n=10, up_to="2025-01-15",
+    )
+    assert len(appended) > 0
+    for entry in appended:
+        # signal_input per_cell_digest must be empty in production
+        assert entry.bar_hash_inputs.signal_input.per_cell_digest == {}
+        # but the rolling hash IS populated
+        assert entry.signal_input_hash and len(entry.signal_input_hash) == 24
+    # Sanity-check overall manifest size. Pre-fix, the signal_input
+    # per_cell_digest stored ~80×252×2 cells per TD which produced
+    # ~1.5 MB / TD; the fix drops that to ~30 KB / TD (execution_nav
+    # + benchmark anchor + metadata only). Threshold bounds against
+    # the pre-fix regression while leaving headroom for live runs.
+    n_v2_tds = sum(1 for e in appended)
+    size_kb = (out / f"{cand}_forward_manifest.json").stat().st_size / 1024
+    per_td_kb = size_kb / max(n_v2_tds, 1)
+    assert per_td_kb < 100, (
+        f"manifest size {size_kb:.1f}KB / {n_v2_tds} TDs = "
+        f"{per_td_kb:.1f}KB per TD — well above the post-fix budget "
+        f"(~30 KB/TD); likely regression in signal_input "
+        f"per_cell_digest pruning"
+    )
+
+
 def test_observe_idempotent_under_v2(tmp_path: Path):
     """Re-running observe with no new bars must be a no-op."""
     cand = "rcm_v1_defensive_composite_01"

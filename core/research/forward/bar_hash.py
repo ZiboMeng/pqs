@@ -300,6 +300,7 @@ def compute_signal_input_hash(
     panel: dict,
     as_of_date: date,
     bar_revision: str = DEFAULT_BAR_REVISION,
+    track_per_cell: bool = False,
 ) -> tuple[str, "PerScopeHashInputs"]:
     """Hash the raw bars feeding the candidate's composite signal at
     ``as_of_date``. Window = ``[as_of - max_lookback, as_of]`` resolved
@@ -307,9 +308,20 @@ def compute_signal_input_hash(
     input attributes; benchmark symbols (e.g. SPY) for cross_sectional
     factors are folded into the symbol list.
 
-    Returns ``(hash_hex_24, PerScopeHashInputs)`` where the inputs
-    object carries the per_cell_digest needed by revalidate to identify
-    revised cells.
+    ``track_per_cell`` (default ``False``): when False, ``per_cell_digest``
+    stays empty. The rolling hash alone covers ~80 syms × 252 days × 2
+    attrs (~40K cells); storing per-cell 8-char digests adds ~2 MB per
+    TD which would balloon the manifest to >100 MB by TD60. This
+    storage is **dead weight for materiality** because revalidate only
+    needs per-cell granularity for cells in the execution_nav scope
+    (the held / traded subset over [start_date..as_of]) — those cells
+    are tracked by ``compute_execution_nav_hash`` already. Any
+    signal-only revision (revision outside execution_nav scope) fails-
+    closed to bound_only per §4.4 regardless of per-cell granularity.
+    Set ``track_per_cell=True`` only for tests that need to assert
+    per-cell digest content directly.
+
+    Returns ``(hash_hex_24, PerScopeHashInputs)``.
     """
     from .manifest_schema import PerScopeHashInputs
 
@@ -340,7 +352,8 @@ def compute_signal_input_hash(
             window_end=window_end,
         )
         rolling_h.update(f"|{attr}={partial_hex}".encode())
-        cells_merged = _merge_cell_digests(cells_merged, partial_cells)
+        if track_per_cell:
+            cells_merged = _merge_cell_digests(cells_merged, partial_cells)
 
     inputs = PerScopeHashInputs(
         scope="signal_input",
@@ -349,7 +362,7 @@ def compute_signal_input_hash(
         window_start=window_start,
         window_end=window_end,
         bar_revision=bar_revision,
-        per_cell_digest=cells_merged,
+        per_cell_digest=cells_merged,  # empty unless track_per_cell=True
         # Anchor values are NOT captured for signal_input — non-held
         # universe revisions fail-closed per §4.4 (bound_only); held
         # symbols' anchors are captured by execution_nav scope.

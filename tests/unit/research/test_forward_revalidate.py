@@ -291,6 +291,37 @@ def test_revalidate_out_of_ring_revision_fail_closed():
     assert "out-of-ring" in ev.delta_summary or "bound_only" in ev.delta_summary
 
 
+# ── E4: decision sign flip ──────────────────────────────────────
+
+
+def test_revalidate_e4_decision_sign_flip_either_direction():
+    """E4 fires when |drift| could plausibly cross zero, regardless
+    of which direction the revision pushes NAV. Bug-fix regression
+    test (post-audit): pre-fix code only checked drift in the
+    positive direction."""
+    spec, universe, held, _w, benchmarks, panel, manifest = _common_setup()
+    # Stored cum_ret is small (0.001); a NAV impact of 5 bps (≥0.05%
+    # = 0.0005) is large enough relative to |0.001|=0.001 to potentially
+    # flip the sign in one direction. With weights 0.5/0.5 and a 0.01%
+    # close drift on AAPL: NAV impact = 0.5 × 0.0001 × 10000 = 0.5 bps;
+    # too small. Need larger drift.
+    panel_b = {k: v.copy() for k, v in panel.items()}
+    # Drift of 0.5% on 50% weight → NAV impact 25 bps = 0.0025 cum_ret
+    # drift, dwarfing the stored 0.001 cum_ret.
+    panel_b["close"].loc[pd.Timestamp("2026-04-24"), "AAPL"] *= 1.005
+
+    summary = revalidate_manifest(
+        manifest, spec=spec, universe=universe, panel=panel_b,
+        benchmark_symbols=benchmarks, detected_by_run_label="TD003",
+    )
+    assert len(summary.events) == 1
+    _entry, ev = summary.events[0]
+    # |drift_magnitude| (0.0025) >= |stored_cum| (0.001) → E4 fires
+    assert ev.decision_sign_flip is True
+    assert "E4" in ev.delta_summary
+    assert ev.policy_decision == "invalidated"
+
+
 # ── E2/E3: benchmark drift ──────────────────────────────────────
 
 
