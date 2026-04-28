@@ -7,6 +7,7 @@ Columns:
 """
 from __future__ import annotations
 
+import argparse
 import os
 from pathlib import Path
 
@@ -45,6 +46,9 @@ def summarize_parquet(path: Path) -> dict:
 
 
 def main() -> None:
+    argparse.ArgumentParser(
+        description="Build pqs/data/_catalog.parquet — per (symbol, freq) coverage summary."
+    ).parse_args()
     rows = []
     for freq, d in FREQ_DIRS.items():
         if not d.exists():

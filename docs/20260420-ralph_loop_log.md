@@ -16821,3 +16821,39 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
     - [ ] build_catalog.py 加 argparse（F08，R10 处理或 defer）
 
 → 完整 memo: `docs/audit/20260428-ralph_audit_round_09.md`
+
+
+---
+
+## R-ralph-audit-2026-04-28-round-10 (B7 — meta-audit + final consolidation)
+
+1. **本轮主题**: B7 — meta-audit + final consolidation — ralph-audit-2026-04-28 cycle 最后一轮。Phase B cumulative-pass round 7 of 7。
+2. **本轮目标**: (a) re-engage 所有 9 轮 prior round PASS claim 做最终 cumulative meta-check；(b) 关闭所有 carry-forward finding (FIX / DEFERRED-with-memo / WONTFIX-with-rationale)；(c) verify PRD §1 三个 failure mode (test fixture 共用 bug 的 calendar / 无 reverse-validation / PRD-vs-code mapping 太粗) 没有 recur；(d) 全 pytest suite green；(e) 决定 emit RALPHAUDIT10DONE。
+3. **为什么这轮优先做它**: 这是 cycle 最后一轮，PRD §4 R10 mandate 是 single coherent ledger across all 9 prior rounds + final integrity check.
+4. **做了什么**: (a) 修 `_signed_drift` dead code (R01.4) — 8 行函数无 caller，整体删除；(b) 修 F08 build_catalog.py 加 argparse stub；(c) 写 `docs/memos/20260428-r10_threshold_drift_deferral.md` 把 F01 / F02 (WindowAnalyzer / MiningEvaluator threshold drift) 显式 defer 到独立 PRD，附 recommended fix shape；(d) 跑全 pytest 1838 passed / 0 failed / 474.25s；(e) 列 final cumulative meta-check ledger 13 个 prior claim 全部 CONFIRMED 或 FIXED，0 CHALLENGED；(f) 验证 PRD §1 三个 failure mode 都没 recur (R2/R6 用真 BarStore；R1/R8 都做了 reverse-validate；R4 built 15-module contract index + R7 13-invariant index)。
+5. **修改了哪些文件**: `core/research/forward/revalidate.py`（删 _signed_drift 8 行）、`scripts/build_catalog.py`（加 argparse import + main 顶部 parse）、`docs/memos/20260428-r10_threshold_drift_deferral.md`（新 deferral memo）、`docs/audit/20260428-ralph_audit_round_10.md`（新 final memo）、`docs/20260420-ralph_loop_log.md`（本条）、`docs/INDEX.md`（§7.5 加 R10 entry）。
+6. **跑了哪些测试/实验**: 全 pytest 1838 / 1 / 1 / 0 (passed/skipped/xfailed/failed) 在 474.25s；`grep _signed_drift` 全 codebase 0 hit；`scripts/build_catalog.py --help` 不再扫 catalog。
+7. **结果如何**: 0 blocker / 0 non-blocker / 0 docs-only / 2 cosmetic FIXED (R01.4 + F08)。**ALL 6 RALPHAUDIT10DONE conditions met**: 10 rounds 全 PASS/FIX_LANDED；pytest green；README 无 changelog；baseline fresh；CLAUDE.md + INDEX 同步；3 个 failure mode 都没 recur。
+8. **当前发现的新问题/新机会**: 无。最关键的 cross-round signal：cumulative-pass 设计 demonstrably worked — R3 PASS 两次被 ELEVATED (R4 F03 + R9 F10) 都被同轮 FIXED；R01.1 carry-forward 5 轮后在 R8 找到合适 lens 关闭；R01.4 carry-forward 一直保留到 R10 final consolidation 才删 — 三个不同 carry-forward pattern (single-lens fix / multi-lens find-then-fix / final-consolidation cleanup) 都成功流转。
+9. **剩余风险**: F01 / F02 显式 deferred to 独立 PRD — 不是 silent carry，而是 documented architectural debt。无其他。
+10. **下一轮建议方向**: cycle 完成。下一步 mandate 由用户决定。可能方向：(a) F01 / F02 unification PRD；(b) 继续 forward observation daily ritual；(c) 等 codex / 用户提下一轮 review；(d) 若无 mandate 则恢复 daily forward observe。
+11. **TODO checklist（最终）**:
+    - [x] R1 (A1) — FIX_LANDED
+    - [x] R2 (A2) — PASS
+    - [x] R3 (A3) — FIX_LANDED (Phase A 关闭)
+    - [x] R4 (B1) static — FIX_LANDED
+    - [x] R5 (B2) live e2e — PASS
+    - [x] R6 (B3) adversarial 40 — PASS
+    - [x] R7 (B4) cross-cutting 13 — PASS
+    - [x] R8 (B5) determinism + DST FIX — FIX_LANDED
+    - [x] R9 (B6) doc truth + framework PRD F10 — FIX_LANDED
+    - [x] R10 (B7) meta-audit + final consolidation — FIX_LANDED
+    - [x] DST 修复 (R01.1) — CLOSED in R8
+    - [x] `_signed_drift` dead code (R01.4) — CLOSED in R10
+    - [x] build_catalog.py argparse (F08) — CLOSED in R10
+    - [-] WindowAnalyzer / MiningEvaluator threshold drift (F01 + F02) — DEFERRED with memo
+    - [x] CLAUDE.md "strict separation" wording (F03) — CLOSED in R4
+    - [x] framework_completion PRD §11 stale (F10) — CLOSED in R9
+
+→ 完整 memo: `docs/audit/20260428-ralph_audit_round_10.md`
+→ Cycle 完成: `<promise>RALPHAUDIT10DONE</promise>` will emit.

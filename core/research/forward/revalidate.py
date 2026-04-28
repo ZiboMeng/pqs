@@ -121,15 +121,6 @@ def _drift_pct(old: Optional[float], new: Optional[float]) -> Optional[float]:
     return abs(new - old) / abs(old)
 
 
-def _signed_drift(old: Optional[float], new: Optional[float]) -> Optional[float]:
-    """Signed drift (new - old) / old; None on zero/None."""
-    if old is None or new is None:
-        return None
-    if old == 0:
-        return None
-    return (new - old) / old
-
-
 def _bench_old_new_path(
     *,
     bench_anchors: dict,
