@@ -92,6 +92,3 @@ x.txt
 # Codex CLI scratchpad (not committed)
 .codex
 
-# Ralph-loop launcher generated slash command (regenerated per run, single file)
-.ralph_loop_command.txt
-

@@ -201,24 +201,13 @@ PRE-FLIGHT: see status lines at top.
 
 EOF
 
-# Write the slash command to a stable file so the user can copy it
-# without needing to scroll back through the banner.
-COMMAND_FILE=".ralph_loop_command.txt"
-SLASH_COMMAND="/ralph-loop:ralph-loop \"$PROMPT\" --max-iterations 10 --completion-promise RALPHAUDIT10DONE"
-printf '%s\n' "$SLASH_COMMAND" > "$COMMAND_FILE"
-
-# Now print the slash command LAST so it's the bottom of the terminal
-# and survives autoscroll. Also mention the file path for stable copy.
+# Print the slash command LAST so it survives terminal autoscroll.
 cat <<EOF
 ================================================================================
-READY — paste this into Claude Code (single line below; also saved to file):
+READY — paste this into Claude Code (single line below):
 ================================================================================
 
-$SLASH_COMMAND
+/ralph-loop:ralph-loop "$PROMPT" --max-iterations 10 --completion-promise RALPHAUDIT10DONE
 
-================================================================================
-Saved to: $COMMAND_FILE
-  cat $COMMAND_FILE | xclip -selection clipboard   # X11 clipboard
-  cat $COMMAND_FILE                                # raw print for manual copy
 ================================================================================
 EOF
