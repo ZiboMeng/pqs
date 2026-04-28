@@ -31,6 +31,11 @@ from .manifest_schema import (
     SourceLayerView,
 )
 from .readiness import ReadinessReport, check_readiness
+from .source_layer import (
+    aggregate_window_layers,
+    classify_as_of,
+    classify_window,
+)
 from .runner import (
     ForwardHaltError,
     decide,
@@ -59,7 +64,10 @@ __all__ = [
     "ReadinessReport",
     "SourceLayerBreakdown",
     "SourceLayerView",
+    "aggregate_window_layers",
     "check_readiness",
+    "classify_as_of",
+    "classify_window",
     "decide",
     "init",
     "load_manifest",
