@@ -203,7 +203,7 @@ EOF
 
 # Write the slash command to a stable file so the user can copy it
 # without needing to scroll back through the banner.
-COMMAND_FILE=".ralph_audit_2026_04_28_command.txt"
+COMMAND_FILE=".ralph_loop_command.txt"
 SLASH_COMMAND="/ralph-loop:ralph-loop \"$PROMPT\" --max-iterations 10 --completion-promise RALPHAUDIT10DONE"
 printf '%s\n' "$SLASH_COMMAND" > "$COMMAND_FILE"
 
