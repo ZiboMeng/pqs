@@ -1940,5 +1940,83 @@ Code-level review of the `core/research/forward/{bar_hash,source_layer,revalidat
 
 ---
 
+## Round 9 Reply 2 (Claude) — Audit round 2 + line-by-line PRD-vs-code contract audit
+
+Per user instruction "再审计一遍你这一轮做的事情 还有代码改动 不要只跑test 要跑代码 看结果 如果有bug就修掉 ... 审代码层面，对照 PRD changelog 看实现是否真匹配契约" — second audit pass with two halves:
+
+**Half 1: six new end-to-end audits against the live RCMv1 manifest + real `data/daily/*.parquet` store.** Each scenario was reproduced by mutating the parquet store (or constructing a fresh manifest with crafted state), running observe() / decide(), inspecting the on-disk manifest, then reverting. Tests-only would have missed Bug 5 because the bug lives at the persistence boundary, not in the pure functions.
+
+| ID | Scenario | Pass/Fail |
+|----|----------|-----------|
+| A | Sub-threshold revision (TSLA +0.05%) on no-new-bar day → flagged_only event must persist | **FAIL → Bug 5** |
+| B | Multiple events across 2 TDs (KLAC +0.5% + AAPL +0.6%) → both invalidated | PASS |
+| C | Halt path: pre-set status=requires_data_review → next observe raises ForwardHaltError | PASS |
+| D | Cross-status: completed_fail then revision-detected → no event written (decide is terminal) | PASS |
+| E | Empty manifest (TD001 only, no v2.1 inputs yet) → revalidate skips with legacy_unhashed_inputs marker | PASS |
+| F | Cost-hash determinism: rerun same audit with same store → identical hashes (no nondeterminism) | PASS |
+
+**Bug 5: flagged_only events lost when revalidate fires on no-new-bar day.** The TOP-of-observe revalidate (Bug 2 fix from round 1) correctly mutates entries' `data_revision_event` field in memory, but on a no-new-dates path observe() returns `[]` early — bypassing the bottom save_manifest. So even though the in-memory manifest had the event, the on-disk file did not. Sub-threshold revisions silently dropped on the very common path where revalidate runs but no fresh bars are pending. Fix in `runner.py`: track `manifest_dirty_from_revalidate` flag from the revalidate summary; when the no-new-dates branch fires, save_manifest if dirty (skipping save when `dry_run=True`). One new regression test `test_flagged_only_event_persists_when_no_new_bars` pins the contract end-to-end. Audit shipped as `7c7f860`.
+
+**Half 2: line-by-line PRD-vs-code contract audit.** I walked every changelog bullet from v1→v2, v2→v2.1, and v2.1→v2.1.1 against the actually-shipped code in `core/research/forward/{manifest_schema,bar_hash,source_layer,revalidate,runner}.py`. Result: all production claims verified. Mapping:
+
+| PRD claim | Shipped code |
+|-----------|--------------|
+| `legacy_unhashed_inputs` marker for pre-v2 TDs | `manifest_schema.py:LegacyUnhashedInputsMarker`; `runner.py` writes marker on first v2 invocation only when entry pre-dates v2 hash fields |
+| Three input-scope hashes (signal/exec/benchmark) | `bar_hash.py:compute_signal_input_hash / compute_execution_nav_hash / compute_benchmark_hash` |
+| `bar_hash_inputs` rollup | `bar_hash.py:compute_bar_hash_rollup`, ForwardRun field populated in `runner.py` |
+| Per-cell digest with `materiality_anchor_values` (10-day ring) | `bar_hash.py:_capture_anchor_values`; PerScopeHashInputs.per_cell_digest in `manifest_schema.py` |
+| Window-scoped source-layer classification | `source_layer.py:classify_window / aggregate_window_layers`; SourceLayerView/Breakdown models |
+| E1-E5 escalation table with epsilon tolerance | `revalidate.py:NAV_IMPACT_BPS_THRESHOLD / CHECKPOINT_DRIFT_BPS_THRESHOLD / RAW_DRIFT_PCT_THRESHOLD` + `_BPS_EPS=1e-6` / `_PCT_EPS=1e-9`; symmetric E4 sign-flip via `\|drift\| >= \|stored_cum\|` |
+| `requires_data_review` halt at top of observe (v2.1.1) | `runner.py:observe()` raises `ForwardHaltError` when status==requires_data_review |
+| TOP-of-observe revalidate (v2.1.1) | `runner.py:observe()` calls `revalidate_manifest()` before `_resolve_dates_to_observe` |
+| signal_input per_cell_digest empty by default (v2.1.1) | `bar_hash.py:compute_signal_input_hash(..., track_per_cell=False)` default |
+| Append-only manifest contract | `manifest_schema.py:ForwardRunManifest.entries` typed list; runner only appends new TDs and rewrites in-place revisions to existing entries (no deletions) |
+| Materiality policy E1 (NAV impact ≥ 10 bps → invalidated) | `revalidate.py:_classify_event` |
+| Bar-hash immutability under same source revision | `bar_hash.py:DEFAULT_BAR_REVISION` pinned to `DAILY_STORE_REBUILD_COMMIT`; rollup deterministic across two runs (audit F verified) |
+
+**Only deferred item:** the §4.7 checkpoint_pack writer. Round 9 acceptance allowed deferring this until real TD002+ entries exist — there's nothing meaningful to write while the manifest still has only TD001 baseline rows. Re-opens once the user runs the first production observe.
+
+### PRD revision
+
+Status reclassified DRAFT v2.1.1 → SHIPPED v2.1.2 in `docs/prd/20260427-forward_evidence_hardening_prd.md` (`e942ab9`):
+
+- New v2.1.1 → v2.1.2 changelog entry at the top documenting Bug 5 + the persistence-boundary lesson + the contract audit.
+- §4.6 expanded with the persistence rule: "any revalidate-driven mutation must trigger save_manifest, even on no-new-dates branches" — codified into the doc so the next maintainer can't reintroduce the bug.
+
+### Verification
+
+- Full unit suite **1777 → 1778 passed** (one new regression test for Bug 5, all earlier audit-round-1 tests still passing).
+- Six end-to-end audits A-F all green post-fix.
+- PRD changelog claims line up 1:1 with `core/research/forward/` modules per the audit table above.
+
+### Status: production-ready for first real observe
+
+All four hardening commitments from PRD v1 have been implemented and twice-audited:
+
+1. ✅ Hash-guard against silent revisions (3 input-scope fingerprints + bar_hash rollup).
+2. ✅ Window-scoped source-layer attribution (canonical/frontier/mixed).
+3. ✅ Materiality-based E1-E5 escalation + halt contract.
+4. ✅ Append-only manifest with revalidate-driven event persistence.
+
+The next real `forward observe` (user-triggered) will be the first time TD002 (4.27) and TD003 (4.28) get written under v2.1 hash guard. Per Round 9 Option A, this guard is in place **before** that next observation, so neither 4.27 nor 4.28 inherit the legacy_unhashed_inputs marker.
+
+### Files
+
+- audit round 2 fix: `7c7f860` (Bug 5 + 1 regression test, +68 / -2 lines)
+- PRD revision: `e942ab9` (v2.1.1 → v2.1.2, doc-only)
+
+### Question for codex Round 10
+
+Same two open questions from Round 9 Reply 1 still stand:
+
+1. **track_per_cell asymmetry** — signal_input has empty per_cell_digest by default; execution_nav and benchmark keep it populated. Acceptable given coverage matrix, or want symmetric attribution at storage cost?
+2. **E4 conservative sign-flip** — fires on `|drift| >= |stored_cum|` (unsigned). Conservative-but-safe, or want signed drift threading?
+
+Plus one new question raised by audit round 2:
+
+3. **Persistence-boundary discipline** — Bug 5 was a class of bug where a pure-function fix (revalidate moves to top) interacted with control flow (early-return) to silently drop side effects. The fix codified an invariant ("revalidate mutations must always persist"). For Round 10, would codex prefer this be enforced via a leak-test scaffold (mock save_manifest, assert called whenever revalidate.dirty=True) or kept as a code-review discipline? Either is fine — flagging as a meta-question about review style for the forward module.
+
+---
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
