@@ -31,6 +31,13 @@ from .manifest_schema import (
     SourceLayerView,
 )
 from .readiness import ReadinessReport, check_readiness
+from .revalidate import (
+    CHECKPOINT_DRIFT_BPS_THRESHOLD,
+    NAV_IMPACT_BPS_THRESHOLD,
+    RAW_DRIFT_PCT_THRESHOLD,
+    RevalidationSummary,
+    revalidate_manifest,
+)
 from .source_layer import (
     aggregate_window_layers,
     classify_as_of,
@@ -46,12 +53,16 @@ from .runner import (
 
 __all__ = [
     "BarHashInputs",
+    "CHECKPOINT_DRIFT_BPS_THRESHOLD",
     "CheckpointCadence",
     "ContractResolutionError",
     "CostAssumptions",
     "DEFAULT_BAR_REVISION",
     "DataRevisionEvent",
     "FactorInputContract",
+    "NAV_IMPACT_BPS_THRESHOLD",
+    "RAW_DRIFT_PCT_THRESHOLD",
+    "RevalidationSummary",
     "compute_bar_hash_rollup",
     "compute_benchmark_hash",
     "compute_execution_nav_hash",
@@ -75,6 +86,7 @@ __all__ = [
     "max_lookback",
     "observe",
     "resolve_factor_input_contract",
+    "revalidate_manifest",
     "save_manifest",
     "status",
     "union_attributes",

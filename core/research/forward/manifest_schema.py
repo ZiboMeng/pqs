@@ -284,6 +284,12 @@ class ForwardRun(BaseModel):
     bar_hash_inputs: Optional[BarHashInputs] = None
     source_layer_breakdown: Optional[SourceLayerBreakdown] = None
     data_revision_event: Optional[DataRevisionEvent] = None
+    # held_today_weights: portfolio weights at as_of_date, captured at
+    # observation time. Required for revalidate's NAV-impact bps calc
+    # under §4.4 E1-E2: NAV_impact_bps ≈ Σ weight[sym] × close_drift_pct.
+    # None on legacy TD001 entries (no weights captured pre-v2.1) →
+    # revalidate fails-closed for any revision against those rows.
+    held_today_weights: Optional[dict] = None
 
 
 class ForwardRunManifest(BaseModel):
