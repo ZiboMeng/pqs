@@ -28,7 +28,8 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Optional, Union
 
@@ -165,12 +166,10 @@ def _file_sha256_hex(path: Path) -> str:
 
 _DEFAULT_DAILY_DIR = Path("data/daily")
 _NYSE_CALENDAR_PROXY = "SPY"  # SPY's daily index is the NYSE proxy
-# NYSE regular-session close ≈ 16:00 ET ≈ 20:00 UTC during winter EST,
-# 19:00 UTC during DST. We use 20:00 UTC as the conservative boundary;
-# the 1-hour DST shift only matters when frozen_at_utc.hour falls in
-# [19, 20], which is uncommon. Edge cases falling exactly on the close
-# minute round down (treated as pre-close).
-_NYSE_CLOSE_UTC_HOUR = 20
+# NYSE regular-session close = 16:00 America/New_York (ET).
+# In UTC: 20:00 during EDT (Mar–Nov) and 21:00 during EST (Nov–Mar).
+# Use ZoneInfo for the comparison so the DST boundary is exact.
+_NYSE_TZ = ZoneInfo("America/New_York")
 
 
 def _next_trading_day(
@@ -217,18 +216,29 @@ def _first_post_freeze_trading_day(
     a Friday-mid-day freeze that pushed start_date all the way to the
     following Monday, losing a legitimate forward observation day.
 
-    Logic:
-      - if ``frozen_at_utc.hour < NYSE_CLOSE_UTC_HOUR``: that day's
-        close is post-freeze → start at first trading day on-or-after
-        ``frozen_at_utc.date()``.
-      - else: that day's close is pre-freeze → start at first trading
-        day strictly after ``frozen_at_utc.date()``.
+    DST-correct logic (R8 fix, replacing the prior 20:00 UTC heuristic
+    that was off by 1 hour during EST/winter):
+
+      - Convert ``frozen_at_utc`` to America/New_York via zoneinfo.
+      - Compare the ET-local time to 16:00 ET (NYSE regular-session
+        close) on the SAME ET date.
+      - If ET-local time is strictly before that close: today's close
+        is genuinely post-freeze → candidate = ET date.
+      - Otherwise: today's close has happened or is happening at the
+        freeze instant → candidate = next ET calendar day.
+
+    The ET conversion correctly handles EDT (UTC-4) and EST (UTC-5)
+    automatically.
     """
-    frozen_date = frozen_at_utc.date()
-    if frozen_at_utc.hour < _NYSE_CLOSE_UTC_HOUR:
-        candidate = frozen_date
+    if frozen_at_utc.tzinfo is None:
+        frozen_at_utc = frozen_at_utc.replace(tzinfo=timezone.utc)
+    frozen_et = frozen_at_utc.astimezone(_NYSE_TZ)
+    et_date = frozen_et.date()
+    nyse_close_et = datetime.combine(et_date, time(16, 0), tzinfo=_NYSE_TZ)
+    if frozen_et < nyse_close_et:
+        candidate = et_date
     else:
-        candidate = (pd.Timestamp(frozen_date) + pd.Timedelta(days=1)).date()
+        candidate = (pd.Timestamp(et_date) + pd.Timedelta(days=1)).date()
     return _next_trading_day(candidate, daily_dir=daily_dir)
 
 

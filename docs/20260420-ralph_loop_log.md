@@ -16755,3 +16755,36 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
     - [ ] build_catalog.py 加 argparse（F08，待 B7）
 
 → 完整 memo: `docs/audit/20260428-ralph_audit_round_07.md`
+
+
+---
+
+## R-ralph-audit-2026-04-28-round-08 (B5 — full-codebase determinism / reproducibility lens)
+
+1. **本轮主题**: B5 — determinism / reproducibility lens — 全 codebase 测"同输入是否同输出"。Phase B cumulative-pass round 5 of 7。
+2. **本轮目标**: 把 lens 从 invariant 切到 reproducibility — 不再问"property X 在 module A/B/C 都成立吗"，问"identical input 在不同时间 / 不同 process state / 不同季节下产生 identical output 吗"。这是 R01.1 (DST UTC-hour) carry-forward 的天然归宿。
+3. **为什么这轮优先做它**: PRD §4 R8 把 B5 定为 lens-5。R01.1 自 R1 起就 carry-forward 了 5 轮 — R8 determinism lens 是合适的 closure 位置。
+4. **做了什么**: (a) 读 `_first_post_freeze_trading_day` 源码 + 注释，发现注释中 DST 数学反了 — 真相 EDT/夏令时 UTC-4: 16:00 ET = 20:00 UTC；EST/冬令时 UTC-5: 16:00 ET = 21:00 UTC。`_NYSE_CLOSE_UTC_HOUR = 20` 在 EST 冬天 20:00–21:00 UTC 这 1 小时窗口内 OFF BY 1 hour。(b) 用 zoneinfo 替换硬编码 hour — `frozen_at_utc.astimezone(ZoneInfo("America/New_York"))` 跟 16:00 ET 比较。(c) 7 case reverse-validate sweep (EDT pre/post-close, EST pre/post-close including 之前 buggy 的 20:30 UTC 案例, Friday late, Friday pre-close)，全 PASS。(d) 加 2 个 EST winter regression test (`test_first_post_freeze_trading_day_dst_winter_pre_close` + `_post_close`)。(e) PYTHONHASHSEED 0 vs 12345 hash 输出 identical = `73493383e93978a779ece269` MATCH。(f) M11a sorted(set()) fix 在 BacktestEngine line 340 + 398 仍存在。
+5. **修改了哪些文件**: `core/research/forward/runner.py`（_first_post_freeze_trading_day + import zoneinfo + time）、`tests/unit/research/test_forward_runner.py`（+2 regression test）、`docs/audit/20260428-ralph_audit_round_08.md`（新 memo）、`docs/20260420-ralph_loop_log.md`（本条）、`docs/INDEX.md`（§7.5 加 R08 entry）。
+6. **跑了哪些测试/实验**: 7-case reverse-validate sweep 全 PASS；forward runner suite 29 → 31 passed；PYTHONHASHSEED 0 vs 12345 输出 identical hash；M11a `sorted(set` grep 仍找到 2 处。
+7. **结果如何**: 0 blocker / 1 non-blocker (R01.1) FIXED / 0 docs-only / 0 cosmetic。R01.1 carry-forward 自 R1 起经过 R2 / R4 / R5 / R6 / R7 共 5 轮 deferred，在 R8 关闭。
+8. **当前发现的新问题/新机会**: 无新问题。重大 cross-round signal：cumulative-pass 设计成功 demonstrate 了"single lens 不能 catch 的 finding，多 lens rotation 会 surface 在正确 context 下" — R01.1 在 R1 的 module-contract lens 下被 flag 但不 fit fix scope，在 R8 determinism lens 下找到合适归宿。
+9. **剩余风险**: F01 / F02 threshold drift / `_signed_drift` dead code 仍 defer to B7 final consolidation。其他没有 carry-forward。
+10. **下一轮建议方向**: B6 — documentation truth lens。R3 已经做过 README changelog removal + INDEX 同步；B6 mandate 是更深 — re-read 整个 docs/ 目录，verify 每个 doc claim 都对应 code reality；特别是 PRD 文档（forward_evidence_hardening_prd v2.1, oos_validation_framework_codex_v3, framework_completion v1.2 等）声明 ship 的 milestone 现在是否仍 hold。
+11. **TODO checklist（更新后）**:
+    - [x] R1 (A1) — **PASS**
+    - [x] R2 (A2) — **PASS**
+    - [x] R3 (A3) — **PASS**
+    - [x] R4 (B1) static — **FIX_LANDED**
+    - [x] R5 (B2) live e2e — **PASS**
+    - [x] R6 (B3) adversarial 40 — **PASS**
+    - [x] R7 (B4) cross-cutting 13 invariants — **PASS**
+    - [x] R8 (B5) determinism + R01.1 DST FIX — **FIX_LANDED**
+    - [ ] R9 (B6) documentation truth lens
+    - [ ] R10 (B7) meta-audit + final consolidation
+    - [x] DST 修复（R01.1）— **CLOSED in R8**
+    - [ ] `_signed_drift` dead code（R01.4，待 B7）
+    - [ ] WindowAnalyzer / MiningEvaluator threshold drift refactor（F01 + F02，待 B7）
+    - [ ] build_catalog.py 加 argparse（F08，待 B7）
+
+→ 完整 memo: `docs/audit/20260428-ralph_audit_round_08.md`

@@ -198,6 +198,42 @@ def test_first_post_freeze_trading_day_freeze_on_weekend():
     assert result == date(2026, 4, 27)
 
 
+def test_first_post_freeze_trading_day_dst_winter_pre_close():
+    """R8 (B5) DST regression: freeze at 20:30 UTC during EST/winter.
+
+    EST = UTC-5, so 20:30 UTC = 15:30 ET, which is BEFORE the 16:00 ET
+    market close. The pre-R8 code used a fixed ``_NYSE_CLOSE_UTC_HOUR
+    = 20`` heuristic that would treat hour=20 as past-close and
+    incorrectly advance start_date to the next day. The post-R8 fix
+    converts to America/New_York and compares to 16:00 ET, which
+    correctly identifies this as pre-close → today's close is
+    post-freeze → start on this day.
+    """
+    from core.research.forward.runner import _first_post_freeze_trading_day
+    # Wednesday 2026-01-14 at 20:30 UTC = 15:30 EST (winter)
+    frozen = datetime(2026, 1, 14, 20, 30, 0, tzinfo=timezone.utc)
+    result = _first_post_freeze_trading_day(frozen)
+    assert result == date(2026, 1, 14), (
+        f"EST 15:30 (UTC 20:30) is pre-close; should start same day, got {result}"
+    )
+
+
+def test_first_post_freeze_trading_day_dst_winter_post_close():
+    """R8 (B5) DST regression: freeze at 21:30 UTC during EST/winter.
+
+    EST = UTC-5, so 21:30 UTC = 16:30 ET, which is AFTER the 16:00 ET
+    market close. Today's close is pre-freeze → start on next trading
+    day.
+    """
+    from core.research.forward.runner import _first_post_freeze_trading_day
+    # Wednesday 2026-01-14 at 21:30 UTC = 16:30 EST
+    frozen = datetime(2026, 1, 14, 21, 30, 0, tzinfo=timezone.utc)
+    result = _first_post_freeze_trading_day(frozen)
+    assert result == date(2026, 1, 15), (
+        f"EST 16:30 (UTC 21:30) is post-close; should start next day, got {result}"
+    )
+
+
 def test_init_advances_weekend_start_date_to_next_trading_day(tmp_path: Path):
     """Post-MVP audit fix (2026-04-26): start_date must be a trading day.
 
