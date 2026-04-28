@@ -92,3 +92,6 @@ x.txt
 # Codex CLI scratchpad (not committed)
 .codex
 
+# Ralph-loop launcher generated command files (regenerated per run)
+.ralph_audit_*_command.txt
+

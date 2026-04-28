@@ -181,40 +181,44 @@ HALT CONDITIONS:
   6. CLAUDE.md / README drift needs cross-round code changes
   7. Disk < 10 GB
 
-PRE-FLIGHT (already run above): see status lines.
+DURING THE LOOP (informational):
+  - Per-round artifacts:
+      Full memo:    docs/audit/20260428-ralph_audit_round_NN.md
+      11-part CN:   docs/20260420-ralph_loop_log.md
+                    (R-ralph-audit-2026-04-28-round-NN)
+      Code commits: main
+      Memo commits: review/claude-collab
+  - Pause mid-loop: rm .claude/ralph-loop.local.md  OR  /ralph-loop:cancel-ralph
+  - Status mid-loop:
+      ls docs/audit/20260428-ralph_audit_round_*.md
+      grep '^status:' docs/audit/20260428-ralph_audit_round_*.md
+  - R10 must: emit <promise>RALPHAUDIT10DONE</promise>; master issue
+    list cross-referenced; README clean of changelog; baseline
+    regenerated if test count drift; docs/INDEX.md updated with new
+    memos; CLAUDE.md TODO + Confirmed Done synced to round findings
 
---------------------------------------------------------------------------------
-PASTE THIS INTO CLAUDE CODE (single line, starts with /ralph-loop:ralph-loop):
---------------------------------------------------------------------------------
+PRE-FLIGHT: see status lines at top.
 
-/ralph-loop:ralph-loop "$PROMPT" --max-iterations 10 --completion-promise RALPHAUDIT10DONE
+EOF
 
---------------------------------------------------------------------------------
-During the loop (informational):
---------------------------------------------------------------------------------
+# Write the slash command to a stable file so the user can copy it
+# without needing to scroll back through the banner.
+COMMAND_FILE=".ralph_audit_2026_04_28_command.txt"
+SLASH_COMMAND="/ralph-loop:ralph-loop \"$PROMPT\" --max-iterations 10 --completion-promise RALPHAUDIT10DONE"
+printf '%s\n' "$SLASH_COMMAND" > "$COMMAND_FILE"
 
-- Per-round artifacts:
-  * Full memo:     docs/audit/20260428-ralph_audit_round_NN.md
-  * 11-part CN:    docs/20260420-ralph_loop_log.md (R-ralph-audit-2026-04-28-round-NN)
-  * Code commits:  main
-  * Memo commits:  review/claude-collab
+# Now print the slash command LAST so it's the bottom of the terminal
+# and survives autoscroll. Also mention the file path for stable copy.
+cat <<EOF
+================================================================================
+READY — paste this into Claude Code (single line below; also saved to file):
+================================================================================
 
-- To pause mid-loop:
-       rm .claude/ralph-loop.local.md
-  Or use /ralph-loop:cancel-ralph
+$SLASH_COMMAND
 
-- To inspect status mid-loop:
-       ls docs/audit/20260428-ralph_audit_round_*.md
-       grep '^status:' docs/audit/20260428-ralph_audit_round_*.md
-
-- Final round (R10) must:
-  * Emit <promise>RALPHAUDIT10DONE</promise>
-  * Master issue list cross-referenced from R10 memo to all
-    prior memos by issue ID (R<NN>.<idx>)
-  * README clean of changelog content
-  * data/baseline/latest.json regenerated if test count drift
-  * docs/INDEX.md updated with new memos + this PRD entry
-  * CLAUDE.md TODO checklist + Confirmed Done synced to round
-    findings
-
+================================================================================
+Saved to: $COMMAND_FILE
+  cat $COMMAND_FILE | xclip -selection clipboard   # X11 clipboard
+  cat $COMMAND_FILE                                # raw print for manual copy
+================================================================================
 EOF
