@@ -1,9 +1,9 @@
 # Forward Evidence Hardening — PRD
 
-**Status**: DRAFT v2 — design only, no implementation until accepted
-**Date drafted**: 2026-04-27 (v1) / 2026-04-28 (v2 codex Round-7 revision)
+**Status**: DRAFT v2.1 — design only, no implementation until accepted
+**Date drafted**: 2026-04-27 (v1) / 2026-04-28 (v2 codex Round-7 revision; v2.1 codex Round-8 cleanup)
 **Authority required**: user explicit (zibo)
-**Authoring lineage**: codex review-loop Round 6 (`d8fd133`) §"Highest-ROI Recommendations P0"; v2 incorporates codex Round 7 (`c4d6a08`) blocking changes
+**Authoring lineage**: codex review-loop Round 6 (`d8fd133`) §"Highest-ROI Recommendations P0"; v2 incorporates codex Round 7 (`c4d6a08`) blocking changes; v2.1 incorporates codex Round 8 (`e2ff695`) cleanup items
 **Supersedes / extends**: `docs/prd/20260426-forward_oos_runner_prd.md` §4.6 (overlap-fetch caveat) + §6 R-fwd-2 / R-fwd-3 outline
 **Lineage tag (when committed)**: `forward-evidence-hardening-2026-04-27`
 
@@ -15,6 +15,16 @@
 4. TD001 lazy migration boundary made explicit: TD002+ must hash the start-date input bars (the cumulative-return denominator); checkpoint packs surface `evidence_clean_start_label` and TD001 carries `legacy_unhashed_inputs=true`.
 5. Source-layer classification changed from as-of-date single-point (`classify(sym, as_of)`) to **window-scoped** (`classify_window(sym, start, as_of, attributes)`); checkpoints aggregate both `as_of_held_source` and `window_input_source`.
 6. Checkpoint pack JSON expanded to **decision-grade**: adds `evidence_quality`, `revision_materiality_bps`, exposure breakdown (net/gross/cash/leverage/high-risk-ETF), realized beta/correlation vs SPY/QQQ over the forward window, 1x/2x/3x cost-stress summary, M12 + watch-list + leveraged-ETF exposure.
+
+### v2 → v2.1 changelog (codex Round-8 cleanup)
+
+1. **Stale §3 non-goal removed.** v1's "bar-hash guard scopes to held-today set" wording deleted; replaced with the v2 three-scope contract (signal = full pre-top_n universe; execution = held-or-traded; benchmark = SPY/QQQ).
+2. **RCMv1 feature description corrected.** §1.4 incorrectly cited `mom_126d`; the frozen spec actually uses `beta_spy_60d / drawup_from_252d_low / days_since_52w_high / amihud_20d`. v1.4 example table now derived directly from the YAML.
+3. **Factor input-contract resolver made explicit** (§4.3.0). New `resolve_factor_input_contract(spec) -> {factor: FactorInputContract}` helper with fail-closed unknown-factor guard. Pinned regression tests for RCMv1 + Cand-2 + an unknown-factor failure case prevent silent under-hashing.
+4. **Old-numeric capture timing clarified.** G2 + §4.3 explicitly state `materiality_anchor_values` and `per_cell_digest` are captured at the TD's **observation time**, not at revision-detection time (by which point the original values are gone).
+5. **Signal-scope materiality fallback added** (§4.3 coverage matrix + §4.4 fallback). A revision to a non-held name's signal input is detected via `per_cell_digest` but cannot be mapped to deterministic NAV impact without storing the cross-sectional ranked output, so v2.1 fail-closes to `bound_only` → `requires_data_review`. Same fail-closed treatment for high/low/volume revisions on held names (only close/open are anchored).
+6. **`materiality_anchor_values` ring depth widened from 5 → 10 trading days** (codex Round-8 §6 preference; storage cost still negligible at ~96 KB / candidate / checkpoint horizon).
+7. **Checkpoint pack `economic_distinction` correlation policy refined** (§4.7 + acceptance test 15b). Primary `rolling_corr_*_30d` for all packs; `expanding_corr_*` populated for TD10/20 to avoid blank/misleading early packs; `rolling_corr_*_60d` populated only at TD60+; 126d not added until forward cadence extends.
 
 ---
 
@@ -79,14 +89,19 @@ price_df=panel["close"], open_df=panel["open"])` over the entire
 that NAV path; `vs_spy` / `vs_qqq` slice SPY/QQQ closes over the
 same window.
 
-Concretely on `main f4ca217` (verified by codex Round-7 audit):
+Concretely on `main f4ca217` (verified by codex Round-7/8 audit
+against the frozen specs):
 
-- RCMv1's composite uses `beta_spy_60d × amihud_20d × mom_126d` —
-  `amihud_20d` reads volume; a volume revision on a *non-held*
-  symbol can change the composite ranking and therefore tomorrow's
-  fills.
-- Cand-2's composite uses `ret_5d × rs_vs_spy_126d × hl_range` —
-  `hl_range` reads high and low.
+- RCMv1's composite (`data/research_candidates/rcm_v1_defensive_composite_01.yaml`)
+  is `beta_spy_60d + drawup_from_252d_low + days_since_52w_high +
+  amihud_20d` — `amihud_20d` reads volume (a volume revision on a
+  *non-held* symbol can change the composite ranking and therefore
+  tomorrow's fills); `drawup_from_252d_low` and `days_since_52w_high`
+  push the close-input lookback out to 252 trading days, so the
+  signal-input window per TD is much wider than the held-today set.
+- Cand-2's composite (`data/research_candidates/candidate_2_orthogonal_01.yaml`)
+  is `ret_5d + rs_vs_spy_126d + hl_range` — `hl_range` reads high
+  and low; `rs_vs_spy_126d` extends the lookback to 126 days.
 - `BacktestEngine` uses `open_df` for fill prices when supplied,
   which the runner does. An open revision on a previously-held
   symbol changes a historical fill price and thus the entire
@@ -96,6 +111,21 @@ Concretely on `main f4ca217` (verified by codex Round-7 audit):
 A held-today (sym, date, close, volume) hash misses all of the
 above. v2 fingerprints the actual evidence path: signal input
 window, execution NAV window, benchmark window.
+
+**Per-candidate input contract derived from the frozen specs**
+(consumed by §4.3's `compute_signal_input_hash`):
+
+| candidate | factor | attributes | lookback (days) |
+|-----------|--------|-----------|-----------------|
+| RCMv1 | `beta_spy_60d` | close (sym + SPY) | 60 |
+| RCMv1 | `drawup_from_252d_low` | close | 252 |
+| RCMv1 | `days_since_52w_high` | close | 252 |
+| RCMv1 | `amihud_20d` | close + volume | 20 |
+| **RCMv1 (union)** | — | **close + volume (+ SPY close)** | **252** |
+| Cand-2 | `ret_5d` | close | 5 |
+| Cand-2 | `rs_vs_spy_126d` | close (sym + SPY) | 126 |
+| Cand-2 | `hl_range` | high + low | ~20 |
+| **Cand-2 (union)** | — | **close + high + low (+ SPY close)** | **126** |
 
 ---
 
@@ -108,8 +138,10 @@ must record three scoped fingerprints, NOT a single held-today hash:
 
 - **signal_input_hash** — hash of the raw bars needed by the candidate
   spec to compute its composite signal at `as_of_date` (lookback
-  window = max factor lookback in the spec, e.g. 126d for `mom_126d`,
-  60d for `beta_spy_60d`, 20d for `amihud_20d`).
+  window = max factor lookback in the spec, resolved via
+  `resolve_factor_input_contract(spec)` — e.g. 252d for RCMv1 from
+  `drawup_from_252d_low` / `days_since_52w_high`, 126d for Cand-2
+  from `rs_vs_spy_126d`).
 - **execution_nav_hash** — hash of the open + close bars actually
   used by the backtest from `start_date` through `as_of_date`, over
   every symbol that was held or traded inside the window (NOT just
@@ -140,10 +172,23 @@ manifest as a whole), with enough metadata to recover:
 - per-revised-symbol/date/attribute deltas (old vs new numeric
   values) sufficient to compute portfolio NAV impact in basis points
 
-This means the manifest stores per-symbol/date/attribute digests
-plus the **old numeric close + open** for revised symbols at
-detection time. Storage cost: 60 TDs × ~10 holdings × 2 attrs × 8
-bytes ≈ 10 KB per candidate per checkpoint horizon. Trivial
+**Old values are captured at the original TD's observation time**
+(not at detection time — by detection time the original values are
+gone from the live store). Concretely, when `observe()` writes a
+TD entry, it snapshots into `materiality_anchor_values` the close
++ open numerics for the held-or-traded set on the most recent
+**10 trading days before-or-at `as_of_date`** (codex Round-8 §6
+preferred 10d over 5d for fewer false `requires_data_review`
+halts; storage cost is negligible). `revalidate()` then compares
+those stored anchors against the current store to compute deltas.
+
+`per_cell_digest` (per-(sym, date, attr) 8-char prefix digest) is
+*also* captured at observation time, covers the full hashed
+window, and is what detects revisions outside the 10-day anchor
+ring.
+
+Storage cost: 60 TDs × ~10 holdings × 2 attrs × 10 days × 8
+bytes ≈ 96 KB per candidate per checkpoint horizon. Trivial
 relative to the audit value.
 
 ### G3 — Window-scoped source-layer attribution
@@ -266,9 +311,17 @@ start-date bar revision case) and prove that:
 
 ## 3. Non-goals
 
-- **G3 universe expansion** — out of scope. The bar-hash guard
-  scopes to the candidate's held-today set on each observation
-  date, not the full 79-symbol universe.
+- **Universe expansion** — out of scope. The three v2 input-scope
+  hashes are bounded as follows; none of them grow the 79-symbol
+  universe beyond what the candidate already references:
+  - `signal_input_hash` scope = the candidate's full pre-top_n
+    signal universe over the factor lookback window (already part
+    of `panel_contract.universe` in the frozen spec).
+  - `execution_nav_hash` scope = the held-or-traded set over
+    `[manifest.start_date .. as_of_date]` (a strict subset of the
+    signal universe).
+  - `benchmark_hash` scope = SPY (and QQQ if `secondary_benchmark`)
+    over `[manifest.start_date .. as_of_date]`.
 - **PIT fundamentals / alternative data integration** — Codex Round
   6 P1, separate PRD.
 - **Candidate-fleet allocator** — Codex Round 6 P2, separate PRD.
@@ -402,9 +455,11 @@ class PerScopeHashInputs(BaseModel):
     per_cell_digest: dict
     # Old numeric values for close + open on revised-detection
     # critical attributes, restricted to the held / traded set on
-    # as_of_date and a small ring of recent dates (default: last 5
-    # trading days). Lets revalidate() compute NAV-impact bps
-    # without re-running the full backtest.
+    # as_of_date and a small ring of recent dates (default: last
+    # 10 trading days, codex Round-8 §6). Captured at TD
+    # observation time, NOT at revision-detection time. Lets
+    # revalidate() compute NAV-impact bps without re-running the
+    # full backtest.
     materiality_anchor_values: dict  # { sym: { date: { "close": x,
                                      #                   "open":  y } } }
 
@@ -506,6 +561,93 @@ def test_TD002_execution_nav_hash_anchored_at_start_date():
 
 ### 4.3 Per-scope hash construction
 
+#### 4.3.0 Factor input-contract resolver (codex Round-8 §3)
+
+`compute_signal_input_hash` cannot just trust the spec's
+`feature_set` names — it must know each factor's raw attributes
+and lookback so the hash is grounded in actual data dependencies,
+not factor identity. Silent under-hashing (hashing fewer cells
+than the factor actually reads) creates false confidence and is
+worse than no hash at all. Therefore introduce:
+
+```python
+@dataclass(frozen=True)
+class FactorInputContract:
+    factor_name: str
+    attributes: tuple[str, ...]   # subset of {open, high, low, close, volume}
+    lookback_days: int            # max bars read by the factor
+    cross_sectional: bool         # True if factor reads benchmark series
+                                  # (e.g. beta_spy_60d, rs_vs_spy_126d)
+    benchmark_symbols: tuple[str, ...] = ()  # populated when cross_sectional
+
+
+def resolve_factor_input_contract(
+    spec: FrozenStrategySpec,
+) -> dict[str, FactorInputContract]:
+    """Resolve every factor in spec.feature_set to its input contract.
+
+    Implementation:
+      - load core/factors/factor_registry.py → factor metadata
+      - for factors not yet recorded in the registry, look up the
+        factor's source function and read its docstring contract
+        (e.g. _family_a_benchmark_relative for beta_spy_60d)
+      - fail-closed: if a factor lacks an explicit contract entry,
+        raise ContractResolutionError. v2 hash creation MUST refuse
+        to proceed with an unknown factor; the operator must add a
+        contract entry before forward observation can resume.
+
+    Returns:
+      { "beta_spy_60d":           FactorInputContract(("close",), 60,  True,  ("SPY",)),
+        "drawup_from_252d_low":   FactorInputContract(("close",), 252, False, ()),
+        "days_since_52w_high":    FactorInputContract(("close",), 252, False, ()),
+        "amihud_20d":             FactorInputContract(("close","volume"), 20, False, ()),
+        "ret_5d":                 FactorInputContract(("close",), 5,   False, ()),
+        "rs_vs_spy_126d":         FactorInputContract(("close",), 126, True,  ("SPY",)),
+        "hl_range":               FactorInputContract(("high","low"), 20, False, ()),
+        ... }
+    """
+```
+
+**Pinned regression tests** (RCMv1 + Cand-2 are the live frozen
+specs; their contracts must not silently change):
+
+```python
+def test_resolve_factor_input_contract_rcm_v1():
+    spec = FrozenStrategySpec.from_yaml_file(
+        "data/research_candidates/rcm_v1_defensive_composite_01.yaml"
+    )
+    c = resolve_factor_input_contract(spec)
+    assert set(c.keys()) == {
+        "beta_spy_60d", "drawup_from_252d_low",
+        "days_since_52w_high", "amihud_20d",
+    }
+    # Union of attributes:
+    assert union_attributes(c) == {"close", "volume"}
+    assert max_lookback(c) == 252
+    # SPY pulled in via cross_sectional flag, not extra symbol:
+    assert union_benchmark_symbols(c) == {"SPY"}
+
+
+def test_resolve_factor_input_contract_cand_2():
+    spec = FrozenStrategySpec.from_yaml_file(
+        "data/research_candidates/candidate_2_orthogonal_01.yaml"
+    )
+    c = resolve_factor_input_contract(spec)
+    assert set(c.keys()) == {"ret_5d", "rs_vs_spy_126d", "hl_range"}
+    assert union_attributes(c) == {"close", "high", "low"}
+    assert max_lookback(c) == 126
+    assert union_benchmark_symbols(c) == {"SPY"}
+
+
+def test_resolve_factor_input_contract_unknown_factor_fails_closed():
+    # Synthetic spec with a factor name not in the registry; must
+    # raise ContractResolutionError, NOT silently default to close-only.
+    with pytest.raises(ContractResolutionError):
+        resolve_factor_input_contract(synthetic_spec_with_unknown_factor)
+```
+
+#### 4.3.1 Per-scope hashers
+
 Three pure functions, one per scope (each testable without observe()
 machinery):
 
@@ -517,9 +659,11 @@ def compute_signal_input_hash(
     bar_panel: pd.DataFrame,          # OHLCV multi-attr
     as_of_date: date,
 ) -> tuple[str, PerScopeHashInputs]:
-    """Window: as_of_date - max(factor lookbacks); end = as_of_date.
+    """Window: as_of_date - max(factor lookbacks via
+    resolve_factor_input_contract); end = as_of_date.
     Attributes: union of factor input attributes across the spec
-    (close + volume + high + low as needed)."""
+    (close + volume + high + low as needed); benchmark_symbols
+    folded in for cross_sectional factors."""
 
 
 def compute_execution_nav_hash(
@@ -563,23 +707,49 @@ def compute_bar_hash_rollup(
 - **Truncation**: 24 hex chars (96 bits). Random collision
   negligible at our scale (≤60 TDs × 3 scopes).
 
-**Materiality evidence (codex Round-7 §2):**
+**Materiality evidence (codex Round-7 §2 + Round-8 §4-5):**
+
+All capture below happens at the TD's **observation time** inside
+`observe()`. After detection time the original values are gone from
+the live store, so observation-time capture is the only point where
+the old numerics can be preserved.
 
 Each `PerScopeHashInputs.per_cell_digest` stores per-(symbol, date,
 attribute) digest (8-char prefix of sha256(value-str)) so a
 revalidate pass can identify *exactly* which cells changed without
-re-reading the original raw values.
+re-reading the original raw values. Covers every cell folded into
+the scope's hash.
 
 Each `PerScopeHashInputs.materiality_anchor_values` stores the
 **old close + open numeric value** for the held-or-traded set on
-the last 5 trading days before `as_of_date`. This is the minimum
-state needed to compute NAV-impact bps when a revision is detected
-on those cells. (Earlier dates within the window are covered by
-`per_cell_digest` for detection but are not used for NAV-impact
-calc — yfinance revisions in practice land on the latest 1-2 days,
-so the 5-day buffer is conservative. If a deeper revision lands,
-the diagnostic still surfaces it but the materiality estimate
-falls back to a coarser bound; see §4.4 fallback rule.)
+the last **10 trading days** before-or-at `as_of_date` (codex
+Round-8 §6: 10d preferred over 5d for fewer false halts; storage
+overhead negligible). This is the minimum state needed to compute
+NAV-impact bps deterministically when a revision is detected on
+those cells.
+
+**Coverage matrix and fallback rules:**
+
+| revision location | detection? | NAV-impact computable? | resolution |
+|-------------------|-----------|------------------------|------------|
+| `execution_nav` cell within 10-day anchor ring | ✅ via `per_cell_digest` | ✅ via `materiality_anchor_values` | normal materiality calc per §4.4 |
+| `execution_nav` cell outside 10-day ring | ✅ via `per_cell_digest` | ❌ old close/open not stored | `materiality_estimate_class="bound_only"` → fail-closed → `requires_data_review` |
+| `benchmark` cell (SPY/QQQ close) within 10-day ring | ✅ | ✅ | normal materiality calc |
+| `benchmark` cell outside ring | ✅ | ❌ | `bound_only` → fail-closed |
+| `signal_input` cell on a held/traded symbol within ring | ✅ | partial (close/open captured; volume/high/low not) | if revision is on close/open → normal calc; if on volume/high/low → `bound_only` → fail-closed (codex Round-8 §5) |
+| `signal_input` cell on a non-held name (full universe) | ✅ via `per_cell_digest` | ❌ — NAV impact requires re-running cross-sectional ranking | `materiality_estimate_class="bound_only"` → fail-closed → `requires_data_review` (codex Round-8 §5) |
+
+**Why fail-closed on non-held signal-input revisions:** signal_input
+hashes the full pre-top_n universe so we *detect* a non-held name's
+volume revision affecting `amihud_20d` rank, but the NAV impact
+requires re-running the candidate's cross-sectional ranking and
+top_n selection at the original observation time, which we cannot
+reproduce without storing the entire ranked composite output. v2
+deliberately does NOT store that — it would balloon the manifest
+and substitute "more data" for "less hashing." Instead we take the
+conservative path: detect the revision, escalate to
+`requires_data_review`, force the user to `decide()`. This is
+codex Round-8 §5's recommended fallback.
 
 ### 4.4 Materiality-based revision policy (resolves G4)
 
@@ -627,13 +797,15 @@ raw_max_close_drift_pct = max over revised cells of |new - old| / |old|
   dividends / splits / late-reports work through) revisions stay
   `flagged_only`.
 
-**Fallback when materiality cannot be precisely computed** (e.g.,
-a deep revision lands more than 5 trading days back, outside the
-`materiality_anchor_values` ring): mark
-`estimated_nav_impact_bps=None` with a `materiality_estimate_class
-="bound_only"` annotation in the event's `delta_summary`. Treat
-the event as `requires_data_review` by default — fail-closed,
-because we cannot prove materiality is below threshold.
+**Fallback when materiality cannot be precisely computed** (any
+row in the §4.3 coverage matrix marked `bound_only` — e.g. a
+revision outside the 10-day `materiality_anchor_values` ring, a
+high/low/volume revision on a held name, or any revision on a
+non-held name's signal input): mark `estimated_nav_impact_bps=None`
+with a `materiality_estimate_class="bound_only"` annotation in
+the event's `delta_summary`. Treat the event as
+`requires_data_review` by default — fail-closed, because we cannot
+prove materiality is below threshold.
 
 **Why escalate by materiality, not count:**
 
@@ -803,8 +975,21 @@ JSON shape (codex Round-7 §6 expanded):
   "economic_distinction": {
     "realized_beta_vs_spy": 0.85,
     "realized_beta_vs_qqq": 0.78,
+    // Primary correlation field for ALL packs (TD10 / 20 / 40 / 60).
     "rolling_corr_spy_30d": 0.92,
-    "rolling_corr_qqq_30d": 0.88
+    "rolling_corr_qqq_30d": 0.88,
+    // Expanding-sample fallback when the forward run has fewer
+    // than 30 TDs (TD10 and TD20 packs); equals
+    // rolling_corr_*_30d once n_observed_trading_days >= 30.
+    // Prevents the early packs from being blank or misleading.
+    "expanding_corr_spy":   0.91,
+    "expanding_corr_qqq":   0.86,
+    // Longer window — populated only at TD60+ (i.e. when
+    // n_observed_trading_days >= 60). null before that. Codex
+    // Round-8 §7: 126d unnecessary at the current 10/20/40/60
+    // cadence.
+    "rolling_corr_spy_60d": null,
+    "rolling_corr_qqq_60d": null
   },
   "cost_stress": {
     "1x_cost_cum_ret":  0.034,
@@ -977,11 +1162,23 @@ Round R-fwd-2 (this PRD makes implementable):
    close drift 0.8% → `estimated_nav_impact_bps ≈ 28`; assert the
    computation matches expectation. Smaller weights × drift
    produce <10 bps; threshold E1 fires only on the 28-bps case.
-9. **Materiality fallback when out-of-ring** — revision lands 10
-   trading days back (outside the 5-day anchor ring); assert
+9. **Materiality fallback when out-of-ring** — revision lands 15
+   trading days back (outside the 10-day anchor ring); assert
    `estimated_nav_impact_bps=None`,
    `materiality_estimate_class="bound_only"`, and
    `policy_decision="invalidated"` (fail-closed).
+9b. **Materiality fallback on non-held signal-input revision** —
+    a non-held universe name's volume cell revises; assert
+    `affected_scopes=["signal_input"]`,
+    `materiality_estimate_class="bound_only"`,
+    `policy_decision="invalidated"` (codex Round-8 §5).
+9c. **Factor input contract resolver** — RCMv1 spec resolves to
+    {beta_spy_60d / drawup_from_252d_low / days_since_52w_high /
+    amihud_20d}, attribute union {close, volume}, max lookback
+    252, benchmark SPY; Cand-2 spec resolves to {ret_5d /
+    rs_vs_spy_126d / hl_range}, attribute union {close, high,
+    low}, max lookback 126, benchmark SPY; unknown factor name
+    raises `ContractResolutionError` (codex Round-8 §3).
 10. **Decision-sign flip detection** — synthetic revision that
     pushes `watchlist_total_share_pct` from 28% to 31% (crosses
     G2.A 30% ceiling) → `decision_sign_flip=True` →
@@ -1005,12 +1202,18 @@ Round R-fwd-3 (decision-grade checkpoint pack):
     JSON contains all of: `evidence_quality`, `revision_materiality_bps`,
     `portfolio_risk` (with `leveraged_etf_exposure_pct` and
     `watchlist_total_share_pct`), `economic_distinction` (with
-    realized beta + 30d rolling corr vs SPY and QQQ),
+    realized beta + 30d rolling corr vs SPY and QQQ +
+    expanding-sample corr; 60d corr null if
+    n_observed_trading_days < 60, populated otherwise),
     `cost_stress` (1x/2x/3x cum_ret + sharpe),
     `source_layer_aggregate.as_of_held` AND
     `source_layer_aggregate.window_input`,
     `evidence_clean_start_label`,
     `td001_legacy_unhashed_inputs`.
+15b. **Expanding-sample correlation populated on early packs** — TD10
+     and TD20 packs have `expanding_corr_spy` / `expanding_corr_qqq`
+     populated, NOT null. `rolling_corr_*_60d` is null on TD10 / 20 /
+     40, populated on TD60. Codex Round-8 §7.
 16. **evidence_quality class transitions** — pack with no events =
     `clean`; pack with events all <materiality = `revision_flagged`;
     pack with any E1-E5 trigger = `requires_data_review`.
@@ -1089,6 +1292,12 @@ User commits this file with explicit approval. After commit:
 - Codex Round 7 audit (review log, v2 driver — `c4d6a08` on
   `review/claude-collab`): `docs/claude_review_loop.md`
   §"Round 7 Audit (Codex) - Forward Evidence PRD Needs Scope Correction"
+- Codex Round 8 audit (review log, v2.1 cleanup driver — `e2ff695`
+  on `review/claude-collab`): `docs/claude_review_loop.md`
+  §"Round 8 Audit (Codex) - PRD v2 Direction Accepted, Cleanup Required Before Implementation"
+- Frozen specs whose factor lists drive `resolve_factor_input_contract`:
+  `data/research_candidates/rcm_v1_defensive_composite_01.yaml`,
+  `data/research_candidates/candidate_2_orthogonal_01.yaml`
 - Forward runner code under audit: `core/research/forward/runner.py`
   (`observe()` loads full panel + uses open_df + slices NAV from
   start_date..as_of; the canonical evidence path)
