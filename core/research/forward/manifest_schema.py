@@ -25,9 +25,9 @@ Execution PRD: docs/prd/20260425-oos_mvp_ralph_loop_execution.md §3 R5
 """
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -43,6 +43,10 @@ class ForwardRunStatus(str, Enum):
     The MVP manifest only ships ``not_started``. Other values are
     enumerated for forward-compatibility so future automation can write
     them without re-versioning the schema.
+
+    ``requires_data_review`` (added v2.1, PRD §4.4 escalation):
+    revalidate detected a material data revision and the user must
+    decide() before observe() can append again.
     """
 
     not_started = "not_started"
@@ -51,6 +55,7 @@ class ForwardRunStatus(str, Enum):
     completed_success = "completed_success"
     completed_fail = "completed_fail"
     aborted = "aborted"
+    requires_data_review = "requires_data_review"
 
 
 class CostAssumptions(BaseModel):
@@ -99,6 +104,127 @@ class CheckpointCadence(BaseModel):
         return self
 
 
+class PerScopeHashInputs(BaseModel):
+    """Reproducibility + materiality evidence for one input-scope hash.
+
+    Captured at TD observation time inside ``observe()``. NOT mutated
+    afterwards — revalidate compares the stored snapshot against the
+    current store. PRD v2.1 §4.3.
+
+    Storage layout note: ``per_cell_digest`` and
+    ``materiality_anchor_values`` use ISO-date string keys (e.g.
+    ``"2026-04-27"``) because JSON object keys must be strings;
+    pydantic round-trips them losslessly.
+    """
+
+    scope: Literal["signal_input", "execution_nav", "benchmark"]
+    symbols: list[str] = Field(default_factory=list)
+    bar_attributes: list[str] = Field(default_factory=list)
+    window_start: date
+    window_end: date
+    bar_revision: str = Field(
+        min_length=1,
+        description=(
+            "Canonical-source pin (e.g. trades_v2_late_report_dedup_2026-04-19 "
+            "for polygon-canonical bars; yfinance_frontier for source-boundary "
+            "frontier bars)."
+        ),
+    )
+    per_cell_digest: dict = Field(
+        default_factory=dict,
+        description=(
+            "{ sym: { iso_date: { attr: digest_short } } }. 8-char prefix of "
+            "sha256(value-as-:.10g-string). Lets revalidate identify exactly "
+            "which (sym, date, attr) cells were revised."
+        ),
+    )
+    materiality_anchor_values: dict = Field(
+        default_factory=dict,
+        description=(
+            "{ sym: { iso_date: { 'close': float, 'open': float } } } over the "
+            "held-or-traded set on the last 10 trading days before-or-at "
+            "as_of_date. Lets revalidate compute deterministic NAV-impact bps "
+            "for revisions inside the ring."
+        ),
+    )
+
+
+class BarHashInputs(BaseModel):
+    """Top-level container holding all three per-scope evidence sets.
+
+    Stored on each TD entry; ``signal_input`` / ``execution_nav`` /
+    ``benchmark`` correspond 1:1 to ``signal_input_hash`` /
+    ``execution_nav_hash`` / ``benchmark_hash`` on the same entry.
+    """
+
+    signal_input:  PerScopeHashInputs
+    execution_nav: PerScopeHashInputs
+    benchmark:     PerScopeHashInputs
+
+
+class SourceLayerView(BaseModel):
+    """One source-layer count view: bucket counts of how many symbols
+    fall in each layer.
+
+    The validator is permissive: it does not enforce any cross-bucket
+    sum constraint here because the relevant universe size differs by
+    view (as_of_held vs window_input) and is enforced by the caller.
+    """
+
+    canonical_only_n_symbols: int = Field(default=0, ge=0)
+    frontier_only_n_symbols:  int = Field(default=0, ge=0)
+    mixed_n_symbols:          int = Field(default=0, ge=0)
+
+
+class SourceLayerBreakdown(BaseModel):
+    """Per-TD source-layer attribution at two granularities.
+
+    PRD v2.1 §G3 + §4.5: the legacy aggregate ``source_mix`` boolean
+    captured today's held layer only and missed window-spanning cases.
+    v2.1 records both:
+      - ``as_of_held_source``    — held-symbol layer at as_of_date
+      - ``window_input_source``  — every (sym, date, attr) cell folded
+                                   into the three input-scope hashes
+    """
+
+    as_of_held_source:   SourceLayerView
+    window_input_source: SourceLayerView
+
+
+class DataRevisionEvent(BaseModel):
+    """Set on a TD entry when revalidate detects a divergence between
+    the entry's stored input-scope hashes and the current store.
+
+    PRD v2.1 §4.1 + §4.4 + §4.6.
+
+    Materiality fields are populated when the revision falls within
+    the 10-day anchor ring; for out-of-ring revisions or revisions on
+    attributes not anchored (high/low/volume on held names; any
+    attribute on non-held universe names), ``estimated_*_bps`` are
+    None and ``materiality_estimate_class="bound_only"`` is recorded
+    in ``delta_summary``. Per §4.4 fail-closed rule, bound_only
+    revisions escalate to ``policy_decision="invalidated"``.
+    """
+
+    detected_at_utc: datetime
+    revised_symbols: list[str] = Field(default_factory=list)
+    detected_by_run_label: str = Field(
+        min_length=1,
+        description="Subsequent observe() call that surfaced this divergence",
+    )
+    delta_summary: str = Field(default="", description="Human-readable per-symbol summary")
+    estimated_nav_impact_bps:    Optional[float] = None
+    estimated_cum_ret_drift_bps: Optional[float] = None
+    estimated_vs_spy_drift_bps:  Optional[float] = None
+    estimated_vs_qqq_drift_bps:  Optional[float] = None
+    decision_sign_flip: bool = False
+    raw_max_close_drift_pct: Optional[float] = None
+    affected_scopes: list[Literal["signal_input", "execution_nav", "benchmark"]] = Field(
+        default_factory=list,
+    )
+    policy_decision: Literal["flagged_only", "invalidated"]
+
+
 class ForwardRun(BaseModel):
     """A single forward observation entry.
 
@@ -115,6 +241,14 @@ class ForwardRun(BaseModel):
     ``core.data.source_boundaries``). False if the entry is entirely
     on the candidate's construction source layer. None if boundary
     state cannot be determined.
+
+    ── v2.1 evidence-hardening fields (PRD `forward_evidence_hardening_prd.md`) ──
+
+    All v2.1 fields default ``None`` so existing TD001 entries on
+    RCMv1 / Cand-2 continue to load without rewriting their numerics.
+    The first v2 ``observe()`` call sets ``legacy_unhashed_inputs=True``
+    on those grandfathered rows (metadata-only mutation; numerics
+    untouched).
     """
 
     checkpoint_label: str = Field(min_length=1, description="e.g. '10TD' / 'weekly_w03'")
@@ -127,6 +261,29 @@ class ForwardRun(BaseModel):
     vs_qqq: Optional[float] = None
     notes: Optional[str] = None
     source_mix: Optional[bool] = None
+
+    # ── v2.1 additive fields ────────────────────────────────────────
+    legacy_unhashed_inputs: Optional[bool] = Field(
+        default=None,
+        description=(
+            "True for entries written before the v2.1 input-scope schema "
+            "shipped (e.g., TD001 baseline rows). Out of revision-guard "
+            "scope. None on v2.1+ entries."
+        ),
+    )
+    signal_input_hash: Optional[str] = Field(default=None, min_length=12)
+    execution_nav_hash: Optional[str] = Field(default=None, min_length=12)
+    benchmark_hash: Optional[str] = Field(default=None, min_length=12)
+    bar_hash: Optional[str] = Field(
+        default=None, min_length=12,
+        description=(
+            "Roll-up = sha256(signal_input_hash || execution_nav_hash || "
+            "benchmark_hash)[:24]. Cheap top-level diff."
+        ),
+    )
+    bar_hash_inputs: Optional[BarHashInputs] = None
+    source_layer_breakdown: Optional[SourceLayerBreakdown] = None
+    data_revision_event: Optional[DataRevisionEvent] = None
 
 
 class ForwardRunManifest(BaseModel):
