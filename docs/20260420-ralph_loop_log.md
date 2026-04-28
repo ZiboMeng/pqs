@@ -16624,3 +16624,35 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
     - [ ] `_signed_drift` dead code（R01.4，待 B7）
 
 → 完整 memo: `docs/audit/20260428-ralph_audit_round_03.md`
+
+
+---
+
+## R-ralph-audit-2026-04-28-round-04 (B1 — full-codebase static / contract lens)
+
+1. **本轮主题**: B1 — 静态 / 契约 lens — 全 codebase 重读，re-derive 每个 public surface 的契约，建 global contract index，找 docstring claim vs runtime 之间的 drift。Phase B cumulative-pass round 1 of 7。
+2. **本轮目标**: 在 Phase A 关闭、forward evidence 已 PASS 的前提下，把审计触手伸到整个 codebase；这一轮只看 static 层面（不跑 stress / 不构造 adversarial 输入），但要求覆盖完整。
+3. **为什么这轮优先做它**: PRD §4 R4 把 B1 定为 Phase B 的 lens-1；选静态优先是因为 (a) cost 最低 (b) 后续每个 lens 都依赖一个准确的 contract 视图作为 baseline。
+4. **做了什么**: 派两个 Explore subagent 并行对 `core/` (112 文件 / 21 包) + `scripts/` & `dev/scripts/` (73 文件) 做 inventory；自己 drill-down 几个 high-risk surface — `factor_registry.py` 全文 / `MultiFactorStrategy.__init__` / `WindowAnalyzer.TIER_D_*` vs `ValidationConfig` / `MiningEvaluator` 三处 threshold drift / scripts 里 silent-except + hardcoded path 模式；给 15 行 module 写 global contract index；按严重度 classify 7 个 finding。
+5. **修改了哪些文件**: `docs/audit/20260428-ralph_audit_round_04.md`（新 memo）、`CLAUDE.md`（"strict separation" → "strict directional separation" + drawup_from_252d_low 共名说明）、`docs/INDEX.md`（§7.5 加 R03 + R04 entries）。
+6. **跑了哪些测试/实验**: 4 个 live e2e — (a) 18-pkg public-package import smoke 18/18 OK；(b) `pytest tests/unit/research/ tests/unit/backtest/ tests/unit/factors/` 744 passed in 352.60s；(c) forward runner `status()` on RCMv1 + Cand-2 live manifests，evidence_class=forward_oos / n_runs=1 都返回正确；(d) factor registry 契约 — PROD=7 / RES=64 / OVERLAP=1（drawup_from_252d_low）。
+7. **结果如何**: 0 blocker / 3 non-blocker (F01 WindowAnalyzer Tier_D drift / F02 MiningEvaluator threshold drift / F-stack carry from R1) / 1 docs-only (F03 CLAUDE.md "strict separation" 措辞修复 — 本轮 land) / 4 cosmetic (F04 build_catalog 静默 except / F05 hardcoded user paths / F06 4-level parent walk / F07 `_signed_drift` 仍 dead)。
+8. **当前发现的新问题/新机会**: F03 是 R3 documentation sync 没抓到的 — CLAUDE.md "strict separation" 字面读会以为 PRODUCTION ∩ RESEARCH = ∅，但 `drawup_from_252d_low` 实际同名出现在两个 registry。这正是 cumulative-pass 设计要 catch 的：单 lens 一次性 sync (R3) 漏的，B-round 多 lens 重读会浮现。F01 / F02 是真实 drift risk — 三处 acceptance threshold 散落（ValidationConfig / WindowAnalyzer / MiningEvaluator）没有 single source of truth。
+9. **剩余风险**: F01 / F02 这两个 threshold drift 留到 B7 一起重构（避免每个 lens 各 ship 一个补丁）；B5 的 determinism lens 还会再看一次 DST 边界（R01.1）；B7 dead-code sweep 收 `_signed_drift`。
+10. **下一轮建议方向**: B2 — live e2e 执行 lens。把今天 static 看到的 contract 实际跑起来（不只 unit test），覆盖 mining / paper / backtest / report / forward / robustness / concentration 等长链路 entrypoint，用真数据验证 contract 是否在端到端跑下来仍 hold。重点 verify：(a) `run_paper_candidate.py` end-to-end on a candidate；(b) `run_backtest.py --quick`；(c) BarStore.load(adjusted=True) 数值正确性（splits cascade）。
+11. **TODO checklist（更新后）**:
+    - [x] R1 (A1): forward evidence module audit — **PASS**
+    - [x] R2 (A2): 15 adversarial + 4 regression tests — **PASS**
+    - [x] R3 (A3): docs sync + README changelog removal — **PASS** Phase A 关闭
+    - [x] R4 (B1): static / contract lens — global contract index + F03 fix — **FIX_LANDED**
+    - [ ] R5 (B2): live e2e 执行 lens
+    - [ ] R6 (B3): adversarial corner-case lens (≥30 场景)
+    - [ ] R7 (B4): cross-cutting invariant lens
+    - [ ] R8 (B5): determinism / reproducibility lens
+    - [ ] R9 (B6): documentation truth lens
+    - [ ] R10 (B7): meta-audit + final consolidation
+    - [ ] DST 修复（R01.1，待 B5 或独立 PR）
+    - [ ] `_signed_drift` dead code（R01.4，待 B7）
+    - [ ] WindowAnalyzer / MiningEvaluator threshold drift refactor（F01 + F02，待 B7）
+
+→ 完整 memo: `docs/audit/20260428-ralph_audit_round_04.md`

@@ -458,10 +458,14 @@ config archived in `docs/20260424-claude_md_phase_e_history.md`
 ### Factor Pipeline Contract
 
 Single source of truth: `core/factors/factor_registry.py`. Two
-registries with strict separation:
+registries with strict **directional** separation (production drives
+execution; research is read-only at the execution boundary):
 - `PRODUCTION_FACTORS` (7): only these drive execution; changes
   require user authorization
-- `RESEARCH_FACTORS` (64): available for IC / OOS / regime research
+- `RESEARCH_FACTORS` (64): available for IC / OOS / regime research;
+  may share a NAME with a production factor (e.g.
+  `drawup_from_252d_low`) so long as the two implementations are
+  numerically identical — see `factor_registry.py:213-220`
 
 `MultiFactorStrategy` gate: unknown names in `factor_weights` are
 logged at WARNING and DROPPED — prevents research names silently
