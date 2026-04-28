@@ -457,3 +457,108 @@ def test_revalidate_signal_diff_with_populated_digest_keeps_in_ring_path():
     _entry, ev = summary.events[0]
     assert ev.policy_decision == "flagged_only"
     assert summary.requires_data_review is False
+
+
+# ── R2 / A2 adversarial regression suite (codex did NOT cover) ────
+
+
+def test_revalidate_thread_safe_concurrent_calls():
+    """A2 adversarial S11: revalidate_manifest is pure-functional and
+    must be safe to call from concurrent threads against independent
+    manifests (or even the same manifest, since it does not mutate).
+    """
+    import threading
+    spec, universe, held, _w, benchmarks, panel, manifest = _common_setup()
+    out_a, out_b = [], []
+    def _t1():
+        out_a.append(revalidate_manifest(
+            manifest, spec=spec, universe=universe, panel=panel,
+            benchmark_symbols=benchmarks, detected_by_run_label="A",
+        ))
+    def _t2():
+        out_b.append(revalidate_manifest(
+            manifest, spec=spec, universe=universe, panel=panel,
+            benchmark_symbols=benchmarks, detected_by_run_label="B",
+        ))
+    t1, t2 = threading.Thread(target=_t1), threading.Thread(target=_t2)
+    t1.start(); t2.start(); t1.join(); t2.join()
+    assert len(out_a[0].events) == 0
+    assert len(out_b[0].events) == 0
+
+
+def test_revalidate_does_not_mutate_input_manifest():
+    """A2 adversarial S08: revalidate_manifest is non-mutating. Caller
+    is responsible for persisting events on entries. Verifies the
+    contract by checking object identity + data_revision_event field
+    on the input manifest before vs after.
+    """
+    spec, universe, held, _w, benchmarks, panel, manifest = _common_setup()
+    panel_b = {k: v.copy() for k, v in panel.items()}
+    panel_b["close"].loc[pd.Timestamp("2026-04-24"), "AAPL"] *= 1.0005
+    pre_runs = list(manifest.runs)
+    pre_event = manifest.runs[0].data_revision_event
+    summary = revalidate_manifest(
+        manifest, spec=spec, universe=universe, panel=panel_b,
+        benchmark_symbols=benchmarks, detected_by_run_label="S08",
+    )
+    assert manifest.runs[0].data_revision_event == pre_event   # untouched
+    assert manifest.runs == pre_runs                            # identity preserved
+    assert len(summary.events) == 1                             # event in summary, not on manifest
+
+
+def test_revalidate_zero_weight_held_revision_invalidates():
+    """A2 adversarial S07: a held symbol with weight=0 is still in the
+    execution_nav scope (must be tracked because it could be sized up
+    later), but its NAV impact is 0 by construction. A 0.6% close
+    revision on a 0-weight position must still fire E5 (raw drift
+    >= 0.50%) → invalidated. Without E5 the revision would silently
+    pass since E1 NAV impact = 0.
+    """
+    spec = _spec()
+    universe = ["AAPL", "MSFT", "NVDA", "TSLA", "SPY"]
+    held = ["AAPL", "MSFT", "TSLA"]
+    weights = {"AAPL": 0.5, "MSFT": 0.5, "TSLA": 0.0}
+    benchmarks = ["SPY", "QQQ"]
+    panel_a = _panel(universe + ["QQQ"], "2026-01-02", "2026-04-30", seed=0)
+    start_date = date(2026, 4, 24)
+    as_of = date(2026, 4, 27)
+    entry = _build_v2_td_entry(
+        panel=panel_a, spec=spec, universe=universe, held=held,
+        weights=weights, benchmark_symbols=benchmarks,
+        start_date=start_date, as_of_date=as_of,
+        track_signal_per_cell=True,   # exercise the cell-level path
+    )
+    manifest = _wrap_manifest(entry, start_date=start_date)
+    panel_b = {k: v.copy() for k, v in panel_a.items()}
+    panel_b["close"].loc[pd.Timestamp("2026-04-24"), "TSLA"] *= 1.006
+    summary = revalidate_manifest(
+        manifest, spec=spec, universe=universe, panel=panel_b,
+        benchmark_symbols=benchmarks, detected_by_run_label="S07",
+    )
+    assert len(summary.events) == 1
+    _entry, ev = summary.events[0]
+    # NAV impact = 0 because TSLA weight = 0
+    assert ev.estimated_nav_impact_bps == 0.0
+    # raw drift 0.6% >= 0.5% threshold → E5 fires → invalidated
+    assert ev.raw_max_close_drift_pct >= RAW_DRIFT_PCT_THRESHOLD
+    assert ev.policy_decision == "invalidated"
+
+
+def test_revalidate_backward_window_deterministic():
+    """A2 adversarial S15: as_of < start_date should not crash. The
+    panel slice is empty → '|empty|' sentinel → deterministic hash.
+    Robustness guarantee.
+    """
+    panel = _panel(["AAPL", "MSFT"], "2026-04-20", "2026-04-30")
+    backward_start = date(2026, 4, 27)
+    backward_end = date(2026, 4, 24)
+    h1, _ = compute_execution_nav_hash(
+        held_or_traded_symbols=["AAPL", "MSFT"], panel=panel,
+        start_date=backward_start, as_of_date=backward_end,
+    )
+    h2, _ = compute_execution_nav_hash(
+        held_or_traded_symbols=["AAPL", "MSFT"], panel=panel,
+        start_date=backward_start, as_of_date=backward_end,
+    )
+    assert h1 == h2
+    assert len(h1) == 24

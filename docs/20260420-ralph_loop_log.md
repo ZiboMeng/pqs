@@ -16571,3 +16571,26 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
     - [ ] DST 修复（R01.1，待 B5 或独立 PR）
 
 → 完整 memo: `docs/audit/20260428-ralph_audit_round_01.md`
+
+---
+
+## R-ralph-audit-2026-04-28-round-02 (A2 — adversarial scenarios + regression hardening)
+
+1. **本轮主题**: A2 — 设计 ≥10 个 codex Round-10 没覆盖的对抗 / 边界场景，跑出来记录 predict-vs-actual delta，把发现的 gap 用 regression test 钉死。
+2. **本轮目标**: 用对抗输入 stress test v2.1.3 forward evidence，看刚发布的代码是否在边界 case 下仍然给出预期行为；任何 surprise 都要变成 regression test，避免回归。
+3. **为什么这轮优先做它**: PRD §4 R2 (A2)。前一轮 (R1/A1) 验证了 happy path + 两个已知 Blocker；R2 把 mode 从 reactive 切到 proactive — 主动构造 codex 没想到的 case 找漏洞。
+4. **做了什么**: 设计 15 个 adversarial 场景（PRD 列的 12 个 + STORE_REBUILD_COMMIT / EMPTY_PANEL / BACKWARD_WINDOW 3 个扩展）；写了 `dev/audit/r2_a2_forward_adversarial.py` 全部跑通，26 个 assertion 全 PASS；把最有价值的 4 个（S07/S08/S11/S15）lift 到 `tests/unit/research/test_forward_revalidate.py` 作为 durable regression test。
+5. **修改了哪些文件**: `dev/audit/r2_a2_forward_adversarial.py`（新）、`docs/audit/20260428-ralph_audit_round_02.md`（新 memo）、`tests/unit/research/test_forward_revalidate.py`（+4 个 regression test）。
+6. **跑了哪些测试/实验**: 15 场景 / 26 断言 全部 PASS；revalidate 测试套件 11 → 15 passed；4 个新加的 regression test 头一次跑全绿。
+7. **结果如何**: 0 blocker / 0 non-blocker / 0 docs-only / 0 cosmetic。v2.1.3 在每个 adversarial 输入下都给出 PRD §4.4 coverage matrix 预期的行为（NaN / empty panel / weight=0 / cross-thread 安全 / start>as_of 等）。
+8. **当前发现的新问题/新机会**: 无。但把对抗场景固化到 unit 层面为后续 cumulative-pass round 提供了 cross-round meta-check 锚点 — B 阶段每轮 re-engage 时可以查看这些 invariant 是否仍 hold。
+9. **剩余风险**: A2 没找到新 blocker 不等于 v2.1.3 完美无瑕；只是 codex Round-10 之后的两个 known blocker + 这 15 个对抗场景之外的攻击面尚未被本轮覆盖。Phase B 7 轮 cumulative-pass 会持续探索。
+10. **下一轮建议方向**: A3 — 文档同步。CLAUDE.md / README.md / `docs/INDEX.md` 全 surface 校对到 v2.1.3；REMOVE README 任何 changelog（per §3.6）；rebuild `data/baseline/latest.json`（pre-flight 显示是 1680 stale，实际 v2.1.3 跑过 1782 passed）。
+11. **TODO checklist（更新后）**:
+    - [x] R1 (A1): 5 module contract + 4 e2e + 2 reverse-validation + CLAUDE.md sync — **PASS**
+    - [x] R2 (A2): 15 adversarial scenarios / 26 assertions + 4 regression tests pinned — **PASS**
+    - [ ] R3 (A3): docs sync + README changelog removal + baseline rebuild
+    - [ ] R4-R10 (B1-B7): cumulative-pass full-codebase audit
+    - [ ] DST 修复（R01.1，待 B5 或独立 PR）
+
+→ 完整 memo: `docs/audit/20260428-ralph_audit_round_02.md`
