@@ -16656,3 +16656,36 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
     - [ ] WindowAnalyzer / MiningEvaluator threshold drift refactor（F01 + F02，待 B7）
 
 → 完整 memo: `docs/audit/20260428-ralph_audit_round_04.md`
+
+
+---
+
+## R-ralph-audit-2026-04-28-round-05 (B2 — full-codebase live e2e 执行 lens)
+
+1. **本轮主题**: B2 — live e2e 执行 lens — 把 R4 静态看到的 contract 在真数据 + 真长链路下跑起来，看是否在 runtime 层面也 hold。Phase B cumulative-pass round 2 of 7。
+2. **本轮目标**: catch 任何"static contract 读起来对，但 runtime 路径会崩 / 静默退化 / 数值不对"的 drift。R4 已经 catch 过一个 wording drift，R5 mandate 是 catch behavior drift。
+3. **为什么这轮优先做它**: PRD §4 R5 把 B2 定为 lens-2；先 static 后 live 是 cumulative-pass 自然顺序 — static 给 baseline，live 验证 baseline。
+4. **做了什么**: 跑 5 个长链路 e2e — (a) BarStore.load(adjusted=True) 在 5 个高 split symbols 上 numerically 复现 splits.parquet cascade；(b) BacktestEngine.run() 全链路 (load_config → MarketDataStore → MultiFactorStrategy.generate(price, regime) → BacktestEngine + CostModel + open_df → BacktestResult) 832 row real-data backtest，M12 metrics 在 metrics dict 全部存在；(c) `paper_drift_report.py --paper-run-dir` 在 live rcm_v1 paper artifact 上跑 fresh replay，0.00 bps mean/max drift / 0/78 position-set diff days，验证 M11a/M11b parity 在 live 仍 hold；(d) 5 个 script `--help` 健康 (run_backtest / run_paper_candidate / run_factor_screen / run_universe_rebalance OK; build_catalog NO ARGPARSE 确认 cosmetic)；(e) R4 的 forward runner.status() 重跑确认未回归。
+5. **修改了哪些文件**: `docs/audit/20260428-ralph_audit_round_05.md`（新 memo）、`docs/20260420-ralph_loop_log.md`（本条 + 下一条）、`docs/INDEX.md`（§7.5 加 R05 entry）。
+6. **跑了哪些测试/实验**: 5 个 live e2e（上面列出）。pytest 不再重跑 — R4 已经 744 passed 完整 slice，本轮 cosmetic 只动文档，无代码改动。
+7. **结果如何**: 0 blocker / 0 non-blocker / 0 docs-only / 1 cosmetic (F08: build_catalog.py 无 argparse — R4 NO-ARGPARSE 调查的延续)。**所有 contract 在 live 数据下都 hold**。最重要的 cross-round signal：M11a/M11b parity (R3 close-out claim) 在 R5 live 重跑下 0.00 bps drift 验证，证明 cumulative-pass 设计有效（A-round 的 fix 在 B-round 多个 lens 下都通过）。
+8. **当前发现的新问题/新机会**: 无新问题。但 5 个 e2e 中没有一个跑了 `forward observe` （会 mutate live manifests），也没跑完整 `run_paper_candidate.py` end-to-end（不能在 audit pass 中污染 live paper data）。这两个 chain 的 deeper coverage 留到 B3 adversarial round（用 tmpdir + fixture）。
+9. **剩余风险**: F01 (WindowAnalyzer drift) / F02 (MiningEvaluator threshold drift) 留到 B7；DST 边界 (R01.1) 留到 B5；`_signed_drift` 留到 B7。
+10. **下一轮建议方向**: B3 — adversarial corner-case lens，全 codebase ≥30 个 adversarial 场景。R2 (A2) 已经在 forward evidence 上做了 15 个；R6 把这个方法扩到全 codebase（data corner / signal corner / backtest corner / paper corner / config corner / regime corner / NaN corner / empty-panel corner / single-row corner / multi-thread corner）。
+11. **TODO checklist（更新后）**:
+    - [x] R1 (A1): forward evidence module audit — **PASS**
+    - [x] R2 (A2): 15 adversarial + 4 regression tests — **PASS**
+    - [x] R3 (A3): docs sync — **PASS** Phase A 关闭
+    - [x] R4 (B1): static / contract lens — **FIX_LANDED**
+    - [x] R5 (B2): live e2e 执行 lens — **PASS**
+    - [ ] R6 (B3): adversarial corner-case lens (≥30 场景)
+    - [ ] R7 (B4): cross-cutting invariant lens
+    - [ ] R8 (B5): determinism / reproducibility lens
+    - [ ] R9 (B6): documentation truth lens
+    - [ ] R10 (B7): meta-audit + final consolidation
+    - [ ] DST 修复（R01.1，待 B5 或独立 PR）
+    - [ ] `_signed_drift` dead code（R01.4，待 B7）
+    - [ ] WindowAnalyzer / MiningEvaluator threshold drift refactor（F01 + F02，待 B7）
+    - [ ] build_catalog.py 加 argparse（F08，待 B7）
+
+→ 完整 memo: `docs/audit/20260428-ralph_audit_round_05.md`
