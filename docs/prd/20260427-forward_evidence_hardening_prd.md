@@ -1,11 +1,12 @@
 # Forward Evidence Hardening — PRD
 
-**Status**: DRAFT v2.1 — design only, no implementation until accepted
-**Date drafted**: 2026-04-27 (v1) / 2026-04-28 (v2 codex Round-7 revision; v2.1 codex Round-8 cleanup)
+**Status**: SHIPPED v2.1.1 — implementation in `core/research/forward/{bar_hash,source_layer,revalidate,runner,manifest_schema}.py`; live-data audit fixes folded in
+**Date drafted**: 2026-04-27 (v1) / 2026-04-28 (v2 codex Round-7 revision; v2.1 codex Round-8 cleanup; v2.1.1 self-audit fixes during step 1-5 implementation rollout)
 **Authority required**: user explicit (zibo)
-**Authoring lineage**: codex review-loop Round 6 (`d8fd133`) §"Highest-ROI Recommendations P0"; v2 incorporates codex Round 7 (`c4d6a08`) blocking changes; v2.1 incorporates codex Round 8 (`e2ff695`) cleanup items
+**Authoring lineage**: codex review-loop Round 6 (`d8fd133`) §"Highest-ROI Recommendations P0"; v2 incorporates codex Round 7 (`c4d6a08`) blocking changes; v2.1 incorporates codex Round 8 (`e2ff695`) cleanup items; v2.1.1 incorporates 4 implementation-time audit fixes (`fd24285`)
 **Supersedes / extends**: `docs/prd/20260426-forward_oos_runner_prd.md` §4.6 (overlap-fetch caveat) + §6 R-fwd-2 / R-fwd-3 outline
 **Lineage tag (when committed)**: `forward-evidence-hardening-2026-04-27`
+**Implementation commits**: `c3cefc1` step 1 (schema + resolver) → `9ee1b36` step 2 (per-scope hashers) → `74f73d0` step 3 (window-scoped source) → `b09f9b7` step 4 (revalidate + materiality) → `5cd51f3` step 5 (runner integration) → `fd24285` v2.1.1 audit fixes
 
 ### v1 → v2 changelog (codex Round-7 driven)
 
@@ -15,6 +16,66 @@
 4. TD001 lazy migration boundary made explicit: TD002+ must hash the start-date input bars (the cumulative-return denominator); checkpoint packs surface `evidence_clean_start_label` and TD001 carries `legacy_unhashed_inputs=true`.
 5. Source-layer classification changed from as-of-date single-point (`classify(sym, as_of)`) to **window-scoped** (`classify_window(sym, start, as_of, attributes)`); checkpoints aggregate both `as_of_held_source` and `window_input_source`.
 6. Checkpoint pack JSON expanded to **decision-grade**: adds `evidence_quality`, `revision_materiality_bps`, exposure breakdown (net/gross/cash/leverage/high-risk-ETF), realized beta/correlation vs SPY/QQQ over the forward window, 1x/2x/3x cost-stress summary, M12 + watch-list + leveraged-ETF exposure.
+
+### v2.1 → v2.1.1 changelog (implementation-time audit fixes)
+
+Self-audit run between PRD v2.1 implementation and codex review.
+Each finding was reproduced via direct end-to-end execution against
+the real RCMv1 manifest + live `data/daily/*.parquet` store, NOT
+just unit tests. All 4 issues map to v2.1 design points that
+needed implementation-level clarification rather than design changes;
+PRD logic stands.
+
+1. **Storage budget pinned (PRD §G2 + §4.3 clarified).** v2.1 §G2
+   estimated "60 TDs × ~10 holdings × 2 attrs × 10 days × 8 bytes ≈
+   96 KB". A naïve implementation that stores `signal_input.per_cell_digest`
+   over the full pre-top_n universe × 252-day lookback yields ~1.5 MB
+   PER TD instead — manifest hits 4.6 MB at TD003 and would balloon
+   to ~100 MB by TD60. The PRD now explicitly states:
+   `signal_input` per_cell_digest **MUST be empty by default in
+   production**; only the rolling hash is persisted for the signal
+   scope. The rolling hash alone is sufficient for revision
+   detection (signal-only revisions always fail-closed to bound_only
+   regardless of cell granularity per the §4.3 coverage matrix).
+   Production runner sets `track_per_cell=False`; tests opt in
+   explicitly when asserting cell content. Resulting per-TD storage
+   ≈ 30 KB (execution_nav per_cell + materiality_anchor + benchmark
+   anchor + metadata).
+2. **Revalidate trigger frequency clarified (PRD §4.6).** Original
+   wording "revalidate is invoked from observe() automatically at
+   the end of each successful append" can be read as "only on append"
+   — but the daily-ritual purpose is to catch retroactive revisions
+   that may land between observations including no-new-bar days
+   (e.g. yfinance revising the prior day's close on Saturday).
+   PRD now explicitly: revalidate runs at the **TOP** of every
+   observe() call, regardless of whether new bars are available.
+   If invalidation triggers, observe() persists events + flips
+   status + returns without appending; if all events are
+   flagged_only, observe() continues to append.
+3. **Halt-guard contract added (PRD §4.4).** v2.1 introduced
+   `requires_data_review` status but didn't explicitly require
+   observe() to halt when manifest is already in that status. PRD
+   now: observe() **MUST** raise `ForwardHaltError` at the top of
+   the function when `current_status == requires_data_review`. Only
+   `decide()` (with `completed_fail` / `aborted` / `completed_success`)
+   may transition out of that state. This prevents silently
+   overwriting prior `data_revision_event` records on subsequent
+   observe runs.
+4. **Float-precision tolerance on materiality thresholds (PRD §4.4 +
+   E1-E5 table).** Revisions expressed as the canonical multiplicative
+   idiom `*= 1.005` (i.e. "+0.5%") yield drift values like
+   `0.00499999...` after binary float arithmetic. Strict `>= 0.005`
+   silently misses boundary cases the operator clearly intended to
+   fire. PRD now: thresholds compared with absolute epsilon
+   (`_BPS_EPS = 1e-6`, `_PCT_EPS = 1e-9`) — well below any
+   decision-relevant precision. Same fix on E1 (NAV impact 10 bps),
+   E2/E3 (checkpoint metric drift 25 bps), and E5 (raw drift 0.50%).
+5. **E4 sign-flip detection symmetric.** v2.1 implementation
+   computed `stored_cum + drift / 10000` to detect sign flip — but
+   `nav_impact_bps` is unsigned (the magnitude of the revision; the
+   direction is unknown a priori). PRD clarification: E4 fires
+   conservatively whenever `|drift_magnitude| >= |stored_cum|`,
+   meaning at least one revision direction would flip the sign.
 
 ### v2 → v2.1 changelog (codex Round-8 cleanup)
 
@@ -183,13 +244,26 @@ halts; storage cost is negligible). `revalidate()` then compares
 those stored anchors against the current store to compute deltas.
 
 `per_cell_digest` (per-(sym, date, attr) 8-char prefix digest) is
-*also* captured at observation time, covers the full hashed
-window, and is what detects revisions outside the 10-day anchor
-ring.
+*also* captured at observation time and is what detects revisions
+**inside** the per-scope hashed window. PRD v2.1.1 storage budget:
 
-Storage cost: 60 TDs × ~10 holdings × 2 attrs × 10 days × 8
-bytes ≈ 96 KB per candidate per checkpoint horizon. Trivial
-relative to the audit value.
+- `signal_input.per_cell_digest` MUST be empty by default in
+  production. Storing the full pre-top_n × 252-day grid would
+  balloon the manifest to >100 MB by TD60. The signal-scope
+  rolling hash alone is sufficient for revision detection;
+  signal-only revisions always fail-closed to bound_only per the
+  §4.3 coverage matrix regardless of cell granularity. Tests may
+  opt in to track per-cell signal digests via a `track_per_cell=True`
+  flag for fine-grained attribution assertions.
+- `execution_nav.per_cell_digest` IS populated (held-or-traded set
+  × [start_date..as_of] × {close, open}). Typical size: 11 syms ×
+  ~3 days × 2 attrs ≈ 70 cells × 50 bytes ≈ 3.5 KB per TD.
+- `benchmark.per_cell_digest` IS populated (SPY/QQQ × window ×
+  close). Typical size: ~1 KB per TD.
+
+Total per-TD storage ≈ 30 KB (per_cell + materiality_anchor +
+metadata). 60 TDs ≈ 1.8 MB per candidate per checkpoint horizon —
+trivial relative to the audit value.
 
 ### G3 — Window-scoped source-layer attribution
 
@@ -910,10 +984,29 @@ Mismatches return as a list of revision events; the function
 persists them on the corresponding TD entries (mutating only the
 `data_revision_event` slot, never the historical numeric fields).
 
-`revalidate()` is **invoked from `observe()` automatically** at the
-end of each successful append, so daily ritual catches revisions
-without a separate user step. It can also be called standalone for
-audit purposes.
+**When does revalidate run** (PRD v2.1.1 audit fix):
+
+`revalidate_manifest()` MUST run at the **top** of every
+`observe()` call — BEFORE the new-bar resolver — so retroactive
+revisions are caught regardless of whether any new TD bars are
+available that day. Pre-fix wording "at the end of each successful
+append" silently skipped revalidate on no-new-bar days, defeating
+the daily-ritual purpose. The function is also callable standalone
+for audit purposes.
+
+**Halt contract** (PRD v2.1.1 audit fix): when revalidate flips
+status to `requires_data_review`, the next `observe()` call MUST
+raise `ForwardHaltError` at the top of the function. Only
+`decide()` (with `completed_fail` / `aborted` / `completed_success`)
+may transition out of that state. This prevents silently
+overwriting prior `data_revision_event` records on subsequent
+observe runs.
+
+**Float-precision tolerance** (PRD v2.1.1 audit fix): all E1-E5
+threshold comparisons in the materiality table use absolute
+epsilon tolerance (`_BPS_EPS = 1e-6`, `_PCT_EPS = 1e-9`) — far
+below any decision-relevant precision but above the binary float
+roundoff for canonical revision idioms like `*= 1.005`.
 
 ### 4.7 Decision-grade checkpoint pack (resolves G5)
 
