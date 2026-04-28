@@ -1,12 +1,122 @@
 # Forward Evidence Hardening — PRD
 
-**Status**: SHIPPED v2.1.2 — implementation in `core/research/forward/{bar_hash,source_layer,revalidate,runner,manifest_schema}.py`; live-data audit fixes (rounds 1 + 2) folded in
-**Date drafted**: 2026-04-27 (v1) / 2026-04-28 (v2 codex Round-7; v2.1 codex Round-8; v2.1.1 self-audit round 1; v2.1.2 self-audit round 2)
+**Status**: SHIPPED v2.1.3 — implementation in `core/research/forward/{bar_hash,source_layer,revalidate,runner,manifest_schema}.py`; live-data audit fixes (rounds 1 + 2) + codex Round-10 blockers folded in
+**Date drafted**: 2026-04-27 (v1) / 2026-04-28 (v2 codex Round-7; v2.1 codex Round-8; v2.1.1 self-audit round 1; v2.1.2 self-audit round 2; v2.1.3 codex Round-10 blockers)
 **Authority required**: user explicit (zibo)
-**Authoring lineage**: codex Round 6 (`d8fd133`) §"Highest-ROI Recommendations P0"; v2 codex Round 7 (`c4d6a08`); v2.1 codex Round 8 (`e2ff695`); v2.1.1 self-audit round 1 (`fd24285`); v2.1.2 self-audit round 2 (`7c7f860`)
+**Authoring lineage**: codex Round 6 (`d8fd133`) §"Highest-ROI Recommendations P0"; v2 codex Round 7 (`c4d6a08`); v2.1 codex Round 8 (`e2ff695`); v2.1.1 self-audit round 1 (`fd24285`); v2.1.2 self-audit round 2 (`7c7f860`); v2.1.3 codex Round 10 blocker fixes
 **Supersedes / extends**: `docs/prd/20260426-forward_oos_runner_prd.md` §4.6 (overlap-fetch caveat) + §6 R-fwd-2 / R-fwd-3 outline
 **Lineage tag (when committed)**: `forward-evidence-hardening-2026-04-27`
-**Implementation commits**: `c3cefc1` step 1 (schema + resolver) → `9ee1b36` step 2 (per-scope hashers) → `74f73d0` step 3 (window-scoped source) → `b09f9b7` step 4 (revalidate + materiality) → `5cd51f3` step 5 (runner integration) → `fd24285` audit round 1 → `7c7f860` audit round 2
+**Implementation commits**: `c3cefc1` step 1 (schema + resolver) → `9ee1b36` step 2 (per-scope hashers) → `74f73d0` step 3 (window-scoped source) → `b09f9b7` step 4 (revalidate + materiality) → `5cd51f3` step 5 (runner integration) → `fd24285` audit round 1 → `7c7f860` audit round 2 → codex Round-10 blocker fix (this commit)
+
+### v2.1.2 → v2.1.3 changelog (codex Round-10 blockers)
+
+Codex's Round-10 review of the shipped code (not just the PRD)
+surfaced **two real-correctness blockers** in `core/research/forward/`.
+Both were independently reproduced by direct end-to-end runs against
+the production `data/daily/*.parquet` store before agreeing to fix.
+Macro recommendation about freezing the universe/config contract is
+acknowledged but deferred to a separate scoped change — out-of-scope
+for the bar-revision evidence guard.
+
+7. **Lookback window must be derived from real trading rows, not
+   `BDay(lookback)`** (PRD §4.3 signal_input window contract).
+   `pd.tseries.offsets.BDay` is a calendar-weekday offset (Mon-Fri
+   only) and does NOT exclude US market holidays. On the production
+   NYSE-trading-calendar daily store, `BDay(252)` lands ~9 trading
+   rows short of the true 252nd prior trading day; `BDay(126)` is
+   ~5 short; `BDay(60)` is ~2 short. Reproduced live: as_of=2026-04-27,
+   `BDay(252)`=2025-05-08, true 252nd prior=2025-04-25. Factor engines
+   (`core/factors/factor_generator.py:393-409, 646-648`) compute on
+   rolling row windows, so they read those omitted rows at signal-
+   generation time. The pre-fix hash MISSED them — a revision on any
+   of the 9-day gap would silently leave `signal_input_hash`
+   unchanged. False-negative coverage hole.
+
+   **Fix (`core/research/forward/bar_hash.py`):** new
+   `_resolve_lookback_window_start(panel, as_of, lookback)` helper
+   takes the canonical `close` panel's sorted DatetimeIndex, keeps
+   rows at-or-before `as_of`, and steps back exactly `lookback` rows
+   (`valid[-lookback]`). Returns the panel's earliest available date
+   when fewer than `lookback` rows exist (early-history candidates).
+   `compute_signal_input_hash` calls this instead of BDay arithmetic.
+
+   **Regression tests:** `test_signal_input_hash_window_uses_actual_trading_day_rows`
+   (252d horizon) and `test_signal_input_hash_window_covers_60d_and_126d_horizons`
+   (126d horizon). Both load real BarStore data so the BDay-vs-NYSE-
+   trading-calendar gap is exposed; both mutate the cell at the true
+   nth-prior-trading-day and assert the hash flips. Reverse-validated
+   against the buggy implementation: with old BDay logic, the hash
+   does NOT flip — confirming the fix closes a real coverage hole.
+
+8. **Empty `signal_input.per_cell_digest` must fail-close
+   unconditionally when the rolling hash differs** (PRD §4.4 coverage
+   matrix). v2.1.1 made `signal_input.per_cell_digest` empty by
+   default in production (storage budget) and handled the empty path
+   with a partial fail-close that fired ONLY when execution_nav
+   scope did not also differ. Codex correctly identified that the
+   AND-gated empty-digest path is unsafe: when both scopes differ,
+   the same revision could carry BOTH a held-name in-ring revision
+   (which exec_nav E1 catches) AND a parallel revision on a non-held
+   name's volume / a held name's high-low / a held name's close
+   outside the [start_date..as_of] window — all of which flip
+   `signal_input_hash` but are invisible to exec_nav E1/E5. With
+   empty per-cell attribution there is no way to distinguish "1
+   revision both scopes saw" from "1 in-ring + 1 hidden out-of-ring".
+   The pre-fix logic could under-classify a materially unsafe
+   revision as `flagged_only`.
+
+   **Fix (`core/research/forward/revalidate.py`):** when `sig_diffs`
+   is empty (per_cell_digest unpopulated) AND `signal_input_hash`
+   differs, set `bound_only_reason` regardless of execution_nav state.
+   Production `track_per_cell=False` runs now fail-close on every
+   signal-scope hash diff. Tests / diagnostics that need finer
+   attribution opt in via `track_per_cell=True`; the populated cell
+   diff then runs through the per-attribute coverage check below
+   (held-name + close/open + in-ring → not bound_only).
+
+   Adjacent fix: revalidate previously called
+   `compute_signal_input_hash` without passing `track_per_cell`,
+   so the recomputed `per_cell_digest` was always empty. When the
+   stored entry had a populated digest (test mode), the
+   `_diff_cells(stored_full, recomputed_empty)` produced spurious
+   "all stored cells differ" diffs. Fixed by inferring
+   `track_per_cell` from the stored entry's per_cell_digest state
+   (`bool(stored_sig_digest)`) so revalidate aligns with how the
+   entry was originally hashed.
+
+   **Regression tests:** `test_revalidate_signal_diff_empty_digest_fails_closed_even_with_exec_nav_diff`
+   (production-default empty digest + held in-ring revision →
+   bound_only / invalidated, not flagged_only) and
+   `test_revalidate_signal_diff_with_populated_digest_keeps_in_ring_path`
+   (sibling: populated digest + small in-ring revision → flagged_only,
+   proving the fail-close is gated on empty-digest condition).
+
+**Storage / behavior consequence.** Production-default forward runs
+will halt on **any** signal-scope hash difference (not just non-held
+or out-of-ring revisions as in v2.1.2). This is conservative-correct:
+when the operator can't prove the diff is fully covered by exec_nav-
+anchored cells, the safe action is to escalate to `requires_data_review`
+and let the user `decide()`. Operators wanting non-bound_only
+attribution on signal-scope diffs may opt into `track_per_cell=True`
+at the cost of ~2 MB / TD storage; this remains a **research /
+diagnostic** opt-in only, not enabled in the production runner.
+
+**Open questions answered (Round-10 §"Non-blocking answers"):**
+- E4 conservative sign-flip rule kept as v2.1.1 implementation
+  (`|drift| >= |stored_cum|`) — codex confirms this is the right
+  governance bias.
+- Persistence-boundary discipline (Bug 5 from v2.1.2) — leak-test
+  scaffold added: `test_flagged_only_event_persists_when_no_new_bars`
+  asserts revalidate-driven manifest mutations are persisted on the
+  no-new-date path. Future persistence-boundary regressions caught
+  by this scaffold rather than relying on review discipline.
+
+**Macro recommendation deferred.** Codex's universe / config
+snapshot recommendation (separate research-config drift from raw
+bar-revision drift in the manifest) is a sound future hardening but
+out-of-scope for this PRD's bar-revision evidence guard. Captured
+as a separate forward-OOS PRD candidate; revisit after first batch
+of real TD002+ entries lands.
 
 ### v1 → v2 changelog (codex Round-7 driven)
 
