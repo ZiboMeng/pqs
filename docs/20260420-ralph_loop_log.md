@@ -16722,3 +16722,36 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
     - [ ] build_catalog.py 加 argparse（F08，待 B7）
 
 → 完整 memo: `docs/audit/20260428-ralph_audit_round_06.md`
+
+
+---
+
+## R-ralph-audit-2026-04-28-round-07 (B4 — full-codebase cross-cutting invariant lens)
+
+1. **本轮主题**: B4 — cross-cutting invariant lens — 全 codebase 跨 module 不变量审计。Phase B cumulative-pass round 4 of 7。
+2. **本轮目标**: 把 lens 从"function 内部 contract"切到"跨 module 同时成立的 invariant"。R4-R6 三个 lens 都是 function-local；R7 是第一个 cross-module 的 lens — 测的是 long-only / SPY+QQQ 基准 / strict_mode propagation / data adjustment / SQQQ blacklist 这种"declared 在 CLAUDE.md，但需要多个 module 同时实现一致才能 hold"的 property。
+3. **为什么这轮优先做它**: PRD §4 R7 把 B4 定为 lens-4。R6 已经 verify 了每个 function 在 corner 输入下不崩；R7 mandate 是 catch"function 各自 OK，但合在一起 invariant 已经悄悄漂移"的 failure mode — 这是单 lens / 单 module 测试看不到的。
+4. **做了什么**: 列 13 个 cross-cutting invariant 成 SoT 表 (INV1-INV13)，写一个 13-invariant 实时探针 (`PYTHONPATH=. python -c '...'`) 把所有 invariant 一次性验证；对 INV1/INV5/INV8 还做 layered-defense 验证 (config + schema validator + runtime gate 三层都查)。
+5. **修改了哪些文件**: `docs/audit/20260428-ralph_audit_round_07.md`（新 memo）、`docs/20260420-ralph_loop_log.md`（本条）、`docs/INDEX.md`（§7.5 加 R07 entry）。
+6. **跑了哪些测试/实验**: 13 invariant 全部 live verify — INV1 long-only=True 且 RiskConfig(long_only=False) raises；INV2 cfg.backtest.benchmarks=['SPY','QQQ'] + 两个 candidate manifest 都 primary=SPY/secondary=QQQ；INV3+INV10 strict_mode=False (default) + 11 个 propagation site；INV4 BarStore.load 7 个 param + provenance attach；INV5 SQQQ 不在 universe.yaml + blacklist 显式 list；INV6 BacktestEngine references open_df + T+1 doc；INV7 MFS .shift() 2 处；INV8 add_to_watchlist(SQQQ) returns False；INV9 KillSwitch 3-tier；INV11 production_strategy.yaml 存在；INV12 cost_model 38 fields；INV13 P0.1 apply_extra_shift=False default + signal min=0.0 + sum<=1+eps。
+7. **结果如何**: 0 blocker / 0 non-blocker / 0 docs-only / 0 cosmetic — **每一个 cross-cutting invariant 都 hold**，多 module 之间的 declaration 与 implementation 没有 drift。layered-defense (3-layer fail-closed) 在 INV1 / INV5 / INV8 三个 hard constraint 都 verify 完整。
+8. **当前发现的新问题/新机会**: 无新问题。最有价值的 cross-round signal：R6 S07 strict_registry raises + R7 INV3 strict_mode propagation = 同一 invariant 在 corner / cross-cutting 两个 lens 下都 confirmed，证明 cumulative-pass 设计正在收敛 (different lens 看到 same fact = invariant 真稳定)。
+9. **剩余风险**: F01 / F02 (threshold drift) / `_signed_drift` (dead code) / DST 边界 仍 carry-forward；这些都不是 cross-cutting invariant 类的问题，是 single-module bug，待 B5 / B7 处理。
+10. **下一轮建议方向**: B5 — determinism / reproducibility lens。把 R7 cross-cutting 的视角再 rotate 一次 — 现在测的是 invariant，下一轮测的是 reproducibility (同样 input 是否同样 output)。重点：(a) `dev/scripts/baseline/build_research_baseline_snapshot.py` 二次跑产生 identical hash？ (b) hash determinism 在 PYTHONHASHSEED 不同时仍稳定 (M11a parity 的 root-cause fix)；(c) DST 边界 (R01.1) 在 winter/summer EST 的 `_first_post_freeze_trading_day` 行为审视。
+11. **TODO checklist（更新后）**:
+    - [x] R1 (A1) — **PASS**
+    - [x] R2 (A2) — **PASS**
+    - [x] R3 (A3) — **PASS** (Phase A 关闭)
+    - [x] R4 (B1) static — **FIX_LANDED**
+    - [x] R5 (B2) live e2e — **PASS**
+    - [x] R6 (B3) adversarial 40 — **PASS**
+    - [x] R7 (B4) cross-cutting 13 invariants — **PASS**
+    - [ ] R8 (B5) determinism / reproducibility lens
+    - [ ] R9 (B6) documentation truth lens
+    - [ ] R10 (B7) meta-audit + final consolidation
+    - [ ] DST 修复（R01.1，待 B5）
+    - [ ] `_signed_drift` dead code（R01.4，待 B7）
+    - [ ] WindowAnalyzer / MiningEvaluator threshold drift refactor（F01 + F02，待 B7）
+    - [ ] build_catalog.py 加 argparse（F08，待 B7）
+
+→ 完整 memo: `docs/audit/20260428-ralph_audit_round_07.md`
