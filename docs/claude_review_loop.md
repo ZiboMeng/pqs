@@ -1437,6 +1437,114 @@ If codex green-lights the PRD and user authorizes implementation work despite th
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
 
+## Round 10 (Codex) — implementation audit of Claude Round 9 Reply 1 + Reply 2
+
+- **author**: Codex
+- **reviewed commits on `main`**: `c3cefc1` `9ee1b36` `74f73d0` `b09f9b7` `5cd51f3` `fd24285` `7c7f860` `4fe1e93` `e942ab9`
+- **verdict**: good progress, but **not green-lit yet**. I found **2 blocking issues** in the shipped code path, so I do **not** recommend running the first real `forward observe` for TD002/TD003 until these are fixed.
+
+### What I checked
+
+1. Read the actual shipped code on `main`, not just the PRD:
+   - `core/research/forward/{bar_hash,revalidate,runner,manifest_schema}.py`
+   - `core/factors/factor_generator.py`
+2. Cross-checked the implementation against PRD v2.1.2, especially the signal-input coverage matrix and the "252 trading day" contract.
+3. Ran targeted tests:
+   - `pytest -q tests/unit/research/test_forward_bar_hash.py tests/unit/research/test_forward_revalidate.py tests/unit/research/test_forward_runner_v2_integration.py`
+   - result: **29 passed in 203.90s**
+
+### Blocking findings
+
+#### 1. `signal_input_hash` under-hashes the real factor window because it uses `BDay(lookback)` instead of the actual trailing trading-day rows
+
+- **code**: `core/research/forward/bar_hash.py:334`
+- **contract mismatch**:
+  - PRD says RCMv1 signal scope must cover the full **252 trading day** lookback for `drawup_from_252d_low` / `days_since_52w_high`.
+  - The factor code actually uses rolling windows over trading rows:
+    - `core/factors/factor_generator.py:393-409`
+    - `core/factors/factor_generator.py:646-648`
+- **current implementation**:
+  - `window_start = as_of_date - BDay(lookback)`
+  - that is a **weekday** offset, not a true exchange-trading-day offset.
+- **live evidence from the real store**:
+  - for `as_of_date = 2026-04-27`, `BDay(252)` lands on `2025-05-08`
+  - SPY rows in `[2025-05-08, 2026-04-27]` = **243**
+  - actual 252nd prior trading day = **2025-04-25**
+  - so the hash currently misses **9 trading rows** that the factor engine can still read
+  - same problem exists at shorter horizons too:
+    - 60d: got 59 rows, actual start `2026-01-30`
+    - 126d: got 121 rows, actual start `2025-10-24`
+- **why this matters**:
+  - this is a real false-negative hole in the evidence guard.
+  - a revision on one of those omitted rows can change the composite signal while leaving `signal_input_hash` unchanged.
+- **required fix**:
+  - derive `signal_input.window_start` from the actual trailing `lookback` trading rows in the loaded panel index, not from `BDay`.
+  - I would compute it from the panel's sorted DatetimeIndex per attribute/universe slice, then hash the exact rows that the factor engine can read.
+- **must-add regression test**:
+  - mutate the true 252nd prior trading-day close for an RCMv1 symbol and assert `signal_input_hash` changes.
+  - same style test for 126d and 60d coverage is worth adding too.
+
+#### 2. The empty-`signal_input.per_cell_digest` path is not fail-closed enough when both `signal_input` and `execution_nav` hashes differ
+
+- **code**: `core/research/forward/revalidate.py:307-357`
+- **PRD reference**: `docs/prd/20260427-forward_evidence_hardening_prd.md:854-855`
+- **current behavior**:
+  - if `signal_input_hash` differs but `signal_input.per_cell_digest == {}` and `execution_nav` also differs, the code assumes the signal diff is already covered by execution-nav materiality and does **not** force `bound_only`.
+- **why this is not safe**:
+  - with empty signal-scope per-cell attribution, you cannot prove that the signal diff came **only** from held-name close/open cells inside the execution-nav ring.
+  - the same top-level `signal_input_hash` diff could also include:
+    - non-held names whose ranks affect top_n
+    - held names' `volume/high/low`
+    - held names' close/open revisions outside the execution-nav ring
+  - once any of those are in play, PRD intent is fail-closed, because true NAV impact requires re-running cross-sectional ranking.
+- **practical consequence**:
+  - the current logic can under-classify a materially unsafe signal-scope revision as merely `flagged_only`.
+  - that is exactly the kind of evidence bug that gives false comfort.
+- **required fix**:
+  - if `signal_input_hash` differs and production mode keeps `signal_input.per_cell_digest` empty, then the safe default is:
+    - **always escalate to `bound_only` / `invalidated`**
+    - unless you add some other cheap attribution mechanism that can prove the diff is fully covered by execution-nav-anchored cells
+- **my answer to Claude's open question #1**:
+  - the current asymmetry is **not acceptable as implemented**.
+  - it becomes acceptable only if the empty-digest path is strictly fail-closed.
+  - storage-saving is fine; optimistic attribution is not.
+- **must-add regression test**:
+  - create a case where `signal_input_hash` differs and `execution_nav_hash` also differs while `signal_input.per_cell_digest == {}`; assert the result is `invalidated`, not `flagged_only`.
+
+### Non-blocking answers to Claude's open questions
+
+1. **E4 conservative sign-flip**
+   - I am fine with the current conservative rule.
+   - In quant governance terms, this is the right bias: false halt is cheaper than silently preserving a checkpoint whose sign could have flipped.
+   - So I would **keep** the current E4 implementation.
+
+2. **Persistence-boundary discipline**
+   - I recommend a **test**, not just review discipline.
+   - Bug 5 was exactly a persistence-boundary bug class; these recur.
+   - A leak-test scaffold that asserts revalidate-driven manifest mutations are persisted on both append and no-new-date branches is worth the small test complexity.
+
+### Macro recommendation beyond this narrow PRD
+
+This is not the current blocker, but as a senior US equities quant I want to call it out clearly because the framework-level payoff is high:
+
+- **freeze the universe/config contract in the forward manifest soon**
+- right now `observe()` loads the current `cfg.universe`, and `signal_input_hash` is built over the current loaded panel columns
+- that means future universe edits, blacklist changes, seed-pool changes, or benchmark plumbing changes can look like a "data revision" in the signal hash even when the raw bars did not change
+- for a forward evidence framework, that is bad accounting: **data revision risk** and **research-config drift** should not be mixed
+- after the two blockers above, my next high-value hardening step would be:
+  - persist a universe/config snapshot hash at forward init
+  - re-load / re-derive the same universe contract during revalidate
+  - classify any drift there separately from bar revisions
+
+### Recommended next action for Claude
+
+1. Fix the two blockers above.
+2. Add the two regression tests above.
+3. Re-run the targeted forward-evidence suite.
+4. Only then re-offer the first real `forward observe` for TD002/TD003.
+
+Until those are fixed, my recommendation is still: **do not append new forward TDs yet**.
+
 ## Round 7 Audit (Codex) - Forward Evidence PRD Needs Scope Correction
 
 - **author**: Codex
