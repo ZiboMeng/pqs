@@ -11,11 +11,12 @@ If you want chronological order, sort by filename — the
 
 ---
 
-## 1. PRDs (specs, mandates, governing docs) — 15
+## 1. PRDs (specs, mandates, governing docs) — 16
 
 Prescriptive documents that define what to build / what to constrain.
 
-- [prd/20260426-forward_oos_runner_prd.md](prd/20260426-forward_oos_runner_prd.md) — **NEW DRAFT** Forward OOS runner + 10/20/40/60 TD checkpoint pipeline. 5-round execution split (R-fwd-1 manifest IO + init CLI; R-fwd-2 observation engine; R-fwd-3 checkpoint reduce; R-fwd-4 integration smoke; R-fwd-5 docs + `<promise>FWDOOSDONE</promise>`). Uses R5 manifest schema as the contract. Hard invariants: append-only `runs[]`, cost-hash verification HALT, `evidence_class==forward_oos` immutable, no auto-promotion. Status: DRAFT — not yet authorized for execution; user review + explicit unfreeze required before any code lands.
+- [prd/20260427-forward_evidence_hardening_prd.md](prd/20260427-forward_evidence_hardening_prd.md) — **NEW DRAFT** Forward evidence hardening: bar-hash immutability per TD, `data_revision_event` flagging on yfinance retroactive bar revisions, per-symbol source-layer breakdown (replaces aggregate `source_mix`), default `flagged_only` revision policy with escalation to `invalidated` + `requires_data_review` status, checkpoint pack file format. Authoring lineage: codex review-loop Round 6 (P0). Backward-compat: existing TD001 entries preserved (additive optional fields). Status: DRAFT — design contract only; implementation gated on ≥3-5 real TD entries per `forward_oos_runner_prd.md`.
+- [prd/20260426-forward_oos_runner_prd.md](prd/20260426-forward_oos_runner_prd.md) — Forward OOS runner + 10/20/40/60 TD checkpoint pipeline. 5-round execution split. R-fwd-1 shipped; R-fwd-2/3 design now superseded/extended by `prd/20260427-forward_evidence_hardening_prd.md`.
 - [prd/20260425-oos_mvp_ralph_loop_execution.md](prd/20260425-oos_mvp_ralph_loop_execution.md) — OOS MVP execution PRD: 7-round split (R1 schema+skeleton, R2 real run, R3 M12 report, R4 watch exposure, R5 forward schema-only, R6 smoke+negative sim, R7 docs+`OOSMVPDONE`) derived from PRD v3; HARD invariants, lineage `oos-mvp-2026-04-25`, ralph-loop launcher at `dev/scripts/loop/start_oos_mvp_loop.sh`
 - [prd/20260425-oos_validation_framework_codex_v3.md](prd/20260425-oos_validation_framework_codex_v3.md) — OOS validation framework v3 final pre-MVP review; robustness naming, manual-review concentration tier, evidence_class, data_integrity_snapshot, forward manifest schema
 - [prd/20260425-oos_validation_framework_codex_v2.md](prd/20260425-oos_validation_framework_codex_v2.md) — Post-data-integrity OOS validation framework v2; Claude/Codex reviewed, artifact-first MVP, current candidates' historical holdout explicitly pseudo-OOS

@@ -186,8 +186,6 @@ document itself (git history).
 Still open from Phase 4 blueprint — tracked in Framework
 Completion TODO below:
 - M11 paper-BT consistency gate (pack v3)
-- M12 concentration gate real enforcement
-- M14 BacktestEngine NaN root-cause fix
 - M17 live-feed infra (separate PRD when needed)
 - M18 cross-ticker DSL func expansion on demand
 
@@ -621,9 +619,18 @@ v1.2) — shipped M0-M8 + M10 + M13 + M15 + M16 (see archive); open:
   eod_close` dicts; correct signal_date. New tests for parity (1bps/day,
   5bps cumulative), fill_date contract, hash determinism. See same
   memo §2.1 + §6 for legacy-vs-new artifact semantics.
-- [ ] **M12** concentration gate real enforcement (P2, 0.5d). Inspect
-  fresh-backtest weight matrix for per-date top-1/top-3 concentration;
-  reject if top-1 > 0.40 or top-3 > 0.70. Currently skip-PASS.
+- [x] **M12** concentration gate real enforcement **(2026-04-27)**.
+  Two-layer split per codex Round-5 audit (no default raise in
+  BacktestEngine; metric exposure universal, enforcement opt-in):
+  (a) `core/backtest/concentration_metrics.py` exposes
+  `compute_concentration_metrics(weights_df)` and pure
+  `validate_concentration(...)`; `BacktestEngine.run()` always
+  populates `m12_top1_weight_max` / `m12_top3_weight_max` /
+  `m12_n_dates_with_weights` in `BacktestResult.metrics`.
+  (b) `acceptance_pack` Gate 7 enforces 0.40 / 0.70 ceilings when
+  fresh backtest is available; skip-PASS only when no fresh backtest;
+  fail-closed when fresh metrics unexpectedly missing. 20 regression
+  tests across 3 files. See review log Round 5 + 6.
 - [x] **M14** BacktestEngine NaN root-cause fix **(2026-04-24)**.
   Root cause: `price_row.get(sym, 0)` returns NaN (not default 0) when
   column exists with NaN value — panel union-merge across symbols with
