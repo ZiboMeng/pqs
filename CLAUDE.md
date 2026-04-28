@@ -591,37 +591,45 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   source_mix=True because forward observes yfinance frontier bars
   while candidates were constructed on polygon canonical (different
   adjustment semantics, surfaced honestly).
-- **R-fwd-2 / R-fwd-3 evidence-hardening done (2026-04-28 ✅)** —
-  per `docs/prd/20260427-forward_evidence_hardening_prd.md` v2.1
-  (codex Round 6→9). Implemented in 5 commits on `main`
-  (`c3cefc1` → `5cd51f3`):
-  1. schema models + `resolve_factor_input_contract` (`bar_hash.py`)
-     with fail-closed `ContractResolutionError`; pinned for RCMv1 +
-     Cand-2 against the live frozen YAMLs;
-  2. three per-scope hashers (`signal_input` / `execution_nav` /
-     `benchmark`) + `bar_hash` rollup; observation-time
-     `materiality_anchor_values` (10-day ring) + `per_cell_digest`;
-     start-date anchored at `manifest.start_date` (NOT as_of) so
-     start-date denominator is hashed;
-  3. window-scoped source classifier (`source_layer.py`):
-     `classify_window` replaces single-point `classify`;
-     `as_of_held_source` + `window_input_source` views;
-  4. `revalidate.py` materiality policy E1-E5 (NAV impact ≥10 bps,
-     checkpoint metric drift ≥25 bps, decision-sign flip, raw drift
-     ≥0.50%); fail-closed on out-of-ring / non-held / non-anchored-
-     attribute revisions → `requires_data_review`;
-  5. runner integration: TD002+ writes full v2.1 evidence;
-     pre-v2 TD001 entries get metadata-only
-     `legacy_unhashed_inputs=True` mark (numerics untouched);
-     `revalidate_manifest` auto-runs after each successful append.
-  Forward slice: 51 → 86 tests; full unit suite 1772 passed.
-  **Existing RCMv1 / Cand-2 manifests on disk are not yet
-  mutated** — that happens on the next real `forward observe`
-  call, which will (a) flip TD001 to legacy, (b) write TD002 + TD003
-  (4.27 + 4.28 are already available per readiness) under v2.1
-  hash guard.
+- **R-fwd-2 / R-fwd-3 evidence-hardening SHIPPED v2.1.3 (2026-04-28 ✅)** —
+  per `docs/prd/20260427-forward_evidence_hardening_prd.md`. Five
+  layered commits on `main`:
+  1. **v2.1 base** (`c3cefc1` → `5cd51f3`, codex Round 6→9): schema
+     models + factor input contract resolver + 3 per-scope hashers
+     (signal_input / execution_nav / benchmark) + bar_hash rollup +
+     materiality_anchor_values 10-day ring + per_cell_digest +
+     window-scoped source-layer classifier + revalidate E1-E5
+     materiality policy + runner integration with legacy_unhashed_inputs
+     marker on pre-v2 TD001.
+  2. **v2.1.1 audit round 1** (`fd24285`): 4 self-audit fixes
+     (storage budget pinned via `track_per_cell=False` default;
+     revalidate moved to TOP of observe; `requires_data_review`
+     halt guard; epsilon tolerance on E1/E2/E3/E5 thresholds + E4
+     symmetric drift check).
+  3. **v2.1.2 audit round 2** (`7c7f860`, `e942ab9`): Bug 5 fix
+     (flagged_only events lost on no-new-bar return path, now
+     persisted via `manifest_dirty_from_revalidate` flag).
+  4. **v2.1.3 codex Round-10 blocker fixes** (`4abc3c9`, `051d869`):
+     - Blocker 1: `compute_signal_input_hash` window resolution
+       changed from `pd.tseries.offsets.BDay(lookback)` to true
+       trading-day rows from panel index. Pre-fix BDay(252) landed
+       ~9-13 trading rows short of the true 252nd prior trading
+       day on the NYSE calendar (BDay = Mon-Fri only, no holidays).
+     - Blocker 2: empty `signal_input.per_cell_digest` (production
+       default) now ALWAYS fail-closes to bound_only when the
+       rolling hash differs, regardless of execution_nav scope
+       state. Pre-fix optimistically gated on exec_nav and could
+       under-classify dual-scope revisions as flagged_only.
+     - Adjacent: revalidate now passes matching `track_per_cell` to
+       `compute_signal_input_hash` recompute (was silently producing
+       spurious 821-cell diffs in opt-in test mode).
+  Forward slice: 51 → 96 tests; full unit suite 1782 passed.
+  **Existing RCMv1 / Cand-2 manifests on disk are not yet mutated**
+  — that happens on the next real `forward observe` call, which
+  will (a) flip TD001 to legacy, (b) write TD002 + TD003 (4.27 +
+  4.28 already available per readiness) under v2.1.3 hash guard.
 - **Status: observation mode resumes**. Daily `forward observe`
-  ritual unblocked now that v2.1 hardening is in place. NO new
+  ritual unblocked now that v2.1.3 hardening is in place. NO new
   mining / universe / spec / Candidate-3 / data tier work — all
   still frozen.
 

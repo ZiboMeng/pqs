@@ -16548,3 +16548,26 @@ OOS evidence for either candidate.**"
 emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
 顶层（per PRD §3 R7 explicit harness contract）**。
 
+
+---
+
+## R-ralph-audit-2026-04-28-round-01 (A1 — forward evidence module audit)
+
+1. **本轮主题**: A1 — forward evidence v2.1.3 5 个 module 的契约重新推导 + 4 个 live e2e + 2 个 reverse-validation。
+2. **本轮目标**: 验证 v2.1.3 Blocker-1 (BDay→trading-day) 与 Blocker-2 (empty-digest fail-close) 的修复在真实 BarStore + production-default 下确实关闭了 codex Round-10 指出的两个 correctness 漏洞；同时 surface 任何契约 vs PRD 的 drift。
+3. **为什么这轮优先做它**: 是 ralph-audit-2026-04-28 PRD §4 R1 (A1) 入口；先把刚 ship 的工作锁稳，再做 codebase-wide cumulative-pass。
+4. **做了什么**: 完整重读 5 个 forward module（`bar_hash` / `revalidate` / `runner` / `source_layer` / `manifest_schema`，共 ~2470 行）；写了 `dev/audit/r1_a1_forward_e2e.py` 用真实 BarStore panel 跑 4 个 e2e 场景 + 2 个 reverse-validation；非破坏性 — 没有触碰 live RCMv1 / Cand-2 manifest。
+5. **修改了哪些文件**: `dev/audit/r1_a1_forward_e2e.py`（新）、`docs/audit/20260428-ralph_audit_round_01.md`（新 memo）、`CLAUDE.md`（"Forward OOS active workstream" section v2.1 → v2.1.3 layered changelog 同步）。
+6. **跑了哪些测试/实验**: 4 个 e2e + 2 reverse-validation 全部 PASS；forward unit suite 96 tests 全绿（4:36s）。pre-flight 也确认 baseline 是 1680 stale（v2.1.3 实际 1782 passed），A3 会 rebuild。
+7. **结果如何**: 0 blocker / 1 non-blocker / 2 docs-only / 1 cosmetic。**fixed this round**: R01.3 CLAUDE.md "Forward OOS active workstream" v2.1 → v2.1.3 同步。**deferred**: R01.1 (`_first_post_freeze_trading_day` DST winter EST 边界 wrong by 1h，narrow blast radius — RCMv1/Cand-2 都 April DST freeze 不受影响)、R01.2 (相同根因的 docstring drift)、R01.4 (`_signed_drift` dead code)。
+8. **当前发现的新问题/新机会**: DST 边界问题（R01.1）是 forward init 的 timezone 假设漏洞，应在 B5（strategy + execution lens）做正确的 zoneinfo / pytz 实现；不应该在 A1 范围内 hack。
+9. **剩余风险**: v2.1.3 forward evidence layer 已经经得起 audit + reverse-validation；R01.1 winter EST 边界 latent bug 仅在未来某个候选在 winter 15:00-16:00 EST 之间冻结才会触发，可控可见。
+10. **下一轮建议方向**: A2 — adversarial scenario design + regression hardening。≥10 个 codex Round-10 没覆盖的边界场景（delisted symbol、bar_revision 字段切换、lookback > panel.length、all-NaN bar、cost_assumptions change、0-weight position、dry_run、source_layer mixed/canonical/frontier 边界、TD001-only manifest first revalidate、2-candidate concurrent observe、timezone DST）。
+11. **TODO checklist（更新后）**:
+    - [x] R1 (A1): 5 module contract re-derivation + 4 e2e + 2 reverse-validation + CLAUDE.md sync — **PASS**
+    - [ ] R2 (A2): adversarial scenarios + regression tests
+    - [ ] R3 (A3): docs sync (CLAUDE.md / README.md / INDEX.md → v2.1.3 全 surface; baseline rebuild; README changelog 移除)
+    - [ ] R4-R10 (B1-B7): cumulative-pass full-codebase audit
+    - [ ] DST 修复（R01.1，待 B5 或独立 PR）
+
+→ 完整 memo: `docs/audit/20260428-ralph_audit_round_01.md`
