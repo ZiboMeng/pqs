@@ -92,120 +92,14 @@ echo
 PROMPT='Execute one round per docs/prd/20260428-ralph_audit_loop_prd.md section 4 round briefs. lineage_tag=ralph-audit-2026-04-28. Phase A is 3 deep rounds on forward evidence v2.1.3 (R1=A1 module + contract + reverse-validate v2.1.3 fixes; R2=A2 adversarial scenarios; R3=A3 forward documentation sync). Phase B is 7 cumulative-pass full-codebase rounds, NOT divide-and-conquer slices: each Phase B round audits the ENTIRE codebase under a different lens, and each subsequent round explicitly re-engages prior rounds PASS claims. R4=B1 static and contract lens. R5=B2 live e2e execution lens. R6=B3 adversarial corner-case lens with at least 30 scenarios. R7=B4 cross-cutting invariant lens. R8=B5 determinism and reproducibility lens. R9=B6 documentation truth lens with README changelog removal. R10=B7 meta-audit and final consolidation. Hard rules section 3 apply every round: live e2e execution at least 3 commands not just pytest, reverse-validation required for every fix, real-data fixtures only no bdate_range for trading-calendar tests, findings classified blocker non-blocker docs-only cosmetic, doc-vs-code reconciliation per round, README must contain zero update log or changelog content, memo at docs/audit/20260428-ralph_audit_round_NN.md with frontmatter status PASS or FIX_LANDED or BLOCKERS_OPEN, 11-part Chinese summary in docs/20260420-ralph_loop_log.md as R-ralph-audit-2026-04-28-round-NN, AND for Phase B every round after the first must read every prior B-round memo and append a cross-round meta-check section listing each prior PASS claim re-engaged with outcome CONFIRMED or CHALLENGED or ELEVATED. AUTONOMOUS MODE: section 6 Authorized autonomously rules; pause to surface per section 6 Pause for user. Halt per section 5 conditions. Push memo to review/claude-collab end of every round; code and doc fixes to main. Emit RALPHAUDIT10DONE only after all 10 rounds complete with status PASS or FIX_LANDED, full unit suite green, README clean of changelog, baseline refreshed, CLAUDE.md plus docs/INDEX.md reconciled, and R10 meta-audit confirms the three failure modes from PRD section 1 did NOT recur in any round.'
 
 cat <<EOF
-================================================================================
-10-Round Ralph-Loop Audit — Setup
-================================================================================
+PRD:        $PRD_PATH
+Lineage:    ralph-audit-2026-04-28
+Iterations: 10 (Phase A: 3 deep on forward v2.1.3 / Phase B: 7 cumulative-pass codebase)
+Promise:    RALPHAUDIT10DONE
 
-PRD:                 $PRD_PATH
-Lineage tag:         ralph-audit-2026-04-28
-Max iterations:      10 (3 Phase A deep + 7 Phase B codebase-wide)
-Completion promise:  RALPHAUDIT10DONE
+(Round briefs + hard rules + authority + halt conditions live in the PRD.)
 
-ROUND STRUCTURE:
-  PHASE A — current work deep audit (forward evidence v2.1.3)
-    R1 / A1 — forward evidence module audit
-              core/research/forward/{bar_hash,revalidate,runner,
-              source_layer,manifest_schema}.py contract re-derivation;
-              4 live e2e runs incl reverse-validation of v2.1.3 fixes
-    R2 / A2 — adversarial scenarios + regression hardening
-              >=10 scenarios codex did NOT cover; gap tests with real-
-              data fixtures
-    R3 / A3 — forward documentation sync
-              CLAUDE.md / README.md / docs/INDEX.md aligned to v2.1.3;
-              REMOVE README changelog if any; baseline rebuild
-
-  PHASE B — full-codebase cumulative-pass audit (NOT divide-and-conquer)
-            Each round audits the ENTIRE codebase under a different
-            lens; each later round re-engages prior rounds' PASS claims
-            (cross-round meta-check per PRD section 3.10).
-    R4  / B1 — static / contract lens
-              read every module under core/, scripts/, dev/scripts/;
-              re-derive every public function contract; flag drift
-    R5  / B2 — live e2e execution lens
-              run every script smoke path with REAL production data;
-              run pipelines end-to-end; idempotence spot-checks;
-              re-engage B1 runtime PASS claims
-    R6  / B3 — adversarial / corner-case lens
-              >=30 scenarios across the codebase (NaN / Inf / empty /
-              delisted / future-date / timezone / race / partial state);
-              stress every B1+B2 PASS claim with adversarial cases
-    R7  / B4 — cross-cutting invariant lens
-              long-only / SQQQ blacklist / QQQ rule / PRODUCTION vs
-              RESEARCH factors / pricing semantics / bar_revision pin /
-              kill_switch tier / multi-TF VETO / append-only manifests;
-              invariant impact reassessment of B1-B3 findings
-    R8  / B5 — determinism / reproducibility lens
-              every "stable / idempotent / deterministic" claim run
-              twice for byte-equal verification; re-run B1-B4 stability
-              PASS claims with run-twice protocol
-    R9  / B6 — documentation truth lens
-              every claim in README / CLAUDE.md / docs/* verified
-              against current code; REMOVE README changelog;
-              reconcile CLAUDE.md TODO + Confirmed Done; cross-check
-              B1-B5 fixes are reflected in docs
-    R10 / B7 — meta-audit + final consolidation
-              read all 6 prior B-round memos; meta-challenge every
-              PASS claim; severity normalize; failure-mode-recurrence
-              check (PRD section 1 failure modes must not have recurred
-              in any round); final master issue list cross-referenced
-              by issue ID; final docs sweep; emit RALPHAUDIT10DONE
-
-HARD RULES (every round):
-  1. Live-code execution required (>=3 e2e cmds; stdout quoted verbatim)
-  2. Reverse-validation required for every fix (revert -> reproduce ->
-     re-apply -> close)
-  3. Real-data fixtures only (no bdate_range for trading-calendar tests)
-  4. Findings classified: blocker / non-blocker / docs-only / cosmetic
-  5. Doc-vs-code reconciliation per round
-  6. README contains NO update log / changelog (remove if found)
-  7. Memo template per PRD section 7
-  8. 11-part Chinese summary in docs/20260420-ralph_loop_log.md
-  9. Push memo to review/claude-collab; code fixes to main
- 10. Phase B cumulative meta-check: each round after B1 reads every
-     prior B-round memo + re-engages every PASS claim that touches
-     the current lens; appends cross-round meta-check section to its
-     own memo with CONFIRMED / CHALLENGED / ELEVATED outcomes
-
-AUTHORITY:
-  Autonomous: bug fixes / docstrings / regression tests / docs edits / baseline rebuild
-  Pause:      schema changes / config edits / public-API deletions /
-              dependency adds / invariant-constraint changes / live
-              forward-observe runs
-
-HALT CONDITIONS:
-  1. 10 rounds completed (ceiling -> RALPHAUDIT10DONE)
-  2. Test count drops by > 10 vs round-0 baseline
-  3. Core import breaks
-  4. Finding requires schema migration / new PRD
-  5. Reverse-validation fails (claimed fix doesn't close the bug)
-  6. CLAUDE.md / README drift needs cross-round code changes
-  7. Disk < 10 GB
-
-DURING THE LOOP (informational):
-  - Per-round artifacts:
-      Full memo:    docs/audit/20260428-ralph_audit_round_NN.md
-      11-part CN:   docs/20260420-ralph_loop_log.md
-                    (R-ralph-audit-2026-04-28-round-NN)
-      Code commits: main
-      Memo commits: review/claude-collab
-  - Pause mid-loop: rm .claude/ralph-loop.local.md  OR  /ralph-loop:cancel-ralph
-  - Status mid-loop:
-      ls docs/audit/20260428-ralph_audit_round_*.md
-      grep '^status:' docs/audit/20260428-ralph_audit_round_*.md
-  - R10 must: emit <promise>RALPHAUDIT10DONE</promise>; master issue
-    list cross-referenced; README clean of changelog; baseline
-    regenerated if test count drift; docs/INDEX.md updated with new
-    memos; CLAUDE.md TODO + Confirmed Done synced to round findings
-
-PRE-FLIGHT: see status lines at top.
-
-EOF
-
-# Print the slash command LAST so it survives terminal autoscroll.
-cat <<EOF
-================================================================================
-READY — paste this into Claude Code (single line below):
-================================================================================
+============== Paste this into Claude Code (single line below) =================
 
 /ralph-loop:ralph-loop "$PROMPT" --max-iterations 10 --completion-promise RALPHAUDIT10DONE
 
