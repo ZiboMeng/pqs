@@ -78,11 +78,22 @@ def _build_v2_td_entry(
     start_date: date,
     as_of_date: date,
     cum_ret: float = 0.001,
+    track_signal_per_cell: bool = True,
 ) -> ForwardRun:
     """Build a v2-style TD entry with all three input-scope hashes
-    + bar_hash_inputs + held_today_weights captured."""
+    + bar_hash_inputs + held_today_weights captured.
+
+    ``track_signal_per_cell`` defaults to ``True`` so per-cell
+    attribution drives the E1-E5 path in tests asserting specific
+    materiality outcomes (matches the explicit opt-in contract from
+    Blocker-2: deterministic NAV-impact attribution requires populated
+    signal_input.per_cell_digest). Tests covering the production
+    default (empty signal-scope per_cell_digest → fail-closed) pass
+    ``track_signal_per_cell=False`` explicitly.
+    """
     sig_h, sig_in = compute_signal_input_hash(
         spec=spec, universe=universe, panel=panel, as_of_date=as_of_date,
+        track_per_cell=track_signal_per_cell,
     )
     exec_h, exec_in = compute_execution_nav_hash(
         held_or_traded_symbols=held, panel=panel,
@@ -368,3 +379,81 @@ def test_revalidate_skips_legacy_td001():
     assert summary.n_legacy_skipped == 1
     assert summary.n_runs_checked == 1   # only the v2 entry was checked
     assert summary.events == []
+
+
+# ── codex Round-10 Blocker 2: empty signal_input.per_cell_digest ──
+
+
+def test_revalidate_signal_diff_empty_digest_fails_closed_even_with_exec_nav_diff():
+    """Codex Round-10 Blocker 2 regression. Production default:
+    ``track_per_cell=False`` on signal_input → empty per_cell_digest.
+    A revision that flips BOTH signal_input AND execution_nav scope
+    hashes must still fail-close to ``invalidated`` (bound_only) — we
+    cannot prove the signal-scope diff is a strict subset of the
+    execution_nav-anchored cells without per-cell attribution. Pre-fix
+    code optimistically delegated materiality to execution_nav E1/E5
+    when both scopes differed, missing parallel out-of-ring revisions.
+    """
+    spec, universe, held, _w, benchmarks, panel, _ = _common_setup()
+    # Build the entry with track_signal_per_cell=False — the
+    # production default.
+    start_date = date(2026, 4, 24)
+    as_of = date(2026, 4, 27)
+    entry = _build_v2_td_entry(
+        panel=panel, spec=spec, universe=universe, held=held,
+        weights={"AAPL": 0.5, "MSFT": 0.5},
+        benchmark_symbols=benchmarks,
+        start_date=start_date, as_of_date=as_of,
+        track_signal_per_cell=False,
+    )
+    assert entry.bar_hash_inputs.signal_input.per_cell_digest == {}, (
+        "test setup: signal_input.per_cell_digest must be empty under "
+        "production default"
+    )
+    manifest = _wrap_manifest(entry, start_date=start_date)
+
+    # Mutate AAPL close on a held / in-ring date — flips both
+    # signal_input AND execution_nav hashes. With empty signal-scope
+    # digest we cannot prove the signal diff is exclusively this one
+    # cell; conservative fail-close to bound_only / invalidated.
+    panel_b = {k: v.copy() for k, v in panel.items()}
+    panel_b["close"].loc[pd.Timestamp("2026-04-24"), "AAPL"] *= 1.0005
+
+    summary = revalidate_manifest(
+        manifest, spec=spec, universe=universe, panel=panel_b,
+        benchmark_symbols=benchmarks, detected_by_run_label="TD003",
+    )
+    assert len(summary.events) == 1
+    _entry, ev = summary.events[0]
+    assert "signal_input" in ev.affected_scopes
+    assert "execution_nav" in ev.affected_scopes
+    # The bound_only fail-close MUST fire regardless of E1 NAV bps
+    # being below 10 bps threshold.
+    assert ev.estimated_nav_impact_bps is None, (
+        "bound_only must suppress deterministic NAV-impact reporting"
+    )
+    assert ev.policy_decision == "invalidated"
+    assert "bound_only" in ev.delta_summary
+    assert "empty per_cell_digest" in ev.delta_summary
+    assert summary.requires_data_review is True
+
+
+def test_revalidate_signal_diff_with_populated_digest_keeps_in_ring_path():
+    """Sibling test: when ``track_per_cell=True`` (test/diagnostic
+    opt-in), small in-ring revisions on held names' close/open take
+    the per-cell coverage path and stay flagged_only — proving the
+    Blocker-2 fail-close is gated on the empty-digest condition, not
+    on signal_input scope diffs in general.
+    """
+    spec, universe, held, _w, benchmarks, panel, manifest = _common_setup()
+    panel_b = {k: v.copy() for k, v in panel.items()}
+    panel_b["close"].loc[pd.Timestamp("2026-04-24"), "AAPL"] *= 1.0005
+
+    summary = revalidate_manifest(
+        manifest, spec=spec, universe=universe, panel=panel_b,
+        benchmark_symbols=benchmarks, detected_by_run_label="TD003",
+    )
+    assert len(summary.events) == 1
+    _entry, ev = summary.events[0]
+    assert ev.policy_decision == "flagged_only"
+    assert summary.requires_data_review is False

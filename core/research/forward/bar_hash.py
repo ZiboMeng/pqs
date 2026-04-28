@@ -214,6 +214,47 @@ def _digest8(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()[:8]
 
 
+def _resolve_lookback_window_start(
+    panel: dict,
+    as_of_date: date,
+    lookback: int,
+) -> date:
+    """Resolve ``window_start`` to the actual ``lookback``-th prior
+    trading row in the panel calendar.
+
+    Codex Round-10 Blocker 1: ``pd.tseries.offsets.BDay(lookback)`` is
+    a calendar-weekday offset (Mon-Fri only) and ignores US market
+    holidays, so for a daily NYSE-trading-calendar panel ``BDay(252)``
+    lands ~9 trading rows short of the true 252nd prior trading day.
+    Factor engines (``factor_generator.py``) compute on rolling row
+    windows — they read those omitted rows even when the hash misses
+    them, producing a false-negative coverage hole where revisions on
+    the omitted rows fail to flip ``signal_input_hash``.
+
+    Algorithm: take the canonical ``close`` panel's sorted DatetimeIndex,
+    keep rows at-or-before ``as_of_date``, step back ``lookback`` rows.
+    Returns the panel's earliest available date when fewer than
+    ``lookback`` rows are available (early-history candidates / new
+    factors with longer lookback than the panel itself).
+    """
+    close_panel = panel.get("close")
+    if close_panel is None or close_panel.empty:
+        # Pure fallback for degenerate test fixtures with no close
+        # panel; production runs always carry close. BDay is wrong but
+        # at least deterministic.
+        return (pd.Timestamp(as_of_date) - pd.tseries.offsets.BDay(lookback)).date()
+    idx = close_panel.index
+    as_of_ts = pd.Timestamp(as_of_date)
+    valid = idx[idx <= as_of_ts]
+    if len(valid) == 0:
+        return (pd.Timestamp(as_of_date) - pd.tseries.offsets.BDay(lookback)).date()
+    if len(valid) < lookback:
+        return valid[0].date()
+    # Inclusive of as_of (valid[-1]); valid[-lookback] gives `lookback`
+    # rows ending at as_of.
+    return valid[-lookback].date()
+
+
 def _hash_panel(
     *,
     panel: pd.DataFrame,
@@ -331,7 +372,7 @@ def compute_signal_input_hash(
     benchmarks = union_benchmark_symbols(contracts)
 
     syms = sorted(set(universe) | benchmarks)
-    window_start = (pd.Timestamp(as_of_date) - pd.tseries.offsets.BDay(lookback)).date()
+    window_start = _resolve_lookback_window_start(panel, as_of_date, lookback)
     window_end   = as_of_date
 
     rolling_h = hashlib.sha256()

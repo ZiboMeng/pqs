@@ -291,6 +291,122 @@ def test_execution_nav_anchor_ring_default_10_days():
     assert 0 < len(aapl_anchor) <= 10
 
 
+# ── codex Round-10 Blocker 1: lookback uses real trading-day rows ──
+
+
+def _real_panel_from_store(symbols: list[str], end: str = "2026-04-27") -> dict:
+    """Load a panel from the real BarStore (NYSE trading calendar incl.
+    holidays) so the BDay-vs-trading-day gap exposed by the production
+    daily store can be tested.
+    """
+    from core.data.bar_store import BarStore
+    store = BarStore()
+    end_ts = pd.Timestamp(end)
+    panels: dict = {}
+    for attr in ("close", "open", "high", "low", "volume"):
+        cols = {}
+        for sym in symbols:
+            try:
+                df = store.load(sym, freq="daily", adjusted=True).sort_index()
+            except Exception:
+                continue
+            df = df[df.index <= end_ts]
+            if attr in df.columns:
+                cols[sym] = df[attr]
+        if cols:
+            panels[attr] = pd.concat(cols, axis=1)
+    return panels
+
+
+def test_signal_input_hash_window_uses_actual_trading_day_rows():
+    """Codex Round-10 Blocker 1 regression: ``compute_signal_input_hash``
+    MUST resolve the lookback window from the panel's actual sorted
+    DatetimeIndex (real trading rows), not from
+    ``pd.tseries.offsets.BDay(lookback)``. ``BDay`` is a calendar-
+    weekday offset that ignores US market holidays, so on the
+    production daily store BDay(252) lands ~9 trading rows short of
+    the true 252nd prior trading day. A revision on one of those
+    omitted rows must still flip ``signal_input_hash``.
+    """
+    spec = _spec(f"{CAND_DIR}/rcm_v1_defensive_composite_01.yaml")
+    universe = ["AAPL", "MSFT", "SPY"]
+    panel = _real_panel_from_store(universe + ["QQQ"], end="2026-04-27")
+    if not panel or "close" not in panel:
+        pytest.skip("real store panel unavailable")
+    as_of = date(2026, 4, 27)
+
+    close_idx = panel["close"].index
+    valid = close_idx[close_idx <= pd.Timestamp(as_of)]
+    if len(valid) < 252:
+        pytest.skip(f"panel has only {len(valid)} rows ≤ as_of; need ≥252")
+    true_252nd_prior = valid[-252]
+
+    # Sanity: the production store must expose the BDay-vs-trading-day
+    # gap (NYSE holidays). If this fails, the test fixture isn't real.
+    bday_start = (pd.Timestamp(as_of) - pd.tseries.offsets.BDay(252)).date()
+    assert pd.Timestamp(bday_start) > true_252nd_prior, (
+        f"production store should expose BDay-vs-trading-day gap "
+        f"(BDay(252)={bday_start} vs true 252nd prior={true_252nd_prior.date()})"
+    )
+
+    h_pre, _ = compute_signal_input_hash(
+        spec=spec, universe=universe, panel=panel, as_of_date=as_of,
+    )
+
+    panel_b = {k: v.copy() for k, v in panel.items()}
+    panel_b["close"].loc[true_252nd_prior, "AAPL"] = (
+        float(panel["close"].loc[true_252nd_prior, "AAPL"]) + 1.0
+    )
+
+    h_post, _ = compute_signal_input_hash(
+        spec=spec, universe=universe, panel=panel_b, as_of_date=as_of,
+    )
+
+    assert h_post != h_pre, (
+        "signal_input_hash must include the true 252nd prior trading "
+        "row; revision on that row must flip the hash (Blocker 1 fix)"
+    )
+
+
+def test_signal_input_hash_window_covers_60d_and_126d_horizons():
+    """Same Blocker-1 regression at the 126d horizon (Cand-2's
+    rs_vs_spy_126d). BDay(126) is ~5 trading days short on a typical
+    NYSE calendar slice spanning a Thanksgiving + Christmas window.
+    """
+    panel = _real_panel_from_store(["AAPL", "SPY"], end="2026-04-27")
+    if not panel or "close" not in panel:
+        pytest.skip("real store panel unavailable")
+    as_of = date(2026, 4, 27)
+    close_idx = panel["close"].index
+    valid = close_idx[close_idx <= pd.Timestamp(as_of)]
+    if len(valid) < 126:
+        pytest.skip(f"panel has only {len(valid)} rows; need ≥126")
+
+    spec_cand2 = _spec(f"{CAND_DIR}/candidate_2_orthogonal_01.yaml")
+    universe = ["AAPL", "SPY"]
+
+    true_126th = valid[-126]
+    bday126 = (pd.Timestamp(as_of) - pd.tseries.offsets.BDay(126)).date()
+    assert pd.Timestamp(bday126) > true_126th, (
+        f"production store should expose 126d gap "
+        f"(BDay(126)={bday126} vs true 126th prior={true_126th.date()})"
+    )
+
+    h_pre, _ = compute_signal_input_hash(
+        spec=spec_cand2, universe=universe, panel=panel, as_of_date=as_of,
+    )
+    panel_b = {k: v.copy() for k, v in panel.items()}
+    panel_b["close"].loc[true_126th, "AAPL"] = (
+        float(panel["close"].loc[true_126th, "AAPL"]) + 1.0
+    )
+    h_post, _ = compute_signal_input_hash(
+        spec=spec_cand2, universe=universe, panel=panel_b, as_of_date=as_of,
+    )
+    assert h_post != h_pre, (
+        "126d window must reach true 126th prior trading row"
+    )
+
+
 def test_default_bar_revision_pinned():
     """Default bar_revision must reference the canonical store rebuild
     commit so mismatched stores (pre-rebuild vs post-rebuild) produce

@@ -199,14 +199,23 @@ def _revalidate_entry(
     affected_scopes_set: set[str] = set()
 
     # ── recompute signal_input ──────────────────────────────────
+    # Recompute with the SAME track_per_cell setting the entry was
+    # hashed under: if the stored per_cell_digest is non-empty, the
+    # entry was built with track_per_cell=True and the cell-level diff
+    # path is meaningful; otherwise the empty-digest fail-closed path
+    # in the materiality block runs. Mismatching this would produce
+    # spurious "all stored cells differ" diffs.
+    stored_sig_digest = entry.bar_hash_inputs.signal_input.per_cell_digest
+    track_signal_per_cell = bool(stored_sig_digest)
     sig_hash, sig_inputs = compute_signal_input_hash(
         spec=spec, universe=universe, panel=panel,
         as_of_date=entry.as_of_date, bar_revision=bar_revision,
+        track_per_cell=track_signal_per_cell,
     )
     if sig_hash != entry.signal_input_hash:
         affected_scopes_set.add("signal_input")
         diffs = _diff_cells(
-            entry.bar_hash_inputs.signal_input.per_cell_digest,
+            stored_sig_digest,
             sig_inputs.per_cell_digest,
         )
         revised_cells.extend(("signal_input/" + s, d, a) for (s, d, a) in diffs)
@@ -301,21 +310,29 @@ def _revalidate_entry(
     #
     # Default config (track_per_cell=False on signal_input) produces an
     # empty per_cell_digest because storing the full 79×252×2 grid
-    # would balloon the manifest. The rolling hash alone is sufficient
-    # for detection. Materiality decision logic:
+    # would balloon the manifest. **codex Round-10 Blocker 2 fix**:
+    # without per-cell attribution we cannot prove the signal-scope
+    # diff is a strict subset of execution_nav-anchored cells, so the
+    # only safe default is `bound_only` whenever the rolling
+    # signal_input hash differs.
     #
-    #   - signal_input scope differs AND execution_nav scope ALSO differs:
-    #       The revised cell is on a held name's close/open inside the
-    #       execution_nav window. Materiality is already computed via
-    #       execution_nav (E1/E5 above). NO additional bound_only.
-    #   - signal_input scope differs AND execution_nav scope does NOT differ:
-    #       The revision is outside execution_nav's coverage (signal-
-    #       only revision: non-held name, or held name's high/low/volume,
-    #       or held name's close/open OUTSIDE [start_date..as_of]).
-    #       Cannot deterministically map to NAV impact → bound_only.
+    # Concrete failure mode the pre-fix logic missed: a single re-fetch
+    # could carry BOTH a held-name close revision (which flips both
+    # signal_input and execution_nav hashes; exec_nav E1 captures NAV
+    # impact) AND a parallel revision on a non-held name's volume, or
+    # on a held name's high/low, or on a held name's close OUTSIDE
+    # the [start_date..as_of] execution_nav window. Those parallel
+    # revisions also flip signal_input but are invisible to exec_nav
+    # E1/E5 — yet they can change cross-sectional ranking and
+    # therefore the realized top_n / cum_ret. With empty signal-scope
+    # per_cell_digest there is no way to distinguish "1 revision both
+    # hashes saw" from "1 in-ring revision + 1 hidden out-of-ring
+    # revision". Fail-closed.
     #
-    # When per_cell_digest IS populated (track_per_cell=True, e.g. in
-    # tests), the cell-level diff is checked for finer attribution.
+    # Tests / diagnostics that need finer attribution opt in via
+    # ``track_per_cell=True``; the populated cell diff then runs
+    # through the per-attribute coverage check below and small in-ring
+    # revisions can stay flagged_only.
     if "signal_input" in affected_scopes_set:
         sig_diffs = _diff_cells(
             entry.bar_hash_inputs.signal_input.per_cell_digest,
@@ -323,8 +340,8 @@ def _revalidate_entry(
         )
         # Compute the set of (sym, iso) cells anchored by execution_nav
         # (i.e., within the 10-day materiality_anchor_values ring on
-        # close/open attributes). Used both for cell-level diff checks
-        # below and for the no-digest fallback.
+        # close/open attributes). Used by the per-cell coverage check
+        # below when track_per_cell=True populates per_cell_digest.
         held_set = set(entry.bar_hash_inputs.execution_nav.symbols)
         anchored_cells: set[tuple[str, str]] = set()
         for sym, by_date in (exec_anchors or {}).items():
@@ -332,14 +349,15 @@ def _revalidate_entry(
                 anchored_cells.add((sym, iso))
 
         if not sig_diffs:
-            # Empty per_cell_digest path: fall back to scope-level check.
-            if "execution_nav" not in affected_scopes_set:
-                bound_only_reason = bound_only_reason or (
-                    "signal_input scope diff with no overlap on "
-                    "execution_nav — signal-only revision cannot be "
-                    "mapped to deterministic NAV impact without "
-                    "re-running cross-sectional ranking"
-                )
+            # Empty per_cell_digest path (production default): cannot
+            # attribute the signal-scope diff cell-by-cell. Fail-closed
+            # regardless of execution_nav state per Blocker-2 contract.
+            bound_only_reason = bound_only_reason or (
+                "signal_input scope diff with empty per_cell_digest "
+                "(track_per_cell=False) — cannot prove diff is subset "
+                "of execution_nav-anchored cells; conservative bound_only "
+                "per PRD §4.4 (codex Round-10 Blocker 2)"
+            )
         else:
             for sym, iso, attr in sig_diffs:
                 covered_by_anchor = (
