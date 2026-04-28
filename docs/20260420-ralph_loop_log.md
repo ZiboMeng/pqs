@@ -16689,3 +16689,36 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
     - [ ] build_catalog.py 加 argparse（F08，待 B7）
 
 → 完整 memo: `docs/audit/20260428-ralph_audit_round_05.md`
+
+
+---
+
+## R-ralph-audit-2026-04-28-round-06 (B3 — full-codebase adversarial corner-case lens)
+
+1. **本轮主题**: B3 — adversarial corner-case lens — 全 codebase ≥30 个对抗场景。Phase B cumulative-pass round 3 of 7。
+2. **本轮目标**: 把 R2 (A2) 在 forward evidence 上做的 15 场景 predict-vs-actual 方法扩展到全 codebase 8 个 corner 大类（data / signal / backtest / concentration / forward / config / concurrency / extreme）。
+3. **为什么这轮优先做它**: PRD §4 R6 把 B3 定为 lens-3。R4 静态 + R5 live e2e 之后，下一个 lens 自然是 adversarial — 用刻意构造的边界输入挑战 contract，看 R4-R5 confirmed 的 invariant 是否在异常输入下也 hold。
+4. **做了什么**: 设计 40 个 adversarial 场景 (PRD 要求 ≥30，超额 33%)；写 `dev/audit/r6_b3_codebase_adversarial.py` 全部 implementations；用真 BarStore panel (102 row 6 syms 2025-12 → 2026-04) 作 fixture 跑全部；每个场景都是 predict + run + assert + record。
+5. **修改了哪些文件**: `dev/audit/r6_b3_codebase_adversarial.py`（新 harness）、`docs/audit/20260428-ralph_audit_round_06.md`（新 memo）、`docs/20260420-ralph_loop_log.md`（本条）、`docs/INDEX.md`（§7.5 加 R06 entry）。
+6. **跑了哪些测试/实验**: 40 个 adversarial 场景一次跑完 — 40 PASS / 0 FAIL。覆盖 BarStore unknown sym / MFS warn-and-drop + strict-raise / PRODUCTION_FACTORS frozenset 不可变 / BacktestEngine zero-signal flat NAV / NaN signal row no NaN equity / NaN price hole 触发 M14 last_valid_close fallback / 5-day 短 panel / M12 metrics 永远存在 / concentration empty / single-row / NaN row / over-ceiling / hash determinism / hash universe-change differs / bar_hash_rollup hex digest / classify_window per-sym / revalidate 非 mutating on real manifest / load_config bad path raises / production_factor_names stable / research_only_factors excludes mapped / BacktestEngine concurrent identical / signal_input_hash 4-thread stable / revalidate concurrent identical events / classify_as_of stable / _resolve_lookback stable / 1-symbol universe / lookback=1 / classify_window backwards range safe / single-day BacktestEngine still emits M12 / OVERLAP={drawup_from_252d_low}。
+7. **结果如何**: 0 blocker / 0 non-blocker / 0 docs-only / 0 cosmetic — **每一个 contract 在 adversarial 下都 hold**。R4 静态看到的 invariant + R5 live e2e 验证的 chain，都通过 R6 异常输入的对抗压力。
+8. **当前发现的新问题/新机会**: 无新问题。但 R6 实现过程中 catch 了几个 API 命名细节（`compute_signal_input_hash` 用 `as_of_date` 不是 `as_of`；`compute_bar_hash_rollup` 输出 24-char hex 不是 64-char，因为是 truncated SHA；`validate_concentration` 用 keyword-only `top1_observed/top3_observed`；`FrozenStrategySpec` 在 `core.research.frozen_spec` 不是 candidate_registry；`MultiFactorStrategy._weights` 私有不是 `factor_weights`）— 这些 API 细节本身不是 drift，是 R6 第一次端到端 instantiate 时的 calibration。
+9. **剩余风险**: F01 / F02 / DST 边界 / `_signed_drift` 仍 carry-forward 到 B5 / B7。R6 没覆盖 mining / paper-engine internal 的 adversarial（前者跑 200 trial 时间太长；后者 R5 已经端到端跑过 0-bps drift）。
+10. **下一轮建议方向**: B4 — cross-cutting invariant lens。前三轮 B 关注点都是"function 内部 contract"（static / live / adversarial）；R7 改换 lens — 看跨 module 的 invariant：long-only 约束在所有路径都 hold？SPY+QQQ benchmark 在 mining + backtest + paper + report 都用同一定义？factor_registry strict_mode flag 是否在每个调用 path 都 propagate？data adjustment semantics 在 BarStore + scripts + factors 是否一致？
+11. **TODO checklist（更新后）**:
+    - [x] R1 (A1) — **PASS**
+    - [x] R2 (A2) — **PASS**
+    - [x] R3 (A3) — **PASS** (Phase A 关闭)
+    - [x] R4 (B1) static / contract — **FIX_LANDED**
+    - [x] R5 (B2) live e2e — **PASS**
+    - [x] R6 (B3) adversarial 40 场景 — **PASS**
+    - [ ] R7 (B4) cross-cutting invariant lens
+    - [ ] R8 (B5) determinism / reproducibility lens
+    - [ ] R9 (B6) documentation truth lens
+    - [ ] R10 (B7) meta-audit + final consolidation
+    - [ ] DST 修复（R01.1，待 B5 或独立 PR）
+    - [ ] `_signed_drift` dead code（R01.4，待 B7）
+    - [ ] WindowAnalyzer / MiningEvaluator threshold drift refactor（F01 + F02，待 B7）
+    - [ ] build_catalog.py 加 argparse（F08，待 B7）
+
+→ 完整 memo: `docs/audit/20260428-ralph_audit_round_06.md`
