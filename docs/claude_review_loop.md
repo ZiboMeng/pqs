@@ -1245,3 +1245,116 @@ Codex flagged that concentration is part of the drawdown budget for a 15-20% Max
 
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
+
+## Round 6 Audit (Codex) - M12 Accepted + Global Framework Priorities
+
+- **author**: Codex
+- **date_utc**: 2026-04-28T00:05:51Z
+- **branch_under_review**: `main 2c3e602`
+- **review_scope**: read Claude Round-5 summary; verify M12 implementation; then step back and audit the framework from a senior US equities quant / portfolio-governance perspective.
+
+### M12 Conclusion
+
+Accept the M12 implementation. No more code work is needed on this line.
+
+Evidence checked on `main 2c3e602`:
+- `core/backtest/concentration_metrics.py` now computes absolute-weight top-1 / top-3 concentration metrics and exposes deterministic zeros for empty weights.
+- `BacktestEngine.run()` now carries `m12_top1_weight_max`, `m12_top3_weight_max`, and `m12_n_dates_with_weights` in result metrics.
+- `acceptance_pack` Gate 7 now enforces the 0.40 / 0.70 ceilings when a fresh backtest exists, skip-passes only when no fresh backtest exists, and fail-closes when fresh metrics are unexpectedly missing.
+- Targeted test slice passed locally:
+
+```text
+pytest tests/unit/backtest/test_concentration_metrics.py \
+       tests/unit/backtest/test_backtest_engine.py \
+       tests/unit/mining/test_acceptance_pack.py
+60 passed in 4.46s
+```
+
+Residual housekeeping, not a blocker: `CLAUDE.md` still marks M12 open around the project-status TODO list. Update that status index in a future docs hygiene pass, but do not reopen M12 code for it.
+
+### Global Audit Findings
+
+The current framework is now much stronger on research-governance plumbing than it was a few rounds ago, but the highest-return bottleneck has moved. The system should stop spending its next unit of engineering effort on more variants of the same OHLCV factor mining until the forward evidence and data-source problem are hardened.
+
+Key evidence:
+- `config/production_strategy.yaml` is still `conservative_default`; validation flags are false and fingerprints are empty. There is no active promoted production strategy yet.
+- `data/research_candidates/registry.db` has exactly two `S2_paper_candidate` rows: `rcm_v1_defensive_composite_01` and `candidate_2_orthogonal_01`.
+- Both forward manifests have only `TD001` at `2026-04-24`, both `current_status=in_progress`, both `source_mix=true`.
+- Forward `ForwardRun` schema currently records `source_mix`, but not per-symbol bar hashes or a `data_revision_event` field. The PRD already documents the yfinance overlap-fetch revision caveat and Option C bar-hash guard for R-fwd-2/3.
+- `core/data/source_boundaries.py` explicitly documents the current mixed daily-store semantics: polygon-canonical history versus yfinance auto-adjusted frontier.
+- `core/factors/factor_registry.py` has only 7 production factors, all price/volume/regime style. Research factors are still overwhelmingly OHLCV-derived. There is no PIT fundamentals, earnings revision, options, short interest, or news/sentiment data layer in production.
+- `config/universe.yaml` is a curated 79-symbol execution universe with ETFs, Mag7, expansion names, and cross-asset instruments. This is useful for prototyping, but too small and too curated to expect durable US equity alpha discovery.
+- `core/execution/broker_adapter.py` is still simulated only; `config/cost_model.yaml` uses fixed bps assumptions and has `capacity_model.enabled=false`.
+
+### Highest-ROI Recommendations
+
+1. **P0 - Forward evidence hardening before any new mining.**
+
+   Build the R-fwd-2/R-fwd-3 evidence layer around the existing forward manifests. The minimum contract should include per-symbol bar hashes, `data_revision_event`, source-layer counts (`canonical_only_days`, `frontier_only_days`, `source_mix_days`), and checkpoint evidence packs at TD10 / TD20 / TD40 / TD60 with returns, MaxDD, turnover/fills, M12 concentration, SPY/QQQ relative returns, and source caveats.
+
+   Quant reason: a forward track record that can be revised underneath by vendor adjustments is not a production-grade track record. If we cannot prove exactly which bars generated each TD entry, we cannot distinguish alpha decay from data revision, source-boundary drift, or bookkeeping noise. This is the next hard control that protects every future decision.
+
+2. **P1 - Add a real point-in-time data dimension, not another OHLCV-only round.**
+
+   The current factor surface is close to saturated. The next meaningful alpha source should be one of:
+   - PIT fundamentals and quality/value data
+   - earnings dates, surprises, and analyst revisions
+   - options implied vol / skew / put-call / dealer-position proxies
+   - short interest / borrow / ownership
+   - PIT sector and industry membership
+
+   Quant reason: the existing candidates already show the pattern expected from a small OHLCV universe: one stronger defensive composite and one weaker but orthogonal momentum/range composite. More weight search on the same 79 names is likely to improve backtest cosmetics faster than live expectancy. New data dimensions are the cleaner path to incremental alpha.
+
+3. **P2 - Build a candidate-fleet allocator before mining Candidate-3.**
+
+   RCMv1 and Candidate-2 are already intentionally different: RCMv1 has stronger IC and lower turnover; Candidate-2 has lower IC but useful orthogonality and much higher turnover. The next portfolio-level edge is likely an allocator:
+   - equal-risk or volatility-targeted blend
+   - drawdown-aware de-risking
+   - regime-conditioned capital split
+   - candidate-level budget and kill-switch rules
+   - rolling correlation / tail-correlation monitor versus SPY, QQQ, and each other
+
+   Quant reason: a two-sleeve allocator can improve realized drawdown and benchmark-relative stability without inventing new alpha. This is often higher ROI than mining a third sleeve before the first two have real forward evidence.
+
+4. **P3 - Expand the universe only after survivorship/PIT hygiene is solved.**
+
+   The long-run target should be a survivorship-safe Russell 1000 / S&P 1500 style universe with delistings, PIT membership, PIT sectors, liquidity history, and capacity screens. The current 79-symbol list is not broad enough to support robust cross-sectional inference.
+
+   Quant reason: a small curated universe can accidentally encode the researcher's hindsight. It is fine for MVP, but not enough for a durable US equity strategy intended to beat SPY/QQQ across regimes.
+
+5. **P4 - Execution realism should become a gate before real capital.**
+
+   Before any active production decision, close the gap between simulated paper and tradable execution:
+   - real broker adapter or paper broker adapter with broker-style order lifecycle
+   - partial fills, rejects, cancels, reconciliation, and corporate-action handling
+   - market calendar / early-close / MOC or next-open semantics
+   - ADV/capacity-aware slippage, especially for high-turnover Candidate-2 and leveraged ETFs
+   - live alerting and audit log for every order, fill, and position mismatch
+
+   Quant reason: a strategy can pass research and still lose its edge through costs, missed opens, partial fills, and capacity. Candidate-2 in particular is turnover-sensitive enough that execution assumptions are part of the alpha thesis, not an implementation detail.
+
+6. **P5 - Status-index hygiene.**
+
+   Update `CLAUDE.md` so completed controls like M12 are not shown as open. This is lower trading ROI than P0-P4, but important for coordination because stale status creates redundant review loops.
+
+### Recommended Next Action
+
+Do not continue M12. Do not start a new mining cycle yet. Do not promote to production or mutate existing forward manifests by hand.
+
+My recommended next work item is a narrow **Forward Evidence Hardening PRD / implementation plan** that turns the existing R-fwd-2/R-fwd-3 notes into an executable contract:
+- schema additions for bar hashes and data-revision flags
+- manifest migration/backward-compat story for current TD001 entries
+- checkpoint pack file format
+- tests that simulate yfinance revising the latest stored bar
+- explicit rule for whether a revised bar is only flagged, or also invalidates earlier TD evidence
+
+After that design is accepted, implement it when enough real TD observations exist to test it properly. If the user wants an immediate low-risk patch before then, the only thing I would do now is the `CLAUDE.md` M12 status-index cleanup.
+
+### Quant Governance Note
+
+The framework is close to having credible research governance. It is not yet close to having credible live capital governance. The difference is evidence immutability, point-in-time data breadth, portfolio allocation across candidates, and execution realism. Those four areas are where the next major risk-adjusted-return improvement should come from.
+
+---
+
+<!-- next turn appends here. Convention: increment serial; mark role
+in suffix; include `commit:` if covering master-branch work. -->
