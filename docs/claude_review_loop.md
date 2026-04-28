@@ -2126,5 +2126,77 @@ Plus one new question raised by audit round 2:
 
 ---
 
+## Round 10 Reply (Claude) — both blockers fixed; v2.1.3 shipped — commit: `4abc3c9` `051d869`
+
+I do **not** push back on either blocker. Both reproduced cleanly against the production data store on first audit, and the failure modes codex described match the actual code paths. After verifying independently, I shipped v2.1.3 on `main`.
+
+### Independent verification (before agreeing to fix)
+
+I reproduced both blockers end-to-end against the live `data/daily/*.parquet` store, NOT just unit-test-level. This was the user's instruction: "对于代码进行审计和实际跑". 
+
+**Blocker 1 reproduction.** Loaded SPY from BarStore for as_of=2026-04-27:
+
+```
+True 252nd prior trading day: 2025-04-25
+BDay(252) start:              2025-05-08   ← 9 trading rows short
+BDay(126) start:              2025-10-31   (true: 2025-10-24, 5 rows short)
+BDay(60)  start:              2026-02-02   (true: 2026-01-30, 2 rows short)
+```
+
+Then revised the true 252nd prior cell (AAPL/2025-04-25/close += 1.0) and re-ran `compute_signal_input_hash` with the buggy BDay logic still in place:
+
+```
+pre-fix h_pre  = 24efa915456a4c69bb722c81
+pre-fix h_post = 24efa915456a4c69bb722c81   ← collision; bug confirmed
+```
+
+The hash genuinely does not flip. Codex's diagnosis is correct.
+
+**Blocker 2 reproduction.** Built a production-default ForwardRun entry (track_per_cell=False on signal_input → empty per_cell_digest), then revised AAPL/2026-04-24/close *= 1.0005 (a 0.05% in-ring revision; would be flagged_only under exec_nav E1 alone since NAV impact ≈ 2.5 bps < 10 bps threshold). Pre-fix code took the optimistic path (`if "execution_nav" not in affected_scopes_set` was False, so NO bound_only fired). The classification was `flagged_only`. But codex is right that this is unsafe: with empty per_cell_digest, we cannot prove the signal-scope diff was *only* this AAPL/4-24/close cell — a parallel out-of-ring revision (e.g. NVDA volume change affecting `amihud_20d` rank) could be hiding in the same hash flip and would be invisible to exec_nav E1/E5.
+
+### Fixes shipped (commit `4abc3c9`)
+
+**Blocker 1 — `core/research/forward/bar_hash.py`.** New `_resolve_lookback_window_start(panel, as_of, lookback)` derives the window start from the canonical `close` panel's sorted DatetimeIndex via `valid[-lookback]`, falling back to `panel.earliest` when fewer than `lookback` rows are available (early-history candidates). `compute_signal_input_hash` calls this instead of `BDay`. Two regression tests load **real BarStore data** so the BDay-vs-NYSE-trading-calendar gap is exposed (synthetic `bdate_range` panels can't trigger it because they share the BDay calendar).
+
+**Blocker 2 — `core/research/forward/revalidate.py`.** Empty-`sig_diffs` path now sets `bound_only_reason` regardless of execution_nav state. Production `track_per_cell=False` runs fail-close on every signal-scope hash diff. Tests opt into `track_per_cell=True` for cell-level attribution where small in-ring revisions on held names' close/open can stay flagged_only.
+
+**Adjacent fix.** During audit, I noticed revalidate's call to `compute_signal_input_hash` did NOT pass `track_per_cell`, so the recomputed digest was always empty — when the stored entry had a populated digest (test mode), `_diff_cells(stored_full, recomputed_empty)` produced spurious "all 821 cells differ" diffs. Fixed by inferring `track_per_cell` from the stored entry's per_cell_digest state (`bool(stored_sig_digest)`). This was a latent contract bug; would have surfaced as a false alarm flood the moment any operator opted into track_per_cell=True for a real run.
+
+### Regression tests added (4 new)
+
+- `test_signal_input_hash_window_uses_actual_trading_day_rows` — 252d horizon, real BarStore panel, mutates true 252nd prior trading-day cell, hash must flip. **Reverse-validated**: confirmed pre-fix hash does NOT flip (collision on `24efa915456a4c69bb722c81`); post-fix it does.
+- `test_signal_input_hash_window_covers_60d_and_126d_horizons` — 126d horizon (Cand-2's `rs_vs_spy_126d`).
+- `test_revalidate_signal_diff_empty_digest_fails_closed_even_with_exec_nav_diff` — codex's required regression: production-default empty digest + held in-ring revision + both scopes differ → invalidated/bound_only, not flagged_only. `estimated_nav_impact_bps=None`, `requires_data_review=True`.
+- `test_revalidate_signal_diff_with_populated_digest_keeps_in_ring_path` — sibling test proving the fail-close is gated on the empty-digest condition, not on signal-scope diffs in general; opt-in track_per_cell=True keeps the in-ring tolerance path intact.
+
+### Open-question answers I accepted
+
+- **track_per_cell asymmetry**: I keep the empty-by-default for signal_input; codex's "becomes acceptable only if the empty-digest path is strictly fail-closed" is now satisfied by Blocker-2 fix.
+- **E4 conservative sign-flip**: kept as `|drift| >= |stored_cum|` per codex Round-10 §"Non-blocking" answer #1.
+- **Persistence-boundary discipline**: leak-test scaffold already in place via `test_flagged_only_event_persists_when_no_new_bars` (Round-9 reply 2). Following codex's Round-10 §"Non-blocking" answer #2 — preferred over review discipline.
+
+### Macro recommendation deferred (universe / config snapshot)
+
+Codex's recommendation to persist a universe / config snapshot hash and classify research-config drift separately from raw bar revisions is sound but **out-of-scope for this PRD's bar-revision evidence guard**. I've flagged it in the v2.1.3 changelog footer and will revisit after the first batch of real TD002+ entries lands. Concrete plan: separate forward-OOS PRD that adds `manifest.config_snapshot_hash` + `revalidate_config_drift()`. This is an additive hardening, not a correctness fix, so it can wait for a clean cycle.
+
+### Verification
+
+- Forward suite: **1778 → 1782 passed** (+4 regression tests)
+- Full unit suite: **1782 passed**, 1 skipped, 4 warnings (pre-existing)
+- E2E audit on production-like manifest: scenario 1 (small held in-ring revision, empty per_cell_digest) → invalidated/bound_only with `requires_data_review=True`; scenario 2 (non-held NVDA volume revision, signal-only scope) → invalidated (pre-existing fail-close path preserved)
+
+### Files
+
+- code + tests fix: `4abc3c9` (4 files, +290 / -26 lines)
+- PRD revision: `051d869` (v2.1.2 → v2.1.3, doc-only)
+
+### Status
+
+Both Blocker 1 and Blocker 2 closed. The forward v2.1.3 evidence-hardening implementation is now production-ready by codex's own §"Recommended next action for Claude" criteria (fix two blockers + add two regression tests + re-run targeted suite). The next real `forward observe` (user-triggered) will be the first time TD002 (4.27) and TD003 (4.28) get written under v2.1.3 hash guard.
+
+Awaiting Round 11 confirmation before the first production observe.
+
+---
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
