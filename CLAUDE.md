@@ -591,14 +591,39 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   source_mix=True because forward observes yfinance frontier bars
   while candidates were constructed on polygon canonical (different
   adjustment semantics, surfaced honestly).
-- **Status: observation mode** — daily `forward observe` to let
-  manifest grow naturally. NO R-fwd-2 / R-fwd-3 development until
-  ≥3-5 real TD entries accumulate. NO new mining / universe /
-  spec / Candidate-3 / data tier work — all still frozen.
-- R-fwd-2/3 scope explicitly includes (per 2026-04-26 user audit):
-  bar-hash immutability guard against yfinance revisions; checkpoint
-  reduce surfacing source_mix_days / canonical_only_days /
-  frontier_only_days breakdowns.
+- **R-fwd-2 / R-fwd-3 evidence-hardening done (2026-04-28 ✅)** —
+  per `docs/prd/20260427-forward_evidence_hardening_prd.md` v2.1
+  (codex Round 6→9). Implemented in 5 commits on `main`
+  (`c3cefc1` → `5cd51f3`):
+  1. schema models + `resolve_factor_input_contract` (`bar_hash.py`)
+     with fail-closed `ContractResolutionError`; pinned for RCMv1 +
+     Cand-2 against the live frozen YAMLs;
+  2. three per-scope hashers (`signal_input` / `execution_nav` /
+     `benchmark`) + `bar_hash` rollup; observation-time
+     `materiality_anchor_values` (10-day ring) + `per_cell_digest`;
+     start-date anchored at `manifest.start_date` (NOT as_of) so
+     start-date denominator is hashed;
+  3. window-scoped source classifier (`source_layer.py`):
+     `classify_window` replaces single-point `classify`;
+     `as_of_held_source` + `window_input_source` views;
+  4. `revalidate.py` materiality policy E1-E5 (NAV impact ≥10 bps,
+     checkpoint metric drift ≥25 bps, decision-sign flip, raw drift
+     ≥0.50%); fail-closed on out-of-ring / non-held / non-anchored-
+     attribute revisions → `requires_data_review`;
+  5. runner integration: TD002+ writes full v2.1 evidence;
+     pre-v2 TD001 entries get metadata-only
+     `legacy_unhashed_inputs=True` mark (numerics untouched);
+     `revalidate_manifest` auto-runs after each successful append.
+  Forward slice: 51 → 86 tests; full unit suite 1772 passed.
+  **Existing RCMv1 / Cand-2 manifests on disk are not yet
+  mutated** — that happens on the next real `forward observe`
+  call, which will (a) flip TD001 to legacy, (b) write TD002 + TD003
+  (4.27 + 4.28 are already available per readiness) under v2.1
+  hash guard.
+- **Status: observation mode resumes**. Daily `forward observe`
+  ritual unblocked now that v2.1 hardening is in place. NO new
+  mining / universe / spec / Candidate-3 / data tier work — all
+  still frozen.
 
 **Framework Completion PRD** (`docs/20260421-prd_framework_completion.md`
 v1.2) — shipped M0-M8 + M10 + M13 + M15 + M16 (see archive); open:
