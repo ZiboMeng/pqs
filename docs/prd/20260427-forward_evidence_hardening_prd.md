@@ -1,12 +1,12 @@
 # Forward Evidence Hardening — PRD
 
-**Status**: SHIPPED v2.1.1 — implementation in `core/research/forward/{bar_hash,source_layer,revalidate,runner,manifest_schema}.py`; live-data audit fixes folded in
-**Date drafted**: 2026-04-27 (v1) / 2026-04-28 (v2 codex Round-7 revision; v2.1 codex Round-8 cleanup; v2.1.1 self-audit fixes during step 1-5 implementation rollout)
+**Status**: SHIPPED v2.1.2 — implementation in `core/research/forward/{bar_hash,source_layer,revalidate,runner,manifest_schema}.py`; live-data audit fixes (rounds 1 + 2) folded in
+**Date drafted**: 2026-04-27 (v1) / 2026-04-28 (v2 codex Round-7; v2.1 codex Round-8; v2.1.1 self-audit round 1; v2.1.2 self-audit round 2)
 **Authority required**: user explicit (zibo)
-**Authoring lineage**: codex review-loop Round 6 (`d8fd133`) §"Highest-ROI Recommendations P0"; v2 incorporates codex Round 7 (`c4d6a08`) blocking changes; v2.1 incorporates codex Round 8 (`e2ff695`) cleanup items; v2.1.1 incorporates 4 implementation-time audit fixes (`fd24285`)
+**Authoring lineage**: codex Round 6 (`d8fd133`) §"Highest-ROI Recommendations P0"; v2 codex Round 7 (`c4d6a08`); v2.1 codex Round 8 (`e2ff695`); v2.1.1 self-audit round 1 (`fd24285`); v2.1.2 self-audit round 2 (`7c7f860`)
 **Supersedes / extends**: `docs/prd/20260426-forward_oos_runner_prd.md` §4.6 (overlap-fetch caveat) + §6 R-fwd-2 / R-fwd-3 outline
 **Lineage tag (when committed)**: `forward-evidence-hardening-2026-04-27`
-**Implementation commits**: `c3cefc1` step 1 (schema + resolver) → `9ee1b36` step 2 (per-scope hashers) → `74f73d0` step 3 (window-scoped source) → `b09f9b7` step 4 (revalidate + materiality) → `5cd51f3` step 5 (runner integration) → `fd24285` v2.1.1 audit fixes
+**Implementation commits**: `c3cefc1` step 1 (schema + resolver) → `9ee1b36` step 2 (per-scope hashers) → `74f73d0` step 3 (window-scoped source) → `b09f9b7` step 4 (revalidate + materiality) → `5cd51f3` step 5 (runner integration) → `fd24285` audit round 1 → `7c7f860` audit round 2
 
 ### v1 → v2 changelog (codex Round-7 driven)
 
@@ -16,6 +16,47 @@
 4. TD001 lazy migration boundary made explicit: TD002+ must hash the start-date input bars (the cumulative-return denominator); checkpoint packs surface `evidence_clean_start_label` and TD001 carries `legacy_unhashed_inputs=true`.
 5. Source-layer classification changed from as-of-date single-point (`classify(sym, as_of)`) to **window-scoped** (`classify_window(sym, start, as_of, attributes)`); checkpoints aggregate both `as_of_held_source` and `window_input_source`.
 6. Checkpoint pack JSON expanded to **decision-grade**: adds `evidence_quality`, `revision_materiality_bps`, exposure breakdown (net/gross/cash/leverage/high-risk-ETF), realized beta/correlation vs SPY/QQQ over the forward window, 1x/2x/3x cost-stress summary, M12 + watch-list + leveraged-ETF exposure.
+
+### v2.1.1 → v2.1.2 changelog (audit round 2: flagged_only persistence)
+
+Second self-audit pass (after Round-1 fixes shipped). Six new
+end-to-end audits ran against the real RCMv1 manifest + live store
+(multi-day catch-up, dry_run+revisions, cost-hash mismatch halt,
+flagged_only idempotency, empty held weights, all-v2 manifest with
+no TD001 baseline). Five passed; one bug surfaced:
+
+6. **Flagged_only events lost on no-new-bar return.** Pre-fix: when
+   revalidate at the top of observe() detected sub-threshold events
+   (NAV impact <10 bps, raw drift <0.50%, no decision-sign flip),
+   the rebuilt in-memory manifest with the events on entries was
+   never saved to disk because `_resolve_dates_to_observe` returned
+   empty (no new bars) and observe early-returned without calling
+   the bottom `save_manifest`. The events lived only in memory and
+   were lost the moment observe() returned. Live audit: TSLA
+   2025-01-08 close *= 1.0005 → ~0.5 bps NAV impact → flagged_only
+   correctly classified by revalidate, but `n_events_persisted=0`
+   on the reloaded manifest.
+   Fix: `manifest_dirty_from_revalidate` flag tracked through the
+   no-new-dates path; if dirty and not dry_run, save_manifest
+   before early return. Applies symmetrically to all
+   policy_decision="flagged_only" cases (including idempotent
+   re-detection on subsequent observe runs — the timestamp on the
+   `data_revision_event` updates, but the event count and run
+   count both stay stable).
+
+PRD-vs-code contract audit (line-by-line): verified all v1→v2 +
+v2→v2.1 + v2.1→v2.1.1 design claims are actually reflected in
+shipped code. Items confirmed: 3 input-scope hashers, per-cell
+digest + materiality_anchor_values storage, E1-E5 escalation table
+implementation, TD001 lazy boundary marker on first v2 invocation,
+window-scoped `classify_window` (with single-point `classify_as_of`
+for the `as_of_held_source` view), 10-day anchor ring, signal_input
+`track_per_cell=False` default + signal-scope fail-closed in
+revalidate, top-of-observe revalidate placement, requires_data_review
+halt guard, epsilon tolerance on E1/E2/E3/E5, E4 symmetric drift
+check. checkpoint_pack writer (R-fwd-3 §4.7) deferred per Round-9
+agreement; design pinned in PRD, code lands once real TD entries
+exist.
 
 ### v2.1 → v2.1.1 changelog (implementation-time audit fixes)
 
