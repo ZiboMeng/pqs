@@ -16594,3 +16594,33 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
     - [ ] DST 修复（R01.1，待 B5 或独立 PR）
 
 → 完整 memo: `docs/audit/20260428-ralph_audit_round_02.md`
+
+---
+
+## R-ralph-audit-2026-04-28-round-03 (A3 — forward documentation sync)
+
+1. **本轮主题**: A3 — CLAUDE.md / README.md / `docs/INDEX.md` 全 surface 校对到 v2.1.3 现状；REMOVE README 任何 changelog 内容（per §3.6）；rebuild `data/baseline/latest.json`。Phase A 收尾。
+2. **本轮目标**: 把刚 ship 的 v2.1.3 + R2 4 个 regression test 的事实状态 propagate 到所有项目-级文档；让任何 reader 拿到 git HEAD 都能从文档里复现到当前真相。
+3. **为什么这轮优先做它**: PRD §3.6 hard rule "README contains NO update log / changelog" 必须落实；§3.5 doc-vs-code reconciliation 也是每轮收尾的硬要求；Phase A (R1+R2+R3) 关闭后才能进 Phase B cumulative-pass。
+4. **做了什么**: README §17 "研究历史摘要" chronological list 删除，替换成 6 行 pointer（指向 `docs/20260420-ralph_loop_log.md` / `docs/INDEX.md` / `docs/audit/*.md` / `git log`），保留 §17.1 Open Blockers + §17.2 Terminology 作为 current-state；5 处 §17 cross-reference 改写到 `docs/INDEX.md` 或 `docs/audit/*.md`；§18.5 README 维护约定加入 "README 不维护 changelog" 显式条款；INDEX.md 加 §7.5 "Audit cycle memos" 收录 R01 + R02；rebuild baseline (`build_research_baseline_snapshot.py --run-tests`)；验证 PROD/RES factor count 仍为 7/64，universe 仍为 79 tradable。
+5. **修改了哪些文件**: `README.md`（§17 重写 + 5 处 cross-ref 改写 + §18.5 维护约定一行）、`CLAUDE.md`（无新增；已在 R1 同步到 v2.1.3）、`docs/INDEX.md`（新 §7.5）、`data/baseline/latest.json` + `data/baseline/snapshot_20260428T222700Z.json`、`docs/audit/20260428-ralph_audit_round_03.md`（新 memo）。
+6. **跑了哪些测试/实验**: `build_research_baseline_snapshot.py --run-tests` 全套（491.57s，1836 passed / 0 failed / 1 skipped / 1 xfailed）；factor registry / universe live 验证（PROD=7, RES=64, tradable=79）；README §17 cross-ref grep 复核。
+7. **结果如何**: 0 blocker / 0 non-blocker / 4 docs-only / 0 cosmetic — **全部 4 个 docs-only 都本轮修复**。Phase A 关闭：v2.1.3 forward evidence 模块 + 对抗场景 + 文档同步 三层 audit 都 PASS。
+8. **当前发现的新问题/新机会**: 无。R01.1 DST 边界 + R01.4 `_signed_drift` dead code 仍 deferred；R02 cross-round meta-check 4 个 PASS claim 全部 CONFIRMED。
+9. **剩余风险**: Phase A 没有触及 codebase 的其余 layer（data / research / backtest / factor / strategy / reporting / scripts），那些是 Phase B 7 轮 cumulative-pass 要做的。
+10. **下一轮建议方向**: B1 — 静态 / 契约 lens — 全 codebase 重读，re-derive 每个 public 函数的契约 vs docstring claim；建 global contract index；flag undocumented behavior + dead code paths + 类型 hint vs runtime 不一致。
+11. **TODO checklist（更新后）**:
+    - [x] R1 (A1): forward evidence module audit + reverse-validate v2.1.3 fixes — **PASS**
+    - [x] R2 (A2): 15 adversarial scenarios + 4 regression tests pinned — **PASS**
+    - [x] R3 (A3): docs sync + README changelog removal + baseline rebuild — **PASS** ✅ Phase A 关闭
+    - [ ] R4 (B1): static / contract lens — full codebase
+    - [ ] R5 (B2): live e2e execution lens — full codebase
+    - [ ] R6 (B3): adversarial corner-case lens — full codebase
+    - [ ] R7 (B4): cross-cutting invariant lens — full codebase
+    - [ ] R8 (B5): determinism / reproducibility lens — full codebase
+    - [ ] R9 (B6): documentation truth lens — full codebase
+    - [ ] R10 (B7): meta-audit + final consolidation
+    - [ ] DST 修复（R01.1，待 B5 或独立 PR）
+    - [ ] `_signed_drift` dead code（R01.4，待 B7）
+
+→ 完整 memo: `docs/audit/20260428-ralph_audit_round_03.md`

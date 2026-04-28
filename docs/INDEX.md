@@ -122,6 +122,14 @@ How-to specs, schemas, and stable contracts.
 - [20260421-promotion_flow.md](20260421-promotion_flow.md) — Mining → production promotion flow (M2 contract)
 - [20260420-ralph_loop_prompt.md](20260420-ralph_loop_prompt.md) — Saved ralph-loop prompt template
 
+## 7.5 Audit cycle memos — 2
+
+Per-round memos for ralph-audit-2026-04-28 (10-round audit cycle: 3
+deep on forward evidence v2.1.3 + 7 cumulative-pass codebase-wide).
+
+- [audit/20260428-ralph_audit_round_01.md](audit/20260428-ralph_audit_round_01.md) — **NEW** R1 (A1) — forward evidence module audit: 5 modules contract re-derivation + 4 live e2e (clean/sub-threshold/Blocker-1/Blocker-2) + 2 reverse-validation (BDay logic reproduce hash collision; empty-digest gate reproduce flagged_only under-classification). 0 blocker / 1 non-blocker (DST UTC-hour) / 2 docs-only (1 fixed: CLAUDE.md sync v2.1 → v2.1.3) / 1 cosmetic (`_signed_drift` dead code). Status: FIX_LANDED.
+- [audit/20260428-ralph_audit_round_02.md](audit/20260428-ralph_audit_round_02.md) — **NEW** R2 (A2) — adversarial scenario hardening: 15 scenarios (PRD 12 + 3 extensions) / 26 assertions all PASS against real BarStore panel. Lifted 4 most-valuable to durable regression tests (test_revalidate_does_not_mutate_input_manifest / test_revalidate_thread_safe_concurrent_calls / test_revalidate_zero_weight_held_revision_invalidates / test_revalidate_backward_window_deterministic). Forward revalidate suite 11 → 15 passed. Cross-round meta-check confirmed R01 PASS claims. Status: PASS.
+
 ## 8. History archives (extracted from CLAUDE.md) — 2
 
 Slim-out targets for CLAUDE.md. Detail preserved here, summaries point

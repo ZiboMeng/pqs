@@ -201,7 +201,7 @@ pqs/
 │   └── ml/                      - 研究产出（llm candidates, grid results 等）
 ├── research/                    ← 研究源码（tracked）
 │   └── llm_candidates/          - LLM 生成的 factor 候选 (R1-R14 各 round)
-├── docs/                        ← 研究文档 + PRD + 阶段性 synthesis（详见 §17）
+├── docs/                        ← 研究文档 + PRD + 阶段性 synthesis（详见 docs/INDEX.md）
 │   ├── *_final_synthesis.md     - 每个完成阶段的权威总结（Deep Mining / RCMv1 / Phase E / ...）
 │   ├── prd_*.md                 - PRD 文档（framework / deep_mining / phase_e / llm_factor_mining / ...）
 │   ├── promotion_flow.md        - Mining → production 正式流程 (M2)
@@ -1176,9 +1176,9 @@ python scripts/run_mining.py --leaderboard --lineage-filter 'my_tag'
 
 ### 11.5 研究日志
 
-每个完成阶段的权威总结（`docs/*_final_synthesis.md`）见 §17。
+每个完成阶段的权威总结（`docs/*_final_synthesis.md`）入口：`docs/INDEX.md` §"Final synthesis docs"。
 
-从 2026-04-20 开始累计 ~35 轮工作记录，是了解项目进展的**必读文档**。
+`docs/20260420-ralph_loop_log.md` 累计每轮 ralph-loop 工作记录，是了解项目进展的**必读文档**。
 
 ---
 
@@ -1510,53 +1510,17 @@ df = store.load("SPY", freq="1m", fallback="auto")  # 自动尾部补全
 
 ---
 
-## 17. 研究历史摘要
+## 17. 项目当前状态
 
-项目已经过多个研究阶段。每个阶段的详细记录（每轮报告、决策过程、
-实验结果）都汇集在研究日志中。下面只列里程碑 + 最权威的阶段性总
-结文档指针。
-
-**全史**: `docs/20260420-ralph_loop_log.md`
-
-**关键阶段**（按时间顺序，最新在前）:
-
-- **Phase B** — 基础架构建设（kill switch / cost model / walk-forward
-  OOS / regime detection）。奠定当前的 backtest / paper consistency
-  契约与 MultiFactorStrategy 骨架。
-- **Phase C** — 测试 gap 补齐 + bug 修、Intraday 5 表 persistence、
-  真 XGBoost / permutation importance 上线。
-- **LLM Factor Mining** — 12 个 menu topic 覆盖、26 个 LLM 结构化候选
-  走完 funnel、1 factor (`drawup_from_252d_low`) 进入 PRODUCTION。
-  详 `docs/20260420-prd_llm_factor_mining.md` +
-  `docs/20260421-llm_phase_blocker_report.md`。
-- **Universe 扩容** (32 → 53 → 79 symbols) — 从 Mag7-heavy 扩到
-  4-layer sector / factor / cross-asset 结构。详
-  `docs/20260421-prd_universe_expanded_mining.md`。
-- **Framework Completion M0-M16** — 单一真源
-  `config/production_strategy.yaml`、promote 闭环、runtime alignment
-  hard gate 等 P0 工程 blocker 收口。详
-  `docs/20260421-prd_framework_completion.md`。
-- **Deep Mining 50-round** — 7 tracks autonomous 搜索。0/302 trials
-  通过 pack v2 全 10 gates（硬目标未达）；带出 R38 universe 扩容 v3
-  proposal + R46 XGB rigor park 等 5 个决策。详
-  **`docs/20260422-deep_mining_50round_final_synthesis.md`**。
-- **RCMv1 (Research Composite Miner v1)** — 12 orthogonal features +
-  TPE 收敛到 4-feature defensive composite
-  `{beta_spy_60d, drawup_from_252d_low, days_since_52w_high, amihud_20d}`
-  IC_IR +0.50；关键里程碑是 leakage fix
-  (`evaluate_composite(lag=1)` default)。详
-  **`docs/20260424-rcm_v1_final_synthesis.md`**。
-- **Phase E Research Governance + Paper Layer** — `candidate_registry`
-  状态机（S0/S1/S2/S5）+ `FrozenStrategySpec` + freeze / promote /
-  paper_enter / revoke pipeline；RCMv1 从 memo 迁移到
-  S2_paper_candidate。详
-  **`docs/20260424-phase_e_final_synthesis.md`**。
-- **Phase E-post + Candidate-2** — 5 E-post 收尾 gap +
-  `candidate_2_orthogonal_01`
-  (`{ret_5d, rs_vs_spy_126d, hl_range}` 等权) 走完 S0 → S1 → S2。
-  Registry 现有 2 个 S2_paper_candidate，建立了 parallel paper 对照
-  参考系。详
-  **`docs/20260424-phase_e_post_cand2_final_synthesis.md`**。
+> **README 不维护项目演进史 / 阶段 changelog。** 项目历史的权威
+> 来源是：
+> - `docs/20260420-ralph_loop_log.md` — 每轮 ralph-loop 11-part 记录
+> - `docs/INDEX.md` §"Final synthesis docs" — 各阶段终态 synthesis
+> - `docs/audit/20260428-ralph_audit_round_*.md` — 当前 audit cycle
+>   memo
+> - `git log --oneline` — 完整 commit 演进
+>
+> 本节只描述系统**今天**的状态：未解 blocker + 术语约定。
 
 ### 17.1 未解 blockers 摘要
 
@@ -1608,7 +1572,7 @@ df = store.load("SPY", freq="1m", fallback="auto")  # 自动尾部补全
 1. 读本 README 全文 (~1h)
 2. 运行 `pytest -q` 验证环境
 3. 运行 `scripts/run_backtest.py --no-walk-forward` 看一次完整流程
-4. 读 §17 研究历史 + 最新阶段的 `*_final_synthesis.md` 了解当前状态
+4. 读 `docs/INDEX.md` §"Final synthesis docs" + 最新阶段的 `*_final_synthesis.md` 了解项目演进；§17 看当前未解 blocker
 5. 读 `CLAUDE.md` 了解约束细节
 6. 跑自己的第一次 mining: `scripts/run_mining.py --trials 10 --budget 300`
 
@@ -1628,11 +1592,11 @@ df = store.load("SPY", freq="1m", fallback="auto")  # 自动尾部补全
 | 新 config YAML / 字段改动 | §9 配置文件说明 |
 | 新 factor 进 PRODUCTION/RESEARCH | §1.4, §10.1, §3 架构图 |
 | 新 strategy 注册 | §10.2, §8.3 `--type` 列表 |
-| universe 扩 / 缩容 | §1.4, §10.5, §17 |
+| universe 扩 / 缩容 | §1.4, §10.5 |
 | mining funnel 阈值 / gate 逻辑 | §10.3, §10.4, §9.3 |
 | 测试数变化 | §1.4 "测试"行 + §14 |
-| Ralph-loop round 推进 | §17（按阶段追加） |
-| 新 docs/*.md PRD | §4 docs/ + §17 对应阶段 |
+| Ralph-loop round 推进 | `docs/20260420-ralph_loop_log.md` + `docs/audit/*.md`（README 不维护 changelog） |
+| 新 docs/*.md PRD | §4 docs/ + `docs/INDEX.md` |
 
 小改动（typo / 排版）可直接编辑；结构性或语义性改动先和用户确认。
 
