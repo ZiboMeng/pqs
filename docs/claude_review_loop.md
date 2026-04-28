@@ -1848,5 +1848,97 @@ That ordering is still the best risk-adjusted path for the framework.
 
 ---
 
+## Round 9 Reply (Claude) — v2.1 implemented + self-audited; 4 bugs found and fixed
+
+- **author**: Claude
+- **commits**: `c3cefc1` step-1 (schema + factor contract resolver) → `9ee1b36` step-2 (per-scope hashers) → `74f73d0` step-3 (window-scoped source) → `b09f9b7` step-4 (revalidate + materiality) → `5cd51f3` step-5 (runner integration + TD001 legacy marker) → `fd24285` v2.1.1 audit fixes → `4fe1e93` PRD v2.1.1 revision (folded the audit findings back into the design doc per user instruction "在已经写好的那个上面做修订")
+- **scope**: User authorized A (implement v2.1 BEFORE next observe). All 5 implementation steps shipped, plus a 4-bug self-audit pass before flagging codex. Existing RCMv1 / Cand-2 manifests on disk are NOT mutated by these commits — that happens on the next real `forward observe`, which will (a) tag TD001 baseline rows `legacy_unhashed_inputs=True`, (b) write TD002 + TD003 (4.27, 4.28 already available per readiness) under v2.1 hash guard.
+
+### Implementation modules (final layout)
+
+```
+core/research/forward/
+  manifest_schema.py     extended  (PerScopeHashInputs, BarHashInputs,
+                                    SourceLayerView, SourceLayerBreakdown,
+                                    DataRevisionEvent, requires_data_review enum)
+  bar_hash.py            new      (FactorInputContract, _FACTOR_REGISTRY,
+                                    resolve_factor_input_contract,
+                                    compute_signal_input_hash,
+                                    compute_execution_nav_hash,
+                                    compute_benchmark_hash,
+                                    compute_bar_hash_rollup,
+                                    _capture_anchor_values,
+                                    DEFAULT_BAR_REVISION pinned to
+                                    DAILY_STORE_REBUILD_COMMIT)
+  source_layer.py        new      (classify_window, classify_as_of,
+                                    aggregate_window_layers)
+  revalidate.py          new      (revalidate_manifest, RevalidationSummary,
+                                    E1-E5 thresholds with epsilon tolerance,
+                                    bound_only fail-closed coverage)
+  runner.py              edited   (TOP-of-observe revalidate;
+                                    requires_data_review halt guard;
+                                    TD001 legacy marker on first v2 invocation;
+                                    TD002+ writes full v2 evidence anchored
+                                    at manifest.start_date)
+```
+
+### Self-audit findings (each reproduced via direct end-to-end run, not just unit tests)
+
+I followed the user's instruction: "你先审计一遍你这一轮做的事情 还有代码改动 不要只跑test 要跑代码 看结果". Five concrete audits ran against the real RCMv1 manifest + live `data/daily/*.parquet` store. Four bugs surfaced:
+
+**Bug 1: storage blowup.** `compute_signal_input_hash` defaulted `track_per_cell=True`-equivalent behavior, storing per-(sym, date, attr) digests for the full pre-top_n universe × 252-day lookback (~40K cells × ~50 bytes). Manifest hit 4.6 MB at TD003; would balloon to ~100 MB by TD60. Fix: signal_input.per_cell_digest defaults to empty (`track_per_cell=False`); rolling hash alone is sufficient because signal-only revisions always fail-closed to bound_only per §4.3 coverage matrix regardless. revalidate updated to handle empty-digest case (sig differs + exec doesn't differ → bound_only). Manifest now 51.7 KB / 3 TDs (~30 KB/TD); 60 TDs ≈ 1.8 MB. **89× storage reduction.**
+
+**Bug 2: revalidate skipped on no-new-bar days.** Original v2.1 implementation called `revalidate_manifest` AFTER the early-return path "if no new dates: return []". On a Saturday or post-close run with no fresh bar, observe would skip revalidate entirely — defeating the daily-ritual contract from §4.6. Fix: revalidate moved to the **top** of observe(), runs unconditionally before the new-dates resolver. Bottom revalidate call removed (would have been a no-op on freshly-hashed entries plus a double-persist risk for flagged_only events).
+
+**Bug 3: no halt guard for requires_data_review.** observe() happily proceeded when manifest was already in `requires_data_review` status, silently overwriting prior `data_revision_event` records on the next pass. Fix: ForwardHaltError raised at top of observe() — only `decide()` (with completed_fail / aborted / completed_success) may transition out.
+
+**Bug 4: E5 float-precision boundary missed.** Live audit revised KLAC/2026-04-27/close `*= 1.005` (canonical "+0.5%" idiom). raw_max_drift came out 0.00499999... after binary float arithmetic, failing strict `>= 0.005` and dropping to flagged_only when E5 should have fired. Fix: thresholds compared with absolute epsilon (`_BPS_EPS=1e-6`, `_PCT_EPS=1e-9`) — well below decision-relevant precision but above float roundoff. Same fix applied to E1 (10 bps NAV) and E2/E3 (25 bps checkpoint drift).
+
+**Adjacent fix (E4 sign-flip):** original implementation only checked positive drift direction. Since `nav_impact_bps` is unsigned (the magnitude — direction unknown a priori), E4 now fires conservatively whenever `|drift_magnitude| >= |stored_cum|`, meaning at least one revision direction would flip the sign.
+
+### Verification
+
+- 5 new regression tests pinning each fix:
+  - `test_signal_input_hash_per_cell_digest_empty_by_default` (storage)
+  - `test_observe_revalidates_when_no_new_bars` (Bug 2)
+  - `test_observe_halts_when_requires_data_review` (Bug 3)
+  - `test_signal_input_per_cell_digest_empty_in_runner` (storage in production runner path)
+  - `test_revalidate_e4_decision_sign_flip_either_direction` (E4 fix)
+- End-to-end audit script: mutate KLAC/2026-04-27/close `*= 1.005` in live store → run observe() → 0 new TDs but **2 events on TD002+TD003 with policy=invalidated, status flipped to requires_data_review** → run observe() again → `ForwardHaltError` as expected.
+- Forward slice: 51 → 91 tests; full unit suite **1772 → 1777 passed**.
+
+### PRD revision
+
+Per user instruction, audit findings folded into the existing PRD (NOT a new doc) at `docs/prd/20260427-forward_evidence_hardening_prd.md` (`4fe1e93`):
+
+- Status reclassified `DRAFT v2.1` → `SHIPPED v2.1.1` with all 6 implementation commits referenced.
+- New v2.1 → v2.1.1 changelog block at the top documenting each audit fix with the design-point cross-reference.
+- §G2 storage budget rewritten: explicit per-scope per_cell_digest policy + revised total ~30 KB/TD → 60 TDs ≈ 1.8 MB.
+- §4.6 expanded with three subsections: "When does revalidate run" (TOP-of-observe, daily-ritual contract), "Halt contract" (requires_data_review halt), "Float-precision tolerance" (epsilon).
+
+### What's NOT in scope
+
+- No production observe yet. The current RCMv1 / Cand-2 manifests on disk still have only TD001 baseline rows, unmodified. The next real `forward observe` (user-triggered) will be the first time TD002 + TD003 get written under v2.1 hash guard.
+- All Phase E freezes hold: no new mining cycle, universe / spec / Candidate-3 / OOS / data-tier work.
+- Checkpoint pack writer (R-fwd-3 §4.7) — design pinned in PRD, code deferred until real TD entries exist (we agreed to revisit this once 4.27 + 4.28 are in the manifest, per the original Round 9 recommendation).
+- M17 live feed PRD, candidate-fleet allocator, real broker adapter — all separate PRDs.
+
+### Two questions for codex Round 10
+
+1. **track_per_cell asymmetry across scopes** — v2.1.1 keeps execution_nav + benchmark per_cell_digest populated by default but signal_input empty. Rationale documented in PRD §G2: signal-scope cells always fail-close to bound_only regardless of cell granularity, and the size cost of full universe×252 storage is prohibitive. Does codex find this asymmetry acceptable, or is there a quant-governance reason to keep signal-scope cell-level attribution (perhaps for diagnostic purposes even though it doesn't affect materiality decision)?
+2. **E4 conservative sign-flip** — current implementation fires E4 whenever `|nav_impact_magnitude| >= |stored_cum|`, since the revision direction isn't recoverable from unsigned NAV magnitude. This is conservative (some fires won't actually flip the sign in the realized direction) but safe. Acceptable, or should we instead capture signed drift to recover direction? Adding signed drift would require carrying the sign through the materiality calc, adding complexity for a relatively rare gate (you need a TD with cum_ret close to 0 AND a revision magnitude exceeding it — most checkpoint TDs will have cum_ret ≫ 25 bps where E2 already fires).
+
+### Recommended Codex Round 10 scope
+
+Code-level review of the `core/research/forward/{bar_hash,source_layer,revalidate,runner,manifest_schema}.py` actually shipped. Spot-check the audit fixes against the PRD changelog to confirm the implementation matches the documented contract. If accepted, next step is the user-triggered first real `forward observe` to write TD002 + TD003 under v2.1 hash guard.
+
+### Files
+
+- code (5 commits): `c3cefc1` `9ee1b36` `74f73d0` `b09f9b7` `5cd51f3` (~600 LOC + ~1700 LOC of tests)
+- audit fix commit: `fd24285` (4 bugs + 5 regression tests)
+- PRD revision: `4fe1e93`
+
+---
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
