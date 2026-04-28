@@ -5,8 +5,13 @@ R-fwd-1 (post-MVP, user-authorized): adds runner with init / status /
 observe / decide. PRD: docs/prd/20260426-forward_oos_runner_prd.md.
 """
 from .bar_hash import (
+    DEFAULT_BAR_REVISION,
     ContractResolutionError,
     FactorInputContract,
+    compute_bar_hash_rollup,
+    compute_benchmark_hash,
+    compute_execution_nav_hash,
+    compute_signal_input_hash,
     max_lookback,
     resolve_factor_input_contract,
     union_attributes,
@@ -39,8 +44,13 @@ __all__ = [
     "CheckpointCadence",
     "ContractResolutionError",
     "CostAssumptions",
+    "DEFAULT_BAR_REVISION",
     "DataRevisionEvent",
     "FactorInputContract",
+    "compute_bar_hash_rollup",
+    "compute_benchmark_hash",
+    "compute_execution_nav_hash",
+    "compute_signal_input_hash",
     "ForwardHaltError",
     "ForwardRun",
     "ForwardRunManifest",

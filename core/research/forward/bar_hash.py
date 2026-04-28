@@ -274,6 +274,224 @@ def _merge_cell_digests(*partials: dict) -> dict:
     return out
 
 
+# ── per-scope hashers ──────────────────────────────────────────────
+
+
+# Default bar_revision pin used for the canonical polygon-derived
+# daily store. Re-exported here so callers don't need to import from
+# robustness/runner; v2.1 forward hashers use this as the bar_revision
+# value on PerScopeHashInputs unless overridden.
+from core.research.robustness.runner import DAILY_STORE_REBUILD_COMMIT  # noqa: E402
+
+DEFAULT_BAR_REVISION = f"polygon_canonical_rebuild_{DAILY_STORE_REBUILD_COMMIT}"
+
+
+def compute_signal_input_hash(
+    *,
+    spec: FrozenStrategySpec,
+    universe: Iterable[str],
+    panel: dict,
+    as_of_date: date,
+    bar_revision: str = DEFAULT_BAR_REVISION,
+) -> tuple[str, "PerScopeHashInputs"]:
+    """Hash the raw bars feeding the candidate's composite signal at
+    ``as_of_date``. Window = ``[as_of - max_lookback, as_of]`` resolved
+    via ``resolve_factor_input_contract``. Attributes = union of factor
+    input attributes; benchmark symbols (e.g. SPY) for cross_sectional
+    factors are folded into the symbol list.
+
+    Returns ``(hash_hex_24, PerScopeHashInputs)`` where the inputs
+    object carries the per_cell_digest needed by revalidate to identify
+    revised cells.
+    """
+    from .manifest_schema import PerScopeHashInputs
+
+    contracts = resolve_factor_input_contract(spec)
+    attrs = sorted(union_attributes(contracts))
+    lookback = max_lookback(contracts)
+    benchmarks = union_benchmark_symbols(contracts)
+
+    syms = sorted(set(universe) | benchmarks)
+    window_start = (pd.Timestamp(as_of_date) - pd.tseries.offsets.BDay(lookback)).date()
+    window_end   = as_of_date
+
+    rolling_h = hashlib.sha256()
+    rolling_h.update(f"signal_input|rev={bar_revision}|attrs={','.join(attrs)}".encode())
+    cells_merged: dict = {}
+    for attr in attrs:
+        attr_panel = panel.get(attr)
+        if attr_panel is None:
+            # missing attribute panel — fold sentinel; signal will fail
+            # downstream, but the hash stays deterministic.
+            rolling_h.update(f"|<panel_missing:{attr}>|".encode())
+            continue
+        partial_hex, partial_cells = _hash_panel(
+            panel=attr_panel,
+            symbols=syms,
+            attribute=attr,
+            window_start=window_start,
+            window_end=window_end,
+        )
+        rolling_h.update(f"|{attr}={partial_hex}".encode())
+        cells_merged = _merge_cell_digests(cells_merged, partial_cells)
+
+    inputs = PerScopeHashInputs(
+        scope="signal_input",
+        symbols=syms,
+        bar_attributes=attrs,
+        window_start=window_start,
+        window_end=window_end,
+        bar_revision=bar_revision,
+        per_cell_digest=cells_merged,
+        # Anchor values are NOT captured for signal_input — non-held
+        # universe revisions fail-closed per §4.4 (bound_only); held
+        # symbols' anchors are captured by execution_nav scope.
+        materiality_anchor_values={},
+    )
+    return rolling_h.hexdigest()[:24], inputs
+
+
+def compute_execution_nav_hash(
+    *,
+    held_or_traded_symbols: Iterable[str],
+    panel: dict,
+    start_date: date,
+    as_of_date: date,
+    bar_revision: str = DEFAULT_BAR_REVISION,
+    anchor_ring_days: int = 10,
+) -> tuple[str, "PerScopeHashInputs"]:
+    """Hash open + close bars used by BacktestEngine from
+    ``start_date`` through ``as_of_date`` over the held-or-traded set.
+
+    Anchored at ``manifest.start_date`` (NOT ``as_of_date``) per PRD
+    v2.1 §G6 so the cumulative-return denominator is included.
+
+    Captures observation-time close+open numerics for the held-or-
+    traded set on the last ``anchor_ring_days`` trading days
+    at-or-before ``as_of_date`` — used by revalidate to compute
+    deterministic NAV-impact bps for in-ring revisions.
+    """
+    from .manifest_schema import PerScopeHashInputs
+
+    attrs = ("close", "open")
+    syms = sorted(set(held_or_traded_symbols))
+
+    rolling_h = hashlib.sha256()
+    rolling_h.update(f"execution_nav|rev={bar_revision}|attrs={','.join(attrs)}".encode())
+    cells_merged: dict = {}
+    for attr in attrs:
+        attr_panel = panel.get(attr)
+        if attr_panel is None:
+            rolling_h.update(f"|<panel_missing:{attr}>|".encode())
+            continue
+        partial_hex, partial_cells = _hash_panel(
+            panel=attr_panel,
+            symbols=syms,
+            attribute=attr,
+            window_start=start_date,
+            window_end=as_of_date,
+        )
+        rolling_h.update(f"|{attr}={partial_hex}".encode())
+        cells_merged = _merge_cell_digests(cells_merged, partial_cells)
+
+    anchor_values = _capture_anchor_values(
+        panel=panel.get("close"),
+        open_panel=panel.get("open"),
+        held_or_traded=syms,
+        as_of_date=as_of_date,
+        ring_days=anchor_ring_days,
+    )
+
+    inputs = PerScopeHashInputs(
+        scope="execution_nav",
+        symbols=syms,
+        bar_attributes=list(attrs),
+        window_start=start_date,
+        window_end=as_of_date,
+        bar_revision=bar_revision,
+        per_cell_digest=cells_merged,
+        materiality_anchor_values=anchor_values,
+    )
+    return rolling_h.hexdigest()[:24], inputs
+
+
+def compute_benchmark_hash(
+    *,
+    benchmark_symbols: Iterable[str],
+    panel: dict,
+    start_date: date,
+    as_of_date: date,
+    bar_revision: str = DEFAULT_BAR_REVISION,
+    anchor_ring_days: int = 10,
+) -> tuple[str, "PerScopeHashInputs"]:
+    """Hash SPY (and QQQ if secondary) closes from ``start_date``
+    through ``as_of_date``. Drives ``vs_spy`` / ``vs_qqq``.
+
+    Anchor values for benchmarks are captured for the close attribute
+    only; revalidate's vs_spy / vs_qqq drift calc reads the anchor
+    closes as the "old benchmark NAV path."
+    """
+    from .manifest_schema import PerScopeHashInputs
+
+    attrs = ("close",)
+    syms = sorted(set(benchmark_symbols))
+
+    rolling_h = hashlib.sha256()
+    rolling_h.update(f"benchmark|rev={bar_revision}|attrs={','.join(attrs)}".encode())
+    cells_merged: dict = {}
+    close_panel = panel.get("close")
+    if close_panel is None:
+        rolling_h.update(b"|<panel_missing:close>|")
+    else:
+        partial_hex, partial_cells = _hash_panel(
+            panel=close_panel,
+            symbols=syms,
+            attribute="close",
+            window_start=start_date,
+            window_end=as_of_date,
+        )
+        rolling_h.update(f"|close={partial_hex}".encode())
+        cells_merged = _merge_cell_digests(cells_merged, partial_cells)
+
+    anchor_values = _capture_anchor_values(
+        panel=close_panel,
+        open_panel=None,
+        held_or_traded=syms,
+        as_of_date=as_of_date,
+        ring_days=anchor_ring_days,
+    )
+
+    inputs = PerScopeHashInputs(
+        scope="benchmark",
+        symbols=syms,
+        bar_attributes=list(attrs),
+        window_start=start_date,
+        window_end=as_of_date,
+        bar_revision=bar_revision,
+        per_cell_digest=cells_merged,
+        materiality_anchor_values=anchor_values,
+    )
+    return rolling_h.hexdigest()[:24], inputs
+
+
+def compute_bar_hash_rollup(
+    signal_input_hash: str,
+    execution_nav_hash: str,
+    benchmark_hash: str,
+) -> str:
+    """Roll-up = sha256(s||e||b)[:24]. Top-level cheap diff."""
+    h = hashlib.sha256()
+    h.update(signal_input_hash.encode())
+    h.update(b"|")
+    h.update(execution_nav_hash.encode())
+    h.update(b"|")
+    h.update(benchmark_hash.encode())
+    return h.hexdigest()[:24]
+
+
+# ── observation-time evidence capture ──────────────────────────────
+
+
 def _capture_anchor_values(
     *,
     panel: pd.DataFrame,
