@@ -452,6 +452,9 @@ def observe(
       - manifest's evidence_class is anything other than forward_oos
         (impossible by schema, but guarded again here)
       - data store has no bars at-or-after start_date
+      - manifest's current_status is ``requires_data_review`` (PRD v2.1 §4.4):
+        revalidate previously surfaced a material data revision; user
+        must clear via ``decide()`` before further observe() runs.
 
     ``dry_run=True``: compute new entries but do not save the manifest.
     """
@@ -535,6 +538,12 @@ def observe(
             f"observe@{datetime.now(timezone.utc).isoformat(timespec='seconds')}"
         ),
     )
+    # Track whether revalidate produced events that need persisting,
+    # so the no-new-dates early return below can still flush them.
+    # Pre-fix: flagged_only events on a no-new-bar day were rebuilt
+    # in-memory but lost on early return because save_manifest was
+    # only at the bottom of the new-TDs path.
+    manifest_dirty_from_revalidate = False
     if reval.events:
         affected_id_to_event = {id(e): ev for (e, ev) in reval.events}
         revalidated_runs: list = []
@@ -550,6 +559,7 @@ def observe(
         if reval.requires_data_review:
             update["current_status"] = ForwardRunStatus.requires_data_review
         manifest = manifest.model_copy(update=update)
+        manifest_dirty_from_revalidate = True
         if reval.requires_data_review:
             # Halt — save the events + flipped status, then return
             # without appending. Next observe() call will halt at the
@@ -558,11 +568,16 @@ def observe(
                 save_manifest(manifest, out_path)
             return []
         # Non-invalidated events (flagged_only): events stay on the
-        # rebound `manifest` variable; the bottom save_manifest call
-        # below will persist them along with any new TDs.
+        # rebound `manifest` variable. They get persisted by either
+        # the no-new-dates path below OR the bottom save_manifest
+        # (when new TDs append).
 
     new_dates = _resolve_dates_to_observe(manifest, available_index, up_to=up_to)
     if not new_dates:
+        # No new bars to append, but flagged_only events from the
+        # revalidate pass still need to be persisted to disk.
+        if manifest_dirty_from_revalidate and not dry_run:
+            save_manifest(manifest, out_path)
         return []
 
     composite, _all_factors = _compute_composite(spec, panel)

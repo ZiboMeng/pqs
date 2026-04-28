@@ -188,6 +188,57 @@ def test_observe_marks_pre_v2_td_legacy_unhashed_inputs(tmp_path: Path):
     assert td1_post.signal_input_hash is None
 
 
+def test_flagged_only_event_persists_when_no_new_bars(tmp_path: Path):
+    """PRD §4.6: revalidate detects revisions on every observe()
+    call. When events are flagged_only (sub-threshold) AND there
+    are no new bars to append, the events MUST still be saved to
+    disk — early-return on no-new-dates would otherwise silently
+    drop them. Bug-fix regression test (audit round 2)."""
+    from core.research.forward.manifest_io import save_manifest
+
+    cand = "rcm_v1_defensive_composite_01"
+    out = _setup_repo(tmp_path, cand)
+    init(
+        candidate_id=cand, start_date="2025-01-02",
+        output_dir=out, cost_model_path="config/cost_model.yaml",
+    )
+    appended = observe(
+        candidate_id=cand, output_dir=out,
+        cost_model_path="config/cost_model.yaml",
+        top_n=10, up_to="2025-01-08",
+    )
+    assert len(appended) > 0
+
+    # Mutate ONE TD's stored signal_input_hash to a known-different
+    # value. revalidate will detect divergence; since the actual
+    # store hasn't changed, NAV impact = 0 → flagged_only.
+    m = load_manifest(out / f"{cand}_forward_manifest.json")
+    target = m.runs[-1]
+    corrupted = target.model_copy(update={
+        "signal_input_hash": "deadbeefdeadbeefdeadbeef",
+    })
+    new_runs = list(m.runs)
+    new_runs[-1] = corrupted
+    save_manifest(m.model_copy(update={"runs": new_runs}),
+                  out / f"{cand}_forward_manifest.json")
+
+    # Same up_to → no new bars to append. Revalidate-detected
+    # event MUST be persisted on the corrupted entry.
+    second_call = observe(
+        candidate_id=cand, output_dir=out,
+        cost_model_path="config/cost_model.yaml",
+        top_n=10, up_to="2025-01-08",
+    )
+    assert second_call == [], "no new bars expected"
+    m_after = load_manifest(out / f"{cand}_forward_manifest.json")
+    target_after = m_after.runs[-1]
+    assert target_after.data_revision_event is not None, (
+        "revalidate-detected flagged_only event was lost on early "
+        "return — observe() must save before returning even when "
+        "no new TDs are appended"
+    )
+
+
 def test_observe_revalidates_when_no_new_bars(tmp_path: Path):
     """PRD §4.6: revalidate runs at the top of every observe(),
     regardless of whether new TD bars are appended. Daily-ritual
