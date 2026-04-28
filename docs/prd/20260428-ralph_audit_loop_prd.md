@@ -49,14 +49,26 @@ round may be skipped; a failing round must be re-run.
 - **A2** — adversarial scenario design + regression hardening (≥10 codex-uncovered scenarios, new tests for any gap surfaced)
 - **A3** — documentation sync for the forward layer (CLAUDE.md / README.md / `docs/INDEX.md` aligned to v2.1.3 reality; remove README changelog if any)
 
-### Phase B — codebase-wide audit (7 rounds)
-- **B1** — data layer (`core/data/*` + ingest scripts)
-- **B2** — research framework (`core/research/*` excl. forward, which A1-A3 covered)
-- **B3** — backtest + paper trading parity (`core/backtest/*` + `core/paper_trading/*`)
-- **B4** — factor pipeline + mining (`core/factors/*` + `core/mining/*`)
-- **B5** — strategy + execution layer (`core/signals/*` + `core/risk/*` + `core/intraday/*`)
-- **B6** — reporting + diagnostics (`core/reporting/*` + `core/diagnostics/*`)
-- **B7** — scripts / CLI / final integration consolidation (every `scripts/*` + `scripts/run_all.sh` + master issue list across B1-B6)
+### Phase B — codebase-wide audit (7 rounds, cumulative redundancy)
+
+**Philosophy.** Each Phase B round is a **complete, thorough audit of
+the entire codebase** — NOT a divide-and-conquer slice. Each round
+applies a different audit lens, and each subsequent round explicitly
+re-checks what prior rounds may have missed or glossed over. The
+seven rounds compound; they do not partition.
+
+This deliberately trades coverage breadth-per-round for coverage
+depth-by-redundancy. Codex Round 10 caught two blockers two prior
+single-pass audits had missed; cumulative-pass design is the
+structural answer to that failure mode.
+
+- **B1** — **static / contract lens** — read every `core/`, `scripts/`, `dev/scripts/` module; re-derive every public function's contract and compare to its docstring; flag undocumented behavior, contract-vs-docstring drift, dead code paths.
+- **B2** — **live e2e execution lens** — run every script's smoke path with real production data (not test fixtures); run pipelines end-to-end (fetch → backtest → paper → report); verify hash-determinism, idempotence, repeated-load consistency. Plus: re-engage every B1 PASS claim that involved runtime behavior.
+- **B3** — **adversarial / corner-case lens** — construct ≥30 adversarial scenarios across the whole codebase (empty data, NaN/Inf, single-row, delisted, future-date, timezone shifts, race conditions, config edge cases, wrong types, partial state). Plus: stress every B1+B2 PASS claim with the matching adversarial case.
+- **B4** — **cross-cutting invariant lens** — verify global invariants hold *across all modules* (long-only, SQQQ blacklist, QQQ outperformance guards, PRODUCTION/RESEARCH factor separation, raw-bars + read-time-splits adjustment semantics, bar_revision pinning across forward/robustness/OOS, Phase E governance gates reachable, kill_switch 3-tier, multi-TF VETO chain direction-only, append-only manifests). Per invariant: enumerate every file that touches it, verify consistency. Plus: cross-check B1-B3 findings for invariant impact.
+- **B5** — **determinism / reproducibility lens** — for every "deterministic" claim in the codebase (forward hashes, manifest writes, factor computation, sort-set ordering, mining seeds, baseline snapshots), run the path twice and assert byte-identical output (or document expected drift). Plus: re-run any B1-B4 PASS claim that asserted "stable" / "deterministic" / "idempotent".
+- **B6** — **documentation truth lens** — read every doc in `docs/` + README.md + CLAUDE.md; for every concrete claim (file path, count, command, behavior, threshold), VERIFY against current code; remove README changelog (per §3.6); reconcile CLAUDE.md "Confirmed Done" / "Current TODO" against git log + actual code state. Plus: cross-check that fixes shipped in B1-B5 are reflected in the relevant docs.
+- **B7** — **meta-audit / consolidation lens** — read all 6 prior round memos; for each finding marked PASS, challenge the verification rigor (was it really tested or just glossed?); for each non-blocker, reconsider elevation; for each docs-only fix, verify the doc change actually landed; cross-check that the three failure modes from §1 (test fixture sharing bug calendar; no reverse-validation; coarse PRD-vs-code mapping) DID NOT recur in any round. Final master issue list with severity normalized; final docs sweep; emit `RALPHAUDIT10DONE`.
 
 ---
 
@@ -108,6 +120,20 @@ round may be skipped; a failing round must be re-run.
    truth; the log entry is the fast-scan index.
 9. **Push memo to `review/claude-collab`** at round end so codex /
    peer reviewers can read it. Code / doc fixes commit on `main`.
+10. **Cross-round meta-check (Phase B only).** Each Phase B round
+    after the first MUST read every prior B-round memo and:
+    - Re-engage every `PASS` claim that touches the current round's
+      lens (e.g. B2's live-execution lens re-runs B1's contract
+      claims that involved runtime behavior; B5's determinism lens
+      re-runs anything B1-B4 called "stable" / "idempotent" /
+      "deterministic").
+    - For every prior `non-blocker` finding, reconsider whether the
+      current round's evidence elevates it.
+    - Append a `cross-round meta-check` section to the current
+      round's memo listing what was re-engaged + outcome
+      (CONFIRMED / CHALLENGED / ELEVATED).
+    Phase B is cumulative: each round's memo becomes input to all
+    subsequent rounds. Late rounds get progressively more skeptical.
 
 ---
 
@@ -158,56 +184,137 @@ round may be skipped; a failing round must be re-run.
 
 **Acceptance.** CLAUDE.md / README.md / INDEX.md all reproducible from git HEAD; baseline refreshed; README contains zero changelog content.
 
-### Round 4 (B1) — data layer
-**Files.** `core/data/{bar_store, daily_aggregator, market_data_store, validator, calendar, yfinance_provider, source_boundary_registry}.py`. Scripts: `scripts/{fetch_data, build_bars_parquet, build_splits_parquet, aggregate_bars, build_catalog, validate_vs_yfinance}.py`.
+### Round 4 (B1) — full codebase under static / contract lens
+**Surface.** Every module under `core/`, `scripts/`, `dev/scripts/`. The full codebase, not a slice.
 
-**Live runs (≥3).** `BarStore.load` 5 real symbols at daily / 60m / 30m; verify splits.parquet idempotent; provenance sidecar consistency cross-checked vs source-boundary registry; `validate_vs_yfinance` smoke on 1 ticker.
+**Audit method.**
+- Read every module systematically. Build a global contract index: for each public function / class, record (signature → preconditions → postconditions → exceptions → determinism guarantees).
+- Compare each contract to the module's own docstrings + any claim in `docs/` or CLAUDE.md.
+- Flag: undocumented behavior, contract-vs-docstring drift, dead code paths, type-hint vs runtime mismatch, silent except-pass, shadowed builtins, magic-number thresholds without config-source.
+- Cross-reference cousin modules (e.g. `core/research/robustness/runner.py` vs `core/research/forward/runner.py` — should the bar_revision pin reach both?).
 
-**Acceptance.** Hash-determinism on a clean store snapshot (load twice → identical content); no silent re-fetch; splits applied identically across two loads; provenance reflects expected source_type for the test tickers.
+**Live runs (≥3).** Even though this round's lens is static, ≥3 e2e runs are still required per §3.1. Suggested: import smoke (`python -c "import core; import scripts"` style sweep), one full pipeline run (`run_backtest --quick`), one cross-module path that touches ≥4 packages.
 
-### Round 5 (B2) — research framework (excl. forward, covered in A1-A3)
-**Files.** `core/research/{robustness, concentration, frozen_spec, candidate_registry, drift_metrics}.py` + `core/research/oos/`.
+**Acceptance.** Global contract index produced (memo §; can be a CSV / table); every public symbol classified; every drift / undocumented finding logged with severity.
 
-**Live runs (≥3).** Robustness eval on 1 candidate (RCMv1 or Cand-2, NOT a full mining cycle); concentration metrics on a recent backtest result; revalidate live RCMv1 + Cand-2 manifests as a cross-link with A1 (must remain green).
+### Round 5 (B2) — full codebase under live e2e execution lens
+**Surface.** Same — everything. New angle.
 
-**Acceptance.** M12 enforcement reachable via `acceptance_pack` Gate 7; watchlist gate fires correctly on a synthetically-constructed failing case; concentration thin-data weighted gate matches PRD v2.1.
+**Audit method.**
+- Run every script's smoke path with **real production data** (not test fixtures). Goal: reach the longest happy path of each major code path at least once.
+- Pipelines: data fetch → factor screen → mining → backtest → paper → report. Run end-to-end where feasible; document the exact commands and verbatim output.
+- Determinism spot-checks: run the same path twice on cold cache; check byte-equal where claimed; document drift if any.
+- **Cross-round meta-check (per §3.10):** re-engage every B1 PASS claim that involved runtime behavior. If B1 said "this function is idempotent" without running it twice, run it twice now.
 
-### Round 6 (B3) — backtest + paper trading parity
-**Files.** `core/backtest/*` + `core/paper_trading/*` + `scripts/run_backtest.py` + `scripts/run_paper_candidate.py`.
+**Live runs (≥6).** Roughly: 3 full pipeline e2e + 3 idempotence spot-checks. More if the codebase has more independent paths.
 
-**Live runs (≥3).** `run_backtest --quick` on 1 candidate; `run_paper_candidate` on the same candidate, same window; compute drift; M14 NaN-equity sanity check via 4 paper cells.
+**Acceptance.** Every major code path exercised on production data; outputs verified against expectations; B1's runtime-claim PASS list cross-confirmed.
 
-**Acceptance.** Drift ≤ 1 bps/day, ≤ 5 bps cumulative (M11a/b parity contract); zero NaN-equity rows (M14); deterministic ordering under fixed PYTHONHASHSEED.
+### Round 6 (B3) — full codebase under adversarial / corner-case lens
+**Surface.** Same — everything. New angle.
 
-### Round 7 (B4) — factor pipeline + mining
-**Files.** `core/factors/*` + `core/mining/*` + `scripts/run_factor_screen.py` + `scripts/run_xgb_importance.py` + `scripts/run_research_miner.py` (smoke only — no real mining cycle).
+**Audit method.**
+- Construct ≥30 adversarial scenarios spanning the codebase. Suggested categories:
+  - empty inputs (empty df, empty list, empty manifest)
+  - NaN / Inf / mixed-type cells
+  - single-row / single-symbol / single-date corner cases
+  - delisted / pre-IPO / split-day boundary cases
+  - future-date / past-the-store / before-baseline cases
+  - timezone / DST / leap-year boundary cases
+  - race conditions (concurrent observe, concurrent miner)
+  - config edge cases (zero weight, weight summing to non-1, missing factor)
+  - wrong types passed (float where int expected, str where path expected)
+  - partial state (half-written file, mid-revalidate manifest)
+- For each scenario: predict expected behavior, run, record actual, predict-vs-actual delta, decide fix vs document-as-known.
+- **Cross-round meta-check (per §3.10):** stress every B1+B2 PASS claim with the matching adversarial case. If B1 said "function handles missing data gracefully", construct the missing-data scenario and verify.
 
-**Live runs (≥3).** `run_factor_screen` on 7 production factors; `run_xgb_importance` on the same set; `MultiFactorSpace` startup assertion fires on synthetic deviation from `_TUNED_FACTORS`.
+**Live runs (≥30 scenarios).** Each scenario counts; not every needs separate process invocation.
 
-**Acceptance.** PRODUCTION_FACTORS / RESEARCH_FACTORS separation enforced (unknown name in `MultiFactorStrategy.factor_weights` → WARNING + DROP); `factor_guard` masks volume on `trades_backfill`-provenance tickers; `MultiFactorSpace._TUNED_FACTORS` consistency assertion fires.
+**Acceptance.** Every designed scenario has predicted+actual recorded; gap → fix or test (real-data fixture per §3.3); B1+B2 adversarial gaps surfaced.
 
-### Round 8 (B5) — strategy + execution layer
-**Files.** `core/signals/strategies/*` + `core/signals/left_side.py` + `core/risk/{kill_switch, failure_detector, stress_tester}.py` + `core/intraday/multi_timescale.py`.
+### Round 7 (B4) — full codebase under cross-cutting invariant lens
+**Surface.** Same — everything. New angle.
 
-**Live runs (≥3).** Backtest with `MultiFactorStrategy` on 1 candidate; `kill_switch` 3-tier auto-recovery test on a synthetic crash trace; `multi_timescale.decide_timing` dispatch on a real intraday context.
+**Audit method.**
+- Enumerate every invariant the system depends on. Anchor list (extend if you find more):
+  - long-only (no short, no margin)
+  - SQQQ blacklist; TQQQ/SOXL stricter risk thresholds
+  - QQQ Outperformance Rule (full-period + holdout + mean-OOS)
+  - PRODUCTION_FACTORS / RESEARCH_FACTORS strict separation
+  - Pricing semantics (raw bars + read-time splits.parquet adjustment; no dividends yet)
+  - bar_revision pinning (`DAILY_STORE_REBUILD_COMMIT`) consistent across forward / robustness / OOS
+  - Phase E governance gates reachable from acceptance_pack
+  - kill_switch 3-tier auto-recovery
+  - multi-TF VETO chain direction-only (lower TF can defer but not flip)
+  - append-only manifest contract (forward + frozen_spec)
+  - 7-factor production set + factor_guard
+  - Chinese reporting / English code naming convention
+- Per invariant: enumerate every file that touches it (grep + read); verify consistency across all touch points; flag any drift.
+- **Cross-round meta-check (per §3.10):** for every B1-B3 finding, ask "does this finding affect any invariant?" If yes, the finding's severity is reconsidered.
 
-**Acceptance.** Long-only invariant held under stress; kill switch 3-tier auto-recovery green; multi-TF VETO chain works (60m can scale to 0; 30m penalty applies; 15m / 5m never flip direction).
+**Live runs (≥3).** Suggested: a backtest that would VIOLATE an invariant if guard absent (synthetic SQQQ in universe → must be filtered); a kill_switch 3-tier dry-run; a synthesized factor_weights with unknown factor name (must WARN + DROP).
 
-### Round 9 (B6) — reporting + diagnostics
-**Files.** `core/reporting/{master_report, master_report_builder, intraday_report}.py` + `core/diagnostics/detectors.py`.
+**Acceptance.** Each invariant has a "touched-by" file list + verification status (HOLDS / VIOLATED-AND-FIXED / OPEN-BLOCKER) + cross-round impact assessment.
 
-**Live runs (≥3).** Generate master report on a real backtest result; verify report contains: vs-QQQ column, watch_exposure section, M12 concentration metrics, regime-stratified table, source-layer breakdown.
+### Round 8 (B5) — full codebase under determinism / reproducibility lens
+**Surface.** Same — everything. New angle.
 
-**Acceptance.** Report matches PRD reporting requirements; Phase E governance gates surfaced; no silent NaN cells.
+**Audit method.**
+- Identify every "deterministic / stable / idempotent / reproducible" claim in the code or docs. Anchor list:
+  - forward `signal_input_hash` / `execution_nav_hash` / `benchmark_hash` / `bar_hash` rollup
+  - `compute_factor_value` deterministic across calls
+  - `BarStore.load` deterministic (same bytes from same revision)
+  - `frozen_spec` SHA pin
+  - `acceptance_pack` Gate ordering
+  - sort-set ordering in `_generate_orders` (M11a fix lineage)
+  - mining seed handling
+  - baseline snapshot reproducibility
+  - manifest writes append-only
+- Per claim: run the path twice (cold), assert byte-equal output (or document expected drift). For non-byte-equal cases (timestamps, e.g.), assert structural-equal modulo the documented field set.
+- Cross-platform considerations (Linux only for now — local-only assertion).
+- **Cross-round meta-check (per §3.10):** re-run any B1-B4 PASS claim that asserted "stable" / "deterministic" / "idempotent" with a run-twice protocol.
 
-### Round 10 (B7) — scripts / CLI + final consolidation
-**Files.** Every `scripts/*.py` + `scripts/run_all.sh`.
+**Live runs (≥3 paired byte-equal checks).**
 
-**Live runs.** `--help` smoke on every script (must exit 0 — earlier audit-v2 rounds caught 3 `--help` regressions); `bash scripts/run_all.sh research --dry-run` (or whatever path applies — script may not have a dry-run flag, then `bash -n scripts/run_all.sh` for syntax check); `bash scripts/run_all.sh` paths visually traced.
+**Acceptance.** Every determinism claim test-pinned (regression test added if not already); B1-B4 stability claims byte-confirmed.
 
-**Final consolidation.** Memo lists all issues found across B1-B6 grouped by severity, cross-referenced to round memos. CLAUDE.md global drift sweep one more time.
+### Round 9 (B6) — full codebase under documentation truth lens
+**Surface.** Every doc file: README.md, CLAUDE.md, every file in `docs/`. Plus every docstring in `core/` and `scripts/` for high-traffic public functions.
 
-**Acceptance.** Every CLI script exits 0 on `--help`; `run_all.sh` paths reachable; final memo cross-references every memo from B1-B6 by issue ID; CLAUDE.md / README.md / INDEX.md reconciled.
+**Audit method.**
+- For every concrete claim (file path, count, command, behavior, threshold, "shipped" / "done" / "deferred" status), VERIFY against current code:
+  - file path → `ls`
+  - count → grep + count
+  - command → run it
+  - behavior → trace the code or run an e2e
+  - threshold → grep config + grep code
+  - status → check git log + check the actual file content
+- README.md: locate, audit, **REMOVE update log / changelog if any** (per §3.6). README describes the system as it stands TODAY.
+- CLAUDE.md: reconcile "Confirmed Done" / "Current TODO" against git log + actual code state. Especially the Forward OOS workstream + Framework Completion PRD M-numbered milestones.
+- `docs/INDEX.md`: confirm every doc has an entry; counts in section headers correct.
+- **Cross-round meta-check (per §3.10):** for every fix shipped in B1-B5, verify the relevant doc reflects the fix.
+
+**Live runs (≥3).** Suggested: every claimed `python scripts/...` command executed; every claimed config path read; every claimed test count compared to `pytest --collect-only` output.
+
+**Acceptance.** Every doc reproducible from git HEAD; README clean of changelog; CLAUDE.md TODO synced; INDEX.md complete.
+
+### Round 10 (B7) — meta-audit + final consolidation
+**Surface.** All 6 prior round memos + the codebase as it stands at this round's start.
+
+**Audit method.**
+- **Meta-challenge.** Read every prior round memo. For each finding marked PASS, challenge:
+  - Was the verification rigor commensurate with the finding's risk?
+  - Was the e2e command a real production path or a synthetic toy?
+  - Did the round actually reverse-validate any fixes, or just assert tests pass?
+- **Severity normalization.** Every prior `non-blocker` reconsidered: does the cumulative evidence (all 6 rounds) elevate it? Every prior `docs-only`: did the doc fix actually land?
+- **Failure-mode recurrence check.** Cross-check that the three failure modes from §1 (test fixture sharing bug calendar; no reverse-validation; coarse PRD-vs-code mapping) DID NOT recur in any round. If a recurrence is found, the round that produced it is RE-RUN.
+- **Final master issue list.** Every finding from B1-B6 + this round, severity-normalized, cross-referenced to its round memo by issue ID (R<NN>.<idx>), grouped by severity.
+- **Final docs sweep.** CLAUDE.md / README.md / `docs/INDEX.md` one more time, after all B1-B6 fixes have landed.
+- `data/baseline/latest.json` regenerated.
+
+**Live runs (≥3).** Suggested: one full pipeline e2e top-to-bottom; `pytest tests/` full run; `bash scripts/run_all.sh` syntax check.
+
+**Acceptance.** Zero open blocker; every prior round's claims meta-verified; CLAUDE.md / README / INDEX synced; baseline refreshed; emit `RALPHAUDIT10DONE`.
 
 ---
 
@@ -307,9 +414,13 @@ ROUND <NN> CLOSED, NEXT: <NN+1>   # or RALPHAUDIT10DONE after R10
 
 ## 9. One-sentence summary
 
-**10-round ralph-loop audit (3 deep on forward evidence v2.1.3 + 7
-codebase-wide), with hard rules requiring live e2e execution + reverse-
-validation + real-data fixtures + doc-vs-code reconciliation + a
-zero-changelog README contract — designed to close the failure modes
-that let two correctness blockers slip past two prior self-audit
-rounds.**
+**10-round ralph-loop audit: 3 deep rounds on forward evidence v2.1.3,
+then 7 cumulative-pass full-codebase rounds (each round audits the
+entire codebase under a different lens — static / live-e2e /
+adversarial / cross-cutting-invariant / determinism / documentation /
+meta-consolidation — with each later round explicitly re-engaging
+prior rounds' PASS claims), under hard rules requiring live e2e
+execution + reverse-validation + real-data fixtures + doc-vs-code
+reconciliation + a zero-changelog README — designed to close the
+failure modes that let two correctness blockers slip past two prior
+self-audit rounds.**

@@ -89,7 +89,7 @@ echo
 # Single-line ASCII-only prompt for /ralph-loop:ralph-loop.
 # AUTONOMOUS MODE: per PRD §6 "Authorized autonomously".
 # Halt per PRD §5; pause-for-user per PRD §6 "Pause for user".
-PROMPT='Execute one round per docs/prd/20260428-ralph_audit_loop_prd.md section 4 round briefs. lineage_tag=ralph-audit-2026-04-28 for all audit artifacts. Round 1 = A1 forward evidence module audit. Round 2 = A2 adversarial scenarios. Round 3 = A3 forward documentation sync. Round 4 = B1 data layer. Round 5 = B2 research framework excluding forward. Round 6 = B3 backtest and paper trading parity. Round 7 = B4 factor pipeline and mining. Round 8 = B5 strategy and execution. Round 9 = B6 reporting and diagnostics. Round 10 = B7 scripts and CLI and final consolidation. Hard rules section 3 apply every round: live e2e execution at least 3 commands not just pytest, reverse-validation required for every fix, real-data fixtures only no bdate_range for trading-calendar tests, findings classified blocker non-blocker docs-only cosmetic, doc-vs-code reconciliation per round, README must contain zero update log or changelog content, memo at docs/audit/20260428-ralph_audit_round_NN.md with frontmatter status PASS or FIX_LANDED or BLOCKERS_OPEN, 11-part Chinese summary in docs/20260420-ralph_loop_log.md as R-ralph-audit-2026-04-28-round-NN. AUTONOMOUS MODE: section 6 Authorized autonomously rules; pause to surface per section 6 Pause for user. Halt per section 5 conditions. Push memo to review/claude-collab branch end of every round; push code or doc fixes to main. Emit RALPHAUDIT10DONE only after all 10 rounds complete with status PASS or FIX_LANDED, full unit suite green, README clean of changelog content, baseline refreshed, and CLAUDE.md plus docs/INDEX.md reconciled.'
+PROMPT='Execute one round per docs/prd/20260428-ralph_audit_loop_prd.md section 4 round briefs. lineage_tag=ralph-audit-2026-04-28. Phase A is 3 deep rounds on forward evidence v2.1.3 (R1=A1 module + contract + reverse-validate v2.1.3 fixes; R2=A2 adversarial scenarios; R3=A3 forward documentation sync). Phase B is 7 cumulative-pass full-codebase rounds, NOT divide-and-conquer slices: each Phase B round audits the ENTIRE codebase under a different lens, and each subsequent round explicitly re-engages prior rounds PASS claims. R4=B1 static and contract lens. R5=B2 live e2e execution lens. R6=B3 adversarial corner-case lens with at least 30 scenarios. R7=B4 cross-cutting invariant lens. R8=B5 determinism and reproducibility lens. R9=B6 documentation truth lens with README changelog removal. R10=B7 meta-audit and final consolidation. Hard rules section 3 apply every round: live e2e execution at least 3 commands not just pytest, reverse-validation required for every fix, real-data fixtures only no bdate_range for trading-calendar tests, findings classified blocker non-blocker docs-only cosmetic, doc-vs-code reconciliation per round, README must contain zero update log or changelog content, memo at docs/audit/20260428-ralph_audit_round_NN.md with frontmatter status PASS or FIX_LANDED or BLOCKERS_OPEN, 11-part Chinese summary in docs/20260420-ralph_loop_log.md as R-ralph-audit-2026-04-28-round-NN, AND for Phase B every round after the first must read every prior B-round memo and append a cross-round meta-check section listing each prior PASS claim re-engaged with outcome CONFIRMED or CHALLENGED or ELEVATED. AUTONOMOUS MODE: section 6 Authorized autonomously rules; pause to surface per section 6 Pause for user. Halt per section 5 conditions. Push memo to review/claude-collab end of every round; code and doc fixes to main. Emit RALPHAUDIT10DONE only after all 10 rounds complete with status PASS or FIX_LANDED, full unit suite green, README clean of changelog, baseline refreshed, CLAUDE.md plus docs/INDEX.md reconciled, and R10 meta-audit confirms the three failure modes from PRD section 1 did NOT recur in any round.'
 
 cat <<EOF
 ================================================================================
@@ -114,16 +114,41 @@ ROUND STRUCTURE:
               CLAUDE.md / README.md / docs/INDEX.md aligned to v2.1.3;
               REMOVE README changelog if any; baseline rebuild
 
-  PHASE B — codebase-wide audit
-    R4  / B1 — data layer (BarStore / aggregator / validator / splits / yfinance / fetch scripts)
-    R5  / B2 — research framework (robustness / concentration / OOS; forward already covered)
-    R6  / B3 — backtest + paper trading parity (M11a/b drift, M14 NaN)
-    R7  / B4 — factor pipeline + mining (PRODUCTION/RESEARCH separation, factor_guard)
-    R8  / B5 — strategy + execution layer (multi_factor / kill_switch / multi-TF timing)
-    R9  / B6 — reporting + diagnostics (master_report / detectors / drift_metrics)
-    R10 / B7 — scripts / CLI + final consolidation
-              (--help on every script + run_all.sh paths + master
-              issue list across B1-B6)
+  PHASE B — full-codebase cumulative-pass audit (NOT divide-and-conquer)
+            Each round audits the ENTIRE codebase under a different
+            lens; each later round re-engages prior rounds' PASS claims
+            (cross-round meta-check per PRD section 3.10).
+    R4  / B1 — static / contract lens
+              read every module under core/, scripts/, dev/scripts/;
+              re-derive every public function contract; flag drift
+    R5  / B2 — live e2e execution lens
+              run every script smoke path with REAL production data;
+              run pipelines end-to-end; idempotence spot-checks;
+              re-engage B1 runtime PASS claims
+    R6  / B3 — adversarial / corner-case lens
+              >=30 scenarios across the codebase (NaN / Inf / empty /
+              delisted / future-date / timezone / race / partial state);
+              stress every B1+B2 PASS claim with adversarial cases
+    R7  / B4 — cross-cutting invariant lens
+              long-only / SQQQ blacklist / QQQ rule / PRODUCTION vs
+              RESEARCH factors / pricing semantics / bar_revision pin /
+              kill_switch tier / multi-TF VETO / append-only manifests;
+              invariant impact reassessment of B1-B3 findings
+    R8  / B5 — determinism / reproducibility lens
+              every "stable / idempotent / deterministic" claim run
+              twice for byte-equal verification; re-run B1-B4 stability
+              PASS claims with run-twice protocol
+    R9  / B6 — documentation truth lens
+              every claim in README / CLAUDE.md / docs/* verified
+              against current code; REMOVE README changelog;
+              reconcile CLAUDE.md TODO + Confirmed Done; cross-check
+              B1-B5 fixes are reflected in docs
+    R10 / B7 — meta-audit + final consolidation
+              read all 6 prior B-round memos; meta-challenge every
+              PASS claim; severity normalize; failure-mode-recurrence
+              check (PRD section 1 failure modes must not have recurred
+              in any round); final master issue list cross-referenced
+              by issue ID; final docs sweep; emit RALPHAUDIT10DONE
 
 HARD RULES (every round):
   1. Live-code execution required (>=3 e2e cmds; stdout quoted verbatim)
@@ -136,6 +161,10 @@ HARD RULES (every round):
   7. Memo template per PRD section 7
   8. 11-part Chinese summary in docs/20260420-ralph_loop_log.md
   9. Push memo to review/claude-collab; code fixes to main
+ 10. Phase B cumulative meta-check: each round after B1 reads every
+     prior B-round memo + re-engages every PASS claim that touches
+     the current lens; appends cross-round meta-check section to its
+     own memo with CONFIRMED / CHALLENGED / ELEVATED outcomes
 
 AUTHORITY:
   Autonomous: bug fixes / docstrings / regression tests / docs edits / baseline rebuild
