@@ -16788,3 +16788,36 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
     - [ ] build_catalog.py 加 argparse（F08，待 B7）
 
 → 完整 memo: `docs/audit/20260428-ralph_audit_round_08.md`
+
+
+---
+
+## R-ralph-audit-2026-04-28-round-09 (B6 — full-codebase documentation truth lens)
+
+1. **本轮主题**: B6 — documentation truth lens — 全 docs/ 树重读，verify 每个 ship/done/frozen claim 是否仍 map 到 live code reality。Phase B cumulative-pass round 6 of 7。
+2. **本轮目标**: R3 (A3) 只对 forward-evidence 做 doc sync (CLAUDE.md / README.md / INDEX.md to v2.1.3)；R9 mandate 是把 lens 扩到 7 个 PRD + 17 个 memo + 60+ docs/* 文件，找 PRD 文档与 CLAUDE.md / 代码现状之间的 drift。
+3. **为什么这轮优先做它**: PRD §4 R9 把 B6 定为 lens-6。B 阶段最后一个非 meta 的 lens；R10 是 final consolidation，所以 R9 必须把所有 doc-truth 漂移在 R10 之前 surface。
+4. **做了什么**: drill 5 个具体 claim — (a) forward evidence PRD v2.1.3 ship: 7 commit ref + 5 module path 全 verify；(b) framework_completion PRD §11: M11/M12/M14 在 table 里读起来像 "open" 但 CLAUDE.md 已经 SHIPPED — F10 docs-only finding，本轮 fix；(c) OOS MVP close memo claim 3 个 module 目录都存在；(d) M11/M14/M12 三个 memo 文件存在；(e) `data/baseline/latest.json` 是 stale (git head=R2 commit 95ecc11，落后 11 个 commit) — rebuild 完成 1840 collected / 1838 passed (从 1836 涨 2，正好是 R8 DST 加的 2 个 regression test)。
+5. **修改了哪些文件**: `docs/20260421-prd_framework_completion.md`（status header v1.0 → v1.2 + 显式 ship list + 指向 CLAUDE.md 作为 authoritative）、`data/baseline/latest.json` + `data/baseline/snapshot_20260428T232240Z.json`、`docs/audit/20260428-ralph_audit_round_09.md`（新 memo）、`docs/20260420-ralph_loop_log.md`（本条）、`docs/INDEX.md`（§7.5 加 R09 entry）。
+6. **跑了哪些测试/实验**: 4 个 live e2e — 7-commit grep / 5-module ls / 3-package directory ls / baseline rebuild 472.21s。
+7. **结果如何**: 0 blocker / 0 non-blocker / 1 docs-only (F10 framework PRD status drift) FIXED / 0 cosmetic。Baseline freshness restored (95ecc11 → 40e6d90)。
+8. **当前发现的新问题/新机会**: F10 是 R3 documentation sync 没抓到的 — R3 lens 是"forward evidence v2.1.3 同步"，没扩到 framework_completion PRD。这是 R3 PASS claim 第二次被 ELEVATED (R4 第一次 ELEVATED 是 CLAUDE.md "strict separation" wording)。doc-truth lens 自然会 converge 到 "PRD bodies 在 milestone ship 后没有 re-edit 就会漂移"这一 class of finding。
+9. **剩余风险**: F01 / F02 / F07 (`_signed_drift` dead code) 仍 carry-forward 到 R10 (B7) consolidation。这些都是 single-module 的 cleanup，B7 一起处理。
+10. **下一轮建议方向**: R10 — B7 meta-audit + final consolidation。最后一轮的 mandate (PRD §4 R10): (a) re-engage 所有 9 轮的 PASS claim，cross-round meta-check 整轮覆盖；(b) 收 F01 / F02 / F07 这几个 carry-forward；(c) verify 三个 PRD §1 failure mode (3 self-audits 漏 Blocker 1 / 测试覆盖不足 / docs vs code drift) 在本 cycle 没有 recur；(d) 全套 unit suite 跑一次 final green；(e) 决定是否 emit RALPHAUDIT10DONE。
+11. **TODO checklist（更新后）**:
+    - [x] R1 (A1) — **PASS**
+    - [x] R2 (A2) — **PASS**
+    - [x] R3 (A3) — **PASS**
+    - [x] R4 (B1) static — **FIX_LANDED**
+    - [x] R5 (B2) live e2e — **PASS**
+    - [x] R6 (B3) adversarial 40 — **PASS**
+    - [x] R7 (B4) cross-cutting 13 — **PASS**
+    - [x] R8 (B5) determinism + DST FIX — **FIX_LANDED**
+    - [x] R9 (B6) documentation truth + framework PRD F10 fix — **FIX_LANDED**
+    - [ ] R10 (B7) meta-audit + final consolidation
+    - [x] DST 修复（R01.1）— **CLOSED in R8**
+    - [ ] `_signed_drift` dead code（R01.4，R10 处理）
+    - [ ] WindowAnalyzer / MiningEvaluator threshold drift refactor（F01 + F02，R10 处理或 defer）
+    - [ ] build_catalog.py 加 argparse（F08，R10 处理或 defer）
+
+→ 完整 memo: `docs/audit/20260428-ralph_audit_round_09.md`

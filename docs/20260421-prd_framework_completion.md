@@ -1,6 +1,17 @@
 # PRD — Framework Completion (Pre-Universe-Expanded-Mining-Continuation)
 
-**Status**: Draft v1.0 — 2026-04-21
+**Status**: v1.2 — drafted 2026-04-21; M0–M8 + M10 + M13 + M15 + M16
+shipped 2026-04-21; **M11a + M11b + M12 + M14 shipped 2026-04-24 →
+2026-04-27** (see CLAUDE.md §"Framework Completion PRD" + memos
+`docs/memos/20260424-m11_paper_engine_parity_fix.md` /
+`docs/memos/20260424-m14_nan_equity_fix.md`; M12 split into metric +
+gate per codex Round 5/6). Open: M17 (live-feed infra; spawn
+`prd_live_feed.md` when needed) + M18 (cross-ticker DSL function
+expansion, on-demand). Authoritative milestone state lives in
+CLAUDE.md to avoid duplication; the §11 table below is retained for
+design rationale only. (R9 doc-truth audit 2026-04-28 added this
+header after observing the §11 table reads as "open" while CLAUDE.md
+correctly shows "shipped".)
 **Scope**: 在恢复 `prd_universe_expanded_mining.md` 32 轮循环 **之前** 必须
 补齐的工程框架项。本 PRD **不包含** 新的 factor / strategy mining 研究
 （那是 `prd_universe_expanded_mining.md` 的职责）。
