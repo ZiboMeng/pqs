@@ -48,8 +48,16 @@ from core.research.robustness.runner import (
     _load_panel,
 )
 
+from .bar_hash import (
+    DEFAULT_BAR_REVISION,
+    compute_bar_hash_rollup,
+    compute_benchmark_hash,
+    compute_execution_nav_hash,
+    compute_signal_input_hash,
+)
 from .manifest_io import load_manifest, manifest_path, save_manifest
 from .manifest_schema import (
+    BarHashInputs,
     CheckpointCadence,
     CostAssumptions,
     DataIntegritySnapshot,
@@ -57,7 +65,11 @@ from .manifest_schema import (
     ForwardRun,
     ForwardRunManifest,
     ForwardRunStatus,
+    SourceLayerBreakdown,
+    SourceLayerView,
 )
+from .revalidate import revalidate_manifest
+from .source_layer import classify_as_of, classify_window
 
 
 DEFAULT_OUTPUT_DIR = Path("data/research_candidates")
@@ -512,6 +524,26 @@ def observe(
     appended: list = []
     start_ts = pd.Timestamp(manifest.start_date)
 
+    # ── v2.1 evidence-hardening prep ────────────────────────────────
+    # Universe for signal_input scope = full pre-top_n universe = the
+    # columns of panel["close"] (the loader already filters to the
+    # candidate's tradable universe).
+    v2_universe: list = sorted(panel["close"].columns.tolist())
+    # Held-or-traded set for execution_nav scope = union of all
+    # symbols with non-zero weight on any date inside
+    # [start_date..max(new_dates)]. This stays anchored at start_date
+    # per PRD §G6.
+    last_new_ts = pd.Timestamp(max(new_dates))
+    in_window = target_wts[(target_wts.index >= start_ts)
+                           & (target_wts.index <= last_new_ts)]
+    held_or_traded: list = sorted(
+        s for s in in_window.columns if (in_window[s].abs() > 0).any()
+    )
+    # Benchmark symbols: primary + secondary (drop None / duplicates)
+    bench_syms: list = sorted({manifest.benchmark} | (
+        {manifest.secondary_benchmark} if manifest.secondary_benchmark else set()
+    ))
+
     # Pre-cache per-symbol canonical_end_date so each TD entry's
     # source_mix flag can be computed without re-reading the sidecar
     # repeatedly. None canonical_end_date = no boundary recorded for
@@ -578,6 +610,70 @@ def observe(
                 if ce is not None and d > ce:
                     source_mix = True
                     break
+        # ── v2.1 input-scope hashes + observation-time evidence ─────
+        sig_h, sig_in = compute_signal_input_hash(
+            spec=spec, universe=v2_universe, panel=panel, as_of_date=d,
+        )
+        exec_h, exec_in = compute_execution_nav_hash(
+            held_or_traded_symbols=held_or_traded,
+            panel=panel,
+            start_date=manifest.start_date,
+            as_of_date=d,
+        )
+        bench_h, bench_in = compute_benchmark_hash(
+            benchmark_symbols=bench_syms,
+            panel=panel,
+            start_date=manifest.start_date,
+            as_of_date=d,
+        )
+        rollup = compute_bar_hash_rollup(sig_h, exec_h, bench_h)
+        bar_inputs = BarHashInputs(
+            signal_input=sig_in, execution_nav=exec_in, benchmark=bench_in,
+        )
+
+        # held_today_weights snapshot — drives revalidate's NAV-impact
+        # bps via Σ weight[sym] × close_drift_pct. Captured at observation
+        # time; never mutated.
+        held_today_weights: dict = {}
+        if ts in target_wts.index:
+            for sym in target_wts.columns:
+                w = float(target_wts.loc[ts, sym])
+                if abs(w) > 0:
+                    held_today_weights[sym] = w
+
+        # Source-layer breakdown — both views per PRD §G3.
+        as_of_co = as_of_fo = as_of_mx = 0
+        for sym in held_today:
+            layer = classify_as_of(sym, d)
+            if layer == "canonical_only":
+                as_of_co += 1
+            elif layer == "frontier_only":
+                as_of_fo += 1
+            else:
+                as_of_mx += 1
+        win_co = win_fo = win_mx = 0
+        win_universe = sorted(set(v2_universe) | set(held_or_traded) | set(bench_syms))
+        for sym in win_universe:
+            layer = classify_window(sym, manifest.start_date, d)
+            if layer == "canonical_only":
+                win_co += 1
+            elif layer == "frontier_only":
+                win_fo += 1
+            else:
+                win_mx += 1
+        layer_breakdown = SourceLayerBreakdown(
+            as_of_held_source=SourceLayerView(
+                canonical_only_n_symbols=as_of_co,
+                frontier_only_n_symbols=as_of_fo,
+                mixed_n_symbols=as_of_mx,
+            ),
+            window_input_source=SourceLayerView(
+                canonical_only_n_symbols=win_co,
+                frontier_only_n_symbols=win_fo,
+                mixed_n_symbols=win_mx,
+            ),
+        )
+
         appended.append(ForwardRun(
             checkpoint_label=f"TD{n_td:03d}",
             as_of_date=d,
@@ -589,13 +685,38 @@ def observe(
             vs_qqq=vs_qqq,
             notes=f"fills_today={fills_by_date.get(d, 0)}",
             source_mix=source_mix,
+            # ── v2.1 fields (PRD `forward_evidence_hardening_prd.md` v2.1) ──
+            legacy_unhashed_inputs=False,
+            signal_input_hash=sig_h,
+            execution_nav_hash=exec_h,
+            benchmark_hash=bench_h,
+            bar_hash=rollup,
+            bar_hash_inputs=bar_inputs,
+            source_layer_breakdown=layer_breakdown,
+            held_today_weights=held_today_weights,
         ))
 
     if not appended:
         return []
 
+    # ── PRD v2.1 §4.2 + §G6: TD001 legacy boundary ──────────────────
+    # Existing entries that were written before v2.1 shipped have no
+    # bar_hash and no legacy_unhashed_inputs marker. The first v2.1
+    # observe() call rewrites those entries' metadata-only legacy
+    # marker (numeric fields are NOT touched). v2.1 entries already
+    # write legacy_unhashed_inputs=False at construction time.
+    grandfathered_runs: list = []
+    for entry in manifest.runs:
+        if (entry.bar_hash is None
+                and entry.legacy_unhashed_inputs is None):
+            grandfathered_runs.append(
+                entry.model_copy(update={"legacy_unhashed_inputs": True})
+            )
+        else:
+            grandfathered_runs.append(entry)
+
     # Reconstruct manifest with appended entries (append-only contract).
-    new_runs = list(manifest.runs) + appended
+    new_runs = grandfathered_runs + appended
     new_status = _next_status_after_observe(
         current_status=manifest.current_status,
         new_runs=new_runs,
@@ -604,6 +725,40 @@ def observe(
     new_manifest = manifest.model_copy(
         update={"runs": new_runs, "current_status": new_status}
     )
+
+    # ── PRD v2.1 §4.6: revalidate prior TDs against current store ──
+    # observe() calls revalidate at the end of each successful append
+    # so daily ritual catches yfinance retroactive revisions. If any
+    # event escalates to invalidated, force the manifest into
+    # requires_data_review and persist the events on the affected
+    # entries — observe() will refuse to append further until decide()
+    # clears the state.
+    last_label = appended[-1].checkpoint_label
+    summary = revalidate_manifest(
+        new_manifest,
+        spec=spec,
+        universe=v2_universe,
+        panel=panel,
+        benchmark_symbols=bench_syms,
+        detected_by_run_label=f"{last_label} / {appended[-1].as_of_date.isoformat()}",
+    )
+    if summary.events:
+        # Persist the data_revision_event onto each affected TD entry.
+        affected_id_to_event = {id(e): ev for (e, ev) in summary.events}
+        revalidated_runs: list = []
+        for entry in new_manifest.runs:
+            ev = affected_id_to_event.get(id(entry))
+            if ev is not None:
+                revalidated_runs.append(
+                    entry.model_copy(update={"data_revision_event": ev})
+                )
+            else:
+                revalidated_runs.append(entry)
+        update: dict = {"runs": revalidated_runs}
+        if summary.requires_data_review:
+            update["current_status"] = ForwardRunStatus.requires_data_review
+        new_manifest = new_manifest.model_copy(update=update)
+
     if not dry_run:
         save_manifest(new_manifest, out_path)
     return appended
