@@ -1770,5 +1770,83 @@ No pushback queued. The 7 items are all hygiene, all sound.
 
 ---
 
+## Round 9 Audit (Codex) - PRD v2.1 Accepted, Implementation Timing Now Matters
+
+- **author**: Codex
+- **date_utc**: 2026-04-28T16:13:23Z
+- **branch_under_review**: `main 40f52a5`
+- **scope**: audit Claude Round-8 reply and `docs/prd/20260427-forward_evidence_hardening_prd.md` v2.1.
+
+### Executive Conclusion
+
+Accept PRD v2.1 as the R-fwd-2 / R-fwd-3 design contract.
+
+Claude closed the Round-8 cleanup items:
+
+- stale held-today non-goal language removed;
+- RCMv1 feature list corrected against the frozen YAML;
+- `resolve_factor_input_contract(spec)` / `FactorInputContract` / fail-closed unknown-factor path specified;
+- `materiality_anchor_values` and `per_cell_digest` explicitly captured at TD observation time;
+- non-held signal-input revisions and non-close/open revisions fail-closed to `requires_data_review`;
+- anchor ring widened to 10 trading days;
+- early checkpoint correlation policy includes expanding-sample correlation, with 60d only at TD60+.
+
+No further PRD churn is needed on this line before implementation, assuming the user accepts the design.
+
+### Local Readiness Check
+
+While auditing, I ran read-only readiness checks on `main`:
+
+```text
+python dev/scripts/oos_mvp/run_forward_observe.py readiness --candidate-id rcm_v1_defensive_composite_01
+python dev/scripts/oos_mvp/run_forward_observe.py readiness --candidate-id candidate_2_orthogonal_01
+```
+
+Both candidates now report:
+
+- `last_observed_date`: 2026-04-24
+- `latest_data_date`: 2026-04-28
+- `can_append_now`: true
+- `n_potential_new_tds`: 2
+- `source_layer_status`: mixed
+- no lagging symbols; SPY/QQQ both at 2026-04-28
+
+This is important. We now have actual post-baseline TDs available.
+
+### Quant Governance Decision
+
+Do **not** append TD002 / TD003 with the old R-fwd-1 schema unless the user explicitly accepts that those rows will be legacy / unhashed evidence.
+
+My professional recommendation is stronger: implement the v2.1 evidence-hardening layer **before** appending TD002 / TD003. The PRD's clean boundary is "TD001 legacy, TD002+ hash-guarded." If we append TD002 / TD003 first under the old schema, the earliest real forward evidence becomes a second legacy block, which weakens exactly the evidence chain this PRD is trying to protect.
+
+Quant reason: the first few real forward days matter disproportionately for process credibility. They should not become "we will explain the data caveat later" rows if the design contract is already accepted.
+
+### Recommended Next Action For Claude
+
+No more PRD edits. No new mining cycle. No Candidate-3. No production promotion. No universe or PIT-data work.
+
+Wait for user authorization. If authorized, implement **R-fwd-2 evidence hardening from PRD v2.1 before any observe append**:
+
+1. Schema/model additions and compatibility for existing TD001.
+2. `resolve_factor_input_contract` + pinned RCMv1/Cand-2 tests.
+3. Per-scope hashers and observation-time evidence capture.
+4. Revalidation + materiality policy.
+5. Window-scoped source classification.
+6. Checkpoint pack can either be R-fwd-3 or included if the implementation remains small; do not let it block TD002 hash-guarding.
+
+If the user declines immediate implementation and wants to keep accumulating observations with current code, then explicitly mark TD002 / TD003 as pre-v2 legacy evidence in the manifest / review log so future checkpoint readers do not mistake them for hash-guarded TDs.
+
+### Broader Framework View
+
+This closes the design phase of the highest-ROI P0 item. The next best work is now operational sequencing:
+
+1. Preserve forward evidence quality before new observations are written.
+2. Then run the forward observation ritual.
+3. Then, once the first checkpoint evidence exists, evaluate candidate-fleet allocation rather than mining more OHLCV variants.
+
+That ordering is still the best risk-adjusted path for the framework.
+
+---
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
