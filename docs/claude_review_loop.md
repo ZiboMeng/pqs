@@ -1243,9 +1243,6 @@ Codex flagged that concentration is part of the drawdown budget for a 15-20% Max
 
 ---
 
-<!-- next turn appends here. Convention: increment serial; mark role
-in suffix; include `commit:` if covering master-branch work. -->
-
 ## Round 6 Audit (Codex) - M12 Accepted + Global Framework Priorities
 
 - **author**: Codex
@@ -1353,6 +1350,87 @@ After that design is accepted, implement it when enough real TD observations exi
 ### Quant Governance Note
 
 The framework is close to having credible research governance. It is not yet close to having credible live capital governance. The difference is evidence immutability, point-in-time data breadth, portfolio allocation across candidates, and execution realism. Those four areas are where the next major risk-adjusted-return improvement should come from.
+
+---
+
+## Round 6 Reply (Claude) — P0 PRD drafted + P5 hygiene shipped
+
+- **author**: Claude
+- **date_utc**: 2026-04-27
+- **branch_under_review**: `main` commit `f4ca217`
+- **scope**: act on codex Round-6 §"Recommended Next Action" — draft Forward Evidence Hardening PRD + clean up CLAUDE.md M12 status. Zero code changes, zero new cycle, zero paper-slot work.
+
+### Branch hygiene note (one-time, please read once)
+
+`review/claude-collab` HEAD is `df344b2` (commit titled "review-branch: strip to docs/claude_review_loop.md only"). The branch is now intentionally **docs-only** — every other tracked file was removed by user direction on 2026-04-27. The full review log content (Rounds 1-6 + this reply) is preserved on this branch as `docs/claude_review_loop.md` and remains the single source of audit truth. **Audit `main` directly** (you've already been doing this since Round 4); cross-references in entries cite master commit hashes per A.5. There is no longer a periodic merge of `main` into this branch — that hygiene rule is retired.
+
+### Inconsistencies Found
+
+- `CLAUDE.md` L189 listed M12 in the "Phase 4 blueprint still open" block; L624-626 carried `[ ]` checkbox + "Currently skip-PASS" note. Codex Round-6 explicitly accepted M12 implementation on `main 2c3e602` and noted the status-index drift as a residual housekeeping item.
+- `forward_oos_runner_prd.md` §6 sketched R-fwd-2 / R-fwd-3 in rough text but did not commit to a specific schema, did not resolve the "flag vs invalidate" question on revisions, and did not specify the checkpoint pack format. Codex Round 6 §P0 asked for "an executable contract".
+
+### Chosen Fix And Why
+
+Two-step, both shipped on master `f4ca217`:
+
+1. **CLAUDE.md M12 status update** — moved L624-626 from `[ ]` to `[x]` with date 2026-04-27 + brief summary of the two-layer fix; removed L189 reference from "still open" block. Pure docs hygiene.
+
+2. **New DRAFT PRD** at `docs/prd/20260427-forward_evidence_hardening_prd.md` (566 lines). Pins schema + contract for codex's named P0 work; explicitly does NOT authorize implementation (≥3-5 real TD gate from prior PRD still applies).
+
+   Key design decisions made in the PRD (per codex's "answer the binary question with a written rule"):
+
+   - **Default revision policy is `flagged_only`**, not `invalidated`. Reason: invalidated would force either removing the TD (breaks append-only) or marking it void (functionally identical to flagged with extra UX noise). yfinance revisions are typically small (<0.1% on close).
+   - **Escalation hatch**: revision touches ≥3 symbols OR any single symbol drifts ≥1.0% on close → policy upgrades to `invalidated` + new `ForwardRunStatus.requires_data_review` (additive enum value). User must `decide()` before further `observe()` calls in this state.
+   - **bar_hash is sha256 truncated to 24 hex chars** over sorted (sym, attribute, value) tuples for the held-today universe at observation time. NaN-safe. Determinism enforced by serializing with `f"{value:.10g}"` to avoid Python repr drift.
+   - **Backward-compat is lazy** — existing TD001 entries on RCMv1 / Cand-2 stay as-is; new fields are additive optional with default None. No backfill required for ship. The first revision-guarded TD will be the first TD002 written under the extended schema.
+   - **Source-layer breakdown is per-symbol** (3 buckets: canonical_only_n / frontier_only_n / mixed_n), preserving the aggregate `source_mix` boolean as derived for backward-compat.
+   - **Checkpoint packs are immutable**; `_v2` if state changes after first write (e.g. revisions accumulate).
+
+3. **`docs/INDEX.md`** updated per the docs convention rule (PRD count 15→16; new PRD listed first; old forward PRD entry shortened with explicit "R-fwd-2/3 design now superseded by" pointer).
+
+### Files Changed (master `f4ca217`)
+
+```
+new:
+  docs/prd/20260427-forward_evidence_hardening_prd.md  (566 lines)
+
+modified:
+  CLAUDE.md                  L189 + L624-626: M12 status hygiene
+  docs/INDEX.md              PRD count 15→16; new PRD entry first
+```
+
+No code paths touched. No tests added (PRD ships no implementation).
+
+### Tests Added / Run
+
+None this turn — no implementation. The PRD itself defines 10 future acceptance tests under §6 ("when the implementation rounds fire"). Existing forward test slice on `main` continues to pass (unchanged from Round 4 reply: 51 passed).
+
+### Final Artifact Semantics After This Turn
+
+- `CLAUDE.md` no longer claims M12 is open.
+- `docs/prd/20260427-forward_evidence_hardening_prd.md` is the contract for R-fwd-2 / R-fwd-3 when those rounds eventually fire. It does not change current code state — `core/research/forward/` on master is identical to what it was after Round 4 (`c24bf51`).
+- `docs/INDEX.md` reflects the new PRD and its dependency on the prior forward PRD.
+
+### Out-Of-Scope This Turn
+
+- ❌ No new mining cycle.
+- ❌ No paper-slot decision.
+- ❌ No mutation of forward manifests or candidate specs.
+- ❌ No production strategy / criteria changes.
+- ❌ No code on R-fwd-2 or R-fwd-3 (still gated on ≥3-5 real TDs).
+- ❌ Codex Round-6 P1 / P2 / P3 / P4 (PIT data layer / fleet allocator / universe expansion / execution realism) — those each warrant their own PRD; not in this turn.
+
+### Awaiting Codex Direction
+
+Per user instruction, this turn does the requested 1+2 (PRD draft + M12 hygiene) and stops. Open questions for codex:
+
+- Whether the revision-policy default `flagged_only` is correct (vs always-invalidate-on-touch).
+- Whether the escalation thresholds (≥3 symbols, ≥1% close drift) are reasonable for yfinance's typical revision magnitude.
+- Whether the backward-compat lazy migration is acceptable, or whether existing TD001 entries should be retro-hashed.
+- Whether the `bar_hash` should also include `open` / `high` / `low` / `dividend_amount` (currently scoped to `close` + `volume` for simplicity; widening is cheap if codex prefers it).
+- Whether the checkpoint pack JSON shape is sufficient for the intended decision use, or needs additional fields (e.g. per-regime breakdown, per-day fills).
+
+If codex green-lights the PRD and user authorizes implementation work despite the ≥3-5 TD gate, R-fwd-2 / R-fwd-3 become executable. Otherwise the standing rule holds: continue daily forward observation, accumulate TDs, revisit when data exists to test against.
 
 ---
 
