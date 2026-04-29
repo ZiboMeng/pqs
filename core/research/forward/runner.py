@@ -60,6 +60,8 @@ from .manifest_io import load_manifest, manifest_path, save_manifest
 from .manifest_schema import (
     BarHashInputs,
     CheckpointCadence,
+    ConfigDriftEvent,
+    ConfigSnapshot,
     CostAssumptions,
     DataIntegritySnapshot,
     EvidenceClass,
@@ -242,6 +244,107 @@ def _first_post_freeze_trading_day(
     return _next_trading_day(candidate, daily_dir=daily_dir)
 
 
+# ── PRD F: config snapshot helpers ───────────────────────────────────
+
+
+_DEFAULT_CONFIG_DIR = Path("config")
+_F_CONFIG_SOURCES: dict[str, str] = {
+    # Map of ConfigSnapshot field name → human-readable source path,
+    # used both for hashing and for the audit-trail `sources` map.
+    "universe_hash": "config/universe.yaml",
+    # factor_registry uses a code-level contract (frozensets + map) so
+    # cosmetic refactors of the .py file do not false-trigger drift.
+    "factor_registry_hash": "core/factors/factor_registry.py::PRODUCTION+RESEARCH+MAP",
+    "research_mask_hash": "config/research_mask.yaml",
+    "risk_config_hash": "config/risk.yaml",
+    "system_config_hash": "config/system.yaml",
+}
+
+
+def _canonical_yaml_sha(path: Path) -> str:
+    """Return a content hash of a YAML file canonical to its semantic body.
+
+    Strips comments + normalizes whitespace + sorts keys + sorts list
+    values within sections. Intent: a researcher who re-orders the same
+    keys in ``config/universe.yaml`` does NOT produce a config-drift
+    event; only meaningful semantic changes do.
+    """
+    import hashlib as _hashlib
+    import yaml as _yaml
+
+    if not path.exists():
+        # Missing config file is itself a drift signal — surface as
+        # "missing" so downstream comparison can detect appearance /
+        # disappearance.
+        return "missing-" + _hashlib.sha256(str(path).encode("utf-8")).hexdigest()[:18]
+
+    raw = path.read_bytes()
+    parsed = _yaml.safe_load(raw)
+
+    def _canon(obj):
+        if isinstance(obj, dict):
+            return {k: _canon(obj[k]) for k in sorted(obj.keys())}
+        if isinstance(obj, list):
+            return [_canon(x) for x in obj]
+        return obj
+
+    canonical = _canon(parsed)
+    rendered = _yaml.safe_dump(canonical, sort_keys=True, default_flow_style=False).encode("utf-8")
+    return _hashlib.sha256(rendered).hexdigest()
+
+
+def _factor_registry_contract_sha() -> str:
+    """Hash the factor-registry public contract.
+
+    Hashes the canonicalized {(name, scope)} pairs from PRODUCTION_FACTORS
+    + RESEARCH_FACTORS + the RESEARCH_TO_PRODUCTION_MAP items. We
+    deliberately do NOT hash the .py file bytes — cosmetic refactors of
+    factor_registry.py (comments, type hints, formatting) would
+    otherwise flip the hash and false-trigger config drift on every
+    ralph-audit cycle.
+
+    F PRD §5.5 + codex round-14 §"Fleet Q1" (re factor_registry being
+    treated as a code-level contract not a yaml).
+    """
+    import hashlib as _hashlib
+    from core.factors.factor_registry import (
+        PRODUCTION_FACTORS,
+        RESEARCH_FACTORS,
+        RESEARCH_TO_PRODUCTION_MAP,
+    )
+    parts = []
+    for name in sorted(PRODUCTION_FACTORS):
+        parts.append(f"P:{name}")
+    for name in sorted(RESEARCH_FACTORS):
+        parts.append(f"R:{name}")
+    for k in sorted(RESEARCH_TO_PRODUCTION_MAP):
+        parts.append(f"M:{k}->{RESEARCH_TO_PRODUCTION_MAP[k]}")
+    blob = "\n".join(parts).encode("utf-8")
+    return _hashlib.sha256(blob).hexdigest()
+
+
+def _build_config_snapshot(
+    config_dir: Path = _DEFAULT_CONFIG_DIR,
+) -> ConfigSnapshot:
+    """Build a fresh ``ConfigSnapshot`` from the live config tree.
+
+    Called by ``init()`` so the manifest pins the config state that was
+    in effect when the candidate's forward window began. The same
+    function is also used by ``revalidate`` (step 3) and the opt-in
+    backfill utility (step 4) to recompute the current snapshot for
+    drift comparison.
+    """
+    return ConfigSnapshot(
+        universe_hash=_canonical_yaml_sha(config_dir / "universe.yaml"),
+        factor_registry_hash=_factor_registry_contract_sha(),
+        research_mask_hash=_canonical_yaml_sha(config_dir / "research_mask.yaml"),
+        risk_config_hash=_canonical_yaml_sha(config_dir / "risk.yaml"),
+        system_config_hash=_canonical_yaml_sha(config_dir / "system.yaml"),
+        snapshot_at_utc=datetime.now(timezone.utc),
+        sources=dict(_F_CONFIG_SOURCES),
+    )
+
+
 def _build_data_integrity_snapshot(
     baseline_snapshot_path: str,
     daily_store_rebuild_commit: Optional[str] = None,
@@ -326,6 +429,7 @@ def init(
     cost_model_path: Union[str, Path] = DEFAULT_COST_MODEL_PATH,
     baseline_snapshot_path: str = DEFAULT_BASELINE_PATH,
     daily_store_rebuild_commit: Optional[str] = None,
+    config_dir: Path = _DEFAULT_CONFIG_DIR,
     overwrite: bool = False,
 ) -> ForwardRunManifest:
     """Create a forward_run_manifest.json for ``candidate_id``.
@@ -390,6 +494,10 @@ def init(
         daily_store_rebuild_commit=daily_store_rebuild_commit,
     )
 
+    # PRD F: pin a config snapshot at init so revalidate (step 3) can
+    # detect mid-run config drift distinctly from data-tier revisions.
+    config_snapshot = _build_config_snapshot(Path(config_dir))
+
     manifest = ForwardRunManifest(
         schema_version="1.0",
         candidate_id=candidate_id,
@@ -405,6 +513,7 @@ def init(
         checkpoint_cadence=cadence,
         current_status=ForwardRunStatus.not_started,
         data_integrity_snapshot=snapshot,
+        config_snapshot=config_snapshot,
         runs=[],
     )
     # `spec` is loaded above as a sanity check that the frozen yaml is

@@ -155,6 +155,124 @@ def test_init_refuses_to_clobber_existing(tmp_path: Path):
              output_dir=out_dir, cost_model_path=cost_path)
 
 
+# ── PRD F step 2: init populates config_snapshot ─────────────────────
+
+
+def _make_fake_config_dir(tmp_path: Path) -> Path:
+    """Synthetic config tree for hermetic Step 2 tests."""
+    cfg_dir = tmp_path / "config"
+    cfg_dir.mkdir()
+    (cfg_dir / "universe.yaml").write_text(
+        "seed_pool: [SPY, QQQ, AAPL]\nblacklist: [SQQQ]\n"
+    )
+    (cfg_dir / "research_mask.yaml").write_text(
+        "min_price: 5.0\nmin_usd_volume: 1000000\nrolling_window_days: 60\n"
+    )
+    (cfg_dir / "risk.yaml").write_text(
+        "long_only: true\nallow_margin: false\nallow_short: false\n"
+    )
+    (cfg_dir / "system.yaml").write_text(
+        "env: test\naccount:\n  initial_capital_usd: 100000\n"
+    )
+    return cfg_dir
+
+
+def test_init_populates_config_snapshot(tmp_path: Path):
+    """Step 2 acceptance: init() must build a ConfigSnapshot with all 5
+    hashes + sources map populated.
+
+    Reverse-validation: stash runner.py's _build_config_snapshot call
+    in init() and the manifest's config_snapshot would be None — this
+    test fails on len(...) attribute access.
+    """
+    out_dir, cost_path, _ = _setup_fake_repo(tmp_path)
+    cfg_dir = _make_fake_config_dir(tmp_path)
+    m = init(
+        candidate_id="fake_cand",
+        start_date="2026-04-25",
+        output_dir=out_dir,
+        cost_model_path=cost_path,
+        config_dir=cfg_dir,
+    )
+    snap = m.config_snapshot
+    assert snap is not None, "init() must populate config_snapshot"
+    # All 5 hashes are non-empty SHA-256 digests (64 hex chars).
+    assert len(snap.universe_hash) == 64
+    assert len(snap.factor_registry_hash) == 64
+    assert len(snap.research_mask_hash) == 64
+    assert len(snap.risk_config_hash) == 64
+    assert len(snap.system_config_hash) == 64
+    # sources map round-trip carries the 5 source paths.
+    assert set(snap.sources.keys()) == {
+        "universe_hash", "factor_registry_hash",
+        "research_mask_hash", "risk_config_hash", "system_config_hash",
+    }
+    # snapshot_at_utc is a real timezone-aware UTC datetime.
+    assert snap.snapshot_at_utc.tzinfo is not None
+    # Migration note untouched at init.
+    assert snap.migration_note is None
+
+
+def test_init_config_snapshot_persists_through_save_load(tmp_path: Path):
+    """JSON round-trip through save_manifest + load_manifest preserves all 5 hashes."""
+    out_dir, cost_path, _ = _setup_fake_repo(tmp_path)
+    cfg_dir = _make_fake_config_dir(tmp_path)
+    m = init(
+        candidate_id="fake_cand",
+        start_date="2026-04-25",
+        output_dir=out_dir,
+        cost_model_path=cost_path,
+        config_dir=cfg_dir,
+    )
+    # Re-load from disk
+    from core.research.forward.manifest_io import load_manifest
+    p = manifest_path("fake_cand", out_dir)
+    m2 = load_manifest(p)
+    assert m2.config_snapshot is not None
+    assert m2.config_snapshot.universe_hash == m.config_snapshot.universe_hash
+    assert m2.config_snapshot.factor_registry_hash == m.config_snapshot.factor_registry_hash
+    assert m2.config_snapshot.research_mask_hash == m.config_snapshot.research_mask_hash
+    assert m2.config_snapshot.risk_config_hash == m.config_snapshot.risk_config_hash
+    assert m2.config_snapshot.system_config_hash == m.config_snapshot.system_config_hash
+
+
+def test_canonical_yaml_sha_ignores_key_reordering(tmp_path: Path):
+    """A reorder of the same keys must NOT change the hash — defense
+    against false-positive drift on benign yaml edits."""
+    from core.research.forward.runner import _canonical_yaml_sha
+
+    f = tmp_path / "u1.yaml"
+    f.write_text("blacklist: [SQQQ, SOXS]\nseed_pool: [SPY, QQQ]\n")
+    h1 = _canonical_yaml_sha(f)
+
+    # Reorder top-level keys
+    f.write_text("seed_pool: [SPY, QQQ]\nblacklist: [SQQQ, SOXS]\n")
+    h2 = _canonical_yaml_sha(f)
+    assert h1 == h2, "key reordering must not change the canonical hash"
+
+
+def test_canonical_yaml_sha_detects_real_content_change(tmp_path: Path):
+    """Adding a real new symbol DOES change the hash."""
+    from core.research.forward.runner import _canonical_yaml_sha
+
+    f = tmp_path / "u2.yaml"
+    f.write_text("seed_pool: [SPY, QQQ]\n")
+    h1 = _canonical_yaml_sha(f)
+
+    f.write_text("seed_pool: [SPY, QQQ, META]\n")
+    h2 = _canonical_yaml_sha(f)
+    assert h1 != h2, "adding META to seed_pool must change the canonical hash"
+
+
+def test_factor_registry_contract_sha_is_deterministic():
+    """Same registry state → same hash (no dict-ordering / set-iteration drift)."""
+    from core.research.forward.runner import _factor_registry_contract_sha
+    h1 = _factor_registry_contract_sha()
+    h2 = _factor_registry_contract_sha()
+    assert h1 == h2
+    assert len(h1) == 64
+
+
 def test_first_post_freeze_trading_day_pre_close_freeze():
     """Freeze at 15:28 UTC (before 20:00 UTC market close) → that day's
     close IS post-freeze → start on that day.
