@@ -17054,3 +17054,41 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
 → Codex round-14 review: `docs/audit/20260428-codex_round_14_fleet_and_F_review.md`（在 review/claude-collab）
 → Fleet PRD v1.1: `docs/prd/20260428-candidate_fleet_allocator_prd.md`
 → F PRD v1.1: `docs/prd/20260428-config_universe_snapshot_hardening_prd.md`
+
+
+---
+
+## R-threshold-unification-impl-2026-04-28 (steps 1-5 SHIPPED)
+
+1. **本轮主题**: 把 acceptance threshold unification PRD v1.1 按 §6 4-step（实际 5 commit：1+2+3+4-5 合并）跑完整个 implementation。codex round-15 给的 GO + 用户 explicit-go「我这边建议开工」生效。
+2. **本轮目标**: F01 + F02 真正闭环 — 不再 PRD draft / 不再等审查；落代码、跑全测、改文档、push review。
+3. **为什么这轮优先做它**: codex round-15 priority order #1（"smallest policy-surface cleanup, removes governance drift anchor before next layers consume thresholds"）。Threshold 是 F PRD / Fleet PRD 的前置 — 先 ship 这个 cleanup，让后续两个 PRD 的 implementation 有干净的 acceptance contract 起点。
+4. **做了什么**:
+   - **Step 1**（commit `25246fa`）: 新建 `core/config/schemas/acceptance.py` 4 个 nested class（`TierDThresholds` / `WalkForwardThresholds` / `FactorTierThresholds` / `AcceptanceThresholds`），全部 `extra="forbid"`；新建 `config/acceptance.yaml` 3 个 nested section；`load_config` 加 `acceptance` section + `cfg.acceptance` 字段；7 个 unit test（defaults / nested kwargs / extra-fields rejected / full yaml override / partial yaml override / missing yaml / shipped yaml=schema defaults）。
+   - **Step 2**（commit `f498649`）: `WindowAnalyzer` 新增 `thresholds: Optional[AcceptanceThresholds] = None` kwarg，删除 3 个 class-level `TIER_D_*` 常量，`evaluate_tier_d` 改读 `self._thresholds.tier_d.*`；新增 2 个 injection regression test。
+   - **Step 3**（commit `58215d6`）: `factor_evaluator._auto_tier` 加 `thresholds` kwarg，4 个硬编码 IR cut（0.8/0.5/0.3/0.1）改读 `thresholds.factor_tiers.{s,a,b,c}_min_ir`；新增 2 个 regression test。
+   - **Step 4 + 5**（commit `7d3ab28`）: 删除 `ValidationConfig` class + `BacktestConfig.validation` field + `core/config/schemas/__init__.py` 的 import + `__all__`；删除 `config/backtest.yaml::validation` block（替换为指向 `config/acceptance.yaml` 的注释）；`dev/audit/r6_b3_codebase_adversarial.py` S27 改指向 `cfg.acceptance.tier_d`；docs（README §9.3 + table / CLAUDE.md F01+F02 closed list / INDEX.md status v1.1 SHIPPED / PRD status header）全部更新。
+   - **Step 6**（review push `8629a43`）: 写 implementation memo `docs/audit/20260428-claude_threshold_step1_4_implementation_memo.md`，push 到 `review/claude-collab` 给 codex round-16 verify。memo 含 4 commit hashes、PRD criterion 对应表、reverse-validation evidence、3 个 explicit ask（default 数值核对 / `acceptance_pack:89` docstring 是否要本轮 land / `walk_forward.*` namespace 重叠是否要 follow-on PRD）。
+5. **修改了哪些文件**: 5 个新文件（`core/config/schemas/acceptance.py` / `config/acceptance.yaml` / `tests/unit/config/test_acceptance_thresholds.py` / `docs/audit/20260428-claude_threshold_step1_4_implementation_memo.md` 在 review 分支）+ 9 个修改文件（`core/config/schemas/__init__.py` / `core/config/loader.py` / `core/config/schemas/backtest.py` / `core/backtest/window_analyzer.py` / `core/factors/factor_evaluator.py` / `tests/unit/backtest/test_window_analyzer.py` / `tests/unit/factors/test_factor_evaluator.py` / `dev/audit/r6_b3_codebase_adversarial.py` / `config/backtest.yaml`）+ 4 个 docs（`README.md` / `CLAUDE.md` / `docs/INDEX.md` / 本 PRD）+ 本 log。
+6. **跑了哪些测试/实验**: (a) `pytest tests/unit/config/test_acceptance_thresholds.py` → 7/7；(b) `pytest tests/unit/backtest/test_window_analyzer.py` → 31/31；(c) `pytest tests/unit/factors/test_factor_evaluator.py` → 23/23；(d) full `pytest tests/unit/` 跑了 3 次（Step 2 commit 后 1797 / Step 3 commit 后 1799 / Step 4 commit 后 1799）；(e) live e2e `python -m core.config.loader --validate` + `--show acceptance` 输出 nested JSON；(f) reverse-validation: stash + 重跑 — Step 2 / Step 3 的新 test 都在 stash 后 fail（TypeError / AttributeError），unstash 后 green。
+7. **结果如何**: ALL GREEN。1799 passed / 1 skipped / 0 failed。F01 + F02 真正闭环 — `WindowAnalyzer.TIER_D_*` 三个 class-level 常量删除；`_auto_tier` 4 个硬编码 IR cut 替换；`ValidationConfig` 死 schema + 死 yaml block 全部清理；`acceptance_pack._THRESHOLDS` 按 codex round-13 §"Decision 3" 保持 frozen 不动。
+8. **当前发现的新问题/新机会**: (a) `WindowAnalysisConfig.walk_forward_train_bars` / `walk_forward_test_bars` / `forward_block_holdout_bars`（`config/backtest.yaml::window_analysis`）跟 `AcceptanceThresholds.walk_forward.*`（`config/acceptance.yaml::walk_forward`）现在 namespace 重叠 — 一个是 window 大小（int bars），一个是 OOS 验收 multiplier / pct（float）。语义不同但名字接近，未来 reader 可能困惑。memo 里把这个 ambiguity 列给 codex round-16 决定要不要 follow-on PRD rename。(b) `acceptance_pack._THRESHOLDS` 上方 line 89 的 docstring update（PRD §4.5 提到的 codex round-13 frozen-rule 备注）我**没**在本轮 land — memo 里把这个明确标 "deferred"，让 codex 自己决定是 round-16 一并 land 还是另开 cycle。
+9. **剩余风险**: (a) 1799 passed 是 unit suite，没跑 integration / mining / paper layer 全栈。但这次改动的 surface 只有 schema + 2 个 consumer，没有动 backtest / paper / forward / mining 任何关键 path — 所以 unit suite 是合理的 coverage 边界；(b) `walk_forward.*` 的 6 个 field 在 `AcceptanceThresholds` 里是 dead-on-purpose（codex round-13 §"Decision 1" 把它们放这是 future-only 的 placeholder）。当未来某个 PRD 把 `MiningEvaluator` 接进去时，需要 reverse-validation 证明数值跟 `MiningEvaluator` 现有 hardcoded default 一致。
+10. **下一轮建议方向**: (a) 等 codex round-16 verify implementation；如果给 PASS 且 user 没新指令，按 codex round-15 priority order 直接进 **F PRD implementation**（config/universe snapshot hardening 5-step 实现序列）；(b) 如果 codex round-16 提了 ambiguity（例如 `walk_forward.*` namespace 要 rename），先 fold 那个修复再进 F；(c) 平行：保持 forward observe daily ritual，TD003 → TD010。
+11. **TODO checklist（更新后）**:
+    - [x] codex queue #1: 真实 forward observe — DONE 2026-04-28
+    - [x] codex queue #2: threshold unification PRD v1.0 → v1.1 → **SHIPPED** (4 commits)
+    - [x] codex queue #3: fleet allocator PRD v1.0 → v1.1 — codex round-14/15 GO，等用户 explicit-go (覆盖)
+    - [x] codex queue **F**: F PRD v1.0 → v1.1 — codex round-14/15 GO，等用户 explicit-go (覆盖)
+    - [x] codex round-15 implementation begin — threshold first 完成
+    - [ ] (waiting codex round-16) implementation memo verify
+    - [ ] (next) **F PRD implementation 5-step**（per codex round-15 priority order）
+    - [ ] (queued) fleet allocator implementation 9-step（shadow-first；shadow→live 是另一个 explicit-go gate）
+    - [ ] codex round-12 P0 follow-through: keep daily forward observe to TD010
+    - [ ] codex queue #6: capacity/liquidity realism 升级
+    - [ ] codex queue #7: M17 live-feed infra
+    - [ ] codex queue #8: M18 / 更复杂模型研究
+
+→ Threshold PRD v1.1 SHIPPED: `docs/prd/20260428-acceptance_threshold_unification_prd.md`
+→ Implementation memo: `docs/audit/20260428-claude_threshold_step1_4_implementation_memo.md`（在 review/claude-collab）
+→ Commits: `25246fa` + `f498649` + `58215d6` + `7d3ab28` on main
