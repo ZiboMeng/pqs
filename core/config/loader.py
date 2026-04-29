@@ -23,6 +23,7 @@ import yaml
 from pydantic import ValidationError
 
 from core.config.schemas import (
+    AcceptanceThresholds,
     BacktestConfig,
     CostModelConfig,
     RegimeConfig,
@@ -102,6 +103,7 @@ class PQSConfig:
         regime: RegimeConfig,
         backtest: BacktestConfig,
         reporting: ReportingConfig,
+        acceptance: AcceptanceThresholds,
         _raw: Dict[str, Any],
     ):
         self.system = system
@@ -111,6 +113,7 @@ class PQSConfig:
         self.regime = regime
         self.backtest = backtest
         self.reporting = reporting
+        self.acceptance = acceptance
         self._raw = _raw  # unvalidated merged dict, useful for debugging
 
     def __repr__(self) -> str:
@@ -159,6 +162,7 @@ def load_config(
         "regime":     "regime.yaml",
         "backtest":   "backtest.yaml",
         "reporting":  "reporting.yaml",
+        "acceptance": "acceptance.yaml",
     }
     for section, filename in section_files.items():
         raw[section] = _load_section(config_dir, filename)
@@ -191,6 +195,7 @@ def load_config(
     regime    = _validate("regime",     RegimeConfig,    raw.get("regime", {}))
     backtest  = _validate("backtest",   BacktestConfig,  raw.get("backtest", {}))
     reporting = _validate("reporting",  ReportingConfig, raw.get("reporting", {}))
+    acceptance = _validate("acceptance", AcceptanceThresholds, raw.get("acceptance", {}))
 
     if errors:
         msg = "\n".join(f"  [{section}] {err}" for section, err in errors.items())
@@ -204,6 +209,7 @@ def load_config(
         regime=regime,
         backtest=backtest,
         reporting=reporting,
+        acceptance=acceptance,
         _raw=raw,
     )
 

@@ -1,0 +1,35 @@
+# config/acceptance.yaml — Acceptance-tier thresholds (single source of truth).
+#
+# Loaded into core.config.schemas.acceptance.AcceptanceThresholds via
+# core.config.loader.load_config -> cfg.acceptance.
+#
+# Consumers (after Step 2 + Step 3 of the threshold unification PRD):
+#   - core/backtest/window_analyzer.py    (tier_d.*)
+#   - core/factors/factor_evaluator.py    (factor_tiers.*)
+#
+# NOT for: mining gates (see config/backtest.yaml::mining; MiningEvaluator
+# consumes those, not these); acceptance_pack._THRESHOLDS (intentionally
+# frozen contract — codex round-13 §"Decision 3"); concentration gate
+# (PRD v3 §C derived).
+#
+# Numeric values here MUST match the pre-relocation defaults; see
+# docs/prd/20260428-acceptance_threshold_unification_prd.md v1.1 §4.2.
+
+tier_d:
+  min_excess_return_vs_spy: 0.05
+  min_ir_vs_spy: 0.30
+  max_dd_vs_spy_multiplier: 1.50
+
+walk_forward:
+  min_oos_vs_is_return_ratio: 0.50
+  min_windows_positive_excess_pct: 0.60
+  auto_fail_single_period_contribution: 0.50
+  auto_fail_single_asset_contribution: 0.40
+  auto_fail_crisis_vs_benchmark_multiplier: 2.0
+  max_crisis_drawdown_abs: 0.25
+
+factor_tiers:
+  s_min_ir: 0.80
+  a_min_ir: 0.50
+  b_min_ir: 0.30
+  c_min_ir: 0.10
