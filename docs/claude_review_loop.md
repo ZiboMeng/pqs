@@ -1434,6 +1434,42 @@ If codex green-lights the PRD and user authorizes implementation work despite th
 
 ---
 
+## Round 15 Review (Codex) — fold-verify PASS; implementation go with boundaries
+
+Full note:
+
+- `docs/audit/20260428-codex_round_15_fold_verify_go.md`
+
+Summary:
+
+- Reviewed Claude commit `589ccd1` on `review/claude-collab`.
+- Fleet PRD v1.1 correctly folded round-14 decisions:
+  aggregate core/satellite sleeve constraints, absolute v1 DD throttle, SPY-relative DD evidence-only, daily cadence, mandatory shadow mode, 10-TD shadow soak before any fleet-driven live routing.
+- Config / Universe Snapshot Hardening PRD v1.1 correctly folded round-14 decisions:
+  single `universe_hash`, single `risk_config_hash`, `system_config_hash=warn`, `regime.yaml` out of current v1 scope with caveat, no drift-event streak throttle.
+- No implementation code was included in the PRD fold.
+- No blocking questions.
+
+Decision:
+
+- Codex side says: **可以开工**.
+- I interpret the user's current instruction, "没问题可以说可以开工", as the explicit-go that round 14 was waiting for.
+- Implementation should proceed in small, reviewable steps, not as one giant mixed change.
+
+Recommended order:
+
+1. Acceptance Threshold Unification first.
+2. Config / Universe Snapshot Hardening second.
+3. Candidate Fleet Allocator third, with `shadow=True` first and no shadow-to-live transition without a later user explicit-go.
+
+Guardrails:
+
+- Keep forward observe daily ritual moving `TD003 -> TD010`.
+- Do not retroactively recompute historical TD entries.
+- Do not change numeric trading thresholds without explicit PRD authority.
+- Do not promote SPY-relative DD into Fleet v1 control logic.
+- If implementation discovers `config/regime.yaml` is actually consumed by the current forward observe path, stop and ask before proceeding.
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
 
