@@ -4,6 +4,8 @@ NYSE market calendar and timezone utilities.
 Provides:
 - is_trading_day()
 - get_trading_days()
+- get_session_close_et()         (handles half-day early closes)
+- is_session_complete()          (refuses pre-close fetches)
 - filter_to_market_hours()
 - localize_to_eastern()
 """
@@ -12,6 +14,7 @@ from __future__ import annotations
 
 from datetime import date
 from functools import lru_cache
+from typing import Optional
 
 import pandas as pd
 
@@ -23,6 +26,11 @@ logger = get_logger(__name__)
 _ET = "America/New_York"
 _MARKET_OPEN  = pd.Timedelta(hours=9, minutes=30)
 _MARKET_CLOSE = pd.Timedelta(hours=16, minutes=0)
+_HALF_DAY_CLOSE = pd.Timedelta(hours=13, minutes=0)
+# Buffer beyond official close to allow late tape settlement / yfinance
+# vendor lag. Codex round 20 operational note: 15-30 min after 16:00 ET
+# is the safest fetch window. We use 15 as the minimum.
+_DEFAULT_POST_CLOSE_BUFFER_MIN = 15
 
 
 @lru_cache(maxsize=4)
@@ -68,6 +76,93 @@ def is_trading_day(dt: str | date | pd.Timestamp) -> bool:
     dt = pd.Timestamp(dt).normalize()
     days = get_trading_days(dt, dt)
     return len(days) > 0
+
+
+def get_session_close_et(
+    target_date: str | date | pd.Timestamp,
+) -> Optional[pd.Timestamp]:
+    """Return the ET-localized timestamp of NYSE session close for target_date.
+
+    Handles half-day early closes (Black Friday, Christmas Eve, July 3 when
+    July 4 is a regular weekday) automatically via pandas_market_calendars'
+    schedule(). The ``market_close`` field returns 13:00 ET on early-close
+    days and 16:00 ET on regular days.
+
+    Returns None if target_date is not a trading day (weekend / holiday).
+
+    Falls back to a hardcoded heuristic when pandas_market_calendars is
+    not installed: regular weekdays close at 16:00 ET; weekend = None.
+    The fallback does NOT detect half-day events.
+    """
+    target = pd.Timestamp(target_date).normalize()
+    cal = _get_nyse_calendar()
+    if cal is not None:
+        schedule = cal.schedule(
+            start_date=target.strftime("%Y-%m-%d"),
+            end_date=target.strftime("%Y-%m-%d"),
+        )
+        if len(schedule) == 0:
+            return None
+        close_utc = schedule.iloc[0]["market_close"]
+        # Convert to ET tz-aware
+        return pd.Timestamp(close_utc).tz_convert(_ET)
+    # Fallback: weekday → 16:00 ET, no half-day detection
+    if target.weekday() >= 5:
+        return None
+    return target.tz_localize(_ET) + _MARKET_CLOSE
+
+
+def is_session_complete(
+    target_date: str | date | pd.Timestamp,
+    *,
+    now_utc: Optional[pd.Timestamp] = None,
+    buffer_minutes: int = _DEFAULT_POST_CLOSE_BUFFER_MIN,
+) -> bool:
+    """Return True iff NYSE has closed for target_date as of now_utc.
+
+    "Closed" means now_utc >= session_close_utc + buffer_minutes. The
+    buffer (default 15 min) accounts for late-tape settlement and
+    yfinance vendor lag — a fetch immediately at 16:00 ET often returns
+    the same partial-close value the user observed at 15:55. Codex R20
+    operational note recommends 15-30 minutes; 15 is the lower bound.
+
+    Returns:
+      True  — session has closed AND buffer elapsed; safe to fetch
+              today's data and trust it as final.
+      False — session not yet closed (or weekend / holiday). Caller
+              should NOT fetch target_date's bar.
+
+    Special cases:
+      - target_date in the future → False (cannot be complete)
+      - target_date is a non-trading day → True (no session to wait for;
+        any "data for that date" must be a vendor anomaly, not partial)
+      - target_date in the past (any prior trading day) → True
+
+    Half-day handling: get_session_close_et() returns 13:00 ET on
+    early-close days, so this function correctly treats Black Friday at
+    13:30 ET as session-complete.
+    """
+    target = pd.Timestamp(target_date).normalize()
+    now_utc = now_utc if now_utc is not None else pd.Timestamp.now(tz="UTC")
+    if now_utc.tz is None:
+        now_utc = now_utc.tz_localize("UTC")
+
+    today_et = now_utc.tz_convert(_ET).normalize().tz_localize(None)
+    if target > today_et:
+        return False
+
+    if target < today_et:
+        # Past trading days: always considered complete. (We do not
+        # validate "was a trading day" here — caller's responsibility.)
+        return True
+
+    # target == today (in ET)
+    close_et = get_session_close_et(target)
+    if close_et is None:
+        # Today is a non-trading day (weekend / holiday).
+        return True
+    deadline = close_et + pd.Timedelta(minutes=buffer_minutes)
+    return now_utc >= deadline.tz_convert("UTC")
 
 
 def get_missing_trading_days(
