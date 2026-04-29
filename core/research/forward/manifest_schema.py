@@ -225,6 +225,95 @@ class DataRevisionEvent(BaseModel):
     policy_decision: Literal["flagged_only", "invalidated"]
 
 
+class ConfigSnapshot(BaseModel):
+    """Config-side hashes pinned at forward init time (PRD F v1.1 §5.1).
+
+    Distinct from :class:`CostAssumptions` (cost yaml) and
+    :class:`DataIntegritySnapshot` (data tier commit) because those
+    existed pre-PRD-F. This new model captures the 5 config sources
+    whose silent edits would otherwise misclassify as data revisions.
+
+    Append-only: once an entry is on a manifest it does not mutate.
+    Pre-PRD-F manifests have ``config_snapshot=None`` and are treated as
+    legacy at revalidate time (skip drift check, log INFO once per
+    run). Backfill is opt-in via
+    ``dev/scripts/forward/backfill_config_snapshot.py``.
+
+    Severity policy when a hash drifts after init (PRD F §5.3 + codex
+    round-14 §"F PRD modifications"):
+
+    - ``universe_hash`` / ``factor_registry_hash`` / ``risk_config_hash``
+      → halt (flips manifest status to ``requires_data_review``)
+    - ``research_mask_hash`` / ``system_config_hash`` → warn (record-only)
+    """
+
+    schema_version: str = Field(default="1.0", min_length=1)
+    universe_hash: str = Field(min_length=12)
+    factor_registry_hash: str = Field(min_length=12)
+    research_mask_hash: str = Field(min_length=12)
+    risk_config_hash: str = Field(min_length=12)
+    system_config_hash: str = Field(min_length=12)
+    snapshot_at_utc: datetime
+    sources: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Map of hash field name → source path. Recorded for "
+            "human-readable audit, e.g. "
+            "{'universe_hash': 'config/universe.yaml', "
+            "'factor_registry_hash': "
+            "'core/factors/factor_registry.py::PRODUCTION+RESEARCH+MAP'}."
+        ),
+    )
+    migration_note: Optional[str] = Field(
+        default=None,
+        description=(
+            "Set by the opt-in backfill utility to indicate the snapshot was "
+            "stamped post-init (assumed unchanged since init). None on "
+            "snapshots populated at init time."
+        ),
+    )
+
+
+class ConfigDriftEvent(BaseModel):
+    """Emitted when revalidate detects config-side drift between the
+    snapshot at init and the current source (PRD F v1.1 §5.2).
+
+    Distinct from :class:`DataRevisionEvent` (which fires on bar-side
+    drift) — codex round-11 §B3 mandate: "data revision 和 config
+    drift 如何分账". The two event classes have different severity
+    semantics (E1-E5 NAV materiality vs source-class halt/warn),
+    different remediation paths, and must NOT be collapsed.
+
+    A single TD entry can carry both a ``data_revision_event`` and a
+    ``config_drift_event`` if both kinds of drift surface in the same
+    observe call.
+    """
+
+    detected_at_utc: datetime
+    detected_by_run_label: str = Field(
+        min_length=1,
+        description="Subsequent observe() / revalidate() call that surfaced this drift",
+    )
+    affected_run_id: Optional[str] = Field(
+        default=None,
+        description="checkpoint_label of the TD entry whose recompute saw this drift",
+    )
+    drifted_sources: list[str] = Field(
+        min_length=1,
+        description=(
+            "Subset of {'universe_hash', 'factor_registry_hash', "
+            "'research_mask_hash', 'risk_config_hash', 'system_config_hash'}."
+        ),
+    )
+    snapshot_hashes: dict[str, str] = Field(
+        description="Hash values stored in manifest.config_snapshot at init time",
+    )
+    current_hashes: dict[str, str] = Field(
+        description="Hash values recomputed at revalidate time",
+    )
+    severity: Literal["warn", "halt"]
+
+
 class ForwardRun(BaseModel):
     """A single forward observation entry.
 
@@ -291,6 +380,10 @@ class ForwardRun(BaseModel):
     # revalidate fails-closed for any revision against those rows.
     held_today_weights: Optional[dict] = None
 
+    # ── PRD F additive: config-drift event (separate class from
+    # data_revision_event; never collapse — codex round-11 §B3) ────
+    config_drift_event: Optional[ConfigDriftEvent] = None
+
 
 class ForwardRunManifest(BaseModel):
     """Schema for ``forward_run_manifest.json`` (PRD v3 §B).
@@ -315,6 +408,12 @@ class ForwardRunManifest(BaseModel):
     checkpoint_cadence: CheckpointCadence = Field(default_factory=CheckpointCadence)
     current_status: ForwardRunStatus = ForwardRunStatus.not_started
     data_integrity_snapshot: DataIntegritySnapshot
+    # PRD F additive: pinned config-side hashes at init. Optional so
+    # legacy v2.1.3 manifests (TD001-TD003 era, pre-PRD-F) keep loading.
+    # Lazy migration: revalidate skips drift check when None and logs
+    # INFO once per run id. Backfill utility:
+    # ``dev/scripts/forward/backfill_config_snapshot.py``.
+    config_snapshot: Optional[ConfigSnapshot] = None
     runs: list[ForwardRun] = Field(default_factory=list)
 
     @model_validator(mode="after")

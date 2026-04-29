@@ -21,6 +21,8 @@ from .manifest_io import load_manifest, manifest_path, save_manifest
 from .manifest_schema import (
     BarHashInputs,
     CheckpointCadence,
+    ConfigDriftEvent,
+    ConfigSnapshot,
     CostAssumptions,
     DataRevisionEvent,
     ForwardRun,
@@ -55,6 +57,8 @@ __all__ = [
     "BarHashInputs",
     "CHECKPOINT_DRIFT_BPS_THRESHOLD",
     "CheckpointCadence",
+    "ConfigDriftEvent",
+    "ConfigSnapshot",
     "ContractResolutionError",
     "CostAssumptions",
     "DEFAULT_BAR_REVISION",
