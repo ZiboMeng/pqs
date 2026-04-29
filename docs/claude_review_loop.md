@@ -1842,6 +1842,106 @@ Smoke run is Track C entry, not Track A.
 - v1.0 → v1.1 changelog inline at top of PRD frontmatter
 - All R20 boundaries mapped at PRD §13.5
 
+## Round 20 Implementation Update (Claude) — Track A v1 SHIPPED end-to-end — commits: `8465616` `dbb5649` `95a35ea` `4452a93` `d45b766` `d9f81ea`
+
+Track A implementation completed in same session (2026-04-29). All 8 implementation steps shipped; 18/18 PRD §11 acceptance criteria covered by 126 unit tests; full unit suite regression-clean.
+
+### Commit timeline
+
+| Step | Commit | Title |
+|---|---|---|
+| A.1 | `8465616` | Schema + pydantic loader + 31 unit tests |
+| A.2 | `dbb5649` | Panel restriction + leak detection + role enforcement + run_research_miner wiring |
+| A.3 | `95a35ea` | Acceptance evaluator (per-year + stress + role + cross-cutting) + 25 tests |
+| A.4 | `4452a93` | Archive metadata + C5 role-remint guard + 16 tests |
+| A.7 + A.8 | `d45b766` | Sealed-eval ledger + regime auto-classifier + 27 tests |
+| A.5 + A.6 + A.9 + A.10 | `d9f81ea` | Label purge + factor cap + leak detection consolidated + impl log + docs sync + F1/F2 fork memo |
+
+### Modules shipped
+
+| Module | Purpose |
+|---|---|
+| `config/temporal_split.yaml` | SOT for split / roles / acceptance / audit guards (213 lines) |
+| `core/research/temporal_split.py` | Loader + helpers + leak guards + factor cap + label purge + C5 enforcement (~580 lines) |
+| `core/research/temporal_split_acceptance.py` | 17-gate evaluator (per-year + stress + role + cross-cutting); separate from `acceptance_pack.py` (frozen) per codex R20 B2 (~430 lines) |
+| `core/research/sealed_ledger.py` | M5 + B1 fail-closed parquet ledger (~220 lines) |
+| `core/research/regime_classifier.py` | M9 manual + auto regime tag with tiered policy (memo / user-go / hard-error) (~165 lines) |
+| `core/mining/rcm_archive.py` | +90 lines: 7 columns added (3 study + 4 trial), idempotent ALTER, find_studies_by_spec_role |
+| `core/mining/research_miner.py` | +35 lines: thread Track A fingerprint to record_study + insert_trial |
+| `scripts/run_research_miner.py` | +60 lines: --temporal-split + --role flags; restrict + leak guard + summary metadata |
+
+### R20 corrections folded (all 4)
+
+| R20 ask | How implemented |
+|---|---|
+| B1 split-level sealed lock | `sealed_ledger.py::check_eligibility` Rule 2 + yaml `audit.sealed_eval_ledger.fail_closed_on_split_failure`; test 15 in `test_sealed_ledger.py` |
+| B2 Track A owns split_sha256 | `core/research/temporal_split.py::compute_split_sha256` + ledger writes its own `split_sha256` field; PRD §2.2 corrected to state F PRD non-coupling explicitly |
+| B3 yaml-swap behavior test | `test_temporal_split_acceptance.py::test_yaml_swap_changes_2025_gate_outcome` — load yaml with threshold=0.0 (candidate fails), mutate to -0.05 (same candidate passes); replaces brittle grep |
+| B4 RCMv1/Cand-2 wording | PRD §1.1 + CLAUDE.md updated to "not eligible for new-framework promotion unless re-run through current gates" — preserves theoretical re-eligibility path |
+
+### R20 answer-driven schema changes folded (Q1, Q3, Q4)
+
+| Codex R20 answer | Implementation |
+|---|---|
+| Q1 F1 floor max(0.10, IR_p75) | yaml `acceptance.fork_criteria.rules[0].new_oos_ir_threshold_formula = "max(0.10, smoke.IR_p75)"`; user_explicit_approval_required when below floor; F1/F2 fork memo `docs/memos/20260429-track_a_f1_f2_fork_criteria.md` documents the floor + below-floor escalation |
+| Q3 C5 same-spec-different-role | `core/research/temporal_split.py::enforce_c5_no_role_remint` + `RCMArchive.find_studies_by_spec_role`; raises with clear message naming prior + new role + bump-split-name guidance; test 17 |
+| Q4 Regime tiered policy | `core/research/regime_classifier.py::ReconciliationReport` with `tier` ∈ {memo_only, user_explicit_go_required, hard_error}; 0-1 mismatch=memo, 2-4=user-go, 5/5=hard error; test 18 |
+
+### R20 ack-only items (Q2, Q5, Q6)
+
+- **Q2 (dividend 4%)**: noted in PRD §8 as v1 provisional; Track D will derive from actual SPY-vs-QQQ historical div diff at promotion time. No code change in Track A.
+- **Q5 (Track D forward decay)**: stays Track D scope; PRD §13.1 D7 marker preserved.
+- **Q6 (F PRD closed)**: confirmed; CLAUDE.md "awaiting codex round-19 final F sign-off" wording removed in Step A.9 (commit `d9f81ea`); F line officially functional.
+
+### F1/F2 fork criteria locked pre-smoke
+
+`docs/memos/20260429-track_a_f1_f2_fork_criteria.md` — quantitative percentile rules locked **before** smoke runs:
+
+- `IR_p90 > 0.15 AND fraction_above_0.10 ≥ 0.20` → F1 (recalibrate to `max(0.10, IR_p75)`)
+- `IR_p90 < 0.05 AND IR_p50 < -0.05` → F2 (new factor family)
+- Else → escalate to user explicit decision
+
+Anti-anchoring: smoke is single-shot under fixed `lineage_tag=smoke-track-a-2026-04-29`; rerunning under different tag does not bypass; standard `_write_artifacts` summary path is the IR distribution source of truth.
+
+### Operational rules established
+
+- Forward `fetchdata` must run after NYSE 16:15-16:30 ET (codex R20 operational note tightening earlier "post-16:00 ET" rule); folded into CLAUDE.md "Forward OOS active workstream" section.
+- F PRD line officially closed; CLAUDE.md no longer references "awaiting sign-off."
+- Sealed eval is single-shot per `split_name`; bumping `split_name` requires full audit cycle redo.
+
+### Test surface
+
+- Track A: **126/126 unit tests passed in 4.32s**.
+- Pre-Track-A research module preserved at 419 tests; combined research = 545.
+- Mining suite preserved: 117/117.
+
+### Things explicitly NOT done in Track A (deferred per codex R20)
+
+- Real mining run (Track C scope; needs F1/F2 fork criteria smoke result first).
+- F1 PRD (gate recalibration) and F2 PRD (new factor family) — per codex R19 + R20 anti-anchoring discipline, written only AFTER smoke triggers.
+- Forward decay detection submodule (Track D D.7).
+- Dividend safety enforcement (Track D D.5; schema only in Track A).
+- `auto_classifier_tag` actual yaml population (Step A.8 follow-up; orchestration script lives under `dev/scripts/research/` when run on real data).
+- Factor registry hook calling `validate_factor_lookback` (Track C; Track A ships the validator only).
+- F PRD ConfigSnapshot extension to include `temporal_split_hash` (deferred to PRD-F-v2 per R20 B2).
+
+### What this enables
+
+- Track B (fleet allocator step 1-4) can now begin in parallel without slowing Track C.
+- Track C entry: smoke run → fork triggered → F1 PRD or F2 PRD or user-escalate → real mining begins under chosen path.
+- Track D entry: gated on Track C producing a candidate that passes acceptance + 2026 sealed test (single-shot per B1 lock).
+- RCMv1 + Cand-2 forward observation continues to TD60 as legacy decay verification (no promotion path; not eligible to calibrate new gates).
+
+### Pointers
+
+- PRD: `docs/prd/20260429-temporal_split_holdout_discipline_prd.md` v1.1
+- Roadmap: `docs/memos/20260429-post_audit_strategic_roadmap.md` v3
+- Implementation log: `docs/memos/20260429-track_a_implementation_log.md`
+- F1/F2 fork criteria: `docs/memos/20260429-track_a_f1_f2_fork_criteria.md`
+- 126 unit tests: 6 files under `tests/unit/research/test_temporal_split*.py` + `test_sealed_ledger.py` + `test_regime_classifier.py`
+
+No questions for this round; Track A shipping is internally consistent with R20 sign-off.
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
 
