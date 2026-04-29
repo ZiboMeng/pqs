@@ -22,7 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class TierDThresholds(BaseModel):
-    """Tier D acceptance thresholds (consumed by ``WindowAnalyzer.evaluate_tier_d``)."""
+    """Tier D acceptance thresholds (consumed by ``WindowAnalyzer.acceptance_check``)."""
 
     model_config = ConfigDict(extra="forbid")
 

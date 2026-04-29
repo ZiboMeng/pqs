@@ -1055,20 +1055,20 @@ fingerprints:                     # M3 runtime alignment check 用
 # Loader: cfg.acceptance.{tier_d, walk_forward, factor_tiers}.
 # Schema: core/config/schemas/acceptance.py::AcceptanceThresholds（嵌套 3 个
 # submodel + extra=forbid，typo 立即 fail）。
-tier_d:                       # WindowAnalyzer.evaluate_tier_d 消费
+tier_d:                       # WindowAnalyzer.acceptance_check 消费（live）
   min_excess_return_vs_spy: 0.05
   min_ir_vs_spy: 0.30
   max_dd_vs_spy_multiplier: 1.50
 
-walk_forward:                 # OOS / walk-forward 验收（部分字段为占位 placeholder）
-  min_oos_vs_is_return_ratio: 0.50
-  min_windows_positive_excess_pct: 0.60
-  auto_fail_single_period_contribution: 0.50
-  auto_fail_single_asset_contribution: 0.40
-  auto_fail_crisis_vs_benchmark_multiplier: 2.0
-  max_crisis_drawdown_abs: 0.25
+walk_forward:                 # OOS / walk-forward 验收（截至 2026-04-29 仅 1 字段 live）
+  min_oos_vs_is_return_ratio: 0.50           # placeholder（未接 consumer）
+  min_windows_positive_excess_pct: 0.60      # LIVE：WindowAnalyzer.oos_consistency_check
+  auto_fail_single_period_contribution: 0.50 # placeholder
+  auto_fail_single_asset_contribution: 0.40  # placeholder
+  auto_fail_crisis_vs_benchmark_multiplier: 2.0  # placeholder
+  max_crisis_drawdown_abs: 0.25              # placeholder
 
-factor_tiers:                 # factor_evaluator._auto_tier 消费
+factor_tiers:                 # factor_evaluator._auto_tier 消费（live）
   s_min_ir: 0.80
   a_min_ir: 0.50
   b_min_ir: 0.30
@@ -1076,9 +1076,11 @@ factor_tiers:                 # factor_evaluator._auto_tier 消费
 ```
 
 **消费路径**:
-- `scripts/run_backtest.py` → `WindowAnalyzer(thresholds=cfg.acceptance)`
+- `scripts/run_backtest.py` → `WindowAnalyzer(thresholds=cfg.acceptance)` 和 `WindowAnalyzer.oos_consistency_check(thresholds=cfg.acceptance)`
 - `scripts/run_mining.py` → `MiningEvaluator(acceptance_thresholds=cfg.acceptance)` → 内部 `WindowAnalyzer`
 - 任何外部调用方：`FactorEvaluator(thresholds=cfg.acceptance)` → 自动覆盖 `FactorReport.tier`
+
+**Placeholder 字段**: `walk_forward.*` 中除 `min_windows_positive_excess_pct` 外的 5 个字段是 codex round-13 §"Decision 1" 留下的 future-PRD 占位 — schema 已就位，未来 wire 它们的 PRD 直接 consume `cfg.acceptance.walk_forward.*` 即可，不需要再迁 schema。
 
 **不在范围**:
 - `acceptance_pack._THRESHOLDS`（`core/mining/acceptance_pack.py`）— 已 promote artifact 的稳定 contract，**不**自动同步 `AcceptanceThresholds`。修改需走 versioned recalibration PRD（codex round-13 §"Decision 3"）。
