@@ -671,11 +671,13 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   observe()'s v2.1 revalidate correctly fail-closes (NAV impact
   exceeds E1=10 bps; raw drift exceeds E5=0.5%). Workflow discipline
   not a code fix.
-  **Status**: F PRD §6 acceptance 13/13 ✅; awaiting codex round-19
-  final F sign-off (memo on `review/claude-collab` `c8dbd02`).
-  RCMv1 + Cand-2 production manifests still pre-PRD-F (config_snapshot=None);
-  user has not yet run the opt-in backfill — drift detection on those
-  two will activate when backfill is run.
+  **Status**: F PRD §6 acceptance 13/13 ✅; codex round 19 + 20 closed;
+  F line officially functional (no pending sign-off). RCMv1 + Cand-2
+  production manifests still pre-PRD-F (config_snapshot=None); user
+  has not yet run the opt-in backfill — drift detection on those two
+  will activate when backfill is run. **Operational rule**: forward
+  `fetchdata` must run after NYSE 16:15-16:30 ET (codex R20 operational
+  note tightening earlier "post-NYSE-16:00 ET" rule).
 - **Forward observation active**. First real `forward observe` since
   v2.1.3 + R8 DST fix ran 2026-04-28 (commit `bcfbc0f`):
   - rcm_v1_defensive_composite_01: TD001 (legacy) + TD002 + TD003
@@ -689,8 +691,59 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   `docs/memos/20260428-forward_observe_first_real_after_v2_1_3.md`.
   Next decision pack at TD010; currently at TD003 (~7 TDs out).
 - **Status: observation-mode running**. Daily `forward observe`
-  ritual is live. NO new mining / universe / spec / Candidate-3 /
-  data tier work — all still frozen.
+  ritual is live. **NEW (2026-04-29)**: RCMv1 + Cand-2 reclassified
+  as **legacy decay verification** under Track A — they were nominated
+  pre-G2.A 30% concentration ceiling + pre-M12 weighted thin-data fix;
+  not eligible for new-framework promotion unless re-run through current
+  gates. Forward TD60 observation continues to record decay signal but
+  these two will not enter fleet, will not calibrate new-framework gates.
+
+**Track A — Temporal Split & Holdout Discipline (SHIPPED 2026-04-29)**
+
+PRD `docs/prd/20260429-temporal_split_holdout_discipline_prd.md` v1.1
+(codex round 19 + 20 PRD-level approved). Roadmap
+`docs/memos/20260429-post_audit_strategic_roadmap.md` v3. Implementation
+log `docs/memos/20260429-track_a_implementation_log.md`. F1/F2 fork
+criteria locked pre-smoke at `docs/memos/20260429-track_a_f1_f2_fork_criteria.md`.
+
+Shipped infra (no real mining yet):
+- `config/temporal_split.yaml`: alternating_regime_holdout_v1 — train
+  2009-2017+2020/2022/2024; validation 2018/2019/2021/2023/2025
+  (2025 hard gate on core role); 2 stress slices (covid_flash +
+  rate_hike_2022) borrowed for MaxDD sanity only; 2026 sealed
+  single-shot.
+- `core/research/temporal_split.py`: pydantic loader + train/validation/
+  sealed sets + restrict_frames_to_train + validate_no_holdout_leakage +
+  compute_panel_max_date + ensure_role_assigned + purge_labels_at_boundary
+  (M4) + validate_factor_lookback (M3 cap) + enforce_c5_no_role_remint.
+- `core/research/temporal_split_acceptance.py`: 17-gate evaluator (per
+  validation year + stress slice + role + concentration + beta + cost);
+  separate from acceptance_pack (codex round 13 frozen contract).
+- `core/research/sealed_ledger.py`: M5 fail_closed_on_repeat + codex
+  R20 B1 fail_closed_on_split_failure parquet ledger.
+- `core/research/regime_classifier.py`: M9 manual + auto regime tag with
+  tiered disagreement policy (memo / user-go / hard error).
+- `core/mining/rcm_archive.py`: 7 new columns; idempotent ALTER;
+  find_studies_by_spec_role for C5 lookup.
+- `scripts/run_research_miner.py`: --temporal-split + --role flags;
+  panel restrict + leak guard + summary metadata.
+
+Track A test surface: 126 unit tests covering all 18 PRD §11 acceptance
+criteria. Combined repo unit suite: full pre-Track-A 419 research
+tests preserved + 126 Track A tests = 545 in research module.
+
+What's still open:
+- **Track B** Fleet Allocator step 1-4 (synthetic input). PRD
+  `docs/prd/20260428-candidate_fleet_allocator_prd.md` v1.1 codex
+  round-14 approved; implementation may run parallel to Track C as
+  long as it does not slow Track A or Track C.
+- **Track C** real mining: pending (a) F1/F2 fork criteria smoke
+  result and (b) gate recalibration PRD or new factor family PRD —
+  whichever the smoke triggers per the locked criteria memo.
+- **Track D** forward + first promotion: triggered when Track C
+  produces a candidate that passes the new-framework acceptance + 2026
+  sealed test (single-shot).
+- M17 / M18 unchanged.
 
 **Framework Completion PRD** (`docs/20260421-prd_framework_completion.md`
 v1.2) — shipped M0-M8 + M10 + M13 + M15 + M16 (see archive); open:

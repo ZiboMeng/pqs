@@ -47,6 +47,13 @@ Public API:
   - ``ensure_role_assigned(role, cfg)``: fail-closed role check at
     mining startup (M6 C1+C2 + audit guard
     ``fail_closed_if_role_unspecified_at_mining_start``).
+  - ``purge_labels_at_boundary(fwd_returns, cfg)``: M4 forward-return
+    label boundary purging (drops cross-partition labels to NaN).
+  - ``validate_factor_lookback(name, lookback, cfg)``: M3 factor
+    warmup cap enforcement at registration time.
+  - ``enforce_c5_no_role_remint(archive, spec, split_name, role)``:
+    M6 C5 (codex R20 Q3) — same spec cannot remint under different
+    role within same split.
 """
 from __future__ import annotations
 
@@ -586,6 +593,101 @@ def ensure_role_assigned(role: Optional[str], cfg: TemporalSplitConfig) -> str:
             f"available: {sorted(cfg.roles.keys())}"
         )
     return role
+
+
+def purge_labels_at_boundary(
+    forward_returns,
+    cfg: TemporalSplitConfig,
+):
+    """M4: drop forward-return labels whose window crosses a split boundary.
+
+    Implements the financial-ML purging rule (Marcos Lopez de Prado).
+    A forward-return label generated on day T with horizon H uses data
+    from T to T+H. If [T, T+H] crosses any boundary between train /
+    validation / sealed partitions, that row must be dropped from the
+    affected partition's evaluation set.
+
+    Concretely: if validation year 2019 evaluates a 21-day forward
+    return computed on 2018-12-20, that label looks at 2018-12-20 →
+    2019-01-15 — the window starts in train (2018 if 2018 were train)
+    and ends in validation. The signal is a validation signal but the
+    label uses train data (specifically the first ~10 trading days of
+    the validation year are NOT yet "looking forward" only into
+    validation). Drop them.
+
+    Returns a DataFrame with the same index as input ``forward_returns``,
+    with rows whose label window crosses any split boundary set to NaN.
+    The caller filters NaNs in evaluation.
+
+    Parameters
+    ----------
+    forward_returns : pd.DataFrame
+        date × symbol forward return matrix. Index is DatetimeIndex.
+    cfg : TemporalSplitConfig
+        loaded split config. Uses purge_rules.label_horizon_days_max +
+        purge_at_split_boundary + embargo_days.
+
+    Returns
+    -------
+    DataFrame with cross-boundary rows set to NaN.
+    """
+    import pandas as pd
+
+    pr = cfg.acceptance.purge_rules
+    if not pr.purge_at_split_boundary:
+        return forward_returns
+
+    horizon = pr.label_horizon_days_max
+    embargo = pr.embargo_days
+
+    train = train_year_set(cfg)
+    validation = validation_year_set(cfg)
+    sealed = sealed_year_set(cfg)
+
+    def _partition_of(year: int) -> str:
+        if year in train:
+            return "train"
+        if year in validation:
+            return "validation"
+        if year in sealed:
+            return "sealed"
+        return "unknown"
+
+    out = forward_returns.copy()
+    if not isinstance(out.index, pd.DatetimeIndex):
+        raise TypeError("forward_returns must have DatetimeIndex")
+
+    bdays_per_calendar_day_approx = 1.45  # ~252/180 trading-to-calendar
+    horizon_calendar_days = int(horizon * bdays_per_calendar_day_approx) + embargo
+
+    for ts in out.index:
+        signal_partition = _partition_of(ts.year)
+        end_ts = ts + pd.Timedelta(days=horizon_calendar_days)
+        end_partition = _partition_of(end_ts.year)
+        if signal_partition != end_partition:
+            out.loc[ts, :] = float("nan")
+    return out
+
+
+def validate_factor_lookback(
+    factor_name: str,
+    lookback_days: int,
+    cfg: TemporalSplitConfig,
+) -> None:
+    """Enforce M3 factor warmup cap (codex R19 #5).
+
+    Factor with lookback > ``access_rules.factor_warmup_max_lookback_days``
+    is rejected at registration time. Track C mining wires this into
+    factor_registry; Step A.5 ships the validator.
+    """
+    cap = cfg.access_rules.factor_warmup_max_lookback_days
+    if lookback_days > cap:
+        raise ValueError(
+            f"factor {factor_name!r} declared lookback_days={lookback_days} "
+            f"exceeds split.access_rules.factor_warmup_max_lookback_days={cap}. "
+            f"Increase the cap in split YAML (and bump split_name) or reduce "
+            f"factor lookback."
+        )
 
 
 def enforce_c5_no_role_remint(
