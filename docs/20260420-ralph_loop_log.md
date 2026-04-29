@@ -17000,3 +17000,57 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
     - [ ] codex queue #8: M18 / 更复杂模型研究
 
 → 完整 PRD: `docs/prd/20260428-config_universe_snapshot_hardening_prd.md`
+
+
+---
+
+## R-codex-round14-fold-2026-04-28 (fleet PRD v1.1 + F PRD v1.1 — fold codex 9 decisions)
+
+1. **本轮主题**: 把 codex round-14 给的 4+5=9 个 decision fold 进 fleet allocator PRD 和 config/universe snapshot hardening PRD，bump 两份都到 v1.1。
+2. **本轮目标**: PRD 文档 reflect codex 的具体设计选择，让两份 PRD 在 PRD-level 都达到 codex 的 APPROVED 状态。**不**进 implementation — 等用户 explicit-go。
+3. **为什么这轮优先做它**: codex round-14 显式 instruction："first fold the round-14 decisions below into the PRDs / then wait for user explicit-go / meanwhile keep the forward observe daily ritual running"。这是按 codex 给的 priority order 走。
+4. **做了什么**:
+   - **Fleet PRD v1.0 → v1.1**：
+     - status header bump，记录 codex APPROVED at PRD level + 4 个 modifications
+     - §1.1 charter 加 codex framing："portfolio decision layer, not new alpha generator"
+     - §4.4 C4 重写：`core_min_capital_pct` 从 per-candidate floor 改为 **aggregate core sleeve floor**（codex Q1）；equal-weight 0.5/0.5 in two-core 现在合法
+     - §4.5 C5：absolute throttle 保持 v1；新增 SPY-relative DD 仅作为 reported governance metric（codex Q2）
+     - §5.2 config yaml 注释更新 sleeve 语义；§5.3 manifest schema 新增 `spy_dd_60d` + `dd_vs_spy_60d` + `shadow: bool` field
+     - §6 acceptance #7 重写为 sleeve interpretation；新增 #7b reverse-validation 4 cases；#14b 新增 shadow soak gate
+     - §7 step 8 改成 shadow=True；step 9 新增 shadow→live transition gate（≥10 TD soak + user explicit-go）
+     - §10 Q1-Q4 全部 RESOLVED with codex round-14 pointers
+     - §8 风险表 dissolve Q1 行；新增 shadow soak + SPY DD 两行
+     - §11 sequencing 强调 10-TD shadow soak
+   - **F PRD v1.0 → v1.1**：
+     - status header bump，记录 codex APPROVED at PRD level + 5 个 modifications
+     - §4.1 universe_hash granularity 加 codex Q1 pointer：no split in v1
+     - §4.4 risk_config_hash 加 codex Q2 pointer：no split in v1
+     - §4.6 regime.yaml row 大幅扩写：codex 自己 grep 验证 runner 不路由 RegimeDetector + future caveat
+     - §5.3 system_config_hash severity row 加 codex Q3 pointer：keep warn
+     - §9 out of scope 新增 `config_drift_event_streak` throttle（codex Q5）
+     - §10 Q1-Q5 全部 RESOLVED with codex round-14 pointers
+   - **INDEX.md**：两个 PRD entry 更新到 v1.1 codex APPROVED 状态
+5. **修改了哪些文件**: `docs/prd/20260428-candidate_fleet_allocator_prd.md`（v1.0 → v1.1）、`docs/prd/20260428-config_universe_snapshot_hardening_prd.md`（v1.0 → v1.1）、`docs/INDEX.md`、`docs/20260420-ralph_loop_log.md`（本条）。
+6. **跑了哪些测试/实验**: 仅文档工作，无代码改动。读了 codex round-14 review memo 全文 + 两份 PRD v1.0 各 section 作为 fold 上下文。
+7. **结果如何**: Fleet PRD v1.1 + F PRD v1.1 双 PRD APPROVED at PRD level；fold 内部一致性完整（schema / config / acceptance / impl steps / risk table / open Qs 七个 location 都 reflect 新 decision）。**ready for implementation 但等用户 explicit-go**（CLAUDE.md "MUST PAUSE: changing core constraints" + "MUST PAUSE: changing evaluation criteria definitions" 同时适用 — fleet 加新决策层 + F 加新 halt class）。
+8. **当前发现的新问题/新机会**: 无新 design ambiguity。codex round-14 把所有 9 个 open Q 给了明确 decision；fold 过程没有产生新问题。但**注意到**：fleet PRD §10 Q1 在 v1.1 之后是 dissolved 而不是 resolved（per-candidate-floor 这个失败 framing 直接退场，不是选了 A 或 B 中一个）。这种 reframe-style decision 比 binary choice 更深 — 后续 v2 设计要避免再退回 per-candidate framing。
+9. **剩余风险**: 两份 v1.1 PRD 内部一致性 check —— fleet 我 fold 到 7 处（status / 1.1 / 4.4 / 4.5 / 5.2 / 5.3 / 6 / 7 / 8 / 10 / 11），F 我 fold 到 6 处（status / 4.1 / 4.4 / 4.6 / 5.3 / 9 / 10）。希望各处接口文字（如 "aggregate core sleeve floor"）保持 wording 一致，没出现某处仍用 "per-candidate floor" 这种残余 v1.0 语义。
+10. **下一轮建议方向**: (a) push 两份 v1.1 + INDEX 到 review/claude-collab 让 codex round-15 verify fold 是否 faithful；(b) 等用户 explicit-go 才能进 implementation；(c) 平行任务：保持 forward observe daily ritual 推 TD003 → TD010，不让 P0 stall。
+11. **TODO checklist（更新后）**:
+    - [x] codex queue #1: 真实 forward observe — DONE 2026-04-28
+    - [x] codex queue #2 + round-13 fold: threshold PRD v1.1 — DONE
+    - [x] codex queue #3 + round-12 P2: fleet allocator PRD v1.0 — DONE
+    - [x] codex queue **F** + round-12 P1: F PRD v1.0 — DONE
+    - [x] codex round-14 fold: fleet PRD v1.1 + F PRD v1.1 — **DONE this round; awaiting codex round-15 verify + user explicit-go**
+    - [ ] (waiting codex round-15 verify) fleet PRD v1.1 + F PRD v1.1 internal consistency
+    - [ ] (waiting user) threshold PRD v1.1 implementation
+    - [ ] (waiting user post-codex-15) fleet PRD implementation 9-step sequence per §7
+    - [ ] (waiting user post-codex-15) F PRD implementation 5-step sequence per §7
+    - [ ] codex round-12 P0 follow-through: keep daily forward observe to TD010
+    - [ ] codex queue #6: capacity/liquidity realism 升级
+    - [ ] codex queue #7: M17 live-feed infra
+    - [ ] codex queue #8: M18 / 更复杂模型研究
+
+→ Codex round-14 review: `docs/audit/20260428-codex_round_14_fleet_and_F_review.md`（在 review/claude-collab）
+→ Fleet PRD v1.1: `docs/prd/20260428-candidate_fleet_allocator_prd.md`
+→ F PRD v1.1: `docs/prd/20260428-config_universe_snapshot_hardening_prd.md`
