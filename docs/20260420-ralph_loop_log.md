@@ -17092,3 +17092,53 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
 → Threshold PRD v1.1 SHIPPED: `docs/prd/20260428-acceptance_threshold_unification_prd.md`
 → Implementation memo: `docs/audit/20260428-claude_threshold_step1_4_implementation_memo.md`（在 review/claude-collab）
 → Commits: `25246fa` + `f498649` + `58215d6` + `7d3ab28` on main
+
+
+---
+
+## R-threshold-2round-self-audit-2026-04-28 (5 findings, 3 fixed, 1 raised, 1 status)
+
+1. **本轮主题**: 用户明确指令做两轮 detailed self-audit，针对已经 ship 的 threshold unification 工作（commits 25246fa / f498649 / 58215d6 / 7d3ab28 / a7ee08c）。要求**不要只跑 pytest，必须跑真实代码看结果是否符合预期**。
+2. **本轮目标**: 找出 codex round-17 audit 之前我自己没看到的问题。"我不希望再出现你说你audit没有问题 结果codex audit出问题的情况"。
+3. **为什么这轮优先做它**: codex round-16 已经 catch 到我 round-15 自己声称 verified 的两个 operational blocker（cfg.acceptance 没 consume + freeze comment 没 ship）。再来一遍而不再让 codex 当我的 QA 是用户 explicit 要求。
+4. **做了什么**:
+   - **Round 1 — exhaustive surface coverage + e2e**:
+     - Step 1.1 wire-site exhaustion grep: 2 WindowAnalyzer + 0 FactorEvaluator + 2 _auto_tier production callers，全部 wired
+     - Step 1.2 yaml→behavior end-to-end: 真编辑 config/acceptance.yaml::factor_tiers.s_min_ir 0.80→0.95，patched IR=0.85 stats 跑全 FactorEvaluator pipeline，**tier 真的从 S 变 A**；同样 tier_d.min_excess 0.05→0.08 让 acceptance_check failure messages 正确变化
+     - Step 1.3 extra="forbid" 边界: typo (`tier_d.min_ir` instead of `min_ir_vs_spy`) 立即 ValidationError；负值 / dd_multiplier<1.0 / 真 yaml typo 全部 fail loudly through load_config
+     - Step 1.4 numeric correctness: 用 git show 25246fa^ 拉 old ValidationConfig defaults，逐字段比对 — 13 个 default 全部一致
+     - Step 1.5 actual `python scripts/run_backtest.py --no-walk-forward` exit 0
+   - **Round 1 findings**:
+     - **A1 (cosmetic, FIXED)**: `factor_evaluator.py:18-24` module docstring 把 0.8/0.5/0.3/0.1 写死，没指向新 SoT。重写指向 AcceptanceThresholds.factor_tiers + 加 FactorReport(...) direct-construction footgun 说明
+     - **A2 (operational drift, FIXED)**: `WindowAnalyzer.oos_consistency_check` 默认 `min_positive_fraction=0.60` 跟 `walk_forward.min_windows_positive_excess_pct=0.60` 同义但没接 yaml — **跟 F01/F02 同样的 drift class，我在 step 2 wire 时漏了**因为 PRD §4.4 只提到 evaluate_tier_d。修复：加 `thresholds: Optional[AcceptanceThresholds] = None` kwarg；scripts/run_backtest.py:204 传 cfg.acceptance；3 个新 regression test
+     - **A3 (docs-only, FIXED)**: 我 7d3ab28 commit 里写了 README §9.x 指向 acceptance.yaml 但没建 §9.x — dangling pointer。补 §9.11 完整文档（3 nested submodel + consumer paths + out-of-scope）
+   - **Round 2 — re-engagement + cross-cutting**:
+     - Step 2.1 verify A1/A2/A3 修复 stick
+     - Step 2.2 其他 MiningEvaluator BacktestEngine 构造：`_run_backtest` 和 `_check_cost_robustness` 都不构造 WindowAnalyzer，无需 wire — 确认完整
+     - Step 2.3 schema 逻辑一致性：发现 schema 接受 inverted ordering（s_min_ir < a_min_ir）和极端值（min_excess=0.50） — **A4 raised for discussion**（researcher-typo class，不是系统 bug；加 model_validator 会 block 合法实验场景；recommend 不加）
+     - Step 2.4 PYTHONHASHSEED=0 vs 99 cfg.acceptance dump 完全一致
+     - Step 2.5 7 个核心 module 干净 import，零循环依赖
+     - Step 2.6 真跑 run_backtest.run_strategy(walk_forward=True) 上 patch oos_consistency_check spy → 捕获 kwargs `['thresholds']` 且 value 是 cfg.acceptance — A2 修复 e2e 验证通过
+     - Step 2.7 walk_forward.* 字段统计：5/6 placeholder（per codex round-13 §"Decision 1"），1/6 (`min_windows_positive_excess_pct`) 现在 LIVE — **A5 (status — no action)**
+     - Step 2.8 acceptance_pack 25/25 pytest 通过；freeze comment 在 line 92-103 正确
+5. **修改了哪些文件**: `core/factors/factor_evaluator.py`（A1 docstring）、`core/backtest/window_analyzer.py`（A2 wire）、`scripts/run_backtest.py`（A2 caller）、`tests/unit/backtest/test_window_analyzer.py`（A2 3 个新 test）、`README.md`（A3 §9.11 + 指针）、`docs/audit/20260428-claude_threshold_2round_self_audit.md`（review/claude-collab 上的 audit memo）、本 log。
+6. **跑了哪些测试/实验**: (a) 真编辑 yaml 验证 `_auto_tier` / FactorEvaluator / WindowAnalyzer.acceptance_check 三条链路 — 全 PASS；(b) `pytest tests/unit/` 全 1806 passed（1803 baseline + 3 新 test）；(c) PYTHONHASHSEED 0 vs 99 determinism check；(d) live import topology check 7 个 core module；(e) 真跑 `python scripts/run_backtest.py --no-walk-forward` exit 0；(f) 真跑 `run_backtest.run_strategy(walk_forward=True)` patched WindowAnalyzer 验证 wire；(g) reverse-validation by stash + re-test 在 A2 修复时确认 — pre-fix code 让新 test fail with TypeError。
+7. **结果如何**: ALL FIVE findings 都明确 — 3 个 FIXED on main `92987fe`，1 个 raised for codex/user discussion，1 个 status only。**重点：A2 是真的 drift class miss**，跟 codex round-16 catch 的 cfg.acceptance wire gap 是同一类问题；如果不做这次 audit，A2 会留到 codex round-17 才被 catch。User directive 起作用。
+8. **当前发现的新问题/新机会**: (a) A4 — schema 接受逻辑不一致 ordering；recommend 不加 model_validator (researcher-typo 不是 system bug，加了会 block 合法实验)；想听 codex round-17 second opinion；(b) A5 — 5 个 walk_forward.* 是 placeholder；codex round-13 §"Decision 1" 已经认可，未来 PRD wire 它们时直接 consume `cfg.acceptance.walk_forward.*` 就行；(c) **observation**: `AcceptanceResult.__str__` 里写死 "需 > 5%" "需 > 0.3" — 是 string format 不是 threshold-driven，但 future 如果 yaml 改成 0.10 用户从 stdout 读到 "需 > 5%" 会 confuse。这是文字 drift 不是 number drift；low priority cosmetic，写到 audit memo discussion section（codex 自己看）但没归在 5 findings 里因为不影响实际 pass/fail logic。
+9. **剩余风险**: (a) F01/F02 drift class 我已 catch 一次（A2）但 codex round-17 可能再 catch 一次同类的；尤其是 `core/research/` `core/portfolio/` `core/risk/` 我请求 codex 帮 spot-check；(b) FactorEvaluator(thresholds=) 是 public-but-unused-yet — 0 production caller。如果未来 `run_factor_screen.py` 用上，调用方需要记得传 cfg.acceptance；docstring footgun 说明已加但未来 reader 还是有概率忽视。
+10. **下一轮建议方向**: (a) **等 codex round-17** 给独立 audit（user directive 是不能我说没问题就完事）；(b) 如果 codex round-17 提了 new findings 就 fold；如果给 PASS 就按原计划进 F PRD implementation；(c) 平行：保持 forward observe daily ritual TD003 → TD010；(d) 若 codex round-17 答 A4 "yes 加 model_validator"，开个小 PR 加 ordering check + test。
+11. **TODO checklist（更新后）**:
+    - [x] codex queue #1: forward observe — DONE
+    - [x] codex queue #2: threshold PRD — SHIPPED
+    - [x] codex round-15 priority #1 (threshold first): SHIPPED + round-16 follow-up SHIPPED
+    - [x] **2-round self-audit per user directive — DONE 2026-04-28; 5 findings, 3 fixed, 1 discussion raised, 1 status logged**
+    - [ ] (waiting codex round-17) audit verify
+    - [ ] (waiting codex round-17 + user explicit-go) F PRD implementation
+    - [ ] codex queue #4: fleet allocator implementation (after F)
+    - [ ] codex round-12 P0 follow-through: keep daily forward observe to TD010
+    - [ ] codex queue #6: capacity/liquidity realism
+    - [ ] codex queue #7: M17 live-feed infra
+    - [ ] codex queue #8: M18 / 更复杂模型研究
+
+→ Audit memo: `docs/audit/20260428-claude_threshold_2round_self_audit.md`（review/claude-collab `0bbaa23`）
+→ Audit fix commit: `92987fe` on main
