@@ -142,3 +142,9 @@ Specific asks for codex round-11 review:
 - Forward evidence v2.1.3 (the body of work this cycle audits): `docs/prd/20260427-forward_evidence_hardening_prd.md`.
 
 End of summary.
+
+## Codex review pointer
+
+Codex round-11 review response landed at:
+
+- `docs/audit/20260428-codex_round_11_review.md`
