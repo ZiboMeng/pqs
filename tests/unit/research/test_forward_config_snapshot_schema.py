@@ -117,6 +117,23 @@ class TestConfigSnapshotConstruction:
         )
         assert "backfilled" in snap.migration_note
 
+    def test_extra_field_rejected(self):
+        """Audit round 2 finding: ConfigSnapshot must use extra='forbid'
+        to prevent silent acceptance of mistyped or unsanctioned hash
+        fields. A backfill utility typo ('factory_registry_hash') or a
+        future PR adding an unenumerated hash key must fail loudly."""
+        with pytest.raises(ValidationError):
+            ConfigSnapshot(
+                universe_hash="u" * 16,
+                factor_registry_hash="f" * 16,
+                research_mask_hash="m" * 16,
+                risk_config_hash="r" * 16,
+                system_config_hash="s" * 16,
+                snapshot_at_utc=datetime(2026, 4, 29, tzinfo=timezone.utc),
+                # adversarial: typo or unsanctioned new hash
+                factory_registry_hash="x" * 16,
+            )
+
 
 # ── ConfigDriftEvent construction ────────────────────────────────────
 
@@ -167,6 +184,23 @@ class TestConfigDriftEventConstruction:
             severity="halt",
         )
         assert len(evt.drifted_sources) == 2
+
+    def test_extra_field_rejected(self):
+        """Audit round 2 finding: ConfigDriftEvent uses extra='forbid' for
+        the same defense-in-depth rationale as ConfigSnapshot. A future
+        feature PR cannot drop in a new field without an explicit schema
+        update + version bump."""
+        with pytest.raises(ValidationError):
+            ConfigDriftEvent(
+                detected_at_utc=datetime(2026, 5, 1, tzinfo=timezone.utc),
+                detected_by_run_label="TD007",
+                drifted_sources=["universe_hash"],
+                snapshot_hashes={"universe_hash": "u" * 16},
+                current_hashes={"universe_hash": "v" * 16},
+                severity="halt",
+                # adversarial new field (e.g., spec drift, telemetry)
+                detected_via="telemetry",
+            )
 
 
 # ── ForwardRunManifest carries Optional[ConfigSnapshot] ──────────────

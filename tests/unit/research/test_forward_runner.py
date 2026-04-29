@@ -427,6 +427,32 @@ def test_observe_halts_on_missing_cost_file(tmp_path: Path):
         observe("fake_cand", output_dir=out_dir, cost_model_path=cost_path)
 
 
+@pytest.mark.parametrize("terminal", [
+    ForwardRunStatus.completed_success,
+    ForwardRunStatus.completed_fail,
+    ForwardRunStatus.aborted,
+])
+def test_observe_halts_on_terminal_status(tmp_path: Path, terminal):
+    """Audit round 2 finding (2026-04-29): observe() must halt on
+    terminal statuses so v2.1 / PRD-F revalidate cannot silently
+    overwrite a decided candidate. Pre-fix, only requires_data_review
+    halted; terminal states were unguarded — a downstream data revision
+    or config drift detected on a completed_success manifest would flip
+    status to requires_data_review, losing the decision signal.
+    """
+    from core.research.forward.manifest_io import save_manifest, manifest_path
+    out_dir, cost_path, _ = _setup_fake_repo(tmp_path)
+    # Build manifest already in terminal status
+    init(candidate_id="fake_cand", start_date="2026-04-25",
+         output_dir=out_dir, cost_model_path=cost_path)
+    p = manifest_path("fake_cand", out_dir)
+    m = load_manifest(p)
+    m = m.model_copy(update={"current_status": terminal})
+    save_manifest(m, p)
+    with pytest.raises(ForwardHaltError, match="terminal status"):
+        observe("fake_cand", output_dir=out_dir, cost_model_path=cost_path)
+
+
 def test_verify_cost_hash_passes_on_unchanged_file(tmp_path: Path):
     out_dir, cost_path, _ = _setup_fake_repo(tmp_path)
     m = init(candidate_id="fake_cand", start_date="2026-04-25",

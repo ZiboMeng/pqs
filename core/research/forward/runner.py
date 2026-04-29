@@ -273,10 +273,20 @@ _F_CONFIG_SOURCES: dict[str, str] = {
 def _canonical_yaml_sha(path: Path) -> str:
     """Return a content hash of a YAML file canonical to its semantic body.
 
-    Strips comments + normalizes whitespace + sorts keys + sorts list
-    values within sections. Intent: a researcher who re-orders the same
-    keys in ``config/universe.yaml`` does NOT produce a config-drift
-    event; only meaningful semantic changes do.
+    Strips comments + normalizes whitespace + sorts dict keys (recursively).
+    List ORDER is preserved deliberately — a permutation of a list value
+    (e.g. ``seed_pool: [SPY, QQQ]`` → ``seed_pool: [QQQ, SPY]``) DOES
+    flip the hash. Many list-shaped config knobs encode meaningful
+    order (priority pillars, fallback chains), and even where order is
+    semantically irrelevant the conservative position is to fail
+    closed: a drift event flags the change, the user inspects, and a
+    no-op revert clears the flag instantly.
+
+    Intent: a researcher who re-orders the same dict keys in
+    ``config/universe.yaml`` does NOT produce a config-drift event;
+    only meaningful semantic changes do (audit round 2 finding —
+    docstring previously claimed list values were sorted, which the
+    code does not do).
     """
     import hashlib as _hashlib
     import yaml as _yaml
@@ -607,6 +617,12 @@ def observe(
       - manifest's current_status is ``requires_data_review`` (PRD v2.1 §4.4):
         revalidate previously surfaced a material data revision; user
         must clear via ``decide()`` before further observe() runs.
+      - manifest's current_status is terminal (``completed_success`` /
+        ``completed_fail`` / ``aborted``): the candidate has already
+        been decided. Continuing observe() would let a downstream v2.1
+        DataRevisionEvent or PRD-F ConfigDriftEvent silently overwrite
+        the terminal status to ``requires_data_review``, losing the
+        decision signal. Audit round 2 finding (2026-04-29).
 
     ``dry_run=True``: compute new entries but do not save the manifest.
     """
@@ -635,6 +651,21 @@ def observe(
             f"revision. User must call decide() (e.g. completed_fail "
             f"or aborted) to acknowledge before further observe() "
             f"runs are permitted."
+        )
+
+    # Audit round 2 finding (2026-04-29): also halt on terminal
+    # statuses so revalidate cannot silently overwrite a decided
+    # candidate with ``requires_data_review``. The asymmetry
+    # (requires_data_review halt only) was a gap.
+    if manifest.current_status in TERMINAL_FORWARD_STATUSES:
+        raise ForwardHaltError(
+            f"candidate {candidate_id} is in terminal status "
+            f"{manifest.current_status.value!r}; observe() is not "
+            f"permitted on a decided candidate. Continuing would let a "
+            f"downstream data revision or config drift overwrite the "
+            f"decision signal. If you need to re-open the candidate, "
+            f"start a new candidate_id; the v2.1 / PRD-F evidence "
+            f"contracts intentionally make terminal states absorbing."
         )
 
     cost_path = Path(cost_model_path)

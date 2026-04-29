@@ -29,7 +29,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from core.research.robustness.window_spec import (
     DataIntegritySnapshot,
@@ -245,7 +245,17 @@ class ConfigSnapshot(BaseModel):
     - ``universe_hash`` / ``factor_registry_hash`` / ``risk_config_hash``
       → halt (flips manifest status to ``requires_data_review``)
     - ``research_mask_hash`` / ``system_config_hash`` → warn (record-only)
+
+    ``extra='forbid'`` (audit round 2 finding): hash field set is
+    enumerated. Adding a new hash source MUST go through a versioned
+    PRD round (schema change + severity-policy decision + tests); a
+    typo in the backfill utility ("factory_registry_hash" misspell)
+    or yaml hand-edit must fail loudly rather than silently appear as
+    an unparsed extra. Mirrors the codex round-13 strict-schema
+    pattern adopted on ``core/config/schemas/acceptance.py``.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     schema_version: str = Field(default="1.0", min_length=1)
     universe_hash: str = Field(min_length=12)
@@ -287,7 +297,13 @@ class ConfigDriftEvent(BaseModel):
     A single TD entry can carry both a ``data_revision_event`` and a
     ``config_drift_event`` if both kinds of drift surface in the same
     observe call.
+
+    ``extra='forbid'`` (audit round 2 finding): same rationale as
+    :class:`ConfigSnapshot` — drift event field set is enumerated;
+    schema-level diversion of new fields requires an explicit PRD round.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     detected_at_utc: datetime
     detected_by_run_label: str = Field(
