@@ -7,16 +7,22 @@
 能够独立执行回测 / 挖矿 / 模拟盘 / 报告生成，并在遇到问题时通过本文档
 定位答案。
 
+> **新读者推荐顺序**：§0 术语 → §1 项目是什么 → §2 核心约束 → §3 架构 →
+> §5 环境准备 → §6 首跑 → §7 工作流 → §10 关键概念深入 → §16 故障排查。
+> 如果只是想"立刻跑起来看一眼"：§5 → §6 即可，遇到没听过的词回 §0 查。
+> 卡住时先看 §19。
+
 ---
 
 ## 目录
 
+- [0. 术语速查表（先看这个）](#0-术语速查表先看这个)
 - [1. 项目是什么](#1-项目是什么)
 - [2. 核心约束（不得违反）](#2-核心约束不得违反)
 - [3. 架构总览](#3-架构总览)
 - [4. 目录结构速查](#4-目录结构速查)
 - [5. 环境准备](#5-环境准备)
-- [6. 五分钟快速开始](#6-五分钟快速开始)
+- [6. 三十分钟首跑](#6-三十分钟首跑)
 - [7. 核心工作流](#7-核心工作流)
 - [8. 脚本详细手册](#8-脚本详细手册)
 - [9. 配置文件说明](#9-配置文件说明)
@@ -26,7 +32,101 @@
 - [14. 测试套件](#14-测试套件)
 - [15. 研究方法论](#15-研究方法论)
 - [16. 故障排查](#16-故障排查)
-- [17. 研究历史摘要](#17-研究历史摘要)
+- [17. 项目当前状态](#17-项目当前状态)
+- [18. 附录](#18-附录)
+- [19. 卡住时怎么办（按场景反查）](#19-卡住时怎么办按场景反查)
+
+---
+
+## 0. 术语速查表（先看这个）
+
+下文反复出现的缩写 / 内部代号 / 专有名词。**第一次读 README 不需要全记，
+看到不懂的回这里查就行**。
+
+### 0.1 量化通用术语
+
+| 缩写 / 词 | 含义 | 直观解释 |
+|---|---|---|
+| **CAGR** | Compound Annual Growth Rate | 年化复利收益率。"我这条策略平均每年涨多少" |
+| **Sharpe** | Sharpe Ratio | 单位风险下的超额收益。> 1.0 算不错，> 2.0 出色 |
+| **IR** | Information Ratio | 相对 benchmark 的"超额收益 / 跟踪误差"。本项目 OOS IR ≥ 0.20 是 promote 门槛 |
+| **MaxDD** | Maximum Drawdown | 历史最大回撤（从前高跌幅）。本项目硬约束 ≤ 20% |
+| **OOS** | Out-of-Sample | 样本外。模型从未见过的时段；唯一可信的"未来表现代理" |
+| **IS** | In-Sample | 样本内。训练 / 拟合时见过的数据 |
+| **walk-forward** | walk-forward validation | 滚动训练 → 测试。比固定 train/test split 更接近真实使用 |
+| **holdout** | holdout window | 一段从未参与任何调参的数据，最后一刀验证用。本项目用最后 252 trading day |
+| **IC** | Information Coefficient | factor 值跟 forward return 的 cross-sectional 相关系数 |
+| **factor** | factor / 因子 | 给每个 (date, symbol) 打一个分（如 momentum, volatility）。多 factor 加权 → 仓位信号 |
+| **regime** | market regime | 市场状态分类（本项目分 6 类: BULL/RISK_ON/NEUTRAL/CAUTIOUS/RISK_OFF/CRISIS） |
+| **kill switch** | risk kill switch | 触发风控 → 自动减仓 / 全现金 / 停摆。本项目 4 阶: WARNING/REDUCE/DEFENSIVE/HALT |
+| **PIT** | Point-In-Time | 那一天能拿到的数据，不能用未来数据 reconstruct（防止 lookahead bias） |
+| **lookahead bias** | lookahead bias | 用了未来才知道的信息。回测最常见的 silent killer |
+| **slippage** | slippage | 实际成交价跟决策时观察价的差。本项目用 bps 模型 |
+
+### 0.2 标的术语
+
+| 词 | 含义 |
+|---|---|
+| **SPY** | S&P 500 ETF。本项目主 benchmark |
+| **QQQ** | NASDAQ-100 ETF。次 benchmark；策略必须跑赢两者 |
+| **TQQQ** | 3x leveraged QQQ。本项目允许但严审 |
+| **SOXL** | 3x leveraged 半导体（SOXX 底层）。允许但严审 |
+| **SQQQ** | 3x **inverse** QQQ。**本项目黑名单** |
+| **SOXS** | 3x **inverse** 半导体。**本项目黑名单** |
+| **Mag7** | "Magnificent 7" — AAPL / MSFT / GOOGL / AMZN / META / NVDA / TSLA |
+| **^VIX / ^TNX** | 波动率指数 / 10年国债收益率 — 不交易，只作 features 用 |
+| **macro_reference** | universe 里"只读 features 不下单"的 ticker 类（含 ^VIX/^TNX/DX-Y.NYB） |
+
+### 0.3 项目专有术语
+
+| 词 | 含义 | 详见 |
+|---|---|---|
+| **PRD** | Product Requirements Document — 一个明确写下需求 + 接受标准的内部规格文档。本项目 `docs/prd/*.md` 是当前主线，按字母编号（M1, M2... 或字母 F, G...） | `docs/INDEX.md` §1 |
+| **mining funnel / 5-stage funnel** | 一个候选策略要过 5 道门: Quick → OOS → Robustness → Diversity → Holdout，最后看 QQQ gate 决定 tier | §10.3 |
+| **QQQ gate** | 硬约束: 策略 CAGR 必须 > QQQ CAGR (full-period + holdout + OOS avg 都要过) | §15.2 |
+| **Tier** | 策略评级 S/A/B/C/D。S/A 推荐, B 候选, C watch, D 不 promote | §10.4 |
+| **promote** | 把 mining 出来的候选写进 `config/production_strategy.yaml` 让 paper trading 真正用它。流程: `acceptance_pack.py` → `promote_strategy.py` | §8.9 |
+| **acceptance pack** | promote 前的 9-gate 验收 artifact (`docs/promotion_flow.md`) | §8.9 |
+| **lineage tag** | mining archive 里的实验隔离标签（如 `post-2026-04-26-cycle-01`）。同 lineage 的 trial 才直接可比 | §10.6 |
+| **spec_id** | 一个具体参数组合的唯一 hash (12 char prefix)。在 `data/mining/archive.db::trials` 表里查 | — |
+| **forward observe** | "锁定一个 candidate, 从今天起每天观察它真实表现 N 个 trading day, 满 10/20/40/60 TD 后做决策"。模拟"假装上线"但不真实下单 | §0.4 |
+| **TD** / **TD001** | Trading Day。`TD001` = forward observation 的第一个交易日；checkpoint 在 TD10/20/40/60 | §0.4 |
+| **paper trading** | 模拟盘。从 `config/production_strategy.yaml` 读策略，用真实价格模拟下单 + 跟踪 P&L。**不是** forward observe (paper 是"假装在交易"，forward 是"假装提前锁了候选看它过未来 N 天") | §7.3 |
+| **RCMv1** / **Cand-2** | 当前两个 forward-observation 中的候选。RCMv1 = "Research Candidate Memo v1 defensive composite"; Cand-2 = "candidate 2 orthogonal" 由 `{ret_5d, rs_vs_spy_126d, hl_range}` 等权组成 | `CLAUDE.md` |
+| **Phase B / C / D / E** | 项目历史阶段。当前活跃在 Phase D + E-post (forward observation)；前期阶段总结在 `docs/INDEX.md` §"Final synthesis docs" | `CLAUDE.md` |
+| **Ralph loop** | 多轮 audit 流程的内部代号。每轮一个 round number 一个 lineage tag。详见 `docs/20260420-ralph_loop_log.md` | — |
+| **ConfigSnapshot / ConfigDriftEvent** | PRD F 引入: forward manifest 在 init 时锁定 5 个 config hash, observe 时检查漂移。Halt-class drift (universe / factor_registry / risk) → manifest 状态翻 `requires_data_review` | §0.4 + `docs/prd/20260428-config_universe_snapshot_hardening_prd.md` |
+| **legacy_unhashed_inputs** | forward TD 入口标记: 用 PRD-F 之前老格式写的 entry, revalidate 时跳过 | — |
+| **strict_match** | backtest ↔ paper trading 一致性: 一致的 fill 序列 / 同 hash 输出 | `CLAUDE.md` |
+
+### 0.4 Forward observation 概念图（PRD F + v2.1.3）
+
+```
+   freeze a candidate              every trading day after
+   (lock spec + cost + config) ──> observe(): append one TD entry
+            │                              │
+            │                              ├─ revalidate v2.1: bar hash
+            │                              │  drift detection (data
+            │                              │  revision events)
+            │                              │
+            │                              └─ revalidate F: config hash
+            │                                 drift detection (config
+            │                                 events)
+            ▼                              ▼
+       TD001 (entry day)              TD002, TD003, ..., TD010, ...
+                                       │
+                                       ├─ TD10/20/40/60 = decision
+                                       │   checkpoints
+                                       │
+                                       └─ at decision day: user runs
+                                          decide() → completed_success /
+                                          completed_fail / aborted
+```
+
+**关键约束**:
+- Forward 是"事先锁、事后看"，**不能事后调参**
+- Halt-class config drift（改 universe / factor_registry / risk）会让 manifest 翻 `requires_data_review`，必须 `decide()` 才能继续
+- TD 计数只算真实交易日（不含周末/假期）
 
 ---
 
@@ -61,6 +161,8 @@
 > archive 计数 / candidate registry 记录细节 / round-by-round 工作
 > 状态都在 `CLAUDE.md` 和 `docs/INDEX.md`（指向 final synthesis
 > 文档）。
+>
+> 看不懂下面的 RCMv1 / Cand-2 / TD / ConfigSnapshot 等? → §0 术语表。
 
 - **生产策略**: `config/production_strategy.yaml` 为单一真源（PRD M1）。当前 `status: conservative_default` — post-fix validated best 尚未存在
 - **Universe**: **79 交易标的** = 59 seed_pool + 11 sector ETFs + 5 factor ETFs + 4 cross-asset；另 3 个 macro_reference（^VIX / ^TNX / DX-Y.NYB）只作 features 不交易；`SQQQ` + `SOXS` 在 blacklist
@@ -197,7 +299,9 @@ pqs/
 │   ├── ref/                     - splits, bar_provenance
 │   ├── mining/                  - archive.db, optuna.db
 │   ├── paper_trading/           - paper_trading.db
-│   └── ml/                      - 研究产出（llm candidates, grid results 等）
+│   ├── ml/                      - 研究产出（llm candidates, grid results 等）
+│   ├── baseline/                - latest.json snapshot（git SHA / pytest count / archive 计数）
+│   └── research_candidates/     - frozen spec yaml + forward_run_manifest.json（per candidate）
 ├── research/                    ← 研究源码（tracked）
 │   └── llm_candidates/          - LLM 生成的 factor 候选 (R1-R14 各 round)
 ├── docs/                        ← 研究文档 + PRD + 阶段性 synthesis（详见 docs/INDEX.md）
@@ -217,6 +321,24 @@ pqs/
 ---
 
 ## 5. 环境准备
+
+### 5.0 从 0 开始
+
+**先决条件**: macOS 或 Linux（含 WSL2 / Windows）+ Python 3.14 + git。
+后续所有命令都假定**当前工作目录是 repo 根目录**。
+
+```bash
+# 1. clone
+git clone https://github.com/<your-org>/pqs.git
+cd pqs                                # ⬅️ 之后所有命令在这里跑
+
+# 2. 看一眼是不是真的进了项目根
+ls README.md config/ core/ scripts/   # 应该都看得到
+```
+
+WSL2 用户特别提醒:
+- 强烈建议把 repo 放到 WSL 文件系统（如 `~/Documents/projects/pqs`），**不要**放到 `/mnt/c/...` —— 后者磁盘 I/O 慢 10x，pytest 会卡。
+- conda env 也装在 WSL 里。本仓库 CLAUDE.md 假设 Python 在 `/home/<user>/miniconda3/envs/pqs/bin/python`；自定义请在 §16 troubleshooting 找替换路径的提示。
 
 ### 5.1 Python 环境
 
@@ -276,33 +398,48 @@ bash scripts/run_all.sh check           # 环境自检
 
 ---
 
-## 6. 五分钟快速开始
+## 6. 三十分钟首跑
 
-假设数据已就绪，跑一次完整"研究 → 挖掘 → 回测 → 报告"流程：
+> 注：早期文档叫"五分钟快速开始"，但实际 step 4 mining 一项就 15-30
+> 分钟，全套首跑约 30-45 分钟。诚实标 30 分钟。
+
+跑一次完整"数据 → 回测 → 挖掘 → 报告"流程：
 
 ```bash
-# 1. 检查 universe 和 config（可跳过，默认就行）
-cat config/universe.yaml | head -40
+# Step 0 — 数据是否就绪？（首次运行必做）
+ls data/daily/SPY.parquet 2>/dev/null && echo "数据存在" || echo "需要先跑 fetch"
+# 如果显示"需要先跑 fetch":
+python scripts/fetch_data.py --daily-only   # ~3-5 分钟拉 79 个 symbol 的日线
 
-# 2. 做一次回测（快速版，~3 分钟）
+# Step 1 — 看一眼 universe（可跳过；只是确认默认就行）
+head -40 config/universe.yaml
+
+# Step 2 — 快速回测（跳过 walk-forward，~3 分钟）
 python scripts/run_backtest.py --no-walk-forward
 
-# 3. 看报告（回测产出落在 reports/backtests/ 下带时间戳的目录）
+# Step 3 — 看报告（回测产出落在 reports/backtests/ 下带时间戳的目录）
 ls reports/backtests/backtest/runs/                   # 列出所有 run
-cat reports/backtests/backtest/runs/*/master_report.md | head -80  # 看最近一个
+LATEST=$(ls -td reports/backtests/backtest/runs/*/ | head -1)
+head -80 "$LATEST/master_report.md"                   # 看最近一个的开头
+# ⬆ 看不懂中文报告字段含义? 见 §11 报告解读
 
-# 4. 跑挖掘循环（寻找最佳参数；15-30 分钟）
-python scripts/run_mining.py --trials 30 --budget 900 --type multi_factor
+# Step 4 — 跑挖掘循环（寻找最佳参数；15-30 分钟）
+python scripts/run_mining.py --trials 30 --budget 900 --type multi_factor \
+    --lineage-tag my_first_run
 
-# 5. 看 mining 排行榜
-python scripts/run_mining.py --leaderboard
+# Step 5 — 看 mining 排行榜
+python scripts/run_mining.py --leaderboard --lineage-filter my_first_run
+# ⬆ 看不懂 tier / oos_ir / passed_qqq_gate? 见 §0 + §10.3
 
-# 6. 跑一次模拟盘（当日 live 模式，需当日 60m 已更新）
-python scripts/run_paper.py --mode live
+# Step 6 — 跑一次模拟盘（当日 EOD 后跑；需当日 60m bars 已更新）
+python scripts/run_paper.py --mode status      # 先看当前状态
+python scripts/run_paper.py --mode live        # 真正跑一天
 
-# 7. 综合全流程
-bash scripts/run_all.sh research      # 一键跑研究全套
+# Step 7 — 一键跑研究全套（包含上面所有 + universe + factor screen + xgb）
+bash scripts/run_all.sh research
 ```
+
+**第一次跑遇到问题?** → 先查 §16 故障排查 → 没找到去 §19 反查路标。
 
 ---
 
@@ -802,7 +939,7 @@ window_analysis:
 
 # 注：原 `validation:` 块（Tier D promote 门槛）已迁出 backtest.yaml；
 # 现位于独立的 `config/acceptance.yaml`（threshold unification 2026-04-28，
-# 见 §9.11 与 `core.config.schemas.acceptance.AcceptanceThresholds`）。
+# **完整说明在本文档 §9.11**, schema 在 `core.config.schemas.acceptance.AcceptanceThresholds`）。
 
 mining:                      # Mining 5-stage funnel 阈值
   quick_min_sharpe: 0.30
@@ -1470,6 +1607,44 @@ xfail 解除条件必须文档化在 reason 参数里。
 
 ## 16. 故障排查
 
+> 按错误现象 / 卡住场景反查见 §19。本节按"具体错误消息"排序，可 ⌘F / Ctrl+F 直接搜。
+
+### 16.0 高频首跑错误（先看这个）
+
+#### `ModuleNotFoundError: No module named 'core'` / `... 'pqs'`
+**原因**: 没在 repo 根目录跑命令；或 conda env 没激活。
+**解决**:
+```bash
+pwd                                  # 确认在 pqs/ 根
+conda activate pqs                   # 激活
+which python                         # 应该是 conda env 里的
+```
+`dev/scripts/...` 子目录下脚本通常会自己 `sys.path.insert` 加 root；`scripts/` 直接子目录脚本一般在 repo 根跑就行。
+
+#### `FileNotFoundError: data/daily/SPY.parquet`
+**原因**: 数据没准备。**解决**: 跑 §6 step 0 的 `fetch_data.py --daily-only`。
+
+#### `yfinance` 报 rate limit / 429
+**原因**: yfinance 限流（同 IP 短时间过多请求）。
+**解决**: 等 5-10 分钟再 `--symbols SPY QQQ ...` 分批拉；或减少并发。
+
+#### `pydantic.ValidationError` on `cfg = load_config()`
+**原因**: 改了 `config/*.yaml` 但字段不匹配 schema。
+**解决**: 看 error 里的 missing / extra field name → 检查 `core/config/schemas/*.py` 对应模型。yaml 多 typo'd 字段会报错（`extra="forbid"`）。
+
+#### `pytest` 全部 skip 或 collection 失败
+**原因**: 没装 dev 依赖。**解决**: `pip install -e ".[dev,research]"`。
+
+#### Mining 跑了几小时显存 / 内存爆
+**原因**: `--trials` 设过大或 universe × lookback × symbols 过密。
+**解决**: 减 `--trials` 到 30 + `--budget 900`（15 分钟封顶）；或 `pkill -f run_mining` 然后 `--reset-archive` 慎用。
+
+#### `OOS IR < 0.20`，整体 promote 不了
+**原因**: 不是 bug，是研究标准。详见 §15.5 "不降标准"原则。
+**思路**: 扩 universe / 加新数据源 / 找新 alpha 源；**不要**降阈值。
+
+---
+
 ### 16.1 "Empty data / RangeIndex" 错误
 
 **症状**: `TypeError: Invalid comparison between dtype=int64 and str`
@@ -1637,4 +1812,64 @@ df = store.load("SPY", freq="1m", fallback="auto")  # 自动尾部补全
 | 新 docs/*.md PRD | §4 docs/ + `docs/INDEX.md` |
 
 小改动（typo / 排版）可直接编辑；结构性或语义性改动先和用户确认。
+
+---
+
+## 19. 卡住时怎么办（按场景反查）
+
+> 这是 README 的"反向索引"。先看错误现象 / 你想做的事，再跳到对应章节。
+> 如果场景找不到 → §16 故障排查 → 还找不到 → `git log --oneline` /
+> `docs/INDEX.md` / 直接问 Claude。
+
+### 我看到错误消息 ……
+
+| 错误消息片段 | 跳转 |
+|---|---|
+| `ModuleNotFoundError: No module named 'core'` | §16.0 |
+| `FileNotFoundError: data/daily/...parquet` | §16.0 + §6 step 0 |
+| `pydantic.ValidationError` (load_config) | §16.0 |
+| yfinance 429 / rate limit | §16.0 |
+| `TypeError: Invalid comparison ... RangeIndex` | §16.1 |
+| `KeyError: 'close'` on benchmark | §16.2 |
+| Mining 一直跑出重复 trial | §16.3 |
+| `test_full_period_cagr_beats_qqq` 失败 | §16.4 |
+| 微信不推送 | §16.5 |
+| `--config-dir` / `forward observe` 报 config drift | §0.4 + `docs/prd/20260428-config_universe_snapshot_hardening_prd.md` |
+| `requires_data_review` halt | §0.4（forward 部分）|
+
+### 我想做 ……
+
+| 我想做的事 | 跳转 |
+|---|---|
+| 第一次跑通整套 | §6 三十分钟首跑 |
+| 验证环境装好了 | §5.3 |
+| 加一个新 factor | §12.1 |
+| 改一个风险阈值（kill switch / position cap） | §12.2 + §9.4 |
+| 扩 universe（加新 ticker） | §12.3 + §10.5 |
+| 把 mining 找到的候选 promote 到生产 | §8.9 promote_strategy.py + `docs/promotion_flow.md` |
+| 跑 forward observation（事先锁 candidate 看未来 N 天） | §0.4 + `dev/scripts/oos_mvp/run_forward_observe.py --help` |
+| 给 forward manifest 补 ConfigSnapshot（lazy migration） | `dev/scripts/forward/backfill_config_snapshot.py --dry-run` |
+| 看某个 spec_id 的详细数据 | §12.5 |
+| 对比两个 lineage_tag | §12.6 |
+| 调试某个失败的 pytest | §12.4 + §16 |
+| 给 LLM 一份"喂给它的完整 context" | §8.9 dump_llm_handoff_context.py |
+
+### 我想找一个常量 / 阈值 / 某个 yaml 字段在哪定义 ……
+
+→ §18.1 关键常量位置表
+
+### 我想了解项目当前状态 / 历史 ……
+
+| 想知道的事 | 在哪看 |
+|---|---|
+| 系统**今天**运行状态 + 未解 blocker | §17 |
+| 各阶段的"权威总结" | `docs/INDEX.md` §"Final synthesis docs" |
+| 每轮 ralph-loop 工作记录 | `docs/20260420-ralph_loop_log.md` |
+| 当前 audit 周期 memos | `docs/audit/20260428-ralph_audit_round_*.md` |
+| commit 演进 | `git log --oneline` |
+| Codex / Claude 协作记录 | `docs/claude_review_loop.md` (review/claude-collab branch) |
+
+### 我看不懂某个术语 / 缩写 ……
+
+→ §0 术语速查表
 
