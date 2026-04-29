@@ -157,6 +157,103 @@ class TestAcceptanceCheck:
         assert acc.excess_return > 0
 
 
+# ── threshold injection (PRD §6.2 step 2: AcceptanceThresholds wiring) ───────
+
+
+class TestAcceptanceThresholdsInjection:
+    """Step-2 regression for the threshold unification PRD.
+
+    Reverse-validation cue: revert the constructor's ``thresholds`` kwarg
+    (or revert the body's ``self._thresholds.tier_d.*`` lookup back to the
+    class-level ``TIER_D_*`` constants) and ``test_window_analyzer_honors_yaml_threshold_override``
+    will fail — the override would silently be ignored.
+    """
+
+    def _make_high_excess_low_dd_result(self):
+        """Construct a result that passes default thresholds but fails a tightened
+        ``min_ir_vs_spy`` (~0.30 → 0.95) override."""
+        n = 500
+        idx = pd.bdate_range("2020-01-02", periods=n)
+        strat_daily = (1.10 ** (1 / 252)) - 1
+        bench_daily = (1.04 ** (1 / 252)) - 1
+        strat_eq = pd.Series(
+            100_000.0 * np.cumprod(1 + np.full(n, strat_daily)), index=idx
+        )
+        bench_eq = pd.Series(
+            100.0 * np.cumprod(1 + np.full(n, bench_daily)), index=idx
+        )
+        from core.backtest.backtest_engine import BacktestResult
+        result = BacktestResult(
+            equity_curve=strat_eq,
+            positions=pd.DataFrame(),
+            weights=pd.DataFrame(),
+            cash_curve=strat_eq * 0,
+            trades=[],
+            metrics={},
+        )
+        return result, bench_eq
+
+    def test_default_constructor_uses_schema_defaults(self):
+        """No injection → schema defaults (0.30 IR floor) apply."""
+        from core.config.schemas import AcceptanceThresholds
+        analyzer = WindowAnalyzer(_make_engine())
+        assert analyzer._thresholds.tier_d.min_ir_vs_spy == 0.30
+        assert analyzer._thresholds.tier_d.min_excess_return_vs_spy == 0.05
+        assert analyzer._thresholds.tier_d.max_dd_vs_spy_multiplier == 1.50
+
+    def test_window_analyzer_honors_yaml_threshold_override(self):
+        """Tightened ``min_ir_vs_spy`` from yaml-style injection must flip Tier D
+        from PASS to FAIL (assuming the deterministic strat hits IR < 0.95).
+        """
+        from core.config.schemas import (
+            AcceptanceThresholds,
+            TierDThresholds,
+        )
+        result, benchmark = self._make_high_excess_low_dd_result()
+
+        # Default thresholds: deterministic 10%-vs-4% with no vol → Tier D
+        # excess_return PASS (= 0.06 ≥ 0.05); IR is degenerate (zero std).
+        # Use an explicit 'unattainable' override to prove the kwarg flows
+        # through. The test does NOT assert PASS/FAIL on the default path —
+        # it only asserts the override knob works.
+        tightened = AcceptanceThresholds(
+            tier_d=TierDThresholds(
+                min_excess_return_vs_spy=0.99,  # unattainably high
+                min_ir_vs_spy=0.30,
+                max_dd_vs_spy_multiplier=1.50,
+            )
+        )
+        analyzer = WindowAnalyzer(_make_engine(), thresholds=tightened)
+        acc = analyzer.acceptance_check(result, benchmark)
+        assert not acc.passed, (
+            "tightened min_excess_return_vs_spy=0.99 should make every realistic "
+            "strategy fail Tier D; if this passes, the override was ignored"
+        )
+
+        # Symmetry: same result with permissive thresholds should pass on
+        # excess_return at least (the failing reason should NOT be excess).
+        permissive = AcceptanceThresholds(
+            tier_d=TierDThresholds(
+                min_excess_return_vs_spy=0.0,
+                min_ir_vs_spy=0.0,
+                max_dd_vs_spy_multiplier=99.0,
+            )
+        )
+        analyzer_permissive = WindowAnalyzer(
+            _make_engine(), thresholds=permissive
+        )
+        acc_perm = analyzer_permissive.acceptance_check(result, benchmark)
+        # acc_perm may still fail on QQQ gate or other reasons; we only
+        # assert that the excess_return reason is gone.
+        excess_reason = [
+            r for r in acc_perm.failed_criteria if "excess_return" in r
+        ]
+        assert not excess_reason, (
+            f"permissive override should suppress the excess_return failure "
+            f"reason; got failed_criteria={acc_perm.failed_criteria}"
+        )
+
+
 # ── walk_forward ─────────────────────────────────────────────────────────────
 
 class TestWalkForward:

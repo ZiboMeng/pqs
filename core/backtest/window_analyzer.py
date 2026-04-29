@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 
 from core.backtest.backtest_engine import BacktestEngine, BacktestResult, compute_metrics
+from core.config.schemas import AcceptanceThresholds
 from core.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -129,22 +130,22 @@ class WindowAnalyzer:
     engine      : BacktestEngine 实例（含 cost_model）
     window_size : rolling_backtest 中每个评估窗口的天数（交易日）
     step_size   : rolling_backtest 中滚动步长（交易日）；默认等于 window_size（不重叠）
+    thresholds  : AcceptanceThresholds (可选)；Tier D 验收阈值来源。默认值由
+                  schema/yaml 提供（``config/acceptance.yaml``）。传入显式实例
+                  以覆盖（用于测试或临时实验）。
     """
-
-    # Tier D 验收阈值（与 BacktestConfig.ValidationConfig 一致）
-    TIER_D_MIN_EXCESS_RETURN   = 0.05   # +5% 年化超额收益
-    TIER_D_MIN_IR              = 0.30
-    TIER_D_MAX_DD_MULTIPLIER   = 1.50   # 回撤不超过 benchmark 的 1.5×
 
     def __init__(
         self,
         engine:      BacktestEngine,
         window_size: int = 252,
         step_size:   Optional[int] = None,
+        thresholds:  Optional[AcceptanceThresholds] = None,
     ):
         self._engine      = engine
         self._window_size = window_size
         self._step_size   = step_size or window_size
+        self._thresholds  = thresholds or AcceptanceThresholds()
 
     # ── 样本内分段评估 ────────────────────────────────────────────────────────
 
@@ -480,13 +481,14 @@ class WindowAnalyzer:
         )
         ir = full_metrics.get("ir", np.nan)
 
+        tier_d_thresholds = self._thresholds.tier_d
         failed: List[str] = []
-        if np.isnan(excess_return) or excess_return < self.TIER_D_MIN_EXCESS_RETURN:
-            failed.append(f"excess_return={excess_return:.2%} < {self.TIER_D_MIN_EXCESS_RETURN:.0%}")
-        if np.isnan(ir) or ir < self.TIER_D_MIN_IR:
-            failed.append(f"ir={ir:.3f} < {self.TIER_D_MIN_IR}")
-        if np.isnan(dd_ratio) or dd_ratio > self.TIER_D_MAX_DD_MULTIPLIER:
-            failed.append(f"dd_ratio={dd_ratio:.2f} > {self.TIER_D_MAX_DD_MULTIPLIER}")
+        if np.isnan(excess_return) or excess_return < tier_d_thresholds.min_excess_return_vs_spy:
+            failed.append(f"excess_return={excess_return:.2%} < {tier_d_thresholds.min_excess_return_vs_spy:.0%}")
+        if np.isnan(ir) or ir < tier_d_thresholds.min_ir_vs_spy:
+            failed.append(f"ir={ir:.3f} < {tier_d_thresholds.min_ir_vs_spy}")
+        if np.isnan(dd_ratio) or dd_ratio > tier_d_thresholds.max_dd_vs_spy_multiplier:
+            failed.append(f"dd_ratio={dd_ratio:.2f} > {tier_d_thresholds.max_dd_vs_spy_multiplier}")
 
         # QQQ hard gate (closeout 2026-04-20). Mirrors the mining-
         # evaluator gate so report + evaluator stay aligned: a
