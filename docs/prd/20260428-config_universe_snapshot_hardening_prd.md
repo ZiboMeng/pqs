@@ -120,7 +120,7 @@ Each gets a hash field in the manifest, snapshotted at `init()` time, verified a
 
 ### 4.1 S1 — Universe snapshot
 
-**What**: SHA-256 of the **canonicalized** `config/universe.yaml` content (sorted keys, lists sorted within each section so that re-ordering doesn't false-trigger).
+**What**: SHA-256 of the **canonicalized** `config/universe.yaml` content. Canonicalization sorts dict keys recursively but **preserves list element order** — a permutation of a list value (e.g. `seed_pool: [SPY, QQQ]` → `[QQQ, SPY]`) DOES flip the hash. Some list-shaped knobs encode meaningful order (priority pillars, fallback chains); for the rest, the conservative-fail-closed position is correct because a no-op revert clears any spurious flag instantly. (Earlier draft of this PRD said "lists sorted within each section" — codex round-18 §2 follow-up: corrected to match the shipped behavior.)
 
 **Granularity**: single hash for the full yaml body. Codex round-11 §B3 listed "blacklist hash" separately, but having both `universe_hash` and `blacklist_hash` adds change-detection granularity without semantic value (any blacklist edit is an edit to universe.yaml). v1 ships single `universe_snapshot_hash`. **Codex round-14 Q1 confirmed: do not split in v1**. Reasoning: blacklist edits ARE universe.yaml edits; same class of drift (held-eligible universe changed); split adds labeling granularity but not decision value. Revisit only if real usage proves the granularity is worth it.
 
@@ -343,7 +343,7 @@ def _build_config_snapshot() -> ConfigSnapshot:
     )
 ```
 
-`_canonical_yaml_sha` parses + sorts keys + sorts list values within sections + dumps to canonical bytes + SHA-256. `_factor_registry_contract_sha` reads the runtime `frozenset(PRODUCTION_FACTORS) | frozenset(RESEARCH_FACTORS)` plus `RESEARCH_TO_PRODUCTION_MAP` items, sorts them, and hashes — implementation-stable against code refactors.
+`_canonical_yaml_sha` parses + sorts dict keys recursively + dumps to canonical bytes + SHA-256. **List element order is preserved** (permutations flip the hash; this is the conservative fail-closed position — see §4.1 above; codex round-18 §2 corrected an earlier draft that mis-claimed lists were sorted). `_factor_registry_contract_sha` reads the runtime `frozenset(PRODUCTION_FACTORS) | frozenset(RESEARCH_FACTORS)` plus `RESEARCH_TO_PRODUCTION_MAP` items, sorts them, and hashes — implementation-stable against code refactors.
 
 ### 5.6 Lazy migration boundary
 

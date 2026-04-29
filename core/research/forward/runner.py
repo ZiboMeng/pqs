@@ -602,6 +602,7 @@ def observe(
     cfg=None,
     store: Optional[PriceStore] = None,
     dry_run: bool = False,
+    config_dir: Path = _DEFAULT_CONFIG_DIR,
 ) -> list:
     """Append-only multi-day catch-up.
 
@@ -714,7 +715,11 @@ def observe(
     # PRD F step 3: build a fresh config snapshot for drift detection.
     # Always built (cheap: 5 file hashes); revalidate_manifest skips
     # detection itself when the manifest pre-dates F (lazy migration).
-    current_config_snapshot = _build_config_snapshot(_DEFAULT_CONFIG_DIR)
+    # ``config_dir`` is forwarded from the caller (codex round-18 #1)
+    # so a hermetic test or alternative deployment can point at a
+    # different config tree than the global default — same contract
+    # ``init(config_dir=...)`` already exposed.
+    current_config_snapshot = _build_config_snapshot(Path(config_dir))
     reval = revalidate_manifest(
         manifest,
         spec=spec,
