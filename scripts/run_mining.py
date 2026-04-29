@@ -256,6 +256,10 @@ def main():
         min_avg_oos_excess_vs_qqq  = mining_cfg.get("min_avg_oos_excess_vs_qqq", 0.0),
         # Share mode (P0.5): config is source of truth
         integer_shares             = not cfg.risk.position_limits.allow_fractional_shares,
+        # Tier D acceptance thresholds (codex round-16 follow-up): the
+        # mining evaluator's internal WindowAnalyzer must consume
+        # cfg.acceptance.tier_d, not the schema fallback default.
+        acceptance_thresholds      = cfg.acceptance,
     )
     if open_df is not None:
         evaluator.set_open_df(open_df)

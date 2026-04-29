@@ -87,7 +87,20 @@ class AcceptancePackError(RuntimeError):
 
 # ---------------------------------------------------------------------------
 # Gate thresholds (mirror config/backtest.yaml::mining but hardcoded here so
-# the pack has a stable contract independent of config drift)
+# the pack has a stable contract independent of config drift).
+#
+# Freeze contract (codex round-13 §"Decision 3", 2026-04-28):
+#   _THRESHOLDS does NOT auto-sync from AcceptanceThresholds
+#   (`config/acceptance.yaml` / `core/config/schemas/acceptance.py`).
+#   Future divergence is allowed; only an explicit versioned
+#   recalibration PRD with (a) version bump, (b) contract migration
+#   rationale, (c) backward-compat stance, and (d) changelog entry is
+#   permitted to update _THRESHOLDS. The acceptance pack is the
+#   stable promotion contract for already-promoted artifacts; its
+#   numbers are a separate governance surface from the live Tier D /
+#   walk-forward / factor-tier knobs in `cfg.acceptance`. See
+#   `docs/prd/20260428-acceptance_threshold_unification_prd.md` v1.1
+#   §4.5 for the full rule.
 # ---------------------------------------------------------------------------
 
 

@@ -275,3 +275,108 @@ class TestAutoTier:
         from core.config.schemas import AcceptanceThresholds
         stats = self._make_stats(ir=0.45, p=0.001)
         assert _auto_tier(stats) == _auto_tier(stats, thresholds=AcceptanceThresholds())
+
+
+# ── PRD codex round-16 follow-up: public threshold path on FactorEvaluator ───
+
+
+class TestFactorEvaluatorPublicThresholdPath:
+    """Codex round-16 finding #1: ``FactorEvaluator(thresholds=...)`` must
+    flow through to the resulting ``FactorReport.tier`` so a researcher who
+    edits ``config/acceptance.yaml`` and constructs the evaluator with
+    ``cfg.acceptance`` actually gets yaml-driven tiering — not the
+    schema-default tiering produced by ``FactorReport.__post_init__``.
+
+    Reverse-validation: revert the override-after-construct line in
+    ``FactorEvaluator.evaluate()`` and this test fails.
+    """
+
+    def _make_panel(self, n_dates: int = 252, seed: int = 42):
+        """Tiny deterministic panel: factor rank ≈ next-day return rank.
+
+        Strong-IR factor (~0.85) → default tiers say S, but a tightened
+        ``s_min_ir=0.95`` should demote to A.
+        """
+        rng = np.random.default_rng(seed)
+        n_syms = 20
+        idx = pd.bdate_range("2020-01-02", periods=n_dates)
+        syms = [f"S{i:02d}" for i in range(n_syms)]
+        # base prices
+        rets = rng.normal(0.0005, 0.012, (n_dates, n_syms))
+        prices = 100.0 * np.cumprod(1 + rets, axis=0)
+        price_df = pd.DataFrame(prices, index=idx, columns=syms)
+        # factor: tomorrow's return signal scaled (high IR but not 1.0)
+        fwd1 = price_df.pct_change().shift(-1)
+        noise = rng.normal(0, 0.005, (n_dates, n_syms))
+        factor_df = fwd1 + noise
+        return factor_df, price_df
+
+    def test_factor_evaluator_default_uses_schema_thresholds(self):
+        """No injection: report.tier reflects default 0.8/0.5/0.3/0.1 cuts."""
+        factor_df, price_df = self._make_panel()
+        ev = FactorEvaluator(horizons=[1, 5], n_sub_periods=2, decay_max_lag=3)
+        report = ev.evaluate(factor_df, price_df, factor_name="f_strong")
+        assert report.tier in {"S", "A", "B", "C", "D"}
+        # Sanity: not asserting a specific tier on stochastic data, just
+        # that the path returns a valid label without crashing.
+
+    def test_factor_evaluator_thresholds_kwarg_changes_report_tier(self):
+        """Inject a tightened factor_tier set with a deterministic stats
+        block that exercises the override branch. Use a fixed-stats path
+        so the assertion is sharp."""
+        from core.config.schemas import (
+            AcceptanceThresholds,
+            FactorTierThresholds,
+        )
+
+        # Build a deterministic minimal report by side-loading stats. The
+        # public path computes `tier` two ways: once in __post_init__
+        # (default) and again in evaluate() if thresholds is set. We test
+        # both: build report via evaluate(), then check that flipping the
+        # injected factor_tiers cuts changes the resulting tier.
+        factor_df, price_df = self._make_panel()
+
+        # Default thresholds path
+        ev_default = FactorEvaluator(
+            horizons=[1, 5], n_sub_periods=2, decay_max_lag=3
+        )
+        rep_default = ev_default.evaluate(factor_df, price_df, "f")
+
+        # Forced-D path: every cut set to a value primary IR can't reach
+        unattainable = AcceptanceThresholds(
+            factor_tiers=FactorTierThresholds(
+                s_min_ir=99.0, a_min_ir=99.0, b_min_ir=99.0, c_min_ir=99.0,
+            )
+        )
+        ev_forced = FactorEvaluator(
+            horizons=[1, 5],
+            n_sub_periods=2,
+            decay_max_lag=3,
+            thresholds=unattainable,
+        )
+        rep_forced = ev_forced.evaluate(factor_df, price_df, "f")
+
+        assert rep_forced.tier == "D", (
+            f"unattainable factor_tiers must force tier D; got {rep_forced.tier} "
+            f"(default tier was {rep_default.tier})"
+        )
+
+        # Symmetry: ultra-permissive cuts → at least C even for noise-only
+        permissive = AcceptanceThresholds(
+            factor_tiers=FactorTierThresholds(
+                s_min_ir=0.0, a_min_ir=0.0, b_min_ir=0.0, c_min_ir=0.0,
+            )
+        )
+        ev_permissive = FactorEvaluator(
+            horizons=[1, 5],
+            n_sub_periods=2,
+            decay_max_lag=3,
+            thresholds=permissive,
+        )
+        rep_permissive = ev_permissive.evaluate(factor_df, price_df, "f")
+        # IR=any non-NaN value clears 0.0 → S (with significance) or C
+        # (without). D only if IR is NaN, which shouldn't happen on this
+        # panel.
+        assert rep_permissive.tier != "D", (
+            f"all-zero factor_tiers should never produce D; got {rep_permissive.tier}"
+        )

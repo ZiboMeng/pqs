@@ -84,6 +84,10 @@ class FactorEvaluator:
     n_sub_periods : 子区间数量（检验跨期稳定性）
     decay_max_lag : IC 衰减最大 lag
     ic_method   : 'spearman'（默认）或 'pearson'
+    thresholds  : AcceptanceThresholds (可选)；factor_tiers IR cuts 来源。
+                  若为 None，``evaluate()`` 仍使用 ``AcceptanceThresholds()``
+                  schema 默认；调用方传 ``cfg.acceptance`` 即可让
+                  ``config/acceptance.yaml`` 生效（codex round-16 follow-up）。
     """
 
     def __init__(
@@ -93,12 +97,14 @@ class FactorEvaluator:
         n_sub_periods: int = 4,
         decay_max_lag: int = 20,
         ic_method:     str = "spearman",
+        thresholds:    Optional[AcceptanceThresholds] = None,
     ):
         self.horizons      = list(horizons)
         self.n_quantiles   = n_quantiles
         self.n_sub_periods = n_sub_periods
         self.decay_max_lag = decay_max_lag
         self.ic_method     = ic_method
+        self._thresholds   = thresholds
         self._engine       = FactorEngine()
 
     # ── 主入口 ────────────────────────────────────────────────────────────────
@@ -154,7 +160,7 @@ class FactorEvaluator:
         fwd_5 = self._engine.make_forward_returns(price_df, horizon=5)
         sub_periods = self.sub_period_stability(factor_df, fwd_5)
 
-        return FactorReport(
+        report = FactorReport(
             factor_name  = factor_name,
             horizons     = self.horizons,
             stats        = stats,
@@ -162,6 +168,12 @@ class FactorEvaluator:
             quantile_ret = quantile_ret,
             sub_periods  = sub_periods,
         )
+        # codex round-16 follow-up: when caller injected thresholds, override
+        # the default-tiering result computed by FactorReport.__post_init__
+        # with the yaml-driven cuts from cfg.acceptance.factor_tiers.
+        if self._thresholds is not None:
+            report.tier = _auto_tier(stats, thresholds=self._thresholds)
+        return report
 
     # ── 分层回测 ──────────────────────────────────────────────────────────────
 

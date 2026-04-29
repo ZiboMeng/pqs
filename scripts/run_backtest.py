@@ -194,7 +194,7 @@ def run_strategy(
 
     wf_windows = []
     if walk_forward and len(price_df) >= 756 + 126:
-        analyzer   = WindowAnalyzer(engine=engine)
+        analyzer   = WindowAnalyzer(engine=engine, thresholds=cfg.acceptance)
         wf_windows = analyzer.walk_forward(
             signals_df = weights,
             price_df   = price_df,
