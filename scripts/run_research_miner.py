@@ -39,6 +39,14 @@ from core.factors.factor_generator import (
 from core.factors.factor_registry import RESEARCH_FACTORS
 from core.logging_setup import get_logger, setup_logging
 from core.mining.rcm_archive import RCMArchive
+from core.research.temporal_split import (
+    compute_panel_max_date,
+    compute_split_sha256,
+    ensure_role_assigned,
+    load_temporal_split,
+    restrict_frames_to_train,
+    validate_no_holdout_leakage,
+)
 from core.mining.research_miner import (
     FAMILIES_V1,
     ObjectiveWeights,
@@ -163,6 +171,7 @@ def _write_artifacts(
     results,
     archive: RCMArchive,
     config_snapshot: dict,
+    temporal_split_metadata: Optional[dict] = None,
 ) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(timezone.utc).isoformat()
@@ -188,6 +197,11 @@ def _write_artifacts(
             top_df.head(3).to_dict(orient="records") if len(top_df) else []
         ),
     }
+    if temporal_split_metadata is not None:
+        # Track A audit fields: split_sha256 + split_name + role + panel_max_date.
+        # Trial-level archive metadata wiring is Step A.4; here we capture
+        # them at run-summary level as authoritative provenance.
+        summary["temporal_split"] = temporal_split_metadata
     (out_dir / "run_summary.json").write_text(
         json.dumps(summary, indent=2, default=str)
     )
@@ -239,6 +253,21 @@ def main() -> int:
              "modifying universe.yaml (which is frozen under the "
              "partial unfreeze).",
     )
+    parser.add_argument(
+        "--temporal-split", default=None,
+        help="Path to temporal_split.yaml (Track A v1). When provided, "
+             "the panel is restricted to train_years and "
+             "validate_no_holdout_leakage is enforced. --role becomes "
+             "REQUIRED. Mutually compatible with --end-date (split "
+             "takes precedence; end-date acts as additional cap).",
+    )
+    parser.add_argument(
+        "--role", default=None,
+        help="Candidate role under the temporal split (e.g. core, "
+             "diversifier). REQUIRED when --temporal-split is given. "
+             "Audit guard fail_closed_if_role_unspecified_at_mining_start "
+             "+ M6 C1+C2 (pre-mining lock; no post-hoc reclassification).",
+    )
     args = parser.parse_args()
 
     study_id = args.study or (
@@ -249,6 +278,21 @@ def main() -> int:
 
     cfg = load_config(Path(args.config_dir))
     store = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
+
+    # Track A: temporal split discipline. Mutually exclusive precondition:
+    # --temporal-split requires --role; --role without --temporal-split
+    # is silently ignored (legacy mining flow).
+    split_cfg = None
+    split_sha256 = None
+    if args.temporal_split:
+        split_cfg = load_temporal_split(Path(args.temporal_split))
+        split_sha256 = compute_split_sha256(Path(args.temporal_split))
+        # M6 C1+C2 + audit guard fail_closed_if_role_unspecified_at_mining_start
+        ensure_role_assigned(args.role, split_cfg)
+        logger.info(
+            "Temporal split active: %s (sha256=%s) role=%s",
+            split_cfg.split_name, split_sha256[:16], args.role,
+        )
 
     logger.info("Loading price/volume frames...")
     if args.end_date:
@@ -261,6 +305,22 @@ def main() -> int:
         end_date=args.end_date,
         drop_symbols=args.drop_symbols,
     )
+
+    # Track A: restrict panel to train years + validate no holdout leakage
+    panel_max_date = None
+    if split_cfg is not None:
+        n_pre = frames["close"].shape[0]
+        frames = restrict_frames_to_train(frames, split_cfg)
+        validate_no_holdout_leakage(frames, split_cfg)
+        n_post = frames["close"].shape[0]
+        logger.info(
+            "Temporal split filter: %d → %d rows (dropped %d holdout-year rows)",
+            n_pre, n_post, n_pre - n_post,
+        )
+        pmd = compute_panel_max_date(frames)
+        panel_max_date = pmd.isoformat() if pmd is not None else None
+        logger.info("Panel max date (post-split): %s", panel_max_date)
+
     n_syms = frames["close"].shape[1]
     n_dates = frames["close"].shape[0]
     logger.info("Panel: %d dates × %d symbols (%d tradable)",
@@ -339,6 +399,21 @@ def main() -> int:
 
     # Write artifacts
     out_root = Path(args.out_dir) / study_id
+    temporal_split_metadata = None
+    if split_cfg is not None:
+        temporal_split_metadata = {
+            "split_name": split_cfg.split_name,
+            "split_sha256": split_sha256,
+            "split_yaml_path": str(args.temporal_split),
+            "role": args.role,
+            "panel_max_date": panel_max_date,
+            "train_year_count": len(
+                [y for y in range(2007, 2027)
+                 if y in {x for entry in split_cfg.partition.train_years
+                          for x in (range(entry.range[0], entry.range[1] + 1)
+                                    if hasattr(entry, "range") else [entry.year])}]
+            ),
+        }
     _write_artifacts(
         out_root, study_id, args.lineage, results, archive,
         config_snapshot={
@@ -351,6 +426,7 @@ def main() -> int:
             "fwd_return_mode": "cc",
             "composite_lag_bars": int(args.lag),
         },
+        temporal_split_metadata=temporal_split_metadata,
     )
 
     print("=" * 70)

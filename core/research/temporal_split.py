@@ -34,6 +34,19 @@ Public API:
   - ``expand_year_ranges(years)``: utility to flatten a mixed list of
     ``{range: [start, end]}`` and ``{year: N}`` entries into a sorted
     list of integers.
+  - ``train_year_set(cfg)``: int set of years tagged ``train``.
+  - ``validation_year_set(cfg)``: int set of validation years.
+  - ``sealed_year_set(cfg)``: int set of sealed_test years.
+  - ``restrict_frames_to_train(frames, cfg)``: filter price/volume
+    frames to train_years rows only; preserves frame structure.
+  - ``validate_no_holdout_leakage(frames, cfg)``: raise ValueError if
+    any frame contains a row whose year is in validation or sealed
+    (i.e. the panel must be train-only at this point in the pipeline).
+  - ``compute_panel_max_date(frames)``: latest index date across all
+    frames. Used for archive metadata + provenance audit.
+  - ``ensure_role_assigned(role, cfg)``: fail-closed role check at
+    mining startup (M6 C1+C2 + audit guard
+    ``fail_closed_if_role_unspecified_at_mining_start``).
 """
 from __future__ import annotations
 
@@ -445,6 +458,134 @@ def load_temporal_split(path: Optional[Path] = None) -> TemporalSplitConfig:
     with path.open("r", encoding="utf-8") as f:
         raw = yaml.safe_load(f)
     return TemporalSplitConfig.model_validate(raw)
+
+
+def train_year_set(cfg: TemporalSplitConfig) -> set:
+    """Return the set of integer years tagged as train in the split."""
+    return set(_expand_year_entries(cfg.partition.train_years))
+
+
+def validation_year_set(cfg: TemporalSplitConfig) -> set:
+    """Return the set of integer years tagged as validation."""
+    return {vy.year for vy in cfg.partition.validation_years}
+
+
+def sealed_year_set(cfg: TemporalSplitConfig) -> set:
+    """Return the set of integer years tagged as sealed_test."""
+    return {sy.year for sy in cfg.partition.sealed_test_years}
+
+
+def restrict_frames_to_train(
+    frames,
+    cfg: TemporalSplitConfig,
+):
+    """Filter price/volume frames to rows whose year is in train_years.
+
+    Preserves the dict-of-DataFrame structure used by mining scripts:
+    ``{"close": close_df, "open": open_df, "high": high_df,
+       "low": low_df, "volume": vol_df}``. Each value may be None
+    (which the upstream sometimes uses for absent attributes); None
+    values pass through unchanged.
+
+    The DatetimeIndex is preserved; only rows outside train years are
+    dropped. After this call, ``validate_no_holdout_leakage(frames,
+    cfg)`` is guaranteed to pass (provided the original frames had
+    only one row per (date, symbol) with a valid DatetimeIndex).
+    """
+    train = train_year_set(cfg)
+    out = {}
+    for k, df in frames.items():
+        if df is None:
+            out[k] = None
+            continue
+        idx = df.index
+        if not hasattr(idx, "year"):
+            raise TypeError(
+                f"frame {k!r} index lacks .year attribute; expected "
+                f"DatetimeIndex, got {type(idx).__name__}"
+            )
+        mask = idx.year.isin(train)
+        out[k] = df.loc[mask]
+    return out
+
+
+def validate_no_holdout_leakage(
+    frames,
+    cfg: TemporalSplitConfig,
+) -> None:
+    """Raise ValueError if frames contain any validation or sealed year row.
+
+    This enforces audit guards
+    ``fail_closed_if_2026_row_in_train_panel`` and
+    ``fail_closed_if_validation_year_in_train_panel``. Call this AFTER
+    ``restrict_frames_to_train`` and BEFORE handing the panel to the
+    miner. A leakage at this point indicates a bug in the upstream
+    panel construction or a misconfigured split YAML.
+    """
+    holdout = validation_year_set(cfg) | sealed_year_set(cfg)
+    for k, df in frames.items():
+        if df is None or len(df) == 0:
+            continue
+        idx = df.index
+        if not hasattr(idx, "year"):
+            raise TypeError(
+                f"frame {k!r} index lacks .year attribute; expected DatetimeIndex"
+            )
+        leaked_years = sorted(set(idx.year.unique()) & holdout)
+        if leaked_years:
+            sealed = sealed_year_set(cfg)
+            validation = validation_year_set(cfg)
+            sealed_leaked = [y for y in leaked_years if y in sealed]
+            validation_leaked = [y for y in leaked_years if y in validation]
+            msg_parts = [f"frame {k!r} contains holdout-year rows that must not be in the train panel"]
+            if sealed_leaked:
+                msg_parts.append(f"sealed years leaked: {sealed_leaked}")
+            if validation_leaked:
+                msg_parts.append(f"validation years leaked: {validation_leaked}")
+            raise ValueError("; ".join(msg_parts))
+
+
+def compute_panel_max_date(frames):
+    """Return the latest pd.Timestamp across all non-empty frames.
+
+    Used for ``audit.panel_max_date_recorded_per_run``. Returns None
+    if all frames are empty or None.
+    """
+    import pandas as pd
+
+    latest = None
+    for df in frames.values():
+        if df is None or len(df) == 0:
+            continue
+        idx = df.index
+        if len(idx) == 0:
+            continue
+        cand = idx.max()
+        if latest is None or cand > latest:
+            latest = cand
+    return latest
+
+
+def ensure_role_assigned(role: Optional[str], cfg: TemporalSplitConfig) -> str:
+    """Fail-closed role check at mining startup (M6 C1+C2).
+
+    Per audit guard ``fail_closed_if_role_unspecified_at_mining_start``,
+    a role MUST be declared before mining starts; the role MUST exist
+    in the split's roles map. Returns the validated role name.
+    """
+    if not role:
+        raise ValueError(
+            "role must be specified at mining startup (M6 C1+C2 + audit "
+            "guard fail_closed_if_role_unspecified_at_mining_start). Pass "
+            "--role <name> matching one of the roles defined in "
+            f"{cfg.split_name}: {sorted(cfg.roles.keys())}"
+        )
+    if role not in cfg.roles:
+        raise ValueError(
+            f"role {role!r} not declared in split {cfg.split_name!r}; "
+            f"available: {sorted(cfg.roles.keys())}"
+        )
+    return role
 
 
 def compute_split_sha256(path: Optional[Path] = None) -> str:

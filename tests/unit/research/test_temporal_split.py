@@ -15,11 +15,20 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
+import pandas as pd
+
 from core.research.temporal_split import (
     TemporalSplitConfig,
+    compute_panel_max_date,
     compute_split_sha256,
+    ensure_role_assigned,
     expand_year_ranges,
     load_temporal_split,
+    restrict_frames_to_train,
+    sealed_year_set,
+    train_year_set,
+    validate_no_holdout_leakage,
+    validation_year_set,
 )
 
 
@@ -325,3 +334,190 @@ def test_load_temporal_split_missing_file_raises(tmp_path):
     nonexistent = tmp_path / "no_such.yaml"
     with pytest.raises(FileNotFoundError):
         load_temporal_split(nonexistent)
+
+
+# ---------------------------------------------------------------------------
+# Step A.2 — panel restriction + leak detection + role enforcement
+# ---------------------------------------------------------------------------
+
+
+def _toy_frames():
+    """Build a tiny multi-year frame dict for split-restriction tests."""
+    dates = pd.date_range("2008-12-30", "2026-01-05", freq="B")
+    cols = ["AAPL", "MSFT"]
+    close = pd.DataFrame(1.0, index=dates, columns=cols)
+    close.iloc[:, 0] = range(len(dates))
+    return {
+        "close": close,
+        "open": close.copy(),
+        "high": close.copy(),
+        "low": close.copy(),
+        "volume": close.copy() * 1000,
+    }
+
+
+def test_train_year_set_matches_default_config():
+    cfg = load_temporal_split()
+    train = train_year_set(cfg)
+    # 2009-2017 + 2020 + 2022 + 2024 = 12 years
+    assert train == set(range(2009, 2018)) | {2020, 2022, 2024}
+    assert len(train) == 12
+
+
+def test_validation_year_set_matches_default_config():
+    cfg = load_temporal_split()
+    val = validation_year_set(cfg)
+    assert val == {2018, 2019, 2021, 2023, 2025}
+
+
+def test_sealed_year_set_matches_default_config():
+    cfg = load_temporal_split()
+    sealed = sealed_year_set(cfg)
+    assert sealed == {2026}
+
+
+def test_restrict_frames_to_train_drops_holdout_years():
+    cfg = load_temporal_split()
+    frames = _toy_frames()
+    out = restrict_frames_to_train(frames, cfg)
+    train = train_year_set(cfg)
+    for k, df in out.items():
+        if df is None:
+            continue
+        years = set(df.index.year.unique())
+        assert years <= train, f"frame {k} has non-train years: {years - train}"
+    # 2009-2017 (9 years) + 2020 + 2022 + 2024 should all be present
+    close = out["close"]
+    present = set(close.index.year.unique())
+    assert 2017 in present
+    assert 2020 in present
+    assert 2024 in present
+    # Holdout years should be GONE
+    for excluded in (2018, 2019, 2021, 2023, 2025, 2026):
+        assert excluded not in present, f"year {excluded} leaked into restricted panel"
+
+
+def test_restrict_frames_passes_none_through():
+    cfg = load_temporal_split()
+    frames = {"close": _toy_frames()["close"], "volume": None}
+    out = restrict_frames_to_train(frames, cfg)
+    assert out["volume"] is None
+
+
+def test_restrict_frames_rejects_non_datetime_index():
+    cfg = load_temporal_split()
+    bad = pd.DataFrame({"AAPL": [1, 2, 3]}, index=[0, 1, 2])
+    with pytest.raises(TypeError, match="DatetimeIndex"):
+        restrict_frames_to_train({"close": bad}, cfg)
+
+
+def test_validate_no_holdout_leakage_passes_on_train_only():
+    cfg = load_temporal_split()
+    frames = _toy_frames()
+    train_only = restrict_frames_to_train(frames, cfg)
+    # Should NOT raise
+    validate_no_holdout_leakage(train_only, cfg)
+
+
+def test_validate_no_holdout_leakage_detects_2026_leak():
+    """Audit guard fail_closed_if_2026_row_in_train_panel."""
+    cfg = load_temporal_split()
+    frames = _toy_frames()
+    train_only = restrict_frames_to_train(frames, cfg)
+    # Inject a 2026 row
+    extra = pd.DataFrame(
+        99.0,
+        index=pd.DatetimeIndex(["2026-04-29"]),
+        columns=train_only["close"].columns,
+    )
+    leaked = train_only.copy()
+    leaked["close"] = pd.concat([train_only["close"], extra]).sort_index()
+    with pytest.raises(ValueError, match="sealed years leaked.*2026"):
+        validate_no_holdout_leakage(leaked, cfg)
+
+
+def test_validate_no_holdout_leakage_detects_validation_year_leak():
+    """Audit guard fail_closed_if_validation_year_in_train_panel."""
+    cfg = load_temporal_split()
+    frames = _toy_frames()
+    train_only = restrict_frames_to_train(frames, cfg)
+    # Inject a 2025 (validation) row
+    extra = pd.DataFrame(
+        88.0,
+        index=pd.DatetimeIndex(["2025-06-15"]),
+        columns=train_only["close"].columns,
+    )
+    leaked = train_only.copy()
+    leaked["close"] = pd.concat([train_only["close"], extra]).sort_index()
+    with pytest.raises(ValueError, match="validation years leaked.*2025"):
+        validate_no_holdout_leakage(leaked, cfg)
+
+
+def test_validate_no_holdout_leakage_reports_multiple_leaks():
+    cfg = load_temporal_split()
+    frames = _toy_frames()
+    train_only = restrict_frames_to_train(frames, cfg)
+    extra = pd.DataFrame(
+        77.0,
+        index=pd.DatetimeIndex(["2018-03-01", "2026-02-01"]),
+        columns=train_only["close"].columns,
+    )
+    leaked = train_only.copy()
+    leaked["close"] = pd.concat([train_only["close"], extra]).sort_index()
+    with pytest.raises(ValueError) as excinfo:
+        validate_no_holdout_leakage(leaked, cfg)
+    msg = str(excinfo.value)
+    assert "2018" in msg
+    assert "2026" in msg
+
+
+def test_validate_no_holdout_leakage_skips_empty_frames():
+    cfg = load_temporal_split()
+    empty = pd.DataFrame(columns=["AAPL"])
+    empty.index = pd.DatetimeIndex([])
+    # Should not raise even with an empty frame
+    validate_no_holdout_leakage({"close": empty}, cfg)
+
+
+def test_compute_panel_max_date_returns_latest():
+    frames = _toy_frames()
+    latest = compute_panel_max_date(frames)
+    assert latest is not None
+    assert latest.year == 2026  # toy frames go to 2026-01-05
+
+
+def test_compute_panel_max_date_after_train_restrict():
+    cfg = load_temporal_split()
+    frames = _toy_frames()
+    train_only = restrict_frames_to_train(frames, cfg)
+    latest = compute_panel_max_date(train_only)
+    # Last train year is 2024
+    assert latest.year == 2024
+
+
+def test_compute_panel_max_date_handles_empty_frames():
+    empty = pd.DataFrame(columns=["AAPL"])
+    empty.index = pd.DatetimeIndex([])
+    assert compute_panel_max_date({"close": empty, "open": None}) is None
+
+
+def test_ensure_role_assigned_accepts_known_role():
+    cfg = load_temporal_split()
+    assert ensure_role_assigned("core", cfg) == "core"
+    assert ensure_role_assigned("diversifier", cfg) == "diversifier"
+
+
+def test_ensure_role_assigned_rejects_empty():
+    cfg = load_temporal_split()
+    with pytest.raises(ValueError, match="role must be specified"):
+        ensure_role_assigned("", cfg)
+    with pytest.raises(ValueError, match="role must be specified"):
+        ensure_role_assigned(None, cfg)
+
+
+def test_ensure_role_assigned_rejects_unknown_role():
+    cfg = load_temporal_split()
+    with pytest.raises(ValueError, match="not declared"):
+        ensure_role_assigned("hedge", cfg)
+    with pytest.raises(ValueError, match="not declared"):
+        ensure_role_assigned("satellite", cfg)
