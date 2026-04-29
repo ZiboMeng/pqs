@@ -1,19 +1,36 @@
 # PRD — Candidate Fleet Allocator (minimum version)
 
-**Status**: Draft v1.0 — 2026-04-28
+**Status**: **v1.1 codex round-14 APPROVED at PRD level** — 2026-04-28
 **Author**: zibo (drafted by Claude based on codex round-11 priority #3 + round-12 elevated to #1-missing-macro)
-**Authority required**: user explicit (zibo) — implementation is **not** authorized by this PRD; this is design + acceptance-criteria draft only
+**Authority required**: user explicit (zibo) — implementation is **not** authorized by this PRD; PRD-level sign-off granted by codex round-14 with 4 modifications folded into v1.1; user explicit-go still required before any code lands
 **Lineage tag (when committed)**: `candidate-fleet-allocator-v1-2026-04-28`
 **Parent context**:
 - Codex round-12 (`docs/audit/20260428-codex_round_12_priority_status.md`) — "P2 candidate-fleet allocator is now the highest-value missing macro component"
 - Codex round-11 review (`docs/audit/20260428-codex_round_11_review.md`) §B1 — "下一个大收益点不是再多挖一个 feature，而是定义两个候选如何一起上场"
+- **Codex round-14 review** (`docs/audit/20260428-codex_round_14_fleet_and_F_review.md`) — Approved at PRD level with 4 modifications: (Q1) C4 reframe as aggregate core sleeve floor, (Q2) keep DD throttle absolute + report SPY-relative as evidence only, (Q3) daily cadence, (Q4) shadow mode mandatory with 10-TD soak
 - Forward observe evidence note (`docs/memos/20260428-forward_observe_first_real_after_v2_1_3.md`) — both candidates now collecting forward evidence in parallel; allocator becomes the operational unit of decision
+
+## v1.0 → v1.1 changelog
+
+Folds codex round-14 decisions:
+
+- **§1.1 charter**: explicitly framed as **portfolio decision layer**, not alpha generator (codex framing)
+- **§4.4 C4** rewritten: `core_min_capital_pct` is now the **aggregate core sleeve floor** (sum of `role=core` weights ≥ floor), not a per-candidate floor. Same for `satellite_max_capital_pct` (sleeve ceiling). Equal-weight 0.5/0.5 across two core candidates is now valid.
+- **§4.5 C5**: throttle stays absolute. New requirement: fleet manifest also records SPY-relative DD as a **reported governance metric** (not control input).
+- **§5.2 / §5.3**: config + manifest schema updated for the C4 sleeve reframe + the SPY-relative DD evidence field.
+- **§6 acceptance**: #7 rewritten for sleeve interpretation; new criterion #14b for shadow soak.
+- **§7 step 8**: shadow=True mandatory at v1 first run + 10 trading-day shadow soak before driving live capital routing.
+- **§10**: Q1-Q4 marked RESOLVED with codex round-14 pointers.
 
 ---
 
 ## 1. Why this PRD
 
 ### 1.1 The real PM problem
+
+The fleet allocator is a **portfolio decision layer** sitting on top of already-promoted candidates. It is **not a new alpha generator**. It composes existing per-candidate weight matrices into a single fleet weight matrix, and enforces fleet-level safety constraints (correlation budget, overlap, drawdown, removal). This framing comes from codex round-14:
+
+> The biggest thing it gets right is: it treats the allocator as a **portfolio decision layer**, not as a new alpha generator. That is the correct PM framing.
 
 Today the framework has **two live forward candidates** (`rcm_v1_defensive_composite_01` and `candidate_2_orthogonal_01`), both at TD003, both intentionally constructed to be different (composite correlation 0.404 < 0.5 per Phase E-post R6). The unit of decision is **no longer "single candidate pass/fail"**; it is "what is the best portfolio of candidates over the live forward window?"
 
@@ -132,26 +149,39 @@ When two candidates both want to hold symbol $s$ on day $t$, the **fleet-level**
 
 **Sanity guard**: M12 concentration metrics still apply at the fleet level. If post-trim fleet `top1_weight_max` still > 0.40 → fleet enters `manual_review_required` (analogous to current candidate-level M12 contract).
 
-### 4.4 C4 — Core vs satellite role
+### 4.4 C4 — Core vs satellite role (codex round-14 reframe)
 
 Each candidate carries a role label: `core` | `satellite`.
 
-- `core`: minimum capital floor of 60% (configurable), tighter DD throttle.
-- `satellite`: maximum capital ceiling of 40% (configurable), can be parked / removed without fleet halt.
+**Sleeve-level constraints (codex round-14 Q1 decision)**:
 
-**v1 default**: roles are **assigned manually** at fleet configuration time, NOT auto-derived. (Auto-derivation is a v2 concern requiring forward-window evidence the system doesn't yet have.) Both current candidates would default to `core` until forward-evidence-based role assignment is justified.
+- `core_min_capital_pct = 0.60`: the **aggregate** capital allocated to the set of `role=core` candidates must be ≥ 60%. This is a sleeve floor, NOT a per-candidate floor.
+- `satellite_max_capital_pct = 0.40`: the **aggregate** capital allocated to the set of `role=satellite` candidates must be ≤ 40%. This is a sleeve ceiling, NOT a per-candidate ceiling.
+- Within each sleeve, capital is split among the candidates by `split_policy` (§4.1). For `equal_weight` and N_core=2 with `core_min=0.60`, the legal allocation is e.g. `0.5 / 0.5 = 1.0` (sleeve sum 1.0 ≥ 0.60) ✓. The previous v1.0 ambiguity (per-candidate floor of 0.60 conflicting with two-core equal-weight) is dissolved.
 
-### 4.5 C5 — Drawdown-based throttling
+**Tighter DD throttle for core**: the C5 throttle is computed at the fleet level (not per-candidate); the role label feeds C6 removal/parking eligibility. Per-role differential throttle is a v2 concern and explicitly NOT in v1.
+
+**v1 default**: roles are **assigned manually** at fleet configuration time, NOT auto-derived. (Auto-derivation is a v2 concern requiring forward-window evidence the system doesn't yet have.) Both current candidates default to `core` (sleeve floor 0.60 ≤ aggregate 1.0 ✓).
+
+**Pointer**: codex round-14 §"Fleet Q1 — core role cap consistency under N_core ≥ 2".
+
+### 4.5 C5 — Drawdown-based throttling (codex round-14: absolute v1 + SPY-relative as evidence)
 
 If fleet-level rolling drawdown breaches a threshold, **scale all candidate weights by a throttle factor** before computing the fleet weight matrix.
 
-**v1 contract**:
+**v1 contract — absolute throttle only** (codex round-14 Q2 decision):
 - Trigger 1: fleet rolling 60-day MaxDD > -10% → throttle factor 0.7 (warning state).
 - Trigger 2: fleet rolling 60-day MaxDD > -15% → throttle factor 0.5 (defensive state).
 - Trigger 3: fleet rolling 60-day MaxDD > -20% → throttle factor 0.0 (halt; NO fleet exposure; cash only) — this hits the CLAUDE.md MaxDD ceiling.
 - Recovery: 5 consecutive positive daily fleet returns → throttle factor moves up one tier.
 
+**SPY-relative DD as reported governance metric** (codex round-14 Q2):
+
+The fleet manifest must record `dd_vs_spy_60d` (fleet rolling 60d MaxDD minus SPY rolling 60d MaxDD over the same window) at every rebalance. This is **evidence-only** in v1: it is **not** an input to the throttle decision. CLAUDE.md MaxDD rule "not worse than SPY in crisis" is reported in master report fleet section using this field, and reviewed during decision pack windows. Promotion to a control input is a v2 concern.
+
 **Interaction with existing per-portfolio kill switch**: if `KillSwitch` says DEFENSIVE/HALT at portfolio level, allocator *also* halts (whichever fires first wins). Allocator does NOT lift kill-switch halts.
+
+**Pointer**: codex round-14 §"Fleet Q2 — benchmark-relative DD throttle vs absolute".
 
 ### 4.6 C6 — Removal / parking rule
 
@@ -206,9 +236,11 @@ corr_lookback_days: 252
 # C3 overlap throttle
 max_fleet_symbol_weight: 0.20
 
-# C4 role caps
-core_min_capital_pct: 0.60
-satellite_max_capital_pct: 0.40
+# C4 role caps — codex round-14 reframe: SLEEVE-LEVEL constraints (not per-candidate)
+# core sleeve = sum of all role=core candidate weights
+# satellite sleeve = sum of all role=satellite candidate weights
+core_min_capital_pct: 0.60        # aggregate core sleeve floor (sum >= 0.60)
+satellite_max_capital_pct: 0.40   # aggregate satellite sleeve ceiling (sum <= 0.40)
 
 # C5 DD throttle
 dd_throttle:
@@ -249,8 +281,11 @@ Parallel to forward manifests. Append-only. Records every fleet rebalance + ever
       "events": [],
       "fleet_nav": 100000.00,
       "fleet_dd_60d": -0.012,
+      "spy_dd_60d": -0.018,
+      "dd_vs_spy_60d": 0.006,
       "vs_spy": 0.003,
-      "vs_qqq": 0.001
+      "vs_qqq": 0.001,
+      "shadow": false
     }
   ]
 }
@@ -300,15 +335,17 @@ A change-set passes this PRD if and only if all of the following hold:
 4. **C1** (capital split): equal-weight default + manual override path tested.
 5. **C2** (corr budget): warn at 0.70, reject at 0.85, both events recorded in fleet manifest.
 6. **C3** (overlap throttle): when two candidates compose to fleet weight in symbol $s$ > 0.20, proportional trim is applied; M12 fleet-level concentration computed post-trim.
-7. **C4** (core/satellite): `core_min_capital_pct=0.60` enforced; `satellite_max_capital_pct=0.40` enforced; both core candidates default at equal weight (0.5/0.5) is consistent with `core_min ≤ each w_core` only when N_core ≤ 1; design clarification needed for 2-core case (see open question Q1).
-8. **C5** (DD throttle): 3 trigger levels + 5-day recovery rule, halt state interacts with `KillSwitch` (whichever fires first wins).
+7. **C4** (core/satellite, sleeve-level per codex round-14 Q1): `core_min_capital_pct=0.60` enforced as **aggregate core sleeve floor** (`sum(w_i for i where role=core) >= 0.60`); `satellite_max_capital_pct=0.40` enforced as **aggregate satellite sleeve ceiling** (`sum(w_i for i where role=satellite) <= 0.40`). Equal-weight 0.5/0.5 across two `core` candidates is valid (sleeve sum = 1.0). Per-candidate-floor interpretation explicitly rejected by codex round-14.
+7b. **C4 reverse-validation**: regression test pins (a) two core at 0.5/0.5 PASSES (sleeve floor satisfied at sum=1.0); (b) one core at 0.55 + one satellite at 0.45 FAILS (core sleeve = 0.55 < 0.60 floor); (c) one core at 0.65 + two satellites at 0.20+0.15 PASSES (core 0.65 ≥ 0.60, satellite 0.35 ≤ 0.40); (d) revert sleeve enforcement → confirm test (b) would silently pass, demonstrating the test catches the contract.
+8. **C5** (DD throttle, codex round-14 Q2): 3 trigger levels + 5-day recovery rule, halt state interacts with `KillSwitch` (whichever fires first wins). Throttle uses **absolute** fleet DD only. Manifest additionally records `spy_dd_60d` and `dd_vs_spy_60d` at every rebalance — evidence-only, not control inputs. Master report fleet section reads these for "not worse than SPY in crisis" governance display.
 9. **C6** (removal/parking): all 3 removal rules + 2 parking rules implemented + fleet manifest records reasoned events.
 10. **Hard constraint compliance** under regression test: long-only / sum ≤ 1.0 / SQQQ blacklist / kill-switch preservation.
 11. **No-mutation invariant on forward manifests**: allocator reads forward manifests but never writes to them.
 12. **Fleet manifest atomicity**: write is atomic (tmp file + rename); concurrent allocator runs fail with descriptive lock error rather than corrupting manifest.
 13. **Reverse-validation tests**: (a) DD throttle: simulate fleet returns going to -16% rolling 60d; verify throttle_factor flips to 0.5. Reverse: revert throttle code; verify throttle_factor stays 1.0 (the fix would have been silent without the test). (b) Overlap throttle: construct two candidates both at 70% in AAPL; verify post-composition fleet AAPL ≤ 0.20.
 14. **Full pytest green** including 12+ new tests in `tests/unit/fleet/`.
-15. **Forward evidence note** when allocator is first run live, parallel to the per-candidate evidence note pattern.
+14b. **Shadow soak gate** (codex round-14 Q4 mandatory): fleet allocator first runs with `shadow=True` for **at least 10 trading days** before any decision is allowed to drive paper / forward capital routing. Manifest entries during soak carry `shadow: true`. The shadow→live transition is a manual decision recorded as an evidence note (parallel to the forward observe v2.1.3 first-real-append pattern).
+15. **Forward evidence note** when allocator is first run live (post-shadow), parallel to the per-candidate evidence note pattern.
 16. **Doc updates**: README §1.4 mention; CLAUDE.md add "Fleet allocator" section; INDEX.md.
 
 ---
@@ -324,7 +361,8 @@ A change-set passes this PRD if and only if all of the following hold:
 5. **Step 5**: C2 correlation budget + manifest event recording + 3 unit tests.
 6. **Step 6**: C5 DD throttle + KillSwitch interaction + 4 unit tests (including reverse-validation pair from §6.13).
 7. **Step 7**: C4 role caps + C6 removal/parking rules + 4 unit tests + manifest reason recording.
-8. **Step 8**: backtest / paper / report integration touchpoints + first live fleet observation + evidence note + docs.
+8. **Step 8**: backtest / paper / report integration touchpoints + first **shadow** fleet observation (codex round-14 Q4: `shadow=True` mandatory). Allocator runs in compute-but-don't-act mode for ≥ 10 trading days. Manifest entries during this window carry `shadow: true`.
+9. **Step 9 (post-soak)**: shadow→live transition. Cannot be merged earlier than Step 8 + 10 trading days. This step flips the allocator's `shadow` flag to `False` and writes a "first real fleet decision" evidence note (parallel to `docs/memos/20260428-forward_observe_first_real_after_v2_1_3.md`). User explicit-go required at this step.
 
 Each step has its own commit. Reverting at any step leaves the previous step's behavior intact.
 
@@ -338,7 +376,9 @@ Each step has its own commit. Reverting at any step leaves the previous step's b
 | Equal-weight is wrong default for two highly correlated candidates | medium | medium | C2 corr budget catches; reject at 0.85 |
 | DD throttle false-fires during normal volatility | medium | low (research-only) | warning level (10%) is conservative; tunable |
 | Fleet manifest gets corrupted by concurrent runs | low | severe | atomic tmp-file rename; lock file |
-| Two-core overlap creates `core_min × N_core > 1.0` infeasible | high | low | Q1 design decision; either cap N_core=1 OR rescale core_min by N_core |
+| Two-core overlap creates `core_min × N_core > 1.0` infeasible | ~~high~~ | ~~low~~ | **DISSOLVED by codex round-14 Q1 sleeve reframe** — `core_min` is now sleeve floor, never per-candidate; equal-weight is always feasible |
+| Live capital routing without shadow soak surfaces bugs in production | low | severe | codex round-14 Q4 decision: `shadow=True` mandatory + 10-TD soak before live |
+| SPY DD reporting drift if SPY series cached vs fresh | low | medium | manifest reads SPY from same canonical daily panel as candidate eval; reverse-validation pins one regression test that swaps the SPY series |
 | Researcher hand-edits fleet weights and bypasses removal rules | medium | high | manual override path requires explicit `manual_overrides` policy + audit log entry |
 | Fleet observation lags per-candidate observation | medium | low | separate `alloc.observe` call; daily ritual extension |
 
@@ -355,27 +395,33 @@ Each step has its own commit. Reverting at any step leaves the previous step's b
 
 ---
 
-## 10. Open questions (for codex / user)
+## 10. Open questions — RESOLVED in codex round-14
 
-### Q1 — Core role cap consistency under N_core ≥ 2
+All 4 questions resolved. Pointers to `docs/audit/20260428-codex_round_14_fleet_and_F_review.md`.
 
-If `core_min_capital_pct = 0.60` and we have 2 core candidates at equal weight, each gets 0.5, which is **below** core_min=0.6. Two reconciliation options:
-- **Option A**: enforce `core_min_capital_pct` only for the **single highest-weighted core candidate**. Other core candidates can drop below core_min.
-- **Option B**: rescale core_min by N_core, so for N_core=2 the effective floor per-core = 0.3.
+### Q1 — Core role cap consistency under N_core ≥ 2 — **RESOLVED**
 
-PRD currently leans Option B (rescale) because it keeps fleet semantics consistent across N_core values. Codex / user input welcome.
+**Codex round-14 decision**: neither v1.0 Option A nor Option B. Reframe `core_min_capital_pct` as the **aggregate core sleeve floor** (sum of `role=core` candidate weights ≥ floor), NOT a per-candidate floor. Within the sleeve, capital is split by `split_policy`. Equal-weight 0.5/0.5 across two core candidates is now valid (sleeve sum 1.0 ≥ 0.60).
 
-### Q2 — Should v1 expose a benchmark-relative DD throttle (vs SPY) instead of absolute?
+Folded into §4.4 (rewritten) + §5.2 (config comment) + §6 acceptance #7 (sleeve interpretation) + #7b (reverse-validation cases).
 
-CLAUDE.md MaxDD rule is "not worse than SPY in crisis". An absolute -20% halt may misfire when SPY itself is at -25% (e.g. 2008/2020 crisis). PRD currently uses absolute thresholds for v1 simplicity; adding a benchmark-relative track would require fleet-level rolling SPY return tracking. Defer to v2 or include in v1?
+### Q2 — Benchmark-relative DD throttle vs absolute — **RESOLVED**
 
-### Q3 — Fleet manifest cadence: daily or weekly?
+**Codex round-14 decision**: v1 throttle stays absolute. Do NOT add benchmark-relative throttle to the control path. DO record `dd_vs_spy_60d` in manifest as a reported governance metric. Reserve benchmark-relative throttle as a v2 upgrade after v1 has live evidence.
 
-Per-candidate forward observation is daily. Fleet observation could be (a) daily (matches candidate cadence; manifest grows fast) or (b) weekly (smaller manifest; aggregates intra-week candidate changes). PRD currently leans daily for parity with candidate forward; codex / user input welcome.
+Folded into §4.5 (absolute v1 + SPY-relative evidence-only) + §5.3 (manifest schema `spy_dd_60d` + `dd_vs_spy_60d` fields) + §6 acceptance #8.
 
-### Q4 — Should allocator support a "shadow" mode?
+### Q3 — Fleet manifest cadence: daily or weekly — **RESOLVED**
 
-Run allocator in compute-but-don't-act mode: produce fleet weight matrix + manifest but mark it as `shadow=True`. Lets us observe fleet-level evidence in parallel to live single-candidate paper before committing capital. Strong recommendation for v1; codex / user confirm?
+**Codex round-14 decision**: **Daily**, parity with per-candidate forward observation. Reasons: (1) candidate forward is daily, (2) only 2 candidates so manifest growth trivial, (3) weekly aggregation would hide short-horizon composition drift exactly when we want to see it.
+
+Folded into §5.4 API (daily `alloc.observe`) — no schema change required.
+
+### Q4 — Shadow mode mandatory — **RESOLVED**
+
+**Codex round-14 decision**: **Yes, mandatory for v1**. Allocator first runs `shadow=True` for at least 10 trading days before any decision drives live paper / forward capital routing.
+
+Folded into §6 acceptance #14b (shadow soak gate) + §7 step 8/9 (shadow first, live after ≥ 10 TD soak + user explicit-go) + §5.3 manifest schema (`shadow: bool` field per rebalance).
 
 ---
 
@@ -387,7 +433,7 @@ Codex round-12 priority queue places this at #1-missing-macro after the now-comp
 - **In parallel**: Acceptance Threshold Unification PRD continues review independently.
 - **After codex sign-off**: implementation in 8-step sequence per §7, single change-set per step.
 - **Before implementation**: pause for user explicit-go (CLAUDE.md "MUST PAUSE: changing core constraints" — adding a fleet layer changes the operational unit of decision; warrants user authorization).
-- **First live run**: shadow mode (Q4) for at least 10 trading days before the fleet manifest can drive paper / forward decisions.
+- **First live run**: shadow mode (Q4 RESOLVED, codex round-14 mandatory) for at least 10 trading days before the fleet manifest can drive paper / forward decisions. Shadow→live transition itself is gated on a fresh user explicit-go (per §7 step 9).
 
 ---
 
@@ -395,8 +441,6 @@ Codex round-12 priority queue places this at #1-missing-macro after the now-comp
 
 - **Codex round-11** (origin priority): `docs/audit/20260428-codex_round_11_review.md` §B1
 - **Codex round-12** (elevated to #1): `docs/audit/20260428-codex_round_12_priority_status.md` §"P2 candidate-fleet allocator"
-- **Codex round-14 review / decisions**:
-  `docs/audit/20260428-codex_round_14_fleet_and_F_review.md`
 - **Forward observe evidence** (parallel pattern reference): `docs/memos/20260428-forward_observe_first_real_after_v2_1_3.md`
 - **Per-candidate forward PRD** (sister artifact): `docs/prd/20260427-forward_evidence_hardening_prd.md`
 - **Concentration M12 contract** (consumed at fleet level): `docs/audit/20260428-ralph_audit_round_07.md` INV5

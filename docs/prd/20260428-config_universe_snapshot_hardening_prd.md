@@ -1,13 +1,24 @@
 # PRD — Config / Universe Snapshot Hardening (forward manifest)
 
-**Status**: Draft v1.0 — 2026-04-28
+**Status**: **v1.1 codex round-14 APPROVED at PRD level** — 2026-04-28
 **Author**: zibo (drafted by Claude based on codex round-11 §B3 + codex round-12 P1 first step)
-**Authority required**: user explicit (zibo) — implementation is **not** authorized by this PRD; this is design + acceptance-criteria draft only
+**Authority required**: user explicit (zibo) — implementation is **not** authorized by this PRD; PRD-level sign-off granted by codex round-14 with 5 modifications folded into v1.1; user explicit-go still required before any code lands
 **Lineage tag (when committed)**: `config-snapshot-hardening-2026-04-28`
 **Parent context**:
 - Codex round-11 §B3 — "给 forward manifest 增加 config/universe snapshot hardening PRD" (queue #5)
 - Codex round-12 §P1 — "Recommended next step: First draft the scoped PRD for config/universe snapshot hardening in forward manifests; then, separately, true PIT metadata / fundamentals vendor requirements"
 - Codex round-11 §Q4 (adversarial harness coverage gap #5) — "config drift vs data revision split: 现在 signal hash 依赖当前 universe/config 载入结果；这个很容易把'研究配置变化'伪装成'数据修订'"
+- **Codex round-14 review** (`docs/audit/20260428-codex_round_14_fleet_and_F_review.md`) — Approved at PRD level with 5 modifications: (Q1) keep single universe_hash, (Q2) keep single risk_config_hash, (Q3) keep system_config severity = warn, (Q4) regime.yaml safely out of scope (codex verified runner code path), (Q5) no drift-event streak throttle in v1
+
+## v1.0 → v1.1 changelog
+
+Folds codex round-14 decisions:
+
+- **§4.6 OUT-of-scope table**: regime.yaml entry expanded with codex round-14 Q4 verification — codex grepped `core/research/forward/runner.py::observe` and confirmed the code path does NOT route through `RegimeDetector(cfg.regime)` today; explicit caveat added that future refactor consuming `cfg.regime` would require pulling regime.yaml into v1.1 scope.
+- **§4.1 / §4.4**: v1 ships single `universe_hash` and single `risk_config_hash` per codex round-14 Q1 + Q2 ("better to ship one clean config-drift mechanism first; do not overfit the first contract").
+- **§5.3 severity policy**: `system_config_hash` stays at `warn` per codex round-14 Q3.
+- **§9 out of scope**: drift-event streak throttle explicitly out of v1 per codex round-14 Q5.
+- **§10**: Q1-Q5 marked RESOLVED with codex round-14 pointers.
 
 ---
 
@@ -111,7 +122,7 @@ Each gets a hash field in the manifest, snapshotted at `init()` time, verified a
 
 **What**: SHA-256 of the **canonicalized** `config/universe.yaml` content (sorted keys, lists sorted within each section so that re-ordering doesn't false-trigger).
 
-**Granularity**: single hash for the full yaml body. Codex round-11 §B3 listed "blacklist hash" separately, but having both `universe_hash` and `blacklist_hash` adds change-detection granularity without semantic value (any blacklist edit is an edit to universe.yaml). v1 ships single `universe_snapshot_hash`; if codex review wants split, fold in v1.1.
+**Granularity**: single hash for the full yaml body. Codex round-11 §B3 listed "blacklist hash" separately, but having both `universe_hash` and `blacklist_hash` adds change-detection granularity without semantic value (any blacklist edit is an edit to universe.yaml). v1 ships single `universe_snapshot_hash`. **Codex round-14 Q1 confirmed: do not split in v1**. Reasoning: blacklist edits ARE universe.yaml edits; same class of drift (held-eligible universe changed); split adds labeling granularity but not decision value. Revisit only if real usage proves the granularity is worth it.
 
 **Field**: `manifest.config_snapshot.universe_hash: str` (12+ char prefix of SHA-256).
 
@@ -140,6 +151,8 @@ Each gets a hash field in the manifest, snapshotted at `init()` time, verified a
 
 **Why**: holds `factor_registry.strict_mode`, `position_limits`, `kill_switch` 3-tier thresholds. Edits during forward window can change the **operational risk envelope** without any hash detecting it today.
 
+**Granularity**: single hash for the full yaml body. **Codex round-14 Q2 confirmed: do not split by subsection in v1**. Same trade-off as Q1 — better to ship one clean config-drift mechanism first; if frequent edits later show that kill-switch vs position-limit drift needs separate labels, split in v1.1.
+
 **Field**: `manifest.config_snapshot.risk_config_hash: str`.
 
 ### 4.5 S5 — System config snapshot (optional but cheap)
@@ -160,7 +173,7 @@ Each gets a hash field in the manifest, snapshotted at `init()` time, verified a
 | `config/cost_model.yaml` | already hashed via `cost_assumptions.config_hash` |
 | `data/daily/<sym>.parquet` content | covered by `bar_hash` (v2.1.3) |
 | `config/backtest.yaml` | edited frequently for research; out of scope unless it actually drives forward path (today: mining gates only) |
-| `config/regime.yaml` | regime detection runs at forward observe time but not currently part of forward decision pack; defer to separate concern |
+| `config/regime.yaml` | **Codex round-14 Q4 verified safe to omit in v1**: `core/research/forward/runner.py::observe` does NOT route through `RegimeDetector(cfg.regime)`; current forward observe computes candidate forward metrics from the panel / frozen spec path, not from runtime regime yaml. **Important caveat**: if future forward path is refactored to consume `RegimeDetector(cfg.regime)` directly, OR any strategy path whose live decisions depend on `cfg.regime`, then `regime.yaml` MUST be pulled into snapshot scope in v1.1. |
 | `config/reporting.yaml` | output formatting only |
 | `config/notify.yaml` | notification only |
 | `config/events.yaml` | reference data only |
@@ -250,7 +263,7 @@ When does `ConfigDriftEvent` halt vs warn?
 | `factor_registry_hash` | **halt** | Promotion / demotion of factors changes execution surface; spec validity may be compromised |
 | `risk_config_hash` | **halt** | Position limit / kill-switch threshold edit changes risk envelope; must explicitly re-authorize |
 | `research_mask_hash` | **warn** | Mask edit affects future trades but does not retroactively change historical holdings; first observation post-edit can use new mask |
-| `system_config_hash` | **warn** | Capital path edit is benign for forward research-mode evidence (NAV is relative); halt if you wanted strict capital lockdown |
+| `system_config_hash` | **warn** (codex round-14 Q3 confirmed) | Capital scaling changes are governance-significant but not the same class of comparability break as universe / factor-registry / risk-envelope. Record loudly + warn + continue. Promotion to halt severity is a v1.1+ concern when fleet layer / production paper workflow starts treating capital path as a hard contract. |
 
 **Halt path**: when any halt-severity drift fires, `manifest.current_status → ForwardRunStatus.requires_data_review` (re-uses the v2.1.3 halt machinery; "data review" name stays even though the drift is config-side, because the operational handling is identical: pause, investigate, decide via `decide()`).
 
@@ -426,30 +439,43 @@ A change-set passes this PRD if and only if all of the following hold:
 - **Config edits during paper-only mode (no forward manifest)**: paper engine has its own contract; this PRD is forward-manifest-specific.
 - **Universe expansion as a first-class operation**: codex round-12 P3 — separate PRD when forward evidence is encouraging.
 - **Capacity / liquidity realism**: codex round-12 P4 — staged after allocator.
+- **`config_drift_event_streak` throttle**: codex round-14 Q5 decision — out of scope for v1. Daily observe cadence already gives a natural debounce; do not design for hypothetical multi-intraday config churn before that workflow exists.
 
 ---
 
-## 10. Open questions (for codex / user)
+## 10. Open questions — RESOLVED in codex round-14
 
-### Q1 — Should `universe_hash` be split into `universe_hash` + `blacklist_hash`?
+All 5 questions resolved. Pointers to `docs/audit/20260428-codex_round_14_fleet_and_F_review.md`.
 
-Codex round-11 §B3 explicitly listed both. v1 design ships single `universe_hash` for change-detection simplicity; any blacklist edit IS a `universe.yaml` edit. Split adds granularity without semantic value. Codex / user input welcome.
+### Q1 — Split `universe_hash` and `blacklist_hash`? — **RESOLVED**
 
-### Q2 — Should `risk_config_hash` be split per subsection (kill_switch / position_limits / factor_registry mode)?
+**Codex round-14 decision**: **No split in v1. Keep single `universe_hash`.** Reasoning: blacklist edits ARE universe.yaml edits; same class of drift (held-eligible universe changed); split adds labeling granularity but not decision value. Revisit in v1.1 if real usage proves the granularity is worth it.
 
-Same trade-off as Q1. v1 ships single `risk_config_hash`. If any subsection sees frequent edits and warrants finer-grained event labeling, split in v1.1.
+Folded into §4.1 (granularity rationale + codex pointer).
 
-### Q3 — Severity policy on `system_config_hash`?
+### Q2 — Split `risk_config_hash` by subsection? — **RESOLVED**
 
-PRD §5.3 currently picks `warn` (capital path edit is benign for research-mode evidence). Counter-argument: capital edits should be deliberate and pinned for the duration of forward window. Codex / user input welcome.
+**Codex round-14 decision**: **No split in v1. Keep single `risk_config_hash`.** Same logic as Q1: ship one clean config-drift mechanism first. If frequent edits later show kill-switch vs position-limit drift needs separate labels, split in v1.1.
 
-### Q4 — Is `config/regime.yaml` actually safe to omit?
+Folded into §4.4 (granularity rationale + codex pointer).
 
-PRD currently omits regime config because regime detection happens *outside* the candidate's signal/execution decision (it feeds `MultiFactorStrategy(regime_scale=...)` whose regime_series is computed from price data, not from yaml). But if regime threshold yaml drives the regime series construction, that should be in scope. Need codex / user to confirm regime detection's exact code path before finalizing.
+### Q3 — Severity policy on `system_config_hash`? — **RESOLVED**
 
-### Q5 — Do we want a `config_drift_event_streak` style throttle?
+**Codex round-14 decision**: **Keep `warn` in v1.** Reasoning: capital scaling changes are governance-significant but not the same class of comparability break as universe / factor-registry / risk-envelope. Record loudly + warn + continue. Upgrade to halt only if fleet layer / production paper workflow starts treating capital path as a hard contract.
 
-Edge case: researcher does a refactor sweep editing 5 yamls in 30 minutes; each `forward observe` during that window emits 5 separate halt events. Single observe per day naturally throttles this, but if observation cadence intensifies later (multi-intraday), we may want a per-event-class debounce. Out of scope for v1; flagging as a future v2 concern.
+Folded into §5.3 severity table (system_config_hash row updated with codex pointer).
+
+### Q4 — Is `config/regime.yaml` safe to omit? — **RESOLVED**
+
+**Codex round-14 decision**: **Yes, safe to omit in v1.** Codex independently grepped `core/research/forward/runner.py::observe` and confirmed the code path does NOT route through `RegimeDetector(cfg.regime)` today; current forward observe computes candidate forward metrics from the panel / frozen spec path. **Important caveat carried into PRD**: if future forward path is refactored to consume `RegimeDetector(cfg.regime)` directly OR any strategy path whose live decisions depend on `cfg.regime`, then `regime.yaml` MUST be pulled into snapshot scope in v1.1.
+
+Folded into §4.6 OUT-of-scope table (regime.yaml row expanded with codex verification + caveat).
+
+### Q5 — `config_drift_event_streak` throttle? — **RESOLVED**
+
+**Codex round-14 decision**: **No. Out of scope for v1.** Daily observe cadence already gives a natural debounce. Do not design for hypothetical multi-intraday config churn before that workflow exists.
+
+Folded into §9 out-of-scope (new bullet) + this section (RESOLVED).
 
 ---
 
@@ -473,8 +499,6 @@ This PRD is **independent** of the threshold-unification PRD and the fleet alloc
 
 - **Codex round-11 §B3** (PRD origin): `docs/audit/20260428-codex_round_11_review.md`
 - **Codex round-12 §P1** (round-12 elevation + sequencing): `docs/audit/20260428-codex_round_12_priority_status.md`
-- **Codex round-14 review / decisions**:
-  `docs/audit/20260428-codex_round_14_fleet_and_F_review.md`
 - **Forward evidence v2.1.3 PRD** (sister artifact): `docs/prd/20260427-forward_evidence_hardening_prd.md`
 - **Forward observe evidence note** (live state reference): `docs/memos/20260428-forward_observe_first_real_after_v2_1_3.md`
 - **R6 audit memo** (S25 + adversarial baseline): `docs/audit/20260428-ralph_audit_round_06.md`
