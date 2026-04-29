@@ -395,6 +395,8 @@ Codex round-12 priority queue places this at #1-missing-macro after the now-comp
 
 - **Codex round-11** (origin priority): `docs/audit/20260428-codex_round_11_review.md` §B1
 - **Codex round-12** (elevated to #1): `docs/audit/20260428-codex_round_12_priority_status.md` §"P2 candidate-fleet allocator"
+- **Codex round-14 review / decisions**:
+  `docs/audit/20260428-codex_round_14_fleet_and_F_review.md`
 - **Forward observe evidence** (parallel pattern reference): `docs/memos/20260428-forward_observe_first_real_after_v2_1_3.md`
 - **Per-candidate forward PRD** (sister artifact): `docs/prd/20260427-forward_evidence_hardening_prd.md`
 - **Concentration M12 contract** (consumed at fleet level): `docs/audit/20260428-ralph_audit_round_07.md` INV5

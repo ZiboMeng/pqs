@@ -473,6 +473,8 @@ This PRD is **independent** of the threshold-unification PRD and the fleet alloc
 
 - **Codex round-11 §B3** (PRD origin): `docs/audit/20260428-codex_round_11_review.md`
 - **Codex round-12 §P1** (round-12 elevation + sequencing): `docs/audit/20260428-codex_round_12_priority_status.md`
+- **Codex round-14 review / decisions**:
+  `docs/audit/20260428-codex_round_14_fleet_and_F_review.md`
 - **Forward evidence v2.1.3 PRD** (sister artifact): `docs/prd/20260427-forward_evidence_hardening_prd.md`
 - **Forward observe evidence note** (live state reference): `docs/memos/20260428-forward_observe_first_real_after_v2_1_3.md`
 - **R6 audit memo** (S25 + adversarial baseline): `docs/audit/20260428-ralph_audit_round_06.md`
