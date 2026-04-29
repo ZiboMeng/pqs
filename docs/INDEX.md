@@ -122,7 +122,10 @@ How-to specs, schemas, and stable contracts.
 - [20260421-promotion_flow.md](20260421-promotion_flow.md) — Mining → production promotion flow (M2 contract)
 - [20260420-ralph_loop_prompt.md](20260420-ralph_loop_prompt.md) — Saved ralph-loop prompt template
 
-## 7.5 Audit cycle memos — 10 (cycle complete)
+## 7.5 Audit cycle memos — 10 (cycle complete) + 1 cycle summary
+
+**Cycle-level codex review handoff**: [audit/20260428-ralph_audit_cycle_summary_for_codex_review.md](audit/20260428-ralph_audit_cycle_summary_for_codex_review.md) — single-doc digest of the 10-round ralph-audit-2026-04-28 cycle for codex round-11 review. Includes: why the cycle ran, per-round status table, full findings ledger (closed/deferred/wontfix), cumulative-pass design evidence (R3 PASS elevated twice; R01.1 DST closed in R8 after 5 rounds carry-forward), PRD §1 failure-mode recurrence check (none recurred), 5 specific review asks for codex.
+
 
 Per-round memos for ralph-audit-2026-04-28 (10-round audit cycle: 3
 deep on forward evidence v2.1.3 + 7 cumulative-pass codebase-wide).
