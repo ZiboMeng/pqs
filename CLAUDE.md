@@ -627,15 +627,23 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
      - Adjacent: revalidate now passes matching `track_per_cell` to
        `compute_signal_input_hash` recompute (was silently producing
        spurious 821-cell diffs in opt-in test mode).
-  Forward slice: 51 → 96 tests; full unit suite 1782 passed.
-  **Existing RCMv1 / Cand-2 manifests on disk are not yet mutated**
-  — that happens on the next real `forward observe` call, which
-  will (a) flip TD001 to legacy, (b) write TD002 + TD003 (4.27 +
-  4.28 already available per readiness) under v2.1.3 hash guard.
-- **Status: observation mode resumes**. Daily `forward observe`
-  ritual unblocked now that v2.1.3 hardening is in place. NO new
-  mining / universe / spec / Candidate-3 / data tier work — all
-  still frozen.
+  Forward slice: 51 → 102 tests (+2 R8 DST regressions); full unit
+  suite 1838 passed.
+- **Forward observation active**. First real `forward observe` since
+  v2.1.3 + R8 DST fix ran 2026-04-28 (commit `bcfbc0f`):
+  - rcm_v1_defensive_composite_01: TD001 (legacy) + TD002 + TD003
+  - candidate_2_orthogonal_01:     TD001 (legacy) + TD002 + TD003
+  TD001 carries `legacy_unhashed_inputs=True` (no retroactive hash
+  backfill); TD002 + TD003 carry full v2.1.3 4-scope hashes
+  (signal_input + execution_nav + benchmark + bar_hash rollup).
+  Cross-candidate benchmark_hash invariant verified live (same SPY+
+  QQQ panel → same hash on same TD). Idempotency confirmed (re-run
+  observe returns empty, n_runs unchanged). Evidence note:
+  `docs/memos/20260428-forward_observe_first_real_after_v2_1_3.md`.
+  Next decision pack at TD010; currently at TD003 (~7 TDs out).
+- **Status: observation-mode running**. Daily `forward observe`
+  ritual is live. NO new mining / universe / spec / Candidate-3 /
+  data tier work — all still frozen.
 
 **Framework Completion PRD** (`docs/20260421-prd_framework_completion.md`
 v1.2) — shipped M0-M8 + M10 + M13 + M15 + M16 (see archive); open:

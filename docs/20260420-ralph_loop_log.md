@@ -16911,3 +16911,33 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
     - [ ] codex queue #8: M18 / 更复杂模型研究
 
 → 完整 PRD: `docs/prd/20260428-acceptance_threshold_unification_prd.md`
+
+
+---
+
+## R-codex-round12-followup-2026-04-28 (CLAUDE.md fix + fleet allocator PRD draft)
+
+1. **本轮主题**: 处理 codex round-12 priority status — (a) immediate cheap fix: CLAUDE.md:631-634 stale 行（说 manifest "not yet mutated" 但 bcfbc0f 已经写入 TD002+TD003）；(b) 起草 codex 现在最关心的 P2 candidate-fleet allocator PRD（codex 评为 "highest-value missing macro component"）。
+2. **本轮目标**: 把 codex round-12 给的 P5 stale-line + P2 PRD draft 做掉。**不**做 implementation — 等 codex sign-off + user explicit-go。
+3. **为什么这轮优先做它**: codex round-12 明确指引：(1) Acceptance Threshold Unification PRD 等 sign-off 不要直接进代码；(2) candidate-fleet allocator 是现在最大的 macro capability 缺失；(3) CLAUDE.md stale 行 immediate cheap fix。
+4. **做了什么**: (a) CLAUDE.md fix — 631-634 行从 "manifests not yet mutated" 改成"first real observe ran 2026-04-28 (commit bcfbc0f); RCMv1 + Cand2 都到 TD003 with v2.1.3 4-scope hashes; 下一个 decision pack 在 TD010"；(b) draft `docs/prd/20260428-candidate_fleet_allocator_prd.md` v1.0 — 6 个 minimum capability (C1 capital split / C2 corr budget / C3 overlap throttle / C4 core-vs-satellite / C5 DD throttle / C6 removal+parking rules)；新 `core/fleet/` module 5 个文件设计 + 新 `config/fleet.yaml` 11 sections + 新 fleet manifest（parallel forward manifest 模式）；8-step implementation sequence；16-criterion acceptance；4 个 open question 给 codex/user 决策；out-of-scope 明确（YAGNI + 与其他 PRD 边界）。
+5. **修改了哪些文件**: `CLAUDE.md`（forward OOS active workstream §的 stale 行更新到 bcfbc0f post-state）、`docs/prd/20260428-candidate_fleet_allocator_prd.md`（新 PRD）、`docs/INDEX.md`（§1 PRD count 18 → 19，新 entry）、`docs/20260420-ralph_loop_log.md`（本条）。
+6. **跑了哪些测试/实验**: 仅文档工作，无代码改动。读了 `docs/audit/20260428-codex_round_12_priority_status.md` 全文 + 现有 candidate state（`candidate_registry.py` + 两个 forward manifest）+ M12 / KillSwitch / cost_model 已有架构作为 PRD §3.2 input。
+7. **结果如何**: PRD draft 立起来。明确 6 个 minimum 而不是 full PM 栈 — codex 要求是"minimum allocator"。3 个 codex P5 状态修复（包括他指出的 stale 行）+ P2 PRD 同时进。
+8. **当前发现的新问题/新机会**: 在起草过程中发现一个真实 design ambiguity (Q1)：N_core ≥ 2 时 `core_min_capital_pct = 0.60` 跟 equal-weight 的两 core (各 0.5) 矛盾。PRD §10 Q1 列了 Option A vs B 给 codex/user 决策。Q2 也很关键 — DD throttle 用 absolute -20% 还是 vs SPY relative；CLAUDE.md MaxDD 规则是 "not worse than SPY in crisis"，absolute 在 SPY 自己 -25% 时会 misfire。先 v1 用 absolute 简单实现，留 Q2 给 codex/user 决定要不要 v1 就支持 relative。
+9. **剩余风险**: 两个 PRD draft 同时 in-flight（acceptance threshold + fleet allocator）。但它们 in §1.4 已经显式标注为 independent — allocator 不碰 threshold，threshold 不碰 fleet。codex 应该可以并行 review。
+10. **下一轮建议方向**: 等用户回复 / codex 在 review/claude-collab 上的下轮反馈。如果 codex sign-off 任一 PRD 且用户 go，进对应实现。如果 codex 提了 Q1-Q4 的 specific guidance，把答案 fold 进 PRD v1.1 再等 sign-off。**不要**主动开新 design line — codex round-12 已经把队列说清楚了，按队列走。
+11. **TODO checklist（更新后）**:
+    - [x] codex queue #1: 真实 forward observe（两个候选）— DONE 2026-04-28 (bcfbc0f)
+    - [x] codex queue #2: Acceptance Threshold Unification PRD draft — DRAFT v1.0 LANDED, awaiting sign-off
+    - [x] codex queue #3 + round-12 P2 elevated: candidate-fleet allocator PRD draft — **DRAFT v1.0 LANDED 2026-04-28; awaiting sign-off**
+    - [x] codex round-12 P5 stale CLAUDE.md fix — **DONE**
+    - [ ] (waiting) codex sign-off on either / both PRDs + user explicit-go before implementation
+    - [ ] codex round-12 P0 follow-through: keep daily forward observe to TD010
+    - [ ] codex queue #4: forward daily ritual 固化（fleet allocator 实现完后再做）
+    - [ ] codex queue #5: config/universe snapshot hardening PRD
+    - [ ] codex queue #6: capacity/liquidity realism 升级
+    - [ ] codex queue #7: M17 live-feed infra
+    - [ ] codex queue #8: M18 / 更复杂模型研究
+
+→ 完整 PRD: `docs/prd/20260428-candidate_fleet_allocator_prd.md`
