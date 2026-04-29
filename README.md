@@ -1119,27 +1119,53 @@ intraday_timing:
 ```
 
 ### 9.5 `cost_model.yaml`
-分 tier 的滑点 + 佣金（单位 bps）：
+
+分 tier 的滑点 + 佣金（单位 bps; 1 bps = 0.01%）。本节列**全部字段**便于 ctrl-F；
+研究 / 调阈值时直接参考当前文件即可（值会随研究迭代）。
+
 ```yaml
-mode: bps_based
+mode: bps_based                   # 当前唯一 mode
 vix_stress_threshold: 30.0        # VIX ≥ 30 时启用 stress multiplier
-stress_slippage_multiplier: 2.5
+stress_slippage_multiplier: 2.5   # slippage × 2.5 当 VIX 越线
 
 tiers:
-  liquid_etf:                     # SPY/QQQ/GLD/XL* 宽 ETF
-    symbols: [SPY, QQQ, GLD, XLK, ...]
+  liquid_etf:                     # 宽 ETF（最低成本档）
+    symbols: [SPY, QQQ, GLD, IWM, XLK, XLF, XLE, XLV, XLI, XLY, XLP, XLU, XLB]
     commission_bps: 0.5
     slippage_interday_bps: 4
     slippage_intraday_bps: 7
-  large_cap_equity:               # Mag7 + 大 cap common stock
+
+  large_cap_equity:               # Mag7 + 其它大 cap common stock
+    symbols: [AAPL, MSFT, GOOGL, GOOG, AMZN, META, NVDA, TSLA, BRK-B, JPM, V, MA]
     commission_bps: 0.5
     slippage_interday_bps: 6
     slippage_intraday_bps: 10
-  leveraged_etf:                  # TQQQ/SOXL 等 3x
+
+  leveraged_etf:                  # 3x 杠杆 ETF（最高成本档）
+    symbols: [TQQQ, SOXL, UPRO, SPXL, TECL]
     commission_bps: 1.0
     slippage_interday_bps: 12
-  # 等等
+    slippage_intraday_bps: 20
+
+  default:                        # fallback：未匹配上面三档的 ticker
+    symbols: []
+    commission_bps: 1.0
+    slippage_interday_bps: 8
+    slippage_intraday_bps: 12
+
+capacity_model:                   # 资金体量影响（v1 disabled，预留 hook）
+  enabled: false
+  threshold_usd: 500000           # 单笔超过此 USD 触发 impact 加成
+  impact_bps_per_100k: 1.0        # 每 100k 加 1 bp slippage
 ```
+
+**字段索引**:
+- `mode` (str): 当前唯一值 `bps_based`
+- `vix_stress_threshold` (float): VIX 阈值，跨过启用 stress
+- `stress_slippage_multiplier` (float): stress 模式下 slippage 放大倍数
+- `tiers` (dict): 4 个 tier — `liquid_etf` / `large_cap_equity` / `leveraged_etf` / `default`
+  - 每个 tier 有 `symbols` (list) + `commission_bps` + `slippage_interday_bps` + `slippage_intraday_bps`
+- `capacity_model.enabled` (bool): v1 默认 false；启用后超过 `threshold_usd` 的下单按 `impact_bps_per_100k` 累加 slippage
 
 ### 9.6 `regime.yaml`
 6 状态分类：BULL / RISK_ON / NEUTRAL / CAUTIOUS / RISK_OFF / CRISIS
@@ -1917,17 +1943,47 @@ df = store.load("SPY", freq="1m", fallback="auto")  # 自动尾部补全
 >
 > 本节只描述系统**今天**的状态：未解 blocker + 术语约定。
 
-### 17.1 未解 blockers 摘要
+### 17.1 未解 blockers 摘要（带客观数据，2026-04-29 freshly verified）
 
 - **OOS IR ≥ 0.20 promote threshold 仍未跨过**（Deep Mining 唯一
   candidate `6d15b735a64c` OOS IR +0.292，但 full-period fresh
   backtest 揭示 -10.33pt CAGR vs QQQ 挡下）
-- **factor → forward-return 在 2021+ 系统性负**（XGBoost / Transformer
-  跨 model class 一致 OOS R² ≤ 0）
-- **universe 仍 tech-concentrated**：79 symbols 中约 10-12 个 alpha
-  generators
-- 突破方向候选：universe 再扩容 / 新数据源（microstructure /
-  order flow / sentiment）/ structurally new factor family
+
+- **factor → forward-return 在 2021+ 系统性负** —
+  最新 XGBoost CV (R43, `data/ml/xgb_cv/R43_expanded_shap/summary.json`,
+  21d horizon, 35 features, 110,969 panel rows，2026-04-22 跑):
+
+  | Fold | Test 期 | OOS R² |
+  |---|---|---|
+  | 1 | 2017-10-27 → 2019-07-25 | **+0.343** ✓ |
+  | 2 | 2019-07-25 → 2021-03-30 | **+0.390** ✓ |
+  | 3 | 2021-03-30 → 2022-11-26 | **−0.809** ✗ |
+  | 4 | 2022-11-26 → 2024-07-26 | **−0.200** ✗ |
+  | 5 | 2024-07-26 → 2026-03-27 | **−0.076** ✗ |
+
+  Mean OOS R² = **−0.070** across 5 folds; 2/5 folds positive，inflection
+  point 在 2021-03-30。这是跨 model class 一致信号（早期 R3 baseline 也
+  在该 cutoff 后转负），不是 single-fold 噪声。
+
+- **Universe 仍 tech-concentrated** — 最新 alpha diagnostic
+  (`data/ml/readme_audit_2026_04_29_summary.json`, SPY benchmark, 2018-01-01 起)
+  79 symbols 分类:
+
+  | Category | n | 含义 |
+  |---|---|---|
+  | ALPHA_GENERATOR | **11** | β 低 + 正 α 显著（独立信号源） |
+  | BETA_PLUS_ALPHA | **9** | 高 β 但 α-compensated |
+  | DIVERSIFIER | 24 | β < 0.5（regime hedge 用） |
+  | MARKET_LIKE | 33 | β ≈ 1, α 接近 0（被动 SPY 追随） |
+  | PURE_BETA | 2 | β 高但 α 负（DROP 候选: TQQQ, AXP） |
+
+  独立 alpha 来源数 11 — 离 "20+ 多元 alpha" 的研究目标还差不少；
+  SPY CAGR 12.43% / Sharpe 0.703 / MaxDD -34.23%（2018-2026 8 年期）
+  作为 benchmark 基线参考。
+
+- **突破方向候选**：universe 再扩容（参考 R37 `data/ml/R37_sp500_alpha.csv`
+  511-symbol pool）/ 新数据源（microstructure / order flow / sentiment）
+  / structurally new factor family
 
 ### 17.2 术语约定
 
