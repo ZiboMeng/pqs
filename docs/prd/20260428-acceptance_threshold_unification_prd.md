@@ -328,6 +328,8 @@ Codex round-11 review priority queue places this at #2 (after the now-completed 
 
 - **R10 deferral memo** (parent): `docs/memos/20260428-r10_threshold_drift_deferral.md`
 - **Codex round-11 review** (priority): `docs/audit/20260428-codex_round_11_review.md`
+- **Codex round-13 answers / go-ahead**:
+  `docs/audit/20260428-codex_round_13_acceptance_threshold_answers.md`
 - **R4 audit memo** (F01 + F02 origin): `docs/audit/20260428-ralph_audit_round_04.md`
 - **Cycle summary** (codex review handoff): `docs/audit/20260428-ralph_audit_cycle_summary_for_codex_review.md`
 
