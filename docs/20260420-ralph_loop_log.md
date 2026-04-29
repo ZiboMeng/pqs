@@ -16971,3 +16971,32 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
 
 → 完整 PRD: `docs/prd/20260428-acceptance_threshold_unification_prd.md` (v1.1)
 → Codex sign-off: `docs/audit/20260428-codex_round_13_acceptance_threshold_answers.md`（在 review/claude-collab 上）
+
+
+---
+
+## R-codex-queue-F-config-snapshot-prd-2026-04-28 (PRD draft)
+
+1. **本轮主题**: 起草 codex queue priority **F** — config/universe snapshot hardening PRD（codex round-12 P1 first step / queue #5）。
+2. **本轮目标**: 给"config drift"和"data revision"做 first-class 区分，让 forward 框架除了能 detect 数据回填以外，也能 detect config 变更（universe / factor_registry / research_mask / risk / system）。**不**做实现 — 仅 PRD draft + 与 fleet allocator PRD 一起 push review 给 codex round-14。
+3. **为什么这轮优先做它**: 用户明确指令"把f一起写了 给codex一起审"。codex round-12 把 F 列在 P1 第一步（"config snapshot hardening 是 fleet allocator 之前需要的稳定性保证"）。把两个 PRD 一起 push 让 codex round-14 并行 review，避免 codex 来回切 context。
+4. **做了什么**: (a) 把 5 类 config source 列出（S1 universe membership / S2 factor_registry contract / S3 research_mask / S4 risk / S5 system_capital）+ 各自 drift 影响域；(b) 设计新 `ConfigSnapshot` pydantic submodel — 5 个 hash field + 5 个 raw value snapshot field；(c) 设计新 `ConfigDriftEvent` class 与 existing `DataRevisionEvent` 严格分离 — 不要复用，因为 severity / response 政策不同（data revision = E1-E5 materiality scale；config drift = source-by-source halt vs warn）；(d) severity 政策：universe / factor_registry / risk = halt（要求 user 显式判断 config-revision-as-new-spec or pause-and-rollback）；research_mask / system = warn（不致命，但记录到 manifest）；(e) lazy migration boundary 镜像 v2.1.3 `legacy_unhashed_inputs` 模式 — existing TD001/2/3 manifests 留着，第一次 v2.2 observe call 在 ConfigSnapshot 缺失时 mark `legacy_unhashed_config=True`，不阻塞；(f) opt-in backfill utility `dev/scripts/forward/backfill_config_snapshot.py` 给两个现有 candidate 用；(g) 5-step impl + 13-criterion acceptance + 5 个 open question 给 codex/user。
+5. **修改了哪些文件**: `docs/prd/20260428-config_universe_snapshot_hardening_prd.md`（新 PRD）、`docs/INDEX.md`（§1 PRD count 19 → 20，新 entry 列在 fleet allocator 之前）、`docs/20260420-ralph_loop_log.md`（本条）。
+6. **跑了哪些测试/实验**: 仅文档工作，无代码改动。读了 codex round-12 priority status memo + 现有 forward runner / manifest_schema / DataRevisionEvent + factor_registry / production_strategy / risk yaml / system yaml 作为 5 source 锁定依据。
+7. **结果如何**: PRD draft 立起来，与 fleet allocator PRD 平行。Key design decision：**不要复用 DataRevisionEvent**。它的 E1-E5 是 NAV-impact materiality；config drift 的 severity 是 source-class-based。复用会让两个语义混在一起，将来 audit 时辨识困难。Q4 / Q5 是 design ambiguity (universe membership-only vs full config / config_hash composition)，留给 codex 决策。
+8. **当前发现的新问题/新机会**: 在起草过程中发现一个值得注意的 boundary case (Q3) — `risk.yaml` 里有 kill-switch threshold 这种 ops-only 字段，可能不应该走 config-drift gate（runtime ops 调整不该阻塞 forward observation）。PRD §10 Q3 列了"是否要把 risk.yaml 拆成 'evaluation-relevant' vs 'ops-runtime' 两 section"。这个问题需要 codex / user 决策。
+9. **剩余风险**: 两个 PRD 同时 in-flight（threshold v1.1 + fleet + 现在 F），但它们都是 design-only / 等 user go 才进 implementation；不会 race。F PRD 的 lazy migration boundary 设计参考 v2.1.3 `legacy_unhashed_inputs` — 已经被 R6/R8 audit cycle 验证过，pattern 复用度高。
+10. **下一轮建议方向**: 把 fleet PRD + F PRD 都 push 到 review/claude-collab branch 让 codex round-14 一起 review。等 codex 反馈 + user explicit-go 才进 implementation。**不要**主动开新 design line — codex queue 已经把后续顺序说清楚（F → fleet → capacity/liquidity → M17 → M18），按队列走。
+11. **TODO checklist（更新后）**:
+    - [x] codex queue #1: 真实 forward observe — DONE 2026-04-28
+    - [x] codex queue #2 / round-12 P5 P2 followup: CLAUDE.md fix + fleet allocator PRD draft — DONE 2026-04-28 (cb19c2e)
+    - [x] codex round-13 sign-off → threshold PRD v1.1 — DONE 2026-04-28 (7b0cdb0)
+    - [x] codex queue **F** / round-12 P1: config/universe snapshot hardening PRD draft — **DRAFT v1.0 LANDED 2026-04-28; awaiting codex round-14 sign-off**
+    - [ ] push fleet allocator PRD + F PRD 到 review/claude-collab 让 codex round-14 一起审
+    - [ ] (waiting user) threshold PRD v1.1 implementation — 4-step sequence per §6
+    - [ ] codex round-12 P0 follow-through: keep daily forward observe to TD010
+    - [ ] codex queue #6: capacity/liquidity realism 升级
+    - [ ] codex queue #7: M17 live-feed infra
+    - [ ] codex queue #8: M18 / 更复杂模型研究
+
+→ 完整 PRD: `docs/prd/20260428-config_universe_snapshot_hardening_prd.md`
