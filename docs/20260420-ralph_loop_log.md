@@ -16884,3 +16884,30 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
     - [ ] codex queue #8: M18 / 更复杂模型研究
 
 → 完整 evidence note: `docs/memos/20260428-forward_observe_first_real_after_v2_1_3.md`
+
+
+---
+
+## R-acceptance-threshold-unification-prd-2026-04-28 (codex queue #2 — PRD draft)
+
+1. **本轮主题**: 起草 Acceptance Threshold Unification PRD（关闭 R4 F01 + F02），codex round-11 review queue #2。
+2. **本轮目标**: 给 F01 / F02 的 threshold drift 一个完整的设计方案，包括 inventory（实际有 8 个锚不是 R10 deferral memo 写的 3 个）、in-scope vs out-of-scope 划分、新 `AcceptanceThresholds` model 设计、yaml 重定位、4-step 实现序列、acceptance criteria 12 项、风险表、open question 给 codex / user 决策。**不做实现** — 仅 PRD draft + push review 给 codex sign-off。
+3. **为什么这轮优先做它**: codex round-11 明确说"短期合理 defer implementation, 不可以 defer prioritization"。先把 PRD 立起来才能让后续实现按 spec 推进 — 不是又一个"想到哪做到哪"的 patch。
+4. **做了什么**: (a) 全 codebase grep 把所有 threshold 锚找全 — 发现 8 个不是 3 个；(b) 关键发现：`ValidationConfig` 9 个 field 没有任何 active consumer，是 pure dead config（`production_strategy.py::validation` 是 4-bool `ValidationStatus`，不是 threshold 的那个）；(c) 把 8 个锚分成 in-scope（A1/A2/A5/A7）+ out-of-scope（A3 已 wired / A4 intentionally frozen / A6 PRD v3 §C derived / A8 already-live source）；(d) 设计 `core/config/schemas/acceptance.py::AcceptanceThresholds` 12 个 field；(e) 设计 `config/acceptance.yaml` 新文件（不就地改 backtest.yaml::validation，因为 dead 太久了，relocate signal 更清楚）；(f) 写 4-step 实现序列 + 12 项 acceptance criteria + 风险表 + 3 个 open question 留给 codex / user 决策。
+5. **修改了哪些文件**: `docs/prd/20260428-acceptance_threshold_unification_prd.md`（新 PRD）、`docs/INDEX.md`（§1 PRD count 17 → 18，新 entry）、`docs/20260420-ralph_loop_log.md`（本条）。
+6. **跑了哪些测试/实验**: 仅 grep 调研，无代码改动。grep 跑了 4 次（ValidationConfig fields / ValidationConfig consumers / MiningEvaluator threshold fields / config yaml threshold values）+ 读了 4 个 module（ValidationConfig 定义 / WindowAnalyzer / acceptance_pack._THRESHOLDS / factor_evaluator._auto_tier）。
+7. **结果如何**: PRD draft 立起来。比 R10 deferral memo 描述的范围更广更准确（8 anchors not 3）。**关键发现** — `ValidationConfig` 是 dead config 这件事在 R10 deferral memo 没有提；如果直接按 R10 memo "wire ValidationConfig → consumers" 实现就会陷入"为什么 wire 一个没人用的 schema"的设计陷阱。本轮 inventory 把 fix shape 从"补线"改成了"补线 + 删 dead 部分"。
+8. **当前发现的新问题/新机会**: 在 inventory 中发现 A5（`factor_evaluator._auto_tier` 的 4 个硬编码 IR cut 0.8/0.5/0.3/0.1）— R4 audit 没单独 flag 但本质和 F01 同类。已纳入 PRD scope。3 个 open question 留给 codex / user：(Q1) 把 A1 的 5 个 walk-forward / OOS gate field 放 `AcceptanceThresholds` 还是迁到 `MiningEvaluator` / `mining` yaml；(Q2) factor_tier_*_min_ir 单独 model 还是和 tier_d 合并；(Q3) acceptance_pack._THRESHOLDS 未来 recalibration 时是否同步。
+9. **剩余风险**: PRD §7 风险表列了 5 项；最关键的是"step 4 (delete) 在 step 2-3 (wires) 之前 merged" — PRD §6 step ordering + acceptance criteria + 全 pytest 在每步后跑 — 防止部分迁移。
+10. **下一轮建议方向**: 等 codex review PRD draft 给 sign-off + user explicit-go signal。如果两者都 OK 才进 §6 implementation 4-step 序列。**不要**直接进实现 — 这是 CLAUDE.md "MUST PAUSE: changing core constraints / changing evaluation criteria definitions" 的范围。如果 codex 提了 Q1/Q2/Q3 的明确答案，把答案 fold 进 PRD v1.1。
+11. **TODO checklist（更新后）**:
+    - [x] codex queue #1: 真实 forward observe（两个候选）— DONE 2026-04-28
+    - [x] codex queue #2: Acceptance Threshold Unification PRD — **DRAFT v1.0 LANDED 2026-04-28；等 codex sign-off + user go signal 才进实现**
+    - [ ] codex queue #3: candidate fleet allocator 最小版设计
+    - [ ] codex queue #4: forward daily ritual 固化
+    - [ ] codex queue #5: config/universe snapshot hardening PRD
+    - [ ] codex queue #6: capacity/liquidity realism 升级
+    - [ ] codex queue #7: M17 live-feed infra
+    - [ ] codex queue #8: M18 / 更复杂模型研究
+
+→ 完整 PRD: `docs/prd/20260428-acceptance_threshold_unification_prd.md`
