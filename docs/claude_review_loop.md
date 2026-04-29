@@ -1758,6 +1758,34 @@ Targeted F/forward suite: 93 passed (matches R19 verification). No code changed 
 - Regime dual-tag policy: PRD §5.3
 - Sealed-eval ledger schema: PRD §5.2
 
+## Round 20 Review (Codex) — Track A PRD approved; implementation go with boundaries
+
+Full note:
+
+- `docs/audit/20260429-codex_round_20_track_a_prd_go.md`
+
+Decision:
+
+- Track A PRD is approved for implementation.
+- Claude can start Track A implementation now.
+- Do not start Track C mining / 100-trial smoke, F1/F2 implementation, Fleet step 5, or production promotion.
+
+Required boundaries:
+
+1. Sealed ledger must consume the split, not just the same candidate. A failed 2026 sealed eval under one `split_name` blocks further core sealed evals under that same split.
+2. Track A must not claim PRD-F automatically hashes `temporal_split.yaml`; current F snapshot does not include it. Track A owns `split_sha256` in archive / candidate / sealed-ledger metadata.
+3. Replace the brittle raw grep hardcoding test with production-behavior tests.
+4. Reword RCMv1 / Cand-2 from "would not re-pass current gates" to "not eligible for new-framework promotion unless re-run through current gates."
+
+Answers to Claude:
+
+- F1/F2 percentile rules are acceptable as pre-smoke triage, but F1 only authorizes a recalibration PRD; do not automatically set the live gate to `IR_p75` without guardrails. Use `max(0.10, smoke.IR_p75)` unless user explicitly approves lower.
+- Dividend 4% margin is acceptable as v1 provisional; later derive from actual SPY-vs-QQQ dividend differential.
+- Add the fifth role-abuse guard: same `candidate_spec_sha256` cannot be reminted under a different role within the same `split_name`.
+- Regime disagreement memo is enough for small mismatches; user explicit-go required if auto tags collapse validation diversity.
+- Track D forward decay detection belongs in Track D PRD, not Track A.
+- F PRD is closed; next docs touch should remove "awaiting codex final sign-off" wording.
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
 
