@@ -55,16 +55,12 @@ intraday:
     weak_threshold: 0.60
     strong_threshold: 0.80
 
-validation:
-  min_excess_return_vs_spy: 0.05
-  min_ir_vs_spy: 0.30
-  max_drawdown_vs_spy_multiplier: 1.5
-  max_crisis_drawdown_abs: 0.25
-  min_oos_vs_is_return_ratio: 0.50
-  min_windows_positive_excess_pct: 0.60
-  auto_fail_single_period_contribution: 0.50
-  auto_fail_single_asset_contribution: 0.40
-  auto_fail_crisis_vs_benchmark_multiplier: 2.0
+# Tier D / walk-forward / factor-tier acceptance thresholds moved to
+# config/acceptance.yaml on 2026-04-28 (PRD acceptance threshold
+# unification step 4). Previously this section held a `validation:` block
+# mirroring `core.config.schemas.backtest.ValidationConfig`; that schema
+# was unused (no consumer), so both were removed when the new
+# `AcceptanceThresholds` model + `config/acceptance.yaml` shipped.
 
 # ── Strategy Mining Loop ──────────────────────────────────────────────────────
 mining:

@@ -92,22 +92,6 @@ class IntradayConfig(BaseModel):
     confluence_filter: ConfluenceFilterConfig = Field(default_factory=ConfluenceFilterConfig)
 
 
-class ValidationConfig(BaseModel):
-    """Out-of-sample validation acceptance criteria."""
-
-    min_excess_return_vs_spy: float = Field(default=0.05)   # Tier D minimum
-    min_ir_vs_spy: float = Field(default=0.30)
-    max_drawdown_vs_spy_multiplier: float = Field(default=1.5, ge=1.0)
-    max_crisis_drawdown_abs: float = Field(default=0.25, ge=0, le=1.0)
-    min_oos_vs_is_return_ratio: float = Field(default=0.50)
-    min_windows_positive_excess_pct: float = Field(default=0.60, ge=0, le=1.0)
-
-    # Auto-fail conditions (checked as strings, evaluated in ValidationFramework)
-    auto_fail_single_period_contribution: float = Field(default=0.50)
-    auto_fail_single_asset_contribution: float = Field(default=0.40)
-    auto_fail_crisis_vs_benchmark_multiplier: float = Field(default=2.0)
-
-
 class BacktestConfig(BaseModel):
     """Top-level backtest configuration."""
 
@@ -122,4 +106,3 @@ class BacktestConfig(BaseModel):
     window_analysis: WindowAnalysisConfig = Field(default_factory=WindowAnalysisConfig)
     leakage_check: CostLeakageCheckConfig = Field(default_factory=CostLeakageCheckConfig)
     intraday: IntradayConfig = Field(default_factory=IntradayConfig)
-    validation: ValidationConfig = Field(default_factory=ValidationConfig)

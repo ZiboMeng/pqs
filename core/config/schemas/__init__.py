@@ -16,7 +16,6 @@ from .backtest import (
     IntradayConfig,
     MultiTimeframeConfig,
     ConfluenceFilterConfig,
-    ValidationConfig,
 )
 from .reporting import ReportingConfig
 from .acceptance import (
@@ -47,7 +46,6 @@ __all__ = [
     "IntradayConfig",
     "MultiTimeframeConfig",
     "ConfluenceFilterConfig",
-    "ValidationConfig",
     "ReportingConfig",
     "AcceptanceThresholds",
     "TierDThresholds",

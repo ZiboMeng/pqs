@@ -799,10 +799,9 @@ window_analysis:
   walk_forward_test_bars: 126      # 6 月测试
   forward_block_holdout_bars: 252  # 最后 1 年 holdout
 
-validation:                  # promote 门槛（非 mining）
-  min_ir_vs_spy: 0.30
-  max_drawdown_vs_spy_multiplier: 1.5
-  max_crisis_drawdown_abs: 0.25
+# 注：原 `validation:` 块（Tier D promote 门槛）已迁出 backtest.yaml；
+# 现位于独立的 `config/acceptance.yaml`（threshold unification 2026-04-28，
+# 见 §9.x 与 `core.config.schemas.acceptance.AcceptanceThresholds`）。
 
 mining:                      # Mining 5-stage funnel 阈值
   quick_min_sharpe: 0.30
@@ -1556,6 +1555,7 @@ df = store.load("SPY", freq="1m", fallback="auto")  # 自动尾部补全
 | OOS threshold | `config/backtest.yaml::mining::oos_min_ir_vs_benchmark` |
 | Kill switch (drawdown stage) thresholds | `config/risk.yaml::drawdown_limits` |
 | 6 regime thresholds | `config/regime.yaml` |
+| Acceptance thresholds (Tier D / walk-forward / factor tiers) | `config/acceptance.yaml` (loaded as `cfg.acceptance.{tier_d,walk_forward,factor_tiers}`) |
 
 ### 18.2 Git 安全规则
 

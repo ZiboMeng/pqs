@@ -686,6 +686,21 @@ v1.2) — shipped M0-M8 + M10 + M13 + M15 + M16 (see archive); open:
   2022 Cand-2). 5 regression tests in `test_m14_nan_equity.py`. See
   `docs/memos/20260424-m14_nan_equity_fix.md` for root-cause / pre-post
   / residual.
+- [x] **F01 + F02** acceptance threshold unification **(2026-04-28)**.
+  Implemented per `docs/prd/20260428-acceptance_threshold_unification_prd.md`
+  v1.1 (codex round-13 sign-off + round-14/15 GO + user explicit-go).
+  Single source of truth = `core/config/schemas/acceptance.py`
+  (`AcceptanceThresholds` with three nested submodels: `TierDThresholds`
+  / `WalkForwardThresholds` / `FactorTierThresholds`); yaml at
+  `config/acceptance.yaml`; loaded as `cfg.acceptance.*`. Step 1: schema
+  + yaml + loader (commit 25246fa). Step 2: WindowAnalyzer wires
+  `tier_d` (commit f498649) — class-level `TIER_D_*` constants removed.
+  Step 3: factor_evaluator `_auto_tier` wires `factor_tiers` (commit
+  58215d6) — 4 hardcoded IR cuts replaced. Step 4: dead `ValidationConfig`
+  + `config/backtest.yaml::validation` block deleted. `acceptance_pack._THRESHOLDS`
+  remains intentionally frozen per codex round-13 §"Decision 3" (no
+  auto-sync; future divergence requires explicit versioned recalibration
+  PRD).
 - [ ] **M17** Realtime intraday live-feed infra — independent PRD
   `prd_live_feed.md` when validated best strategy exists.
 - [ ] **M18** Cross-ticker DSL function expansion (P3, 0.3d each).

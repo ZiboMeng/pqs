@@ -1,6 +1,6 @@
 # PRD — Acceptance Threshold Unification (F01 + F02 closure)
 
-**Status**: v1.1 — 2026-04-28. v1.0 drafted; v1.1 folds codex round-13 sign-off + 3 design decisions per `docs/audit/20260428-codex_round_13_acceptance_threshold_answers.md`. **Implementation authorized after user explicit-go**.
+**Status**: **v1.1 SHIPPED** — 2026-04-28. Design v1.1 folded codex round-13 sign-off + 3 decisions; codex round-14 GO_AT_PRD_LEVEL + round-15 GO_FOR_IMPLEMENTATION + user explicit-go on 2026-04-28. 4-step implementation landed on main as commits `25246fa` (schema+yaml+loader), `f498649` (WindowAnalyzer), `58215d6` (factor_evaluator), and the step-4 delete commit captured in this same change-set. NO numeric value changes during relocation per §3.1.
 **Author**: zibo (drafted by Claude based on R4 / R10 audit findings + codex round-11 priority #2 + codex round-13 design decisions)
 **Authority required**: user explicit (zibo) — codex sign-off received; user go-signal still required because deletion of `ValidationConfig` is a structural change to evaluation surface (CLAUDE.md "MUST PAUSE: changing evaluation criteria definitions").
 **Lineage tag (when committed)**: `acceptance-threshold-unification-2026-04-28`

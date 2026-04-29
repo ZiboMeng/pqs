@@ -389,11 +389,12 @@ print("\n— Config / loader corners (S26-S30) —")
 record("S26", "load_config returns nested config",
        hasattr(cfg, "backtest") and hasattr(cfg, "cost_model") and hasattr(cfg, "risk"))
 
-# S27: ValidationConfig has expected fields
-vc = cfg.backtest.validation
-record("S27", "ValidationConfig has all expected fields",
-       hasattr(vc, "min_excess_return_vs_spy") and hasattr(vc, "min_ir_vs_spy"),
-       f"min_excess={vc.min_excess_return_vs_spy} min_ir={vc.min_ir_vs_spy}")
+# S27: AcceptanceThresholds has expected fields (replaces dead ValidationConfig
+# probe; threshold unification PRD step 4 deleted ValidationConfig 2026-04-28).
+ac = cfg.acceptance.tier_d
+record("S27", "AcceptanceThresholds.tier_d has all expected fields",
+       hasattr(ac, "min_excess_return_vs_spy") and hasattr(ac, "min_ir_vs_spy"),
+       f"min_excess={ac.min_excess_return_vs_spy} min_ir={ac.min_ir_vs_spy}")
 
 # S28: load_config rejects malformed path (no config files)
 try:
