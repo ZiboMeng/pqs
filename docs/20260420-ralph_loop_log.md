@@ -16857,3 +16857,30 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
 
 → 完整 memo: `docs/audit/20260428-ralph_audit_round_10.md`
 → Cycle 完成: `<promise>RALPHAUDIT10DONE</promise>` will emit.
+
+
+---
+
+## R-forward-observe-2026-04-28-first-real-after-v2.1.3 (codex priority A1)
+
+1. **本轮主题**: 第一次真实 forward observe 在 v2.1.3 + R8 DST fix 之后跑两个 candidate；codex round-11 review 指出"框架审计完备度已经领先于真实 forward 证据积累"，要求把两个 manifest 从 TD001 推到真实新 TD。
+2. **本轮目标**: 验证 v2.1.3 hash mechanics 在 live data 下成立 — TD001 拿到 legacy_unhashed_inputs marker，TD002+TD003 拿到 4 scope hash + per_cell_digest 按 v2.1.1 storage policy（仅 execution_nav 写、signal_input 默认空）。
+3. **为什么这轮优先做它**: codex 给的优先级队列里 #1。"现在最贵的不是再多一轮审计，而是时间。市场不会等你把内部文档打磨到完全舒适。"
+4. **做了什么**: (a) `check_readiness()` 两个 candidate — both can_append_now=true，next_expected_td=2026-04-27，n_potential_new_tds=2；(b) `observe()` 两个 candidate — 各自 append TD002 (2026-04-27 Mon) + TD003 (2026-04-28 Tue, today)；(c) status() 验证 n_runs 1→3；(d) inspect manifest JSON：TD001 legacy=True / 4 hash 全 None；TD002+TD003 legacy=False / bar_hash + signal_input_hash + execution_nav_hash + benchmark_hash 全populated；(e) 再 `observe()` idempotency check — 两个都返回 0，n_runs 不变。
+5. **修改了哪些文件**: `data/research_candidates/rcm_v1_defensive_composite_01_forward_manifest.json`（n_runs 1→3）、`data/research_candidates/candidate_2_orthogonal_01_forward_manifest.json`（n_runs 1→3）、`docs/memos/20260428-forward_observe_first_real_after_v2_1_3.md`（新 evidence note，per codex ask）、`docs/20260420-ralph_loop_log.md`（本条）。
+6. **跑了哪些测试/实验**: 4 个 live e2e — readiness check / observe rcm_v1 / observe cand_2 / idempotency re-observe。无 pytest（mechanics 已被 R6 S25 + R6 S33 + R6 S35 + R8 regression test 覆盖）。
+7. **结果如何**: ALL GREEN。v2.1.3 schema migration boundary 工作正确（TD001 legacy 不被改写，TD002+TD003 拿到完整 v2.1.3 hash）；cross-candidate benchmark_hash invariant 成立（同 TD 同 benchmark_hash）；source_mix=True on TD002+TD003 与 TD001 一致（forward 读 yfinance frontier，panel 是 polygon canonical）。Performance: TD003 cum_ret -3.9% / -4.5% 反映 4-27 → 4-28 单日大跌，**没有决策权重**（first decision pack 在 TD010）。
+8. **当前发现的新问题/新机会**: 无 schema 问题。但本次 observe 也是 codex Q1 "cumulative-pass design value" 的实证 — R1-R10 audit cycle 之后 first real forward append 一次就 OK，无 surprise drift / no schema mismatch / no halt。
+9. **剩余风险**: source_mix=True 是 known limitation，不是 defect — 公开记录在 CLAUDE.md。R-fwd PRD 第一个 decision pack 在 TD010；现在到 TD003，距离 decision 还有 7 个 TD。
+10. **下一轮建议方向**: codex queue 的 #2 — Acceptance Threshold Unification PRD（F01 + F02 unify ValidationConfig / WindowAnalyzer / MiningEvaluator 三锚）。这是 codex 明确说"短期合理 defer impl 但不可 defer prioritization"的项。等用户 signal "继续" 再开。
+11. **TODO checklist（更新后）**:
+    - [x] codex queue #1: 真实 forward observe（两个候选）— **DONE 2026-04-28**
+    - [ ] codex queue #2: Acceptance Threshold Unification PRD
+    - [ ] codex queue #3: candidate fleet allocator 最小版设计
+    - [ ] codex queue #4: forward daily ritual 固化
+    - [ ] codex queue #5: config/universe snapshot hardening PRD
+    - [ ] codex queue #6: capacity/liquidity realism 升级
+    - [ ] codex queue #7: M17 live-feed infra
+    - [ ] codex queue #8: M18 / 更复杂模型研究
+
+→ 完整 evidence note: `docs/memos/20260428-forward_observe_first_real_after_v2_1_3.md`
