@@ -201,7 +201,9 @@ def run_strategy(
             benchmark  = benchmark_series,
         )
         if wf_windows:
-            oos_check = WindowAnalyzer.oos_consistency_check(wf_windows)
+            oos_check = WindowAnalyzer.oos_consistency_check(
+                wf_windows, thresholds=cfg.acceptance,
+            )
             logger.info("%s OOS consistency: %s", name, oos_check)
             acceptance = analyzer.acceptance_check(
                 bt_result, benchmark_series,

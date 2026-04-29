@@ -379,14 +379,23 @@ class WindowAnalyzer:
     @staticmethod
     def oos_consistency_check(
         windows:               List[WindowResult],
-        min_positive_fraction: float = 0.60,
+        min_positive_fraction: Optional[float] = None,
+        thresholds:            Optional[AcceptanceThresholds] = None,
     ) -> Dict:
         """
         汇总 walk-forward 窗口的样本外一致性统计。
 
         Parameters
         ----------
-        min_positive_fraction : 需要超过多少比例的 OOS 窗口 CAGR > 0 才算通过
+        min_positive_fraction : 需要超过多少比例的 OOS 窗口 CAGR > 0 才算通过。
+                                None 时按以下顺序解析：
+                                (a) ``thresholds.walk_forward.min_windows_positive_excess_pct``
+                                    （若调用方注入了 AcceptanceThresholds），
+                                (b) ``AcceptanceThresholds()`` 的 schema 默认 0.60。
+                                显式传入数字仍然 override 一切。
+        thresholds            : 可选 AcceptanceThresholds。让 ``cfg.acceptance``
+                                成为 OOS 一致性 gate 的真源（codex round-16
+                                follow-up audit 收口的 walk-forward 通路）。
 
         Returns
         -------
@@ -395,6 +404,10 @@ class WindowAnalyzer:
           mean_cagr, min_cagr, mean_sharpe,
           mean_excess_return（若 benchmark 已提供）
         """
+        if min_positive_fraction is None:
+            wf = (thresholds or AcceptanceThresholds()).walk_forward
+            min_positive_fraction = wf.min_windows_positive_excess_pct
+
         if not windows:
             return {"passed": False, "n_windows": 0, "positive_fraction": 0.0}
 

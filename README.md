@@ -801,7 +801,7 @@ window_analysis:
 
 # 注：原 `validation:` 块（Tier D promote 门槛）已迁出 backtest.yaml；
 # 现位于独立的 `config/acceptance.yaml`（threshold unification 2026-04-28，
-# 见 §9.x 与 `core.config.schemas.acceptance.AcceptanceThresholds`）。
+# 见 §9.11 与 `core.config.schemas.acceptance.AcceptanceThresholds`）。
 
 mining:                      # Mining 5-stage funnel 阈值
   quick_min_sharpe: 0.30
@@ -1047,6 +1047,43 @@ fingerprints:                     # M3 runtime alignment check 用
 - `conservative_default → active` 必须走 M2 `scripts/promote_strategy.py`，
   **禁止**手工改 status
 - CI `test_single_source_of_truth.py` 守护不可回退到硬编码
+
+### 9.11 `acceptance.yaml` (PRD threshold unification, 2026-04-28)
+
+```yaml
+# 单一真源：Tier D / walk-forward / factor-tier 阈值。
+# Loader: cfg.acceptance.{tier_d, walk_forward, factor_tiers}.
+# Schema: core/config/schemas/acceptance.py::AcceptanceThresholds（嵌套 3 个
+# submodel + extra=forbid，typo 立即 fail）。
+tier_d:                       # WindowAnalyzer.evaluate_tier_d 消费
+  min_excess_return_vs_spy: 0.05
+  min_ir_vs_spy: 0.30
+  max_dd_vs_spy_multiplier: 1.50
+
+walk_forward:                 # OOS / walk-forward 验收（部分字段为占位 placeholder）
+  min_oos_vs_is_return_ratio: 0.50
+  min_windows_positive_excess_pct: 0.60
+  auto_fail_single_period_contribution: 0.50
+  auto_fail_single_asset_contribution: 0.40
+  auto_fail_crisis_vs_benchmark_multiplier: 2.0
+  max_crisis_drawdown_abs: 0.25
+
+factor_tiers:                 # factor_evaluator._auto_tier 消费
+  s_min_ir: 0.80
+  a_min_ir: 0.50
+  b_min_ir: 0.30
+  c_min_ir: 0.10
+```
+
+**消费路径**:
+- `scripts/run_backtest.py` → `WindowAnalyzer(thresholds=cfg.acceptance)`
+- `scripts/run_mining.py` → `MiningEvaluator(acceptance_thresholds=cfg.acceptance)` → 内部 `WindowAnalyzer`
+- 任何外部调用方：`FactorEvaluator(thresholds=cfg.acceptance)` → 自动覆盖 `FactorReport.tier`
+
+**不在范围**:
+- `acceptance_pack._THRESHOLDS`（`core/mining/acceptance_pack.py`）— 已 promote artifact 的稳定 contract，**不**自动同步 `AcceptanceThresholds`。修改需走 versioned recalibration PRD（codex round-13 §"Decision 3"）。
+- mining 5-stage funnel 阈值（`config/backtest.yaml::mining`）— 不在 acceptance 层。
+- 6 regime 阈值（`config/regime.yaml`）、Kill switch 阈值（`config/risk.yaml::drawdown_limits`）。
 
 ---
 

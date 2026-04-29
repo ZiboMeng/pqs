@@ -17,11 +17,18 @@ FactorReport 字段
 
 评级标准（Tier）
 ---------------
-  S : IR > 0.8 且显著
-  A : IR > 0.5 且显著
-  B : IR > 0.3 且显著
-  C : IR > 0.1
+  S : IR > s_min_ir 且显著（默认 0.80）
+  A : IR > a_min_ir 且显著（默认 0.50）
+  B : IR > b_min_ir 且显著（默认 0.30）
+  C : IR > c_min_ir          （默认 0.10）
   D : 其余
+
+实际 IR cuts 来源：``AcceptanceThresholds.factor_tiers``
+（``config/acceptance.yaml::factor_tiers``）。修改 yaml 后调用方需通过
+``FactorEvaluator(thresholds=cfg.acceptance)`` 注入；不注入则使用 schema
+默认。直接构造 ``FactorReport(...)`` 会调用 ``__post_init__`` 用默认 cuts —
+若需 yaml 驱动 tiering，请走 ``FactorEvaluator.evaluate()`` 或显式调用
+``_auto_tier(stats, thresholds=cfg.acceptance)``。
 """
 
 from __future__ import annotations

@@ -254,6 +254,91 @@ class TestAcceptanceThresholdsInjection:
         )
 
 
+# ── oos_consistency_check threshold wiring (audit follow-up) ─────────────────
+
+
+class TestOosConsistencyCheckThresholdWiring:
+    """Audit round-1 follow-up: ``WindowAnalyzer.oos_consistency_check`` had a
+    hardcoded ``min_positive_fraction=0.60`` that semantically equals
+    ``AcceptanceThresholds.walk_forward.min_windows_positive_excess_pct=0.60``.
+
+    The PR adds a ``thresholds=`` kwarg so callers can pin the SoT at
+    yaml. Reverse-validation: revert the kwarg + the new resolution
+    branch and ``test_oos_consistency_honors_yaml_threshold`` fails
+    (positional/kwarg mismatch).
+    """
+
+    def _make_windows(self, n: int, positive: int) -> list:
+        out = []
+        for i in range(n):
+            r = 0.05 if i < positive else -0.05
+            out.append(
+                WindowResult(
+                    window_id=i,
+                    train_start=pd.Timestamp("2020-01-02"),
+                    train_end=pd.Timestamp("2020-12-31"),
+                    test_start=pd.Timestamp("2021-01-04"),
+                    test_end=pd.Timestamp("2021-12-31"),
+                    metrics={"cagr": r, "sharpe": 0.5, "excess_return": r - 0.02},
+                    is_oos=True,
+                )
+            )
+        return out
+
+    def test_default_resolution_uses_schema_default_0_60(self):
+        """No kwarg + no thresholds: schema default 0.60 applies."""
+        windows = self._make_windows(n=10, positive=6)  # 60% positive
+        out = WindowAnalyzer.oos_consistency_check(windows)
+        assert out["passed"] is True, "60/100 must pass at 0.60 floor"
+
+        windows_low = self._make_windows(n=10, positive=5)  # 50% positive
+        out_low = WindowAnalyzer.oos_consistency_check(windows_low)
+        assert out_low["passed"] is False, "50/100 must fail at 0.60 floor"
+
+    def test_oos_consistency_honors_yaml_threshold(self):
+        """Inject AcceptanceThresholds with tightened 0.85 floor → fewer windows pass."""
+        from core.config.schemas import (
+            AcceptanceThresholds,
+            WalkForwardThresholds,
+        )
+
+        windows = self._make_windows(n=10, positive=8)  # 80% positive
+        # Schema default 0.60 → passes
+        out_default = WindowAnalyzer.oos_consistency_check(windows)
+        assert out_default["passed"] is True
+
+        tightened = AcceptanceThresholds(
+            walk_forward=WalkForwardThresholds(
+                min_windows_positive_excess_pct=0.85,
+            )
+        )
+        out_tight = WindowAnalyzer.oos_consistency_check(
+            windows, thresholds=tightened
+        )
+        assert out_tight["passed"] is False, (
+            "80/100 must fail at 0.85 floor when thresholds inject the cut"
+        )
+
+    def test_explicit_min_positive_fraction_overrides_thresholds(self):
+        """An explicit numeric kwarg still wins over thresholds (back-compat)."""
+        from core.config.schemas import (
+            AcceptanceThresholds,
+            WalkForwardThresholds,
+        )
+        windows = self._make_windows(n=10, positive=7)
+        permissive = AcceptanceThresholds(
+            walk_forward=WalkForwardThresholds(
+                min_windows_positive_excess_pct=0.0,
+            )
+        )
+        out = WindowAnalyzer.oos_consistency_check(
+            windows, min_positive_fraction=0.95, thresholds=permissive
+        )
+        assert out["passed"] is False, (
+            "explicit 0.95 must override thresholds=0.0 — backward-compat"
+        )
+
+
 # ── walk_forward ─────────────────────────────────────────────────────────────
 
 class TestWalkForward:
