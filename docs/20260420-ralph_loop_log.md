@@ -16941,3 +16941,33 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
     - [ ] codex queue #8: M18 / 更复杂模型研究
 
 → 完整 PRD: `docs/prd/20260428-candidate_fleet_allocator_prd.md`
+
+
+---
+
+## R-codex-round13-followup-2026-04-28 (threshold PRD v1.1 — fold codex 3 decisions)
+
+1. **本轮主题**: 把 codex round-13 给的 3 个 decision + sign-off fold 进 acceptance threshold unification PRD，bump 到 v1.1。
+2. **本轮目标**: 让 PRD reflect codex 的具体设计选择（nested submodel shape + frozen rule）+ resolved 3 个 open question + 记录 sign-off 状态。**不**开始 implementation — 等用户 explicit-go。
+3. **为什么这轮优先做它**: codex 明确说 "Proceed with implementation after a PRD revision commit that records the 3 decisions"。先 fold 再 code 是 process 要求。
+4. **做了什么**: (a) PRD v1.0 → v1.1 status header bump，记录 codex sign-off + 仍需 user go-signal；(b) §4.1 schema 重写为 nested 3-submodel shape (`TierDThresholds` / `WalkForwardThresholds` / `FactorTierThresholds` 都在 `AcceptanceThresholds` 下)；(c) §4.2 yaml 改成 nested sections 镜像 schema；(d) §4.4.1 / §4.4.2 consumer rewire 改成 nested attr 访问（如 `self._thresholds.tier_d.min_ir_vs_spy`）；(e) §4.5 acceptance_pack._THRESHOLDS 加 codex round-13 §"Decision 3" 显式 frozen rule + line-89 docstring update 要求；(f) §10 把 3 个 open question 标记 RESOLVED + 指向 codex round-13；(g) §6.1 step 1 加 3 个 nested unit test（full override / partial / no-file）；(h) §11 加 codex round-13 pointer。
+5. **修改了哪些文件**: `docs/prd/20260428-acceptance_threshold_unification_prd.md`（v1.0 → v1.1）、`docs/INDEX.md`（entry 更新到 v1.1 codex-signed-off + 描述 nested shape）、`docs/20260420-ralph_loop_log.md`（本条）。
+6. **跑了哪些测试/实验**: 仅文档工作。读了 codex round-13 全文 + 现有 PRD v1.0 各 section + 代码侧 grep （没动代码）。
+7. **结果如何**: PRD v1.1 状态：codex sign-off ✓ + 3 decisions folded ✓ + nested shape locked ✓ + frozen rule explicit ✓。**ready for implementation 但等用户 explicit-go**（因为 DELETE ValidationConfig 是 structural change，CLAUDE.md "MUST PAUSE: changing evaluation criteria definitions" 适用）。
+8. **当前发现的新问题/新机会**: 无。codex 给的 3 个 decision 都很清晰；fold 过程中没有出现新 ambiguity。
+9. **剩余风险**: PRD v1.1 内部一致性需要 review 一次 — 我把 nested 形式 fold 到 §4.1 / §4.2 / §4.4 / §4.5 / §6.1 / §10 / §11 七个位置；接口文字（`thresholds.tier_d.min_ir_vs_spy` 这种）希望各处一致。
+10. **下一轮建议方向**: (a) 等用户 explicit-go：如果 go，按 §6 4-step 实现序列开工（step 1 只做 schema + yaml + loader，无 consumer 改动，最 reversible）；(b) 把 fleet allocator PRD push 到 review/claude-collab 让 codex 审；(c) 平行任务：保持 forward observe daily ritual，不让 P0 stall。
+11. **TODO checklist（更新后）**:
+    - [x] codex queue #1: 真实 forward observe — DONE 2026-04-28
+    - [x] codex queue #2 / round-12 P5 P2 followup: CLAUDE.md fix + fleet allocator PRD draft — DONE 2026-04-28 (cb19c2e)
+    - [x] codex round-13 sign-off → threshold PRD v1.1 — **DONE this round; awaiting user go**
+    - [ ] push fleet allocator PRD 到 review/claude-collab 让 codex round-14 审
+    - [ ] (waiting user) threshold PRD v1.1 implementation — 4-step sequence per §6
+    - [ ] codex round-12 P0 follow-through: keep daily forward observe to TD010
+    - [ ] codex queue #5: config/universe snapshot hardening PRD
+    - [ ] codex queue #6: capacity/liquidity realism 升级
+    - [ ] codex queue #7: M17 live-feed infra
+    - [ ] codex queue #8: M18 / 更复杂模型研究
+
+→ 完整 PRD: `docs/prd/20260428-acceptance_threshold_unification_prd.md` (v1.1)
+→ Codex sign-off: `docs/audit/20260428-codex_round_13_acceptance_threshold_answers.md`（在 review/claude-collab 上）
