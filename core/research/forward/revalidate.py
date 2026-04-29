@@ -42,11 +42,71 @@ from .bar_hash import (
     compute_signal_input_hash,
 )
 from .manifest_schema import (
+    ConfigDriftEvent,
+    ConfigSnapshot,
     DataRevisionEvent,
     ForwardRun,
     ForwardRunManifest,
     PerScopeHashInputs,
 )
+
+
+# ── PRD F: config drift severity policy (codex round-14 Q3) ────────
+
+
+_F_HALT_HASHES = frozenset({
+    "universe_hash",
+    "factor_registry_hash",
+    "risk_config_hash",
+})
+_F_WARN_HASHES = frozenset({
+    "research_mask_hash",
+    "system_config_hash",
+})
+_F_ALL_HASHES = _F_HALT_HASHES | _F_WARN_HASHES
+
+
+def _detect_config_drift(
+    manifest_snapshot: ConfigSnapshot,
+    current_snapshot: ConfigSnapshot,
+    *,
+    detected_by_run_label: str,
+) -> Optional[ConfigDriftEvent]:
+    """Compare two snapshots; emit one ConfigDriftEvent for any drift.
+
+    Per PRD F §5.3 + codex round-14 §"F PRD modifications":
+      universe_hash / factor_registry_hash / risk_config_hash → halt
+      research_mask_hash / system_config_hash               → warn
+
+    Severity is computed by the **maximum** severity across the
+    drifted sources: any halt-class drift makes the event halt;
+    pure warn-class drift stays warn. This mirrors the v2.1.3
+    fail-closed pattern.
+
+    Returns None when no drift; a single event aggregating all
+    drifted sources otherwise.
+    """
+    drifted: list[str] = []
+    snapshot_hashes: dict[str, str] = {}
+    current_hashes: dict[str, str] = {}
+    for fname in sorted(_F_ALL_HASHES):
+        m = getattr(manifest_snapshot, fname)
+        c = getattr(current_snapshot, fname)
+        if m != c:
+            drifted.append(fname)
+            snapshot_hashes[fname] = m
+            current_hashes[fname] = c
+    if not drifted:
+        return None
+    severity: str = "halt" if any(f in _F_HALT_HASHES for f in drifted) else "warn"
+    return ConfigDriftEvent(
+        detected_at_utc=datetime.now(timezone.utc),
+        detected_by_run_label=detected_by_run_label,
+        drifted_sources=drifted,
+        snapshot_hashes=snapshot_hashes,
+        current_hashes=current_hashes,
+        severity=severity,
+    )
 
 
 # ── materiality thresholds (PRD §4.4 E1-E5) ────────────────────────
@@ -75,14 +135,25 @@ _PCT_EPS = 1e-9     # 1 ulp at the 0.5% scale
 
 @dataclass(frozen=True)
 class RevalidationSummary:
-    """Aggregate outcome of a revalidate pass over one manifest."""
+    """Aggregate outcome of a revalidate pass over one manifest.
+
+    PRD F §5.4 + codex round-11 §B3: ``config_drift_event`` is kept
+    in its OWN slot, never mixed into ``events`` (which is reserved
+    for ``DataRevisionEvent`` instances from the v2.1 input-scope
+    hash diff). The two event classes have distinct severity policies,
+    distinct persistence locations on the manifest, and distinct
+    meaning to the user — collapsing them would erase the design
+    decision behind PRD F.
+    """
 
     candidate_id: str
     n_runs_checked: int
     n_legacy_skipped: int
     n_no_hash_skipped: int   # entries that lack v2.1 hashes (shouldn't happen post-step-5)
-    events: list  # list[DataRevisionEvent]
+    events: list  # list[(ForwardRun, DataRevisionEvent)]
     requires_data_review: bool
+    config_drift_event: Optional[ConfigDriftEvent] = None
+    config_drift_skipped_legacy: bool = False  # True if manifest.config_snapshot is None
 
 
 # ── revision detection helpers ─────────────────────────────────────
@@ -486,12 +557,26 @@ def revalidate_manifest(
     benchmark_symbols: list[str],
     detected_by_run_label: str,
     bar_revision: str = DEFAULT_BAR_REVISION,
+    current_config_snapshot: Optional[ConfigSnapshot] = None,
 ) -> RevalidationSummary:
     """Pure functional revalidate over a loaded manifest + current panel.
 
     Caller (typically observe()) is responsible for persisting the
     returned events on the corresponding TD entries and gating
     further observe() calls on the requires_data_review flag.
+
+    PRD F (config drift): when ``current_config_snapshot`` is provided
+    AND ``manifest.config_snapshot`` is not None, the two snapshots are
+    compared. Any divergence yields a single ``ConfigDriftEvent`` on the
+    summary's dedicated ``config_drift_event`` slot. Halt-severity drift
+    (universe / factor_registry / risk) flips ``requires_data_review``
+    just like an invalidated DataRevisionEvent. Warn-severity drift
+    (research_mask / system) does NOT halt; it is purely informational.
+
+    Lazy-migration boundary (PRD F §5.6): if the manifest pre-dates F
+    (``manifest.config_snapshot is None``), config-drift detection is
+    skipped silently — the summary records this via
+    ``config_drift_skipped_legacy=True`` so the caller can log once.
 
     Does NOT mutate the manifest. Returns a summary listing the events
     detected; the caller decides whether to persist + which to persist.
@@ -501,6 +586,24 @@ def revalidate_manifest(
     n_no_hash = 0
     n_checked = 0
     requires_review = False
+    config_drift_event: Optional[ConfigDriftEvent] = None
+    config_drift_skipped_legacy = False
+
+    # ── PRD F config drift: independent of v2.1 hash revalidation ──
+    if current_config_snapshot is not None:
+        if manifest.config_snapshot is None:
+            # Pre-PRD-F manifest. Cannot compare — caller decides whether
+            # to log once (avoiding per-day spam) or backfill via the
+            # opt-in utility (step 4).
+            config_drift_skipped_legacy = True
+        else:
+            config_drift_event = _detect_config_drift(
+                manifest_snapshot=manifest.config_snapshot,
+                current_snapshot=current_config_snapshot,
+                detected_by_run_label=detected_by_run_label,
+            )
+            if config_drift_event is not None and config_drift_event.severity == "halt":
+                requires_review = True
 
     for entry in manifest.runs:
         if not entry.checkpoint_label.startswith("TD"):
@@ -537,4 +640,6 @@ def revalidate_manifest(
         n_no_hash_skipped=n_no_hash,
         events=events,
         requires_data_review=requires_review,
+        config_drift_event=config_drift_event,
+        config_drift_skipped_legacy=config_drift_skipped_legacy,
     )

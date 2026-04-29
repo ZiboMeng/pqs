@@ -27,6 +27,7 @@ PRD: docs/prd/20260426-forward_oos_runner_prd.md
 from __future__ import annotations
 
 import hashlib
+import logging
 from dataclasses import dataclass
 from datetime import date, datetime, time, timezone
 from zoneinfo import ZoneInfo
@@ -73,6 +74,14 @@ from .manifest_schema import (
 )
 from .revalidate import revalidate_manifest
 from .source_layer import classify_as_of, classify_window
+
+
+_log = logging.getLogger(__name__)
+
+# PRD F step 3 lazy-migration log throttle: track which candidates have
+# already been notified this process about a missing config_snapshot, so
+# we don't spam the daily forward-observe ritual with the same INFO line.
+_F_LEGACY_LOGGED: set[str] = set()
 
 
 DEFAULT_OUTPUT_DIR = Path("data/research_candidates")
@@ -343,6 +352,30 @@ def _build_config_snapshot(
         snapshot_at_utc=datetime.now(timezone.utc),
         sources=dict(_F_CONFIG_SOURCES),
     )
+
+
+def _attach_drift_to_latest_td(
+    runs: list, drift: "ConfigDriftEvent",
+) -> list:
+    """Place ``drift`` on the latest TD entry; no-op if none exists.
+
+    Used to persist a single ``ConfigDriftEvent`` per observe() call:
+      - halt path → latest existing TD (no new TDs were appended)
+      - no-new-dates path → latest existing TD (nothing changed)
+      - normal path → latest newly-appended TD (the observation point
+        whose as_of_date matches when drift was detected)
+
+    Idempotent: re-running observe() with the same drift state will
+    overwrite the same slot (model_copy via update={...}). The non-TD
+    audit entry ``DECIDE`` is intentionally skipped — drift events
+    belong on observation points, not user decisions.
+    """
+    out = list(runs)
+    for i in range(len(out) - 1, -1, -1):
+        if out[i].checkpoint_label.startswith("TD"):
+            out[i] = out[i].model_copy(update={"config_drift_event": drift})
+            break
+    return out
 
 
 def _build_data_integrity_snapshot(
@@ -647,6 +680,10 @@ def observe(
     bench_syms_for_reval: list = sorted({manifest.benchmark} | (
         {manifest.secondary_benchmark} if manifest.secondary_benchmark else set()
     ))
+    # PRD F step 3: build a fresh config snapshot for drift detection.
+    # Always built (cheap: 5 file hashes); revalidate_manifest skips
+    # detection itself when the manifest pre-dates F (lazy migration).
+    current_config_snapshot = _build_config_snapshot(_DEFAULT_CONFIG_DIR)
     reval = revalidate_manifest(
         manifest,
         spec=spec,
@@ -656,16 +693,31 @@ def observe(
         detected_by_run_label=(
             f"observe@{datetime.now(timezone.utc).isoformat(timespec='seconds')}"
         ),
+        current_config_snapshot=current_config_snapshot,
     )
+    # PRD F lazy-migration boundary: pre-PRD-F manifests have
+    # config_snapshot=None. Log once per process per candidate so
+    # operators see it without flooding the daily ritual logs.
+    if reval.config_drift_skipped_legacy and candidate_id not in _F_LEGACY_LOGGED:
+        _F_LEGACY_LOGGED.add(candidate_id)
+        _log.info(
+            "PRD F lazy-migration: candidate %s has no config_snapshot; "
+            "drift detection skipped. Run dev/scripts/forward/"
+            "backfill_config_snapshot.py to opt in.",
+            candidate_id,
+        )
     # Track whether revalidate produced events that need persisting,
     # so the no-new-dates early return below can still flush them.
     # Pre-fix: flagged_only events on a no-new-bar day were rebuilt
     # in-memory but lost on early return because save_manifest was
     # only at the bottom of the new-TDs path.
     manifest_dirty_from_revalidate = False
+    revalidated_runs: list = list(manifest.runs)
+
+    # 1. Persist data revision events on affected entries.
     if reval.events:
         affected_id_to_event = {id(e): ev for (e, ev) in reval.events}
-        revalidated_runs: list = []
+        revalidated_runs = []
         for entry in manifest.runs:
             ev = affected_id_to_event.get(id(entry))
             if ev is not None:
@@ -674,27 +726,50 @@ def observe(
                 )
             else:
                 revalidated_runs.append(entry)
+        manifest_dirty_from_revalidate = True
+
+    # 2. PRD F step 3: persist config_drift_event on the latest TD when
+    # the drift is HALT-class. Halt path returns before append, so the
+    # natural anchor is whichever TD already exists. Warn-class drift
+    # is deferred to post-append (latest new TD is the right home —
+    # observation point matches detection point).
+    if reval.config_drift_event is not None and reval.requires_data_review:
+        revalidated_runs = _attach_drift_to_latest_td(
+            revalidated_runs, reval.config_drift_event,
+        )
+        manifest_dirty_from_revalidate = True
+
+    if manifest_dirty_from_revalidate or reval.requires_data_review:
         update: dict = {"runs": revalidated_runs}
         if reval.requires_data_review:
             update["current_status"] = ForwardRunStatus.requires_data_review
         manifest = manifest.model_copy(update=update)
         manifest_dirty_from_revalidate = True
-        if reval.requires_data_review:
-            # Halt — save the events + flipped status, then return
-            # without appending. Next observe() call will halt at the
-            # top-of-function status guard until decide() clears it.
-            if not dry_run:
-                save_manifest(manifest, out_path)
-            return []
-        # Non-invalidated events (flagged_only): events stay on the
-        # rebound `manifest` variable. They get persisted by either
-        # the no-new-dates path below OR the bottom save_manifest
-        # (when new TDs append).
+
+    if reval.requires_data_review:
+        # Halt — save the events + flipped status, then return without
+        # appending. Next observe() call will halt at the top-of-function
+        # status guard until decide() clears it. Halt is triggered by
+        # EITHER an invalidated DataRevisionEvent OR a halt-class
+        # ConfigDriftEvent.
+        if not dry_run:
+            save_manifest(manifest, out_path)
+        return []
+    # Non-invalidated events (flagged_only) + warn-class config drift
+    # both stay on the rebound `manifest` variable. They get persisted
+    # by either the no-new-dates path below OR the bottom save_manifest
+    # (when new TDs append).
 
     new_dates = _resolve_dates_to_observe(manifest, available_index, up_to=up_to)
     if not new_dates:
-        # No new bars to append, but flagged_only events from the
-        # revalidate pass still need to be persisted to disk.
+        # No new bars to append. Persist any deferred warn-class config
+        # drift event on the latest existing TD (no new TD anchor exists).
+        if reval.config_drift_event is not None:
+            new_runs_with_drift = _attach_drift_to_latest_td(
+                list(manifest.runs), reval.config_drift_event,
+            )
+            manifest = manifest.model_copy(update={"runs": new_runs_with_drift})
+            manifest_dirty_from_revalidate = True
         if manifest_dirty_from_revalidate and not dry_run:
             save_manifest(manifest, out_path)
         return []
@@ -915,6 +990,15 @@ def observe(
 
     # Reconstruct manifest with appended entries (append-only contract).
     new_runs = grandfathered_runs + appended
+
+    # PRD F step 3: warn-class config drift was deferred above so it
+    # could anchor on the freshest TD. Attach to the latest new TD here.
+    if reval.config_drift_event is not None:
+        # Only reachable on warn severity (halt branch returned early).
+        new_runs = _attach_drift_to_latest_td(
+            new_runs, reval.config_drift_event,
+        )
+
     new_status = _next_status_after_observe(
         current_status=manifest.current_status,
         new_runs=new_runs,

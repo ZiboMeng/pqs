@@ -779,3 +779,311 @@ def test_observe_status_not_started_can_jump_directly_to_decision_pending():
         decision_days=[2],
     )
     assert result is ForwardRunStatus.decision_pending
+
+
+# ── PRD F step 3: revalidate config-drift detection ─────────────────
+
+
+def _config_snapshot(
+    *,
+    universe="u" * 16,
+    factor_registry="f" * 16,
+    research_mask="m" * 16,
+    risk_config="r" * 16,
+    system_config="s" * 16,
+    snapshot_at_utc=None,
+) -> "ConfigSnapshot":  # type: ignore[name-defined]
+    from core.research.forward.manifest_schema import ConfigSnapshot
+    return ConfigSnapshot(
+        universe_hash=universe,
+        factor_registry_hash=factor_registry,
+        research_mask_hash=research_mask,
+        risk_config_hash=risk_config,
+        system_config_hash=system_config,
+        snapshot_at_utc=snapshot_at_utc or datetime(2026, 4, 28, tzinfo=timezone.utc),
+        sources={
+            "universe_hash": "config/universe.yaml",
+            "factor_registry_hash": "core/factors/factor_registry.py::PRODUCTION+RESEARCH+MAP",
+            "research_mask_hash": "config/research_mask.yaml",
+            "risk_config_hash": "config/risk.yaml",
+            "system_config_hash": "config/system.yaml",
+        },
+    )
+
+
+def _manifest_with_config_snapshot(snap=None) -> "ForwardRunManifest":
+    """Manifest with a single TD003 entry + provided config snapshot."""
+    from core.research.forward.manifest_schema import ForwardRun
+    if snap is None:
+        snap = _config_snapshot()
+    return _build_manifest(
+        config_snapshot=snap,
+        runs=[
+            _make_td_run(1, label="TD001"),
+            _make_td_run(2, label="TD002"),
+            _make_td_run(3, label="TD003"),
+        ],
+    )
+
+
+def _empty_panel():
+    """Empty-but-valid panel — drift detection runs before per-entry
+    hash recompute, and entries here all lack v2.1 hashes (n_no_hash
+    bucket) so the hash diff loop is a no-op. Lets us isolate drift
+    behavior without needing real price data."""
+    empty = pd.DataFrame()
+    return {
+        "close": empty, "open": empty, "high": empty, "low": empty,
+        "volume": empty,
+    }
+
+
+def test_revalidate_no_drift_when_snapshots_match():
+    """Sanity baseline: identical manifest_snapshot + current_snapshot
+    must produce zero events and no requires_data_review flag."""
+    from core.research.forward.revalidate import revalidate_manifest
+
+    snap = _config_snapshot()
+    m = _manifest_with_config_snapshot(snap)
+    summary = revalidate_manifest(
+        m, spec=None, universe=[], panel=_empty_panel(),
+        benchmark_symbols=["SPY"],
+        detected_by_run_label="test_no_drift",
+        current_config_snapshot=snap,
+    )
+    assert summary.config_drift_event is None
+    assert summary.config_drift_skipped_legacy is False
+    assert summary.requires_data_review is False
+    assert summary.events == []
+
+
+def test_revalidate_universe_edit_halts():
+    """PRD F §5.3: universe_hash drift is HALT-class. Single-source
+    drift on universe must produce a ConfigDriftEvent with severity=halt
+    and flip requires_data_review=True."""
+    from core.research.forward.revalidate import revalidate_manifest
+
+    pinned = _config_snapshot()
+    current = _config_snapshot(universe="v" * 16)  # universe edited
+    m = _manifest_with_config_snapshot(pinned)
+    summary = revalidate_manifest(
+        m, spec=None, universe=[], panel=_empty_panel(),
+        benchmark_symbols=["SPY"],
+        detected_by_run_label="test_universe_halt",
+        current_config_snapshot=current,
+    )
+    assert summary.config_drift_event is not None
+    assert summary.config_drift_event.severity == "halt"
+    assert summary.config_drift_event.drifted_sources == ["universe_hash"]
+    assert summary.config_drift_event.snapshot_hashes == {"universe_hash": "u" * 16}
+    assert summary.config_drift_event.current_hashes == {"universe_hash": "v" * 16}
+    assert summary.requires_data_review is True
+
+
+def test_revalidate_research_mask_edit_warns_not_halts():
+    """PRD F §5.3: research_mask_hash drift is WARN-class. Must NOT
+    flip requires_data_review."""
+    from core.research.forward.revalidate import revalidate_manifest
+
+    pinned = _config_snapshot()
+    current = _config_snapshot(research_mask="n" * 16)
+    m = _manifest_with_config_snapshot(pinned)
+    summary = revalidate_manifest(
+        m, spec=None, universe=[], panel=_empty_panel(),
+        benchmark_symbols=["SPY"],
+        detected_by_run_label="test_mask_warn",
+        current_config_snapshot=current,
+    )
+    assert summary.config_drift_event is not None
+    assert summary.config_drift_event.severity == "warn"
+    assert summary.config_drift_event.drifted_sources == ["research_mask_hash"]
+    assert summary.requires_data_review is False, (
+        "warn-class drift must not flip requires_data_review"
+    )
+
+
+def test_revalidate_factor_registry_and_risk_halt():
+    """factor_registry_hash and risk_config_hash are also HALT-class
+    per PRD F §5.3 + codex round-14 §F."""
+    from core.research.forward.revalidate import revalidate_manifest
+
+    pinned = _config_snapshot()
+    # factor_registry edited
+    current = _config_snapshot(factor_registry="g" * 16)
+    summary = revalidate_manifest(
+        _manifest_with_config_snapshot(pinned),
+        spec=None, universe=[], panel=_empty_panel(),
+        benchmark_symbols=["SPY"],
+        detected_by_run_label="test_factor_halt",
+        current_config_snapshot=current,
+    )
+    assert summary.config_drift_event.severity == "halt"
+    assert summary.config_drift_event.drifted_sources == ["factor_registry_hash"]
+
+    # risk edited
+    current2 = _config_snapshot(risk_config="t" * 16)
+    summary2 = revalidate_manifest(
+        _manifest_with_config_snapshot(pinned),
+        spec=None, universe=[], panel=_empty_panel(),
+        benchmark_symbols=["SPY"],
+        detected_by_run_label="test_risk_halt",
+        current_config_snapshot=current2,
+    )
+    assert summary2.config_drift_event.severity == "halt"
+    assert summary2.config_drift_event.drifted_sources == ["risk_config_hash"]
+
+
+def test_revalidate_aggregates_multiple_drifted_sources():
+    """Drift on multiple sources at once aggregates into a SINGLE event.
+    Severity is the maximum across drifted sources: any halt-class
+    contributor → severity=halt."""
+    from core.research.forward.revalidate import revalidate_manifest
+
+    pinned = _config_snapshot()
+    # universe (halt) + research_mask (warn) both edited
+    current = _config_snapshot(universe="v" * 16, research_mask="n" * 16)
+    m = _manifest_with_config_snapshot(pinned)
+    summary = revalidate_manifest(
+        m, spec=None, universe=[], panel=_empty_panel(),
+        benchmark_symbols=["SPY"],
+        detected_by_run_label="test_aggregate",
+        current_config_snapshot=current,
+    )
+    assert summary.config_drift_event is not None
+    # sorted alphabetically by ConfigDriftEvent contract
+    assert summary.config_drift_event.drifted_sources == [
+        "research_mask_hash", "universe_hash",
+    ]
+    assert summary.config_drift_event.severity == "halt", (
+        "max(warn, halt) = halt — single event aggregates and uses worst severity"
+    )
+    assert summary.requires_data_review is True
+
+
+def test_revalidate_legacy_manifest_skips_drift_detection():
+    """PRD F §5.6 lazy-migration: a manifest with config_snapshot=None
+    (pre-PRD-F) must skip drift detection silently and set the
+    config_drift_skipped_legacy summary field. Caller logs once."""
+    from core.research.forward.revalidate import revalidate_manifest
+
+    m = _build_manifest(config_snapshot=None, runs=[_make_td_run(1)])
+    current = _config_snapshot(universe="v" * 16)  # would have been halt
+    summary = revalidate_manifest(
+        m, spec=None, universe=[], panel=_empty_panel(),
+        benchmark_symbols=["SPY"],
+        detected_by_run_label="test_legacy_skip",
+        current_config_snapshot=current,
+    )
+    assert summary.config_drift_event is None
+    assert summary.config_drift_skipped_legacy is True
+    assert summary.requires_data_review is False, (
+        "legacy manifest must NOT flip requires_data_review even when "
+        "current config differs from the (absent) pinned snapshot"
+    )
+
+
+def test_revalidate_no_current_snapshot_skips_drift_silently():
+    """When the caller does not pass current_config_snapshot at all
+    (older codepath compatibility), drift detection is a no-op without
+    touching the legacy flag."""
+    from core.research.forward.revalidate import revalidate_manifest
+
+    m = _manifest_with_config_snapshot()
+    summary = revalidate_manifest(
+        m, spec=None, universe=[], panel=_empty_panel(),
+        benchmark_symbols=["SPY"],
+        detected_by_run_label="test_no_snapshot",
+        # current_config_snapshot omitted (None)
+    )
+    assert summary.config_drift_event is None
+    assert summary.config_drift_skipped_legacy is False, (
+        "absence of current_snapshot is NOT the lazy-migration boundary "
+        "(that is manifest.config_snapshot=None)"
+    )
+    assert summary.requires_data_review is False
+
+
+def test_revalidate_reverse_validate_revert_clears_drift():
+    """Reverse-validation: revert the edit → drift event disappears.
+    Pinning this behavior protects against false-positive persistence
+    where a one-time drift would stick after the user fixed config."""
+    from core.research.forward.revalidate import revalidate_manifest
+
+    pinned = _config_snapshot()
+    edited = _config_snapshot(universe="v" * 16)
+    m = _manifest_with_config_snapshot(pinned)
+
+    # 1. Edit triggers halt
+    s1 = revalidate_manifest(
+        m, spec=None, universe=[], panel=_empty_panel(),
+        benchmark_symbols=["SPY"],
+        detected_by_run_label="test_revert_step1",
+        current_config_snapshot=edited,
+    )
+    assert s1.config_drift_event is not None
+
+    # 2. Revert → no drift on a fresh revalidate (the manifest's
+    # config_snapshot was never mutated; only the live config was).
+    reverted = _config_snapshot()  # back to pinned values
+    s2 = revalidate_manifest(
+        m, spec=None, universe=[], panel=_empty_panel(),
+        benchmark_symbols=["SPY"],
+        detected_by_run_label="test_revert_step2",
+        current_config_snapshot=reverted,
+    )
+    assert s2.config_drift_event is None
+    assert s2.requires_data_review is False
+
+
+def test_attach_drift_to_latest_td_skips_decide_entries():
+    """The drift-persistence helper must anchor on the latest TD entry
+    (not DECIDE / weekly / checkpoint audit rows). DECIDE represents
+    user state, not an observation point."""
+    from core.research.forward.manifest_schema import ConfigDriftEvent, ForwardRun
+    from core.research.forward.runner import _attach_drift_to_latest_td
+
+    runs = [
+        _make_td_run(1, label="TD001"),
+        _make_td_run(2, label="TD002"),
+        ForwardRun(
+            checkpoint_label="DECIDE",
+            as_of_date=date(2026, 5, 1),
+            n_observed_trading_days=2,
+            notes="user_audit",
+        ),
+    ]
+    drift = ConfigDriftEvent(
+        detected_at_utc=datetime(2026, 5, 2, tzinfo=timezone.utc),
+        detected_by_run_label="test_attach",
+        drifted_sources=["universe_hash"],
+        snapshot_hashes={"universe_hash": "u" * 16},
+        current_hashes={"universe_hash": "v" * 16},
+        severity="halt",
+    )
+    out = _attach_drift_to_latest_td(runs, drift)
+    # TD002 is the latest TD; it should carry the event.
+    assert out[1].config_drift_event is drift
+    # TD001 should NOT have the event.
+    assert out[0].config_drift_event is None
+    # DECIDE entry must NOT receive the drift event.
+    assert out[2].config_drift_event is None
+    # Non-TD entries are also untouched in any other field.
+    assert out[2].notes == "user_audit"
+
+
+def test_attach_drift_to_latest_td_no_op_on_empty_runs():
+    """If there is no TD entry to anchor on (very-first-observe edge),
+    the helper is a no-op rather than raising."""
+    from core.research.forward.manifest_schema import ConfigDriftEvent
+    from core.research.forward.runner import _attach_drift_to_latest_td
+
+    drift = ConfigDriftEvent(
+        detected_at_utc=datetime(2026, 5, 2, tzinfo=timezone.utc),
+        detected_by_run_label="test_attach",
+        drifted_sources=["universe_hash"],
+        snapshot_hashes={"universe_hash": "u" * 16},
+        current_hashes={"universe_hash": "v" * 16},
+        severity="halt",
+    )
+    out = _attach_drift_to_latest_td([], drift)
+    assert out == []
