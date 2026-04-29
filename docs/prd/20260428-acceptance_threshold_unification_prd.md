@@ -1,8 +1,8 @@
 # PRD — Acceptance Threshold Unification (F01 + F02 closure)
 
-**Status**: Draft v1.0 — 2026-04-28
-**Author**: zibo (drafted by Claude based on R4 / R10 audit findings + codex round-11 priority #2)
-**Authority required**: user explicit (zibo) — implementation is **not** authorized by this PRD; this is design + acceptance-criteria draft only
+**Status**: v1.1 — 2026-04-28. v1.0 drafted; v1.1 folds codex round-13 sign-off + 3 design decisions per `docs/audit/20260428-codex_round_13_acceptance_threshold_answers.md`. **Implementation authorized after user explicit-go**.
+**Author**: zibo (drafted by Claude based on R4 / R10 audit findings + codex round-11 priority #2 + codex round-13 design decisions)
+**Authority required**: user explicit (zibo) — codex sign-off received; user go-signal still required because deletion of `ValidationConfig` is a structural change to evaluation surface (CLAUDE.md "MUST PAUSE: changing evaluation criteria definitions").
 **Lineage tag (when committed)**: `acceptance-threshold-unification-2026-04-28`
 **Parent context**:
 - R4 (B1 static lens) finding F01 — `WindowAnalyzer.TIER_D_*` documented as "consistent with `BacktestConfig.ValidationConfig`" but unwired
@@ -77,77 +77,107 @@ Per CLAUDE.md "Doing tasks": "No half-finished implementations either." If imple
 
 ## 4. Proposed design
 
-### 4.1 Single source of truth
+### 4.1 Single source of truth (nested submodel shape per codex round-13)
 
-Create `core/config/schemas/acceptance.py::AcceptanceThresholds` — a pydantic model owning ALL acceptance-tier thresholds currently scattered across A1 / A2 / A5.
+Create `core/config/schemas/acceptance.py` with three **nested submodels** under `AcceptanceThresholds`. The nested shape is mandated by codex round-13 §"Decision 1" + §"Decision 2": one policy surface, three semantic groups (Tier D / walk-forward / factor tiers), no flat 12-field bag.
 
 ```python
 # core/config/schemas/acceptance.py (new file)
 
 from pydantic import BaseModel, Field
 
-class AcceptanceThresholds(BaseModel):
-    """Single source of truth for acceptance-tier thresholds.
 
-    These thresholds gate Tier D promotion (WindowAnalyzer), factor
-    auto-tier classification (factor_evaluator), and walk-forward
-    OOS pass criteria. They are tunable via config/acceptance.yaml.
+class TierDThresholds(BaseModel):
+    """Tier D acceptance thresholds (WindowAnalyzer.evaluate_tier_d)."""
+    min_excess_return_vs_spy: float = Field(default=0.05, ge=0)
+    min_ir_vs_spy: float = Field(default=0.30, ge=0)
+    max_dd_vs_spy_multiplier: float = Field(default=1.50, ge=1.0)
 
-    NOT in scope: mining gates (see config/backtest.yaml::mining),
-    acceptance_pack._THRESHOLDS (intentionally frozen contract for
-    promoted artifacts), concentration gate (PRD v3 §C derived).
+
+class WalkForwardThresholds(BaseModel):
+    """Walk-forward / OOS validation thresholds (currently dead in
+    `ValidationConfig`; this is their new live home).
+
+    Codex round-13 §"Decision 1": these are governance thresholds; they
+    belong here (one policy surface) rather than in `MiningEvaluator`,
+    which is the consumer not the owner. `MiningEvaluator` may later
+    read from `cfg.acceptance.walk_forward` but it does NOT define
+    these defaults.
     """
-
-    # ── Tier D (WindowAnalyzer.evaluate_tier_d) ──
-    tier_d_min_excess_return_vs_spy: float = Field(default=0.05, ge=0)
-    tier_d_min_ir_vs_spy: float = Field(default=0.30, ge=0)
-    tier_d_max_dd_vs_spy_multiplier: float = Field(default=1.50, ge=1.0)
-
-    # ── Walk-forward OOS validation (currently dead in ValidationConfig) ──
     min_oos_vs_is_return_ratio: float = Field(default=0.50, ge=0)
     min_windows_positive_excess_pct: float = Field(default=0.60, ge=0, le=1.0)
-
-    # ── Auto-fail thresholds (currently dead in ValidationConfig) ──
     auto_fail_single_period_contribution: float = Field(default=0.50, ge=0, le=1.0)
     auto_fail_single_asset_contribution: float = Field(default=0.40, ge=0, le=1.0)
     auto_fail_crisis_vs_benchmark_multiplier: float = Field(default=2.0, ge=1.0)
     max_crisis_drawdown_abs: float = Field(default=0.25, ge=0, le=1.0)
 
-    # ── Factor auto-tier IR cuts (factor_evaluator._auto_tier) ──
-    factor_tier_s_min_ir: float = Field(default=0.80, ge=0)
-    factor_tier_a_min_ir: float = Field(default=0.50, ge=0)
-    factor_tier_b_min_ir: float = Field(default=0.30, ge=0)
-    factor_tier_c_min_ir: float = Field(default=0.10, ge=0)
+
+class FactorTierThresholds(BaseModel):
+    """Factor auto-tier IR cuts (`factor_evaluator._auto_tier`).
+
+    Codex round-13 §"Decision 2": separate submodel because factor-tier
+    semantics are adjacent to but not identical to strategy-tier
+    semantics (the letter overlap S/A/B/C/D between Tier D and factor
+    tiers is coincidental).
+    """
+    s_min_ir: float = Field(default=0.80, ge=0)
+    a_min_ir: float = Field(default=0.50, ge=0)
+    b_min_ir: float = Field(default=0.30, ge=0)
+    c_min_ir: float = Field(default=0.10, ge=0)
+
+
+class AcceptanceThresholds(BaseModel):
+    """Single source of truth for acceptance-tier thresholds.
+
+    These thresholds gate Tier D promotion (WindowAnalyzer), walk-
+    forward / OOS pass criteria, and factor auto-tier classification
+    (factor_evaluator). Tunable via `config/acceptance.yaml`.
+
+    NOT in scope: mining gates (see `config/backtest.yaml::mining`,
+    consumed by `MiningEvaluator`), `acceptance_pack._THRESHOLDS`
+    (intentionally frozen contract for promoted artifacts — codex
+    round-13 §"Decision 3"), concentration gate (PRD v3 §C derived).
+    """
+    tier_d:        TierDThresholds        = Field(default_factory=TierDThresholds)
+    walk_forward:  WalkForwardThresholds  = Field(default_factory=WalkForwardThresholds)
+    factor_tiers:  FactorTierThresholds   = Field(default_factory=FactorTierThresholds)
 ```
 
-### 4.2 Yaml location: new `config/acceptance.yaml`
+**Field rename note (vs v1.0 PRD draft)**: when nesting, the field names drop the subgroup prefix (e.g. `tier_d_min_ir_vs_spy` → `acceptance.tier_d.min_ir_vs_spy`). Old flat names from the v1.0 draft are retired before any code is written; only the nested shape ships.
+
+### 4.2 Yaml location: new `config/acceptance.yaml` (nested shape)
 
 A new file, separate from `config/backtest.yaml::validation`. Rationale: the legacy `validation:` yaml block has been dead for an unknown duration; renaming + relocating signals "this is the new live thing", and migration is more visible than in-place mutation. Old `config/backtest.yaml::validation` block is **deleted** in the same change-set (no half-finished migration).
+
+The yaml mirrors the nested submodel shape from §4.1.
 
 ```yaml
 # config/acceptance.yaml (new file)
 # Acceptance-tier thresholds — single source of truth.
 # Loaded into core.config.schemas.acceptance.AcceptanceThresholds.
-# Consumers: core/backtest/window_analyzer.py / core/factors/factor_evaluator.py.
-# NOT for: mining gates (see backtest.yaml::mining); acceptance_pack
-# (intentionally frozen contract); concentration (PRD v3 §C).
+# Consumers: core/backtest/window_analyzer.py + core/factors/factor_evaluator.py.
+# NOT for: mining gates (see backtest.yaml::mining; MiningEvaluator
+# consumes those, not these); acceptance_pack (intentionally frozen
+# contract — codex round-13 §"Decision 3"); concentration (PRD v3 §C).
 
-tier_d_min_excess_return_vs_spy: 0.05
-tier_d_min_ir_vs_spy: 0.30
-tier_d_max_dd_vs_spy_multiplier: 1.50
+tier_d:
+  min_excess_return_vs_spy: 0.05
+  min_ir_vs_spy: 0.30
+  max_dd_vs_spy_multiplier: 1.50
 
-min_oos_vs_is_return_ratio: 0.50
-min_windows_positive_excess_pct: 0.60
+walk_forward:
+  min_oos_vs_is_return_ratio: 0.50
+  min_windows_positive_excess_pct: 0.60
+  auto_fail_single_period_contribution: 0.50
+  auto_fail_single_asset_contribution: 0.40
+  auto_fail_crisis_vs_benchmark_multiplier: 2.0
+  max_crisis_drawdown_abs: 0.25
 
-auto_fail_single_period_contribution: 0.50
-auto_fail_single_asset_contribution: 0.40
-auto_fail_crisis_vs_benchmark_multiplier: 2.0
-max_crisis_drawdown_abs: 0.25
-
-factor_tier_s_min_ir: 0.80
-factor_tier_a_min_ir: 0.50
-factor_tier_b_min_ir: 0.30
-factor_tier_c_min_ir: 0.10
+factor_tiers:
+  s_min_ir: 0.80
+  a_min_ir: 0.50
+  b_min_ir: 0.30
+  c_min_ir: 0.10
 ```
 
 ### 4.3 Loader integration
@@ -189,15 +219,15 @@ class WindowAnalyzer:
         self._step_size = step_size or window_size
         self._thresholds = thresholds or AcceptanceThresholds()  # default-fallback safe
 
-    # evaluate_tier_d body uses self._thresholds.tier_d_min_excess_return_vs_spy etc.
-    # Class-level TIER_D_* constants are REMOVED.
+    # evaluate_tier_d body uses self._thresholds.tier_d.min_excess_return_vs_spy etc.
+    # (nested submodel access; class-level TIER_D_* constants are REMOVED.)
 ```
 
 Callers of `WindowAnalyzer(engine)` continue to work; new optional kwarg.
 
-#### 4.4.2 `factor_evaluator._auto_tier` (A5 → AcceptanceThresholds)
+#### 4.4.2 `factor_evaluator._auto_tier` (A5 → AcceptanceThresholds.factor_tiers)
 
-Function gains an optional `thresholds: AcceptanceThresholds = None` kwarg with a default that constructs one. Hardcoded 0.8/0.5/0.3/0.1 in the function body are replaced with `thresholds.factor_tier_s_min_ir` etc.
+Function gains an optional `thresholds: AcceptanceThresholds = None` kwarg with a default that constructs one. Hardcoded 0.8/0.5/0.3/0.1 in the function body are replaced with `thresholds.factor_tiers.s_min_ir` / `.a_min_ir` / `.b_min_ir` / `.c_min_ir` (nested-submodel access).
 
 #### 4.4.3 `ValidationConfig` (A1) — DELETE
 
@@ -207,8 +237,8 @@ Pre-removal grep confirms no consumer (the audit done at draft time confirmed th
 
 ### 4.5 What stays unchanged
 
-- `MiningEvaluator` (A3) — already wired correctly via `run_mining.py:235-251`. Optional follow-up: rename its kwargs to mirror `AcceptanceThresholds` so a future researcher can pass either, but **not in this PRD's scope**. (If pursued, a separate sub-PRD.)
-- `acceptance_pack._THRESHOLDS` (A4) — kept. Add a one-line docstring update clarifying the design rationale survives this unification.
+- `MiningEvaluator` (A3) — already wired correctly via `run_mining.py:235-251`. Optional follow-up: rename its kwargs to mirror `AcceptanceThresholds.walk_forward` so a future researcher can pass either, but **not in this PRD's scope**. (If pursued, a separate sub-PRD.) Per codex round-13 §"Decision 1": `MiningEvaluator` may later read from `cfg.acceptance.walk_forward` but it does NOT become the canonical home of those definitions.
+- `acceptance_pack._THRESHOLDS` (A4) — **kept frozen**. Per codex round-13 §"Decision 3" rule: `_THRESHOLDS` does NOT auto-sync from `AcceptanceThresholds`. Future divergence is allowed; only an explicit versioned recalibration PRD with (a) version bump, (b) contract migration rationale, (c) backward-compat stance, (d) changelog entry is permitted to update `_THRESHOLDS`. Add a one-line docstring update at line 89 of `acceptance_pack.py` capturing this codex round-13 rule.
 - `core/research/concentration/report.py` (A6) — out of scope.
 - `config/backtest.yaml::mining` (A8) — out of scope.
 
@@ -218,14 +248,14 @@ Pre-removal grep confirms no consumer (the audit done at draft time confirmed th
 
 A change-set passes this PRD if and only if all of the following hold:
 
-1. **`AcceptanceThresholds` model exists** at `core/config/schemas/acceptance.py` with the 12 fields per §4.1.
-2. **`config/acceptance.yaml` exists** with the 12 fields at their current default values (per §4.2).
+1. **`AcceptanceThresholds` model exists** at `core/config/schemas/acceptance.py` with the 3 nested submodels per §4.1 (`TierDThresholds`, `WalkForwardThresholds`, `FactorTierThresholds`).
+2. **`config/acceptance.yaml` exists** with the 3 nested sections at their current default values (per §4.2).
 3. **`load_config` reads it** and exposes it as `cfg.acceptance` (per §4.3).
 4. **`WindowAnalyzer.TIER_D_*` constants are removed** and `evaluate_tier_d` reads from `self._thresholds` (per §4.4.1).
 5. **`factor_evaluator._auto_tier` reads thresholds from `AcceptanceThresholds`** (per §4.4.2). Public callers continue to work via the default-fallback kwarg.
 6. **`ValidationConfig` is removed** from `core/config/schemas/backtest.py`; `validation:` field removed from `BacktestConfig`; `config/backtest.yaml::validation` block removed (per §4.4.3).
 7. **All numeric values stay identical** to current defaults (§3.1).
-8. **`acceptance_pack._THRESHOLDS` is unchanged** in the diff.
+8. **`acceptance_pack._THRESHOLDS` is unchanged** in the diff. Per codex round-13 §"Decision 3", a one-line docstring update at `acceptance_pack.py:89` captures the rule "future divergence requires an explicit versioned recalibration PRD; no auto-sync from `AcceptanceThresholds`".
 9. **Regression tests added** (§6.4): a) `WindowAnalyzer` honors a non-default `tier_d_min_ir_vs_spy=0.55` injected via `AcceptanceThresholds`; b) `_auto_tier` honors a non-default `factor_tier_s_min_ir=0.95`; c) absence of `config/acceptance.yaml` falls back to schema defaults without error.
 10. **Full pytest suite green** (1838+ passed; new tests included).
 11. **Reverse-validation evidence in commit message**: PRD §3.2 hard rule — show that reversing the change reproduces the pre-fix "yaml edit ignored" behavior (e.g. test variant b fails on pre-fix).
@@ -239,11 +269,11 @@ Each step is a separate commit so a partial revert is clean.
 
 ### 6.1 Step 1 — schema + yaml (no consumers wired yet)
 
-- Add `core/config/schemas/acceptance.py::AcceptanceThresholds`.
+- Add `core/config/schemas/acceptance.py` with 4 classes: `TierDThresholds`, `WalkForwardThresholds`, `FactorTierThresholds`, `AcceptanceThresholds` (nested per §4.1).
 - Add `core/config/schemas/__init__.py` re-export.
-- Add `config/acceptance.yaml` with current defaults.
+- Add `config/acceptance.yaml` with the 3 nested sections at current defaults.
 - Add `cfg.acceptance` field to top-level Config + loader plumbing.
-- Add unit test: `test_acceptance_thresholds_loads_from_yaml` (load_config picks up overrides; missing file falls back to defaults).
+- Add unit tests: (a) `test_acceptance_thresholds_loads_from_yaml` — full nested override works; (b) `test_acceptance_thresholds_partial_yaml` — overriding only `tier_d.min_ir_vs_spy` keeps other submodels at default; (c) `test_acceptance_thresholds_missing_yaml_falls_back_to_defaults` — no-file case.
 
 After this step the codebase has the new model loaded but nobody reads it yet. Reversible.
 
@@ -314,13 +344,19 @@ Codex round-11 review priority queue places this at #2 (after the now-completed 
 
 ---
 
-## 10. Open questions (for codex / user)
+## 10. Open questions — RESOLVED by codex round-13
 
-1. **Should `AcceptanceThresholds` also subsume the 5 mining gate thresholds currently dead-mirrored at A1 (`min_oos_vs_is_return_ratio`, `min_windows_positive_excess_pct`, `auto_fail_*`, `max_crisis_drawdown_abs`)?** They are nominally walk-forward / OOS gate fields. Today they live in `ValidationConfig` (dead) but their economic meaning maps closer to mining-gate semantics (A3). Option A: include in `AcceptanceThresholds` (per §4.1). Option B: migrate them into `MiningEvaluator` constructor kwargs / `config/backtest.yaml::mining`. Current PRD picks A; codex / user input welcome.
+All 3 v1.0 open questions were answered by codex round-13
+(`docs/audit/20260428-codex_round_13_acceptance_threshold_answers.md`).
+Answers folded into v1.1 design above:
 
-2. **Should `factor_tier_*_min_ir` (A5) be in `AcceptanceThresholds` or in a separate `FactorTierConfig`?** They're conceptually adjacent (Tier D is a *strategy* tier; S/A/B/C/D are *factor* tiers, and the letter overlap is coincidence). PRD currently bundles for simplicity; codex / user input welcome.
+1. **Q1 — A1 walk-forward fields location**: keep under `AcceptanceThresholds`, but **nested** — `AcceptanceThresholds.walk_forward`. Do NOT migrate to `MiningEvaluator`. (codex §"Decision 1") → folded into §4.1 + §4.2.
 
-3. **Acceptable `acceptance_pack._THRESHOLDS` divergence**: when `AcceptanceThresholds` defaults later shift via recalibration PRD, should `_THRESHOLDS` rebase to match (and emit a new contract version), or hold its frozen contract? Out of scope for this PRD, but flagging as a follow-up decision point.
+2. **Q2 — `factor_tier_*_min_ir` placement**: separate nested submodel `FactorTierThresholds`, mounted at `AcceptanceThresholds.factor_tiers`. Do NOT split into a separate root yaml. (codex §"Decision 2") → folded into §4.1 + §4.2.
+
+3. **Q3 — `acceptance_pack._THRESHOLDS` auto-sync**: NO automatic sync. `_THRESHOLDS` stays frozen by default; only an explicit versioned recalibration PRD with version bump + contract migration rationale + backward-compat stance + changelog entry can update it. (codex §"Decision 3") → folded into §4.5 + new acceptance criterion §6.8.
+
+No new open questions in v1.1. Implementation may proceed after user explicit-go.
 
 ---
 
@@ -328,9 +364,8 @@ Codex round-11 review priority queue places this at #2 (after the now-completed 
 
 - **R10 deferral memo** (parent): `docs/memos/20260428-r10_threshold_drift_deferral.md`
 - **Codex round-11 review** (priority): `docs/audit/20260428-codex_round_11_review.md`
-- **Codex round-13 answers / go-ahead**:
-  `docs/audit/20260428-codex_round_13_acceptance_threshold_answers.md`
+- **Codex round-13 sign-off + 3 decisions** (folded into v1.1): `docs/audit/20260428-codex_round_13_acceptance_threshold_answers.md`
 - **R4 audit memo** (F01 + F02 origin): `docs/audit/20260428-ralph_audit_round_04.md`
 - **Cycle summary** (codex review handoff): `docs/audit/20260428-ralph_audit_cycle_summary_for_codex_review.md`
 
-End of PRD draft.
+End of PRD v1.1.
