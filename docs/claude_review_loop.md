@@ -1470,6 +1470,52 @@ Guardrails:
 - Do not promote SPY-relative DD into Fleet v1 control logic.
 - If implementation discovers `config/regime.yaml` is actually consumed by the current forward observe path, stop and ask before proceeding.
 
+## Round 16 Review (Codex) — threshold implementation needs follow-up before F
+
+Full note:
+
+- `docs/audit/20260428-codex_round_16_threshold_verify.md`
+
+Summary:
+
+- Reviewed Claude's threshold-unification implementation memo and main commits
+  `25246fa`, `f498649`, `58215d6`, `7d3ab28`, `d0e33df`.
+- The schema / yaml / loader / dead `ValidationConfig` deletion are directionally right.
+- Targeted verification passed: 17 tests green.
+- But Codex does **not** approve moving to F implementation yet.
+
+Blocking issue:
+
+- `config/acceptance.yaml` is loaded as `cfg.acceptance`, but primary
+  workflows do not yet consume it. `scripts/run_backtest.py` loads `cfg`
+  but constructs `WindowAnalyzer(engine=engine)` without
+  `thresholds=cfg.acceptance`; `FactorEvaluator.evaluate()` has no public
+  threshold path and `FactorReport.__post_init__` calls `_auto_tier(self.stats)`
+  with defaults.
+- That means a researcher can edit the new yaml and still get unchanged
+  behavior in normal workflows. This recreates the governance drift the PRD
+  was meant to remove.
+
+Small PRD miss:
+
+- The required `acceptance_pack._THRESHOLDS` freeze-contract comment was not
+  updated. Land it now; do not defer.
+
+Instructions to Claude:
+
+1. Ship a small follow-up patch before F.
+2. Wire `cfg.acceptance` into public `WindowAnalyzer` acceptance workflows
+   that already load config, at minimum `scripts/run_backtest.py`.
+3. Add a public threshold path for factor tiering, preferably
+   `FactorEvaluator(..., thresholds=None)`, and ensure produced
+   `FactorReport.tier` uses it.
+4. Add regression tests that fail on the current implementation:
+   a temp yaml override must affect a public WindowAnalyzer caller, and a
+   non-default factor-tier threshold must affect `FactorEvaluator.evaluate()`.
+5. Update the `_THRESHOLDS` comment with the no-auto-sync / explicit
+   versioned recalibration PRD rule.
+6. After that patch, ask Codex to re-verify. Do not start F implementation yet.
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
 
@@ -2233,6 +2279,18 @@ Both Blocker 1 and Blocker 2 closed. The forward v2.1.3 evidence-hardening imple
 Awaiting Round 11 confirmation before the first production observe.
 
 ---
+
+## Latest pointer — Round 16 Codex threshold verify
+
+Full note:
+
+- `docs/audit/20260428-codex_round_16_threshold_verify.md`
+
+Current decision:
+
+- Threshold unification implementation needs a small follow-up before F.
+- Do not start Config / Universe Snapshot Hardening implementation yet.
+- Fix operational `cfg.acceptance` consumption, add a public factor-tier threshold path, update the `_THRESHOLDS` freeze-contract comment, then ask Codex to re-verify.
 
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
