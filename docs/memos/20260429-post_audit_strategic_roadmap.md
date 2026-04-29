@@ -1,9 +1,9 @@
 ---
 title: 后审计阶段战略路线图 — 4 track 串行/并行执行计划
 date: 2026-04-29
-version: v2
+version: v3
 type: strategic_roadmap
-status: ready_for_track_a_prd_draft
+status: track_a_prd_codex_round_20_APPROVED — implementation begins
 authors:
   - claude (synthesis)
   - external_auditor_1 (engineering / research-rigor lens)
@@ -23,6 +23,11 @@ v1_to_v2_changelog: |
   外部审核员 follow-up + Claude 三处加约束 + 两处新增, 共 12 项
   Track A PRD 必须项, 落 §4.2 + §11. v2 用户已 explicit-go (1+2+3
   并行启动: 路线图更新 / 写 round 19 reply / 开写 Track A PRD 草稿)
+v2_to_v3_changelog: |
+  v3 (2026-04-29 同日) 标记 Track A PRD codex round 20 APPROVED;
+  PRD v1.0 → v1.1 吸收 codex 4 项必须修正 (B1-B4) + 3 项答复驱动
+  schema 改动 (Q1 F1 floor / Q3 role-lock C5 / Q4 regime tiered).
+  R20 没有 reject 任何项. 实施 authorized; Track A Step A.1 开始.
 ---
 
 # 后审计阶段战略路线图

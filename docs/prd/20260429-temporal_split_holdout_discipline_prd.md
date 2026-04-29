@@ -1,9 +1,14 @@
 ---
 title: PRD — Temporal Split & Holdout Discipline (Track A v1)
 date: 2026-04-29
-version: v1.0
-status: draft_for_codex_review
-authority_required: user explicit (zibo) — implementation NOT authorized by this PRD; PRD-level codex sign-off requested
+version: v1.1
+status: codex_round_20_APPROVED — implementation AUTHORIZED; user explicit-go received
+authority_required: user explicit (zibo) ✅ + codex round 20 PRD-level sign-off ✅
+v1_to_v1_1_changelog: |
+  v1.1 (2026-04-29 同日) folds codex round 20 4 required boundaries
+  (B1-B4) + answer-driven schema changes (Q1 F1 floor / Q3 role-lock C5
+  / Q4 regime tiered policy). No item rejected. Implementation begins
+  immediately after this commit.
 parent_context:
   - docs/memos/20260429-post_audit_strategic_roadmap.md (v2; 12-item checklist §11)
   - docs/audit/20260429-codex_round_19_strategic_redirection_review.md
@@ -23,7 +28,7 @@ related_open_decisions:
 
 ### 1.1 Problem statement
 
-Project's last real mining run (`research-cycle-2026-04-26-01`, 200 trials TPE on the post-fix codebase) produced **0 nominee** under newly-tightened gates (G2.A 30% concentration ceiling). Latest archive (`post-2026-04-23-feat-v1-expanded`) shows **65 trials / 0 OOS pass / best OOS IR = -0.119** (negative). RCMv1 + Cand-2 forward observation continues but both candidates were nominated under the OLD gate framework — they would not re-pass current gates.
+Project's last real mining run (`research-cycle-2026-04-26-01`, 200 trials TPE on the post-fix codebase) produced **0 nominee** under newly-tightened gates (G2.A 30% concentration ceiling). Latest archive (`post-2026-04-23-feat-v1-expanded`) shows **65 trials / 0 OOS pass / best OOS IR = -0.119** (negative). RCMv1 + Cand-2 forward observation continues but both candidates were nominated under the OLD gate framework — they are **not eligible for new-framework promotion unless re-run through current gates** (codex R20 B4 wording correction; the old wording "would not re-pass current gates" was overstated since neither has been re-run).
 
 Two strategic conclusions follow (`docs/memos/20260429-post_audit_strategic_roadmap.md` §2):
 
@@ -56,7 +61,7 @@ This PRD lands the framework. Its **only** purpose is research-discipline infras
 
 - Determinism: split YAML hash must be reproducible across machines (sorted keys, list-order preserved per F PRD).
 - Backward compatibility: existing archive trials (pre-temporal-split) must remain readable; their fingerprints lack `split_sha256` and that's expected.
-- F PRD compatibility: PRD-F config snapshot already hashes `config/*.yaml`; `temporal_split.yaml` will be picked up automatically by `_canonical_yaml_sha`.
+- F PRD non-coupling (codex R20 B2 correction): F PRD's `ConfigSnapshot` hashes 5 SPECIFIC named fields (`universe_hash` / `factor_registry_hash` / `risk_config_hash` / `research_mask_hash` / `system_config_hash`), NOT arbitrary yamls in `config/`. **`temporal_split.yaml` is NOT automatically picked up by F PRD.** Track A owns `split_sha256` itself in archive metadata + candidate spec + sealed-eval ledger. Cross-PRD coupling deferred (could add `temporal_split_hash` to F PRD ConfigSnapshot in a future PRD-F-v2 iteration; not in scope here).
 
 ---
 
@@ -158,7 +163,14 @@ Concrete examples:
 | `evaluation_timestamp_utc` | datetime | Audit trail |
 | `result_metrics_sha256` | str | Detect result mutation |
 
-**Fail-closed-on-repeat rule**: if a row already exists with the same `(split_name, candidate_spec_sha256)` tuple, the next sealed evaluation MUST abort with a clear message ("This candidate has already been evaluated against split X. To re-evaluate after intentional gate change, bump split_name to a new version."). This prevents silent retries that would consume the holdout multiple times.
+**Fail-closed rules** (codex R20 B1 correction — split-level lock, not just candidate-level):
+
+1. **Same-candidate repeat**: if a row exists with the same `(split_name, candidate_spec_sha256)`, abort with: "This candidate already evaluated against split X. To re-evaluate, bump split_name."
+
+2. **Split-level core sealed lock (codex R20 B1)**: if ANY core-role candidate has been evaluated against `split_name=X` (regardless of pass/fail), no further core sealed evaluation is permitted under that same `split_name`. Must bump `split_name` to a new version (e.g., `alternating_regime_holdout_v1` → `v2`) which by `locked_after_first_use: true` requires also adjusting validation/sealed years. This prevents an attacker from "trying candidate A, then candidate B, then C" to consume the same 2026 holdout repeatedly under one split.
+
+   - **Diversifier role exception**: codex R20 confirms diversifier sealed evals do not block subsequent diversifier sealed evals under the same `split_name`, BECAUSE diversifier promotion requires a pre-existing core (so the holdout has already been "consumed" for the core decision; running additional diversifier sealed checks under that same split is downstream of an already-locked decision). Diversifier-vs-diversifier same-spec abuse is still blocked by rule 1.
+   - **Implementation**: ledger writes a sentinel row `{split_name=X, role=core, candidate_spec_sha256=*, lock_acquired_at=...}` on first core sealed eval. Subsequent core sealed eval reads ledger; if sentinel present with same `split_name` and `role=core`, abort.
 
 ### 5.3 Regime tag dual-source (M9)
 
@@ -170,12 +182,19 @@ Each validation year YAML row has TWO tag fields:
   auto_classifier_tag: null               # Filled by core/diagnostics/regime_detector.py at PRD impl time
 ```
 
-PRD implementation Step A.8 runs `regime_detector` on each year and fills `auto_classifier_tag`. At fail-closed validation:
+PRD implementation Step A.8 runs `regime_detector` on each year and fills `auto_classifier_tag`. Disagreement policy is **tiered** (codex R20 Q4):
 
-- Both fields must be non-null after Step A.8 commits.
-- If `manual_regime_tag != auto_classifier_tag`, PRD must include an explicit reconciliation memo entry (e.g., "manual = current_market, auto = late_cycle_bull; manual chosen because auto detector is regime-binary while we want regime-narrative").
+| Disagreement scope | Required action |
+|---|---|
+| **0-1 year** disagrees (small mismatch) | Reconciliation memo entry per-year ("manual = current_market, auto = late_cycle_bull; manual chosen because auto detector is regime-binary while we want regime-narrative") |
+| **≥2 years** disagree (auto tags collapse validation diversity) | **User explicit-go required before `split_name` is locked**. Rationale: if regime_detector says 2 of 5 validation years are actually the same regime, the alternating-split's "multi-regime exposure" claim collapses. User must decide: (a) keep manual tags + memo why (b) re-design split (c) accept reduced diversity |
+| All 5 years disagree | Hard error — abort PRD lock; either regime_detector is mis-calibrated or manual tags are wrong; debug before proceeding |
 
-This makes the "alternating split forces multi-regime exposure" claim defensible.
+At fail-closed validation:
+- Both `manual_regime_tag` and `auto_classifier_tag` fields must be non-null after Step A.8 commits.
+- Disagreement count is computed at lock time and triggers tier policy above.
+
+This makes the "alternating split forces multi-regime exposure" claim defensible to future codex rounds.
 
 ---
 
@@ -189,6 +208,7 @@ Codex R19 + auditor agreed: 2025 hard gate applies to first active/core role; fu
 - **C2**: A candidate's role is assigned BEFORE the candidate enters mining; **no post-hoc reclassification** ("this failed core but I'll call it diversifier").
 - **C3**: Each role-specific weakening of a gate must be paired with a compensating constraint (e.g., diversifier weak 2025 gate but stricter MaxDD AND must satisfy `vs_existing_core_correlation < 0.40`).
 - **C4**: Modifying any role gate post-lock requires bumping `split_name` to a new version.
+- **C5** (codex R20 Q3): Same `candidate_spec_sha256` cannot be reminted under a different role within the same `split_name`. Mining startup queries archive metadata; if `(spec_sha256, current_role)` tuple references a previously-mined `(spec_sha256, different_role)` under the same `split_name`, abort with: "Candidate spec X already mined under role Y in this split; cannot remint under role Z. To explore role variation, bump split_name."
 
 ### 6.2 Roles and gates (v1 schema)
 
@@ -231,12 +251,15 @@ acceptance:
             - {metric: "smoke.IR_p90", op: ">", value: 0.15}
             - {metric: "smoke.fraction_above_0.10", op: ">=", value: 0.20}
         then: "F1_gate_recalibration"
-        new_oos_ir_threshold: "smoke.IR_p75"
+        # codex R20 Q1: F1 floor — do NOT auto-set live gate to IR_p75 if it falls below 0.10.
+        new_oos_ir_threshold: "max(0.10, smoke.IR_p75)"
+        new_oos_ir_threshold_below_floor_action: "user_explicit_approval_required"
         explicit_rationale_required: true
         explicit_rationale_template: |
-          降 OOS IR threshold from 0.20 to {smoke.IR_p75:.3f} 因 100-trial smoke
-          显示 alpha 在 (IR_p90={smoke.IR_p90:.3f}, fraction>0.10={...}%) 但当前
-          阈值过严. 此校准只对 split_name='alternating_regime_holdout_v1' 有效.
+          降 OOS IR threshold from 0.20 to {effective_threshold:.3f} (= max(0.10, IR_p75={smoke.IR_p75:.3f}))
+          因 100-trial smoke 显示 alpha 在 (IR_p90={smoke.IR_p90:.3f}, fraction>0.10={...}%) 但当前
+          阈值过严. 若 IR_p75 < 0.10, 强制 floor 0.10; 用户可 explicit override 但需 commit-trail
+          留痕. 此校准只对 split_name='alternating_regime_holdout_v1' 有效.
       - if:
           all:
             - {metric: "smoke.IR_p90", op: "<", value: 0.05}
@@ -358,10 +381,16 @@ audit:
   sealed_eval_ledger:
     enabled: true
     path: "data/research_candidates/sealed_eval_ledger.parquet"
-    fields: [split_name, split_sha256, candidate_spec_sha256, git_sha, panel_max_date, evaluation_timestamp_utc, result_metrics_sha256]
+    fields: [split_name, split_sha256, candidate_spec_sha256, role, git_sha, panel_max_date, evaluation_timestamp_utc, result_metrics_sha256]
     fail_closed_on_repeat:
       key: ["split_name", "candidate_spec_sha256"]
       action: "abort_with_message"
+    # codex R20 B1: split-level lock — any core sealed eval consumes the holdout for that split_name
+    fail_closed_on_split_failure:
+      role: "core"
+      key: ["split_name", "role"]
+      action: "abort_with_message"
+      message: "Core sealed eval already performed under split X. To re-evaluate, bump split_name to a new version (which by locked_after_first_use:true also requires adjusting validation/sealed years)."
 ```
 
 ---
@@ -395,7 +424,7 @@ audit:
 | 4 | 2025 single-year hard gate kills candidate that passes 2018/2019/2021/2023 but fails 2025 vs-qqq | M2 |
 | 5 | Stress slice MaxDD computed independently from validation aggregation; failing stress slice but passing all 5 validation years → still kill | M1 supplement |
 | 6 | YAML `split_name` v1 → v2: old archive trials remain readable; evaluator refuses to mix v1 + v2 results in same comparison | locked_after_first_use |
-| 7 | No year, threshold, or role string hardcoded in Python (`grep -rn '2025\|0.20\|core' core/research/`) — all reads via loader | "config-driven" hard rule |
+| 7 | **End-to-end yaml-swap behavior test (codex R20 B3 — replaces brittle grep)**: load `temporal_split.yaml` v1 with `roles.core.validation_gates[2025_excess_vs_qqq].value=0.0`; run synthetic mining + acceptance pack; confirm candidate with 2025 excess=-0.01 is killed. Mutate yaml to `value=-0.05`; rerun; confirm same candidate now passes. Demonstrates value comes from yaml at runtime, not hardcoded | "config-driven" hard rule (production-behavior verified, not grep) |
 | 8 | 21d forward return label crossing 2025-12-20 → 2026-01-15 boundary → row dropped from 2025 evaluation set | M4 |
 | 9 | Sealed-eval ledger: same `(split_name, candidate_spec_sha256)` re-evaluation → ABORTS | M5 |
 | 10 | Mining startup with no role assigned in candidate spec → ABORTS | M6 C1+C2 |
@@ -403,6 +432,10 @@ audit:
 | 12 | `auto_classifier_tag` null after Step A.8 → ABORTS | M9 |
 | 13 | Factor lookback > 504 days → factor registry rejects at registration | M3 + codex R19 #5 |
 | 14 | `max_factor_lookback_used` recorded per candidate in archive | codex R19 #5 |
+| 15 | (codex R20 B1) Split-level core sealed lock: 1st core sealed eval succeeds; 2nd core sealed eval (different candidate, same split) ABORTS | M5 + sealed_eval_ledger.fail_closed_on_split_failure |
+| 16 | (codex R20 Q1) F1 fork floor: synthetic smoke with IR_p75=0.05 + IR_p90=0.16 → F1 triggered; effective threshold = max(0.10, 0.05) = 0.10; user-explicit-approval flag set if floor used | M7 + fork_criteria.new_oos_ir_threshold |
+| 17 | (codex R20 Q3) C5 role-spec reuse: candidate spec X mined under role=core in split_v1; attempt to mine same X under role=diversifier in split_v1 → ABORTS | M6 C5 |
+| 18 | (codex R20 Q4) Regime disagreement tier: 0-1 year disagree → memo only; 2+ year disagree → abort lock pending user explicit-go | M9 tiered policy |
 
 ---
 
@@ -454,14 +487,28 @@ audit:
 | #6 Dividend pass margin Track C/D | §8 + M8 (schema in A; enforcement in D) |
 | #7 Pointer hygiene (push main) | DONE — c62b1d8 pushed before this PRD draft |
 
-### 13.4 Items where Claude diverged from codex
+### 13.4 Items where Claude diverged from codex (R19 — held in R20)
 
-| Codex R19 position | Claude position | Where written |
+| Codex R19 position | Claude position (held in R20) | Where written |
 |---|---|---|
 | "Default bias to F2 unless smoke shows broad near-threshold positive evidence" | Quantitative percentile thresholds locked pre-smoke; no narrative default bias | §7 + M7 |
 | (No explicit position on dividend margin number) | 5y cumulative excess vs QQQ ≥ 4% | §8 + M8 |
 | (No explicit position on regime tag double-source) | Manual tag + auto-classifier tag both required, reconciliation memo on disagreement | §5.3 + M9 |
 | (No explicit position on role pre-mining lock) | Role assignment pre-mining mandatory; post-hoc reclassification fail-closed | §6.1 C1+C2 + audit guard #10 |
+
+R20 did not push back on any of the above; codex confirmed all 4 implicitly by approving the PRD.
+
+### 13.5 Codex R20 corrections accepted (v1.1 changelog)
+
+| R20 ask | Where folded into v1.1 |
+|---|---|
+| B1: Sealed ledger split-level fail-close, not just candidate-level | §5.2 + §9 sealed_eval_ledger.fail_closed_on_split_failure + test #15 |
+| B2: Track A owns split_sha256, do not assume F PRD picks it up automatically | §2.2 corrected; F PRD non-coupling explicit |
+| B3: Replace brittle grep test #7 with production-behavior yaml-swap test | §11 test #7 rewritten |
+| B4: Reword RCMv1/Cand-2 from "would not re-pass" to "not eligible unless re-run" | §1.1 |
+| Q1: F1 floor max(0.10, smoke.IR_p75) + user explicit approval below floor | §7 + §9 fork_criteria + test #16 |
+| Q3: Role lock C5 — same spec_sha256 cannot be reminted under different role within split_name | §6.1 C5 + test #17 |
+| Q4: Regime disagreement tiered (memo for 0-1 mismatch; user explicit-go for ≥2) | §5.3 + test #18 |
 
 ---
 
@@ -479,4 +526,4 @@ audit:
 
 ## End of PRD
 
-Implementation does NOT start until codex round 19+ sign-off + user explicit-go. Acceptance criteria #1-#14 must all be green before Track A is declared shipped.
+**v1.1 status (2026-04-29 同日)**: codex round 20 PRD-level approval ✅ + user explicit-go ✅ → implementation AUTHORIZED. Acceptance criteria #1-#18 must all be green before Track A is declared shipped.
