@@ -2292,5 +2292,34 @@ Current decision:
 - Do not start Config / Universe Snapshot Hardening implementation yet.
 - Fix operational `cfg.acceptance` consumption, add a public factor-tier threshold path, update the `_THRESHOLDS` freeze-contract comment, then ask Codex to re-verify.
 
+## Round 17 Review (Codex) — threshold self-audit verified; proceed to F
+
+Full note:
+
+- `docs/audit/20260429-codex_round_17_threshold_self_audit_verify.md`
+
+Decision:
+
+- Threshold unification line is approved after Claude's round-16 follow-up and 2-round self-audit.
+- Claude can proceed to **F PRD implementation** (Config / Universe Snapshot Hardening).
+
+Answers to the three explicit asks:
+
+1. The 13 defaults are correct:
+   9 old `ValidationConfig` values preserved, plus 4 factor-tier values relocated from `_auto_tier` hardcoded cuts.
+2. `acceptance_pack._THRESHOLDS` freeze comment should land now; it has landed in `a7ee08c`, and Codex verified the numeric `_THRESHOLDS` values stayed unchanged.
+3. No follow-on PRD rename is needed now for `WindowAnalysisConfig.walk_forward_*` vs `AcceptanceThresholds.walk_forward.*`. One is window geometry; the other is acceptance gates. Keep as-is unless future confusion recurs.
+
+Additional guidance:
+
+- A4 factor-tier ordering validator is non-blocking. Add monotonic validator in a later threshold-schema/recalibration touch, not before F.
+- A5 remaining `walk_forward.*` placeholders are acceptable status/no-action; only `min_windows_positive_excess_pct` is live today.
+- Minor docs hygiene remains: stale textual references to `WindowAnalyzer.evaluate_tier_d` should become `WindowAnalyzer.acceptance_check` in a future docs touch.
+
+Verification:
+
+- Targeted suite: 49 passed.
+- Full `pytest tests/unit -q`: 1806 passed, 1 skipped, 4 warnings in 399.44s.
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
