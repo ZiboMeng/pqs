@@ -370,6 +370,15 @@ def main() -> int:
         archive=archive,
         lineage_tag=args.lineage,
         study_id=study_id,
+        # Track A v1 fingerprint threading (None when --temporal-split absent)
+        split_name=(split_cfg.split_name if split_cfg is not None else None),
+        split_sha256=split_sha256,
+        panel_max_date=panel_max_date,
+        role=(args.role if split_cfg is not None else None),
+        max_factor_lookback_days=(
+            split_cfg.access_rules.factor_warmup_max_lookback_days
+            if split_cfg is not None else None
+        ),
     )
 
     logger.info(

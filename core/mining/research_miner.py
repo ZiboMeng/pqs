@@ -687,6 +687,14 @@ class ResearchMiner:
         archive: Any = None,
         lineage_tag: Optional[str] = None,
         study_id: Optional[str] = None,
+        # Track A v1 (PRD 20260429) optional fingerprint fields. None on
+        # legacy mining flows; populated by run_research_miner.py when
+        # --temporal-split is active. Threaded through to insert_trial.
+        split_name: Optional[str] = None,
+        split_sha256: Optional[str] = None,
+        panel_max_date: Optional[str] = None,
+        role: Optional[str] = None,
+        max_factor_lookback_days: Optional[int] = None,
     ) -> None:
         self.factor_panel_map = factor_panel_map
         self.fwd_returns = fwd_returns
@@ -708,6 +716,12 @@ class ResearchMiner:
         self.archive = archive
         self.lineage_tag = lineage_tag
         self.study_id = study_id
+        # Track A: thread fingerprint to record_study + insert_trial
+        self.split_name = split_name
+        self.split_sha256 = split_sha256
+        self.panel_max_date = panel_max_date
+        self.role = role
+        self.max_factor_lookback_days = max_factor_lookback_days
         if archive is not None:
             archive.record_study(
                 study_id=study_id,
@@ -719,6 +733,9 @@ class ResearchMiner:
                     "w_bench_excess": self.objective_weights.w_bench_excess,
                     "w_regime_stddev": self.objective_weights.w_regime_stddev,
                 },
+                split_name=split_name,
+                split_sha256=split_sha256,
+                role=role,
             )
         # Cache of trial results for in-memory analysis
         self.results: List[TrialResult] = []
@@ -763,6 +780,10 @@ class ResearchMiner:
                     study_id=self.study_id,
                     benchmark_excess=0.0,
                     regime_stddev=0.0,
+                    split_sha256=self.split_sha256,
+                    panel_max_date=self.panel_max_date,
+                    role=self.role,
+                    max_factor_lookback_days=self.max_factor_lookback_days,
                 )
             except Exception as exc:  # noqa: BLE001
                 # Persistence is advisory — don't fail the Optuna study

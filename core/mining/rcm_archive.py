@@ -85,9 +85,34 @@ CREATE TABLE IF NOT EXISTS rcm_studies (
     created_at          TEXT    NOT NULL,
     objective_weights_json TEXT,
     panel_description   TEXT,
-    n_trials_recorded   INTEGER NOT NULL DEFAULT 0
+    n_trials_recorded   INTEGER NOT NULL DEFAULT 0,
+
+    -- Track A v1 (PRD 20260429): temporal split fingerprint at study level.
+    -- All NULL on legacy studies (pre-Track-A); populated by record_study()
+    -- when the temporal split flow is active. ALTER TABLE ADD COLUMN handles
+    -- migration in _init_schema (idempotent: silently skipped if present).
+    split_name          TEXT,
+    split_sha256        TEXT,
+    role                TEXT
 )
 """
+
+# ALTER TABLE migrations for legacy archives that pre-date Track A. Each
+# statement is wrapped in try/except OperationalError (SQLite emits this
+# when the column already exists). _init_schema() runs CREATE then ALTER
+# unconditionally; CREATE is idempotent for new DBs and ALTER is no-op
+# for already-migrated DBs.
+_ALTER_STUDIES_TRACK_A = [
+    "ALTER TABLE rcm_studies ADD COLUMN split_name TEXT",
+    "ALTER TABLE rcm_studies ADD COLUMN split_sha256 TEXT",
+    "ALTER TABLE rcm_studies ADD COLUMN role TEXT",
+]
+_ALTER_TRIALS_TRACK_A = [
+    "ALTER TABLE rcm_trials ADD COLUMN split_sha256 TEXT",
+    "ALTER TABLE rcm_trials ADD COLUMN panel_max_date TEXT",
+    "ALTER TABLE rcm_trials ADD COLUMN role TEXT",
+    "ALTER TABLE rcm_trials ADD COLUMN max_factor_lookback_days INTEGER",
+]
 
 _CREATE_INDEX_LINEAGE = """
 CREATE INDEX IF NOT EXISTS idx_rcm_trials_lineage
@@ -141,6 +166,13 @@ class RCMArchive:
             conn.execute(_CREATE_INDEX_LINEAGE)
             conn.execute(_CREATE_INDEX_OBJECTIVE)
             conn.execute(_CREATE_INDEX_STUDY)
+            # Track A v1 migrations (idempotent — silent skip if already applied)
+            for stmt in (_ALTER_STUDIES_TRACK_A + _ALTER_TRIALS_TRACK_A):
+                try:
+                    conn.execute(stmt)
+                except sqlite3.OperationalError as exc:
+                    if "duplicate column name" not in str(exc):
+                        raise
             conn.commit()
 
     # ── Study metadata ───────────────────────────────────────────────────
@@ -151,7 +183,14 @@ class RCMArchive:
         lineage_tag: str,
         objective_weights: Optional[dict] = None,
         panel_description: Optional[str] = None,
+        split_name: Optional[str] = None,
+        split_sha256: Optional[str] = None,
+        role: Optional[str] = None,
     ) -> None:
+        """Record study metadata. Track A fields (split_name/split_sha256/role)
+        default to NULL for legacy mining flows; populated when temporal split
+        is active.
+        """
         now = datetime.now(timezone.utc).isoformat()
         ow_json = json.dumps(objective_weights) if objective_weights else None
         with self._connect() as conn:
@@ -160,15 +199,46 @@ class RCMArchive:
                 INSERT OR REPLACE INTO rcm_studies
                     (study_id, lineage_tag, created_at,
                      objective_weights_json, panel_description,
-                     n_trials_recorded)
+                     n_trials_recorded,
+                     split_name, split_sha256, role)
                 VALUES (?, ?, ?, ?, ?,
                         COALESCE((SELECT n_trials_recorded FROM rcm_studies
-                                  WHERE study_id=?), 0))
+                                  WHERE study_id=?), 0),
+                        ?, ?, ?)
                 """,
                 (study_id, lineage_tag, now, ow_json, panel_description,
-                 study_id),
+                 study_id,
+                 split_name, split_sha256, role),
             )
             conn.commit()
+
+    def find_studies_by_spec_role(
+        self,
+        spec_sha256: str,
+        split_name: str,
+    ) -> List[dict]:
+        """Codex R20 Q3 (M6 C5) lookup: return prior trials matching this
+        spec_sha256 within the given split_name, with their assigned role.
+
+        Used by mining startup to enforce: a candidate spec already mined
+        under role=core in split_v1 cannot be reminted under role=diversifier
+        in the same split_v1.
+        """
+        with self._connect() as conn:
+            cursor = conn.execute(
+                """
+                SELECT t.trial_id, t.study_id, t.role, t.lineage_tag, t.created_at
+                  FROM rcm_trials t
+                  JOIN rcm_studies s ON t.study_id = s.study_id
+                 WHERE t.trial_id = ? AND s.split_name = ?
+                """,
+                (spec_sha256, split_name),
+            )
+            return [
+                {"trial_id": r[0], "study_id": r[1], "role": r[2],
+                 "lineage_tag": r[3], "created_at": r[4]}
+                for r in cursor.fetchall()
+            ]
 
     # ── Trial insert ─────────────────────────────────────────────────────
 
@@ -180,12 +250,19 @@ class RCMArchive:
         study_id: str,
         benchmark_excess: float = 0.0,
         regime_stddev: float = 0.0,
+        split_sha256: Optional[str] = None,
+        panel_max_date: Optional[str] = None,
+        role: Optional[str] = None,
+        max_factor_lookback_days: Optional[int] = None,
     ) -> str:
         """Insert a TrialResult. Deterministic trial_id from spec hash.
 
         Re-inserting the same spec (same features+weights+family_counts)
         replaces the prior row (ON CONFLICT REPLACE via primary key).
         Returns the trial_id.
+
+        Track A v1 (PRD 20260429) added 4 optional per-trial fingerprint
+        fields. They default to NULL on legacy mining flows.
         """
         spec_dict = _serialize_spec(trial.spec)
         spec_json = json.dumps(spec_dict, sort_keys=True)
@@ -201,7 +278,8 @@ class RCMArchive:
                     features_csv, weights_csv, family_counts_json,
                     n_dates, ic_mean, ic_std, ic_ir,
                     turnover_proxy, corr_concentration,
-                    benchmark_excess, regime_stddev, objective
+                    benchmark_excess, regime_stddev, objective,
+                    split_sha256, panel_max_date, role, max_factor_lookback_days
                 )
                 VALUES (
                     ?, ?, ?, ?,
@@ -209,7 +287,8 @@ class RCMArchive:
                     ?, ?, ?,
                     ?, ?, ?, ?,
                     ?, ?,
-                    ?, ?, ?
+                    ?, ?, ?,
+                    ?, ?, ?, ?
                 )
                 """,
                 (
@@ -227,6 +306,7 @@ class RCMArchive:
                     float(benchmark_excess),
                     float(regime_stddev),
                     _as_float(trial.objective),
+                    split_sha256, panel_max_date, role, max_factor_lookback_days,
                 ),
             )
             # Bump study trial counter

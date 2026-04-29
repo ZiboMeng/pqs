@@ -588,6 +588,40 @@ def ensure_role_assigned(role: Optional[str], cfg: TemporalSplitConfig) -> str:
     return role
 
 
+def enforce_c5_no_role_remint(
+    archive,
+    spec_sha256: str,
+    split_name: str,
+    role: str,
+) -> None:
+    """Codex R20 Q3 (M6 C5): same spec cannot remint under different role.
+
+    Queries the archive for prior trials matching ``spec_sha256`` within
+    ``split_name``. If any match has a DIFFERENT role than ``role``, raise
+    ValueError with a clear message naming the prior role + split.
+
+    A trial reusing the same (spec, role, split) tuple is fine — that is
+    just a deterministic re-run (rcm_archive's INSERT OR REPLACE handles
+    it). The prohibited case is (spec=X, role=core) → (spec=X, role=diversifier)
+    under the same split.
+
+    ``archive`` must expose ``find_studies_by_spec_role(spec_sha256, split_name)
+    -> List[dict]`` (RCMArchive does in Track A v1).
+    """
+    if archive is None or not hasattr(archive, "find_studies_by_spec_role"):
+        return  # Pure-test paths without archive — skip
+    prior = archive.find_studies_by_spec_role(spec_sha256, split_name)
+    other_roles = sorted({p["role"] for p in prior
+                          if p.get("role") and p["role"] != role})
+    if other_roles:
+        raise ValueError(
+            f"M6 C5 violation: candidate spec {spec_sha256[:12]} already "
+            f"mined under role(s) {other_roles} in split {split_name!r}; "
+            f"cannot remint under role {role!r}. To explore role variation, "
+            f"bump split_name (e.g. v1 → v2)."
+        )
+
+
 def compute_split_sha256(path: Optional[Path] = None) -> str:
     """Deterministic content hash of temporal_split.yaml.
 
