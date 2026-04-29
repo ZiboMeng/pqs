@@ -27,11 +27,12 @@ FactorReport 字段
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 
+from core.config.schemas import AcceptanceThresholds
 from core.factors.factor_engine import FactorEngine, FactorStats
 from core.logging_setup import get_logger
 
@@ -296,19 +297,28 @@ def _rolling_crosssection_corr_sub(
                                       min_symbols=min_symbols)
 
 
-def _auto_tier(stats: Dict[int, "FactorStats"]) -> str:
+def _auto_tier(
+    stats: Dict[int, "FactorStats"],
+    thresholds: Optional[AcceptanceThresholds] = None,
+) -> str:
     """
     根据最短预测期的 IR 和显著性自动评级。
 
-    评级标准（与 backtest.ValidationConfig 对齐）：
-      S : IR ≥ 0.8 且显著
-      A : IR ≥ 0.5 且显著
-      B : IR ≥ 0.3 且显著
-      C : IR ≥ 0.1
+    评级标准来源：``AcceptanceThresholds.factor_tiers``（默认值 0.8/0.5/0.3/0.1
+    与历史 ``ValidationConfig`` 对齐；通过 ``config/acceptance.yaml`` 调整）。
+    Codex round-13 §"Decision 2": factor_tiers 是独立 submodel，与 Tier D 的
+    S/A/B/C/D 字母重合是巧合。
+
+      S : IR ≥ ``thresholds.factor_tiers.s_min_ir`` 且显著
+      A : IR ≥ ``thresholds.factor_tiers.a_min_ir`` 且显著
+      B : IR ≥ ``thresholds.factor_tiers.b_min_ir`` 且显著
+      C : IR ≥ ``thresholds.factor_tiers.c_min_ir``
       D : 其余
     """
     if not stats:
         return "D"
+
+    cuts = (thresholds or AcceptanceThresholds()).factor_tiers
 
     # 取最短预测期的统计
     primary = stats[min(stats.keys())]
@@ -316,12 +326,12 @@ def _auto_tier(stats: Dict[int, "FactorStats"]) -> str:
 
     if np.isnan(ir):
         return "D"
-    if abs(ir) >= 0.8 and primary.is_significant:
+    if abs(ir) >= cuts.s_min_ir and primary.is_significant:
         return "S"
-    if abs(ir) >= 0.5 and primary.is_significant:
+    if abs(ir) >= cuts.a_min_ir and primary.is_significant:
         return "A"
-    if abs(ir) >= 0.3 and primary.is_significant:
+    if abs(ir) >= cuts.b_min_ir and primary.is_significant:
         return "B"
-    if abs(ir) >= 0.1:
+    if abs(ir) >= cuts.c_min_ir:
         return "C"
     return "D"

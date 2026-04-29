@@ -234,3 +234,44 @@ class TestAutoTier:
 
     def test_empty_stats_is_d(self):
         assert _auto_tier({}) == "D"
+
+    # ── PRD §6.3 step 3: AcceptanceThresholds wiring ──────────────────────
+
+    def test_auto_tier_honors_yaml_threshold_override(self):
+        """Tightened ``factor_tiers.s_min_ir=0.95`` must demote IR=0.85 from S to A.
+
+        Reverse-validation cue: revert _auto_tier to the hardcoded 0.8/0.5/0.3/0.1
+        cuts and this test fails — IR=0.85 ≥ 0.8 → S under pre-fix, but ≥ 0.95 must
+        miss the S-tier under the override.
+        """
+        from core.config.schemas import (
+            AcceptanceThresholds,
+            FactorTierThresholds,
+        )
+
+        # Default → 0.85 IR is significant → S tier.
+        default_tier = _auto_tier(self._make_stats(ir=0.85, p=0.001))
+        assert default_tier == "S", (
+            f"sanity: with default thresholds, IR=0.85 should land in S; got {default_tier}"
+        )
+
+        tightened = AcceptanceThresholds(
+            factor_tiers=FactorTierThresholds(
+                s_min_ir=0.95,
+                a_min_ir=0.50,
+                b_min_ir=0.30,
+                c_min_ir=0.10,
+            )
+        )
+        injected_tier = _auto_tier(
+            self._make_stats(ir=0.85, p=0.001), thresholds=tightened
+        )
+        assert injected_tier == "A", (
+            f"override s_min_ir=0.95 should demote IR=0.85 to A; got {injected_tier}"
+        )
+
+    def test_auto_tier_default_kwarg_matches_schema_defaults(self):
+        """Calling without ``thresholds`` is equivalent to passing schema defaults."""
+        from core.config.schemas import AcceptanceThresholds
+        stats = self._make_stats(ir=0.45, p=0.001)
+        assert _auto_tier(stats) == _auto_tier(stats, thresholds=AcceptanceThresholds())
