@@ -662,8 +662,9 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
      in `tests/unit/research/test_backfill_config_snapshot.py`.
      Plus codex round-18 follow-up `observe(config_dir=...)` kwarg
      for hermetic-test contract symmetry with `init()`.
-  Forward slice: 102 → 122 tests (+10 step3 + 8 backfill + 5 audit);
-  full unit suite 1850 passed.
+  Forward slice today: 146 tests (24 added since v2.1.3 baseline:
+  10 F step-3 drift + 5 audit-round 1+2 fixes + 8 step-4 backfill +
+  1 R18 §1 config_dir-kwarg regression). Full unit suite 1850 passed.
   **Operational rule established (audit reverse-validate finding)**:
   forward `fetchdata` MUST run post-NYSE-16:00-ET close. Earlier
   intraday fetches put a partial-day "close" on disk; the next

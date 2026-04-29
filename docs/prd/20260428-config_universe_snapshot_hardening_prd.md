@@ -423,6 +423,7 @@ A change-set passes this PRD if and only if all of the following hold:
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
 | Halt-severity drift on benign refactor (e.g. cosmetic universe.yaml comment edit) | medium | low (false halt) | `_canonical_yaml_sha` strips comments + normalizes whitespace; only meaningful content drives the hash |
+| List-value reorder triggers halt even when symbol set is unchanged (e.g. `seed_pool: [SPY, QQQ]` → `[QQQ, SPY]`) | low | low (false halt; cleared by no-op revert) | Conservative fail-close by design: §4.1 documents that list element order is preserved (some list-shaped knobs encode meaningful order). Operators who legitimately need to reorder list values must accept the drift event and `decide()` or revert. v1.1 may revisit per-list semantic-set hashing if this becomes a recurring nuisance. |
 | Factor-registry hash false-trigger on type-hint refactor | medium | low | hash the **contract** (set of names + map) not file bytes; refactors that don't change contract don't change hash |
 | Backfill silently overwrites real drift | low | medium | backfill stamps `migration_note="backfilled_…_assumed_unchanged"` so drift detection knows the snapshot is post-init not at-init |
 | Lazy migration leaves legacy manifests permanently unprotected | low | medium | INFO log on every observe of legacy manifest reminds; documentation steers users to backfill once |

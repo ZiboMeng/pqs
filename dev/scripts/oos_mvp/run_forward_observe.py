@@ -41,6 +41,7 @@ def _cmd_init(args: argparse.Namespace) -> int:
         decision_days=args.decision_days,
         weekly=not args.no_weekly,
         cost_model_path=args.cost_model_path,
+        config_dir=Path(args.config_dir),
         overwrite=args.overwrite,
     )
     print(f"[forward] init OK for {args.candidate_id}")
@@ -66,6 +67,7 @@ def _cmd_observe(args: argparse.Namespace) -> int:
             cost_model_path=args.cost_model_path,
             top_n=args.top_n,
             dry_run=args.dry_run,
+            config_dir=Path(args.config_dir),
         )
     except ForwardHaltError as exc:
         print(f"[forward] HALT: {exc}", file=sys.stderr)
@@ -122,6 +124,14 @@ def main() -> int:
     p_init.add_argument("--no-weekly", action="store_true")
     p_init.add_argument("--cost-model-path", default="config/cost_model.yaml")
     p_init.add_argument(
+        "--config-dir", default="config",
+        help=(
+            "Root config dir for ConfigSnapshot pinning (PRD F). "
+            "Default: config/. Override for hermetic tests or alternative "
+            "deployments — must match the dir observe() will be invoked with."
+        ),
+    )
+    p_init.add_argument(
         "--overwrite", action="store_true",
         help="Replace an existing manifest (drops its runs[])",
     )
@@ -142,6 +152,15 @@ def main() -> int:
     p_observe.add_argument("--candidate-id", required=True)
     p_observe.add_argument("--up-to", default=None, help="ISO date upper bound")
     p_observe.add_argument("--cost-model-path", default="config/cost_model.yaml")
+    p_observe.add_argument(
+        "--config-dir", default="config",
+        help=(
+            "Root config dir used by F-PRD revalidate (drift detection). "
+            "Default: config/. MUST match the value used at init time so the "
+            "snapshot pinned in the manifest is comparable against the same "
+            "tree on every observe."
+        ),
+    )
     p_observe.add_argument("--top-n", type=int, default=10)
     p_observe.add_argument("--dry-run", action="store_true")
     p_observe.set_defaults(func=_cmd_observe)

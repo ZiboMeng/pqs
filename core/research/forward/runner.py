@@ -352,7 +352,32 @@ def _build_config_snapshot(
     function is also used by ``revalidate`` (step 3) and the opt-in
     backfill utility (step 4) to recompute the current snapshot for
     drift comparison.
+
+    Raises ``FileNotFoundError`` when ``config_dir`` does not exist or
+    when none of the four expected yamls (universe / research_mask /
+    risk / system) is present. Audit round 4 finding (2026-04-29):
+    silently producing all-``missing-<hash>`` snapshots gave operators
+    no signal that they had pointed the kwarg at the wrong tree, and
+    the next observe would unconditionally halt with a confusing
+    drift event. ``factor_registry_hash`` is deliberately allowed to
+    succeed even when the yaml dir is empty — that hash hits the
+    Python module contract and is not file-tree-bound.
     """
+    config_dir = Path(config_dir)
+    if not config_dir.exists():
+        raise FileNotFoundError(
+            f"config_dir does not exist: {config_dir!s}. "
+            f"Pass --config-dir / config_dir= to point at the actual "
+            f"config tree (default: 'config/' relative to repo root)."
+        )
+    yaml_files = ("universe.yaml", "research_mask.yaml", "risk.yaml", "system.yaml")
+    present = [name for name in yaml_files if (config_dir / name).exists()]
+    if not present:
+        raise FileNotFoundError(
+            f"config_dir {config_dir!s} exists but contains none of "
+            f"{list(yaml_files)!r}. The snapshot would be all "
+            f"'missing-<hash>' values; refusing to produce it."
+        )
     return ConfigSnapshot(
         universe_hash=_canonical_yaml_sha(config_dir / "universe.yaml"),
         factor_registry_hash=_factor_registry_contract_sha(),

@@ -1116,6 +1116,152 @@ def test_attach_drift_to_latest_td_no_op_on_empty_runs():
     assert out == []
 
 
+def test_run_forward_observe_cli_exposes_config_dir():
+    """Audit round 3 finding (2026-04-29): the CLI
+    ``dev/scripts/oos_mvp/run_forward_observe.py`` must expose
+    ``--config-dir`` on both ``init`` and ``observe`` subcommands so
+    R18 §1's contract symmetry is reachable from the user's actual
+    entry point — pre-fix only the library API had the kwarg, the CLI
+    did not, so users of `run_forward_observe.py init/observe` could
+    not point at a non-default config tree.
+    """
+    import subprocess
+    cli = Path("dev/scripts/oos_mvp/run_forward_observe.py").resolve()
+    for sub in ("init", "observe"):
+        result = subprocess.run(
+            [sys.executable, str(cli), sub, "--help"],
+            capture_output=True, text=True, timeout=30, check=True,
+        )
+        assert "--config-dir" in result.stdout, (
+            f"CLI subcommand {sub!r} missing --config-dir flag in help: "
+            f"{result.stdout[-300:]}"
+        )
+
+
+def test_build_config_snapshot_rejects_nonexistent_config_dir(tmp_path: Path):
+    """Audit round 4 finding (2026-04-29): pre-fix, ``_build_config_snapshot``
+    on a nonexistent or empty directory silently returned a ConfigSnapshot
+    whose yaml-derived hashes were all ``missing-<hash>`` strings (passed
+    schema but useless). Operators who pointed --config-dir at the wrong
+    path would not learn until next observe() unconditionally halted with
+    a confusing drift event.
+
+    Post-fix: nonexistent or empty config_dir raises FileNotFoundError
+    with an actionable message. ``factor_registry_hash`` (Python contract,
+    not file-tree-bound) still succeeds on its own — but the gate is on
+    the yaml side, where misdirected pointers actually surface.
+    """
+    from core.research.forward.runner import _build_config_snapshot
+
+    nope = tmp_path / "fake_config_dir"
+    with pytest.raises(FileNotFoundError, match="config_dir does not exist"):
+        _build_config_snapshot(nope)
+
+    empty = tmp_path / "empty_config"
+    empty.mkdir()
+    with pytest.raises(FileNotFoundError, match="contains none of"):
+        _build_config_snapshot(empty)
+
+    # And: at least one of the four yamls present — succeeds. Missing
+    # yamls produce 'missing-<hash>' strings (signaling the operator
+    # left them out intentionally, e.g. a system that runs without
+    # research_mask.yaml). The trap is the all-missing case.
+    only_universe = tmp_path / "partial_config"
+    only_universe.mkdir()
+    (only_universe / "universe.yaml").write_text("seed_pool: [SPY]\n")
+    snap = _build_config_snapshot(only_universe)
+    assert len(snap.universe_hash) == 64
+    assert snap.research_mask_hash.startswith("missing-")
+
+
+def test_revalidate_manifest_spec_none_v2_entries_explicit_error():
+    """Audit round 4 finding (2026-04-29): pre-fix, calling
+    ``revalidate_manifest`` with ``spec=None`` on a manifest that has
+    v2.1 entries crashed deep in ``bar_hash.compute_signal_input_hash``
+    with a cryptic ``AttributeError: 'NoneType' object has no attribute
+    'feature_set'``. Production observe() always passes spec, but
+    audit / test tooling is the typical caller that hits this.
+
+    Post-fix: explicit ValueError with a FrozenStrategySpec.from_yaml_file
+    pointer. Legacy-only manifests still accept spec=None (config-drift-
+    only audit path remains supported).
+    """
+    from core.research.forward.manifest_schema import (
+        BarHashInputs, ForwardRun, ForwardRunManifest, PerScopeHashInputs,
+        CheckpointCadence, CostAssumptions, EvidenceClass,
+    )
+    from core.research.robustness.window_spec import DataIntegritySnapshot
+    from core.research.forward.revalidate import revalidate_manifest
+
+    def _scope(name):
+        return PerScopeHashInputs(
+            scope=name,
+            symbols=["SPY"],
+            bar_attributes=["close"],
+            window_start=date(2026, 4, 1),
+            window_end=date(2026, 4, 25),
+            bar_revision="r1",
+            per_cell_digest={},
+            materiality_anchor_values={},
+        )
+    fake_bar_inputs = BarHashInputs(
+        signal_input=_scope("signal_input"),
+        execution_nav=_scope("execution_nav"),
+        benchmark=_scope("benchmark"),
+    )
+    m_v2 = ForwardRunManifest(
+        candidate_id="v2_entries",
+        evidence_class=EvidenceClass.forward_oos,
+        spec_hash="abcdef0123456789",
+        start_date=date(2026, 4, 25),
+        cost_assumptions=CostAssumptions(
+            source="x", config_hash="cafebabe1234deadbeef",
+        ),
+        checkpoint_cadence=CheckpointCadence(),
+        data_integrity_snapshot=DataIntegritySnapshot(
+            daily_store_rebuild_commit="abcdef012345",
+            baseline_snapshot_path="x",
+            generated_at_utc=datetime(2026, 4, 25, tzinfo=timezone.utc),
+        ),
+        runs=[ForwardRun(
+            checkpoint_label="TD001",
+            as_of_date=date(2026, 4, 25),
+            n_observed_trading_days=1,
+            legacy_unhashed_inputs=False,
+            signal_input_hash="a" * 16,
+            execution_nav_hash="b" * 16,
+            benchmark_hash="c" * 16,
+            bar_hash="d" * 16,
+            bar_hash_inputs=fake_bar_inputs,
+        )],
+    )
+
+    with pytest.raises(ValueError, match="spec is None.*v2.1 entries"):
+        revalidate_manifest(
+            m_v2, spec=None, universe=[], panel={"close": None},
+            benchmark_symbols=["SPY"],
+            detected_by_run_label="t",
+        )
+
+    # Legacy-only manifest accepts spec=None (config-drift audit path)
+    m_legacy = m_v2.model_copy(update={
+        "runs": [m_v2.runs[0].model_copy(update={
+            "legacy_unhashed_inputs": True,
+            "signal_input_hash": None,
+            "execution_nav_hash": None,
+            "benchmark_hash": None,
+            "bar_hash": None,
+            "bar_hash_inputs": None,
+        })],
+    })
+    summary = revalidate_manifest(
+        m_legacy, spec=None, universe=[], panel={"close": None},
+        benchmark_symbols=["SPY"], detected_by_run_label="t",
+    )
+    assert summary.events == []
+    assert summary.n_legacy_skipped == 1
+
+
 def test_observe_config_dir_kwarg_routes_to_revalidate(tmp_path: Path):
     """Codex round-18 follow-up #1: ``observe()`` must accept a
     ``config_dir`` kwarg matching the ``init(config_dir=...)`` contract.

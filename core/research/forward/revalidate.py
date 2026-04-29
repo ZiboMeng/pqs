@@ -580,7 +580,32 @@ def revalidate_manifest(
 
     Does NOT mutate the manifest. Returns a summary listing the events
     detected; the caller decides whether to persist + which to persist.
+
+    Audit round 4 (2026-04-29): callers passing ``spec=None`` against a
+    manifest containing v2.1 entries (non-legacy + signal_input_hash
+    populated) get an explicit ``ValueError`` here rather than a
+    cryptic ``AttributeError`` deep in ``bar_hash``. Legacy-only
+    manifests still accept ``spec=None`` for hermetic config-drift-only
+    audit paths.
     """
+    if spec is None:
+        has_v2_entries = any(
+            (not e.legacy_unhashed_inputs)
+            and (e.signal_input_hash is not None)
+            and (e.bar_hash_inputs is not None)
+            for e in manifest.runs
+        )
+        if has_v2_entries:
+            raise ValueError(
+                "revalidate_manifest: spec is None but manifest "
+                f"{manifest.candidate_id!r} contains v2.1 entries that "
+                "require a FrozenStrategySpec to recompute "
+                "signal_input_hash. Pass spec=FrozenStrategySpec.from_yaml_file"
+                "(...) from the manifest's frozen spec yaml. (Legacy-only "
+                "manifests can still be revalidated with spec=None — only "
+                "v2.1 entries need it.)"
+            )
+
     events: list = []
     n_legacy = 0
     n_no_hash = 0
