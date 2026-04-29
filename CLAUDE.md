@@ -629,6 +629,52 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
        spurious 821-cell diffs in opt-in test mode).
   Forward slice: 51 → 102 tests (+2 R8 DST regressions); full unit
   suite 1838 passed.
+- **F (config / universe snapshot hardening) SHIPPED (2026-04-29 ✅)** —
+  per `docs/prd/20260428-config_universe_snapshot_hardening_prd.md`.
+  Five-step layered shipping on `main`:
+  1. **Step 1** (`1952e44`): `ConfigSnapshot` + `ConfigDriftEvent`
+     pydantic models in `manifest_schema.py`; `ForwardRunManifest.config_snapshot`
+     and `ForwardRun.config_drift_event` Optional fields. Lazy-migration
+     compatible — pre-PRD-F manifests load with both fields = None.
+  2. **Step 2** (`c28c969`): `_canonical_yaml_sha`
+     (sorts dict keys recursively, **preserves list order** —
+     conservative fail-closed) + `_factor_registry_contract_sha`
+     (hashes the contract not the file bytes; refactor-stable) +
+     `_build_config_snapshot()` helper. `init(config_dir=...)`
+     wiring stamps the snapshot at forward-init time.
+  3. **Step 3** (`368536d`): `revalidate_manifest(current_config_snapshot=...)`
+     + `RevalidationSummary.config_drift_event` slot (kept separate
+     from data_revision events per codex round-11 §B3). Severity
+     policy: `universe_hash` / `factor_registry_hash` / `risk_config_hash`
+     → halt (flips `current_status` to `requires_data_review`);
+     `research_mask_hash` / `system_config_hash` → warn. `observe()`
+     wiring builds a fresh snapshot, attaches event to latest TD,
+     INFO-logs once per process per candidate when manifest is
+     pre-PRD-F (lazy-migration boundary).
+  4. **Audit fixes** (`abc4425`): `extra="forbid"` on F-PRD models
+     (typo-key bug); docstring fix on `_canonical_yaml_sha`;
+     terminal-status halt on `observe()` (decided candidates can't
+     be silently overwritten).
+  5. **Step 4 backfill** (`ad6491e`): `dev/scripts/forward/backfill_config_snapshot.py`
+     opt-in CLI for pre-PRD-F manifests. Stamps `migration_note=
+     "backfilled_<date>_assumed_unchanged_since_init"`. Idempotent
+     without `--force`; `--dry-run` previews byte-identical. 8 tests
+     in `tests/unit/research/test_backfill_config_snapshot.py`.
+     Plus codex round-18 follow-up `observe(config_dir=...)` kwarg
+     for hermetic-test contract symmetry with `init()`.
+  Forward slice: 102 → 122 tests (+10 step3 + 8 backfill + 5 audit);
+  full unit suite 1850 passed.
+  **Operational rule established (audit reverse-validate finding)**:
+  forward `fetchdata` MUST run post-NYSE-16:00-ET close. Earlier
+  intraday fetches put a partial-day "close" on disk; the next
+  observe()'s v2.1 revalidate correctly fail-closes (NAV impact
+  exceeds E1=10 bps; raw drift exceeds E5=0.5%). Workflow discipline
+  not a code fix.
+  **Status**: F PRD §6 acceptance 13/13 ✅; awaiting codex round-19
+  final F sign-off (memo on `review/claude-collab` `c8dbd02`).
+  RCMv1 + Cand-2 production manifests still pre-PRD-F (config_snapshot=None);
+  user has not yet run the opt-in backfill — drift detection on those
+  two will activate when backfill is run.
 - **Forward observation active**. First real `forward observe` since
   v2.1.3 + R8 DST fix ran 2026-04-28 (commit `bcfbc0f`):
   - rcm_v1_defensive_composite_01: TD001 (legacy) + TD002 + TD003

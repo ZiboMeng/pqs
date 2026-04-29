@@ -70,6 +70,7 @@
 - **Pricing semantics**: 详见 `CLAUDE.md` §"Pricing and Valuation Semantics"（raw bars + splits.parquet 读时 cascade；T+1 open-fill 执行）
 - **测试**: 当前计数 / git head 见 `data/baseline/latest.json`；刷新用 `dev/scripts/baseline/build_research_baseline_snapshot.py --run-tests`
 - **Framework**: M0-M8 + M10-M16 已交付（M11a / M11b / M12 / M14 在 2026-04-24 → 2026-04-27 ship；详见 `CLAUDE.md` §"Framework Completion PRD"）。开放项 M17（live-feed infra）+ M18（DSL func expansion）
+- **Forward OOS evidence guard**: forward 运行的 manifest 现在在 `init` 时锁定一份 `ConfigSnapshot`（universe / factor_registry / research_mask / risk / system 5 个 hash），`observe` 每次跑 revalidate 时检查 config 漂移。Halt-class（universe / factor_registry / risk）会把 `current_status` 翻成 `requires_data_review`；warn-class（research_mask / system）只记录。Pre-PRD-F manifest 走 lazy-migration（不强制 halt），可用 `dev/scripts/forward/backfill_config_snapshot.py --dry-run` opt-in 接管。详细契约：`docs/prd/20260428-config_universe_snapshot_hardening_prd.md`
 - **历史阶段总结**: 入口在 `docs/INDEX.md` §"Final synthesis docs"；ralph-loop 工作日志在 `docs/20260420-ralph_loop_log.md`
 
 ---
