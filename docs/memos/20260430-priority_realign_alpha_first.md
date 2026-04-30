@@ -108,18 +108,56 @@ preserving for cycle #01 closeout):
 Cycle #01 closeout MUST classify any candidate against this list.
 "Pass gates" alone is insufficient evidence to enter nominee status.
 
-### 3. Sealed eval must be defined as post-freeze unseen window
+### 3. Separate machine-sealed 2026 holdout from post-freeze live-forward window
 
-Today is 2026-04-30. Any candidate frozen today onwards CANNOT use
-2026-Q1 + April as clean OOS — the panel was visible at freeze. The
-A.MV freeze-date HARD rule (Q11 disposition) addresses this; until
-A.MV ships, **manual discipline at sealed-eval time is required**:
+Two distinct concepts that earlier drafts of this memo conflated.
+Auditor R38 follow-up forced the disentanglement; both rules
+remain in force, but they apply to DIFFERENT artifacts.
 
-> Clean sealed eval window starts strictly after candidate
-> `freeze_date` AND after `panel_max_date_at_freeze`.
+**Machine-sealed full-year 2026 holdout** (final test for cycle #01
+candidates):
 
-This rule is recorded here because Track C cycle #01 cannot rely on
-A.MV being implemented when it eventually reaches sealed eval.
+> A candidate may use full-year 2026 (Jan–Dec) as machine-sealed
+> holdout if and only if 2026 was never machine-read during
+> mining, acceptance evaluation, or rule tuning, AND the criteria
+> yaml was pre-registered (sha256 committed) before the first
+> mining trial. Sealed eval is single-shot.
+
+This is **authentic machine-unseen OOS**. 2026 Q1+April is STILL
+valid sealed-eval data because tiers 1+2+3 of the unseen taxonomy
+held; tier 4 (human path-knowledge) is bounded but does NOT
+disqualify the holdout. Discarding Q1+April to "be extra clean
+of human knowledge" loses ~85 trading days of valid evidence to
+overcaution. Cycle #01 sealed test should use full 2026.
+
+**Post-freeze live-forward unseen window** (real-time validation,
+forward observation, B.MV early-attention triggers, eventual live
+broker evidence):
+
+> Live-forward unseen evidence may only be drawn from dates
+> strictly AFTER candidate `freeze_date` AND AFTER
+> `panel_max_date_at_freeze`.
+
+Today is 2026-04-30. Any candidate frozen today onwards has
+`freeze_date = 2026-04-30` and (assuming panel cutoff = 2025-12-31
+per cycle #01 plan) `panel_max_date_at_freeze = 2025-12-31`. Live-
+forward window for that candidate begins at `2026-05-01` and runs
+~166 remaining 2026 trading days plus all of 2027+.
+
+The A.MV freeze-date HARD rule (Q11 disposition) enforces the
+live-forward rule machine-side; until A.MV implementation lands,
+manual operator discipline applies.
+
+**Why both rules are needed**:
+
+| Rule | Defends against | Applies to |
+|------|-----------------|------------|
+| Machine-sealed: full 2026 valid IF tiers 1+2+3 hold | Mining/evaluation/criteria reading 2026 | Historical sealed final test |
+| Post-freeze: live-forward starts AFTER freeze | Calling pre-freeze observed data "live forward" | Forward observation, B.MV triggers, future live |
+
+Conflating them either (a) costs 85 valid sealed-test TDs to
+overcaution, or (b) dilutes the live-forward integrity claim by
+calling pre-freeze data "live unseen". Keep them distinct.
 
 ### 4. Most scarce resource: unseen forward time
 
@@ -153,13 +191,21 @@ collapses tiers 1-3 into one bucket. The four-tier split matters
 because tier 3 is the LAST tier where pre-registration discipline
 saves us.
 
+**Tier 3 is the urgent tier today**: criteria yaml must be
+written and sha256-committed BEFORE any further 2026-informed
+discretionary discussion. Today's tier-4 path-knowledge is
+bounded by what we already know; next week it grows. Criteria
+written today is cleaner than criteria written in two weeks.
+
 ### Sealed eval window vs forward observation window
 
-Two different concepts often conflated:
+Two different concepts conflated by §3 above; the rules co-exist
+because they apply to DIFFERENT artifacts. Restating clearly:
 
-- **Sealed eval window** = full 2026 (Jan-Dec) used as one-shot
-  test on a frozen candidate that was mined on ≤ 2025 data. Tiers
-  1-3 hold; tier 4 is acknowledged as already broken but mining
+- **Machine-sealed full-year 2026 holdout** (historical sealed
+  final test) = full 2026 (Jan-Dec) used as one-shot test on a
+  frozen candidate that was mined on ≤ 2025 data. Tiers 1-3
+  hold; tier 4 is acknowledged as already broken but mining
   pipeline is mechanical TPE on pre-registered criteria so human
   path-knowledge has limited entry surface. **2026 Q1+April is
   STILL valid sealed-eval data** because the pipeline never read
@@ -167,41 +213,70 @@ Two different concepts often conflated:
   to "clean human knowledge" is overcautious — it throws away
   ~85 trading days of valid machine-unseen evidence.
 
-- **Forward observation window** = days strictly AFTER candidate
-  `freeze_date`. Used for live-forward discipline (B.MV early-
-  attention triggers, real broker integration eventually).
-  Today the open forward window is 2026-05-01 onwards (~166 TDs
-  remaining in 2026). This is the post-A.MV-rule "clean live-
-  forward unseen window".
+- **Live-forward unseen window** (real-time validation) = days
+  strictly AFTER candidate `freeze_date` AND after
+  `panel_max_date_at_freeze`. Used for forward observation, B.MV
+  early-attention triggers, real broker integration eventually.
+  Today (2026-04-30) for a candidate frozen now with panel cutoff
+  2025-12-31, this window starts 2026-05-01 (~166 TDs remaining
+  in 2026 plus all of 2027+).
 
 Cycle #01 candidates use BOTH:
 1. Train + validation evaluation on ≤ 2025 (acceptance gates)
-2. Sealed single-shot test on full 2026 (machine-unseen final)
-3. (If candidate passes 1+2 and is approved) forward init begins
-   with TD001 = 2026-05-something at the earliest
+2. Machine-sealed single-shot test on full 2026 (Jan-Dec)
+3. (If candidate passes 1+2 and is approved) live-forward init
+   begins with TD001 from 2026-05-something at the earliest
 
-### Sealed ledger boundary: spec_sha mechanical defense only
+The two windows defend against different failures: (1+2) ensures
+the candidate was selected without machine access to 2026; (3)
+ensures the live-forward integrity claim isn't weakened by
+calling pre-freeze observed data "live unseen".
 
-`SealedLedgerEntry.fail_closed_on_repeat` (Track A R20 B1)
-prevents the SAME `spec_sha` from being sealed-tested twice. This
-is the machine-layer defense.
+### Sealed ledger lock key — current limitation + future composition
 
-Boundary case it does NOT cover: human cycle #01 sealed fails →
-human modifies one weight in spec → re-freezes new spec → new
-`spec_sha` → ledger lets it through → sealed re-runs on same
-2026 data with parameter information leakage from the failed run.
+**Current state** (Track A R20 B1): `SealedLedgerEntry.fail_closed_on_repeat`
+keys on `spec_sha`. Prevents the SAME `spec_sha` from being
+sealed-tested twice. This is the machine-layer defense.
 
-Defense for this case requires policy not code:
+**Boundary case the current key does NOT cover**: human cycle #01
+sealed fails → human modifies one weight in spec → re-freezes new
+spec → new `spec_sha` → ledger lets it through → sealed re-runs
+on same 2026 data with parameter information leakage from the
+failed run. This is textbook holdout-overfitting via spec tweaking.
 
-1. **Cycle #01 criteria yaml** must include "no spec re-tuning
-   after sealed eval, regardless of result". A failed sealed eval
-   closes the cycle; reopening requires a NEW pre-registered
-   criteria yaml AND a NEW unseen window (e.g. 2027 sealed).
+**Future A.MV-extended lock_key composition** (per auditor R38):
+
+```yaml
+sealed_lock_key:
+  - split_name              # e.g. alternating_regime_holdout_v1
+  - criteria_yaml_sha256    # cycle #01 pre-registered criteria
+  - sealed_window_id        # e.g. 2026_full_year
+  - role                    # e.g. core / diversifier
+```
+
+`candidate_spec_sha256` REMAINS as a recorded field on each
+SealedLedgerEntry but does NOT participate in the uniqueness key.
+Two ledger entries with same lock_key but different
+`candidate_spec_sha256` is exactly the spec-tweak-after-failure
+boundary case → ledger fail-close on the SECOND attempt.
+
+This change is part of the future A.MV implementation work
+(currently demoted to P2 candidate-gated). Until A.MV lands,
+the policy substitute applies:
+
+1. **Cycle #01 criteria yaml** must include the clause: "no spec
+   re-tuning after sealed eval, regardless of result". A failed
+   sealed eval closes the cycle; reopening requires a NEW pre-
+   registered criteria yaml AND a NEW unseen window (e.g. 2027
+   sealed).
 2. Until A.MV implementation lands, this is operator-level
-   discipline enforced by criteria yaml + cycle close ritual.
-3. After A.MV: hard-coded sealed_ledger extension that locks
-   `(criteria_yaml_sha, sealed_window_id)` instead of just
-   `spec_sha` — but this is a future enhancement.
+   discipline enforced by criteria yaml + cycle close ritual,
+   not by code. Operator must manually treat `(criteria_yaml_sha,
+   sealed_window_id)` as the conceptual lock even though
+   sealed_ledger only enforces `spec_sha`.
+3. When A.MV ships: extend SealedLedgerEntry schema to record
+   the 4-field lock_key + add migration that backfills cycle
+   2026-04-26 #01 entry (existing closed-zero-nominee entry).
 
 ### Operator stance summary
 
