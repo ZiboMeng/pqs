@@ -8,16 +8,25 @@
 # 2026-04-30). Steps 6-9 (DD throttle, role caps, fleet observe,
 # shadow→live) are codex-frozen until explicit-go.
 #
-# NOTE: the candidate IDs below are the two CURRENT live candidates
+# NOTE: the candidate IDs below are the two CURRENT legacy candidates
 # under forward observation (see CLAUDE.md "Forward observation active").
 # When Track C produces a new-framework candidate, it gets added here.
+#
+# WARNING (2026-04-30): equal_weight split across these two candidates
+# does NOT produce risk diversification. Realized-NAV Pearson is 0.898
+# over 154 honest post-step3b days (> Step 5 reject threshold 0.85).
+# Cand-2's "orthogonal" claim was factor-IC-level only and does not
+# hold at portfolio NAV. See:
+#   docs/memos/20260430-rcmv1_cand2_realized_correlation.md
+# Both rows are retained as observation/legacy-decay artifacts. Any
+# composition treating this as a true fleet is misleading.
 
 candidates:
   - candidate_id: rcm_v1_defensive_composite_01
     role: core
     base_weight: 0.5
   - candidate_id: candidate_2_orthogonal_01
-    role: core
+    role: core   # nominal role — NAV-correlated clone of RCMv1, not a true diversifier
     base_weight: 0.5
 
 split_policy: equal_weight    # equal_weight | manual_overrides
@@ -27,6 +36,14 @@ split_policy: equal_weight    # equal_weight | manual_overrides
 # corr_min_overlap_days: minimum fully-overlapping observations required
 # before the budget is computed; below it, status=insufficient_data and
 # the composition layer must fail-closed.
+#
+# Watch item (codex R30 §"Step 5 future-scale", 2026-04-30):
+#   v1 computes correlations on the full-overlap intersection across ALL
+#   active candidates. With 3-5 candidates and staggered inception dates,
+#   the intersection can shrink enough that pair-checks which would
+#   otherwise be valid get squeezed out (overly conservative). When a real
+#   case hits this, move to per-pair overlap with `corr_min_overlap_days`
+#   enforced per pair (separate PRD). Do not pre-emptively change.
 max_pairwise_corr_warn: 0.70
 max_pairwise_corr_reject: 0.85
 corr_lookback_days: 252

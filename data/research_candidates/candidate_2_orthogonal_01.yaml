@@ -27,11 +27,33 @@ benchmark_relative_summary:
   composite_corr_vs_rcm_v1: 0.404
   composite_corr_vs_rcm_v1_threshold: 0.5
   composite_corr_vs_rcm_v1_pass: true
+  composite_corr_scope: factor_ic_level   # NOT NAV-level — see retraction below
   turnover_relative_diff_pct: 79.2
   turnover_relative_diff_threshold_pct: 20.0
   turnover_relative_diff_pass: true
   vs_spy_qqq: deferred_to_paper_layer
   evidence_artifact: data/research_candidates/candidate_2_probe_report.json
+
+# ── Realized-NAV correlation retraction (added 2026-04-30) ─────────────────
+# The "orthogonal" label above was based on factor-IC correlation. At the
+# realized portfolio NAV level, Candidate-2 vs RCMv1 has pooled Pearson
+# 0.898 over 154 honest post-step3b paper days, exceeding Step 5's reject
+# threshold (0.85). Down-market correlation 0.75. Top-10 holdings overlap
+# 4/10 in 2022_h2. The factor-IC orthogonality claim does NOT hold at the
+# NAV level. See evidence:
+realized_nav_correlation_status:
+  status: failed_diversifier
+  scope: realized_paper_nav
+  pooled_pearson: 0.898
+  pooled_n_days: 154
+  step5_label: reject
+  evidence_memo: docs/memos/20260430-rcmv1_cand2_realized_correlation.md
+  retracted_claim: >-
+    "Orthogonal to RCMv1" — only valid at factor-IC level, not at
+    realized-NAV level. Cand-2 must NOT be used as a fleet diversifier
+    sleeve. Forward observation continues as legacy decay verification
+    only.
+  retraction_date: 2026-04-30
 
 oos_holdout_summary:
   note: >-

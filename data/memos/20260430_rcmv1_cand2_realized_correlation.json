@@ -1,0 +1,96 @@
+{
+  "experiment": "rcmv1_vs_cand2_historical_nav_correlation",
+  "as_of": "2026-04-30",
+  "step5_thresholds": {
+    "warn": 0.7,
+    "reject": 0.85,
+    "min_overlap_days": 60
+  },
+  "diversifier_threshold_temporal_split_yaml": 0.4,
+  "per_cell": [
+    {
+      "cell": "2022_h2",
+      "n_days": 78,
+      "date_range": [
+        "2022-08-26",
+        "2022-12-15"
+      ],
+      "pearson_corr": 0.9367406351378135,
+      "spearman_corr": 0.9355340201970637,
+      "n_down_days": 35,
+      "down_market_corr": 0.7486234995250847,
+      "n_up_days": 27,
+      "up_market_corr": 0.9423203010448273,
+      "rolling_30d_corr": {
+        "min": 0.8033391230397627,
+        "max": 0.9851116102691931,
+        "mean": 0.9253607769545767
+      },
+      "max_dd": {
+        "rcm_v1": -0.13311955066299808,
+        "cand_2": -0.15803527202003287
+      },
+      "pct_days_both_in_dd": 0.7564102564102564,
+      "holdings_overlap_jaccard_avg": 0.1594632004848723,
+      "holdings_top10_overlap_last": 4,
+      "beta_to_qqq": {
+        "rcm_v1": 1.130152884319539,
+        "cand_2": 1.3193180254903694
+      },
+      "beta_to_spy": {
+        "rcm_v1": 1.3843843804703586,
+        "cand_2": 1.5657501395500075
+      }
+    },
+    {
+      "cell": "2024_q1",
+      "n_days": 76,
+      "date_range": [
+        "2024-01-02",
+        "2024-04-19"
+      ],
+      "pearson_corr": 0.7952984478408486,
+      "spearman_corr": 0.7675976284592301,
+      "n_down_days": 16,
+      "down_market_corr": 0.7470457702680037,
+      "n_up_days": 23,
+      "up_market_corr": 0.6545779561713074,
+      "rolling_30d_corr": {
+        "min": 0.6874647544305399,
+        "max": 0.9140413170089188,
+        "mean": 0.8283539419085113
+      },
+      "max_dd": {
+        "rcm_v1": -0.11452759518277245,
+        "cand_2": -0.05648268012598867
+      },
+      "pct_days_both_in_dd": 0.6447368421052632,
+      "holdings_overlap_jaccard_avg": 0.15613433924741166,
+      "holdings_top10_overlap_last": 2,
+      "beta_to_qqq": {
+        "rcm_v1": 1.1316933524461625,
+        "cand_2": 0.9926786716342398
+      },
+      "beta_to_spy": {
+        "rcm_v1": 1.5298415649423927,
+        "cand_2": 1.2573609918315416
+      }
+    }
+  ],
+  "pooled": {
+    "n_days_pooled": 154,
+    "pearson_corr_pooled": 0.8982427762621483,
+    "spearman_corr_pooled": 0.8751290447846904
+  },
+  "classification_pooled": "reject_step5",
+  "classification_per_cell": [
+    {
+      "cell": "2022_h2",
+      "label": "reject_step5"
+    },
+    {
+      "cell": "2024_q1",
+      "label": "warn_label_void"
+    }
+  ]
+}
