@@ -582,6 +582,42 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   Research-mining workstream auto re-frozen at this boundary;
   forward-OOS observation of RCMv1 + Cand-2 unaffected.
 
+- **Track C cycle 2026-04-30 #01** (2026-04-30 ✅, **0 nominee**,
+  Tier 2 sibling-by-construction-and-factor-overlap) — first
+  controlled-mining cycle under post-Track-A alternating-regime
+  temporal split + post-A++ pool reachability contract. Pre-
+  registered immutable criteria yaml at
+  `data/research_candidates/track-c-cycle-2026-04-30-01_promotion_criteria.yaml`.
+  TWO mining runs under same lineage:
+  (a) **Pre-A++ run** (commit `f770d05`, sha256 `95027106…`): 49
+      archived trials with FAMILIES_V1's 33 factors. INVALIDATED
+      because search space did not satisfy yaml's
+      `factor_registry_pool: RESEARCH_FACTORS` declaration (Cand-2
+      anchors `ret_5d`/`hl_range` unreachable; `mom_12_1` unreachable).
+      Pre-A++ artifacts preserved at
+      `data/ml/research_miner/track-c-cycle-2026-04-30-01.preAplusplus/`.
+  (b) **Post-A++ run** (commit `da036da`, sha256
+      `edda90b4…d05a`): A++ patch ships FAMILIES_V2 (6 families, 64
+      reachable), pool→family selector, layered reachability + panel-
+      availability assertions, sampler-time exclusion filter, +
+      `mining_config.explicit_exclusions` for 3 intraday-dependent
+      factors with unmet daily-mining data dependency. Mining: 200
+      trials / 146 finite / 60 archived. Best IC_IR 0.6562 on top
+      trial `beta_spy_60d × mom_12_1 × volume_ratio_20d` — STILL
+      shares `beta_spy_60d` with RCMv1 verbatim, family-tuple (A,B,C)
+      identical to RCMv1, same long-only × monthly × top-N
+      construction.
+  **Construction-collapse hypothesis empirically confirmed**: 33→61
+  factor expansion (with 17 newly-reachable intraday/microstructure/
+  short-reversal factors) produced zero archived trials in Family E
+  or F at 21d horizon; TPE convergence is on construction not factor
+  zoo. 2026 sealed window NOT consumed. Closeout:
+  `docs/memos/20260430-track_c_cycle_2026-04-30-01_close.md`. Cycle
+  #02 design (when authorized) should prioritize construction-DOF
+  expansion (C-3 beta-controlled / C-1 weekly cadence / C-4 cross-
+  asset / C-2 long/short), not further factor-zoo expansion.
+  Research-mining workstream auto re-frozen at this boundary.
+
 **Forward OOS active workstream (observation mode)**:
 - **R-fwd-1 done** — forward runner minimum closed loop (init /
   status / observe / decide / readiness) + source-boundary sidecar
