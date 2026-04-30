@@ -21,10 +21,15 @@ candidates:
 
 split_policy: equal_weight    # equal_weight | manual_overrides
 
-# C2 correlation budget (Step 5 — schema only in Step 1)
+# C2 correlation budget (Step 5 — landed 2026-04-29)
+# warn ≥ 0.70, reject ≥ 0.85; pairwise on realized candidate daily returns.
+# corr_min_overlap_days: minimum fully-overlapping observations required
+# before the budget is computed; below it, status=insufficient_data and
+# the composition layer must fail-closed.
 max_pairwise_corr_warn: 0.70
 max_pairwise_corr_reject: 0.85
 corr_lookback_days: 252
+corr_min_overlap_days: 60
 
 # C3 overlap throttle (Step 4)
 max_fleet_symbol_weight: 0.20

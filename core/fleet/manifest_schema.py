@@ -143,6 +143,7 @@ class FleetConfig(BaseModel):
     max_pairwise_corr_warn: float = Field(gt=0.0, le=1.0, default=0.70)
     max_pairwise_corr_reject: float = Field(gt=0.0, le=1.0, default=0.85)
     corr_lookback_days: int = Field(ge=21, default=252)
+    corr_min_overlap_days: int = Field(ge=21, default=60)
 
     # C3 overlap throttle (Step 4)
     max_fleet_symbol_weight: float = Field(gt=0.0, le=1.0, default=0.20)
@@ -170,6 +171,15 @@ class FleetConfig(BaseModel):
                 f"max_pairwise_corr_warn ({self.max_pairwise_corr_warn}) "
                 f"must be < max_pairwise_corr_reject "
                 f"({self.max_pairwise_corr_reject})"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _ordered_corr_overlap(self) -> "FleetConfig":
+        if self.corr_min_overlap_days > self.corr_lookback_days:
+            raise ValueError(
+                f"corr_min_overlap_days ({self.corr_min_overlap_days}) must "
+                f"be <= corr_lookback_days ({self.corr_lookback_days})"
             )
         return self
 
@@ -247,6 +257,56 @@ class ConcentrationSnapshot(BaseModel):
     m12_top1_weight_max: float = Field(ge=0.0, le=1.0)
     m12_top3_weight_max: float = Field(ge=0.0, le=1.0)
     m12_n_dates_with_weights: int = Field(ge=0)
+
+
+_CorrLevel = Literal["ok", "warn", "reject", "insufficient_data"]
+
+
+class CorrelationPair(BaseModel):
+    """One pairwise candidate-return correlation entry (Step 5 / C2).
+
+    ``level`` is the per-pair classification against the fleet-config
+    thresholds (``warn`` ≥ ``max_pairwise_corr_warn`` and < reject;
+    ``reject`` ≥ ``max_pairwise_corr_reject``). Aggregate across all
+    pairs surfaces in ``CorrelationBudgetStatus.level``.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    candidate_a: str = Field(min_length=1)
+    candidate_b: str = Field(min_length=1)
+    correlation: float = Field(ge=-1.0, le=1.0)
+    level: Literal["ok", "warn", "reject"]
+
+
+class CorrelationBudgetStatus(BaseModel):
+    """C2 pairwise correlation budget status (Step 5).
+
+    Pure-functional return value of
+    ``FleetAllocator.check_correlation_budget()``. Caller (allocator
+    composition / observe wiring at Step 8) decides whether to convert
+    this into a FleetEvent (``c2_corr_violation``) on the manifest.
+    Step 5 itself does NOT mutate the manifest (codex-frozen).
+
+    Levels:
+      - ``ok``                 — every pairwise correlation < warn threshold.
+      - ``warn``               — at least one pair ≥ warn but < reject.
+      - ``reject``             — at least one pair ≥ reject; composition
+                                 must not proceed without manual override.
+      - ``insufficient_data``  — not enough overlapping observations to
+                                 compute a stable correlation (per
+                                 ``corr_min_overlap_days``); composition
+                                 must not proceed (fail-closed).
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    level: _CorrLevel
+    max_pairwise_corr: Optional[float]
+    n_observations: int = Field(ge=0)
+    lookback_requested: int = Field(ge=0)
+    pairs: List[CorrelationPair] = Field(default_factory=list)
+    reason: Optional[str] = None
 
 
 class FleetEvent(BaseModel):

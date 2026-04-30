@@ -246,14 +246,18 @@ def test_step4_methods_now_implemented():
     assert isinstance(events, list)
 
 
-def test_steps_5_to_8_explicitly_frozen():
-    """Codex R21 boundary: steps 5-9 must remain NotImplementedError until
+def test_steps_6_to_8_explicitly_frozen():
+    """Codex R21 boundary: steps 6-9 must remain NotImplementedError until
     explicit-go. Test pins this invariant — accidental partial implementation
-    of frozen steps fails this test."""
+    of frozen steps fails this test.
+
+    Step 5 (``check_correlation_budget``) landed 2026-04-29 with explicit
+    user authorization (codex round-27 boundary memo). Step 5 coverage is
+    in ``test_correlation_budget.py``; this test now only pins steps 6-8
+    as still-frozen.
+    """
     cfg = load_fleet_config("config/fleet.yaml")
     alloc = FleetAllocator(cfg)
-    with pytest.raises(NotImplementedError, match="frozen"):
-        alloc.check_correlation_budget(None)
     with pytest.raises(NotImplementedError, match="frozen"):
         alloc.apply_dd_throttle(None)
     with pytest.raises(NotImplementedError, match="frozen"):

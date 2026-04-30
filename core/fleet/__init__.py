@@ -15,8 +15,12 @@ Public API:
 - ``load_fleet_manifest`` / ``save_fleet_manifest``
 """
 from core.fleet.manifest_schema import (
+    ConcentrationSnapshot,
+    CorrelationBudgetStatus,
+    CorrelationPair,
     FleetCandidate,
     FleetConfig,
+    FleetEvent,
     FleetManifest,
     FleetRebalance,
     TRACK_A_TO_FLEET_ROLE_MAP,
@@ -27,8 +31,12 @@ from core.fleet.manifest_io import load_fleet_manifest, save_fleet_manifest
 from core.fleet.allocator import FleetAllocator
 
 __all__ = [
+    "ConcentrationSnapshot",
+    "CorrelationBudgetStatus",
+    "CorrelationPair",
     "FleetCandidate",
     "FleetConfig",
+    "FleetEvent",
     "FleetManifest",
     "FleetRebalance",
     "TRACK_A_TO_FLEET_ROLE_MAP",

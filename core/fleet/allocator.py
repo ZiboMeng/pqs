@@ -170,6 +170,15 @@ class FleetAllocator:
                     f"entries: {dup[:5]}{'...' if len(dup) > 5 else ''}. "
                     f"Aggregate or drop duplicates upstream."
                 )
+            # Codex R27 P2 (2026-04-29): non-numeric dtype → domain ValueError
+            # before downstream comparisons would raise raw TypeError.
+            mat_values = mat.to_numpy()
+            if mat_values.dtype == object or not _np.issubdtype(mat_values.dtype, _np.number):
+                raise ValueError(
+                    f"candidate {cid!r} weight matrix has non-numeric dtype "
+                    f"{mat_values.dtype}; expected numeric (float / int). "
+                    f"Coerce upstream with .astype(float)."
+                )
             if mat.isna().any().any():
                 # Audit BUG #B1: NaN in candidate matrix would silently
                 # propagate to fleet weights, then to M12 metrics + manifest.
@@ -182,7 +191,7 @@ class FleetAllocator:
                     f"missing-signal-as-zero, or .dropna() for missing-day-skip)."
                 )
             # Long-only invariant — values must be non-negative.
-            if (mat.values < 0).any():
+            if (mat_values < 0).any():
                 raise ValueError(
                     f"candidate {cid!r} weight matrix contains negative "
                     f"weights; long-only system has no shorts. Clip or "
@@ -209,10 +218,19 @@ class FleetAllocator:
         # just the sum. Round 24 only checked sum; a long/short vector like
         # {c1: 1.2, c2: -0.2} sums to 1.0 but violates long-only no-margin
         # by producing leverage in c1's symbols and shorts in c2's. Reject:
+        #   - non-numeric type (codex R27 P2: string / None / object → domain
+        #     ValueError instead of np.isfinite()'s raw TypeError)
         #   - non-finite values (NaN / inf)
         #   - values < 0 (short)
         #   - values > 1 (single-candidate over-allocation)
         for cid, val in splits.items():
+            if isinstance(val, bool) or not isinstance(val, (int, float, _np.integer, _np.floating)):
+                raise ValueError(
+                    f"splits[{cid!r}] = {val!r} (type {type(val).__name__}); "
+                    f"split components must be numeric (int / float). Got "
+                    f"non-numeric — fail-closed before np.isfinite() raw "
+                    f"TypeError to surface the contract clearly."
+                )
             if not _np.isfinite(val):
                 raise ValueError(
                     f"splits[{cid!r}] = {val!r}; must be finite. Non-finite "
@@ -312,8 +330,16 @@ class FleetAllocator:
           symbol has weight > 0 (sanity counter).
 
         Empty / all-zero matrix → all metrics 0 with n_dates_with_weights=0.
+
+        Codex R27 P1 carryover #1 (2026-04-29): public API; rejects dirty
+        matrices upfront. Pre-fix used ``.abs()`` to coerce negatives,
+        which silently masked short exposures as concentration; non-finite
+        cells produced NaN metrics → ConcentrationSnapshot validation
+        downstream blew up with opaque pydantic errors. Now: NaN/inf and
+        negatives are rejected at the boundary with domain messages.
         """
         import pandas as _pd
+        import numpy as _np
         if not isinstance(fleet_weight_matrix, _pd.DataFrame):
             raise TypeError(
                 f"fleet_weight_matrix must be DataFrame, got {type(fleet_weight_matrix).__name__}"
@@ -325,15 +351,32 @@ class FleetAllocator:
                 "m12_n_dates_with_weights": 0,
             }
 
-        # Per-date top1 and top3 (using absolute value — long-only system,
-        # so weights should be non-negative anyway, but defensive).
-        abs_weights = fleet_weight_matrix.abs()
-        per_date_top1 = abs_weights.max(axis=1)
-        # Top3 sum per date: sort each row descending, take first 3, sum
-        per_date_top3 = abs_weights.apply(
+        values = fleet_weight_matrix.to_numpy()
+        if values.dtype == object or not _np.issubdtype(values.dtype, _np.number):
+            raise TypeError(
+                f"fleet_weight_matrix has non-numeric dtype {values.dtype}; "
+                f"expected a numeric (float / int) DataFrame."
+            )
+        if not _np.isfinite(values).all():
+            n_bad = int((~_np.isfinite(values)).sum())
+            raise ValueError(
+                f"fleet_weight_matrix contains {n_bad} non-finite cell(s) "
+                f"(NaN / inf); concentration metrics undefined. Compose with "
+                f"clean candidate matrices upstream."
+            )
+        if (values < 0).any():
+            n_neg = int((values < 0).sum())
+            raise ValueError(
+                f"fleet_weight_matrix contains {n_neg} negative cell(s); "
+                f"long-only invariant violated. .abs() masking would let "
+                f"shorts silently inflate concentration metrics — refusing."
+            )
+
+        per_date_top1 = fleet_weight_matrix.max(axis=1)
+        per_date_top3 = fleet_weight_matrix.apply(
             lambda row: row.nlargest(min(3, len(row))).sum(), axis=1
         )
-        active = (abs_weights.sum(axis=1) > 0).sum()
+        active = (fleet_weight_matrix.sum(axis=1) > 0).sum()
 
         return {
             "m12_top1_weight_max": float(per_date_top1.max()) if len(per_date_top1) else 0.0,
@@ -361,9 +404,19 @@ class FleetAllocator:
         describing what was clipped.
         """
         import pandas as _pd
+        import numpy as _np
         if not isinstance(fleet_weight_matrix, _pd.DataFrame):
             raise TypeError(
                 f"fleet_weight_matrix must be DataFrame, got {type(fleet_weight_matrix).__name__}"
+            )
+        # Codex R27 P2 (2026-04-29): non-numeric dtype → domain ValueError
+        # before downstream `< cap` would raise raw TypeError on object dtype.
+        _values = fleet_weight_matrix.to_numpy()
+        if _values.dtype == object or not _np.issubdtype(_values.dtype, _np.number):
+            raise ValueError(
+                f"fleet_weight_matrix has non-numeric dtype {_values.dtype}; "
+                f"expected numeric (float / int). Coerce upstream with "
+                f".astype(float)."
             )
         # Audit BUG #B4 fix (2026-04-29 R1): NaN cells in the fleet weight
         # matrix would pass through silently (NaN > cap is False) and end up
@@ -412,9 +465,171 @@ class FleetAllocator:
 
         return trimmed, trim_events
 
-    def check_correlation_budget(self, returns_df):
-        """C2 pairwise correlation check (Step 5; codex-frozen)."""
-        raise NotImplementedError("check_correlation_budget lands in Step 5 (frozen)")
+    def check_correlation_budget(self, returns_df) -> "CorrelationBudgetStatus":
+        """C2 pairwise correlation budget (PRD §4.2 / §5.4).
+
+        ``returns_df`` is a date × candidate_id DataFrame of *realized
+        candidate daily returns* (NOT IC, per codex round-25 boundary).
+        Each column is one candidate's daily return series; index is a
+        DatetimeIndex.
+
+        Returns ``CorrelationBudgetStatus`` describing aggregate level
+        (``ok`` / ``warn`` / ``reject`` / ``insufficient_data``), the
+        max pairwise correlation, and per-pair detail. The aggregate
+        level is the worst per-pair level: any ``reject`` pair flips
+        the aggregate to ``reject``; any ``warn`` pair (no rejects)
+        flips it to ``warn``; otherwise ``ok``.
+
+        Lookback: only the most recent ``corr_lookback_days`` rows are
+        used. After the lookback slice, correlation is computed on the
+        intersection of finite observations across all candidates;
+        if fewer than ``corr_min_overlap_days`` rows remain, returns
+        level=``insufficient_data`` with a reason — composition layer
+        must fail-closed (do not assume "ok" by absence of evidence).
+
+        Step 5 is pure-functional: this method does NOT mutate the
+        manifest. Step 8 wiring (frozen) will translate a ``reject``
+        or ``warn`` status into a ``c2_corr_violation`` FleetEvent.
+        """
+        import pandas as _pd
+        import numpy as _np
+        from core.fleet.manifest_schema import (
+            CorrelationBudgetStatus,
+            CorrelationPair,
+        )
+
+        if not isinstance(returns_df, _pd.DataFrame):
+            raise TypeError(
+                f"returns_df must be DataFrame, got {type(returns_df).__name__}"
+            )
+        if returns_df.shape[1] < 2:
+            raise ValueError(
+                f"returns_df must have >= 2 candidate columns; got "
+                f"{returns_df.shape[1]}. Pairwise correlation requires "
+                f"at least one pair."
+            )
+        if not isinstance(returns_df.index, _pd.DatetimeIndex):
+            raise ValueError(
+                f"returns_df.index must be a DatetimeIndex; got "
+                f"{type(returns_df.index).__name__}. Wrap with "
+                f"pd.to_datetime() upstream."
+            )
+        if returns_df.index.has_duplicates:
+            dup = returns_df.index[returns_df.index.duplicated(keep=False)].unique().tolist()
+            raise ValueError(
+                f"returns_df has duplicate index entries: {dup[:5]}"
+                f"{'...' if len(dup) > 5 else ''}. Aggregate or drop duplicates "
+                f"upstream."
+            )
+        values = returns_df.to_numpy()
+        if values.dtype == object or not _np.issubdtype(values.dtype, _np.number):
+            raise ValueError(
+                f"returns_df has non-numeric dtype {values.dtype}; "
+                f"expected numeric (float / int)."
+            )
+        if _np.isinf(values).any():
+            n_inf = int(_np.isinf(values).sum())
+            raise ValueError(
+                f"returns_df contains {n_inf} inf cell(s); correlation "
+                f"is undefined on inf. Replace or drop upstream."
+            )
+        # NaN is tolerated — we'll use pairwise complete observations
+        # (pandas .corr() default behavior). But all-NaN columns are
+        # rejected: no signal at all is operator error, not data hygiene.
+        all_nan_cols = returns_df.columns[returns_df.isna().all()].tolist()
+        if all_nan_cols:
+            raise ValueError(
+                f"returns_df has all-NaN columns: {all_nan_cols}. Cannot "
+                f"compute correlation on a candidate with zero observations."
+            )
+
+        candidate_ids = list(returns_df.columns)
+
+        # Lookback slice: take the most recent corr_lookback_days rows
+        # ordered ascending by index.
+        sorted_returns = returns_df.sort_index()
+        lookback = self.config.corr_lookback_days
+        sliced = sorted_returns.iloc[-lookback:]
+
+        # Minimum-overlap check on the intersection of observations.
+        # ``.dropna(how="any")`` gives the rows where every candidate has
+        # a finite return; correlation is meaningful only on this set.
+        complete = sliced.dropna(how="any")
+        n_obs = int(complete.shape[0])
+        min_overlap = self.config.corr_min_overlap_days
+
+        if n_obs < min_overlap:
+            return CorrelationBudgetStatus(
+                level="insufficient_data",
+                max_pairwise_corr=None,
+                n_observations=n_obs,
+                lookback_requested=lookback,
+                pairs=[],
+                reason=(
+                    f"only {n_obs} fully-overlapping observation(s) across "
+                    f"all {len(candidate_ids)} candidate(s); "
+                    f"corr_min_overlap_days={min_overlap}. Composition "
+                    f"layer must fail-closed."
+                ),
+            )
+
+        # Pairwise correlation matrix (Pearson on the complete-overlap subset).
+        corr_matrix = complete.corr(method="pearson")
+        warn_t = self.config.max_pairwise_corr_warn
+        reject_t = self.config.max_pairwise_corr_reject
+
+        pairs = []
+        max_corr = float("-inf")
+        for i, ca in enumerate(candidate_ids):
+            for cb in candidate_ids[i + 1:]:
+                rho = float(corr_matrix.loc[ca, cb])
+                # Defensive: pandas may produce NaN on degenerate constant
+                # series even after dropna (zero variance). Treat as inf-
+                # divergence — fail-closed at the pair level.
+                if not _np.isfinite(rho):
+                    raise ValueError(
+                        f"pairwise correlation between {ca!r} and {cb!r} "
+                        f"is non-finite ({rho}); likely a zero-variance "
+                        f"return column. Fix returns upstream."
+                    )
+                if rho >= reject_t:
+                    pair_level = "reject"
+                elif rho >= warn_t:
+                    pair_level = "warn"
+                else:
+                    pair_level = "ok"
+                pairs.append(CorrelationPair(
+                    candidate_a=ca, candidate_b=cb, correlation=rho,
+                    level=pair_level,
+                ))
+                if rho > max_corr:
+                    max_corr = rho
+
+        if any(p.level == "reject" for p in pairs):
+            agg_level = "reject"
+            reason = (
+                f"{sum(1 for p in pairs if p.level == 'reject')} pair(s) "
+                f">= reject threshold {reject_t}; max corr {max_corr}. "
+                f"Composition must not proceed without manual override."
+            )
+        elif any(p.level == "warn" for p in pairs):
+            agg_level = "warn"
+            reason = (
+                f"{sum(1 for p in pairs if p.level == 'warn')} pair(s) "
+                f">= warn threshold {warn_t}; max corr {max_corr}."
+            )
+        else:
+            agg_level = "ok"
+            reason = None
+
+        return CorrelationBudgetStatus(
+            level=agg_level,
+            max_pairwise_corr=float(max_corr),
+            n_observations=n_obs,
+            lookback_requested=lookback,
+            pairs=pairs,
+            reason=reason,
+        )
 
     def apply_dd_throttle(self, fleet_nav_series, spy_series=None):
         """C5 DD throttle (Step 6; codex-frozen)."""

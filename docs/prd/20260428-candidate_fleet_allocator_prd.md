@@ -344,7 +344,7 @@ A change-set passes this PRD if and only if all of the following hold:
 3. `FleetAllocator` exposes the 4 public methods per §5.4.
 4. **C1** (capital split): equal-weight default + manual override path tested.
 5. **C2** (corr budget): warn at 0.70, reject at 0.85, both events recorded in fleet manifest.
-6. **C3** (overlap throttle): when two candidates compose to fleet weight in symbol $s$ > 0.20, proportional trim is applied; M12 fleet-level concentration computed post-trim.
+6. **C3** (overlap throttle): when two candidates compose to fleet weight in symbol $s$ > 0.20, **fleet-level cell is clipped to the cap and the excess mass becomes implicit cash** (cash-clip v1, per §4.3); M12 fleet-level concentration computed post-trim.
 7. **C4** (core/satellite, sleeve-level per codex round-14 Q1): `core_min_capital_pct=0.60` enforced as **aggregate core sleeve floor** (`sum(w_i for i where role=core) >= 0.60`); `satellite_max_capital_pct=0.40` enforced as **aggregate satellite sleeve ceiling** (`sum(w_i for i where role=satellite) <= 0.40`). Equal-weight 0.5/0.5 across two `core` candidates is valid (sleeve sum = 1.0). Per-candidate-floor interpretation explicitly rejected by codex round-14.
 7b. **C4 reverse-validation**: regression test pins (a) two core at 0.5/0.5 PASSES (sleeve floor satisfied at sum=1.0); (b) one core at 0.55 + one satellite at 0.45 FAILS (core sleeve = 0.55 < 0.60 floor); (c) one core at 0.65 + two satellites at 0.20+0.15 PASSES (core 0.65 ≥ 0.60, satellite 0.35 ≤ 0.40); (d) revert sleeve enforcement → confirm test (b) would silently pass, demonstrating the test catches the contract.
 8. **C5** (DD throttle, codex round-14 Q2): 3 trigger levels + 5-day recovery rule, halt state interacts with `KillSwitch` (whichever fires first wins). Throttle uses **absolute** fleet DD only. Manifest additionally records `spy_dd_60d` and `dd_vs_spy_60d` at every rebalance — evidence-only, not control inputs. Master report fleet section reads these for "not worse than SPY in crisis" governance display.
@@ -367,7 +367,7 @@ A change-set passes this PRD if and only if all of the following hold:
 1. **Step 1**: schema (`config/fleet.yaml` validators + `FleetManifest` pydantic) + empty allocator skeleton + 0 wires. Reversible.
 2. **Step 2**: C1 capital split (equal_weight + manual_overrides) + 4 unit tests.
 3. **Step 3**: compose_weight_matrix returning unconstrained fleet weights + 3 unit tests.
-4. **Step 4**: C3 overlap throttle (proportional trim) + M12 fleet metrics + 4 unit tests.
+4. **Step 4**: C3 overlap throttle (cash-clip v1: fleet-level cell clipped to cap, excess to implicit cash, no redistribution; per §4.3) + M12 fleet metrics + 4 unit tests.
 5. **Step 5**: C2 correlation budget + manifest event recording + 3 unit tests.
 6. **Step 6**: C5 DD throttle + KillSwitch interaction + 4 unit tests (including reverse-validation pair from §6.13).
 7. **Step 7**: C4 role caps + C6 removal/parking rules + 4 unit tests + manifest reason recording.

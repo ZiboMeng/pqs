@@ -388,3 +388,69 @@ def test_compose_post_invariant_row_sum_validated():
     # splits = {c1: 1.0}; fleet row sum = 1.5 → post-compose check catches.
     with pytest.raises(ValueError, match=r"row sum"):
         alloc.compose_weight_matrix(cw, splits={"c1": 1.0})
+
+
+# ---------------------------------------------------------------------------
+# Codex R27 P2 carryover #3 (2026-04-29) — non-numeric inputs surface as
+# domain ValueError rather than np.isfinite()'s raw TypeError or pandas's
+# opaque comparison errors. Public API contract clarity.
+# ---------------------------------------------------------------------------
+
+
+def test_compose_rejects_non_numeric_split_string():
+    """Split component as a string surfaces clean ValueError instead of
+    np.isfinite()'s opaque TypeError."""
+    alloc = _alloc(
+        FleetCandidate(candidate_id="c1", role="core", base_weight=0.5),
+        FleetCandidate(candidate_id="c2", role="core", base_weight=0.5),
+    )
+    cw = {
+        "c1": _wm({"2026-01-02": {"AAPL": 1.0}}),
+        "c2": _wm({"2026-01-02": {"MSFT": 1.0}}),
+    }
+    with pytest.raises(ValueError, match="must be numeric"):
+        alloc.compose_weight_matrix(cw, splits={"c1": "0.5", "c2": 0.5})
+
+
+def test_compose_rejects_non_numeric_split_none():
+    alloc = _alloc(
+        FleetCandidate(candidate_id="c1", role="core", base_weight=0.5),
+        FleetCandidate(candidate_id="c2", role="core", base_weight=0.5),
+    )
+    cw = {
+        "c1": _wm({"2026-01-02": {"AAPL": 1.0}}),
+        "c2": _wm({"2026-01-02": {"MSFT": 1.0}}),
+    }
+    with pytest.raises(ValueError, match="must be numeric"):
+        alloc.compose_weight_matrix(cw, splits={"c1": None, "c2": 0.5})
+
+
+def test_compose_rejects_non_numeric_split_bool():
+    """bool is technically int subclass in Python; explicit reject so a
+    typo like splits={"c1": True, ...} doesn't silently coerce to 1.0."""
+    alloc = _alloc(
+        FleetCandidate(candidate_id="c1", role="core", base_weight=0.5),
+        FleetCandidate(candidate_id="c2", role="core", base_weight=0.5),
+    )
+    cw = {
+        "c1": _wm({"2026-01-02": {"AAPL": 1.0}}),
+        "c2": _wm({"2026-01-02": {"MSFT": 1.0}}),
+    }
+    with pytest.raises(ValueError, match="must be numeric"):
+        alloc.compose_weight_matrix(cw, splits={"c1": True, "c2": 0.5})
+
+
+def test_compose_rejects_non_numeric_matrix_dtype():
+    """Object dtype on candidate matrix → domain ValueError, not the
+    pandas-flavored TypeError that `(values < 0).any()` would raise."""
+    alloc = _alloc(
+        FleetCandidate(candidate_id="c1", role="core", base_weight=1.0),
+    )
+    cw = {
+        "c1": pd.DataFrame(
+            {"AAPL": ["foo", "bar"]},
+            index=pd.to_datetime(["2026-01-02", "2026-01-03"]),
+        ),
+    }
+    with pytest.raises(ValueError, match="non-numeric"):
+        alloc.compose_weight_matrix(cw, splits={"c1": 1.0})

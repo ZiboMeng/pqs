@@ -259,3 +259,68 @@ def test_compute_concentration_metrics_feeds_directly_into_schema():
         save_fleet_manifest(manifest, p)
         loaded = load_fleet_manifest(p)
         assert loaded.rebalances[0].concentration_metrics.m12_n_dates_with_weights == 2
+
+
+# ---------------------------------------------------------------------------
+# Codex R27 P1 carryover #1 (2026-04-29) — compute_concentration_metrics
+# dirty-matrix hardening: fail-closed on NaN/inf/negative/non-numeric so a
+# non-Track-B caller can't silently write garbage M12 metrics to a manifest.
+# ---------------------------------------------------------------------------
+
+
+def test_concentration_metrics_rejects_nan():
+    import numpy as np
+    alloc = _alloc()
+    fleet = pd.DataFrame(
+        {"AAPL": [0.10, np.nan], "MSFT": [0.20, 0.10]},
+        index=pd.to_datetime(["2026-01-02", "2026-01-03"]),
+    )
+    with pytest.raises(ValueError, match="non-finite"):
+        alloc.compute_concentration_metrics(fleet)
+
+
+def test_concentration_metrics_rejects_inf():
+    import numpy as np
+    alloc = _alloc()
+    fleet = pd.DataFrame(
+        {"AAPL": [0.10, np.inf]},
+        index=pd.to_datetime(["2026-01-02", "2026-01-03"]),
+    )
+    with pytest.raises(ValueError, match="non-finite"):
+        alloc.compute_concentration_metrics(fleet)
+
+
+def test_concentration_metrics_rejects_negative_no_abs_masking():
+    """Pre-fix did `abs_weights = fleet_weight_matrix.abs()`, which let
+    short exposures masquerade as concentration. -0.1 must fail-close,
+    not be silently absolute-valued into top1=0.1."""
+    alloc = _alloc()
+    fleet = pd.DataFrame(
+        {"AAPL": [0.10, -0.10], "MSFT": [0.20, 0.20]},
+        index=pd.to_datetime(["2026-01-02", "2026-01-03"]),
+    )
+    with pytest.raises(ValueError, match="negative"):
+        alloc.compute_concentration_metrics(fleet)
+
+
+def test_concentration_metrics_rejects_non_numeric_dtype():
+    """Object/string dtype → domain ValueError (codex R27 P2)."""
+    alloc = _alloc()
+    fleet = pd.DataFrame(
+        {"AAPL": ["a", "b"], "MSFT": ["c", "d"]},
+        index=pd.to_datetime(["2026-01-02", "2026-01-03"]),
+    )
+    with pytest.raises(TypeError, match="non-numeric"):
+        alloc.compute_concentration_metrics(fleet)
+
+
+def test_overlap_throttle_rejects_non_numeric_dtype():
+    """Codex R27 P2: object/string dtype on throttle input → domain
+    ValueError instead of pandas-flavored raw TypeError on `> cap`."""
+    alloc = _alloc()
+    fleet = pd.DataFrame(
+        {"AAPL": ["x", "y"]},
+        index=pd.to_datetime(["2026-01-02", "2026-01-03"]),
+    )
+    with pytest.raises(ValueError, match="non-numeric"):
+        alloc.apply_overlap_throttle(fleet)
