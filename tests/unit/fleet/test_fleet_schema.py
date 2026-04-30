@@ -221,10 +221,10 @@ def test_step3_method_now_implemented():
     alloc = FleetAllocator(cfg)
     cw = {
         "rcm_v1_defensive_composite_01": pd.DataFrame(
-            {"AAPL": [1.0]}, index=["2026-01-02"]
+            {"AAPL": [1.0]}, index=pd.to_datetime(["2026-01-02"])
         ),
         "candidate_2_orthogonal_01": pd.DataFrame(
-            {"AAPL": [1.0]}, index=["2026-01-02"]
+            {"AAPL": [1.0]}, index=pd.to_datetime(["2026-01-02"])
         ),
     }
     fleet = alloc.compose_weight_matrix(cw)
@@ -256,3 +256,47 @@ def test_steps_5_to_8_explicitly_frozen():
         alloc.apply_dd_throttle(None)
     with pytest.raises(NotImplementedError, match="frozen"):
         alloc.observe(date(2026, 4, 29))
+
+
+# ---------------------------------------------------------------------------
+# Audit D7 regression (2026-04-29 R2) — manual_overrides sum at config-load
+# ---------------------------------------------------------------------------
+
+
+def test_manual_overrides_sum_validated_at_config_load():
+    """D7: catching sum != 1.0 at config-load (not first compute_capital_split
+    call) gives the operator a clear startup error."""
+    with pytest.raises(ValidationError, match="sum.*base_weight"):
+        FleetConfig(
+            candidates=[
+                FleetCandidate(candidate_id="c1", role="core", base_weight=0.6),
+                FleetCandidate(candidate_id="c2", role="core", base_weight=0.6),  # sum=1.2
+            ],
+            split_policy="manual_overrides",
+        )
+
+
+def test_equal_weight_does_not_validate_base_weight_sum():
+    """For equal_weight, base_weight is ignored; sum != 1.0 must NOT trigger
+    the manual_overrides validator."""
+    cfg = FleetConfig(
+        candidates=[
+            FleetCandidate(candidate_id="c1", role="core", base_weight=0.9),
+            FleetCandidate(candidate_id="c2", role="core", base_weight=0.9),
+        ],
+        split_policy="equal_weight",
+    )
+    assert cfg.split_policy == "equal_weight"
+
+
+def test_manual_overrides_within_float_tolerance_accepted():
+    """1/3 + 1/3 + 1/3 = 0.9999...9 — must accept within 1e-9 tolerance."""
+    cfg = FleetConfig(
+        candidates=[
+            FleetCandidate(candidate_id="c1", role="core", base_weight=1/3),
+            FleetCandidate(candidate_id="c2", role="core", base_weight=1/3),
+            FleetCandidate(candidate_id="c3", role="core", base_weight=1/3),
+        ],
+        split_policy="manual_overrides",
+    )
+    assert len(cfg.candidates) == 3

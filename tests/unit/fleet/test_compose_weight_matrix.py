@@ -19,8 +19,15 @@ def _alloc(*candidates):
 
 
 def _wm(rows: dict) -> pd.DataFrame:
-    """Build a date × symbol weight DataFrame from a dict of dicts."""
-    return pd.DataFrame.from_dict(rows, orient="index")
+    """Build a date × symbol weight DataFrame from a dict of dicts.
+
+    Audit BUG #B5 fix (2026-04-29 R2): compose_weight_matrix now requires
+    a DatetimeIndex; coerce string keys via pd.to_datetime to match the
+    real-world calling pattern.
+    """
+    df = pd.DataFrame.from_dict(rows, orient="index")
+    df.index = pd.to_datetime(df.index)
+    return df
 
 
 # ---------------------------------------------------------------------------
@@ -104,7 +111,9 @@ def test_compose_mismatched_dates_outer_joined():
         "c2": _wm({"2026-01-03": {"AAPL": 1.0}, "2026-01-06": {"AAPL": 1.0}}),
     }
     fleet = alloc.compose_weight_matrix(cw, splits=splits)
-    assert sorted(fleet.index) == ["2026-01-02", "2026-01-03", "2026-01-06"]
+    assert sorted(fleet.index.strftime("%Y-%m-%d")) == [
+        "2026-01-02", "2026-01-03", "2026-01-06"
+    ]
     # Day with only c1 → 0.5 * 1.0 = 0.5
     assert fleet.loc["2026-01-02", "AAPL"] == pytest.approx(0.5)
     # Day with both → 0.5 + 0.5 = 1.0
@@ -167,3 +176,118 @@ def test_compose_all_zero_signals_returns_zero_matrix():
     }
     fleet = alloc.compose_weight_matrix(cw, splits=splits)
     assert fleet.loc["2026-01-02", "AAPL"] == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Audit BUG #B1-B6 regressions (2026-04-29 R1+R2)
+# ---------------------------------------------------------------------------
+
+
+def test_compose_rejects_nan_in_candidate_matrix():
+    """BUG #B1: NaN in candidate matrix would silently propagate to fleet
+    weights, then to M12 metrics + manifest. Reject upfront with clear error."""
+    import numpy as np
+    alloc = _alloc(
+        FleetCandidate(candidate_id="c1", role="core", base_weight=0.5),
+        FleetCandidate(candidate_id="c2", role="core", base_weight=0.5),
+    )
+    cw = {
+        "c1": _wm({"2026-01-02": {"AAPL": 1.0}}),
+        "c2": _wm({"2026-01-02": {"AAPL": np.nan}}),
+    }
+    with pytest.raises(ValueError, match="NaN"):
+        alloc.compose_weight_matrix(cw)
+
+
+def test_compose_rejects_negative_weight():
+    """Long-only invariant: weights must be non-negative."""
+    alloc = _alloc(
+        FleetCandidate(candidate_id="c1", role="core", base_weight=1.0),
+    )
+    cw = {"c1": _wm({"2026-01-02": {"AAPL": -0.1}})}
+    with pytest.raises(ValueError, match="negative"):
+        alloc.compose_weight_matrix(cw)
+
+
+def test_compose_rejects_splits_sum_below_one():
+    """BUG #B2: splits sum < 1.0 silently under-allocates fleet."""
+    alloc = _alloc(
+        FleetCandidate(candidate_id="c1", role="core", base_weight=0.5),
+        FleetCandidate(candidate_id="c2", role="core", base_weight=0.5),
+    )
+    cw = {
+        "c1": _wm({"2026-01-02": {"AAPL": 1.0}}),
+        "c2": _wm({"2026-01-02": {"AAPL": 1.0}}),
+    }
+    with pytest.raises(ValueError, match="sum to"):
+        alloc.compose_weight_matrix(cw, splits={"c1": 0.3, "c2": 0.3})
+
+
+def test_compose_rejects_splits_sum_above_one():
+    """BUG #B3: splits sum > 1.0 violates long-only no-margin invariant."""
+    alloc = _alloc(
+        FleetCandidate(candidate_id="c1", role="core", base_weight=0.5),
+        FleetCandidate(candidate_id="c2", role="core", base_weight=0.5),
+    )
+    cw = {
+        "c1": _wm({"2026-01-02": {"AAPL": 1.0}}),
+        "c2": _wm({"2026-01-02": {"AAPL": 1.0}}),
+    }
+    with pytest.raises(ValueError, match="sum to"):
+        alloc.compose_weight_matrix(cw, splits={"c1": 0.7, "c2": 0.7})
+
+
+def test_compose_rejects_splits_within_tolerance():
+    """1e-9 tolerance: 0.5 + 0.5 + 1e-10 still accepted; 0.5 + 0.5 + 1e-8 rejected."""
+    alloc = _alloc(
+        FleetCandidate(candidate_id="c1", role="core", base_weight=0.5),
+        FleetCandidate(candidate_id="c2", role="core", base_weight=0.5),
+    )
+    cw = {
+        "c1": _wm({"2026-01-02": {"AAPL": 1.0}}),
+        "c2": _wm({"2026-01-02": {"AAPL": 1.0}}),
+    }
+    # Within tolerance — accepted
+    alloc.compose_weight_matrix(cw, splits={"c1": 0.5, "c2": 0.5 + 1e-10})
+    # Outside tolerance — rejected
+    with pytest.raises(ValueError, match="sum to"):
+        alloc.compose_weight_matrix(cw, splits={"c1": 0.5, "c2": 0.5 + 1e-8})
+
+
+def test_compose_rejects_non_datetime_index():
+    """BUG #B5: string-keyed DataFrame is operator-error; reject upfront with
+    a clear domain error, not opaque pandas TypeError."""
+    alloc = _alloc(
+        FleetCandidate(candidate_id="c1", role="core", base_weight=1.0),
+    )
+    cw = {"c1": pd.DataFrame({"AAPL": [1.0]}, index=["2026-01-02"])}
+    with pytest.raises(ValueError, match="DatetimeIndex"):
+        alloc.compose_weight_matrix(cw)
+
+
+def test_compose_rejects_duplicate_index_entries():
+    """BUG #B6: duplicate-index DataFrame ambiguous which row applies; reject."""
+    alloc = _alloc(
+        FleetCandidate(candidate_id="c1", role="core", base_weight=1.0),
+    )
+    dup_idx = pd.to_datetime(["2026-01-02", "2026-01-02"])
+    cw = {"c1": pd.DataFrame({"AAPL": [0.5, 0.5]}, index=dup_idx)}
+    with pytest.raises(ValueError, match="duplicate index"):
+        alloc.compose_weight_matrix(cw)
+
+
+def test_compose_default_splits_pass_validation():
+    """splits=None default uses 1/N which always sums to 1.0 exactly."""
+    alloc = _alloc(
+        FleetCandidate(candidate_id="c1", role="core", base_weight=0.5),
+        FleetCandidate(candidate_id="c2", role="core", base_weight=0.5),
+        FleetCandidate(candidate_id="c3", role="core", base_weight=0.0),  # equal_weight ignores this
+    )
+    cw = {
+        "c1": _wm({"2026-01-02": {"AAPL": 1.0}}),
+        "c2": _wm({"2026-01-02": {"AAPL": 1.0}}),
+        "c3": _wm({"2026-01-02": {"AAPL": 1.0}}),
+    }
+    # No splits → equal_weight 1/3 each → sum=1.0 (within float precision)
+    fleet = alloc.compose_weight_matrix(cw)
+    assert fleet.loc[pd.Timestamp("2026-01-02"), "AAPL"] == pytest.approx(1.0)

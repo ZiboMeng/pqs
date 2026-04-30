@@ -150,6 +150,27 @@ class FleetConfig(BaseModel):
             )
         return self
 
+    @model_validator(mode="after")
+    def _manual_overrides_must_sum_to_one(self) -> "FleetConfig":
+        """Audit D7 (2026-04-29 R2): when split_policy=manual_overrides,
+        the configured base_weights MUST sum to 1.0 (within 1e-9). Catching
+        this at config-load — rather than waiting until the first
+        ``compute_capital_split()`` call — gives the operator a clear
+        error at startup instead of partway through a mining run.
+
+        equal_weight is not subject to this check (base_weight is ignored).
+        """
+        if self.split_policy != "manual_overrides":
+            return self
+        total = sum(c.base_weight for c in self.candidates)
+        if abs(total - 1.0) > 1e-9:
+            raise ValueError(
+                f"split_policy=manual_overrides requires sum(base_weight) "
+                f"== 1.0 (within 1e-9); got {total}. Adjust base_weights "
+                f"or switch to split_policy=equal_weight."
+            )
+        return self
+
 
 def load_fleet_config(path: str | Path) -> FleetConfig:
     """Load + validate config/fleet.yaml. Raises on schema violations."""

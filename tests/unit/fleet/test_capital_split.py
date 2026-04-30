@@ -70,17 +70,17 @@ def test_manual_overrides_uses_base_weight():
     assert splits == {"c1": 0.7, "c2": 0.3}
 
 
-def test_manual_overrides_sum_not_one_fails_closed():
-    """Operator typo: weights sum to 0.9 (lost a candidate). Must not
-    silently renormalise — that would hide the input bug."""
-    cfg = _config([
-        FleetCandidate(candidate_id="c1", role="core", base_weight=0.6),
-        FleetCandidate(candidate_id="c2", role="core", base_weight=0.3),
-        # missing 0.1 — operator forgot the third candidate
-    ], split_policy="manual_overrides")
-    alloc = FleetAllocator(cfg)
-    with pytest.raises(ValueError, match="must be exactly 1.0"):
-        alloc.compute_capital_split()
+def test_manual_overrides_sum_not_one_fails_at_config_load():
+    """Audit D7 (2026-04-29 R2): config-load now rejects manual_overrides
+    with sum != 1.0; the runtime check is a defense in depth (covers
+    `active_candidates` subset case below)."""
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError, match="sum.*base_weight"):
+        _config([
+            FleetCandidate(candidate_id="c1", role="core", base_weight=0.6),
+            FleetCandidate(candidate_id="c2", role="core", base_weight=0.3),
+            # missing 0.1 — operator forgot the third candidate
+        ], split_policy="manual_overrides")
 
 
 def test_manual_overrides_partial_active_subset_must_still_sum_to_one():

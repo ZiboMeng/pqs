@@ -160,3 +160,23 @@ def test_overlap_throttle_at_cap_not_clipped():
     trimmed, events = alloc.apply_overlap_throttle(fleet)
     pd.testing.assert_frame_equal(trimmed, fleet)
     assert events == []
+
+
+# ---------------------------------------------------------------------------
+# Audit BUG #B4 regression (2026-04-29 R1) — NaN in throttle input
+# ---------------------------------------------------------------------------
+
+
+def test_overlap_throttle_rejects_nan():
+    """BUG #B4: NaN > cap is False so NaN cells were silently passing through
+    and ending up in the manifest as NaN allocations. Defense in depth — even
+    if compose rejects NaN upstream, throttle is a public API and must reject
+    too."""
+    import numpy as np
+    alloc = _alloc(max_fleet_symbol_weight=0.20)
+    fleet = pd.DataFrame(
+        {"AAPL": [0.30, np.nan]},
+        index=pd.to_datetime(["2026-01-02", "2026-01-05"]),
+    )
+    with pytest.raises(ValueError, match="NaN"):
+        alloc.apply_overlap_throttle(fleet)

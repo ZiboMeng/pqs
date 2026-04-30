@@ -116,28 +116,78 @@ class FleetAllocator:
 
         ``candidate_weight_matrices`` is ``dict[candidate_id, pd.DataFrame]``
         where each DataFrame is date × symbol weights for that candidate
-        (each row should sum to 1.0, but this layer does NOT validate —
-        upstream is responsible for per-candidate normalisation).
+        (each row should sum to 1.0; this layer does NOT validate
+        per-row sums — upstream owns per-candidate normalisation).
 
         ``splits`` is the C1 capital allocation (output of
         ``compute_capital_split``). If None, equal_weight across the
-        candidates passed in is used.
+        candidates passed in is used. ``splits.values()`` MUST sum to
+        1.0 (within 1e-9). > 1.0 violates the long-only no-margin
+        invariant; < 1.0 is silent under-allocation. Both fail closed.
 
         Returns a date × symbol DataFrame: ``fleet_weight = Σ split[i] *
         candidate_weight[i]``. Symbols missing from one candidate are
         treated as zero weight from that candidate (outer-join on
-        columns; left-join on dates with the union of indexes).
+        columns; outer-join on dates with the union of indexes).
+
+        Audit BUG #B1-B6 fixes (2026-04-29 R1+R2):
+          - NaN values in any candidate matrix → ValueError (silent
+            propagation would corrupt fleet, M12, manifest)
+          - splits.sum() != 1.0 → ValueError
+          - duplicate index entries in candidate matrix → ValueError
+          - non-DatetimeIndex on candidate matrix → ValueError
+          - heterogeneous index types across candidates → ValueError
+          - Negative weights → ValueError (long-only invariant)
 
         Constraints layered on top:
           - Step 4 adds C3 overlap throttle (single-symbol cap)
           - Step 5 adds C2 correlation budget rejection
           - Step 6 adds C5 DD throttle (multiplies the whole matrix)
-
-        Step 3 ships the unconstrained sum only.
         """
         import pandas as _pd
+        import numpy as _np
+
         if not candidate_weight_matrices:
             raise ValueError("candidate_weight_matrices is empty")
+
+        # Type + structural validation per candidate matrix
+        for cid, mat in candidate_weight_matrices.items():
+            if not isinstance(mat, _pd.DataFrame):
+                raise TypeError(
+                    f"candidate {cid!r} weight matrix must be a DataFrame, "
+                    f"got {type(mat).__name__}"
+                )
+            if not isinstance(mat.index, _pd.DatetimeIndex):
+                raise ValueError(
+                    f"candidate {cid!r} weight matrix index must be a "
+                    f"DatetimeIndex; got {type(mat.index).__name__}. Wrap "
+                    f"with pd.to_datetime() upstream."
+                )
+            if mat.index.has_duplicates:
+                dup = mat.index[mat.index.duplicated(keep=False)].unique().tolist()
+                raise ValueError(
+                    f"candidate {cid!r} weight matrix has duplicate index "
+                    f"entries: {dup[:5]}{'...' if len(dup) > 5 else ''}. "
+                    f"Aggregate or drop duplicates upstream."
+                )
+            if mat.isna().any().any():
+                # Audit BUG #B1: NaN in candidate matrix would silently
+                # propagate to fleet weights, then to M12 metrics + manifest.
+                # Reject upfront with a pointer to the offending cells.
+                na_count = int(mat.isna().sum().sum())
+                raise ValueError(
+                    f"candidate {cid!r} weight matrix contains {na_count} "
+                    f"NaN value(s); NaN would silently corrupt fleet weights. "
+                    f"Fill or drop upstream (e.g. .fillna(0.0) for "
+                    f"missing-signal-as-zero, or .dropna() for missing-day-skip)."
+                )
+            # Long-only invariant — values must be non-negative.
+            if (mat.values < 0).any():
+                raise ValueError(
+                    f"candidate {cid!r} weight matrix contains negative "
+                    f"weights; long-only system has no shorts. Clip or "
+                    f"reject upstream."
+                )
 
         if splits is None:
             n = len(candidate_weight_matrices)
@@ -155,21 +205,29 @@ class FleetAllocator:
                 f"in splits but not matrices: {missing_in_matrices}"
             )
 
-        # Validate every matrix is a DataFrame with DatetimeIndex
-        for cid, mat in candidate_weight_matrices.items():
-            if not isinstance(mat, _pd.DataFrame):
-                raise TypeError(
-                    f"candidate {cid!r} weight matrix must be a DataFrame, "
-                    f"got {type(mat).__name__}"
-                )
+        # Audit BUG #B2/B3: splits.values() must sum to 1.0 (within tolerance).
+        # > 1.0 implies leverage; < 1.0 is silent under-allocation.
+        split_sum = sum(splits.values())
+        if abs(split_sum - 1.0) > 1e-9:
+            raise ValueError(
+                f"splits.values() sum to {split_sum} (must be exactly 1.0 "
+                f"within 1e-9); > 1.0 violates long-only no-margin invariant; "
+                f"< 1.0 is silent under-allocation. Pass output of "
+                f"compute_capital_split(active_candidates=...) which is "
+                f"guaranteed to sum to 1.0."
+            )
 
-        # Outer-join all date indexes, outer-join all symbols
-        all_dates = sorted(set().union(*(m.index for m in candidate_weight_matrices.values())))
+        # Outer-join all date indexes, outer-join all symbols. After upfront
+        # validation we know all indexes are DatetimeIndex (sortable / mergeable).
+        all_dates = _pd.DatetimeIndex(sorted(set().union(
+            *(m.index for m in candidate_weight_matrices.values())
+        )))
         all_syms = sorted(set().union(*(m.columns for m in candidate_weight_matrices.values())))
 
         fleet = _pd.DataFrame(0.0, index=all_dates, columns=all_syms)
         for cid, mat in candidate_weight_matrices.items():
-            # Reindex to fleet's date+symbol grid; missing → 0 (no signal)
+            # Reindex to fleet's date+symbol grid; missing → 0 (no signal).
+            # NaN was rejected upfront, so reindex won't introduce one.
             reindexed = mat.reindex(index=all_dates, columns=all_syms, fill_value=0.0)
             fleet = fleet + splits[cid] * reindexed
 
@@ -243,6 +301,18 @@ class FleetAllocator:
         if not isinstance(fleet_weight_matrix, _pd.DataFrame):
             raise TypeError(
                 f"fleet_weight_matrix must be DataFrame, got {type(fleet_weight_matrix).__name__}"
+            )
+        # Audit BUG #B4 fix (2026-04-29 R1): NaN cells in the fleet weight
+        # matrix would pass through silently (NaN > cap is False) and end up
+        # in the manifest as NaN allocations. Reject upfront — combined with
+        # compose_weight_matrix's NaN rejection (BUG #B1) this prevents the
+        # full propagation chain.
+        if fleet_weight_matrix.isna().any().any():
+            na_count = int(fleet_weight_matrix.isna().sum().sum())
+            raise ValueError(
+                f"fleet_weight_matrix contains {na_count} NaN value(s); "
+                f"throttle cannot reason about NaN cells. Compose with "
+                f"clean candidate matrices upstream."
             )
         cap = self.config.max_fleet_symbol_weight
         # Find (date, symbol) cells exceeding the cap
