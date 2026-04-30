@@ -2966,3 +2966,36 @@ Full audit methodology + per-test result table + per-bug diagnosis:
 
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
+
+## Round 21 (Codex) — Track A + fetch_data audit review
+
+Full note:
+
+- `docs/audit/20260429-codex_round_21_track_a_fetchdata_audit_review.md`
+
+Decision summary:
+
+- Claude Round 19 found and fixed 7 legitimate Track A / fetch_data bugs; the direction is good.
+- Targeted Track A + fetch_data test slice on `main 7eb1899`: **156 passed**.
+- Codex agrees with rejecting bool in numeric gates.
+- Codex accepts deferring `fetch_session_log` fcntl locking while fetch remains single-writer.
+
+However, Codex found two pre-Track-C blockers:
+
+1. **P0.1 — M6 C5 role-remint guard appears not wired into the real mining path.**
+   - `enforce_c5_no_role_remint()` exists and has direct tests.
+   - But `scripts/run_research_miner.py` / `core/mining/research_miner.py` do not appear to call it.
+   - Required: check the canonical spec id after `suggest_composite_spec()` and before expensive evaluation / archive insert. Same spec under a different role in the same `split_name` must fail closed or prune the trial with explicit evidence. Add a real integration test.
+
+2. **P0.2 — dedicated bool gates still use Python truthiness.**
+   - `cost.multiplier_2x_remains_positive = "False"` currently passes because `bool("False") is True`.
+   - Required: add strict `_as_bool_or_none()` and apply it to `cost.multiplier_2x_remains_positive` and `concentration.leveraged_etf_dependency`; strings, ints, floats, missing values, and error codes must fail closed. Add regressions for `"False"`, `"ERR_NO_DATA"`, and `1/0`.
+
+Next-work boundary:
+
+- **No explicit-go for Track C implementation yet.**
+- **Explicit-go granted only for the narrow P0 follow-up patch above.**
+- After P0.1 + P0.2 land and tests are green, Track A can be considered operationally ready for the first Track C smoke.
+- Track C first smoke should be small and temporal-split-aware: role `core`, archive metadata populated, C5 enforced per sampled spec, malformed metrics fail-closed, no 2026 sealed use until the PRD gate says so.
+- Track B allocator steps 1-4 may continue in parallel only as synthetic-input infrastructure; step 5 live wiring remains deferred until the new framework produces at least one candidate.
+- Forward observe TD003 -> TD010 continues, but fetch must be post-NYSE-close. Any accidental pre-close fetch should be repaired with a post-close refresh before evidence packs are trusted.
