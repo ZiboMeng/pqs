@@ -26,7 +26,7 @@ PRD: docs/20260424-prd_phase_e_execution.md §2 E1-R7
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -314,3 +314,131 @@ def ic_stability_decision(
         "outcome": "promote_to_paper" if passed else "hold_in_research",
         "blocking_reasons": reasons,
     }
+
+
+# ── Estimated-β at freeze (B.MV trigger T4 input) ───────────────────
+#
+# Per docs/memos/20260430-bmv_schema_decision.md (canonical contract):
+# when Track A acceptance promotes a candidate, the spec yaml must
+# carry a nested `estimated_beta_at_freeze` block so B.MV trigger T4
+# (beta-adjusted residual underperformance) can read β-SPY without
+# fall-through to a beta-blind raw fallback.
+#
+# These helpers are the minimal P1 implementation per priority realign
+# memo § "Track A acceptance β-stamp minimal extension". The full A.MV
+# (sealed-eval freeze-date HARD rule + market-path SOFT flag) is
+# DEMOTED to P2 candidate-gated.
+
+
+def compute_beta_to_benchmark(
+    strat_ret_d: Any, bench_ret_d: Any
+) -> float:
+    """Compute OLS-style β of strategy daily returns vs benchmark daily
+    returns.
+
+    β = cov(strat, bench) / var(bench)
+
+    Args:
+        strat_ret_d: pandas.Series of strategy daily returns.
+        bench_ret_d: pandas.Series of benchmark daily returns.
+
+    Returns:
+        β as a float.
+
+    Raises:
+        ValueError if benchmark variance is zero or non-finite (the
+        β is undefined). Caller must catch this and decide policy
+        (typically: skip the β-stamp + log warning + manual review).
+
+    Pure function: no I/O. Deterministic given inputs.
+    """
+    import numpy as np  # local to keep helpers' import surface small
+
+    bm_var = float(bench_ret_d.var())
+    if not np.isfinite(bm_var) or bm_var == 0.0:
+        raise ValueError(
+            "compute_beta_to_benchmark: benchmark variance is "
+            f"{bm_var!r}; β undefined for zero/non-finite-variance "
+            "benchmark series"
+        )
+    cov = float(strat_ret_d.cov(bench_ret_d))
+    return cov / bm_var
+
+
+def build_estimated_beta_at_freeze(
+    *,
+    strat_ret_d: Any,
+    spy_ret_d: Any,
+    qqq_ret_d: Any,
+    n_obs: int,
+    window_label: str = "train_plus_validation",
+    source: str = "track_a_acceptance",
+    computed_at: str,
+    computed_by: str,
+    used_by_b_mv: bool = True,
+    reason_unused: Optional[str] = None,
+) -> dict:
+    """Build the canonical `estimated_beta_at_freeze` nested block per
+    bmv_schema_decision.md.
+
+    Args:
+        strat_ret_d: pandas.Series of strategy daily returns (computed
+            on the train+validation window of the candidate's spec for
+            the standard Track A use case).
+        spy_ret_d: pandas.Series of SPY daily returns aligned to
+            strat_ret_d's index.
+        qqq_ret_d: pandas.Series of QQQ daily returns aligned to
+            strat_ret_d's index.
+        n_obs: number of trading days in the window (recorded for audit).
+        window_label: machine-readable label for the window. Default
+            "train_plus_validation" matches Track A acceptance use.
+            Legacy backfill uses other labels (e.g.
+            "pooled_post_step3b_paper_154d").
+        source: machine-readable label for the source process.
+            Default "track_a_acceptance" for new candidates. Legacy
+            backfill uses "pooled_paper_sample_post_step3b" or similar.
+        computed_at: ISO date string (YYYY-MM-DD).
+        computed_by: path to the script/function that computed this.
+        used_by_b_mv: whether B.MV runner trigger T4 should read this
+            block. New Track-A-stamped candidates: True. Legacy backfill:
+            False (B.MV short-circuits at decay_classification.label).
+        reason_unused: required when used_by_b_mv=False; human-readable
+            reason. Optional otherwise.
+
+    Returns:
+        Canonical nested dict matching the schema in
+        bmv_schema_decision.md §`estimated_beta_at_freeze`.
+
+    Raises:
+        ValueError if either β computation fails (zero/non-finite
+        benchmark variance) — bubbles up `compute_beta_to_benchmark`'s
+        ValueError. Caller decides policy.
+        ValueError if used_by_b_mv=False without reason_unused
+        (schema requires the reason for audit).
+
+    Pure function: no I/O. Deterministic given inputs.
+    """
+    if not used_by_b_mv and not reason_unused:
+        raise ValueError(
+            "build_estimated_beta_at_freeze: used_by_b_mv=False "
+            "requires reason_unused (schema invariant per "
+            "bmv_schema_decision.md)"
+        )
+
+    beta_to_spy = compute_beta_to_benchmark(strat_ret_d, spy_ret_d)
+    beta_to_qqq = compute_beta_to_benchmark(strat_ret_d, qqq_ret_d)
+
+    block: dict = {
+        "beta_to_spy": beta_to_spy,
+        "beta_to_qqq": beta_to_qqq,
+        "method": "cov_ret_d_div_var_bench_ret_d",
+        "window": window_label,
+        "n_obs": int(n_obs),
+        "source": source,
+        "computed_at": computed_at,
+        "computed_by": computed_by,
+        "used_by_b_mv": used_by_b_mv,
+    }
+    if reason_unused is not None:
+        block["reason_unused"] = reason_unused
+    return block

@@ -288,3 +288,147 @@ def test_cli_wrappers_reexport_helpers():
     assert m._regime_stratified_ic is regime_stratified_ic
     assert m._fmt is fmt
     assert m._ic_stability_decision is ic_stability_decision
+
+
+# ── compute_beta_to_benchmark / build_estimated_beta_at_freeze ───────────────
+# Per docs/memos/20260430-bmv_schema_decision.md (B.MV trigger T4 input).
+# Minimal P1 implementation per priority realign 2026-04-30.
+
+
+def _make_synthetic_returns(seed: int = 42, n: int = 252):
+    """Construct a synthetic strategy/benchmark pair with known beta.
+
+    strategy = 1.5 * spy + idiosyncratic_noise → β-SPY ≈ 1.5
+    Noise scale chosen so β estimation is stable but residual exists.
+    """
+    rng = np.random.default_rng(seed)
+    spy = pd.Series(rng.normal(0, 0.01, n), name="spy_ret")
+    qqq = pd.Series(rng.normal(0, 0.012, n), name="qqq_ret")
+    strat = 1.5 * spy + 0.7 * qqq + pd.Series(rng.normal(0, 0.003, n), name="resid")
+    strat.name = "strat_ret"
+    return strat, spy, qqq
+
+
+def test_compute_beta_to_benchmark_recovers_known_beta():
+    from core.research.acceptance_helpers import compute_beta_to_benchmark
+    strat, spy, _qqq = _make_synthetic_returns(seed=42, n=500)
+    beta = compute_beta_to_benchmark(strat, spy)
+    # synthetic β-SPY ≈ 1.5 + cross-correlation contribution from QQQ;
+    # tolerance loose because qqq has nonzero corr with spy in random sample
+    assert 1.3 < beta < 1.7, f"got beta={beta!r}"
+
+
+def test_compute_beta_to_benchmark_zero_variance_raises():
+    from core.research.acceptance_helpers import compute_beta_to_benchmark
+    strat = pd.Series(np.random.randn(100) * 0.01)
+    bench_zero = pd.Series([0.0] * 100)
+    with pytest.raises(ValueError, match="variance"):
+        compute_beta_to_benchmark(strat, bench_zero)
+
+
+def test_compute_beta_to_benchmark_nan_variance_raises():
+    from core.research.acceptance_helpers import compute_beta_to_benchmark
+    strat = pd.Series(np.random.randn(100) * 0.01)
+    bench_nan = pd.Series([np.nan] * 100)
+    with pytest.raises(ValueError, match="variance"):
+        compute_beta_to_benchmark(strat, bench_nan)
+
+
+def test_build_estimated_beta_at_freeze_canonical_schema():
+    from core.research.acceptance_helpers import build_estimated_beta_at_freeze
+    strat, spy, qqq = _make_synthetic_returns(seed=42, n=500)
+    block = build_estimated_beta_at_freeze(
+        strat_ret_d=strat,
+        spy_ret_d=spy,
+        qqq_ret_d=qqq,
+        n_obs=len(strat),
+        computed_at="2026-04-30",
+        computed_by="tests/unit/research/test_acceptance_helpers.py",
+    )
+    # Schema fields per bmv_schema_decision.md §estimated_beta_at_freeze
+    assert set(block.keys()) == {
+        "beta_to_spy", "beta_to_qqq", "method", "window", "n_obs",
+        "source", "computed_at", "computed_by", "used_by_b_mv",
+    }
+    assert block["method"] == "cov_ret_d_div_var_bench_ret_d"
+    assert block["window"] == "train_plus_validation"  # default
+    assert block["source"] == "track_a_acceptance"      # default
+    assert block["used_by_b_mv"] is True                # default
+    assert block["n_obs"] == 500
+    assert 1.3 < block["beta_to_spy"] < 1.7
+    assert isinstance(block["beta_to_qqq"], float)
+
+
+def test_build_estimated_beta_at_freeze_legacy_backfill_schema():
+    """Legacy backfill use case (used_by_b_mv=False + reason_unused)."""
+    from core.research.acceptance_helpers import build_estimated_beta_at_freeze
+    strat, spy, qqq = _make_synthetic_returns(seed=42, n=154)
+    block = build_estimated_beta_at_freeze(
+        strat_ret_d=strat,
+        spy_ret_d=spy,
+        qqq_ret_d=qqq,
+        n_obs=154,
+        window_label="pooled_post_step3b_paper_154d",
+        source="pooled_paper_sample_post_step3b",
+        computed_at="2026-04-30",
+        computed_by="dev/scripts/correlation/run_pair_nav_correlation.py",
+        used_by_b_mv=False,
+        reason_unused="decay_classification.label=legacy_decay_verification; B.MV skips legacy at dispatch",
+    )
+    assert block["used_by_b_mv"] is False
+    assert "reason_unused" in block
+    assert block["window"] == "pooled_post_step3b_paper_154d"
+    assert block["source"] == "pooled_paper_sample_post_step3b"
+
+
+def test_build_estimated_beta_at_freeze_used_false_without_reason_raises():
+    """Schema invariant: used_by_b_mv=False requires reason_unused."""
+    from core.research.acceptance_helpers import build_estimated_beta_at_freeze
+    strat, spy, qqq = _make_synthetic_returns(seed=42, n=100)
+    with pytest.raises(ValueError, match="reason_unused"):
+        build_estimated_beta_at_freeze(
+            strat_ret_d=strat,
+            spy_ret_d=spy,
+            qqq_ret_d=qqq,
+            n_obs=100,
+            computed_at="2026-04-30",
+            computed_by="test",
+            used_by_b_mv=False,
+            # reason_unused intentionally omitted
+        )
+
+
+def test_build_estimated_beta_at_freeze_zero_variance_bubbles_up():
+    """ValueError from compute_beta_to_benchmark surfaces to caller."""
+    from core.research.acceptance_helpers import build_estimated_beta_at_freeze
+    strat = pd.Series(np.random.randn(100) * 0.01)
+    spy_zero = pd.Series([0.0] * 100)
+    qqq = pd.Series(np.random.randn(100) * 0.01)
+    with pytest.raises(ValueError, match="variance"):
+        build_estimated_beta_at_freeze(
+            strat_ret_d=strat,
+            spy_ret_d=spy_zero,
+            qqq_ret_d=qqq,
+            n_obs=100,
+            computed_at="2026-04-30",
+            computed_by="test",
+        )
+
+
+def test_build_estimated_beta_at_freeze_yaml_round_trip():
+    """Generated block must yaml.safe_dump and round-trip cleanly."""
+    import yaml
+    from core.research.acceptance_helpers import build_estimated_beta_at_freeze
+    strat, spy, qqq = _make_synthetic_returns(seed=42, n=300)
+    block = build_estimated_beta_at_freeze(
+        strat_ret_d=strat,
+        spy_ret_d=spy,
+        qqq_ret_d=qqq,
+        n_obs=300,
+        computed_at="2026-04-30",
+        computed_by="test",
+    )
+    # Round-trip through yaml — must be a plain dict with native types
+    text = yaml.safe_dump(block)
+    parsed = yaml.safe_load(text)
+    assert parsed == block
