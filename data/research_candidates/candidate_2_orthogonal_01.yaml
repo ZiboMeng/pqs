@@ -55,18 +55,41 @@ realized_nav_correlation_status:
     only.
   retraction_date: 2026-04-30
 
-# Backfilled 2026-04-30 from data/memos/20260430_rcmv1_cand2_realized_correlation.json
-# (pooled across 154-day post-step3b paper sample). For SPEC COMPLETENESS only —
-# this candidate has decay_classification="legacy_decay_verification" so B.MV
-# runner skips it entirely (per Q12 decision in
-# docs/memos/20260430-concerns_abE_proposed_solutions.md). NOT used for
-# any operational early-attention trigger.
+# ── Candidate lifecycle classification (added 2026-04-30, R35 cleanup) ────
+# Machine-readable lifecycle state. Distinct from
+# `realized_nav_correlation_status` above (which describes a PAIR-FINDING).
+# B.MV runner dispatches on `decay_classification.label`:
+#   if label == "legacy_decay_verification":
+#       return (False, [])   # skip B.MV entirely
+# See docs/memos/20260430-bmv_schema_decision.md for canonical contract.
+decay_classification:
+  label: legacy_decay_verification
+  reason: nav_correlated_with_rcm_v1_pre_g2a_concentration_ceiling_pre_m12_weighted_thin
+  evidence_memo: docs/memos/20260430-rcmv1_cand2_realized_correlation.md
+  set_at: 2026-04-30
+  set_by: post_realized_nav_correlation_finding
+
+# ── Estimated β at freeze (added 2026-04-30, R35 cleanup) ─────────────────
+# Canonical schema (per docs/memos/20260430-bmv_schema_decision.md).
+# B.MV trigger T4 reads `estimated_beta_at_freeze.beta_to_spy`. For NEW
+# candidates Track A acceptance auto-stamps these fields at freeze with
+# `source=track_a_acceptance` and `used_by_b_mv=true`. For LEGACY this
+# block is SPEC-COMPLETENESS ONLY — `used_by_b_mv: false` and B.MV
+# short-circuits at `decay_classification.label` BEFORE reaching T4.
+# Backfilled values from paper sample, NOT from train+validation, so
+# their semantics differ from new-candidate stamps; that's why
+# `source` and `window` fields exist.
 estimated_beta_at_freeze:
   beta_to_spy: 1.50
   beta_to_qqq: 1.23
-  source: pooled_pearson_154d_paper_sample_2026-04-30
+  method: cov_ret_d_div_var_bench_ret_d
+  window: pooled_post_step3b_paper_154d
+  n_obs: 154
+  source: pooled_paper_sample_post_step3b
+  computed_at: 2026-04-30
+  computed_by: dev/scripts/correlation/rcmv1_cand2_realized_nav_correlation.py
   used_by_b_mv: false
-  reason_unused: "decay_classification=legacy_decay_verification; B.MV skips legacy"
+  reason_unused: "decay_classification.label=legacy_decay_verification; B.MV skips legacy at dispatch"
 
 oos_holdout_summary:
   note: >-
@@ -182,3 +205,9 @@ notes: >-
   on this universe — see candidate_2_probe_initial_reject.json). Pivoted to
   {ret_5d, rs_vs_spy_126d, hl_range} — all pass IC p<0.05, regime positivity,
   and orthogonality vs RCMv1 (corr 0.40 < 0.5, turnover diff 79% >= 20%).
+  IMPORTANT: this orthogonality claim holds at FACTOR-IC LEVEL ONLY. At
+  realized-NAV level, pooled Pearson 0.898 over 154 honest post-step3b paper
+  days (Step 5 reject), with residual-vs-SPY 0.609 / vs-QQQ 0.579 still high.
+  Superseded at NAV level by `realized_nav_correlation_status` block above.
+  Forward observation continues as legacy decay verification only — see
+  `decay_classification.label=legacy_decay_verification` block above.

@@ -304,8 +304,11 @@ def evaluate_early_attention(
     underperformance is structurally beta-explained for high-β
     strategies).
     """
-    decay_class = (candidate_spec.get("decay_classification") or {}).get("label")
-    if decay_class == "legacy_decay_verification":
+    # Canonical schema contract: docs/memos/20260430-bmv_schema_decision.md.
+    # decay_classification is a top-level dict on candidate spec yaml,
+    # not a string nested inside reason_unused. Dispatch on .label.
+    decay_block = candidate_spec.get("decay_classification") or {}
+    if decay_block.get("label") == "legacy_decay_verification":
         return (False, [])  # SKIP — see dispatch comment above
 
     triggers = []
@@ -345,34 +348,39 @@ def evaluate_early_attention(
     # when alpha is intact. The relevant signal is whether the
     # strategy underperforms WHAT BETA WOULD PREDICT.
     #
-    # estimated_beta_to_spy: stamped at candidate freeze time by
-    # Track A acceptance, computed from train+validation NAV vs SPY.
-    # Required field for new candidates. Legacy candidates with
-    # decay_classification="legacy_decay_verification" already
-    # short-circuited B.MV at function entry above. Any new candidate
-    # missing this field is a Track A acceptance bug, not a fall-
-    # through case — fail loud rather than silently downgrade gate.
-    if candidate_spec.get("estimated_beta_to_spy") is None:
+    # estimated_beta_at_freeze: nested block on spec yaml (canonical
+    # schema in bmv_schema_decision.md). For NEW candidates Track A
+    # acceptance auto-stamps with source=track_a_acceptance and
+    # used_by_b_mv=true. LEGACY candidates already short-circuited
+    # at decay_classification.label dispatch above; any non-legacy
+    # candidate missing the block (or missing beta_to_spy inside it)
+    # is a Track A acceptance bug, not a fall-through case — fail
+    # loud rather than silently downgrade gate.
+    beta_block = candidate_spec.get("estimated_beta_at_freeze") or {}
+    beta_spy = beta_block.get("beta_to_spy")
+    if beta_spy is None:
         raise ValueError(
             f"candidate {candidate_spec.get('candidate_id')!r} missing "
-            f"estimated_beta_to_spy; B.MV trigger T4 requires this stamped "
-            f"by Track A acceptance at freeze. (Legacy candidates with "
-            f"decay_classification='legacy_decay_verification' should have "
-            f"been short-circuited at function entry.)"
+            f"estimated_beta_at_freeze.beta_to_spy; B.MV trigger T4 requires "
+            f"this stamped by Track A acceptance at freeze. (Legacy "
+            f"candidates with decay_classification.label="
+            f"'legacy_decay_verification' should have been short-circuited "
+            f"at function entry.)"
         )
     if last.vs_spy is not None and last.cum_ret is not None:
-        beta = candidate_spec["estimated_beta_to_spy"]
         spy_cum = last.spy_cum_ret if hasattr(last, "spy_cum_ret") else None
         if spy_cum is not None:
-            beta_explained = beta * spy_cum
+            beta_explained = beta_spy * spy_cum
             residual = last.cum_ret - beta_explained
             if residual < -0.05:
                 triggers.append(
                     "beta_adjusted_residual_underperformance_below_minus_5pct"
                 )
 
-    # T5: data drift event AND PnL deterioration co-occur on same TD
-    if last.data_revision_event is not None and last.cum_ret < runs[-2].cum_ret if len(runs) >= 2 else False:
+    # T5: data drift event AND PnL deterioration co-occur on same TD.
+    # Operator-precedence guard: short-circuit on n_tds < 2 BEFORE the
+    # AND so we never index runs[-2] on a 1-TD candidate.
+    if n_tds >= 2 and last.data_revision_event is not None and last.cum_ret < runs[-2].cum_ret:
         triggers.append("data_drift_event_with_pnl_deterioration")
 
     return (len(triggers) > 0, triggers)
@@ -762,12 +770,12 @@ The auditor proposed: "legacy uses fallback raw -10%; no mandatory backfill". I 
    be SKIP, not WRONG_FALLBACK. Both are zero-engineering-effort;
    one is structurally clean and one carries footgun risk.
 
-**Concrete plan**:
+**Concrete plan** (canonical contract: `docs/memos/20260430-bmv_schema_decision.md`):
 
-- `B.MV` runner top of function: if `candidate.decay_classification == "legacy_decay_verification"`: return `(False, [])` (skip entirely).
+- `B.MV` runner top of function: if `candidate_spec["decay_classification"]["label"] == "legacy_decay_verification"`: return `(False, [])` (skip entirely).
 - `T4_legacy` codepath: removed.
-- `Track A` acceptance: when stamping spec yaml at freeze, compute β to SPY and β to QQQ from train+validation NAV vs benchmark, stamp `estimated_beta_to_spy` and `estimated_beta_to_qqq`.
-- Legacy backfill on RCMv1+Cand-2: ✅ DONE 2026-04-30 (commit pending) as spec-completeness hygiene only — `estimated_beta_at_freeze` block added to both yamls with `used_by_b_mv: false` because B.MV short-circuits on `decay_classification=legacy_decay_verification`. Values pulled from `data/memos/20260430_rcmv1_cand2_realized_correlation.json` (RCMv1 β-SPY 1.41 / β-QQQ 1.13, Cand-2 β-SPY 1.50 / β-QQQ 1.23).
+- `Track A` acceptance: when stamping spec yaml at freeze, compute β to SPY + β to QQQ from train+validation NAV vs benchmark, stamp full nested `estimated_beta_at_freeze` block with `used_by_b_mv: true`.
+- Legacy backfill on RCMv1+Cand-2: ✅ DONE 2026-04-30 as spec-completeness hygiene only — `decay_classification` (machine-readable lifecycle) AND `estimated_beta_at_freeze` (nested) blocks added to both yamls. `used_by_b_mv: false` and B.MV short-circuits at `decay_classification.label` BEFORE reaching T4. Values pulled from `data/memos/20260430_rcmv1_cand2_realized_correlation.json` (RCMv1 β-SPY 1.41 / β-QQQ 1.13, Cand-2 β-SPY 1.50 / β-QQQ 1.23).
 
 **B.Full upgrade path** (post-MV, pre-live-money): rolling beta
 re-estimation from forward TDs once n_TDs ≥ 30; alert if rolling
