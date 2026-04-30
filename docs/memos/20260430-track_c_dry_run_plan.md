@@ -155,8 +155,12 @@ criteria:
       warn_label_void:     ">= 0.70 and < 0.85"
       reject_step5:        ">= 0.85"
     diversifier_eligibility:
-      raw_pearson_must_be_in:      ["true_diversifier"]
-      residual_pearson_must_be_in: ["true_diversifier"]
+      raw_pearson_must_be_in:                          ["true_diversifier"]
+      # Residual: pass if true_diversifier vs SPY OR vs QQQ (post-audit-2
+      # alignment with evidence pack template §4.6.4). Operationally:
+      # a strategy residual-orthogonal vs SPY but not vs QQQ is still
+      # diversifying in a QQQ-heavy fleet (tech-narrative orthogonal).
+      residual_pearson_either_spy_or_qqq_must_be_in:   ["true_diversifier"]
 
   nav_orthogonality_vs_cand_2:
     method: pearson_on_realized_paper_nav_returns
@@ -172,8 +176,12 @@ criteria:
       warn_label_void:     ">= 0.70 and < 0.85"
       reject_step5:        ">= 0.85"
     diversifier_eligibility:
-      raw_pearson_must_be_in:      ["true_diversifier"]
-      residual_pearson_must_be_in: ["true_diversifier"]
+      raw_pearson_must_be_in:                          ["true_diversifier"]
+      # Residual: pass if true_diversifier vs SPY OR vs QQQ (post-audit-2
+      # alignment with evidence pack template §4.6.4). Operationally:
+      # a strategy residual-orthogonal vs SPY but not vs QQQ is still
+      # diversifying in a QQQ-heavy fleet (tech-narrative orthogonal).
+      residual_pearson_either_spy_or_qqq_must_be_in:   ["true_diversifier"]
 
   # Cost robustness sanity (already in Track A acceptance, but
   # restated here for nomination explicitness)

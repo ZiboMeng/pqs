@@ -733,16 +733,58 @@ criteria. Combined repo unit suite: full pre-Track-A 419 research
 tests preserved + 126 Track A tests = 545 in research module.
 
 What's still open:
-- **Track B** Fleet Allocator step 1-4 (synthetic input). PRD
+- **Track B** Fleet Allocator: **Steps 1-5 SHIPPED** (2026-04-29
+  Step 5 = C2 correlation budget, codex R30 accepted code-level).
+  Step 6+ (DD throttle / role caps / fleet observe / shadow→live)
+  codex-frozen until explicit-go. PRD
   `docs/prd/20260428-candidate_fleet_allocator_prd.md` v1.1 codex
-  round-14 approved; implementation may run parallel to Track C as
-  long as it does not slow Track A or Track C.
-- **Track C** real mining: pending (a) F1/F2 fork criteria smoke
-  result and (b) gate recalibration PRD or new factor family PRD —
-  whichever the smoke triggers per the locked criteria memo.
+  round-14 approved.
+- **Track C real mining: cycle #01 plan landed** (2026-04-30,
+  `docs/memos/20260430-track_c_dry_run_plan.md` — renamed from
+  "dry-run" per external reviewer §7 to reflect formal-cycle
+  discipline). Compute can run concurrent with E.MV evidence-pack
+  template work; nomination gated on E.MV §4.6 (NAV-orthogonality
+  tier — landed in template v1.1 as of `01d2950`) + §4.7
+  (economic-assumption flags F1-F6 — same template). Forward init
+  for any Track C nominee gated on B.MV (early-attention flag +
+  beta-adjusted T4); 2026 sealed eval gated on A.MV (freeze-date
+  HARD + market-path-preobserved SOFT — replaces lineage_family
+  abstraction per reviewer §5.3).
+- **Forward-observation NAV correlation finding (2026-04-30)**:
+  RCMv1 + Cand-2 pooled raw NAV Pearson **0.898** (Step 5 reject
+  threshold 0.85). Residual decomposition: vs SPY 0.609 (drop 0.29) /
+  vs QQQ 0.579 (drop 0.32). Both candidates' residual annualized
+  Sharpe positive (vs QQQ: RCMv1 +2.08, Cand-2 +2.77). Classification:
+  `mixed` — ~30% raw correlation is shared market beta, ~60% is
+  shared alpha. Cand-2 "orthogonal" claim retracted at NAV level
+  (still valid at factor-IC level only). Fleet-of-two equal-weight
+  composition does NOT produce risk diversification — both candidates
+  re-classified as legacy decay verification only. Track C must find
+  a candidate that differs on BOTH beta AND residual alpha — a
+  low-beta defensive candidate alone fixes only ~30% of the problem.
+  Evidence: `docs/memos/20260430-rcmv1_cand2_realized_correlation.md`.
+- **Concerns A/B/E (Track C downstream guards)** — proposed in
+  `docs/memos/20260430-concerns_abE_proposed_solutions.md`; pending
+  external-reviewer alignment. **E.MV shipped in template v1.1**
+  (commit `01d2950`); B.MV + A.MV pending implementation. Order
+  E → B → A by critical-path distance: E concurrent with cycle #01
+  compute, B before forward init (~T+1-2w), A before sealed eval
+  (~T+3mo). Realistic effort: ~9 days total (2x audit-fix multiplier).
+- **NAV orthogonality tier** (single source of truth across script /
+  dry-run plan / correlation memo / template, per audit-R2 + reviewer
+  §3): `< 0.50` = `true_diversifier`; `0.50-0.70` = `partial_diversifier`;
+  `0.70-0.85` = `warn_label_void` (cannot claim diversifier role);
+  `≥ 0.85` = `reject_step5` (Step 5 reject). Mirrors Step 5 fleet
+  correlation budget with one extra gate at 0.50; replaces the older
+  flat 0.40 (factor-IC config) as structurally over-strict for
+  long-only US-equity NAV correlation.
+- **4-round self-audit methodology** (2026-04-30, forward-only):
+  R1 factual / R2 logical / R3 actually-run-the-code / R4 boundary.
+  Required for schema / threshold / new-pipeline / numerical-claim
+  changes. Codified at `docs/checkpoints/20260430-self_audit_methodology.md`.
 - **Track D** forward + first promotion: triggered when Track C
   produces a candidate that passes the new-framework acceptance + 2026
-  sealed test (single-shot).
+  sealed test (single-shot, gated on A.MV freeze-date rule).
 - M17 / M18 unchanged.
 
 **Framework Completion PRD** (`docs/20260421-prd_framework_completion.md`

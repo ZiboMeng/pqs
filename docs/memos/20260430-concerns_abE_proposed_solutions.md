@@ -167,8 +167,7 @@ EvidenceClass enum and `ForwardRunManifest._check_evidence_class`):
 "decay_classification": {
   "label": "legacy_decay_verification",
   "reclassified_at_utc": "2026-04-30T...",
-  "reason": "pre-Track-A nomination; pre-G2.A 30% concentration ceiling; pre-M12 weighted thin-data fix; NAV-correlation 0.898 confirmed clone of fleet partner",
-  "lineage_family": "legacy_2026_04_24",
+  "reason": "pre-Track-A nomination; pre-G2.A 30% concentration ceiling; pre-M12 weighted thin-data fix; NAV-correlation 0.898 confirmed risk-clone of fleet partner",
   "evidence_memo": "docs/memos/20260430-rcmv1_cand2_realized_correlation.md"
 }
 ```
@@ -177,7 +176,7 @@ The new field is a sibling of `evidence_class` (which stays
 `forward_oos` per schema), pydantic-additive (extends
 ForwardRunManifest with `decay_classification: Optional[DecayClassification] = None`).
 Set ONCE, immutable thereafter (any change requires explicit
-user-go and bumps `lineage_family`).
+user-go).
 
 For Cand-2 the corresponding `realized_nav_correlation_status`
 block has already shipped on `data/research_candidates/candidate_2_orthogonal_01.yaml`
@@ -213,40 +212,44 @@ post-Track-C cycle.
 
 | Test | Expected |
 |------|----------|
-| First sealed eval write — schema gains new fields | Ledger has eval_start_date / eval_end_date / evidence_class columns |
-| `check_eligibility` with no overlap | Allowed |
-| `check_eligibility` with overlapping forward TD | `SealedEvalDeniedError(rule="forward_interval_overlap")` raised, prior_rows lists conflicting TDs |
-| Different lineage_family overlap | Allowed (over-blocking prevented) |
-| Same lineage_family overlap | Denied |
-| Legacy-only ledger (pre-PRD-A rows + new entry) | New rule does not double-trip on legacy rows |
+| First sealed eval write — schema gains new fields | Ledger has `eval_start_date` / `eval_end_date` / `candidate_freeze_date` / `panel_max_date_recorded_at_freeze` / `evidence_class` columns |
+| `check_eligibility` with `eval_start_date > candidate_freeze_date` AND no forward overlap | Allowed; evidence_class = `clean_sealed` |
+| `check_eligibility` with `eval_start_date <= candidate_freeze_date` | `SealedEvalDeniedError(rule="sealed_eval_window_overlaps_known_panel")` raised, details list freeze and panel-max dates |
+| `check_eligibility` with valid freeze date BUT forward observation overlap (any lineage) | Allowed; evidence_class = `partially_tainted_sealed`; preobserving_candidates field populated |
+| `check_eligibility` with valid freeze date AND no forward overlap | Allowed; evidence_class = `clean_sealed` |
+| Legacy-only ledger (pre-PRD-A rows + new entry) | New rules do not double-trip on legacy rows (lazy-migration) |
 | Backfill script idempotency | Re-running produces no additional rows |
 
 ### A — Risks / edge cases
 
-- **Lineage family bleed:** RCMv1 and Cand-2 were composed as a
-  "fleet"; reviewer might argue their family should match. But
-  treating them as separate families is more permissive (fewer
-  blocks). Strict-mode flag: `lineage_family_strict_mode` config
-  toggles between permissive (each candidate own family) and
-  strict (composed-fleet candidates share family).
+- **`candidate_freeze_date` field stamping:** new field on candidate
+  spec yaml stamped at freeze time. Must be recorded by `init`-time
+  flow; cannot be backdated. Stamping logic lives next to existing
+  `frozen_at` / `panel_max_date` resolution in `frozen_spec.py`.
 - **Forward observation can extend after sealed eval is recorded.**
   Need `check_eligibility` to look forward in time, not just
-  backward. Solution: forward manifest reclassification (above)
-  pins the observed interval; new TDs cannot extend a reclassified
-  manifest.
-- **`evidence_class` is not crypto-locked.** A motivated user could
-  re-edit the reclassification. This is a personal-quant repo;
-  acceptable risk. If the system goes to multi-user, add HMAC.
+  backward. Solution: forward manifest reclassification (above) pins
+  the observed interval at reclassification time; new TDs after
+  reclassification cannot extend.
+- **Market-path-preobserved by humans not in any manifest:** a human
+  may observe market paths informally (e.g. reading news during 2026)
+  without that being in any forward manifest. The SOFT rule only
+  catches pre-observation captured in forward runs. This is a known
+  audit gap; for a personal-quant repo (single user, honest research
+  posture) it's acceptable. Multi-user / regulated context would need
+  a separate human-attestation log.
+- **`evidence_class` and `decay_classification` are not crypto-locked.**
+  A motivated user could re-edit. Personal-quant repo; acceptable.
 
 ### A — Effort
 
 | Step | Effort |
 |------|--------|
-| Schema extension + write/read paths | 0.5 day |
-| Pre-flight overlap check + lineage_family resolution | 0.5 day |
-| Legacy backfill script + reclassification helpers | 0.5 day |
+| Schema extension (sealed ledger + spec yaml) + write/read paths | 0.5 day |
+| Pre-flight rule 1 (HARD freeze-date) + rule 2 (SOFT market-path) | 0.5 day |
+| Legacy backfill script + forward manifest reclassification helpers | 0.5 day |
 | Tests (~12 cases per the plan) | 0.5 day |
-| **Total** | **~2 days** |
+| **Total** | **~2 days** (nominal MV); ~4 days realistic with audit-fix cycles |
 
 ---
 
