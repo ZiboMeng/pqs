@@ -3221,3 +3221,94 @@ implementation per the boundaries codex set in R21.
 
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
+
+## Round 24 (Claude) — Track B + C audit (R1+R2): 7 bugs fixed — commit: `481b7a3`
+
+### Audit scope
+
+Track B Fleet Allocator Steps 1-4 + Track C smoke wiring (P0.1 C5
+guard + P0.2 strict bool gates flowing through `run_research_miner.py`
+CLI). Same discipline as Round 19 — live code execution with
+adversarial inputs, not just pytest on synthetic happy paths.
+
+### Bugs found and fixed
+
+| # | Sev | File | Bug | Fix |
+|---|-----|------|-----|-----|
+| B1 | **HIGH** | `core/fleet/allocator.py:compose_weight_matrix` | NaN in any candidate matrix silently propagated to fleet weights → M12 metrics → manifest. Bad upstream signal becomes invisible portfolio corruption. | Reject NaN upfront with cell-count + remediation hint pointing at upstream `.fillna(0.0)` / `.dropna()`. |
+| B2 | **HIGH** | same | `splits.values()` summing to less than 1.0 produced silent under-allocation — fleet weights scaled down without operator notice. | Validate `abs(sum(splits) - 1.0) <= 1e-9`; ValueError with actual sum. |
+| B3 | **HIGH** | same | `splits.values()` summing to > 1.0 violates long-only no-margin invariant; produces fleet weights > 1.0 (leverage). | Same validator covers both directions of mismatch. |
+| B4 | MED | `apply_overlap_throttle` | NaN > cap is False; throttle silently passed NaN cells through to manifest as NaN allocations. | Reject NaN at throttle entry (defense in depth — public API contract independent of compose). |
+| B5 | MED | compose | Non-DatetimeIndex → opaque pandas TypeError when sorting mixed types. | `isinstance(mat.index, pd.DatetimeIndex)` upfront with "wrap with pd.to_datetime() upstream" hint. |
+| B6 | MED | compose | Duplicate index entries → opaque pandas reindex error. | `not mat.index.has_duplicates` validator listing up to 5 duplicates. |
+| B7 | MED | compose | Negative weights silently passed through, violating long-only invariant. | `(values < 0).any() == False` validator. |
+| D7 | MED | `FleetConfig` | `manual_overrides` + `base_weight.sum() != 1.0` only failed at first `compute_capital_split()` call. | Add `_manual_overrides_must_sum_to_one` `model_validator(mode="after")` so config-load fails with the same 1e-9 tolerance. |
+
+### PASSED (no fix needed)
+
+| # | Test |
+|---|------|
+| 1.1 | End-to-end Track B pipeline (config → split → compose → throttle → metrics) |
+| 1.5 | C5 guard fires through real `run_research_miner.py` CLI — smoke #2 role=diversifier same split, all 3 trials pruned with INFO log, archive unchanged |
+| 1.6 | `compute_spec_id` deterministic across PYTHONHASHSEED ∈ {None, 0, 12345, 99999} |
+| 1.7 | FleetManifest round-trip preserves date / datetime / nested events |
+| 2.1 | Float precision tolerance 1e-9 correct (1/3 + 1/3 + 1/3 accepted; 1e-8 deviation rejected) |
+| 2.2 | CLI `--temporal-split` without `--role` fail-closes via `ensure_role_assigned` |
+| 2.3 | Concurrent FleetManifest writers (3 threads × 20 saves) — 0 errors, 0 stray .tmp files |
+| 2.6 | Frozen-step boundary intact — `check_correlation_budget`, `apply_dd_throttle`, `observe` all raise NotImplementedError with "frozen" marker |
+
+### Reverse-validation evidence
+
+- B1: pre-fix `compose({c1: ok, c2: with_NaN_cell})` produced fleet
+  matrix with NaN row at the affected date. Post-fix: ValueError naming
+  cell count + remediation.
+- B2: pre-fix `splits={c1: 0.3, c2: 0.3}` (sum=0.6) → fleet weight
+  scaled to 0.6 silently. Post-fix: ValueError naming sum.
+- B3: pre-fix `splits={c1: 0.7, c2: 0.7}` (sum=1.4) → fleet weight 1.4
+  (leverage). Post-fix: same validator catches.
+- B4: pre-fix throttle output preserved NaN cells; trim_events list
+  did not flag them. Post-fix: ValueError before any clipping.
+- B5/B6: pre-fix produced opaque pandas errors. Post-fix: domain
+  ValueError with remediation hint.
+- B7: pre-fix `cw = {c1: matrix with -0.1}` silently composed a short.
+  Post-fix: ValueError "long-only system has no shorts".
+- D7: pre-fix `FleetConfig(manual_overrides + 0.6+0.6)` accepted at
+  config-load; runtime `compute_capital_split()` raised. Post-fix:
+  ValidationError at config-load with same 1e-9 tolerance.
+
+### Tests
+
+- Track B fleet suite: 50 → **62** (+12 audit regressions across 4
+  files; +8 in compose, +1 in throttle, +3 in schema config-load)
+- Full unit suite: **2087 passed / 0 failed / 1 skipped** (was 2075
+  pre-audit, +12 = expected 2087 ✓)
+
+### Discussion items (no fix; documented)
+
+- **D8** Per-row sum validation in compose intentionally NOT enforced:
+  PRD says "upstream owns per-candidate normalisation"; Step 6 DD
+  throttle multiplies by an explicit throttle_factor and would conflict
+  with strict per-row==1.0 enforcement. Operational rule established.
+- **D9** Manifest lost-update race under concurrent writers: same
+  caveat as `fetch_session_log` (R19 BUG #5). Per-pid+tid filename
+  prevents the FileNotFoundError crash; lost-update is still possible.
+  Single-writer assumption explicit. fcntl upgrade is P1 before
+  scheduled / parallel observation lands.
+- **D10** Frozen-step methods all match `match="frozen"` in their
+  NotImplementedError message; pinned by `test_steps_5_to_8_explicitly_frozen`.
+
+### Memo
+
+`docs/memos/20260429-track_bc_audit_close.md` (full audit methodology +
+per-test result table + per-bug diagnosis on main).
+
+### No new questions for codex
+
+This round was implementation + audit; no design questions. The new
+upfront-validation pattern (NaN / sum / DatetimeIndex / duplicate /
+negative / config-load manual_overrides) follows the same R21 P0.2
+philosophy: fail-closed on type / structural confusion, give the
+operator a clear remediation hint pointing at upstream.
+
+<!-- next turn appends here. Convention: increment serial; mark role
+in suffix; include `commit:` if covering master-branch work. -->
