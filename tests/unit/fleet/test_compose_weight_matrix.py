@@ -291,3 +291,100 @@ def test_compose_default_splits_pass_validation():
     # No splits → equal_weight 1/3 each → sum=1.0 (within float precision)
     fleet = alloc.compose_weight_matrix(cw)
     assert fleet.loc[pd.Timestamp("2026-01-02"), "AAPL"] == pytest.approx(1.0)
+
+
+# ---------------------------------------------------------------------------
+# Codex R25 P0.1 regressions (2026-04-29)
+# ---------------------------------------------------------------------------
+
+
+def test_compose_rejects_split_components_summing_to_one_with_short():
+    """Codex R25 P0.1: {c1: 1.2, c2: -0.2} sums to 1.0 ✓ but produces
+    long/short fleet weights. Round 24 only checked sum; this test pins
+    the component-level rejection."""
+    alloc = _alloc(
+        FleetCandidate(candidate_id="c1", role="core", base_weight=0.5),
+        FleetCandidate(candidate_id="c2", role="core", base_weight=0.5),
+    )
+    cw = {
+        "c1": _wm({"2026-01-02": {"AAPL": 1.0}}),
+        "c2": _wm({"2026-01-02": {"MSFT": 1.0}}),
+    }
+    with pytest.raises(ValueError, match=r"< 0|> 1\.0"):
+        alloc.compose_weight_matrix(cw, splits={"c1": 1.2, "c2": -0.2})
+
+
+def test_compose_rejects_negative_split_component():
+    alloc = _alloc(
+        FleetCandidate(candidate_id="c1", role="core", base_weight=0.5),
+        FleetCandidate(candidate_id="c2", role="core", base_weight=0.5),
+    )
+    cw = {
+        "c1": _wm({"2026-01-02": {"AAPL": 1.0}}),
+        "c2": _wm({"2026-01-02": {"AAPL": 1.0}}),
+    }
+    with pytest.raises(ValueError, match="< 0"):
+        alloc.compose_weight_matrix(cw, splits={"c1": -0.1, "c2": 1.1})
+
+
+def test_compose_rejects_split_above_one():
+    """One candidate getting > 100% allocation is not legal v1 (would imply
+    leverage even if combined with a small second positive split)."""
+    alloc = _alloc(
+        FleetCandidate(candidate_id="c1", role="core", base_weight=0.5),
+        FleetCandidate(candidate_id="c2", role="core", base_weight=0.5),
+    )
+    cw = {
+        "c1": _wm({"2026-01-02": {"AAPL": 1.0}}),
+        "c2": _wm({"2026-01-02": {"AAPL": 1.0}}),
+    }
+    # 1.5 > 1.0 — rejected even though sum check would let some configs through
+    with pytest.raises(ValueError, match=r"> 1\.0"):
+        alloc.compose_weight_matrix(cw, splits={"c1": 1.5, "c2": -0.5})
+
+
+def test_compose_rejects_nan_split():
+    import math
+    alloc = _alloc(
+        FleetCandidate(candidate_id="c1", role="core", base_weight=0.5),
+        FleetCandidate(candidate_id="c2", role="core", base_weight=0.5),
+    )
+    cw = {
+        "c1": _wm({"2026-01-02": {"AAPL": 1.0}}),
+        "c2": _wm({"2026-01-02": {"AAPL": 1.0}}),
+    }
+    with pytest.raises(ValueError, match="must be finite"):
+        alloc.compose_weight_matrix(cw, splits={"c1": math.nan, "c2": 1.0})
+
+
+def test_compose_rejects_inf_split():
+    import math
+    alloc = _alloc(
+        FleetCandidate(candidate_id="c1", role="core", base_weight=0.5),
+        FleetCandidate(candidate_id="c2", role="core", base_weight=0.5),
+    )
+    cw = {
+        "c1": _wm({"2026-01-02": {"AAPL": 1.0}}),
+        "c2": _wm({"2026-01-02": {"AAPL": 1.0}}),
+    }
+    with pytest.raises(ValueError, match="must be finite"):
+        alloc.compose_weight_matrix(cw, splits={"c1": math.inf, "c2": -math.inf + 1.0})
+
+
+def test_compose_post_invariant_row_sum_validated():
+    """If a candidate matrix violates its row-sum-<=-1 contract (e.g. row
+    sums to 1.5), the post-compose row-sum guard catches it even though
+    the per-cell non-negative check passes.
+
+    PRD §5.4 D8: per-row-sum-<=-1 is upstream's contract; this guard is
+    defense in depth to prevent silent over-allocation."""
+    alloc = _alloc(
+        FleetCandidate(candidate_id="c1", role="core", base_weight=1.0),
+    )
+    # c1 has row sum 1.5 (over-allocated) but no negatives or NaN.
+    cw = {
+        "c1": _wm({"2026-01-02": {"AAPL": 0.8, "MSFT": 0.7}}),
+    }
+    # splits = {c1: 1.0}; fleet row sum = 1.5 → post-compose check catches.
+    with pytest.raises(ValueError, match=r"row sum"):
+        alloc.compose_weight_matrix(cw, splits={"c1": 1.0})

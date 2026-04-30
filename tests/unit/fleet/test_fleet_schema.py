@@ -134,6 +134,7 @@ def test_manifest_schema_round_trip(tmp_path):
                 throttle_factor=1.0,
                 concentration_metrics=ConcentrationSnapshot(
                     m12_top1_weight_max=0.18, m12_top3_weight_max=0.42,
+                    m12_n_dates_with_weights=1,
                 ),
             )
         ],
@@ -179,6 +180,7 @@ def test_rebalance_weight_out_of_range_rejected():
             throttle_factor=1.0,
             concentration_metrics=ConcentrationSnapshot(
                 m12_top1_weight_max=0.18, m12_top3_weight_max=0.42,
+                m12_n_dates_with_weights=1,
             ),
         )
 
@@ -300,3 +302,28 @@ def test_manual_overrides_within_float_tolerance_accepted():
         split_policy="manual_overrides",
     )
     assert len(cfg.candidates) == 3
+
+
+# ---------------------------------------------------------------------------
+# Codex R25 P1 — Track A ↔ Fleet role vocabulary bridge (2026-04-29)
+# ---------------------------------------------------------------------------
+
+
+def test_track_a_role_bridge_core_passes_through():
+    from core.fleet import track_a_role_to_fleet_role
+    assert track_a_role_to_fleet_role("core") == "core"
+
+
+def test_track_a_role_bridge_diversifier_maps_to_satellite():
+    from core.fleet import track_a_role_to_fleet_role
+    assert track_a_role_to_fleet_role("diversifier") == "satellite"
+
+
+def test_track_a_role_bridge_unknown_role_rejected():
+    """Codex R25 P1: silent re-interpretation at promotion time is the
+    failure mode this rejects. Unknown Track A roles must hard-error."""
+    from core.fleet import track_a_role_to_fleet_role
+    with pytest.raises(ValueError, match="unknown Track A role"):
+        track_a_role_to_fleet_role("hedge")
+    with pytest.raises(ValueError, match="unknown Track A role"):
+        track_a_role_to_fleet_role("satellite")  # NB: that's the Fleet vocab, not Track A

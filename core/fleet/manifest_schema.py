@@ -36,6 +36,51 @@ _RoleLiteral = Literal["core", "satellite"]
 _SplitPolicyLiteral = Literal["equal_weight", "manual_overrides"]
 
 
+# ---------------------------------------------------------------------------
+# Track A ↔ Fleet role vocabulary bridge (codex R25 P1)
+# ---------------------------------------------------------------------------
+#
+# Track A (research / mining governance) labels candidates ``core`` or
+# ``diversifier``. Fleet (capital allocation) labels them ``core`` or
+# ``satellite``. Both share ``core`` semantically. The labels diverge for
+# the secondary role because Track A's name reflects the GOVERNANCE
+# constraint (a diversifier must demonstrate low correlation to existing
+# core to be eligible) while Fleet's name reflects the ALLOCATION
+# semantic (satellite sleeve is the ≤ 40% capacity outside core).
+#
+# When a Track-A-promoted candidate enters the Fleet, its role label
+# must NOT be silently reused — translate via ``track_a_role_to_fleet_role``
+# below so the promotion is auditable.
+
+TRACK_A_TO_FLEET_ROLE_MAP: Dict[str, str] = {
+    "core":         "core",
+    "diversifier":  "satellite",
+}
+
+
+def track_a_role_to_fleet_role(track_a_role: str) -> str:
+    """Translate a Track A role to its Fleet equivalent.
+
+    Codex R25 P1: Track A uses ``core`` / ``diversifier`` (governance
+    labels reflecting eligibility constraints). Fleet uses ``core`` /
+    ``satellite`` (allocation labels reflecting sleeve capacity).
+    Both share ``core`` semantically; ``diversifier`` → ``satellite``
+    is the deterministic translation.
+
+    Raises ``ValueError`` for unknown inputs to prevent silent
+    re-interpretation at promotion time.
+    """
+    if track_a_role not in TRACK_A_TO_FLEET_ROLE_MAP:
+        raise ValueError(
+            f"unknown Track A role {track_a_role!r}; expected one of "
+            f"{sorted(TRACK_A_TO_FLEET_ROLE_MAP)}. If a new Track A role "
+            f"is introduced, extend TRACK_A_TO_FLEET_ROLE_MAP explicitly "
+            f"and document the mapping in the temporal_split.yaml + "
+            f"fleet.yaml docstrings."
+        )
+    return TRACK_A_TO_FLEET_ROLE_MAP[track_a_role]
+
+
 class FleetCandidate(BaseModel):
     """A single candidate registered in the fleet.
 
@@ -188,12 +233,20 @@ def load_fleet_config(path: str | Path) -> FleetConfig:
 
 
 class ConcentrationSnapshot(BaseModel):
-    """M12 fleet-level concentration metrics (Step 4)."""
+    """M12 fleet-level concentration metrics (Step 4).
+
+    Codex R25 P0.2 fix (2026-04-29): added ``m12_n_dates_with_weights``
+    so the output of ``FleetAllocator.compute_concentration_metrics()``
+    can be passed directly into this model without ``extra="forbid"``
+    rejecting the third field. The PRD §5.3 manifest example already
+    listed n-dates-with-weights conceptually; the schema now matches.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     m12_top1_weight_max: float = Field(ge=0.0, le=1.0)
     m12_top3_weight_max: float = Field(ge=0.0, le=1.0)
+    m12_n_dates_with_weights: int = Field(ge=0)
 
 
 class FleetEvent(BaseModel):

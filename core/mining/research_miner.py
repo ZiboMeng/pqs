@@ -716,7 +716,30 @@ class ResearchMiner:
         self.archive = archive
         self.lineage_tag = lineage_tag
         self.study_id = study_id
-        # Track A: thread fingerprint to record_study + insert_trial
+        # Track A: thread fingerprint to record_study + insert_trial.
+        #
+        # Codex R25 P1 fix (2026-04-29): the CLI script enforces
+        # `--temporal-split` requires `--role`, but direct
+        # ``ResearchMiner(... split_name=..., role=None)`` construction
+        # would silently bypass the C5 role-remint guard (the guard
+        # only runs when both fields are non-None). Reject partial
+        # temporal-fingerprint tuples at construction so any non-CLI
+        # caller hits the same fail-closed contract.
+        _temporal_fields = {
+            "split_name": split_name,
+            "split_sha256": split_sha256,
+            "role": role,
+        }
+        _set = {k: v for k, v in _temporal_fields.items() if v is not None}
+        if _set and len(_set) != len(_temporal_fields):
+            missing = sorted(set(_temporal_fields) - set(_set))
+            raise ValueError(
+                f"ResearchMiner: partial temporal-fingerprint tuple "
+                f"{sorted(_set)} provided without {missing}. Pass all of "
+                f"split_name + split_sha256 + role together (M6 C1+C2 + "
+                f"C5 guard) or none at all (legacy mining). Mixing the "
+                f"two would silently bypass the C5 role-remint guard."
+            )
         self.split_name = split_name
         self.split_sha256 = split_sha256
         self.panel_max_date = panel_max_date

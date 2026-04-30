@@ -145,7 +145,17 @@ Reject (or warn) a fleet composition where any pairwise candidate-return correla
 
 When two candidates both want to hold symbol $s$ on day $t$, the **fleet-level** holding in $s$ must not exceed a per-symbol cap.
 
-**v1 default**: `max_fleet_symbol_weight = 0.20`. If candidate weights would compose to a fleet weight in $s$ above 0.20, the excess is **proportionally trimmed across the contributing candidates** (not just clipped at the sum) — this preserves the relative exposure intent of each candidate.
+**v1 default**: `max_fleet_symbol_weight = 0.20`. If candidate weights would compose to a fleet weight in $s$ above 0.20, the **fleet-level cell is clipped to the cap and the excess mass becomes implicit cash** (codex R25 P1 v1 semantics, 2026-04-29). This is conservative — the trimmed mass does not redistribute to other names; the fleet under-allocates by exactly the trim amount on that date.
+
+**Why cash-clip and not contribution-aware proportional trim?**
+
+The original v1.0 PRD wording was "proportionally trimmed across the contributing candidates" (preserving each candidate's relative exposure intent). After Track B Step 4 implementation review (codex R25), the simpler **cash-clip v1** was accepted because:
+
+- It matches the long-only no-margin invariant — trimmed mass becomes cash, never re-routed to risk.
+- It composes cleanly with C5 DD throttle (Step 6) which multiplies the entire matrix; redistribution would interact non-trivially with throttle factors.
+- Contribution-aware redistribution requires per-candidate provenance tracking inside `compose_weight_matrix`; that is real engineering deferred until DD throttle stabilises.
+
+**v2 plan**: contribution-aware proportional trim returns when the operator demands it (e.g. evidence that cash-clip is consistently leaving 5%+ unallocated mass in production). Until then, cash-clip stands.
 
 **Sanity guard**: M12 concentration metrics still apply at the fleet level. If post-trim fleet `top1_weight_max` still > 0.40 → fleet enters `manual_review_required` (analogous to current candidate-level M12 contract).
 

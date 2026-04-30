@@ -19,7 +19,9 @@ from core.fleet.manifest_schema import (
     FleetConfig,
     FleetManifest,
     FleetRebalance,
+    TRACK_A_TO_FLEET_ROLE_MAP,
     load_fleet_config,
+    track_a_role_to_fleet_role,
 )
 from core.fleet.manifest_io import load_fleet_manifest, save_fleet_manifest
 from core.fleet.allocator import FleetAllocator
@@ -29,8 +31,10 @@ __all__ = [
     "FleetConfig",
     "FleetManifest",
     "FleetRebalance",
+    "TRACK_A_TO_FLEET_ROLE_MAP",
     "load_fleet_config",
     "load_fleet_manifest",
     "save_fleet_manifest",
+    "track_a_role_to_fleet_role",
     "FleetAllocator",
 ]

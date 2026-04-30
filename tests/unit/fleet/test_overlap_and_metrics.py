@@ -180,3 +180,82 @@ def test_overlap_throttle_rejects_nan():
     )
     with pytest.raises(ValueError, match="NaN"):
         alloc.apply_overlap_throttle(fleet)
+
+
+# ---------------------------------------------------------------------------
+# Codex R25 P0.1 throttle defense in depth (2026-04-29)
+# ---------------------------------------------------------------------------
+
+
+def test_overlap_throttle_rejects_negative_cells():
+    """Codex R25 P0.1 defense in depth: throttle is a public API; if a
+    non-Track-B caller feeds it a dirty matrix with negative cells,
+    fail-close (clipping a negative against a positive cap is nonsense)."""
+    alloc = _alloc(max_fleet_symbol_weight=0.20)
+    fleet = pd.DataFrame(
+        {"AAPL": [0.30, -0.05]},
+        index=pd.to_datetime(["2026-01-02", "2026-01-05"]),
+    )
+    with pytest.raises(ValueError, match="negative"):
+        alloc.apply_overlap_throttle(fleet)
+
+
+# ---------------------------------------------------------------------------
+# Codex R25 P0.2 — schema integration (2026-04-29)
+# ---------------------------------------------------------------------------
+
+
+def test_compute_concentration_metrics_feeds_directly_into_schema():
+    """Codex R25 P0.2 lesson: my Round 24 audit had a manifest round-trip
+    test, but never tried feeding compute_concentration_metrics() output
+    INTO ConcentrationSnapshot. The schema was missing
+    m12_n_dates_with_weights, so the integration was broken.
+
+    This test pins the contract: compute output → ConcentrationSnapshot
+    → FleetRebalance → save_fleet_manifest → load_fleet_manifest must
+    round-trip without manual key surgery.
+    """
+    import tempfile
+    from datetime import date, datetime, timezone
+    from pathlib import Path
+
+    from core.fleet import (
+        FleetCandidate,
+        FleetManifest,
+        FleetRebalance,
+        load_fleet_manifest,
+        save_fleet_manifest,
+    )
+    from core.fleet.manifest_schema import ConcentrationSnapshot
+
+    alloc = _alloc(max_fleet_symbol_weight=0.20)
+    fleet = pd.DataFrame(
+        {"AAPL": [0.18, 0.16], "MSFT": [0.12, 0.14], "GOOG": [0.05, 0.10]},
+        index=pd.to_datetime(["2026-04-28", "2026-04-29"]),
+    )
+    metrics = alloc.compute_concentration_metrics(fleet)
+
+    # Critical: build ConcentrationSnapshot directly from the dict.
+    snap = ConcentrationSnapshot(**metrics)
+    assert snap.m12_n_dates_with_weights == 2
+
+    # Round-trip through manifest
+    manifest = FleetManifest(
+        fleet_id="r25_audit_test",
+        candidates=[FleetCandidate(candidate_id="c1", role="core", base_weight=1.0)],
+        rebalances=[
+            FleetRebalance(
+                rebalance_date=date(2026, 4, 29),
+                candidate_weights={"c1": 1.0},
+                fleet_weight_matrix_hash="a" * 64,
+                throttle_factor=1.0,
+                concentration_metrics=snap,
+            ),
+        ],
+        created_at_utc=datetime(2026, 4, 29, tzinfo=timezone.utc),
+    )
+    with tempfile.TemporaryDirectory() as td:
+        p = Path(td) / "manifest.json"
+        save_fleet_manifest(manifest, p)
+        loaded = load_fleet_manifest(p)
+        assert loaded.rebalances[0].concentration_metrics.m12_n_dates_with_weights == 2

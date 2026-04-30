@@ -205,8 +205,36 @@ class FleetAllocator:
                 f"in splits but not matrices: {missing_in_matrices}"
             )
 
-        # Audit BUG #B2/B3: splits.values() must sum to 1.0 (within tolerance).
-        # > 1.0 implies leverage; < 1.0 is silent under-allocation.
+        # Codex R25 P0.1 fix (2026-04-29): validate every split COMPONENT, not
+        # just the sum. Round 24 only checked sum; a long/short vector like
+        # {c1: 1.2, c2: -0.2} sums to 1.0 but violates long-only no-margin
+        # by producing leverage in c1's symbols and shorts in c2's. Reject:
+        #   - non-finite values (NaN / inf)
+        #   - values < 0 (short)
+        #   - values > 1 (single-candidate over-allocation)
+        for cid, val in splits.items():
+            if not _np.isfinite(val):
+                raise ValueError(
+                    f"splits[{cid!r}] = {val!r}; must be finite. Non-finite "
+                    f"split components corrupt the entire fleet matrix."
+                )
+            if val < 0.0:
+                raise ValueError(
+                    f"splits[{cid!r}] = {val} < 0; long-only no-margin "
+                    f"invariant requires every split component >= 0. A "
+                    f"long/short split vector summing to 1.0 still creates "
+                    f"leverage in some symbols and shorts in others."
+                )
+            if val > 1.0 + 1e-9:
+                raise ValueError(
+                    f"splits[{cid!r}] = {val} > 1.0; no single candidate "
+                    f"may exceed full allocation. Combined with another "
+                    f"positive split this would imply leverage even before "
+                    f"the sum check."
+                )
+
+        # Sum check (Round 24 BUG #B2/B3) still runs after component check —
+        # both must hold.
         split_sum = sum(splits.values())
         if abs(split_sum - 1.0) > 1e-9:
             raise ValueError(
@@ -230,6 +258,41 @@ class FleetAllocator:
             # NaN was rejected upfront, so reindex won't introduce one.
             reindexed = mat.reindex(index=all_dates, columns=all_syms, fill_value=0.0)
             fleet = fleet + splits[cid] * reindexed
+
+        # Codex R25 P0.1 fix (2026-04-29): post-compose invariants. Even
+        # with valid components and inputs, defensive checks catch any
+        # arithmetic surprise (mostly pandas alignment edge cases).
+        if not _np.isfinite(fleet.values).all():
+            n_bad = int((~_np.isfinite(fleet.values)).sum())
+            raise ValueError(
+                f"composed fleet matrix contains {n_bad} non-finite cell(s) "
+                f"(NaN / inf); arithmetic surprise that input validation did "
+                f"not catch. This is a defensive guard — please file a bug "
+                f"with reproducer."
+            )
+        if (fleet.values < 0).any():
+            n_neg = int((fleet.values < 0).sum())
+            raise ValueError(
+                f"composed fleet matrix contains {n_neg} negative cell(s); "
+                f"long-only invariant violated. Either a candidate matrix "
+                f"slipped through with negatives, or split components were "
+                f"negative — both are caught upstream now, this is the "
+                f"defensive last line."
+            )
+        # Row sums must be <= 1.0 + tolerance (sum of split-weighted candidate
+        # rows; assumes per-candidate row sums <= 1 which is the upstream
+        # contract — see PRD §5.4 D8 discussion). Tolerance accommodates float
+        # accumulation across many candidates and symbols.
+        row_sums = fleet.sum(axis=1)
+        max_row_sum = float(row_sums.max()) if len(row_sums) else 0.0
+        if max_row_sum > 1.0 + 1e-6:
+            offenders = row_sums[row_sums > 1.0 + 1e-6].head(3)
+            raise ValueError(
+                f"composed fleet matrix has row sum {max_row_sum} > 1.0 + "
+                f"1e-6 tolerance on at least one date "
+                f"(e.g. {offenders.to_dict()}); over-allocation indicates "
+                f"a per-candidate matrix violated its row-sum-<=-1 contract."
+            )
 
         return fleet
 
@@ -313,6 +376,18 @@ class FleetAllocator:
                 f"fleet_weight_matrix contains {na_count} NaN value(s); "
                 f"throttle cannot reason about NaN cells. Compose with "
                 f"clean candidate matrices upstream."
+            )
+        # Codex R25 P0.1 fix (2026-04-29): defense in depth — reject negative
+        # cells too. Compose now rejects negatives upstream, but throttle is
+        # a public API and a non-Track-B caller could feed it a dirty matrix.
+        # Negative weights would produce nonsense throttle behavior (clipping
+        # only positive cells; negatives leak through unflagged).
+        if (fleet_weight_matrix.values < 0).any():
+            n_neg = int((fleet_weight_matrix.values < 0).sum())
+            raise ValueError(
+                f"fleet_weight_matrix contains {n_neg} negative cell(s); "
+                f"long-only invariant violated. Throttle cannot meaningfully "
+                f"clip a negative weight against a positive cap."
             )
         cap = self.config.max_fleet_symbol_weight
         # Find (date, symbol) cells exceeding the cap
