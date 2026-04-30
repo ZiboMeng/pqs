@@ -5404,5 +5404,196 @@ of each leg of the priority realign roadmap:
   candidate freeze pipeline; happens when cycle #01 first
   produces a candidate to freeze.
 
+## Round 41 (Claude) — auditor R40 calibration + cycle close ritual codified (review-only)
+
+No new main commit. R41 is a review-only entry: state calibration
++ codify the cycle close ritual auditor R40 emphasized. Per
+priority realign memo: "pause memo iteration, run cycle compute"
+— so this is review-log codification, not a new memo or PRD.
+
+### Calibration: auditor R40 view of main state
+
+Auditor R40 wrote a 7-step priority order ending with steps 2 and
+3:
+  2. generic NAV pair diagnostic runner — internal P1
+  3. Track A acceptance β-stamp minimal extension — internal P1
+
+Both shipped in R40 (this turn's prior round, before R40 the
+review entry):
+
+  - P1 generic NAV runner: `main 4eb75bd`
+    `dev/scripts/correlation/run_pair_nav_correlation.py` (520 lines).
+    Legacy `rcmv1_cand2_realized_nav_correlation.py` reduced to
+    thin wrapper. 11/11 numerical equivalence to pre-refactor PASS.
+    Two refactor regressions caught by R3 (cross-cell benchmark
+    dir + empty_diagnostic key parametrization), both fixed.
+
+  - P1 β-stamp: `main 812a14f`
+    `core/research/acceptance_helpers.py` +125 lines (two pure
+    functions `compute_beta_to_benchmark` and
+    `build_estimated_beta_at_freeze` per `bmv_schema_decision.md`
+    canonical schema). 8 new tests + 26 pre-existing = 34 PASS.
+
+So auditor's steps 1-3 are now: signoff (external) + 2 done + 2 done.
+Effective remaining order:
+
+  1. E.MV §4.6+§4.7 reviewer signoff (external; only blocker)
+  2. (post-signoff) run cycle #01 mining compute
+  3. cycle close ritual (codified below)
+  4. forward / sealed / fleet only after evidence
+
+If auditor saw R40 already, calibration is a no-op. If not, the R40
+work mooted steps 2-3.
+
+### Auditor R40's most binding contribution: cycle close ritual
+
+The most operationally important thing auditor R40 said is the
+5-tier outcome stratification — "**don't equate 0 nominee with 0
+alpha**". The criteria yaml has the action map (§"Hard
+requirements" + plan §0 falsifiability table) but the auditor's
+table is sharper. Codifying it here so cycle #01 closeout can
+reference R41 directly:
+
+| Cycle #01 outcome | Interpretation | Disposition |
+|---|---|---|
+| **No candidate passes Track A acceptance** | EITHER alpha source insufficient on this universe / cadence / construction OR gates too strict. NOT decidable from a single cycle. | Cycle closes 0-nominee. Closeout memo lists BOTH hypotheses; new PRD opens new lineage if either warrants follow-up. **NO retroactive gate softening.** |
+| **Candidate passes Track A but raw NAV corr ≥ 0.50 vs RCMv1 OR Cand-2** | Has alpha but is structurally a sibling at NAV level. | NOT a nominee. Closeout records "alpha-positive but redundant". Trigger construction-layer investigation (see §"construction-first" below). |
+| **Candidate passes Track A, raw < 0.50, BUT residual ≥ 0.50 vs SPY AND vs QQQ** | β profile differs but alpha sleeve duplicates RCMv1/Cand-2 at residual level. | NOT a nominee. Trigger construction-layer + factor-family investigation. |
+| **Candidate passes Track A, raw < 0.50, residual < 0.50 vs SPY OR vs QQQ** | True structurally different candidate. | Enters evidence pack §4.6+§4.7 → reviewer review → "candidate pending economic-invariant pack" status. |
+| **Multi-candidate cluster passes** | Cluster check first; do not submit multiple sibling nominees together. | NAV correlation matrix among candidates → ≤ 1 nominee per cluster. |
+
+This is operationally binding for cycle #01 closeout regardless of
+whether the closeout memo cites this entry directly. Cycle #01
+closeout MUST classify against this 5-tier table.
+
+### Construction-first reflection priority (auditor R36+R40)
+
+Most important meta-judgment from auditor R36 + restated R40:
+
+> **If cycle #01 fails (0 candidate or sibling-only), first suspect
+> is portfolio construction, NOT factor zoo.**
+
+Evidence: RCMv1 + Cand-2 use ZERO-overlap factor sets (RCMv1:
+`{beta_spy_60d, drawup_from_252d_low, days_since_52w_high, amihud_20d}`;
+Cand-2: `{ret_5d, rs_vs_spy_126d, hl_range}`) yet realized residual
+NAV corr is 0.58-0.61. Long-only × monthly × top-N × same 78-symbol
+universe is collapsing any signal into "rank tickers by recent
+winner-ness", largely independent of factor identity.
+
+Closeout reflection priority order for any cycle #01 failure:
+
+1. **Construction degree-of-freedom collapse**: top-N concentration,
+   monthly cadence, equal-weight composite, long-only sleeve. Test:
+   if same factors with different cadence (weekly / quarterly) or
+   different construction (beta-budget / sector-balanced / pair-
+   trade) produce different NAV residual, construction was the
+   bottleneck.
+
+2. **Beta-budgeted construction**: explicitly cap portfolio β in
+   composition rather than trying to find low-β factors. RCMv1 nominally
+   has `beta_spy_60d` factor and STILL realized β-SPY 1.41 — factor-
+   level β-awareness ≠ portfolio-level β-control.
+
+3. **Sector / cross-asset / different-cadence sleeve**: the
+   78-symbol universe is dominated by mega-cap US equity. A
+   genuinely different sleeve might come from: rates-sensitive
+   names, different cadence, weekly rebalance, intraday timing
+   overlay.
+
+4. **Different alpha family**: intraday reversal / mean reversion,
+   event/calendar features, volatility / dispersion / drawdown
+   recovery. Last in priority because (1)-(3) are larger
+   degree-of-freedom changes that would dominate effect size.
+
+5. **Gate calibration vs alpha exhaustion**: if (1)-(4) all explored
+   and still no candidate passes, then either the gates are too
+   strict OR the alpha pool on this universe is exhausted. Do not
+   confuse this with the conclusion BEFORE (1)-(4) are explored.
+
+Order matters: jumping to factor-zoo expansion before construction
+investigation is the trap that produces another RCMv1/Cand-2
+sibling.
+
+### Status of all auditor R40 priorities
+
+| # | Auditor priority | Current state |
+|---|------------------|---------------|
+| 1 | E.MV §4.6+§4.7 signoff | ⏳ external; only blocker |
+| 2 | Generic NAV pair runner | ✅ shipped main 4eb75bd (R40 turn) |
+| 3 | Track A β-stamp minimal | ✅ shipped main 812a14f (R40 turn) |
+| 4 | Run cycle #01 mining post-signoff | 🟡 ready |
+| 5 | Cycle closeout 5-tier classification | ✅ codified in this entry §cycle close ritual |
+| 6 | B.MV after candidate exists | ⏸ candidate-gated |
+| 7 | A.MV after forward soak | ⏸ candidate-gated |
+| 8 | Fleet Step 6+ after ≥2 low-corr candidates | 🚫 HARD PAUSED |
+
+### Q12 + Q11 disposition unchanged
+
+No movement on Q12 (B.MV legacy fallback): operator stance is
+still SKIP-on-decay; auditor R36 endorsed; reviewer counter
+window remains open if reviewer wants to argue T4_legacy
+fallback survives the "same beta-blind failure mode reviewer §6
+flagged" critique.
+
+No movement on Q11 (panel_max_date placement): A.MV impl is
+candidate-gated; manual sealed-eval discipline rule ("clean
+window starts strictly after candidate `freeze_date` AND after
+`panel_max_date_at_freeze`") applies meanwhile.
+
+### My answer to "do you agree with auditor R40's direction?"
+
+YES, in full. The 7-step priority order is correct. The 5-tier
+cycle-outcome stratification is operationally binding (now
+codified above). The construction-first reflection priority is
+correct (also codified). The "don't equate 0 nominee with 0
+alpha" framing is the most important guard against premature
+"alpha exhausted" conclusions from a single cycle.
+
+No push-back this round.
+
+### Self-audit (4 rounds)
+
+- **R1 factual**: R40 commit hashes verified
+  (`f770d05` / `4eb75bd` / `812a14f`); 5-tier table mirrors
+  criteria yaml §0 plan + auditor R40 §2 with explicit
+  "NOT decidable from a single cycle" caveat.
+- **R2 logical**: priority steps 1-3 mooted by R40 ship; remaining
+  order (1 ext + 4 internal post-signoff) consistent with all
+  prior rounds. Construction-first reflection priority dominates
+  factor-zoo expansion because (1)-(3) are larger degree-of-freedom
+  changes than (4).
+- **R3 runtime**: review-only entry; no code change; main state
+  unchanged from R40.
+- **R4 boundary**: edge case where auditor saw R40 before writing —
+  calibration is a no-op (covered by entry text); edge case where
+  cycle #01 produces multi-candidate sibling cluster — covered by
+  5-tier table row 5; edge case where 0-Track-A-pass + auditor
+  pushes to soften gates retroactively — explicit "NO retroactive
+  gate softening" line in row 1.
+
+### Net state at end of R41
+
+Operator-side prep: 100% complete. No more pre-cycle work to do.
+Pre-cycle artifacts:
+
+  - `f770d05` cycle #01 criteria yaml (sha256 frozen)
+  - `4eb75bd` generic NAV pair runner
+  - `812a14f` β-stamp minimal extension
+  - `c478569` R40 review entry
+  - this entry (R41) — review-only
+
+External dependency: E.MV §4.6+§4.7 reviewer signoff. After signoff
+arrives, mining compute can begin same session. No further code or
+docs changes between now and that moment.
+
+### Open for codex / external reviewer next round
+
+- E.MV §4.6+§4.7 signoff (the gating ask).
+- Optional: reviewer pre-review of the 5-tier closeout
+  classification + construction-first reflection priority.
+  These are operationally binding regardless of pre-review,
+  but a reviewer pre-blessing would lower interpretation
+  variance at closeout time.
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
