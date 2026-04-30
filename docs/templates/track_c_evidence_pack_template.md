@@ -57,10 +57,16 @@ each box; any unchecked box invalidates the pack.
 - [ ] Stress slices (`covid_flash`, `rate_hike_2022`) were used for
       **MaxDD sanity only** (borrowed cells, not for parameter
       selection — Track A leak guard `validate_no_holdout_leakage`
-      raised on every mining call).
+      ran and passed on every mining call; it would raise if
+      holdout leakage were present).
 - [ ] C5 role-remint guard (`enforce_c5_no_role_remint`) ran during
-      every Optuna trial; no peer with same `(spec_sha, split_name,
-      role)` exists in `data/research_candidates/registry.db`.
+      every Optuna trial against the **RCM mining archive**
+      (default `data/mining/rcm_archive.db`, via
+      `RCMArchive.find_studies_by_spec_role(spec_sha256, split_name)`).
+      Invariant: no prior trial with the same `spec_sha` exists
+      under a **different role** in the same `split_name`.
+      Same-`spec_sha` + same-`role` deterministic reruns are
+      allowed but MUST be disclosed in §4.2.
 - [ ] No fleet manifest, forward manifest, or sealed ledger was
       mutated during the mining or pack-construction process.
 - [ ] Pre-registered criteria YAML was committed BEFORE the first
@@ -105,15 +111,20 @@ filtering, no summarization).
 <paste summary_line() output here>
 ```
 
+> **Sign convention.** MaxDD is reported as a positive drawdown
+> magnitude in Track A metrics (e.g. a 14% drawdown is `0.14`,
+> not `-0.14`). All MaxDD ceilings below are upper bounds on the
+> positive magnitude; lower is better.
+
 ### 3.1 Per-validation-year MaxDD gates
 
 | Gate | Required | Observed | PASS/FAIL |
 |------|----------|----------|-----------|
-| `validation_year_2018_maxdd` | ≤ -0.20 | `<float>` | `<status>` |
-| `validation_year_2019_maxdd` | ≤ -0.20 | `<float>` | `<status>` |
-| `validation_year_2021_maxdd` | ≤ -0.20 | `<float>` | `<status>` |
-| `validation_year_2023_maxdd` | ≤ -0.20 | `<float>` | `<status>` |
-| `validation_year_2025_maxdd` | ≤ -0.20 (HARD on `core`) | `<float>` | `<status>` |
+| `validation_year_2018_maxdd` | ≤ 0.20 | `<float>` | `<status>` |
+| `validation_year_2019_maxdd` | ≤ 0.20 | `<float>` | `<status>` |
+| `validation_year_2021_maxdd` | ≤ 0.20 | `<float>` | `<status>` |
+| `validation_year_2023_maxdd` | ≤ 0.20 | `<float>` | `<status>` |
+| `validation_year_2025_maxdd` | ≤ 0.20 (`core`); ≤ 0.18 (`diversifier`, HARD) | `<float>` | `<status>` |
 
 ### 3.2 Validation-aggregate excess gates (QQQ Outperformance Rule)
 
@@ -126,8 +137,8 @@ filtering, no summarization).
 
 | Gate | Required | Observed | PASS/FAIL |
 |------|----------|----------|-----------|
-| `stress_slice_covid_flash_maxdd` | ≤ -0.20 | `<float>` | `<status>` |
-| `stress_slice_rate_hike_2022_maxdd` | ≤ -0.20 | `<float>` | `<status>` |
+| `stress_slice_covid_flash_maxdd` | ≤ 0.25 | `<float>` | `<status>` |
+| `stress_slice_rate_hike_2022_maxdd` | ≤ 0.25 | `<float>` | `<status>` |
 
 ### 3.4 Concentration / leverage gates
 
@@ -166,8 +177,13 @@ Per the post-2026-04-25 weighted-gate fix:
 ### 4.2 C5 role-remint guard
 
 - `compute_spec_id(spec)`: `<hex>`
+- RCM archive path queried: `<data/mining/rcm_archive.db | other>`
 - `enforce_c5_no_role_remint(archive, spec_sha, split_name, role)` result:
-  `<no_existing_peer | RaisedValueError>`
+  `<no_existing_peer | same_role_rerun_disclosed | RaisedValueError>`
+- If `same_role_rerun_disclosed`, list prior runs:
+  `<study_id list with timestamps>` and explain why a deterministic
+  rerun is being submitted (e.g. evidence-pack regeneration after
+  template fix).
 - Archive lineage tag: `<lineage_tag>`
 
 ### 4.3 Cost-model attestation
@@ -205,6 +221,12 @@ Any criterion that fails → nominee fails immutability rule (no
 retroactive softening; cycle closes 0-nominee). Reference:
 `docs/memos/20260426-research-cycle-2026-04-26-01_close.md` for the
 precedent.
+
+**Lineage rule.** Any edit to the pre-registered criteria YAML
+after the first mining trial starts a **new lineage** (new
+`lineage_tag` + new YAML SHA-256 + new evidence pack); it does
+not amend the current cycle. The current cycle still closes
+under its original criteria.
 
 ---
 

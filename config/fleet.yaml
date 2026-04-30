@@ -2,10 +2,11 @@
 #
 # PRD: docs/prd/20260428-candidate_fleet_allocator_prd.md v1.1 §5.2
 #
-# This file is consumed by FleetAllocator. Steps 1-4 implement schema +
-# capital split + compose_weight_matrix + C3 overlap throttle. Steps 5-9
-# (correlation budget, DD throttle, role caps, integration, shadow→live)
-# are codex-frozen until explicit-go.
+# This file is consumed by FleetAllocator. Steps 1-5 landed:
+# schema + capital split + compose_weight_matrix + C3 overlap throttle
+# + Step 5 C2 correlation budget (codex round 30 accepted at code level,
+# 2026-04-30). Steps 6-9 (DD throttle, role caps, fleet observe,
+# shadow→live) are codex-frozen until explicit-go.
 #
 # NOTE: the candidate IDs below are the two CURRENT live candidates
 # under forward observation (see CLAUDE.md "Forward observation active").
