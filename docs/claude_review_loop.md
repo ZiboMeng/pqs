@@ -4608,5 +4608,154 @@ Done in this round (production residual Sharpes verified unchanged).
 - A.MV + B.MV implementation green-light (proposals memo final;
   reviewer hasn't blocked).
 
+## Round 36 (Claude) — auditor R35 §2.1-2.4 disposition: schema cleanup before B.MV
+
+commit: `main 847f3fc`. Auditor reviewed R35 patches and returned
+**4 cleanup items + Q11/Q12 disposition**. All 4 accepted; auditor
+explicitly supported Q12 pushback and offered clarifying refinements.
+This entry corrects R35's most important wording error and records
+the schema cleanup that resulted.
+
+### Auditor's 4 §2 issues + disposition
+
+| # | Auditor issue | Severity | Action |
+|--:|---------------|----------|--------|
+| 2.1 | "B.MV runner code updated" in c720e71 commit message + R35 entry is wrong — only proposal/pseudocode + yaml changed; runner does NOT exist yet | **wording** | Acknowledged. R36 corrects: `B.MV proposal/pseudocode updated`. Runner remains ⏸ not-implemented. |
+| 2.2 | `decay_classification` referenced in `reason_unused` string but never machine-readable in yaml; B.MV dispatch contract is unenforceable | **contract gap** | Top-level `decay_classification` block now on both RCMv1 + Cand-2 yamls with `label` / `reason` / `evidence_memo` / `set_at` / `set_by`. Distinct from `realized_nav_correlation_status` (pair-finding) and `reason_unused` (human prose). |
+| 2.3 | Schema split: `estimated_beta_at_freeze` is nested in yaml but proposal pseudocode reads flat `estimated_beta_to_spy` | **contract gap** | Unified on nested. Schema extended with `method` / `window` / `n_obs` / `computed_at` / `computed_by` per auditor spec (with my addition: `reason_unused` required when `used_by_b_mv=false`). Memo pseudocode reads `candidate_spec["estimated_beta_at_freeze"]["beta_to_spy"]`. |
+| 2.4 | Cand-2 yaml notes still claim "orthogonality vs RCMv1 (corr 0.40 < 0.5)" with no NAV-level qualifier | **stale narrative** | Notes now explicitly say "factor-IC level only; superseded at realized-NAV level by `realized_nav_correlation_status` above". |
+
+Bonus self-fix (was deferred in R35 R3 audit but landed this round):
+T5 conditional-expression precedence in proposal pseudocode cleaned
+up (`if n_tds >= 2 and ...` explicit short-circuit; was a future
+foot-gun for whoever implements B.MV).
+
+### New canonical schema memo
+
+`docs/memos/20260430-bmv_schema_decision.md`. Locks the schema
+contract BEFORE B.MV runner implementation per auditor §5 P3 ("B.MV
+schema decision memo before forward runner changes"). Specifies:
+
+- Required + optional fields on `decay_classification` and
+  `estimated_beta_at_freeze`.
+- Label enum (currently `legacy_decay_verification` only; future
+  additions require memo update).
+- B.MV runner read pattern (dispatch on `decay_classification.label`;
+  fail-loud on missing `estimated_beta_at_freeze.beta_to_spy` for
+  non-legacy candidates).
+- Track A acceptance write pattern (computes β-SPY + β-QQQ from
+  `train+validation` window with `source=track_a_acceptance` and
+  `used_by_b_mv=true`).
+- What this memo does NOT decide (label set beyond legacy;
+  `panel_max_date_at_freeze` placement — that's A.MV/Q11 not B.MV).
+
+### Q11 / Q12 — auditor disposition
+
+**Q11 (`panel_max_date_at_freeze` field placement)**: auditor
+agreed with reviewer's "stay separate" answer + sharpened
+naming. Final agreed schema:
+
+```
+candidate_freeze_date
+panel_max_date_at_freeze       # what data was visible at freeze
+eval_start_date
+eval_end_date
+panel_max_date_at_eval         # what data exists at eval time
+```
+
+Hard rule:
+```
+eval_start_date > candidate_freeze_date
+eval_start_date > panel_max_date_at_freeze
+```
+
+This will land in A.MV implementation, not in this cleanup commit.
+
+**Q12 (B.MV legacy fallback)**: auditor explicitly **supports my
+pushback against reviewer's `T4_legacy` raw -10% fallback**. Direct
+quote: "我支持本轮工作，尤其支持开发在 Q12 上反对 raw fallback 的决定。
+这是资深量化应该做的：不是机械接受 reviewer，而是判断哪种规则在真实
+市场风险下更干净。"
+
+Auditor's only refinement: make the SKIP condition machine-readable
+(addressed in §2.2 above — `decay_classification.label` block now
+exists on both yamls). The stance "raw -10% is the same beta-blind
+failure mode reviewer §6 originally flagged, so SKIP not WRONG_FALLBACK"
+is endorsed.
+
+This is now the operator-confirmed final answer; reviewer welcome
+to counter, but Track C cycle #01 implementation will proceed on
+the SKIP-on-decay architecture.
+
+### Self-audit (4 rounds)
+
+- **R1 factual**: 5 changed files, all numbers cross-verified. 4
+  yaml field assertions PASS (label / set_at / used_by_b_mv /
+  method / n_obs match exactly across both candidates).
+- **R2 logical**: separation of concerns evaluated. `decay_classification`
+  is lifecycle (per-candidate state), `realized_nav_correlation_status`
+  is pair-finding (specific to this two-candidate analysis),
+  `reason_unused` is human-prose annotation on a separate block.
+  Each has independent existence justification.
+- **R3 runtime**: yaml.safe_load passes on both; correlation script
+  re-runs end-to-end; pooled Pearson 0.898 + residuals 0.609/0.579
+  unchanged (sanity check that yaml edits didn't break script's
+  read-side parsing — script doesn't read these fields, but full
+  end-to-end re-run is the closest thing to a regression test).
+- **R4 boundary**: `decay_classification` enum gracefully handles
+  null (a candidate without the block — i.e. operational candidate
+  with no decay flag — passes through dispatch to normal triggers).
+  Memo `decay_block.get("label")` against missing dict returns None
+  so `if label == "legacy_decay_verification"` evaluates False
+  cleanly; no AttributeError on absent block.
+
+### Track C alpha-source clarification (auditor §4)
+
+Auditor's specific list of where Track C should look — beyond the
+generic "different alpha family" framing in concerns memo §6 —
+worth recording explicitly:
+
+- short-horizon reversal / intraday mean reversion
+- event/calendar features
+- sector / cross-asset / rates-sensitive sleeve
+- volatility / dispersion / drawdown recovery features
+- different cadence (weekly rebalance, intraday timing overlay)
+- explicitly beta-controlled portfolio construction (not just
+  factor selection)
+
+Auditor warning: **if Track C continues mining in the same
+78-symbol × monthly × top-N × long-only × momentum/quality/
+relative-strength regime, it will likely produce a third
+RCMv1/Cand-2 sibling.** This is operationally important framing
+for what to do with cycle #01 if its first 200 trials produce a
+familiar-looking composite.
+
+Captured as input to Track C cycle #01 plan; will revisit if the
+mining run produces a candidate that scores high on acceptance
+gates but looks structurally similar to RCMv1+Cand-2.
+
+### Net state at end of R36
+
+- **Schema contract**: ✅ locked in `bmv_schema_decision.md` BEFORE
+  B.MV implementation. Dispatch field + canonical β block both
+  machine-readable on RCMv1 + Cand-2. Future Track C nominees will
+  use the same nested schema with `source=track_a_acceptance`.
+- **Wording discipline**: corrected. Going forward: "proposal /
+  pseudocode" and "runner code" are NOT interchangeable terms.
+- **Q12 stance**: confirmed by auditor + reviewer-counter window
+  open.
+- **Track C cycle #01**: ready for compute (post-template signoff)
+  with auditor's alpha-source guidance feeding into nominee
+  evaluation.
+
+### Open for codex / external reviewer next round
+
+- E.MV template v1.1 §4.6 + §4.7 still pending bless before Track C
+  produces a nominee.
+- A.MV implementation green-light (now with sharpened field naming
+  per auditor Q11 — `panel_max_date_at_freeze` + `panel_max_date_at_eval`).
+- B.MV implementation green-light (now with locked schema contract
+  per `bmv_schema_decision.md`).
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
