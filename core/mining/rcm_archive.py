@@ -145,6 +145,18 @@ def _serialize_spec(spec) -> dict:
     }
 
 
+def compute_spec_id(spec) -> str:
+    """Public canonical spec identifier matching ``insert_trial``'s trial_id.
+
+    Codex R21 P0.1: required by the M6 C5 role-remint guard so the mining
+    path can look up "has this spec already been recorded under a
+    different role in this split?" using the same identifier the archive
+    uses internally. Keeping a single hashing function eliminates the
+    drift risk of "guard saw spec A; archive recorded spec B".
+    """
+    return _hash_spec(json.dumps(_serialize_spec(spec), sort_keys=True))
+
+
 class RCMArchive:
     """SQLite archive for research composite miner trials."""
 

@@ -746,7 +746,9 @@ class ResearchMiner:
         Samples a spec via suggest_composite_spec, evaluates it, stores
         the TrialResult, returns the scalar objective (for Optuna to
         maximize). Raises optuna.TrialPruned when sampler rejects the
-        spec (e.g. fewer than min_families).
+        spec (e.g. fewer than min_families) or when M6 C5 governance
+        forbids re-minting the same spec under a different role within
+        the same temporal split.
         """
         spec = suggest_composite_spec(
             trial,
@@ -755,6 +757,38 @@ class ResearchMiner:
             max_features_per_family=self.max_features_per_family,
             weight_step=self.weight_step,
         )
+        # Codex R21 P0.1: enforce M6 C5 role-remint guard BEFORE evaluation.
+        # If the same spec was already recorded under a DIFFERENT role within
+        # the same split_name, fail closed via TrialPruned (Optuna will
+        # advance to the next trial). The guard is a no-op when the
+        # temporal-split fingerprint isn't active (legacy mining flows).
+        if (
+            self.archive is not None
+            and self.split_name is not None
+            and self.role is not None
+        ):
+            from core.mining.rcm_archive import compute_spec_id
+            from core.research.temporal_split import enforce_c5_no_role_remint
+
+            spec_id = compute_spec_id(spec)
+            try:
+                enforce_c5_no_role_remint(
+                    self.archive,
+                    spec_sha256=spec_id,
+                    split_name=self.split_name,
+                    role=self.role,
+                )
+            except ValueError as exc:
+                import logging
+                logging.getLogger(__name__).info(
+                    "C5 role-remint guard blocked trial: spec=%s split=%s role=%s; %s",
+                    spec_id, self.split_name, self.role, exc,
+                )
+                try:
+                    import optuna
+                    raise optuna.TrialPruned(str(exc)) from exc
+                except ImportError:
+                    raise
         metrics = evaluate_composite(
             spec,
             self.factor_panel_map,

@@ -445,3 +445,125 @@ def test_bool_not_silently_coerced_to_numeric():
     gate = res.gate_named("validation_year_2021_maxdd")
     assert gate is not None and not gate.passed
     assert "missing_or_invalid" in gate.values
+
+
+# ---------------------------------------------------------------------------
+# Codex R21 P0.2 regressions (2026-04-29) — strict bool, not Python truthiness
+# ---------------------------------------------------------------------------
+
+
+def test_cost_gate_string_false_fails_closed():
+    """P0.2: cost.multiplier_2x_remains_positive = "False" must fail-close.
+    Pre-fix `bool("False")` was True (non-empty string) and silently passed.
+    """
+    cfg = load_temporal_split()
+    metrics = _passing_core_metrics()
+    metrics["cost"]["multiplier_2x_remains_positive"] = "False"
+    res = evaluate_candidate(metrics, cfg, "core")
+    cost = res.gate_named("cost_robustness_2x")
+    assert cost is not None and not cost.passed
+    assert "missing_or_invalid" in cost.values
+    assert "non-bool" in cost.notes
+
+
+def test_cost_gate_err_string_fails_closed():
+    """P0.2: ERR_NO_DATA from upstream measurement must fail-close, not pass."""
+    cfg = load_temporal_split()
+    metrics = _passing_core_metrics()
+    metrics["cost"]["multiplier_2x_remains_positive"] = "ERR_NO_DATA"
+    res = evaluate_candidate(metrics, cfg, "core")
+    cost = res.gate_named("cost_robustness_2x")
+    assert cost is not None and not cost.passed
+
+
+def test_cost_gate_int_one_fails_closed():
+    """P0.2: int 1 must NOT be silently treated as True via Python truthiness."""
+    cfg = load_temporal_split()
+    metrics = _passing_core_metrics()
+    metrics["cost"]["multiplier_2x_remains_positive"] = 1
+    res = evaluate_candidate(metrics, cfg, "core")
+    cost = res.gate_named("cost_robustness_2x")
+    assert cost is not None and not cost.passed
+
+
+def test_cost_gate_int_zero_fails_closed():
+    """P0.2: int 0 also fails (cost gate accepts only real bool)."""
+    cfg = load_temporal_split()
+    metrics = _passing_core_metrics()
+    metrics["cost"]["multiplier_2x_remains_positive"] = 0
+    res = evaluate_candidate(metrics, cfg, "core")
+    cost = res.gate_named("cost_robustness_2x")
+    assert cost is not None and not cost.passed
+
+
+def test_cost_gate_real_bool_true_passes():
+    cfg = load_temporal_split()
+    metrics = _passing_core_metrics()
+    metrics["cost"]["multiplier_2x_remains_positive"] = True
+    res = evaluate_candidate(metrics, cfg, "core")
+    cost = res.gate_named("cost_robustness_2x")
+    assert cost is not None and cost.passed
+
+
+def test_concentration_leveraged_etf_string_fails_closed():
+    """P0.2: leveraged_etf_dependency = "True" (string) must fail-close.
+    The semantically-correct value is bool False (no dependency)."""
+    cfg = load_temporal_split()
+    metrics = _passing_core_metrics()
+    metrics["concentration"]["leveraged_etf_dependency"] = "True"
+    res = evaluate_candidate(metrics, cfg, "core")
+    lev = res.gate_named("concentration_no_leveraged_etf")
+    assert lev is not None and not lev.passed
+
+
+def test_concentration_leveraged_etf_string_false_fails_closed():
+    """P0.2: even string "False" fails — only literal bool False passes."""
+    cfg = load_temporal_split()
+    metrics = _passing_core_metrics()
+    metrics["concentration"]["leveraged_etf_dependency"] = "False"
+    res = evaluate_candidate(metrics, cfg, "core")
+    lev = res.gate_named("concentration_no_leveraged_etf")
+    assert lev is not None and not lev.passed
+
+
+def test_concentration_leveraged_etf_real_bool_passes():
+    cfg = load_temporal_split()
+    metrics = _passing_core_metrics()
+    metrics["concentration"]["leveraged_etf_dependency"] = False
+    res = evaluate_candidate(metrics, cfg, "core")
+    lev = res.gate_named("concentration_no_leveraged_etf")
+    assert lev is not None and lev.passed
+
+
+def test_cost_gate_accepts_numpy_bool():
+    """P0.2 audit-pass extension: numpy.bool_ from pandas reductions
+    (df.any(), arr.all()) IS a real bool, not truthiness coercion."""
+    import numpy as np
+    cfg = load_temporal_split()
+    metrics = _passing_core_metrics()
+    metrics["cost"]["multiplier_2x_remains_positive"] = np.bool_(True)
+    res = evaluate_candidate(metrics, cfg, "core")
+    cost = res.gate_named("cost_robustness_2x")
+    assert cost is not None and cost.passed
+
+
+def test_concentration_leveraged_etf_accepts_numpy_bool_false():
+    import numpy as np
+    cfg = load_temporal_split()
+    metrics = _passing_core_metrics()
+    metrics["concentration"]["leveraged_etf_dependency"] = np.bool_(False)
+    res = evaluate_candidate(metrics, cfg, "core")
+    lev = res.gate_named("concentration_no_leveraged_etf")
+    assert lev is not None and lev.passed
+
+
+def test_cost_gate_rejects_numpy_array_with_bool_dtype():
+    """P0.2: numpy bool ARRAY (not scalar) must still fail-close — caller
+    bug to pass an array where a scalar was expected."""
+    import numpy as np
+    cfg = load_temporal_split()
+    metrics = _passing_core_metrics()
+    metrics["cost"]["multiplier_2x_remains_positive"] = np.array([True])
+    res = evaluate_candidate(metrics, cfg, "core")
+    cost = res.gate_named("cost_robustness_2x")
+    assert cost is not None and not cost.passed

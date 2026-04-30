@@ -205,6 +205,40 @@ def _as_float_or_none(value: Any) -> Optional[float]:
     return f
 
 
+def _as_bool_or_none(value: Any) -> Optional[bool]:
+    """Codex R21 P0.2 fix (2026-04-29): strict bool acceptance for the
+    dedicated bool gates (concentration.leveraged_etf_dependency,
+    cost.multiplier_2x_remains_positive).
+
+    Generic ``bool(value)`` is dangerous here:
+      - ``bool("False")`` is True (non-empty string)
+      - ``bool("ERR_NO_DATA")`` is True
+      - ``bool(1)`` / ``bool(0)`` mask integer 0/1 as boolean evidence
+
+    The cost-robustness and leverage-dependency gates are the few places
+    that protect against a beautiful backtest dying in real fills. A
+    string error code from upstream measurement code MUST fail closed,
+    not silently coerce to True via Python truthiness.
+
+    Audit-pass extension (2026-04-29 R-AUDIT.1): also accept ``numpy.bool_``
+    since pandas/numpy reductions (``df.any()``, ``arr.all()``) return
+    numpy bool, not Python bool — that's a legitimate bool type, not
+    truthiness coercion. Strings, ints, floats, ndarrays, None, etc.
+    remain rejected.
+    """
+    if value is _MISSING or value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    try:
+        import numpy as _np
+        if isinstance(value, _np.bool_):
+            return bool(value)
+    except ImportError:  # pragma: no cover
+        pass
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Per-year + per-slice + role gate evaluation
 # ---------------------------------------------------------------------------
@@ -406,13 +440,17 @@ def _eval_concentration_gates(
     ))
 
     if cc.no_leveraged_etf_dependency:
-        lev_dep = _resolve_metric(metrics, "concentration.leveraged_etf_dependency")
+        raw = _resolve_metric(metrics, "concentration.leveraged_etf_dependency")
+        lev_dep = _as_bool_or_none(raw)
         out.append(SplitGateResult(
             name="concentration_no_leveraged_etf",
-            passed=(lev_dep is not _MISSING and not bool(lev_dep)),
-            values={"leveraged_etf_dependency": (None if lev_dep is _MISSING else bool(lev_dep))},
+            # Codex R21 P0.2: strict bool only. None (missing or non-bool)
+            # fail-closes; True (has dependency) fails; only False passes.
+            passed=(lev_dep is False),
+            values={"leveraged_etf_dependency": lev_dep,
+                    "raw": (None if raw is _MISSING else repr(raw))},
             threshold={"required": False},
-            notes=("missing metric → fail-closed" if lev_dep is _MISSING else ""),
+            notes=("missing or non-bool → fail-closed" if lev_dep is None else ""),
         ))
     return out
 
@@ -451,19 +489,25 @@ def _eval_cost_gate(
             threshold={},
             notes="2x cost robustness gate disabled by config",
         )
-    flag = _resolve_metric(metrics, "cost.multiplier_2x_remains_positive")
-    if flag is _MISSING:
+    raw = _resolve_metric(metrics, "cost.multiplier_2x_remains_positive")
+    flag = _as_bool_or_none(raw)
+    if flag is None:
+        # Codex R21 P0.2: strict bool only. A string error code, "False",
+        # "ERR_NO_DATA", int 1/0, or missing all fail-close. The 2x-cost
+        # gate is one of the few that protects against a beautiful
+        # backtest dying in real fills — Python truthiness is too loose.
         return SplitGateResult(
             name="cost_robustness_2x",
             passed=False,
-            values={"missing": "cost.multiplier_2x_remains_positive"},
+            values={"missing_or_invalid": "cost.multiplier_2x_remains_positive",
+                    "raw": (None if raw is _MISSING else repr(raw))},
             threshold={"required": True},
-            notes="2x-cost flag missing → fail-closed",
+            notes="2x-cost flag missing or non-bool → fail-closed",
         )
     return SplitGateResult(
         name="cost_robustness_2x",
-        passed=bool(flag),
-        values={"multiplier_2x_remains_positive": bool(flag)},
+        passed=flag,
+        values={"multiplier_2x_remains_positive": flag},
         threshold={"required": True},
     )
 
