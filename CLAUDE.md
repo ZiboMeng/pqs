@@ -733,23 +733,41 @@ criteria. Combined repo unit suite: full pre-Track-A 419 research
 tests preserved + 126 Track A tests = 545 in research module.
 
 What's still open:
+- **PRIORITY REALIGN (2026-04-30, audit R36)** — see
+  `docs/memos/20260430-priority_realign_alpha_first.md`. Project
+  has crossed governance-saturation threshold; alpha not yet
+  proven under new framework. Until cycle #01 produces a candidate,
+  guard infrastructure has zero operational consumer. **Order is
+  now alpha-first**: cycle #01 preflight (P0) + E.MV signoff
+  (external) + generic NAV pair runner refactor (P1) + Track A
+  acceptance β-stamp minimal extension (P1). **A.MV/B.MV full
+  implementation DEMOTED to P2 candidate-gated; Fleet Step 6+
+  HARD PAUSED.** Pre-emptive guard work is over until candidate
+  evidence justifies it.
 - **Track B** Fleet Allocator: **Steps 1-5 SHIPPED** (2026-04-29
   Step 5 = C2 correlation budget, codex R30 accepted code-level).
-  Step 6+ (DD throttle / role caps / fleet observe / shadow→live)
-  codex-frozen until explicit-go. PRD
+  Step 6+ (DD throttle / role caps / fleet observe / shadow→live):
+  **HARD PAUSED until ≥2 candidates exist that BOTH pass Track A
+  acceptance AND have realized-NAV pair correlation < 0.85.** Per
+  R36 priority realign: continuing allocator downstream while no
+  fleet candidate exists is empty plumbing. PRD
   `docs/prd/20260428-candidate_fleet_allocator_prd.md` v1.1 codex
-  round-14 approved.
-- **Track C real mining: cycle #01 plan landed** (2026-04-30,
+  round-14 approved (frozen at this state).
+- **Track C real mining: cycle #01 ALPHA-FIRST PRIORITY** (2026-04-30,
   `docs/memos/20260430-track_c_dry_run_plan.md` — renamed from
   "dry-run" per external reviewer §7 to reflect formal-cycle
-  discipline). Compute can run concurrent with E.MV evidence-pack
-  template work; nomination gated on E.MV §4.6 (NAV-orthogonality
-  tier — landed in template v1.1 as of `01d2950`) + §4.7
-  (economic-assumption flags F1-F6 — same template). Forward init
-  for any Track C nominee gated on B.MV (early-attention flag +
-  beta-adjusted T4); 2026 sealed eval gated on A.MV (freeze-date
-  HARD + market-path-preobserved SOFT — replaces lineage_family
-  abstraction per reviewer §5.3).
+  discipline). **Pre-registered immutable criteria yaml is P0
+  internal to write before any trial runs** (does not depend on
+  E.MV signoff; criteria immutability requires pre-registration
+  same as cycle 2026-04-26 #01). Compute itself unblocks on E.MV
+  §4.6 (NAV-orthogonality tier landed in template v1.1 at `01d2950`) +
+  §4.7 (economic-assumption flags F1-F6) reviewer signoff (external
+  dependency). **Cycle #01 closeout MUST classify candidate against
+  auditor R36 §4 alpha-source taxonomy** (intraday reversal /
+  event-calendar / cross-asset / volatility / different cadence /
+  beta-controlled construction); a candidate that passes gates
+  but is structurally a RCMv1/Cand-2 sibling does NOT enter
+  nominee status — that's the anti-sibling discipline.
 - **Forward-observation NAV correlation finding (2026-04-30)**:
   RCMv1 + Cand-2 pooled raw NAV Pearson **0.898** (Step 5 reject
   threshold 0.85). Residual decomposition: vs SPY 0.609 (drop 0.29) /
@@ -764,12 +782,26 @@ What's still open:
   low-beta defensive candidate alone fixes only ~30% of the problem.
   Evidence: `docs/memos/20260430-rcmv1_cand2_realized_correlation.md`.
 - **Concerns A/B/E (Track C downstream guards)** — proposed in
-  `docs/memos/20260430-concerns_abE_proposed_solutions.md`; pending
-  external-reviewer alignment. **E.MV shipped in template v1.1**
-  (commit `01d2950`); B.MV + A.MV pending implementation. Order
-  E → B → A by critical-path distance: E concurrent with cycle #01
-  compute, B before forward init (~T+1-2w), A before sealed eval
-  (~T+3mo). Realistic effort: ~9 days total (2x audit-fix multiplier).
+  `docs/memos/20260430-concerns_abE_proposed_solutions.md`. **E.MV
+  shipped in template v1.1** (commit `01d2950`); reviewer signoff
+  pending. **B.MV + A.MV implementation: DEMOTED to P2
+  candidate-gated per priority realign 2026-04-30**:
+  - B.MV reactivates when cycle #01 produces a candidate that
+    passes Track A acceptance + evidence pack §4.6+§4.7 + is
+    approved for forward init. Schema contract locked at
+    `docs/memos/20260430-bmv_schema_decision.md` (no further
+    iteration before consumer exists).
+  - A.MV reactivates when that candidate completes forward soak
+    (≥ TD60 healthy + no early-attention triggers) AND sealed eval
+    is the next gate. Until then, manual sealed-eval discipline
+    rule applies (clean window starts strictly after candidate
+    `freeze_date` AND after `panel_max_date_at_freeze`).
+  - **Minimal Track A acceptance β-stamp extension (NOT full
+    A.MV) IS scheduled P1 pre-cycle**: when Track A acceptance
+    promotes a candidate, compute β-SPY+β-QQQ on `train+validation`
+    window and write nested `estimated_beta_at_freeze` block per
+    `bmv_schema_decision.md`. Cost ~half day; avoids B.MV
+    rework when candidate eventually arrives.
 - **NAV orthogonality tier** (single source of truth across script /
   dry-run plan / correlation memo / template, per audit-R2 + reviewer
   §3): `< 0.50` = `true_diversifier`; `0.50-0.70` = `partial_diversifier`;
@@ -782,6 +814,16 @@ What's still open:
   R1 factual / R2 logical / R3 actually-run-the-code / R4 boundary.
   Required for schema / threshold / new-pipeline / numerical-claim
   changes. Codified at `docs/checkpoints/20260430-self_audit_methodology.md`.
+- **Generic NAV pair diagnostic runner** (P1 prep, 2026-04-30):
+  Refactor `dev/scripts/correlation/rcmv1_cand2_realized_nav_correlation.py`
+  to generic `dev/scripts/correlation/run_pair_nav_correlation.py`
+  taking `--candidate-a-id / --candidate-a-run-dirs / --candidate-b-id /
+  --candidate-b-run-dirs / --benchmark-source / --min-overlap /
+  --output-json`. Legacy pair-specific script kept as wrapper. Goal:
+  evidence pack §4.6 ready when cycle #01 produces a candidate; manual
+  script-edit at nominee time is audit risk. Refactor 80% works for
+  RCMv1×Cand-2 today (legacy still runs), fill cycle #01 candidate
+  IDs at nominee time.
 - **Track D** forward + first promotion: triggered when Track C
   produces a candidate that passes the new-framework acceptance + 2026
   sealed test (single-shot, gated on A.MV freeze-date rule).
