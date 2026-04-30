@@ -4757,5 +4757,168 @@ gates but looks structurally similar to RCMv1+Cand-2.
 - B.MV implementation green-light (now with locked schema contract
   per `bmv_schema_decision.md`).
 
+## Round 37 (Claude) — auditor R36 strategic critique: priority realign to alpha-first
+
+commit: `main ff2f77a`. Auditor stepped back from per-patch review
+to project-level critique: governance saturation reached; alpha
+unproven under new framework; **A.MV+B.MV impl + Fleet Step 6+
+should NOT continue queueing while no candidate exists**. Critique
+accepted after independent evaluation. Single shipping commit:
+strategic memo + CLAUDE.md TODO realign + INDEX update.
+
+### Auditor's project-level diagnosis (verbatim accepted)
+
+> 现在这个项目已经从"写一个量化系统"进入了"防止自己被系统骗"的阶段。
+> 这是好事。但也出现了另一个风险：**治理层越来越精密，alpha 还没有
+> 在新框架下重新证明存在。**
+
+Three-bucket framing:
+
+| Category | Now? | Reason |
+|----------|-----:|--------|
+| Prove alpha exists in new framework | **YES** | Highest-value open question |
+| Prevent forward/sealed/live evidence pollution | Minimum prep before candidate | Important but no consumer yet |
+| Fleet Step 6+ / live wiring / shadow→live | **PAUSED** | No fleet candidate; allocator downstream is empty plumbing |
+
+### My disposition: full agreement on direction; nuanced on timing
+
+I accepted the demotion of A.MV / B.MV / Fleet Step 6+ in full.
+Independent reasoning (not just deferring to auditor):
+
+1. **A.MV** blocks 2026 sealed eval. Sealed eval is at minimum
+   `forward init + ≥TD60 soak + decision pack` away — months in
+   wall-clock terms even on a clean candidate. Pre-implementing
+   is working without a consumer.
+
+2. **B.MV** blocks forward init for new nominees. There are no new
+   nominees today; the prior cycle (2026-04-26 #01) was 0-nominee.
+   If cycle #01 = 0-nominee, B.MV implementation is pure waste.
+   If candidate exists, B.MV impl is ~2 days then forward init
+   proceeds — total elapsed time from "candidate freezes" to
+   "forward init begins" is dominated by acceptance + evidence
+   pack, not B.MV impl.
+
+3. **Fleet Step 6+** has no upstream consumer. RCMv1+Cand-2 are
+   retracted. Continuing allocator downstream is allocator-of-empty.
+
+### Two operator nuances added (NOT disagreement)
+
+a) **Track A acceptance β-stamp minimal extension** scheduled
+P1 pre-cycle. NOT full A.MV. Just compute β-SPY+β-QQQ on
+`train+validation` window when Track A acceptance promotes a
+candidate, write nested `estimated_beta_at_freeze` block per
+`bmv_schema_decision.md`. Cost ~half day. Avoids the rebound
+where B.MV implementation later raises `ValueError` on missing
+β stamp and we go back to retrofit it. Auditor did not object;
+this is a cheap pre-emption that DOES have an upstream consumer
+(every cycle #01 candidate that passes acceptance).
+
+b) **Generic NAV pair diagnostic runner refactor** scheduled P1
+in E.MV signoff wait window. Auditor explicitly recommended this
+("P1, 甚至比 B.MV 更靠前"). 80% works for RCMv1×Cand-2 today
+(legacy script keeps running); fill candidate IDs at nominee
+time. This is exactly the kind of prep that minimizes nominee-
+time scramble; if cycle #01 = 0-nominee, the legacy correlation
+analysis is unaffected.
+
+### Q11 + Q12 — disposition propagation
+
+Q11 (`panel_max_date_at_freeze` field placement): auditor agreed
+with reviewer's "stay separate" + sharpened naming. Final agreed
+schema:
+
+```
+candidate_freeze_date
+panel_max_date_at_freeze       # what data was visible at freeze
+eval_start_date
+eval_end_date
+panel_max_date_at_eval         # what data exists at eval time
+```
+
+Per priority realign: schema is recorded but A.MV implementation
+is paused. **Manual sealed-eval discipline rule applies until
+A.MV reactivates**:
+
+> Clean sealed eval window starts strictly AFTER candidate
+> `freeze_date` AND AFTER `panel_max_date_at_freeze`.
+
+Today is 2026-04-30. Any candidate frozen today onwards CANNOT
+use 2026-Q1+April as clean OOS — the panel was visible at freeze.
+This rule must be applied manually until A.MV implementation lands.
+
+Q12 (B.MV legacy fallback): unchanged. SKIP-on-decay confirmed by
+auditor; reviewer-counter window still open. No movement needed.
+
+### Strategic observations recorded into memo (not just review log)
+
+`docs/memos/20260430-priority_realign_alpha_first.md` ships the
+full text. Key claims worth re-stating here for review continuity:
+
+1. **Portfolio construction is the suspected bottleneck, not
+   factor zoo.** RCMv1 + Cand-2 use factor-disjoint composites
+   (zero factor overlap) yet realized residual NAV corr is 0.58-
+   0.61. Long-only × monthly × top-N × same 78-symbol universe
+   collapses any signal into winner-chasing. Track C must
+   investigate construction degrees of freedom (cadence, beta
+   budget, sector sleeve, universe scope), not just new factors.
+
+2. **Anti-sibling discipline at cycle #01 closeout** (auditor
+   R36 §4):
+
+   | Cycle #01 outcome | Disposition |
+   |---|---|
+   | 0 candidates pass | Cycle closes 0-nominee. Reassess: gates too strict, factor zoo exhausted, or construction bottleneck. |
+   | Pass gates, raw NAV corr < 0.50 AND residual corr < 0.50 | Genuine candidate; enters nominee evaluation. |
+   | Pass gates, raw corr low BUT residual corr ≥ 0.70 | Beta differs but alpha sleeve duplicates. NOT a nominee. |
+   | Pass gates, structurally a RCMv1/Cand-2 sibling | NOT a nominee. Trigger construction-layer investigation. |
+   | Multi-candidate cluster | Cluster check first; do not submit multiple sibling nominees together. |
+
+3. **Most scarce resource: unseen forward time.** Code modules
+   can be backfilled; trading days cannot. Pause memo iteration;
+   run cycle compute.
+
+### Self-audit (4 rounds)
+
+- **R1 factual**: priority memo cross-references all valid;
+  auditor §4 alpha-source list captured verbatim; cycle #01
+  outcome table maps to auditor's classification scheme.
+- **R2 logical**: demoting A.MV/B.MV before candidate exists is
+  consistent with "no consumer = no implementation"; preserving
+  Track A β-stamp minimal extension is consistent with "cheap
+  pre-emption with concrete upstream consumer (cycle #01)".
+- **R3 runtime**: no code changes this round; CLAUDE.md grep
+  verifies 7 mention of {PRIORITY REALIGN, HARD PAUSED, DEMOTED,
+  alpha-first, priority_realign_alpha_first}; INDEX entry resolves.
+- **R4 boundary**: edge case where cycle #01 produces a candidate
+  RAPIDLY (e.g. within E.MV signoff window): priority realign
+  still works — minimal β-stamp + generic runner are P1 prep work
+  that's good for ANY candidate; B.MV impl would start at that
+  moment, not earlier; total wall-clock impact ~2 days additional
+  vs. eager-impl scenario, but recovers months of "no candidate"
+  wait-time saved.
+
+### Net state at end of R37
+
+- **Direction**: alpha-first. No more guard infrastructure until
+  cycle #01 evidence justifies it.
+- **Active prep work** (P0 + P1, no E.MV signoff dependency):
+  cycle #01 pre-registered criteria yaml; generic NAV pair runner
+  refactor; Track A acceptance β-stamp minimal extension.
+- **Active observation** (no design attention): RCMv1 + Cand-2
+  daily forward observe, legacy decay verification only.
+- **Paused** (resume on candidate evidence): A.MV full impl,
+  B.MV full impl, Fleet Step 6+.
+- **External**: E.MV §4.6+§4.7 reviewer signoff still required
+  before cycle #01 compute begins.
+
+### Open for codex / external reviewer next round
+
+- Priority realign justification — happy to debate if reviewer
+  thinks A.MV/B.MV impl should resume, but the burden is on them
+  to point at an upstream consumer that exists today.
+- Cycle #01 pre-registered criteria yaml will be drafted next
+  session; final criteria yaml hash will be recorded here once
+  committed.
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
