@@ -213,11 +213,22 @@ def test_step2_method_now_implemented():
     assert sum(result.values()) == pytest.approx(1.0)
 
 
-def test_step3_method_signature_pending():
+def test_step3_method_now_implemented():
+    """Step 3 landed: compose_weight_matrix accepts a non-empty dict and
+    returns a DataFrame."""
+    import pandas as pd
     cfg = load_fleet_config("config/fleet.yaml")
     alloc = FleetAllocator(cfg)
-    with pytest.raises(NotImplementedError, match="Step 3"):
-        alloc.compose_weight_matrix({})
+    cw = {
+        "rcm_v1_defensive_composite_01": pd.DataFrame(
+            {"AAPL": [1.0]}, index=["2026-01-02"]
+        ),
+        "candidate_2_orthogonal_01": pd.DataFrame(
+            {"AAPL": [1.0]}, index=["2026-01-02"]
+        ),
+    }
+    fleet = alloc.compose_weight_matrix(cw)
+    assert isinstance(fleet, pd.DataFrame)
 
 
 def test_step4_methods_signature_pending():

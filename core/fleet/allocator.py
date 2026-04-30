@@ -105,20 +105,75 @@ class FleetAllocator:
         # Should be unreachable due to Literal validator, but defensive:
         raise ValueError(f"unknown split_policy: {self.config.split_policy!r}")
 
-    # ── Step 3: compose_weight_matrix (NotImplemented in Step 1) ─────────
+    # ── Step 3: compose_weight_matrix ────────────────────────────────────
 
-    def compose_weight_matrix(self, candidate_weight_matrices, splits=None):
-        """Compose the fleet-level weight matrix.
+    def compose_weight_matrix(
+        self,
+        candidate_weight_matrices: dict,
+        splits: Optional[dict] = None,
+    ):
+        """Compose the unconstrained fleet weight matrix.
 
-        ``candidate_weight_matrices`` is dict[candidate_id, DataFrame]
-        where each DataFrame is date × symbol weights summing to 1 per
-        date. ``splits`` is the C1 capital allocation. The fleet weight
-        is the splits-weighted sum across candidates.
+        ``candidate_weight_matrices`` is ``dict[candidate_id, pd.DataFrame]``
+        where each DataFrame is date × symbol weights for that candidate
+        (each row should sum to 1.0, but this layer does NOT validate —
+        upstream is responsible for per-candidate normalisation).
 
-        Step 3 fills in the body (returning unconstrained weights). Step
-        4 layers C3 overlap throttle on top.
+        ``splits`` is the C1 capital allocation (output of
+        ``compute_capital_split``). If None, equal_weight across the
+        candidates passed in is used.
+
+        Returns a date × symbol DataFrame: ``fleet_weight = Σ split[i] *
+        candidate_weight[i]``. Symbols missing from one candidate are
+        treated as zero weight from that candidate (outer-join on
+        columns; left-join on dates with the union of indexes).
+
+        Constraints layered on top:
+          - Step 4 adds C3 overlap throttle (single-symbol cap)
+          - Step 5 adds C2 correlation budget rejection
+          - Step 6 adds C5 DD throttle (multiplies the whole matrix)
+
+        Step 3 ships the unconstrained sum only.
         """
-        raise NotImplementedError("compose_weight_matrix lands in Step 3")
+        import pandas as _pd
+        if not candidate_weight_matrices:
+            raise ValueError("candidate_weight_matrices is empty")
+
+        if splits is None:
+            n = len(candidate_weight_matrices)
+            splits = {cid: 1.0 / n for cid in candidate_weight_matrices.keys()}
+
+        # Validate every candidate in splits is in matrices and vice versa
+        matrix_ids = set(candidate_weight_matrices.keys())
+        split_ids = set(splits.keys())
+        if matrix_ids != split_ids:
+            missing_in_splits = sorted(matrix_ids - split_ids)
+            missing_in_matrices = sorted(split_ids - matrix_ids)
+            raise ValueError(
+                "candidate_weight_matrices and splits must have matching keys; "
+                f"in matrices but not splits: {missing_in_splits}; "
+                f"in splits but not matrices: {missing_in_matrices}"
+            )
+
+        # Validate every matrix is a DataFrame with DatetimeIndex
+        for cid, mat in candidate_weight_matrices.items():
+            if not isinstance(mat, _pd.DataFrame):
+                raise TypeError(
+                    f"candidate {cid!r} weight matrix must be a DataFrame, "
+                    f"got {type(mat).__name__}"
+                )
+
+        # Outer-join all date indexes, outer-join all symbols
+        all_dates = sorted(set().union(*(m.index for m in candidate_weight_matrices.values())))
+        all_syms = sorted(set().union(*(m.columns for m in candidate_weight_matrices.values())))
+
+        fleet = _pd.DataFrame(0.0, index=all_dates, columns=all_syms)
+        for cid, mat in candidate_weight_matrices.items():
+            # Reindex to fleet's date+symbol grid; missing → 0 (no signal)
+            reindexed = mat.reindex(index=all_dates, columns=all_syms, fill_value=0.0)
+            fleet = fleet + splits[cid] * reindexed
+
+        return fleet
 
     # ── Step 4+: throttles + concentration metrics ───────────────────────
 
