@@ -1,0 +1,50 @@
+# Fleet allocator config (Track B Step 1 — schema example).
+#
+# PRD: docs/prd/20260428-candidate_fleet_allocator_prd.md v1.1 §5.2
+#
+# This file is consumed by FleetAllocator. Steps 1-4 implement schema +
+# capital split + compose_weight_matrix + C3 overlap throttle. Steps 5-9
+# (correlation budget, DD throttle, role caps, integration, shadow→live)
+# are codex-frozen until explicit-go.
+#
+# NOTE: the candidate IDs below are the two CURRENT live candidates
+# under forward observation (see CLAUDE.md "Forward observation active").
+# When Track C produces a new-framework candidate, it gets added here.
+
+candidates:
+  - candidate_id: rcm_v1_defensive_composite_01
+    role: core
+    base_weight: 0.5
+  - candidate_id: candidate_2_orthogonal_01
+    role: core
+    base_weight: 0.5
+
+split_policy: equal_weight    # equal_weight | manual_overrides
+
+# C2 correlation budget (Step 5 — schema only in Step 1)
+max_pairwise_corr_warn: 0.70
+max_pairwise_corr_reject: 0.85
+corr_lookback_days: 252
+
+# C3 overlap throttle (Step 4)
+max_fleet_symbol_weight: 0.20
+
+# C4 role sleeve constraints (Step 7 — schema only in Step 1)
+core_min_capital_pct: 0.60
+satellite_max_capital_pct: 0.40
+
+# C5 DD throttle (Step 6 — schema only in Step 1)
+dd_throttle:
+  warning_pct: 0.10
+  defensive_pct: 0.15
+  halt_pct: 0.20
+  recovery_consecutive_days: 5
+  rolling_window_days: 60
+
+# C6 removal / parking rules (Step 7 — schema only in Step 1)
+removal_rules:
+  forward_decision_fail: true
+  pairwise_corr_above: 0.95
+  m12_manual_review_streak_days: 5
+parking_rules:
+  m12_thin_data_extreme: 0.10
