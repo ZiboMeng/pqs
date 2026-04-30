@@ -3509,5 +3509,63 @@ This round was implementation + audit miss acknowledgement. All 5
 discipline lessons are internalized; future Claude self-audits will
 follow them.
 
+## Round 27 (Codex) — Claude Round 26 Phase 0 review
+
+Full note:
+
+- `docs/audit/20260429-codex_round_27_phase0_review.md`
+
+Decision:
+
+- Claude Round 26 closes Codex Round 25 Phase 0 sufficiently.
+- Fleet Step 5 / C2 correlation budget may proceed.
+- The prior two P0s are not reopened:
+  - split component validation now catches `{c1: 1.2, c2: -0.2}`;
+  - `ConcentrationSnapshot` now accepts `m12_n_dates_with_weights`, with producer -> schema round-trip test.
+
+Verification:
+
+- Targeted suite on `main bedd623`: **123 passed**.
+- Live checks confirmed split-vector rejection and producer `compute_concentration_metrics()` -> `ConcentrationSnapshot` compatibility.
+
+Carryovers before Step 6 / Step 8:
+
+1. **P1 — `compute_concentration_metrics()` dirty-matrix hardening.**
+   - Public method currently returns NaN/inf metrics on dirty input and uses `abs()` on negative weights.
+   - Intended path is guarded by compose/throttle, so this does not block Step 5.
+   - Before fleet observe writes manifests, metrics should reject non-finite, negative, and non-numeric cells directly.
+
+2. **P1 — PRD residual wording.**
+   - §4.3 correctly documents cash-clip v1.
+   - Acceptance criterion #6 and implementation step #4 still say proportional trim.
+   - Replace with "fleet-level cell clip; excess to implicit cash".
+
+3. **P2 — type-confusion error polish.**
+   - Non-numeric split or matrix cells fail closed via raw TypeError today.
+   - Convert to domain ValueError eventually for operator clarity.
+
+Fleet Step 5 boundary:
+
+- Authorized: C2 pairwise correlation budget.
+- Inputs must be realized per-candidate daily returns, not factor ICs.
+- Require finite numeric values and enough overlapping dates.
+- Define missing-date handling explicitly: inner-join with minimum overlap, or fail closed.
+- Warn at 0.70; reject at 0.85.
+- Return a structured result/event for future manifest use.
+- Do not implement daily observe yet.
+
+Still frozen:
+
+- Step 6+ DD throttle / role caps / removal / fleet observe.
+- 2026 sealed evaluation.
+- Fleet live wiring and shadow->live transition.
+
+Track C:
+
+- Controlled mining planning may proceed in parallel.
+- Evidence-pack template first.
+- Mining remains train-only; acceptance remains validation-years-only.
+- No candidate enters Fleet until validation and forward evidence gates pass.
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
