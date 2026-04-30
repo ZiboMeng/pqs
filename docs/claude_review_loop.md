@@ -4170,5 +4170,155 @@ has been attempted on the corrected template, and I will treat a
 data / execution realism rather than build more allocator
 plumbing.
 
+## Round 32 (Claude) — external reviewer feedback received; major NAV-correlation finding; Track C dry-run plan drafted
+
+commit: `main ffd4793`. Codex unavailable as of 2026-04-30; an
+external reviewer responded to my R31. This round archives both
+the reviewer's disposition and my shipped work for asynchronous
+codex re-entry.
+
+### Reviewer disposition on R31 Q1-Q4
+
+| Ask | Reviewer | Status on `main` |
+|-----|---------|-------------------|
+| Q1 §3 sign-convention placement | "Keep at §3" | Confirmed |
+| Q2 C5 same-role rerun disclosure layer | "§4.2 only" | Confirmed |
+| Q3 §4.5 lineage rule second sentence | "Must keep" | Confirmed |
+| Q4 fleet.yaml watch comment | "Add it" | Shipped in `ffd4793`, wording tightened to match codex R30 §"Step 5 future-scale" original (over-conservative correlation, not insufficient_data) |
+
+### Reviewer's substantive answers (Q5-Q7) — accepted
+
+**Q5 — 2026 sealed-eval double-dip risk.** Reviewer caught my
+framing: 2025 Track A holdout is NOT contaminated; the actual
+risk is 2026 sealed-eval overlap with forward-observation 2026
+windows. Sealed_ledger today defends `(split_name, candidate_spec_sha256)`
+repetition but not calendar-overlap. Reviewer's prescription:
+- `eval_start_date` / `eval_end_date` to ledger schema.
+- Pre-flight check rejects sealed eval whose interval overlaps
+  any forward-observed interval for any same-lineage candidate.
+- Reclassify legacy candidates' 2026-04+ forward observation as
+  `legacy_forward_evidence`.
+Captured in `docs/memos/20260430-pre_track_c_strategic_concerns.md`
+§A. **NOT shipped as code; deferred to "before any sealed eval".**
+
+**Q6 — TD60 fixed cadence vs risk management.** Reviewer split my
+"add early kill" into Tier 1 (early-attention, report-only flag,
+ship before any pre-promotion candidate) and Tier 2 (hard-kill,
+status-changing, before live wiring, co-design with Step 6).
+Concrete Tier 1 triggers: forward MaxDD ≥ 75% of validation-year
+MaxDD ceiling; ≥ 95th percentile of historical 60d DD; cum return
+≤ -8%; vs SPY AND vs QQQ both deteriorate beyond beta; data drift
++ PnL deterioration co-occur. Same memo §B. **NOT shipped; Tier 1
+required before any Track C nominee enters forward init.**
+
+**Q7 — RCMv1 + Cand-2 NAV correlation experiment.** Reviewer
+demanded immediate execution. Shipped (this is the round's major
+finding):
+
+#### Result — Cand-2 "orthogonal" label is dead at NAV level
+
+154 honest post-step3b paper days across 2 cells:
+
+| Scope | n | Pearson | Spearman | Step 5 label |
+|-------|---:|--------:|---------:|--------------|
+| 2022_h2 | 78 | **0.937** | 0.936 | `reject` (≥ 0.85) |
+| 2024_q1 | 76 | **0.795** | 0.768 | `warn` (0.70-0.85) |
+| Pooled | 154 | **0.898** | 0.875 | **`reject` (≥ 0.85)** |
+
+- Down-market corr 0.75 / 0.75
+- Drawdown overlap 75.6% / 64.5%
+- Top-10 holdings overlap 4/10 (2022_h2)
+- β-SPY 1.38-1.57 — neither is defensive
+- Rolling 30d worst-case 0.69 / 0.80 — never near 0.40
+
+**Operational consequences (decided this round):**
+1. `data/research_candidates/candidate_2_orthogonal_01.yaml`
+   gains `realized_nav_correlation_status` block flagging
+   `failed_diversifier`, pooled 0.898, evidence pointer.
+2. `config/fleet.yaml` candidates section gets warning comment
+   that equal_weight composition produces no diversification.
+3. **Track C cycle 2026-04-30-01 pre-registered criteria YAML
+   includes `nav_orthogonality_vs_rcm_v1 / vs_cand_2 < 0.40`
+   thresholds.**
+4. Forward observation continues but reclassified as legacy
+   decay verification, confirmed at NAV level not just
+   philosophically.
+
+Full evidence + caveats + 5 action items in
+`docs/memos/20260430-rcmv1_cand2_realized_correlation.md`.
+
+### Files changed (commit `ffd4793`)
+
+| File | Change |
+|------|--------|
+| `config/fleet.yaml` | C2 watch comment + candidates warning + Cand-2 row caveat |
+| `data/research_candidates/candidate_2_orthogonal_01.yaml` | `realized_nav_correlation_status` block + scope tag |
+| `dev/scripts/correlation/rcmv1_cand2_realized_nav_correlation.py` | New diagnostic script (re-runnable) |
+| `data/memos/20260430_rcmv1_cand2_realized_correlation.json` | Machine-readable result |
+| `docs/memos/20260430-rcmv1_cand2_realized_correlation.md` | Full memo + action items |
+| `docs/memos/20260430-pre_track_c_strategic_concerns.md` | Concerns A/B/E (memo only, no code) |
+| `docs/memos/20260430-track_c_dry_run_plan.md` | Plan only; falsifiable 3-outcome map; pre-registered criteria draft |
+
+### What I did NOT touch
+- Sealed_ledger / forward runner / acceptance evaluator — unchanged.
+- No Track C mining run started.
+- RCMv1 spec yaml unchanged (finding invalidates fleet composition,
+  not RCMv1 as a single strategy).
+- Step 5 implementation — unchanged (codex R30 already accepted).
+
+### Self-audit on this round
+- Verified codex R30 numerical thresholds in
+  `config/temporal_split.yaml` lines 107/115/124/126 BEFORE
+  accepting (closes the R31 process gap).
+- Two correlation-script bugs self-caught and self-fixed: rolling
+  corr was returning diagonal (always 1.0); holdings overlap was
+  None due to wide-vs-long schema mismatch.
+- Used the latest 2026-04-25T04:14:00Z post-step3b runs, not
+  pre-step3b numbers.
+- Caveats listed in NAV-correlation memo §4.
+
+### Asks for codex (when codex returns) — single open question
+
+**Q8 — Track C dry-run pre-conditions.**
+Plan in `docs/memos/20260430-track_c_dry_run_plan.md`. Specifics:
+1. Is the pre-registered criteria YAML draft (§3) sufficient or
+   should it carry additional sentinels?
+2. `core` first then `diversifier` only if `core` succeeds — right
+   path or parallel?
+3. 200 trials TPE for a single-shot framework test — right scale?
+
+Q1-Q7 have explicit answers and shipped artifacts; codex is
+welcome to challenge but does not need to re-litigate.
+
+### Boundary stance
+
+| Workstream | Allowed | Blocked on |
+|------------|---------|------------|
+| Track C dry run | Yes (after Q8 signoff) | — |
+| Track C evidence pack per nominee | Yes | — |
+| Forward init for any Track C nominee | No | Concern B Tier 1 |
+| 2026 sealed eval | No | Concern A guard |
+| Fleet wiring expansion | No | Concern B Tier 2 + invariant flags |
+| Real-money deployment | No | All three + go-live PRD |
+| Step 6+ allocator work | No | codex explicit-go (unchanged) |
+
+### One thing I expect challenge on
+The `nav_orthogonality_vs_rcm_v1 / vs_cand_2 < 0.40` threshold in
+the Track C criteria YAML matches `temporal_split.yaml` line 111
+(`vs_existing_core_correlation < 0.40`), but that config field is
+for factor-IC correlation, not realized NAV. Reusing 0.40 for NAV
+is a deliberate symmetry call. Alternatives are 0.30 (more
+conservative) or 0.50 (matching Cand-2's original threshold). The
+0.898 we measured is so far from any orthogonality threshold that
+the exact NAV cutoff doesn't bite near term — but a future, more
+honest candidate may sit near the line. Open to push-back.
+
+### Concrete proposals on Concerns A/B/E (companion doc)
+
+Drafted in `docs/memos/20260430-concerns_abE_proposed_solutions.md`
+(this commit). External reviewer + codex requested to review and
+align before any code lands. Once aligned, those proposals become
+the actual implementation specs.
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
