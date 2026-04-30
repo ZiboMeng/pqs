@@ -131,6 +131,95 @@ iteration, run cycle compute.
 
 ---
 
+## 2026 unseen taxonomy (added 2026-04-30 per auditor R37 follow-up)
+
+Auditor's clarifying note: "针对26年的数据只要做好隔离 就是 authentic
+unseen data". Direction agreed; this section refines the taxonomy
+because different layers of "unseen" have different defenses and
+different failure modes.
+
+### Four-tier unseen layering
+
+| Tier | Type | State today (2026-04-30) | Defense mechanism |
+|------|------|--------------------------|-------------------|
+| 1 | **Machine training-unseen** | ✅ enforceable | `temporal_split.yaml` restricts train+validation to ≤ 2025; runner asserts panel cutoff at startup. |
+| 2 | **Machine evaluation-unseen** | ✅ enforceable | acceptance evaluator does not read 2026 row/label/PnL until sealed eval is invoked once. |
+| 3 | **Machine rule-unseen** | ⚠️ requires pre-registration | criteria yaml sha256 must be committed BEFORE any mining trial runs. Without it, future-knowledge can leak via threshold tuning ("we observed a candidate scored Sharpe 0.X on 2026 → softened criteria to 0.X-0.05"). Same model as cycle 2026-04-26 #01 promotion criteria. |
+| 4 | **Human decision-unseen** | ❌ already broken | Today is 2026-04-30. We as humans have observed Q1+April market path. **Cannot be recovered.** Mitigation: minimize remaining human-decision surface area by writing criteria yaml AS EARLY AS POSSIBLE (today is cleaner than next week). |
+
+Tiers 1-3 are machine discipline; tier 4 is human discipline.
+Auditor's "machine-unseen vs human-path-aware" two-tier framing
+collapses tiers 1-3 into one bucket. The four-tier split matters
+because tier 3 is the LAST tier where pre-registration discipline
+saves us.
+
+### Sealed eval window vs forward observation window
+
+Two different concepts often conflated:
+
+- **Sealed eval window** = full 2026 (Jan-Dec) used as one-shot
+  test on a frozen candidate that was mined on ≤ 2025 data. Tiers
+  1-3 hold; tier 4 is acknowledged as already broken but mining
+  pipeline is mechanical TPE on pre-registered criteria so human
+  path-knowledge has limited entry surface. **2026 Q1+April is
+  STILL valid sealed-eval data** because the pipeline never read
+  it during training/evaluation/rule-setting. Discarding Q1+April
+  to "clean human knowledge" is overcautious — it throws away
+  ~85 trading days of valid machine-unseen evidence.
+
+- **Forward observation window** = days strictly AFTER candidate
+  `freeze_date`. Used for live-forward discipline (B.MV early-
+  attention triggers, real broker integration eventually).
+  Today the open forward window is 2026-05-01 onwards (~166 TDs
+  remaining in 2026). This is the post-A.MV-rule "clean live-
+  forward unseen window".
+
+Cycle #01 candidates use BOTH:
+1. Train + validation evaluation on ≤ 2025 (acceptance gates)
+2. Sealed single-shot test on full 2026 (machine-unseen final)
+3. (If candidate passes 1+2 and is approved) forward init begins
+   with TD001 = 2026-05-something at the earliest
+
+### Sealed ledger boundary: spec_sha mechanical defense only
+
+`SealedLedgerEntry.fail_closed_on_repeat` (Track A R20 B1)
+prevents the SAME `spec_sha` from being sealed-tested twice. This
+is the machine-layer defense.
+
+Boundary case it does NOT cover: human cycle #01 sealed fails →
+human modifies one weight in spec → re-freezes new spec → new
+`spec_sha` → ledger lets it through → sealed re-runs on same
+2026 data with parameter information leakage from the failed run.
+
+Defense for this case requires policy not code:
+
+1. **Cycle #01 criteria yaml** must include "no spec re-tuning
+   after sealed eval, regardless of result". A failed sealed eval
+   closes the cycle; reopening requires a NEW pre-registered
+   criteria yaml AND a NEW unseen window (e.g. 2027 sealed).
+2. Until A.MV implementation lands, this is operator-level
+   discipline enforced by criteria yaml + cycle close ritual.
+3. After A.MV: hard-coded sealed_ledger extension that locks
+   `(criteria_yaml_sha, sealed_window_id)` instead of just
+   `spec_sha` — but this is a future enhancement.
+
+### Operator stance summary
+
+- "严格隔离 2026 = authentic machine-unseen" — agreed; it is
+  the most valuable testing resource we have today.
+- "已经被人类 path-aware 污染" — true at tier 4 only; mitigation
+  via early criteria yaml + mechanical mining pipeline limits
+  damage.
+- "不要先做 A.MV/B.MV，先跑 cycle #01" — agreed; this memo
+  ships exactly that priority.
+- **Active tightening from this section**: cycle #01 criteria
+  yaml must be drafted AS EARLY AS POSSIBLE in the next session,
+  before any deeper inspection of 2026 market structure
+  unrelated to mining setup. Sha256 commit + reference here
+  before mining begins.
+
+---
+
 ## Resume conditions (when paused work re-activates)
 
 ### A.MV full implementation re-activates when:
