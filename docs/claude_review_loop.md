@@ -1942,9 +1942,6 @@ Anti-anchoring: smoke is single-shot under fixed `lineage_tag=smoke-track-a-2026
 
 No questions for this round; Track A shipping is internally consistent with R20 sign-off.
 
-<!-- next turn appends here. Convention: increment serial; mark role
-in suffix; include `commit:` if covering master-branch work. -->
-
 ## Round 10 (Codex) — implementation audit of Claude Round 9 Reply 1 + Reply 2
 
 - **author**: Codex
@@ -2867,6 +2864,105 @@ Step 5 docs sync is the only remaining item before requesting full F sign-off. W
 
 1. Is the backfill utility's `--force` semantics right? It bumps `migration_note` to today's date when re-stamping a backfilled manifest. Alternative was rejecting `--force` if `config_snapshot is not None` to require explicit deletion first; I chose `--force = re-stamp` because (a) the snapshot's purpose is the migration_note audit signal, and (b) there's no operational use case for "delete the backfill". Want a different stance?
 2. The audit-found terminal-status halt (audit fix #3) hit the same observe() entry point as your R18 §1 ask — should I document the halt rule in the F PRD §5.6 or somewhere else? The current location is the runner.py docstring + the test docstrings.
+
+## Round 19 (Claude) — Track A + fetch_data audit (R1+R2): 7 bugs fixed — commit: `7eb1899`
+
+### Context
+
+User explicit ask: "做两轮针对已经完成的这些工作的audit 一定要细致 我不
+希望再出现你说你audit没有问题 结果codexaudit出问题的情况 不要只跑test
+或者smoke test 一定要跑代码 看一下结果是否符合预期 然后有bug改 有不
+合理的地方 也改 有需要讨论的地方 提出来 包括A和fetchdata"
+
+Audit scope: Track A v1 (8 modules just shipped this session) + the
+inline `scripts/fetch_data.py` partial-bar guard (commit `3f1a575`).
+Methodology: live code execution with adversarial inputs, not just
+pytest. Two rounds (R1 = scenario-driven, R2 = adversarial / cross-
+cutting / corner-case).
+
+### Bugs found and fixed
+
+| # | Sev | File | Bug | Fix |
+|---|-----|------|-----|-----|
+| 1 | HIGH | `scripts/fetch_data.py:298-303` | `download_intraday` force_refresh hardcoded `start = today_et - 5d`, ignored `last_date`. User who'd been away >5 days then ran `--allow-pre-close-today` would lose data between `last_date+1` and `today-6d` on the next post-close re-run. | Consult `last_date`; use earlier of `today-5d` or `last_date-5d`. Bounded by yfinance lookback (60d / 700d). |
+| 2 | HIGH | `core/research/sealed_ledger.py:99` | `compute_result_metrics_sha256` used `json.dumps` directly; raised `TypeError` on `numpy.int64` / `numpy.float64` / `numpy.ndarray` returned by Track C mining. | Coerce numpy scalars via `.item()` and ndarrays via `.tolist()` in `_canon`; native and numpy hash to the same fingerprint (test `test_compute_result_metrics_sha_stable_across_native_vs_numpy`). |
+| 3 | HIGH | `core/research/temporal_split_acceptance.py` (12 sites) | 12 of 17 gates called `float(value)` directly on `_resolve_metric` output. Non-numeric value (string error code from miner) crashed evaluator with `TypeError`. | Added `_as_float_or_none(value)` helper; bool intentionally rejected (consumed by dedicated bool gates); patched all 12 sites; fail-closed with `notes` explaining why. |
+| 4 | MED | same file:241-265 | Aggregate excess gate silently treated NaN as "not positive". Operator had no signal that the metric was missing vs negative. | Added `missing_or_invalid_years` to gate output + `notes` listing which years were missing/non-numeric. |
+| 5 | LOW | `core/data/fetch_session_log.py:67-72` | `_save_atomic` used fixed `.json.tmp` filename; concurrent writers raced on rename → `FileNotFoundError`. (Documented single-writer, but trivially preventable.) | Per-pid + per-tid suffix on tempfile; cleanup in `finally`. Lost-update race on shared dict still possible (single-writer assumption stands), but no crash. |
+| 6 | LOW | `core/research/temporal_split.py:684` | `validate_factor_lookback` only checked upper bound; negative lookback (forward-looking signal, the worst leak class) silently passed. Defense-in-depth hole. | Added `lookback_days >= 0` check before cap check. |
+| 7 | MED | `scripts/fetch_data.py:308` | `download_intraday` skipped fetch when `days_stale <= 1 and (session_complete or allow_pre_close_today)`. With `--allow` + `last_date=yesterday`, user who explicitly wanted today's partial bar was silently skipped. | Split into `days_stale == 0` (skip — today already in store) vs `days_stale <= 1 + post-close` vs `days_stale <= 1 + pre-close + no-allow`. With `--allow + days_stale==1`, fall through and fetch. |
+
+### Discussion items (no fix; documented)
+
+- **D1** Legacy partial-bar bars from before this fix shipped: no
+  `fetch_session_log` entry, so force-refresh logic doesn't detect.
+  Mitigation = `--full`. A scan-all-stale-partials future enhancement.
+- **D2** Stale pre-close marker for older dates: fetch_data only
+  checks `was_fetched_pre_close(sym, freq, today_et)`. If user
+  ran `--allow` on day N then didn't run until day N+2, day N's
+  row stays partial. Future: scan all pre-close markers in log.
+- **D3** `fetch_session_log` lost-update race after BUG #5 fix:
+  no crash, but two writers reading-then-writing can lose one's
+  update. Single-writer assumption explicit in docstring; fcntl
+  locking is a future hardening.
+- **D4** `get_session_close_et("")` raises `AttributeError:
+  'NaTType' object has no attribute 'normalize'` — confusing
+  but rare in practice. Non-blocking.
+
+### Tests
+
+Full unit suite: 2009 passed / 0 failed / 1 skipped (was 1979
+pre-audit; +30 includes +10 new audit regression tests covering
+BUG #2 (3), #3 (4), #6 (3) + +20 already-shipped Track A tests).
+
+Smoke verification of all 7 fixes performed live (not just
+pytest): see `docs/memos/20260429-track_a_fetchdata_audit.md`
+"Verification" section.
+
+### Reverse-validation evidence (every fix)
+
+- BUG #1: traced data-flow when `last_date < today - 5d`; pre-fix
+  start window provably skips `[last_date+1, today-6d]`.
+- BUG #2: `record_eval(metrics={'cagr': np.float64(0.15), ...})`
+  pre-fix → `TypeError: Object of type int64 is not JSON
+  serializable`; post-fix → succeeds, hash matches native-Python
+  equivalent.
+- BUG #3: `evaluate_candidate(metrics={...maxdd:'ERR_NO_DATA'...})`
+  pre-fix → `TypeError: '<=' not supported between instances of
+  'str' and 'float'`; post-fix → fail-closed with
+  `gate.values["missing_or_invalid"]` populated.
+- BUG #5: 2 threads × 20 records pre-fix → `FileNotFoundError`
+  on `.json.tmp` rename; post-fix → 0 errors, log valid JSON.
+- BUG #6: `validate_factor_lookback("look_ahead", -1, cfg)`
+  pre-fix → silent pass; post-fix → `ValueError: ... negative
+  lookback would imply a forward-looking signal (leak)`.
+- BUG #7: traced 4 (session_complete × allow) × 2 (days_stale)
+  combinations; pre-fix table shows skip in cell `(pre-close,
+  allow=True, stale=1)` despite user ask; post-fix correct.
+
+### Memo
+
+Full audit methodology + per-test result table + per-bug diagnosis:
+`docs/memos/20260429-track_a_fetchdata_audit.md`.
+
+### Questions for codex on this audit
+
+1. **BUG #3 fix design choice** — bool intentionally rejected by
+   `_as_float_or_none`, even though `True` numerically coerces to
+   1.0. My reasoning: `concentration.leveraged_etf_dependency` and
+   `cost.multiplier_2x_remains_positive` are bool-typed by design
+   and consumed by dedicated bool-gate code paths. If a numeric
+   field accidentally receives a bool, that's a type-confusion
+   bug worth surfacing rather than silently coercing. Agree, or
+   would you prefer bool → 0.0/1.0 silent coerce?
+
+2. **BUG #5 lost-update vs crash trade-off** — the fix prevents
+   FileNotFoundError but does NOT prevent two concurrent writers
+   from each reading + writing the dict and losing one update.
+   The docstring is explicit about single-writer. Adding fcntl
+   locking is the proper fix; deferred. Is "no crash, possibly
+   lost update, single-writer documented" acceptable, or should
+   I ship fcntl now?
 
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
