@@ -681,6 +681,15 @@ def validate_factor_lookback(
     factor_registry; Step A.5 ships the validator.
     """
     cap = cfg.access_rules.factor_warmup_max_lookback_days
+    # Audit BUG #6 fix (2026-04-29 R1): negative lookback would mean the
+    # factor looks into the future — the worst possible leak class. Reject
+    # defensively even though factor_registry should never produce one.
+    if lookback_days < 0:
+        raise ValueError(
+            f"factor {factor_name!r} declared lookback_days={lookback_days}; "
+            f"negative lookback would imply a forward-looking signal (leak). "
+            f"Lookback must be >= 0."
+        )
     if lookback_days > cap:
         raise ValueError(
             f"factor {factor_name!r} declared lookback_days={lookback_days} "

@@ -153,7 +153,10 @@ def test_missing_validation_year_metric_fails_closed():
     assert not res.overall_passed
     gate = res.gate_named("validation_year_2021_maxdd")
     assert gate is not None and not gate.passed
-    assert "missing" in gate.values
+    # Audit BUG #3 fix (2026-04-29 R1) renamed "missing" → "missing_or_invalid"
+    # because the same code path now covers non-numeric metrics too.
+    assert "missing_or_invalid" in gate.values
+
 
 
 # ---------------------------------------------------------------------------
@@ -378,3 +381,67 @@ def test_yaml_swap_changes_2025_gate_outcome(tmp_path):
     res_v2 = run_split_acceptance(metrics, role="core", split_path=str(yaml_path))
     role_gate_v2 = res_v2.gate_named("role_core__validation__2025__excess_vs_qqq")
     assert role_gate_v2.passed, "v2 (threshold=-0.05) should pass at -0.01"
+
+
+# ---------------------------------------------------------------------------
+# Audit BUG #3 + #4 regressions (2026-04-29 R1) — non-numeric / NaN inputs
+# ---------------------------------------------------------------------------
+
+
+def test_non_numeric_metric_fails_closed_without_typeerror():
+    """BUG #3: prior implementation called float(value) directly on
+    _resolve_metric output and crashed with TypeError when miner returned
+    a string error code instead of a number. Now must fail-closed gracefully.
+    """
+    cfg = load_temporal_split()
+    metrics = _passing_core_metrics()
+    metrics["validation"][2021]["maxdd"] = "ERR_NO_DATA"
+    res = evaluate_candidate(metrics, cfg, "core")
+    assert not res.overall_passed
+    gate = res.gate_named("validation_year_2021_maxdd")
+    assert gate is not None and not gate.passed
+    assert "missing_or_invalid" in gate.values
+    assert "non-numeric" in gate.notes or "missing or non-numeric" in gate.notes
+
+
+def test_non_numeric_beta_fails_closed():
+    """BUG #3 sister site: beta_to_qqq cannot be coerced from string."""
+    cfg = load_temporal_split()
+    metrics = _passing_core_metrics()
+    metrics["beta"]["beta_to_qqq"] = "n/a"
+    res = evaluate_candidate(metrics, cfg, "core")
+    gate = res.gate_named("beta_to_qqq")
+    assert gate is not None and not gate.passed
+    assert "missing_or_invalid" in gate.values
+
+
+def test_nan_aggregate_excess_reports_missing_years():
+    """BUG #4: NaN aggregate excess no longer silently filtered — operator
+    sees which years contributed missing/non-numeric values.
+    """
+    cfg = load_temporal_split()
+    metrics = _passing_core_metrics()
+    metrics["validation"][2018]["excess_vs_spy"] = float("nan")
+    metrics["validation"][2019]["excess_vs_spy"] = float("nan")
+    res = evaluate_candidate(metrics, cfg, "core")
+    spy_gate = res.gate_named("validation_aggregate_excess_vs_spy")
+    assert spy_gate is not None
+    missing = spy_gate.values.get("missing_or_invalid_years", [])
+    assert 2018 in missing and 2019 in missing
+    assert "missing/non-numeric" in spy_gate.notes
+
+
+def test_bool_not_silently_coerced_to_numeric():
+    """BUG #3 design: bool-valued fields (leveraged_etf_dependency,
+    cost.multiplier_2x_remains_positive) are consumed by dedicated bool
+    gates. They must not be silently coerced to 0.0/1.0 by numeric gates.
+    """
+    cfg = load_temporal_split()
+    metrics = _passing_core_metrics()
+    # If someone accidentally passes bool to a numeric field, the numeric
+    # gate must fail-closed rather than treat True == 1.0.
+    metrics["validation"][2021]["maxdd"] = True  # type confusion
+    res = evaluate_candidate(metrics, cfg, "core")
+    gate = res.gate_named("validation_year_2021_maxdd")
+    assert gate is not None and not gate.passed
+    assert "missing_or_invalid" in gate.values

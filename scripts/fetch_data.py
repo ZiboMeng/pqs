@@ -296,19 +296,40 @@ def download_intraday(
                 )
 
                 if force_refresh:
-                    start = today_et - pd.Timedelta(days=5)
-                    logger.info(
-                        "[%s/%s] 检测到今日 pre-close 记录 → 强制刷新近 5 天",
-                        sym, freq,
-                    )
+                    last_date = store.get_last_date(sym, freq)
+                    refresh_window_start = today_et - pd.Timedelta(days=5)
+                    if last_date is not None and last_date < refresh_window_start:
+                        # Audit BUG #1 fix (2026-04-29 R1): force-refresh used
+                        # to clamp start to today-5d unconditionally, losing
+                        # any data between last_date+1 and today-6d when the
+                        # user had been away for >5 days.
+                        start = last_date - pd.Timedelta(days=5)
+                        logger.info(
+                            "[%s/%s] pre-close 记录 + last_date=%s 早于 5 日窗口 → 从 last_date-5d 开始拉",
+                            sym, freq, last_date.date(),
+                        )
+                    else:
+                        start = refresh_window_start
+                        logger.info(
+                            "[%s/%s] 检测到今日 pre-close 记录 → 强制刷新近 5 天",
+                            sym, freq,
+                        )
                 elif not full:
                     last_date = store.get_last_date(sym, freq)
                     if last_date is not None:
                         days_stale = (end - last_date).days
-                        if days_stale <= 1 and (
+                        # Audit BUG #7 fix (2026-04-29 R2): allow_pre_close_today
+                        # means the user explicitly wants today's partial bar.
+                        # Only skip when last_date == today (days_stale==0); for
+                        # days_stale==1 with allow=True, fall through and fetch.
+                        if days_stale == 0 and (
                             session_complete or allow_pre_close_today
                         ):
-                            # Already up-to-date AND session has closed (or override).
+                            # Today's bar already present.
+                            skipped += 1
+                            continue
+                        if days_stale <= 1 and session_complete:
+                            # Post-close + last_date is today or yesterday → already up-to-date
                             skipped += 1
                             continue
                         if days_stale <= 1 and not session_complete \

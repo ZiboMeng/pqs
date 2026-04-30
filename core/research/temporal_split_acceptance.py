@@ -182,6 +182,29 @@ def _resolve_metric(metrics: Dict[str, Any], dotted_path: str) -> Any:
     return cur
 
 
+def _as_float_or_none(value: Any) -> Optional[float]:
+    """Audit BUG #3 fix (2026-04-29 R1): coerce a metric value to float, or
+    return None if it isn't numeric (string / dict / etc).
+
+    bool is intentionally rejected here — concentration.leveraged_etf_dependency
+    and cost.multiplier_2x_remains_positive are bool by design and consumed
+    via dedicated bool gates; they should NOT be silently coerced to 0.0/1.0
+    by these numeric gates.
+    """
+    if value is _MISSING or value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return None
+    import math as _math
+    if _math.isnan(f):
+        return None
+    return f
+
+
 # ---------------------------------------------------------------------------
 # Per-year + per-slice + role gate evaluation
 # ---------------------------------------------------------------------------
@@ -203,16 +226,16 @@ def _eval_per_year_gates(
     maxdd_max = cfg.acceptance.validation_year_pass.maxdd_per_year_max
     for vy in cfg.partition.validation_years:
         year_key = vy.year
-        excess_spy = _resolve_metric(metrics, f"validation.{year_key}.excess_vs_spy")
-        excess_qqq = _resolve_metric(metrics, f"validation.{year_key}.excess_vs_qqq")
-        maxdd      = _resolve_metric(metrics, f"validation.{year_key}.maxdd")
-        if maxdd is _MISSING:
+        excess_spy = _as_float_or_none(_resolve_metric(metrics, f"validation.{year_key}.excess_vs_spy"))
+        excess_qqq = _as_float_or_none(_resolve_metric(metrics, f"validation.{year_key}.excess_vs_qqq"))
+        maxdd      = _as_float_or_none(_resolve_metric(metrics, f"validation.{year_key}.maxdd"))
+        if maxdd is None:
             out.append(SplitGateResult(
                 name=f"validation_year_{year_key}_maxdd",
                 passed=False,
-                values={"missing": "validation.{}.maxdd".format(year_key)},
+                values={"missing_or_invalid": f"validation.{year_key}.maxdd"},
                 threshold={"maxdd_per_year_max": maxdd_max},
-                notes=f"validation year {year_key} maxdd missing in metrics; fail-closed",
+                notes=f"validation year {year_key} maxdd missing or non-numeric; fail-closed",
             ))
             continue
         passed = bool(maxdd <= maxdd_max)
@@ -223,9 +246,9 @@ def _eval_per_year_gates(
                 "year": year_key,
                 "regime": vy.manual_regime_tag,
                 "weight": vy.weight,
-                "maxdd": float(maxdd),
-                "excess_vs_spy": (None if excess_spy is _MISSING else float(excess_spy)),
-                "excess_vs_qqq": (None if excess_qqq is _MISSING else float(excess_qqq)),
+                "maxdd": maxdd,
+                "excess_vs_spy": excess_spy,
+                "excess_vs_qqq": excess_qqq,
             },
             threshold={"maxdd_per_year_max": maxdd_max},
         ))
@@ -242,32 +265,49 @@ def _eval_validation_aggregate(
 
     spy_pos_count = 0
     qqq_pos_count = 0
+    spy_missing_years: List[int] = []
+    qqq_missing_years: List[int] = []
     spy_per_year: Dict[int, Optional[float]] = {}
     qqq_per_year: Dict[int, Optional[float]] = {}
     for y in val_years:
-        spy = _resolve_metric(metrics, f"validation.{y}.excess_vs_spy")
-        qqq = _resolve_metric(metrics, f"validation.{y}.excess_vs_qqq")
-        spy_per_year[y] = (None if spy is _MISSING else float(spy))
-        qqq_per_year[y] = (None if qqq is _MISSING else float(qqq))
-        if spy is not _MISSING and float(spy) > 0:
+        spy = _as_float_or_none(_resolve_metric(metrics, f"validation.{y}.excess_vs_spy"))
+        qqq = _as_float_or_none(_resolve_metric(metrics, f"validation.{y}.excess_vs_qqq"))
+        spy_per_year[y] = spy
+        qqq_per_year[y] = qqq
+        # Audit BUG #4 (2026-04-29 R1): missing/non-numeric/NaN values are
+        # NOT silently treated as "not positive" — they're flagged so the
+        # operator can see *why* the gate didn't accept that year. Aggregate
+        # gate still requires a strict positive count; missing years cannot
+        # contribute, but they're explicitly reported.
+        if spy is None:
+            spy_missing_years.append(y)
+        elif spy > 0:
             spy_pos_count += 1
-        if qqq is not _MISSING and float(qqq) > 0:
+        if qqq is None:
+            qqq_missing_years.append(y)
+        elif qqq > 0:
             qqq_pos_count += 1
 
     return [
         SplitGateResult(
             name="validation_aggregate_excess_vs_spy",
             passed=(spy_pos_count >= vy_pass.excess_vs_spy_positive_min),
-            values={"positive_count": spy_pos_count, "per_year": spy_per_year},
+            values={"positive_count": spy_pos_count, "per_year": spy_per_year,
+                    "missing_or_invalid_years": spy_missing_years},
             threshold={"min_positive_years": vy_pass.excess_vs_spy_positive_min,
                        "total_years": len(val_years)},
+            notes=("missing/non-numeric: " + ",".join(str(y) for y in spy_missing_years))
+                  if spy_missing_years else "",
         ),
         SplitGateResult(
             name="validation_aggregate_excess_vs_qqq",
             passed=(qqq_pos_count >= vy_pass.excess_vs_qqq_positive_min),
-            values={"positive_count": qqq_pos_count, "per_year": qqq_per_year},
+            values={"positive_count": qqq_pos_count, "per_year": qqq_per_year,
+                    "missing_or_invalid_years": qqq_missing_years},
             threshold={"min_positive_years": vy_pass.excess_vs_qqq_positive_min,
                        "total_years": len(val_years)},
+            notes=("missing/non-numeric: " + ",".join(str(y) for y in qqq_missing_years))
+                  if qqq_missing_years else "",
         ),
     ]
 
@@ -279,21 +319,21 @@ def _eval_stress_slice_gates(
     """Per-stress-slice MaxDD sanity check (does NOT participate in alpha selection)."""
     out: List[SplitGateResult] = []
     for slc in cfg.partition.stress_slices:
-        maxdd = _resolve_metric(metrics, f"stress_slice.{slc.name}.maxdd")
-        if maxdd is _MISSING:
+        maxdd = _as_float_or_none(_resolve_metric(metrics, f"stress_slice.{slc.name}.maxdd"))
+        if maxdd is None:
             out.append(SplitGateResult(
                 name=f"stress_slice_{slc.name}_maxdd",
                 passed=False,
-                values={"missing": f"stress_slice.{slc.name}.maxdd"},
+                values={"missing_or_invalid": f"stress_slice.{slc.name}.maxdd"},
                 threshold={"maxdd_threshold": slc.maxdd_threshold},
-                notes=f"stress slice {slc.name} maxdd missing; fail-closed",
+                notes=f"stress slice {slc.name} maxdd missing or non-numeric; fail-closed",
             ))
             continue
         passed = bool(maxdd <= slc.maxdd_threshold)
         out.append(SplitGateResult(
             name=f"stress_slice_{slc.name}_maxdd",
             passed=passed,
-            values={"slice": slc.name, "maxdd": float(maxdd),
+            values={"slice": slc.name, "maxdd": maxdd,
                     "source_year": slc.source_year, "mode": slc.mode},
             threshold={"maxdd_threshold": slc.maxdd_threshold},
         ))
@@ -316,22 +356,24 @@ def _eval_role_gates(
     out: List[SplitGateResult] = []
     role_cfg = cfg.roles[role]
     for gate in role_cfg.validation_gates:
-        value = _resolve_metric(metrics, gate.field)
+        raw = _resolve_metric(metrics, gate.field)
+        value = _as_float_or_none(raw)
         gate_name = f"role_{role}__{gate.field.replace('.', '__')}"
-        if value is _MISSING:
+        if value is None:
             out.append(SplitGateResult(
                 name=gate_name,
                 passed=False,
-                values={"missing": gate.field},
+                values={"missing_or_invalid": gate.field,
+                        "raw": (None if raw is _MISSING else repr(raw))},
                 threshold={"op": gate.op, "value": gate.value},
-                notes=f"role gate field {gate.field} missing in metrics; fail-closed",
+                notes=f"role gate field {gate.field} missing or non-numeric; fail-closed",
             ))
             continue
-        passed = _eval_op(gate.op, float(value), gate.value)
+        passed = _eval_op(gate.op, value, gate.value)
         out.append(SplitGateResult(
             name=gate_name,
             passed=passed,
-            values={"role": role, "field": gate.field, "actual": float(value)},
+            values={"role": role, "field": gate.field, "actual": value},
             threshold={"op": gate.op, "value": gate.value, "action": gate.action},
         ))
     return out
@@ -345,22 +387,22 @@ def _eval_concentration_gates(
     cc = cfg.acceptance.concentration
     out: List[SplitGateResult] = []
 
-    top1 = _resolve_metric(metrics, "concentration.top1_max")
+    top1 = _as_float_or_none(_resolve_metric(metrics, "concentration.top1_max"))
     out.append(SplitGateResult(
         name="concentration_top1",
-        passed=(top1 is not _MISSING and float(top1) <= cc.top1_max),
-        values={"top1_max": (None if top1 is _MISSING else float(top1))},
+        passed=(top1 is not None and top1 <= cc.top1_max),
+        values={"top1_max": top1},
         threshold={"top1_ceiling": cc.top1_max},
-        notes=("missing metric → fail-closed" if top1 is _MISSING else ""),
+        notes=("missing or non-numeric → fail-closed" if top1 is None else ""),
     ))
 
-    top3 = _resolve_metric(metrics, "concentration.top3_max")
+    top3 = _as_float_or_none(_resolve_metric(metrics, "concentration.top3_max"))
     out.append(SplitGateResult(
         name="concentration_top3",
-        passed=(top3 is not _MISSING and float(top3) <= cc.top3_max),
-        values={"top3_max": (None if top3 is _MISSING else float(top3))},
+        passed=(top3 is not None and top3 <= cc.top3_max),
+        values={"top3_max": top3},
         threshold={"top3_ceiling": cc.top3_max},
-        notes=("missing metric → fail-closed" if top3 is _MISSING else ""),
+        notes=("missing or non-numeric → fail-closed" if top3 is None else ""),
     ))
 
     if cc.no_leveraged_etf_dependency:
@@ -379,20 +421,20 @@ def _eval_beta_gate(
     metrics: Dict[str, Any],
     cfg: TemporalSplitConfig,
 ) -> SplitGateResult:
-    beta = _resolve_metric(metrics, "beta.beta_to_qqq")
+    beta = _as_float_or_none(_resolve_metric(metrics, "beta.beta_to_qqq"))
     cap = cfg.acceptance.beta.beta_to_qqq_max
-    if beta is _MISSING:
+    if beta is None:
         return SplitGateResult(
             name="beta_to_qqq",
             passed=False,
-            values={"missing": "beta.beta_to_qqq"},
+            values={"missing_or_invalid": "beta.beta_to_qqq"},
             threshold={"beta_to_qqq_max": cap},
-            notes="beta missing → fail-closed (prevents QQQ-proxy candidates)",
+            notes="beta missing or non-numeric → fail-closed (prevents QQQ-proxy candidates)",
         )
     return SplitGateResult(
         name="beta_to_qqq",
-        passed=bool(float(beta) <= cap),
-        values={"beta_to_qqq": float(beta)},
+        passed=bool(beta <= cap),
+        values={"beta_to_qqq": beta},
         threshold={"beta_to_qqq_max": cap},
     )
 
@@ -447,14 +489,17 @@ def check_role_eligibility(
     failures: List[Dict[str, Any]] = []
     actuals: Dict[str, Any] = {}
     for ec in role_cfg.eligibility_constraint:
-        value = _resolve_metric(metrics, ec.field)
-        if value is _MISSING:
-            failures.append({"field": ec.field, "reason": "missing"})
+        raw = _resolve_metric(metrics, ec.field)
+        value = _as_float_or_none(raw)
+        if value is None:
+            reason = "missing" if raw is _MISSING else "non-numeric"
+            failures.append({"field": ec.field, "reason": reason,
+                             "raw": (None if raw is _MISSING else repr(raw))})
             actuals[ec.field] = None
             continue
-        actuals[ec.field] = float(value)
-        if not _eval_op(ec.op, float(value), ec.value):
-            failures.append({"field": ec.field, "actual": float(value),
+        actuals[ec.field] = value
+        if not _eval_op(ec.op, value, ec.value):
+            failures.append({"field": ec.field, "actual": value,
                              "op": ec.op, "required": ec.value})
     return SplitGateResult(
         name=f"role_{role}_eligibility",

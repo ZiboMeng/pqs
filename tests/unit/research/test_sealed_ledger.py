@@ -319,3 +319,68 @@ def test_ledger_parquet_well_formed_after_appends(tmp_path):
         "git_sha", "panel_max_date", "evaluation_timestamp_utc",
         "result_metrics_sha256", "extra_json",
     ]
+
+
+# ---------------------------------------------------------------------------
+# Audit BUG #2 regression (2026-04-29 R1) — numpy types in result_metrics
+# ---------------------------------------------------------------------------
+
+
+def test_record_eval_with_numpy_int_and_float(tmp_path):
+    """BUG #2: prior compute_result_metrics_sha256 used json.dumps directly
+    and crashed with TypeError on numpy.int64 / numpy.float64 returned by
+    pandas operations. Real Track C mining will return these.
+    """
+    import numpy as np
+    ledger = tmp_path / "ledger.parquet"
+    entry = record_eval(
+        spec_sha256="np_test_spec",
+        split_name="np_split",
+        split_sha256="z" * 64,
+        role="core",
+        git_sha="abc",
+        panel_max_date="2025-12-31",
+        result_metrics={
+            "cagr_np_float": np.float64(0.15),
+            "trial_count_np_int": np.int64(100),
+            "deterministic_native_float": 0.20,
+        },
+        ledger_path=ledger,
+    )
+    assert entry.result_metrics_sha256
+    assert len(entry.result_metrics_sha256) == 64  # hex sha256
+
+
+def test_record_eval_with_numpy_array_and_pandas_series(tmp_path):
+    """BUG #2 sister case: ndarrays + pandas Series in nested metrics."""
+    import numpy as np
+    import pandas as pd
+    ledger = tmp_path / "ledger.parquet"
+    entry = record_eval(
+        spec_sha256="arr_test_spec",
+        split_name="arr_split",
+        split_sha256="z" * 64,
+        role="core",
+        git_sha="abc",
+        panel_max_date="2025-12-31",
+        result_metrics={
+            "ic_per_year": np.array([0.05, 0.07, 0.12]),
+            "by_symbol": {"AAPL": np.float64(0.1), "MSFT": np.int64(2)},
+        },
+        ledger_path=ledger,
+    )
+    assert entry.result_metrics_sha256
+
+
+def test_compute_result_metrics_sha_stable_across_native_vs_numpy():
+    """The hash computed for native Python types must equal the hash for
+    semantically equivalent numpy types (so a re-run that happens to pull
+    bytes off pandas vs YAML produces the same fingerprint).
+    """
+    import numpy as np
+    from core.research.sealed_ledger import compute_result_metrics_sha256
+    h_native = compute_result_metrics_sha256({"cagr": 0.15, "count": 100})
+    h_numpy = compute_result_metrics_sha256(
+        {"cagr": np.float64(0.15), "count": np.int64(100)}
+    )
+    assert h_native == h_numpy

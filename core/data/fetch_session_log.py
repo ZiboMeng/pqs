@@ -31,6 +31,8 @@ Public API
 from __future__ import annotations
 
 import json
+import os
+import threading
 from datetime import date as _date
 from pathlib import Path
 from typing import Dict, Optional
@@ -65,11 +67,27 @@ def _load(log_path: Path) -> Dict[str, dict]:
 
 
 def _save_atomic(log_path: Path, data: Dict[str, dict]) -> None:
+    """Atomic write via per-process/per-thread tempfile + rename.
+
+    Audit BUG #5 fix (2026-04-29 R2): the prior implementation used a
+    fixed `.json.tmp` filename. Two concurrent writers (e.g. two
+    fetchdata invocations launched in parallel) raced on rename and
+    one crashed with FileNotFoundError. The single-writer assumption
+    is documented above but per-pid+tid suffix costs nothing and
+    prevents accidental concurrency from corrupting the log.
+    """
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = log_path.with_suffix(".json.tmp")
-    with tmp.open("w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, sort_keys=True)
-    tmp.replace(log_path)
+    tmp = log_path.with_suffix(f".json.tmp.{os.getpid()}.{threading.get_ident()}")
+    try:
+        with tmp.open("w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, sort_keys=True)
+        tmp.replace(log_path)
+    finally:
+        if tmp.exists():
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
 
 
 def record_fetch(

@@ -94,13 +94,22 @@ def compute_result_metrics_sha256(metrics: Dict[str, Any]) -> str:
 
     Canonicalization: keys sorted recursively; floats serialized via
     ``repr`` to avoid platform-dependent str() formatting; lists keep
-    order. Returns full hex SHA-256.
+    order. Numpy/pandas scalars are coerced to native Python via
+    ``.item()`` (audit BUG #2 fix 2026-04-29 R1: real Track C mining
+    returns numpy.int64 / numpy.float64 from pandas operations and
+    json.dumps fails on them). Returns full hex SHA-256.
     """
+    import numpy as _np
+
     def _canon(obj):
         if isinstance(obj, dict):
             return {k: _canon(obj[k]) for k in sorted(obj.keys(), key=str)}
-        if isinstance(obj, list):
+        if isinstance(obj, (list, tuple)):
             return [_canon(x) for x in obj]
+        if isinstance(obj, _np.ndarray):
+            return [_canon(x) for x in obj.tolist()]
+        if isinstance(obj, _np.generic):
+            return _canon(obj.item())
         if isinstance(obj, float):
             return repr(obj)
         return obj

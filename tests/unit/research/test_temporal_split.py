@@ -521,3 +521,48 @@ def test_ensure_role_assigned_rejects_unknown_role():
         ensure_role_assigned("hedge", cfg)
     with pytest.raises(ValueError, match="not declared"):
         ensure_role_assigned("satellite", cfg)
+
+
+# ---------------------------------------------------------------------------
+# Audit BUG #6 regression (2026-04-29 R1) — negative lookback rejection
+# ---------------------------------------------------------------------------
+
+
+def test_validate_factor_lookback_rejects_negative():
+    """BUG #6: negative lookback semantically means "look ahead" — the worst
+    leak class. Must be rejected defensively even though factor_registry
+    should never produce one.
+    """
+    from core.research.temporal_split import (
+        load_temporal_split,
+        validate_factor_lookback,
+    )
+    cfg = load_temporal_split()
+    with pytest.raises(ValueError, match="negative lookback"):
+        validate_factor_lookback("look_ahead_factor", -1, cfg)
+    with pytest.raises(ValueError, match="negative lookback"):
+        validate_factor_lookback("look_ahead_factor", -252, cfg)
+
+
+def test_validate_factor_lookback_accepts_zero_and_cap():
+    """0 is a degenerate but valid lookback (current-bar only). The cap
+    itself is also a legal value (boundary inclusive)."""
+    from core.research.temporal_split import (
+        load_temporal_split,
+        validate_factor_lookback,
+    )
+    cfg = load_temporal_split()
+    cap = cfg.access_rules.factor_warmup_max_lookback_days
+    validate_factor_lookback("zero_lookback", 0, cfg)  # no raise
+    validate_factor_lookback("at_cap", cap, cfg)        # no raise
+
+
+def test_validate_factor_lookback_rejects_above_cap():
+    from core.research.temporal_split import (
+        load_temporal_split,
+        validate_factor_lookback,
+    )
+    cfg = load_temporal_split()
+    cap = cfg.access_rules.factor_warmup_max_lookback_days
+    with pytest.raises(ValueError, match="exceeds split"):
+        validate_factor_lookback("too_long", cap + 1, cfg)
