@@ -130,6 +130,13 @@ How-to specs, schemas, and stable contracts.
 - [20260421-promotion_flow.md](20260421-promotion_flow.md) — Mining → production promotion flow (M2 contract)
 - [20260420-ralph_loop_prompt.md](20260420-ralph_loop_prompt.md) — Saved ralph-loop prompt template
 
+## 7.4 Templates — 1
+
+Markdown templates that downstream artifacts must be derived from
+(copy-and-fill, not edited in place).
+
+- [templates/track_c_evidence_pack_template.md](templates/track_c_evidence_pack_template.md) — Track C controlled-mining nominee evidence pack template (codex round-27 boundary). Required sections: boundary attestation, train diagnostics, validation-year acceptance gates, cross-cutting checks (M12 weighted thin-data, C5 role-remint, cost-model), forward soak plan, risks, reverse-validation. 2026 sealed evaluation explicitly frozen. Copy → `docs/memos/<YYYY-MM-DD>-track_c_<nominee>_evidence_pack.md` for each nominee.
+
 ## 7.5 Audit cycle memos — 10 (cycle complete) + 1 cycle summary
 
 **Cycle-level codex review handoff**: [audit/20260428-ralph_audit_cycle_summary_for_codex_review.md](audit/20260428-ralph_audit_cycle_summary_for_codex_review.md) — single-doc digest of the 10-round ralph-audit-2026-04-28 cycle for codex round-11 review. Includes: why the cycle ran, per-round status table, full findings ledger (closed/deferred/wontfix), cumulative-pass design evidence (R3 PASS elevated twice; R01.1 DST closed in R8 after 5 rounds carry-forward), PRD §1 failure-mode recurrence check (none recurred), 5 specific review asks for codex.
