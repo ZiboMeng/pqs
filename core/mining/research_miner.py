@@ -112,6 +112,237 @@ FAMILY_D = FamilyConfig(
 
 FAMILIES_V1: List[FamilyConfig] = [FAMILY_A, FAMILY_B, FAMILY_C, FAMILY_D]
 
+
+# ── FAMILIES_V2 (A++ patch 2026-04-30) ──────────────────────────────────────
+#
+# FAMILIES_V1 only reaches 33 of the 64 names registered in
+# `core.factors.factor_registry.RESEARCH_FACTORS`. Track C cycle 2026-04-30
+# #01's pre-registered criteria yaml asserts
+# `factor_registry_pool: RESEARCH_FACTORS` — a contract requiring the
+# sampler to be able to reach all 64. FAMILIES_V1 violates that contract
+# (the cycle's mining run was therefore search-space-restricted: Cand-2's
+# anchors `ret_5d` and `hl_range` were unreachable, among others).
+#
+# A++ extends FAMILIES_V1 with two new family containers (E + F) and adds
+# the missing 31 factors to existing or new families so that
+# union(FAMILIES_V2) == RESEARCH_FACTORS exactly. NO new factor is added
+# to RESEARCH_FACTORS — only the family→factor mapping is broadened.
+#
+# Categorization decisions (2026-04-30, family ownership):
+#   - Family A (benchmark-relative / residual / risk-exposure): adds
+#     `weak_market_relative_strength_63d` (RS conditional on weak market),
+#     `spy_trend_200d` (SPY long trend regime), `spy_trend_gated_mom_63d`
+#     (gated momentum keyed on SPY trend).
+#   - Family B (position / breakout / path-shape): adds `mom_12_1`
+#     (12m-minus-1m momentum, classic position factor — long-horizon
+#     trend MINUS short-horizon reversal makes it path-shape).
+#   - Family C (liquidity / cost-proxy / risk-state): adds
+#     `dollar_vol_20d`, `volume_ratio_20d`, `vol_20d`, `market_vol_ratio`,
+#     `market_drawdown`, `cross_section_dispersion_21d`, `advance_ratio_10d`.
+#     Market-internals breadth (advance_ratio) is assigned to C as a
+#     risk-state proxy rather than to E (microstructure) because it is
+#     a daily cross-asset breadth signal, not an intraday microstructure
+#     feature.
+#   - Family D (trend-quality): adds `return_per_risk_21d`,
+#     `xsection_rank_21d`, `xsection_rank_63d`, `rank_momentum_change`.
+#   - Family E (NEW: intraday/overnight/microstructure): the
+#     `intraday_*`, `overnight_*`, `hl_range`, `realized_vol_60m_21d`,
+#     `price_volume_div` cluster — features whose source signal is
+#     within-day or overnight microstructure rather than daily-bar level.
+#   - Family F (NEW: short-horizon reversal): the `ret_{1,2,5}d` and
+#     `reversal_{5,10,21}d` cluster — features whose alpha thesis is
+#     mean-reversion at < 1 month horizon, distinct from Family D's
+#     trend-quality (which favors continuation at 21d-252d).
+#
+# The mapping is a mining-search-space concern only. It does NOT modify
+# factor implementations and does NOT auto-promote anything to production.
+
+FAMILY_A_V2 = FamilyConfig(
+    name="A",
+    title=FAMILY_A.title,
+    factors=frozenset(FAMILY_A.factors | {
+        "weak_market_relative_strength_63d",
+        "spy_trend_200d",
+        "spy_trend_gated_mom_63d",
+    }),
+)
+
+FAMILY_B_V2 = FamilyConfig(
+    name="B",
+    title=FAMILY_B.title,
+    factors=frozenset(FAMILY_B.factors | {
+        "mom_12_1",
+    }),
+)
+
+FAMILY_C_V2 = FamilyConfig(
+    name="C",
+    title=FAMILY_C.title,
+    factors=frozenset(FAMILY_C.factors | {
+        "dollar_vol_20d",
+        "volume_ratio_20d",
+        "vol_20d",
+        "market_vol_ratio",
+        "market_drawdown",
+        "cross_section_dispersion_21d",
+        "advance_ratio_10d",
+    }),
+)
+
+FAMILY_D_V2 = FamilyConfig(
+    name="D",
+    title=FAMILY_D.title,
+    factors=frozenset(FAMILY_D.factors | {
+        "return_per_risk_21d",
+        "xsection_rank_21d",
+        "xsection_rank_63d",
+        "rank_momentum_change",
+    }),
+)
+
+FAMILY_E = FamilyConfig(
+    name="E",
+    title="intraday / overnight / microstructure",
+    factors=frozenset({
+        "hl_range",
+        "intraday_ret_1d",
+        "intraday_autocorr_21d",
+        "intraday_vol_ratio_21d",
+        "realized_vol_60m_21d",
+        "overnight_ret_1d",
+        "overnight_gap_5d",
+        "overnight_gap_21d",
+        "overnight_vs_intraday",
+        "price_volume_div",
+    }),
+)
+
+FAMILY_F = FamilyConfig(
+    name="F",
+    title="short-horizon reversal",
+    factors=frozenset({
+        "ret_1d",
+        "ret_2d",
+        "ret_5d",
+        "reversal_5d",
+        "reversal_10d",
+        "reversal_21d",
+    }),
+)
+
+FAMILIES_V2: List[FamilyConfig] = [
+    FAMILY_A_V2, FAMILY_B_V2, FAMILY_C_V2, FAMILY_D_V2, FAMILY_E, FAMILY_F,
+]
+
+
+# ── pool→families selector + reachability preflight (A++ patch) ─────────────
+
+
+def families_for_pool(
+    pool_name: str,
+) -> List[FamilyConfig]:
+    """Return the family list for a named factor registry pool.
+
+    Selector is fail-closed: an unknown pool name raises ``ValueError``
+    rather than silently falling back. This is the mechanism by which
+    the cycle-#01 yaml's `factor_registry_pool: RESEARCH_FACTORS` is
+    bound to FAMILIES_V2 (the only family list whose union covers all
+    64 RESEARCH_FACTORS names).
+
+    Pool names supported:
+      - ``"RESEARCH_FACTORS"``  → FAMILIES_V2
+      - ``"FAMILIES_V1"``       → FAMILIES_V1 (legacy 33-factor subset)
+      - ``"FAMILIES_V2"``       → FAMILIES_V2 (alias)
+    """
+    name = pool_name.strip()
+    if name == "RESEARCH_FACTORS":
+        return FAMILIES_V2
+    if name == "FAMILIES_V2":
+        return FAMILIES_V2
+    if name == "FAMILIES_V1":
+        return FAMILIES_V1
+    raise ValueError(
+        f"Unknown factor_registry_pool {pool_name!r}. Supported: "
+        "'RESEARCH_FACTORS', 'FAMILIES_V1', 'FAMILIES_V2'."
+    )
+
+
+def assert_reachability_matches_pool(
+    pool_name: str,
+    families: Sequence[FamilyConfig],
+    explicit_exclusions: Optional[Sequence[str]] = None,
+) -> None:
+    """Fail-closed contract assertion for the pre-registered pool→sampler binding.
+
+    Layer split (A++ R3 audit refinement, 2026-04-30):
+      - This helper checks the CODE-level question: "does the family
+        mapping cover the named pool's registry exactly?" It is a
+        symmetric set-equality check on `union(families) == registry`.
+      - The OPERATIONAL question of which mapped factors are actually
+        searched at trial time (e.g. when a factor's data dependency is
+        unmet) is handled by `excluded_factors` in `suggest_composite_spec`
+        and by the runner's panel-availability assertion. Excluded
+        factors stay in the family mapping; they're filtered at sampler
+        time only.
+
+    `explicit_exclusions` is therefore intentionally NOT subtracted from
+    `expected` here. It's accepted as a parameter for forward-compat /
+    diagnostic clarity (callers can pass it and the helper just ignores
+    it for reachability purposes).
+
+    Raises
+    ------
+    ValueError
+      if the union of `families`' factors differs from the named pool's
+      registered name set. The error message lists missing-from-sampler
+      (under-coverage) and extra-in-sampler (phantom factors not in
+      registry) separately.
+
+    Notes
+    -----
+    For ``pool_name == 'FAMILIES_V1'`` or ``'FAMILIES_V2'`` (legacy
+    direct-pool selection), the assertion checks union(families) ==
+    union(named pool) without consulting RESEARCH_FACTORS. This makes
+    the helper usable in both yaml-driven and direct-pool flows.
+    """
+    from core.factors.factor_registry import RESEARCH_FACTORS  # lazy
+
+    # Accepted for diagnostic / forward-compat use, but does NOT alter
+    # the reachability set-equality check (see docstring layer-split note).
+    _ = explicit_exclusions
+
+    reachable = all_family_factors(families)
+
+    if pool_name.strip() == "RESEARCH_FACTORS":
+        expected = set(RESEARCH_FACTORS)
+    elif pool_name.strip() == "FAMILIES_V1":
+        expected = set(all_family_factors(FAMILIES_V1))
+    elif pool_name.strip() == "FAMILIES_V2":
+        expected = set(all_family_factors(FAMILIES_V2))
+    else:
+        raise ValueError(
+            f"Unknown factor_registry_pool {pool_name!r} for "
+            "reachability preflight."
+        )
+
+    missing_from_sampler = sorted(expected - reachable)
+    extra_in_sampler = sorted(reachable - expected)
+
+    if missing_from_sampler or extra_in_sampler:
+        raise ValueError(
+            "Sampler reachability does NOT match pre-registered "
+            f"factor_registry_pool={pool_name!r}.\n"
+            f"  Missing from sampler ({len(missing_from_sampler)}): "
+            f"{missing_from_sampler}\n"
+            f"  Extra in sampler    ({len(extra_in_sampler)}): "
+            f"{extra_in_sampler}\n"
+            "Resolution: broaden (or trim) the family mapping passed "
+            "to ResearchMiner so its union exactly matches the named "
+            "pool. (explicit_exclusions belong at the runner's panel-"
+            "availability layer + sampler-time filter, NOT here.)"
+        )
+
+
 # Runtime lookup helpers. Keep them as functions so callers can override
 # the family list for experimentation without mutating the module-level
 # default.
@@ -194,6 +425,7 @@ def suggest_composite_spec(
     weight_step: float = 0.05,
     composite_weighting: str = "tpe_normalized",
     target_n_features: Optional[int] = None,
+    excluded_factors: Optional[Sequence[str]] = None,
 ) -> ResearchCompositeSpec:
     """Family-aware composite sampler (PRD §8.5).
 
@@ -268,8 +500,19 @@ def suggest_composite_spec(
     selected: List[Tuple[str, str]] = []  # (family_name, factor_name)
     family_counts: dict[str, int] = {}
 
+    # A++ patch 2026-04-30: filter `excluded_factors` out of every family's
+    # categorical search space BEFORE TPE sees it. This keeps the sampler
+    # in agreement with the runner's panel-availability assertion: an
+    # excluded factor is never suggested. A family that ends up empty
+    # after exclusion is skipped (its categorical is never invoked, so
+    # TPE doesn't see a zero-arity choice).
+    excl_set: set[str] = set(excluded_factors or ())
+
     for fam in families:
-        sorted_factors = sorted(fam.factors)
+        sorted_factors = sorted(f for f in fam.factors if f not in excl_set)
+        if not sorted_factors:
+            family_counts[fam.name] = 0
+            continue
         # How many features from this family?
         count = trial.suggest_int(
             f"n_features_{fam.name}", 0, max_features_per_family,
@@ -750,7 +993,28 @@ class ResearchMiner:
         panel_max_date: Optional[str] = None,
         role: Optional[str] = None,
         max_factor_lookback_days: Optional[int] = None,
+        # A++ patch 2026-04-30: factor_registry_pool reachability contract.
+        # When non-None, the constructor invokes
+        # assert_reachability_matches_pool(factor_registry_pool, families,
+        # explicit_exclusions) and fails closed if the sampler cannot
+        # reach the named registry pool. Default None preserves
+        # legacy / direct-instantiation behavior.
+        factor_registry_pool: Optional[str] = None,
+        explicit_exclusions: Optional[Sequence[str]] = None,
     ) -> None:
+        # A++ patch 2026-04-30: pre-flight assert reachability matches
+        # the pre-registered factor_registry_pool. Run before storing
+        # state so a failed contract aborts construction cleanly.
+        if factor_registry_pool is not None:
+            assert_reachability_matches_pool(
+                pool_name=factor_registry_pool,
+                families=families,
+                explicit_exclusions=explicit_exclusions,
+            )
+        self.factor_registry_pool = factor_registry_pool
+        self.explicit_exclusions = (
+            tuple(explicit_exclusions) if explicit_exclusions else ()
+        )
         self.factor_panel_map = factor_panel_map
         self.fwd_returns = fwd_returns
         self.mask = mask
@@ -852,6 +1116,9 @@ class ResearchMiner:
             weight_step=self.weight_step,
             composite_weighting=self.composite_weighting,
             target_n_features=self.target_n_features,
+            excluded_factors=(
+                self.explicit_exclusions if self.explicit_exclusions else None
+            ),
         )
         # Codex R21 P0.1: enforce M6 C5 role-remint guard BEFORE evaluation.
         # If the same spec was already recorded under a DIFFERENT role within

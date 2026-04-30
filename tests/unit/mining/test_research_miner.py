@@ -973,3 +973,238 @@ mining_config:
     assert "criteria-yaml" in msg.lower() or "mismatch" in msg.lower() or "conflict" in msg.lower(), (
         f"expected fail-closed mismatch message; got: {msg!r}"
     )
+
+
+# ── A++ patch 2026-04-30: FAMILIES_V2 + reachability preflight tests ────────
+
+
+def test_aplusplus_families_v2_union_equals_research_factors():
+    """FAMILIES_V2 must cover RESEARCH_FACTORS exactly — the criteria yaml's
+    `factor_registry_pool: RESEARCH_FACTORS` contract requires every name
+    in the registry to be reachable by the sampler."""
+    from core.factors.factor_registry import RESEARCH_FACTORS
+    from core.mining.research_miner import FAMILIES_V2, all_family_factors
+
+    reachable = all_family_factors(FAMILIES_V2)
+    expected = set(RESEARCH_FACTORS)
+    missing = expected - reachable
+    extra = reachable - expected
+    assert not missing, f"FAMILIES_V2 missing RESEARCH_FACTORS: {sorted(missing)}"
+    assert not extra, (
+        f"FAMILIES_V2 contains names not in RESEARCH_FACTORS "
+        f"(would be unimplemented factors): {sorted(extra)}"
+    )
+    assert reachable == expected
+    assert len(reachable) == 64
+
+
+def test_aplusplus_families_v1_unchanged_at_33():
+    """FAMILIES_V1 stays at the pre-A++ 33-factor subset (legacy unchanged)."""
+    reachable = all_family_factors(FAMILIES_V1)
+    assert len(reachable) == 33
+
+
+def test_aplusplus_cand2_anchors_reachable_in_v2():
+    """Cand-2's 3 anchors (`ret_5d`, `rs_vs_spy_126d`, `hl_range`) must all
+    be reachable via FAMILIES_V2. Pre-A++, `ret_5d` and `hl_range` were
+    unreachable — that is the headline contract violation A++ fixes."""
+    from core.mining.research_miner import FAMILIES_V2, all_family_factors
+
+    reachable_v2 = all_family_factors(FAMILIES_V2)
+    reachable_v1 = all_family_factors(FAMILIES_V1)
+    for anchor in ("ret_5d", "rs_vs_spy_126d", "hl_range"):
+        assert anchor in reachable_v2, (
+            f"{anchor!r} unreachable via FAMILIES_V2 — Cand-2 anchor must be"
+            " searchable for the criteria yaml RESEARCH_FACTORS contract."
+        )
+    # Sanity: at least one Cand-2 anchor was unreachable in V1 (the gap A++ fixes)
+    v1_unreachable_cand2 = {
+        a for a in ("ret_5d", "rs_vs_spy_126d", "hl_range") if a not in reachable_v1
+    }
+    assert v1_unreachable_cand2, (
+        "Pre-A++ FAMILIES_V1 was supposed to NOT cover all Cand-2 anchors "
+        "(the contract gap motivating A++)."
+    )
+
+
+def test_aplusplus_families_v2_no_duplicate_ownership():
+    """No factor should belong to two families in FAMILIES_V2 — a single
+    factor in two families would skew family_counts and break the
+    min_families post-dedup count."""
+    from core.mining.research_miner import FAMILIES_V2
+
+    seen = {}
+    for fam in FAMILIES_V2:
+        for f in fam.factors:
+            assert f not in seen, (
+                f"factor {f!r} owned by both family {seen[f]!r} and {fam.name!r}"
+            )
+            seen[f] = fam.name
+
+
+def test_aplusplus_selector_research_factors_returns_v2():
+    from core.mining.research_miner import (
+        FAMILIES_V2, families_for_pool,
+    )
+    assert families_for_pool("RESEARCH_FACTORS") is FAMILIES_V2
+
+
+def test_aplusplus_selector_families_v1_returns_v1():
+    from core.mining.research_miner import families_for_pool
+    assert families_for_pool("FAMILIES_V1") is FAMILIES_V1
+
+
+def test_aplusplus_selector_unknown_pool_fails_closed():
+    from core.mining.research_miner import families_for_pool
+    with pytest.raises(ValueError, match="Unknown factor_registry_pool"):
+        families_for_pool("RESEARCH_FACTORS_v3")
+
+
+def test_aplusplus_assert_reachability_passes_for_v2_research_pool():
+    from core.mining.research_miner import (
+        FAMILIES_V2, assert_reachability_matches_pool,
+    )
+    # Should not raise
+    assert_reachability_matches_pool("RESEARCH_FACTORS", FAMILIES_V2)
+
+
+def test_aplusplus_assert_reachability_fails_v1_with_research_pool():
+    """The exact contract gap that motivated A++: passing FAMILIES_V1 with
+    pool=RESEARCH_FACTORS must fail-closed and list the 31 missing names."""
+    from core.mining.research_miner import assert_reachability_matches_pool
+
+    with pytest.raises(ValueError) as excinfo:
+        assert_reachability_matches_pool("RESEARCH_FACTORS", FAMILIES_V1)
+    msg = str(excinfo.value)
+    assert "RESEARCH_FACTORS" in msg
+    assert "Missing from sampler" in msg
+    # Spot-check that some known missing names appear in the message
+    assert "ret_5d" in msg
+    assert "hl_range" in msg
+
+
+def test_aplusplus_assert_reachability_ignores_explicit_exclusions_layer_split():
+    """A++ R3 audit refinement: assert_reachability_matches_pool is the
+    CODE-level mapping-vs-registry check. explicit_exclusions live at the
+    OPERATIONAL layer (runner panel-availability + sampler-time filter)
+    and do NOT relax this assertion.
+
+    Concretely: V1 with pool=RESEARCH_FACTORS still fails-closed even if
+    every missing name is declared as explicit_exclusions. The right way
+    to make V1+RESEARCH_FACTORS work is to broaden the family mapping
+    (which is what V2 does), not to over-load explicit_exclusions."""
+    from core.factors.factor_registry import RESEARCH_FACTORS
+    from core.mining.research_miner import (
+        all_family_factors, assert_reachability_matches_pool,
+    )
+
+    missing_31 = sorted(set(RESEARCH_FACTORS) - all_family_factors(FAMILIES_V1))
+    # Even with explicit exclusions covering every missing name, the
+    # CODE-level mapping-vs-registry check still fails (this is the
+    # layer-split contract).
+    with pytest.raises(ValueError, match="Sampler reachability does NOT match"):
+        assert_reachability_matches_pool(
+            "RESEARCH_FACTORS", FAMILIES_V1, explicit_exclusions=missing_31,
+        )
+
+
+def test_aplusplus_suggest_composite_excludes_factors_at_sampler_time():
+    """A++ R3 audit refinement: explicit exclusions are honored at
+    sampler time — TPE never sees the excluded names in any family's
+    categorical search space, so trials can never pick them.
+    """
+    from core.mining.research_miner import (
+        FAMILIES_V2, suggest_composite_spec,
+    )
+
+    # Build a trial that always picks 1 feature per family. Excluding
+    # all of family F's factors should make family F yield 0 features.
+    fam_f_factors = {"ret_1d", "ret_2d", "ret_5d",
+                     "reversal_5d", "reversal_10d", "reversal_21d"}
+    excluded = sorted(fam_f_factors)
+
+    class _Trial:
+        def suggest_int(self, name, lo, hi): return hi  # max per family
+        def suggest_categorical(self, name, choices):
+            # Asserts no excluded factor is ever offered as a choice
+            for c in choices:
+                assert c not in fam_f_factors, (
+                    f"sampler offered excluded factor {c!r} in {name}"
+                )
+            return choices[0]
+        def suggest_float(self, name, lo, hi, step=None): return 1.0
+
+    spec = suggest_composite_spec(
+        _Trial(),
+        families=FAMILIES_V2,
+        min_families=3,
+        max_features_per_family=2,
+        composite_weighting="equal_weight",
+        excluded_factors=excluded,
+    )
+    # Spec features should not contain any excluded factor
+    for feat in spec.features:
+        assert feat not in fam_f_factors
+
+
+def test_aplusplus_research_miner_constructor_runs_preflight():
+    """Constructing ResearchMiner with factor_registry_pool=RESEARCH_FACTORS
+    and families=FAMILIES_V1 must fail-closed at construction time
+    (defense-in-depth — runner OR a direct caller both go through the
+    same gate)."""
+    # Build minimal panel inputs (1 factor + 1 fwd return frame)
+    idx = pd.date_range("2020-01-01", periods=10, freq="B")
+    cols = ["AAPL", "MSFT", "GOOG"]
+    factor_panel_map = {
+        "beta_spy_60d": pd.DataFrame(0.1, index=idx, columns=cols)
+    }
+    fwd_returns = pd.DataFrame(0.0, index=idx, columns=cols)
+
+    with pytest.raises(ValueError, match="Sampler reachability does NOT match"):
+        ResearchMiner(
+            factor_panel_map=factor_panel_map,
+            fwd_returns=fwd_returns,
+            families=FAMILIES_V1,
+            factor_registry_pool="RESEARCH_FACTORS",
+        )
+
+
+def test_aplusplus_research_miner_constructor_passes_with_v2():
+    """Symmetric to previous: V2 + RESEARCH_FACTORS pool constructs cleanly."""
+    from core.mining.research_miner import FAMILIES_V2
+
+    idx = pd.date_range("2020-01-01", periods=10, freq="B")
+    cols = ["AAPL", "MSFT", "GOOG"]
+    factor_panel_map = {
+        "beta_spy_60d": pd.DataFrame(0.1, index=idx, columns=cols)
+    }
+    fwd_returns = pd.DataFrame(0.0, index=idx, columns=cols)
+
+    miner = ResearchMiner(
+        factor_panel_map=factor_panel_map,
+        fwd_returns=fwd_returns,
+        families=FAMILIES_V2,
+        factor_registry_pool="RESEARCH_FACTORS",
+    )
+    assert miner.factor_registry_pool == "RESEARCH_FACTORS"
+    assert miner.explicit_exclusions == ()
+    assert len(miner.families) == 6
+
+
+def test_aplusplus_research_miner_no_pool_legacy_path():
+    """factor_registry_pool=None preserves legacy / direct-pool flow
+    (no preflight assertion, no constructor-time fail-closed)."""
+    idx = pd.date_range("2020-01-01", periods=10, freq="B")
+    cols = ["AAPL", "MSFT", "GOOG"]
+    factor_panel_map = {
+        "beta_spy_60d": pd.DataFrame(0.1, index=idx, columns=cols)
+    }
+    fwd_returns = pd.DataFrame(0.0, index=idx, columns=cols)
+
+    miner = ResearchMiner(
+        factor_panel_map=factor_panel_map,
+        fwd_returns=fwd_returns,
+        families=FAMILIES_V1,
+        factor_registry_pool=None,
+    )
+    assert miner.factor_registry_pool is None

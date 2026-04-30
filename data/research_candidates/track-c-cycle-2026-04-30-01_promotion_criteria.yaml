@@ -368,6 +368,24 @@ mining_config:
   factor_registry_source: core/factors/factor_registry.py
   factor_registry_pool: RESEARCH_FACTORS    # NOT PRODUCTION_FACTORS;
                                             # research-only mining
+  # A++ patch 2026-04-30 — explicit_exclusions for factors whose data
+  # dependency is not satisfied by the daily-mining factor pipeline.
+  # These names are REGISTERED in core/factors/factor_registry.RESEARCH_FACTORS
+  # but the pipeline at scripts/run_research_miner.py::_load_price_volume +
+  # _build_factor_panel_map only loads daily bars and therefore cannot
+  # compute the 3 intraday/60m-dependent factors below. Wiring intraday
+  # data into the daily-mining flow is a future-cycle prep item — not
+  # in scope for this cycle. Without this exclusion, every TPE trial
+  # that picks one of these factors fails KeyError downstream → 0
+  # finite-objective trials (R3 audit caught this empirically).
+  explicit_exclusions:
+    - intraday_autocorr_21d        # requires intraday returns
+    - intraday_vol_ratio_21d       # requires intraday volume
+    - realized_vol_60m_21d         # requires 60m bars
+  # The 61-factor effective search space (64 RESEARCH_FACTORS minus 3
+  # explicit_exclusions) is what this cycle searches. Substantive gates
+  # (anti_sibling_discipline, watchlist_total_share_max, IC_IR floor,
+  # etc.) are unchanged from the prior pre-registration.
 
 
 # ── Closeout discipline (sealed-window protection per audit R39) ────

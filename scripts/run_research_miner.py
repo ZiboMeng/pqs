@@ -49,9 +49,12 @@ from core.research.temporal_split import (
 )
 from core.mining.research_miner import (
     FAMILIES_V1,
+    FAMILIES_V2,
     ObjectiveWeights,
     ResearchMiner,
     all_family_factors,
+    assert_reachability_matches_pool,
+    families_for_pool,
 )
 
 setup_logging()
@@ -301,7 +304,39 @@ def main() -> int:
              "When --criteria-yaml is provided this CLI flag must match "
              "yaml.mining_config.composite_cardinality or be omitted.",
     )
+    # ── A++ patch 2026-04-30: factor_registry_pool reachability contract ──
+    # When --criteria-yaml asserts mining_config.factor_registry_pool ==
+    # 'RESEARCH_FACTORS', the runner MUST pick FAMILIES_V2 (the only
+    # family list whose union covers all 64 RESEARCH_FACTORS) and run
+    # assert_reachability_matches_pool BEFORE any mining trial. This
+    # closes the pre-A++ gap where FAMILIES_V1 (33 factors) silently
+    # restricted the mining search space below the pre-registered pool
+    # (Cand-2's anchors `ret_5d` and `hl_range` were unreachable).
+    parser.add_argument(
+        "--factor-registry-pool", default=None,
+        choices=["RESEARCH_FACTORS", "FAMILIES_V1", "FAMILIES_V2"],
+        help="Factor registry pool the sampler must cover. None = legacy "
+             "FAMILIES_V1. When --criteria-yaml is provided this CLI flag "
+             "must match yaml.mining_config.factor_registry_pool or be "
+             "omitted (yaml is source of truth).",
+    )
+    # explicit_exclusions are typically expressed in the criteria yaml
+    # (under mining_config.explicit_exclusions) rather than CLI; this
+    # CLI flag exists for ad-hoc/testing flows. When --criteria-yaml is
+    # provided, the runner reads yaml.mining_config.explicit_exclusions.
+    parser.add_argument(
+        "--explicit-exclusion", action="append", default=None,
+        help="Factor name to exclude from the reachability + panel-"
+             "availability contract (repeatable). Typically declared in "
+             "criteria yaml; CLI form is for ad-hoc/testing flows.",
+    )
     args = parser.parse_args()
+    # Normalize explicit_exclusions: yaml is source of truth; CLI fills only
+    # when yaml absent / silent.
+    if args.explicit_exclusion is None:
+        args.explicit_exclusions: list = []
+    else:
+        args.explicit_exclusions = list(args.explicit_exclusion)
 
     # ── Apply criteria yaml as source of truth (fail-closed mismatch) ──
     if args.criteria_yaml is not None:
@@ -332,6 +367,8 @@ def main() -> int:
             ("panel_end_date",                "end_date",                  None,          "--end-date"),
             ("min_families",                  "min_families",              3,             "--min-families"),
             ("max_features_per_family",       "max_features_per_family",   2,             "--max-features-per-family"),
+            # A++ patch 2026-04-30: factor_registry_pool reachability contract
+            ("factor_registry_pool",          "factor_registry_pool",      None,          "--factor-registry-pool"),
         ]
         mismatches: list[str] = []
         for yaml_key, cli_attr, default, flag_name in _yaml_to_cli:
@@ -348,6 +385,18 @@ def main() -> int:
             # Override default with yaml value
             if cli_val == default or cli_val is None:
                 setattr(args, cli_attr, yaml_val)
+
+        # explicit_exclusions: yaml mining_config.explicit_exclusions list.
+        # When yaml lists exclusions and CLI ALSO lists exclusions, fail-
+        # closed unless they match exactly (yaml is source of truth).
+        yaml_excl = mc.get("explicit_exclusions") if isinstance(mc.get("explicit_exclusions"), list) else None
+        if yaml_excl is not None:
+            if args.explicit_exclusions and set(args.explicit_exclusions) != set(yaml_excl):
+                mismatches.append(
+                    f"  --explicit-exclusion={sorted(args.explicit_exclusions)!r} conflicts with "
+                    f"yaml.mining_config.explicit_exclusions={sorted(yaml_excl)!r}"
+                )
+            args.explicit_exclusions = list(yaml_excl)
 
         # drop_symbols: yaml is a list; CLI default is None
         yaml_drop = mc.get("drop_symbols") if isinstance(mc.get("drop_symbols"), list) else None
@@ -459,7 +508,65 @@ def main() -> int:
     panel_map, fwd_h, mask, n_masked = _build_factor_panel_map(
         frames, tradable, horizon=args.horizon,
     )
-    family_factor_names = all_family_factors(FAMILIES_V1)
+    # A++ patch 2026-04-30: select family list per factor_registry_pool
+    # contract. None → FAMILIES_V1 (legacy, 33 factors). Cycle 2026-04-30
+    # #01 yaml asserts RESEARCH_FACTORS → FAMILIES_V2 (64 factors).
+    if args.factor_registry_pool is None:
+        active_families = FAMILIES_V1
+        active_pool_label = "FAMILIES_V1 (legacy, no pool contract)"
+    else:
+        active_families = families_for_pool(args.factor_registry_pool)
+        active_pool_label = args.factor_registry_pool
+        # Pre-flight reachability assert (fail-closed on contract mismatch).
+        # explicit_exclusions are factors the criteria yaml acknowledges
+        # are unreachable (e.g., data-dependency not yet wired) — they're
+        # subtracted from the expected pool for the assertion.
+        assert_reachability_matches_pool(
+            pool_name=args.factor_registry_pool,
+            families=active_families,
+            explicit_exclusions=args.explicit_exclusions or None,
+        )
+        logger.info(
+            "factor_registry_pool=%s reachability preflight PASS (%d factors "
+            "reachable across %d families; %d explicit_exclusions)",
+            args.factor_registry_pool,
+            len(all_family_factors(active_families)),
+            len(active_families),
+            len(args.explicit_exclusions or []),
+        )
+        if args.explicit_exclusions:
+            logger.info(
+                "explicit_exclusions: %s (data-dependency not satisfied "
+                "in this pipeline)",
+                sorted(args.explicit_exclusions),
+            )
+    family_factor_names = all_family_factors(active_families)
+    # A++ patch 2026-04-30: panel-availability assertion. The reachability
+    # preflight above only checks sampler→family→factor coverage. It does
+    # NOT check that each reachable factor actually has a generated panel
+    # in `panel_map`. R3 audit caught the case where 3 intraday-dependent
+    # factors are in RESEARCH_FACTORS + FAMILIES_V2 but the daily-mining
+    # panel pipeline doesn't compute their panels — every TPE trial that
+    # picks one of those factors fails KeyError downstream. Fail-closed
+    # here so the operator notices BEFORE the mining run rather than
+    # after 200 pruned trials.
+    if args.factor_registry_pool is not None:
+        excl_set = set(args.explicit_exclusions or ())
+        expected_in_panel = family_factor_names - excl_set
+        unavailable = sorted(expected_in_panel - set(panel_map))
+        if unavailable:
+            raise SystemExit(
+                "Panel-availability contract violation (A++ patch 2026-04-30):\n"
+                f"  factor_registry_pool={args.factor_registry_pool}\n"
+                f"  Sampler can reach: {len(family_factor_names)} factors\n"
+                f"  Panel pipeline produced: {len(panel_map)} factors\n"
+                f"  Unreachable due to missing panel ({len(unavailable)}): "
+                f"{unavailable}\n"
+                "Resolution: either (a) wire the factor pipeline to "
+                "produce these panels, or (b) declare them under criteria "
+                "yaml mining_config.explicit_exclusions with a documented "
+                "data-dependency reason."
+            )
     missing = family_factor_names - set(panel_map)
     if missing:
         logger.warning(
@@ -485,12 +592,12 @@ def main() -> int:
     logger.info("Opening archive: %s", args.archive_db)
     archive = RCMArchive(args.archive_db)
 
-    logger.info("Building ResearchMiner...")
+    logger.info("Building ResearchMiner with %s...", active_pool_label)
     miner = ResearchMiner(
         factor_panel_map=panel_map,
         fwd_returns=fwd_h,
         mask=mask,
-        families=FAMILIES_V1,
+        families=active_families,
         objective_weights=ObjectiveWeights(),
         min_families=args.min_families,
         max_features_per_family=args.max_features_per_family,
@@ -510,6 +617,11 @@ def main() -> int:
             split_cfg.access_rules.factor_warmup_max_lookback_days
             if split_cfg is not None else None
         ),
+        # A++ patch 2026-04-30: pool contract carried into miner for
+        # archive provenance + a redundant constructor-level reachability
+        # assert (defense-in-depth vs caller bypassing the runner).
+        factor_registry_pool=args.factor_registry_pool,
+        explicit_exclusions=(args.explicit_exclusions or None),
     )
 
     logger.info(
@@ -565,6 +677,12 @@ def main() -> int:
             "fwd_return_horizon_days": int(args.horizon),
             "fwd_return_mode": "cc",
             "composite_lag_bars": int(args.lag),
+            # A++ patch 2026-04-30: factor_registry_pool provenance for
+            # any consumer of the run_summary.json artifact.
+            "factor_registry_pool": args.factor_registry_pool,
+            "n_families_active": len(active_families),
+            "n_factors_reachable_via_families": len(family_factor_names),
+            "explicit_exclusions": list(args.explicit_exclusions or []),
         },
         temporal_split_metadata=temporal_split_metadata,
     )
