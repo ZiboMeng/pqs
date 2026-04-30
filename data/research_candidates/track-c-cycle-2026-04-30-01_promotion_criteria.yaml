@@ -1,0 +1,454 @@
+# Promotion Criteria — Track C Cycle 2026-04-30 #01
+#
+# Authority:
+#   - docs/memos/20260426-research_layer_partial_unfreeze.md (research layer)
+#   - docs/memos/20260430-priority_realign_alpha_first.md (alpha-first scope)
+#   - docs/memos/20260430-track_c_dry_run_plan.md (cycle plan §3 inline yaml)
+#   - docs/prd/20260429-temporal_split_holdout_discipline_prd.md (Track A v1.1)
+#   - User explicit go (zibo, 2026-04-30)
+#
+# Lineage tag:    track-c-cycle-2026-04-30-01
+# Authored:       2026-04-30
+# Authored by:    Claude (operator) under user explicit-go
+#
+# IMMUTABILITY CONTRACT:
+#   Once this file is committed with sha256 recorded in commit message,
+#   ALL fields below are FROZEN for this lineage. If any threshold turns
+#   out wrong in hindsight, the next research cycle gets new criteria;
+#   this lineage's bar does NOT move.
+#
+# SHA256 verification:
+#   sha256sum data/research_candidates/track-c-cycle-2026-04-30-01_promotion_criteria.yaml
+#   The sha256 from the commit that introduces this file is the
+#   canonical pre-registration hash. Mining trials may begin only
+#   AFTER that commit lands.
+#
+# 4-TIER UNSEEN TAXONOMY ENFORCEMENT (per priority realign memo §"4-tier
+# unseen taxonomy"):
+#   - Tier 1 machine-training-unseen: enforced via temporal_split.yaml
+#     train+validation panel cutoff 2025-12-31; sealed 2026 isolated.
+#   - Tier 2 machine-evaluation-unseen: enforced via Track A
+#     temporal_split_acceptance.evaluate; sealed eval is single-shot,
+#     fail_closed_on_repeat keyed on candidate_spec_sha256.
+#   - Tier 3 machine-rule-unseen: enforced via THIS YAML's pre-registered
+#     immutable thresholds (sha256 commit before any trial).
+#   - Tier 4 human-decision-unseen: BROKEN since 2026-04-30; mitigated
+#     via this YAML being written today rather than later, plus
+#     mechanical TPE mining pipeline (seed=42, deterministic) limiting
+#     human path-knowledge entry surface.
+
+# ── Meta ────────────────────────────────────────────────────────────
+lineage_tag: track-c-cycle-2026-04-30-01
+schema_version: "1.0"
+document_type: pre_registered_promotion_criteria
+
+# Track A temporal split this lineage is bound to.
+split_name: alternating_regime_holdout_v1
+split_config_source: config/temporal_split.yaml
+role: core   # cycle #01 mines core role only; diversifier role
+             # may run as a SEPARATE cycle if core succeeds.
+
+# Authoring commit (filled in commit message; this field exists for
+# audit but the canonical record is the git commit sha + sha256
+# digest of THIS file at that commit).
+authoring_commit: <recorded in commit message>
+
+# Sealed window — for tier 1+2 machine isolation.
+sealed_window_id: 2026_full_year
+sealed_window_start: "2026-01-01"
+sealed_window_end:   "2026-12-31"
+sealed_until_date:   "2027-01-01"  # criteria can be retired no earlier
+
+purpose: |
+  First Track C controlled-mining cycle under the new framework
+  (post-G2.A 30% concentration ceiling, post-M12 weighted thin-data
+  fix, post-Track-A alternating-regime temporal split, post-Step-5
+  correlation budget, post-NAV-orthogonality audit-R2 tiers, post-
+  audit-R36 anti-sibling discipline). Answers the single highest-
+  value question: does the new framework admit any alpha at all?
+
+  This document defines:
+    - what a candidate must achieve to be ELIGIBLE as the lineage's
+      nominee (hard_requirements)
+    - what context fields the candidate's evidence pack MUST
+      report regardless of pass/fail (report_only)
+    - the mining configuration permitted under this authorization
+      (mining_config)
+    - cycle close discipline that defends against spec-tweak-after-
+      failure boundary case (closeout_discipline)
+
+
+# ── Hard requirements (must-pass; gate the nomination) ──────────────
+# A candidate that fails ANY field here is NOT eligible to be the
+# lineage's nominee. Numeric thresholds are binary.
+hard_requirements:
+
+  # ── Track A acceptance ───────────────────────────────────────────
+  # All 18 Track A acceptance gates per
+  # docs/prd/20260429-temporal_split_holdout_discipline_prd.md §11
+  # must aggregate-pass. This includes per-validation-year IC_IR,
+  # stress-slice MaxDD, concentration, beta, cost, role-specific
+  # checks.
+  track_a_acceptance:
+    evaluator: core.research.temporal_split_acceptance.evaluate
+    must_aggregate_pass: true
+    role_specific_gates:
+      core:
+        # Per Track A PRD §C5 (role gate) — 2025 must be hard pass
+        # on core role specifically.
+        validation_2025_must_pass: true
+
+  # ── IC_IR floor (machine-rule-unseen tier 3) ─────────────────────
+  # Reference: prior cycle (2026-04-26 #01) used same 0.25 bar; that
+  # cycle was 0-nominee but the gate that closed it was watchlist
+  # share, NOT IC_IR. RCMv1 0.4951; Cand-2 0.116; random-baseline
+  # best 0.336. Bar at 0.25 is meaningfully above noise.
+  min_ic_ir_full_period: 0.25
+
+  # Walk-forward fold positivity. Track A split provides 4 folds
+  # over alternating-regime structure. 3/4 positive = regime-coverage
+  # bar without forcing perfect run.
+  min_walk_forward_folds_positive: 3
+  walk_forward_n_folds: 4
+
+  # ── Concentration ceilings ───────────────────────────────────────
+  # M12 post-audit-fix two-layer split (BacktestEngine populates;
+  # acceptance_pack Gate 7 enforces). Tier ceiling at "warning":
+  # `pass` and `warning` eligible; `manual_review_required` not.
+  m12_concentration_tier_ceiling: warning
+  m12_top1_weight_max: 0.40
+  m12_top3_weight_max: 0.70
+
+  # Watchlist total share (weight-day share on watchlist symbols).
+  # SAME 0.30 ceiling that closed cycle 2026-04-26 #01 — kept identical
+  # so this lineage is comparable to the prior cycle's failure point
+  # (RCMv1 57.73%, Cand-2 31.07%, prior cycle top trial 39.50%).
+  # This is also the §1.3 reverse-validation sentinel.
+  watchlist_total_share_max: 0.30
+
+  # Thin-data weighted share (post-M12 weighted definition, NOT pre-fix
+  # binary share). PRD v3 §C extreme threshold.
+  thin_data_weighted_share_max: 0.10
+
+  # ── Leveraged-ETF dominance (CLAUDE.md invariant constraint) ─────
+  # No single leveraged ETF >10% weight share; SQQQ blacklisted by
+  # universe; TQQQ/SOXL allowed but not dominant.
+  tqqq_share_max: 0.10
+  soxl_share_max: 0.10
+
+  # ── QQQ outperformance hard rule (CLAUDE.md QQQ Outperformance Rule) ──
+  # Three-tier hard constraint (full / holdout / avg-OOS); per-window
+  # diagnostic only.
+  qqq_outperformance:
+    full_period_cagr_must_exceed_qqq_cagr: true
+    holdout_252d_return_must_exceed_qqq_return: true
+    walk_forward_avg_excess_vs_qqq_must_be_positive: true
+
+  # ── NAV-level orthogonality vs every active candidate ────────────
+  # Tiered NAV correlation (priority realign memo §3 + correlation memo).
+  # 4-tier scheme replaces older flat 0.40 (factor-IC config) which is
+  # structurally over-strict for long-only US-equity NAV. BOTH raw
+  # (no beta strip) and residual (beta-stripped vs SPY+QQQ) Pearson
+  # must satisfy the tier — see correlation memo §2.7 for residual
+  # diagnostic and why both are needed.
+  #
+  # Diversifier eligibility:
+  #   - raw_pearson MUST be in true_diversifier band (< 0.50)
+  #   - residual_pearson MUST be in true_diversifier band vs
+  #     SPY OR vs QQQ (post-audit alignment with evidence pack
+  #     template §4.6.4 — a strategy residual-orthogonal vs SPY
+  #     but not vs QQQ is still diversifying in a QQQ-heavy fleet,
+  #     and vice versa).
+  #
+  # Pooled-window minimum: 60 overlap days, mirrors Step 5 fleet
+  # correlation budget pooled requirement.
+  nav_orthogonality_vs_rcm_v1_defensive_composite_01:
+    method: pearson_on_realized_paper_nav_returns
+    pooled_min_overlap_days: 60
+    raw_pearson_tiers:
+      true_diversifier:    "< 0.50"
+      partial_diversifier: ">= 0.50 and < 0.70"
+      warn_label_void:     ">= 0.70 and < 0.85"
+      reject_step5:        ">= 0.85"
+    residual_pearson_tiers:
+      true_diversifier:    "< 0.50"
+      partial_diversifier: ">= 0.50 and < 0.70"
+      warn_label_void:     ">= 0.70 and < 0.85"
+      reject_step5:        ">= 0.85"
+    diversifier_eligibility:
+      raw_pearson_must_be_in:                        ["true_diversifier"]
+      residual_pearson_either_spy_or_qqq_must_be_in: ["true_diversifier"]
+
+  nav_orthogonality_vs_candidate_2_orthogonal_01:
+    method: pearson_on_realized_paper_nav_returns
+    pooled_min_overlap_days: 60
+    raw_pearson_tiers:
+      true_diversifier:    "< 0.50"
+      partial_diversifier: ">= 0.50 and < 0.70"
+      warn_label_void:     ">= 0.70 and < 0.85"
+      reject_step5:        ">= 0.85"
+    residual_pearson_tiers:
+      true_diversifier:    "< 0.50"
+      partial_diversifier: ">= 0.50 and < 0.70"
+      warn_label_void:     ">= 0.70 and < 0.85"
+      reject_step5:        ">= 0.85"
+    diversifier_eligibility:
+      raw_pearson_must_be_in:                        ["true_diversifier"]
+      residual_pearson_either_spy_or_qqq_must_be_in: ["true_diversifier"]
+
+  # ── Cost robustness ──────────────────────────────────────────────
+  # Already in Track A acceptance; restated here for nomination
+  # explicitness. 2x cost stress must remain CAGR-positive.
+  cost_robustness_2x_must_remain_positive_cagr: true
+
+  # ── Anti-sibling discipline (audit R36 §4) ───────────────────────
+  # If a candidate passes all gates above but is structurally a
+  # RCMv1/Cand-2 sibling (long-only × monthly × top-N × momentum/
+  # quality/relative-strength on the same 78-symbol universe), it
+  # does NOT enter nominee status. Closeout memo MUST explicitly
+  # classify candidate against this taxonomy:
+  #
+  #   - intraday-reversal / mean-reversion family
+  #   - event/calendar features
+  #   - sector / cross-asset / rates-sensitive sleeve
+  #   - volatility / dispersion / drawdown-recovery features
+  #   - different cadence (weekly rebalance, intraday timing overlay)
+  #   - explicitly beta-controlled portfolio construction (not just
+  #     factor selection)
+  #
+  # The classification is a written reviewer judgment in the
+  # evidence pack §"alpha-source classification". Quantitative
+  # heuristic (necessary but not sufficient): if NAV residual
+  # correlation vs RCMv1 AND vs Cand-2 are BOTH in true_diversifier
+  # band, candidate is presumed structurally different. If either
+  # is partial_diversifier or worse, reviewer must justify
+  # non-sibling-ness in evidence pack with concrete mechanism
+  # (e.g., "candidate trades on event-calendar features, mechanism
+  # documented in §X of evidence pack").
+  anti_sibling_discipline:
+    must_classify_alpha_source_in_evidence_pack: true
+    quantitative_heuristic_for_presumption: |
+      Both nav_orthogonality_vs_rcm_v1.residual_pearson AND
+      nav_orthogonality_vs_cand_2.residual_pearson must be in
+      true_diversifier band for "presumed structurally different"
+      shortcut. Otherwise reviewer must document concrete mechanism.
+
+  # ── Panel cutoff (tier 1 enforcement) ────────────────────────────
+  # train+validation panel cutoff. NOT 2024-12-31 like prior cycle —
+  # Track A alternating split includes 2025 in validation, so panel
+  # cutoff must include 2025. 2026 sealed isolated.
+  panel_cutoff_max_date: "2025-12-31"
+
+  # ── Universe + panel + mask spec ─────────────────────────────────
+  # Inherits the post-round-3 78-sym universe (BRK-B dropped). NO
+  # universe extension allowed under this lineage. Future cycle
+  # may extend, but only via NEW lineage with NEW criteria.
+  universe_panel_mask_spec:
+    seed_pool_source: config/universe.yaml::seed_pool
+    sector_etfs_source: config/universe.yaml::sector_etfs
+    factor_etfs_source: config/universe.yaml::factor_etfs
+    cross_asset_source: config/universe.yaml::cross_asset
+    blacklist_source: config/universe.yaml::blacklist
+    macro_reference_source: config/universe.yaml::macro_reference
+    drop_symbols: ["BRK-B"]
+    n_symbols_expected: 78
+    mask: research_mask_default
+    mask_config: config/research_mask.yaml
+
+  # ── Forecast horizon ─────────────────────────────────────────────
+  # Locked to 21d (matches RCMv1 + Cand-2 for cross-candidate NAV
+  # correlation comparability).
+  fwd_return_horizon_days: 21
+  ic_evaluation_lag_bars: 1   # leakage-safe semantic per R15
+
+
+# ── Hard blockers (acceptance-independent) ──────────────────────────
+# Conditions that block nomination INDEPENDENTLY of acceptance pass.
+# Mirrors Track C plan §3 inline draft hard_blockers.
+hard_blockers:
+  - any_validation_year_maxdd_above_0_20
+  - any_stress_slice_maxdd_above_0_25
+  - validation_aggregate_excess_vs_qqq_le_0
+  - validation_2025_role_hard_gate_failure
+
+
+# ── Report-only / interpretive (must-report; do NOT gate) ───────────
+# A candidate's evidence pack MUST include these fields. Their values
+# do NOT singly gate promotion. Reviewers use them to form qualitative
+# judgement on whether a hard-pass nominee should advance.
+#
+# IMPORTANT: nothing here is a binary threshold. Tools downstream
+# that read this file MUST NOT treat report_only fields as additional
+# must-pass gates.
+report_only:
+
+  # Per-regime IR breakdown (6 PQS regimes).
+  regime_stability_per_regime_ir:
+    must_report_regimes:
+      - BULL
+      - BEAR
+      - RISK_ON
+      - RISK_OFF
+      - CRISIS
+      - SIDEWAYS
+
+  # Portfolio-weighted β statistics.
+  benchmark_beta_statistics:
+    must_report:
+      - portfolio_weighted_mean_beta
+      - portfolio_weighted_std_beta
+      - max_abs_per_symbol_beta
+      - n_symbols_with_beta
+
+  # Per-stress-slice metrics (sanity only; borrowed from Track A
+  # PRD §4 stress slices). NOT a gate.
+  stress_slice_diagnostics:
+    must_report_per_slice:
+      - covid_flash      # 2020-02-19 → 2020-03-23
+      - rate_hike_2022   # 2022-01-03 → 2022-10-12
+    fields:
+      - cum_ret
+      - sharpe
+      - max_dd
+      - vs_spy
+      - vs_qqq
+
+  # Turnover proxy (monthly).
+  turnover_proxy:
+    must_report: true
+
+  # Composite-IC-level correlation vs existing pair (separate from
+  # NAV-level which is a hard gate above). Recorded for diagnostic
+  # comparison against historical factor-IC orthogonality framework.
+  composite_ic_correlation_vs_existing_pair:
+    must_report:
+      - composite_corr_vs_rcm_v1_defensive_composite_01
+      - composite_corr_vs_candidate_2_orthogonal_01
+
+  # Forward-knowledge inventory — declares any 2026-relevant
+  # information the human authoring this criteria yaml had access
+  # to BEFORE writing it. Per priority realign memo tier 4
+  # acknowledgment. Diagnostic only; does not move gate.
+  human_path_knowledge_inventory:
+    today_date: "2026-04-30"
+    declared_2026_observations:
+      - "RCMv1 + Cand-2 forward observe TD001-TD003 reported in
+         docs/memos/20260428-forward_observe_first_real_after_v2_1_3.md"
+      - "RCMv1 + Cand-2 NAV correlation 0.898 over 154d post-step3b
+         paper sample (most recent ~30 days overlap into 2026 Q1)"
+      - "general macro awareness of 2026 Q1+April market direction"
+    declared_2026_NON_observations:
+      - "no ticker-level alpha signal observation post 2025-12-31"
+      - "no 2026 IC/IR/Sharpe computed during criteria authoring"
+      - "no 2026 winner/loser ranking derivation during criteria
+         authoring"
+
+
+# ── Mining configuration ────────────────────────────────────────────
+# Captures HOW mining will be run under this lineage. Anti-cherry-
+# pick: committed alongside criteria so mining run cannot secretly
+# use a different config.
+mining_config:
+  sampler: tpe
+  seed: 42
+  n_trials: 200
+  min_families: 3
+  max_features_per_family: 2
+  composite_cardinality: 3       # 3 factors equal-weight (Cand-2 pattern;
+                                 # PRD §5.5)
+  composite_weighting: equal_weight   # NO TPE-tuned weights inside
+                                      # composite — eliminates one
+                                      # cherry-pick degree-of-freedom
+  archive_db: data/mining/rcm_archive.db
+  optuna_db: data/mining/rcm_optuna.db
+  out_dir: data/ml/research_miner/track-c-cycle-2026-04-30-01
+  panel_start_date: "2007-01-02"
+  panel_end_date: "2025-12-31"
+  temporal_split_role: core
+  factor_registry_source: core/factors/factor_registry.py
+  factor_registry_pool: RESEARCH_FACTORS    # NOT PRODUCTION_FACTORS;
+                                            # research-only mining
+
+
+# ── Closeout discipline (sealed-window protection per audit R39) ────
+# Spec-tweak-after-failure boundary case defense: until A.MV ships
+# the future 4-field sealed_lock_key (split_name + criteria_yaml_sha256
+# + sealed_window_id + role), this section is the OPERATOR-LEVEL
+# substitute.
+#
+# RULE: A failed sealed eval CLOSES this cycle. Reopening with a
+# different candidate spec on the SAME 2026 sealed window REQUIRES
+# a NEW pre-registered criteria yaml (new lineage_tag) AND a NEW
+# unseen window (e.g. 2027 sealed). The current criteria yaml's
+# sealed_window_id is single-use for this lineage.
+#
+# FAILURE MODE the rule prevents: cycle #01 sealed fails → human
+# modifies one weight in spec → re-freezes new spec → new
+# candidate_spec_sha256 → sealed_ledger fail_closed_on_repeat lets
+# it through (sees a new spec_sha) → sealed re-runs on same 2026
+# data with parameter information leakage. This is textbook
+# holdout-overfitting via spec retuning.
+closeout_discipline:
+  sealed_window_single_use: true
+  failed_sealed_closes_cycle: true
+  reopen_requires_new_criteria_yaml: true
+  reopen_requires_new_sealed_window: true
+  spec_retuning_after_sealed_failure_prohibited: true
+  prohibition_scope: |
+    Once a candidate from this lineage has consumed the 2026 sealed
+    window (regardless of pass/fail outcome), no candidate from
+    this lineage may consume the same 2026 sealed window again
+    under a different candidate_spec_sha256. This rule applies
+    even though the current code-level sealed_ledger only keys
+    on candidate_spec_sha256 (machine-layer), because the human-
+    layer information leakage is real.
+
+  # Future A.MV ledger key composition (per audit R39 patch 3) —
+  # documented here for forward reference. When A.MV implementation
+  # ships, this becomes the ledger uniqueness key:
+  future_a_mv_sealed_lock_key:
+    - split_name
+    - criteria_yaml_sha256
+    - sealed_window_id
+    - role
+
+
+# ── Cycle close memo requirement ────────────────────────────────────
+# Per unfreeze memo §9 + audit-R36 §4 anti-sibling discipline:
+# this lineage MUST produce a closeout memo at:
+#   docs/memos/<close_date>-track_c_cycle_2026-04-30-01_close.md
+# regardless of nominee count. Mandatory closeout sections:
+#   - 0-nominee path: hypothesis classification (gate calibration
+#     vs alpha exhaustion vs construction bottleneck), without
+#     auto-conclusion from a single cycle
+#   - ≥1-candidate path: alpha-source classification per audit-R36
+#     §4 taxonomy, NAV residual correlation diagnostic, anti-sibling
+#     verification
+#   - both paths: machine-sealed 2026 NOT yet consumed (sealed eval
+#     gated on Concern A.MV ship)
+closeout_memo_required: true
+closeout_memo_path_template: "docs/memos/<YYYY-MM-DD>-track_c_cycle_2026-04-30-01_close.md"
+
+
+# ── Acknowledgements ────────────────────────────────────────────────
+references:
+  unfreeze_memo: docs/memos/20260426-research_layer_partial_unfreeze.md
+  prior_cycle_criteria: data/research_candidates/research-cycle-2026-04-26-01_promotion_criteria.yaml
+  prior_cycle_close: docs/memos/20260426-research-cycle-2026-04-26-01_close.md
+  m12_audit_memo: docs/memos/20260425-m12_review_decision.md
+  parking_lot_p001: docs/memos/20260426-oos_parking_lot.md
+  prd_v3: docs/prd/20260425-oos_validation_framework_codex_v3.md
+  forward_oos_runner_prd: docs/prd/20260426-forward_oos_runner_prd.md
+  track_a_prd: docs/prd/20260429-temporal_split_holdout_discipline_prd.md
+  track_a_post_audit_roadmap: docs/memos/20260429-post_audit_strategic_roadmap.md
+  track_c_plan: docs/memos/20260430-track_c_dry_run_plan.md
+  rcm_v1_cand2_correlation: docs/memos/20260430-rcmv1_cand2_realized_correlation.md
+  concerns_abE: docs/memos/20260430-concerns_abE_proposed_solutions.md
+  bmv_schema_decision: docs/memos/20260430-bmv_schema_decision.md
+  priority_realign: docs/memos/20260430-priority_realign_alpha_first.md
+  self_audit_methodology: docs/checkpoints/20260430-self_audit_methodology.md
+
+
+# ── End of pre-registered criteria ──────────────────────────────────
+# Beyond this point, any change starts a NEW lineage. Current cycle
+# proceeds under THIS file's sha256.
