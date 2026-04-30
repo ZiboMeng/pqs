@@ -12,9 +12,16 @@ Two schema layers:
     events. Schema mirrors ``ForwardRunManifest`` style (parallel to
     forward observation but at fleet-composition layer).
 
-Step 1 covers schema definition only — no fleet logic. Steps 2-4
-implement capital split (C1), compose_weight_matrix, and C3 overlap
-throttle on top of these models.
+Schema-side additions per shipping step:
+  - Step 1 — FleetCandidate / FleetConfig / FleetManifest / FleetRebalance / FleetEvent.
+  - Step 4 — ConcentrationSnapshot (M12 top1 / top3 / n_dates).
+  - Step 5 — CorrelationPair / CorrelationBudgetStatus + ``corr_min_overlap_days``
+    config field with ordering validator (≤ ``corr_lookback_days``).
+
+The runtime methods live in ``core.fleet.allocator`` and are pure-
+functional through Step 5 (no manifest mutation). Step 8 (frozen)
+is the boundary that translates Step 5's ``CorrelationBudgetStatus``
+and Step 4's ``ConcentrationSnapshot`` into manifest events.
 """
 from __future__ import annotations
 
@@ -286,7 +293,8 @@ class CorrelationBudgetStatus(BaseModel):
     ``FleetAllocator.check_correlation_budget()``. Caller (allocator
     composition / observe wiring at Step 8) decides whether to convert
     this into a FleetEvent (``c2_corr_violation``) on the manifest.
-    Step 5 itself does NOT mutate the manifest (codex-frozen).
+    Step 5 itself does NOT mutate the manifest; the manifest-write
+    pathway (``observe`` / Step 8) is the codex-frozen boundary.
 
     Levels:
       - ``ok``                 — every pairwise correlation < warn threshold.

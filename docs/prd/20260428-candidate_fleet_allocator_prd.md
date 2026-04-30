@@ -368,7 +368,7 @@ A change-set passes this PRD if and only if all of the following hold:
 2. **Step 2**: C1 capital split (equal_weight + manual_overrides) + 4 unit tests.
 3. **Step 3**: compose_weight_matrix returning unconstrained fleet weights + 3 unit tests.
 4. **Step 4**: C3 overlap throttle (cash-clip v1: fleet-level cell clipped to cap, excess to implicit cash, no redistribution; per §4.3) + M12 fleet metrics + 4 unit tests.
-5. **Step 5**: C2 correlation budget + manifest event recording + 3 unit tests.
+5. **Step 5**: C2 correlation budget — pure-functional `check_correlation_budget(returns_df) → CorrelationBudgetStatus` + 3+ unit tests. **No manifest mutation in Step 5** (codex R25 boundary 2026-04-29). The structured `CorrelationBudgetStatus` is the contract surface; Step 8 is the boundary that translates a non-`ok` status into a `c2_corr_violation` `FleetEvent` on the manifest.
 6. **Step 6**: C5 DD throttle + KillSwitch interaction + 4 unit tests (including reverse-validation pair from §6.13).
 7. **Step 7**: C4 role caps + C6 removal/parking rules + 4 unit tests + manifest reason recording.
 8. **Step 8**: backtest / paper / report integration touchpoints + first **shadow** fleet observation (codex round-14 Q4: `shadow=True` mandatory). Allocator runs in compute-but-don't-act mode for ≥ 10 trading days. Manifest entries during this window carry `shadow: true`.

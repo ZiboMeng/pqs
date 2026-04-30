@@ -2,7 +2,8 @@
 
 PRD §4.2 + §5.4: ``check_correlation_budget(returns_df) →
 CorrelationBudgetStatus``. Pure-functional; no manifest mutation in
-Step 5 (codex-frozen until Step 8).
+Step 5 — observe() / Step 8 is the boundary that wires status onto
+the fleet manifest event list (codex round-25 boundary).
 
 Boundaries:
   - Step 5 uses *realized* candidate daily returns, NOT IC.
@@ -351,8 +352,10 @@ def test_step5_does_not_mutate_manifest():
 
 
 def test_pair_record_uses_pair_a_b_in_canonical_order():
-    """Pairs should be enumerated upper-triangle (column-order canonical)
-    so two runs on the same input produce identical pair entries."""
+    """Audit R2.6 (2026-04-29): pairs MUST be enumerated in canonical
+    lexicographic order so semantically-identical inputs with reordered
+    columns produce byte-identical CorrelationBudgetStatus. Anything
+    less corrupts fleet manifest event hashing once Step 8 lands."""
     alloc = _alloc_three()
     rng = np.random.default_rng(99)
     n = 120
@@ -367,10 +370,36 @@ def test_pair_record_uses_pair_a_b_in_canonical_order():
     )
     s = alloc.check_correlation_budget(df)
     pair_keys = [(p.candidate_a, p.candidate_b) for p in s.pairs]
-    # 3 candidates → 3 unordered pairs
+    # 3 candidates → 3 unordered pairs in lexicographic order
     assert len(pair_keys) == 3
-    # Each pair listed once, in column-iteration order
     assert pair_keys == [("c1", "c2"), ("c1", "s1"), ("c2", "s1")]
+    # Per-pair (a, b) order must satisfy a < b
+    for p in s.pairs:
+        assert p.candidate_a < p.candidate_b
+
+
+def test_pair_order_invariant_across_input_column_permutations():
+    """Audit R2.6 regression: passing the SAME data with columns in a
+    different order MUST return byte-identical pair entries. Pre-fix,
+    pair tuples flipped (e.g. ('s1', 'c1') vs ('c1', 's1')) depending
+    on input column order — would have hashed differently in a fleet
+    manifest event."""
+    alloc = _alloc_three()
+    n = 120
+    idx = pd.date_range("2024-01-02", periods=n, freq="B")
+    rng = np.random.default_rng(7)
+    arrs = {ch: rng.standard_normal(n) * 0.01 for ch in ("a", "b", "c")}
+    df_natural = pd.DataFrame(
+        {"c1": arrs["a"], "c2": arrs["b"], "s1": arrs["c"]}, index=idx
+    )
+    df_reordered = pd.DataFrame(
+        {"s1": arrs["c"], "c2": arrs["b"], "c1": arrs["a"]}, index=idx
+    )
+    s_natural = alloc.check_correlation_budget(df_natural)
+    s_reordered = alloc.check_correlation_budget(df_reordered)
+    # JSON-bytes equality is the strongest determinism check (what fleet
+    # event serialization will use).
+    assert s_natural.model_dump_json() == s_reordered.model_dump_json()
 
 
 def test_correlation_pair_correlation_in_neg1_pos1_range():

@@ -1,19 +1,18 @@
-"""FleetAllocator (Track B Step 1: skeleton; methods land per step).
+"""FleetAllocator (Track B). Methods land per PRD step.
 
 PRD: docs/prd/20260428-candidate_fleet_allocator_prd.md v1.1 §5.4
 
-Step 1 ships the class shell. Methods raise NotImplementedError until
-their owning step lands:
+Shipped (live):
+  - Step 2: ``compute_capital_split``           (C1)
+  - Step 3: ``compose_weight_matrix``           (capital × per-cand weights)
+  - Step 4: ``compute_concentration_metrics`` + ``apply_overlap_throttle`` (C3 cash-clip + M12)
+  - Step 5: ``check_correlation_budget``        (C2 — pure-functional;
+            no manifest mutation; observe() wiring belongs to Step 8)
 
-  - Step 2: ``compute_capital_split``  (C1)
-  - Step 3: ``compose_weight_matrix``  (capital splits × per-cand weights)
-  - Step 4: ``compute_concentration_metrics`` + C3 overlap throttle
-  - Step 5: ``check_correlation_budget`` (C2)
-  - Step 6: ``apply_dd_throttle``       (C5)
+Frozen (raise NotImplementedError("frozen") until explicit-go):
+  - Step 6: ``apply_dd_throttle``               (C5)
   - Step 7: ``apply_role_caps`` + ``apply_removal_rules`` (C4 + C6)
-  - Step 8: ``observe`` (writes to fleet_manifest.json)
-
-Steps 5-9 are codex-frozen until explicit-go.
+  - Step 8: ``observe``                         (writes fleet_manifest.json)
 """
 from __future__ import annotations
 
@@ -385,20 +384,22 @@ class FleetAllocator:
         }
 
     def apply_overlap_throttle(self, fleet_weight_matrix):
-        """C3 single-symbol-cap proportional trim.
+        """C3 single-symbol cash-clip overlap throttle (PRD §4.3 v1).
 
         For each date, if any symbol's weight exceeds
         ``config.max_fleet_symbol_weight``, clip that symbol's weight to
-        the cap. Other symbols are NOT renormalised — the fleet weight
-        sum on that date drops below 1.0, which is the intended behavior
-        (the trimmed mass goes to cash, not redistributed to risk).
+        the cap. Other symbols are NOT renormalised — the row sum on
+        that date drops below 1.0 by exactly the trim amount. The
+        excess mass becomes **implicit cash** (the fleet under-allocates
+        rather than redistributing concentration into other names).
 
-        This is the simplest semantically-correct interpretation of the
-        PRD §4.3 ``proportional trim``: clip the offending column. A more
-        elaborate "proportional redistribution" version is deferred to
-        future iteration if the operator wants to preserve invested
-        notional — for v1, dropping concentration into cash is more
-        conservative and matches the long-only no-margin invariant.
+        Per PRD §4.3 v1.1: this is the "cash-clip v1" semantics chosen
+        over the original v1.0 "contribution-aware proportional trim"
+        wording. Rationale (PRD §4.3): cash-clip is conservative,
+        matches long-only no-margin, and preserves M12 concentration
+        diagnostics by date. A v2 proportional redistribution path is
+        deferred until production evidence shows cash-clip leaves
+        material unallocated mass.
 
         Returns the throttled DataFrame plus a ``trim_events`` list
         describing what was clipped.
@@ -543,13 +544,19 @@ class FleetAllocator:
                 f"compute correlation on a candidate with zero observations."
             )
 
-        candidate_ids = list(returns_df.columns)
-
-        # Lookback slice: take the most recent corr_lookback_days rows
-        # ordered ascending by index.
-        sorted_returns = returns_df.sort_index()
+        # Audit R2.6 (2026-04-29): sort BOTH the column axis AND the row index
+        # to canonical order BEFORE any downstream pandas op. Sorting only the
+        # pair-iteration list (R2.6 first iteration) was insufficient — pandas
+        # .corr() internally computes column-by-column, and float accumulation
+        # drifts at ~1e-17 between input column orderings. Sorting the
+        # DataFrame columns + reindexing first guarantees byte-identical
+        # CorrelationBudgetStatus across semantically-equal-but-reordered
+        # returns_df, which is required for fleet manifest event hashing
+        # determinism once Step 8 lands.
+        candidate_ids = sorted(returns_df.columns)
+        canonical = returns_df.reindex(columns=candidate_ids).sort_index()
         lookback = self.config.corr_lookback_days
-        sliced = sorted_returns.iloc[-lookback:]
+        sliced = canonical.iloc[-lookback:]
 
         # Minimum-overlap check on the intersection of observations.
         # ``.dropna(how="any")`` gives the rows where every candidate has
