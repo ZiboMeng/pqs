@@ -32,6 +32,29 @@ benchmark_relative_summary:
   risk_on_regime_ic_ir: 0.167
   vs_spy_qqq: deferred_to_paper_layer
 
+# ── Realized-NAV correlation symmetry note (added 2026-04-30) ──────────────
+# The 2026-04-30 NAV-correlation diagnostic measures pooled Pearson 0.898
+# between RCMv1 and candidate_2_orthogonal_01 over 154 honest post-step3b
+# paper days (exceeds Step 5 reject threshold 0.85). This is a property of
+# the PAIR, not of either spec individually — RCMv1 remains a valid single
+# strategy. The marker below makes the symmetric labeling explicit so the
+# fleet-of-two composition cannot be re-instated without a new evidence
+# memo overriding this finding. Mirrors the same block on Cand-2's yaml.
+realized_nav_correlation_status:
+  status: nav_correlated_with_cand_2
+  scope: realized_paper_nav
+  pooled_pearson: 0.898
+  pooled_n_days: 154
+  step5_label: reject
+  evidence_memo: docs/memos/20260430-rcmv1_cand2_realized_correlation.md
+  retracted_claim: >-
+    Fleet-of-two composition (RCMv1 + Cand-2 equal-weight) — does NOT
+    produce risk diversification. Both candidates run β-SPY 1.3-1.6;
+    neither is realized-defensive. Forward observation continues as
+    legacy decay verification only. RCMv1 as a single strategy is
+    unaffected by this finding.
+  retraction_date: 2026-04-30
+
 oos_holdout_summary:
   walk_forward_n_folds: 4
   walk_forward_folds_positive: 4

@@ -15,6 +15,8 @@
         "2022-08-26",
         "2022-12-15"
       ],
+      "status": "ok",
+      "status_reason": null,
       "pearson_corr": 0.9367406351378135,
       "spearman_corr": 0.9355340201970637,
       "n_down_days": 35,
@@ -49,6 +51,8 @@
         "2024-01-02",
         "2024-04-19"
       ],
+      "status": "ok",
+      "status_reason": null,
       "pearson_corr": 0.7952984478408486,
       "spearman_corr": 0.7675976284592301,
       "n_down_days": 16,
@@ -80,7 +84,9 @@
   "pooled": {
     "n_days_pooled": 154,
     "pearson_corr_pooled": 0.8982427762621483,
-    "spearman_corr_pooled": 0.8751290447846904
+    "spearman_corr_pooled": 0.8751290447846904,
+    "status": "ok",
+    "status_reason": null
   },
   "classification_pooled": "reject_step5",
   "classification_per_cell": [

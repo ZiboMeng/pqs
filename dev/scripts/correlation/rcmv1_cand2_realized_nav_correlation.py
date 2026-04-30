@@ -65,6 +65,35 @@ def load_positions(run_dir: Path) -> pd.DataFrame | None:
     return df
 
 
+def _empty_diagnostic(cell: str, n: int, reason: str) -> dict:
+    """Return a structured diagnostic indicating insufficient data.
+
+    Used when the joined frame has zero or one row, or when pearson is
+    non-finite (zero variance). Downstream JSON consumers should not
+    receive silent NaN.
+    """
+    return {
+        "cell": cell,
+        "n_days": n,
+        "date_range": [None, None],
+        "status": "insufficient_data",
+        "status_reason": reason,
+        "pearson_corr": None,
+        "spearman_corr": None,
+        "n_down_days": 0,
+        "down_market_corr": None,
+        "n_up_days": 0,
+        "up_market_corr": None,
+        "rolling_30d_corr": {"min": None, "max": None, "mean": None},
+        "max_dd": {"rcm_v1": None, "cand_2": None},
+        "pct_days_both_in_dd": None,
+        "holdings_overlap_jaccard_avg": None,
+        "holdings_top10_overlap_last": None,
+        "beta_to_qqq": {"rcm_v1": None, "cand_2": None},
+        "beta_to_spy": {"rcm_v1": None, "cand_2": None},
+    }
+
+
 def cell_diagnostics(cell: str, rcm_dir: Path, cand_dir: Path) -> dict:
     rcm = load_pnl(rcm_dir).rename(columns={"ret": "rcm_v1"})
     cnd = load_pnl(cand_dir).rename(columns={"ret": "cand_2"})
@@ -73,9 +102,32 @@ def cell_diagnostics(cell: str, rcm_dir: Path, cand_dir: Path) -> dict:
     df = pd.concat([rcm, cnd, bmk], axis=1).dropna()
     n = len(df)
 
-    # 1. unconditional correlation
-    pearson = float(df["rcm_v1"].corr(df["cand_2"]))
-    spearman = float(df["rcm_v1"].corr(df["cand_2"], method="spearman"))
+    # Boundary guards: pearson requires n >= 2 with non-zero variance;
+    # downstream date-range / drawdown / holdings computations require
+    # n >= 1. Zero-variance series (constant returns) yield NaN pearson
+    # — surface as insufficient_data, not silent NaN.
+    if n == 0:
+        return _empty_diagnostic(cell, n=0, reason="zero overlap rows after dropna")
+    if n < 2:
+        return _empty_diagnostic(cell, n=n, reason=f"only {n} overlap row(s); pearson undefined for n<2")
+
+    # 1. unconditional correlation. Guard against constant-series
+    # warnings from scipy (spearman) and numpy (pearson divide).
+    import warnings
+    with np.errstate(invalid="ignore", divide="ignore"), warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        try:
+            from scipy.stats import ConstantInputWarning  # type: ignore[import-not-found]
+            warnings.simplefilter("ignore", category=ConstantInputWarning)
+        except ImportError:  # scipy not available or older version
+            pass
+        pearson = float(df["rcm_v1"].corr(df["cand_2"]))
+        spearman = float(df["rcm_v1"].corr(df["cand_2"], method="spearman"))
+    if not np.isfinite(pearson):
+        return _empty_diagnostic(
+            cell, n=n,
+            reason=f"pearson non-finite ({pearson}) — zero variance in at least one series",
+        )
 
     # 2. down-market conditional correlation (SPY day < -0.5%)
     down_mask = df["spy_ret_d"] < -0.005
@@ -147,6 +199,8 @@ def cell_diagnostics(cell: str, rcm_dir: Path, cand_dir: Path) -> dict:
         "cell": cell,
         "n_days": n,
         "date_range": [str(df.index.min().date()), str(df.index.max().date())],
+        "status": "ok",
+        "status_reason": None,
         "pearson_corr": pearson,
         "spearman_corr": spearman,
         "n_down_days": n_down,
@@ -173,7 +227,11 @@ def cell_diagnostics(cell: str, rcm_dir: Path, cand_dir: Path) -> dict:
 def combined_diagnostics(per_cell: list[dict], cells: dict) -> dict:
     """Pool both cells (concat returns, ignoring time gap) for an aggregate
     correlation. The gap between 2022-12 and 2024-01 is treated as a
-    discontinuity (no synthetic returns inserted)."""
+    discontinuity (no synthetic returns inserted).
+
+    Returns insufficient_data status if pooled pearson cannot be
+    computed (n<2 or zero variance).
+    """
     frames = []
     for cell, paths in cells.items():
         rcm = load_pnl(paths["rcm_v1"]).rename(columns={"ret": "rcm_v1"})
@@ -181,20 +239,39 @@ def combined_diagnostics(per_cell: list[dict], cells: dict) -> dict:
         df = pd.concat([rcm, cnd], axis=1).dropna()
         df = df.assign(cell=cell)
         frames.append(df)
-    pooled = pd.concat(frames).sort_index()
+    pooled = pd.concat(frames).sort_index() if frames else pd.DataFrame(columns=["rcm_v1", "cand_2"])
     n = len(pooled)
-    pearson = float(pooled["rcm_v1"].corr(pooled["cand_2"]))
-    spearman = float(pooled["rcm_v1"].corr(pooled["cand_2"], method="spearman"))
+    if n < 2:
+        return {
+            "n_days_pooled": n,
+            "pearson_corr_pooled": None,
+            "spearman_corr_pooled": None,
+            "status": "insufficient_data",
+            "status_reason": f"only {n} pooled overlap row(s); pearson undefined for n<2",
+        }
+    with np.errstate(invalid="ignore", divide="ignore"):
+        pearson = float(pooled["rcm_v1"].corr(pooled["cand_2"]))
+        spearman = float(pooled["rcm_v1"].corr(pooled["cand_2"], method="spearman"))
+    if not np.isfinite(pearson):
+        return {
+            "n_days_pooled": n,
+            "pearson_corr_pooled": None,
+            "spearman_corr_pooled": None,
+            "status": "insufficient_data",
+            "status_reason": "pooled pearson non-finite — zero variance in at least one series",
+        }
     return {
         "n_days_pooled": n,
         "pearson_corr_pooled": pearson,
         "spearman_corr_pooled": spearman,
+        "status": "ok",
+        "status_reason": None,
     }
 
 
-def classify(corr: float) -> str:
+def classify(corr: float | None) -> str:
     if corr is None:
-        return "n/a"
+        return "insufficient_data"
     if corr < 0.40:
         return "true_diversifier"
     if corr < 0.70:
@@ -229,9 +306,12 @@ def main() -> None:
     out_dir = REPO / "data" / "memos"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "20260430_rcmv1_cand2_realized_correlation.json"
-    out_path.write_text(json.dumps(out, indent=2))
+    # allow_nan=False forces explicit insufficient_data handling above —
+    # any silent NaN slipping into the output here is a bug (R4 audit
+    # 2026-04-30).
+    out_path.write_text(json.dumps(out, indent=2, allow_nan=False))
 
-    print(json.dumps(out, indent=2))
+    print(json.dumps(out, indent=2, allow_nan=False))
     print()
     print(f"Wrote machine-readable result to: {out_path}")
 
