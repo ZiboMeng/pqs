@@ -1,6 +1,5 @@
 {
   "experiment": "rcmv1_vs_cand2_historical_nav_correlation",
-  "as_of": "2026-04-30",
   "nav_orthogonality_tiers": {
     "true_diversifier": "< 0.50",
     "partial_diversifier": ">= 0.50 and < 0.70",
@@ -97,20 +96,20 @@
     "vs_spy_ret_d": {
       "benchmark": "spy_ret_d",
       "status": "ok",
-      "beta_rcm": 1.4101667148079218,
-      "beta_cnd": 1.50126726823857,
+      "beta_rcm_v1": 1.4101667148079218,
+      "beta_cand_2": 1.50126726823857,
       "residual_pearson": 0.609343015578696,
-      "residual_ann_sharpe_rcm": 1.1567915834790916,
-      "residual_ann_sharpe_cnd": 1.5551014992759273
+      "residual_ann_sharpe_rcm_v1": 1.1567915834790916,
+      "residual_ann_sharpe_cand_2": 1.5551014992759273
     },
     "vs_qqq_ret_d": {
       "benchmark": "qqq_ret_d",
       "status": "ok",
-      "beta_rcm": 1.1264927446162085,
-      "beta_cnd": 1.2316919201950167,
+      "beta_rcm_v1": 1.1264927446162085,
+      "beta_cand_2": 1.2316919201950167,
       "residual_pearson": 0.5790621548098179,
-      "residual_ann_sharpe_rcm": 2.0838359933693003,
-      "residual_ann_sharpe_cnd": 2.7733443499242103
+      "residual_ann_sharpe_rcm_v1": 2.0838359933693003,
+      "residual_ann_sharpe_cand_2": 2.7733443499242103
     }
   },
   "classification_pooled": "reject_step5",
@@ -127,5 +126,6 @@
   "residual_root_cause": {
     "vs_spy": "mixed",
     "vs_qqq": "mixed"
-  }
+  },
+  "as_of": "2026-04-30"
 }

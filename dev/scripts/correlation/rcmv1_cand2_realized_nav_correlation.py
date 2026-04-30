@@ -1,11 +1,19 @@
 """
-RCMv1 vs Cand-2 — historical NAV correlation diagnostic.
+RCMv1 vs Cand-2 — historical NAV correlation diagnostic (pair-specific wrapper).
 
-External-reviewer-prompted experiment (2026-04-30): Cand-2 was nominated
-under a "factor-IC orthogonal" claim that has never been verified at the
-NAV / portfolio-return level. With Step 5 C2 correlation budget now
-shipped (warn 0.70 / reject 0.85; pairwise on realized candidate daily
-returns), we can finally close that loop.
+This is the LEGACY wrapper preserved for reproducibility of the
+2026-04-30 NAV correlation finding. As of 2026-04-30 R39 cleanup,
+the actual diagnostic logic lives in
+`dev/scripts/correlation/run_pair_nav_correlation.py` which is
+generic across any pair. This file is a thin wrapper that fixes
+the candidate IDs and run-dirs to RCMv1 × Cand-2 and writes the
+canonical output JSON path that the existing memo references.
+
+External-reviewer-prompted experiment (2026-04-30): Cand-2 was
+nominated under a "factor-IC orthogonal" claim that has never
+been verified at the NAV / portfolio-return level. With Step 5 C2
+correlation budget shipped (warn 0.70 / reject 0.85; pairwise on
+realized candidate daily returns), this script closes that loop.
 
 Inputs:
   data/paper_runs/rcm_v1_defensive_composite_01/20260425T041403Z/   (2022-08-26 -> 2022-12-15)
@@ -13,478 +21,106 @@ Inputs:
   data/paper_runs/candidate_2_orthogonal_01/20260425T041405Z/        (2022-08-26 -> 2022-12-15)
   data/paper_runs/candidate_2_orthogonal_01/20260425T041400Z/        (2024-01-02 -> 2024-04-19)
 
-These are the latest post-step3b ("honest" data round-3) re-runs of the
-two paper cells the candidates were nominated on.
+These are the latest post-step3b ("honest" data round-3) re-runs of
+the two paper cells the candidates were nominated on.
 
 Outputs:
   - prints to stdout
-  - dumps machine-readable JSON next to the memo for re-use
+  - dumps machine-readable JSON to:
+      data/memos/20260430_rcmv1_cand2_realized_correlation.json
+    (same path as before refactor; existing memo references intact)
 
 ==============================================================================
-SCOPE NOTE — this is a PAIR-SPECIFIC diagnostic (RCMv1 × Cand-2).
+KEY-NAME COMPATIBILITY NOTE — 2026-04-30 R39 refactor.
 ==============================================================================
-Column names `rcm_v1` / `cand_2` and the `CELLS` dict are hardcoded
-because this script answers exactly one question: "is the
-2026-04-24 fleet-of-two assumption justified at NAV level?".
+Pre-refactor JSON had a small inconsistency: cell `max_dd` /
+`beta_to_qqq` / `beta_to_spy` used full column names (`rcm_v1` /
+`cand_2`) but the residual block used short names (`beta_rcm` /
+`beta_cnd` / `residual_ann_sharpe_rcm` / `residual_ann_sharpe_cnd`).
 
-When Track C cycle #01 produces a candidate, evidence pack §4.6
-will need NAV-correlation diagnostics for that candidate against
-EVERY active candidate (RCMv1, Cand-2, and any future fleet
-member). At that point this script must be either refactored to a
-generic pair runner, or wrapped by a new
-`dev/scripts/correlation/run_pair_nav_correlation.py` taking:
+Post-refactor, the residual block uses full names (`beta_rcm_v1` /
+`beta_cand_2` / `residual_ann_sharpe_rcm_v1` /
+`residual_ann_sharpe_cand_2`) for internal consistency.
 
-    --candidate-a-id, --candidate-a-run-dirs <list>,
-    --candidate-b-id, --candidate-b-run-dirs <list>,
-    --benchmark-source, --min-overlap, --output-json
+Headline numbers (pooled Pearson, residual Pearson vs SPY/QQQ,
+betas to SPY/QQQ, residual Sharpes) are NUMERICALLY IDENTICAL
+to the pre-refactor output. Only key labels changed.
 
-The deferral is intentional: per reviewer 2026-04-30 §2.2, this
-"doesn't block mining compute, blocks candidate→nominee transition
-in evidence pack §4.6". Refactor when concrete requirements (e.g.
-N-candidate matrix, not just 2) are known. Until then, treat the
-classify() / classify_residual() / compute_residual_correlation()
-helpers as the reusable primitives — column-name parametrization
-is the missing piece.
+Existing memo references all describe these by NUMBER not by JSON
+key, so no documentation update needed.
 ==============================================================================
 """
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
-import pandas as pd
-import numpy as np
+# Add this script's directory to sys.path so we can import the
+# co-located generic runner module (dev/ is not a Python package).
+_HERE = Path(__file__).resolve().parent
+if str(_HERE) not in sys.path:
+    sys.path.insert(0, str(_HERE))
+
+# Re-export classify / classify_residual / compute_residual_correlation /
+# run_pair_correlation for any caller that imports from this module
+# (preserves test surface for self_audit_methodology checks).
+from run_pair_nav_correlation import (  # type: ignore[import-not-found]  # noqa: F401, E402
+    classify,
+    classify_residual,
+    compute_residual_correlation,
+    run_pair_correlation,
+)
 
 
 REPO = Path(__file__).resolve().parents[3]
 
-CELLS = {
-    "2022_h2": {
-        "rcm_v1": REPO / "data/paper_runs/rcm_v1_defensive_composite_01/20260425T041403Z",
-        "cand_2": REPO / "data/paper_runs/candidate_2_orthogonal_01/20260425T041405Z",
-    },
-    "2024_q1": {
-        "rcm_v1": REPO / "data/paper_runs/rcm_v1_defensive_composite_01/20260425T041358Z",
-        "cand_2": REPO / "data/paper_runs/candidate_2_orthogonal_01/20260425T041400Z",
-    },
-}
 
-
-def load_pnl(run_dir: Path) -> pd.DataFrame:
-    p = run_dir / "pnl_daily.csv"
-    df = pd.read_csv(p, parse_dates=["date"]).set_index("date").sort_index()
-    return df[["ret"]].rename(columns={"ret": "ret"})
-
-
-def load_benchmark(run_dir: Path) -> pd.DataFrame:
-    p = run_dir / "benchmark_relative_paper.csv"
-    df = pd.read_csv(p, parse_dates=["date"]).set_index("date").sort_index()
-    spy_d = df["SPY_cum_ret"].diff().fillna(df["SPY_cum_ret"]).rename("spy_ret_d")
-    qqq_d = df["QQQ_cum_ret"].diff().fillna(df["QQQ_cum_ret"]).rename("qqq_ret_d")
-    return pd.concat([spy_d, qqq_d], axis=1)
-
-
-def load_positions(run_dir: Path) -> pd.DataFrame | None:
-    p = run_dir / "target_portfolio_daily.csv"
-    if not p.exists():
-        return None
-    df = pd.read_csv(p, parse_dates=["date"])
-    return df
-
-
-def _empty_diagnostic(cell: str, n: int, reason: str) -> dict:
-    """Return a structured diagnostic indicating insufficient data.
-
-    Used when the joined frame has zero or one row, or when pearson is
-    non-finite (zero variance). Downstream JSON consumers should not
-    receive silent NaN.
-    """
-    return {
-        "cell": cell,
-        "n_days": n,
-        "date_range": [None, None],
-        "status": "insufficient_data",
-        "status_reason": reason,
-        "pearson_corr": None,
-        "spearman_corr": None,
-        "n_down_days": 0,
-        "down_market_corr": None,
-        "n_up_days": 0,
-        "up_market_corr": None,
-        "rolling_30d_corr": {"min": None, "max": None, "mean": None},
-        "max_dd": {"rcm_v1": None, "cand_2": None},
-        "pct_days_both_in_dd": None,
-        "holdings_overlap_jaccard_avg": None,
-        "holdings_top10_overlap_last": None,
-        "beta_to_qqq": {"rcm_v1": None, "cand_2": None},
-        "beta_to_spy": {"rcm_v1": None, "cand_2": None},
-    }
-
-
-def cell_diagnostics(cell: str, rcm_dir: Path, cand_dir: Path) -> dict:
-    rcm = load_pnl(rcm_dir).rename(columns={"ret": "rcm_v1"})
-    cnd = load_pnl(cand_dir).rename(columns={"ret": "cand_2"})
-    bmk = load_benchmark(rcm_dir)
-
-    df = pd.concat([rcm, cnd, bmk], axis=1).dropna()
-    n = len(df)
-
-    # Boundary guards: pearson requires n >= 2 with non-zero variance;
-    # downstream date-range / drawdown / holdings computations require
-    # n >= 1. Zero-variance series (constant returns) yield NaN pearson
-    # — surface as insufficient_data, not silent NaN.
-    if n == 0:
-        return _empty_diagnostic(cell, n=0, reason="zero overlap rows after dropna")
-    if n < 2:
-        return _empty_diagnostic(cell, n=n, reason=f"only {n} overlap row(s); pearson undefined for n<2")
-
-    # 1. unconditional correlation. Guard against constant-series
-    # warnings from scipy (spearman) and numpy (pearson divide).
-    import warnings
-    with np.errstate(invalid="ignore", divide="ignore"), warnings.catch_warnings():
-        warnings.simplefilter("ignore", category=RuntimeWarning)
-        try:
-            from scipy.stats import ConstantInputWarning  # type: ignore[import-not-found]
-            warnings.simplefilter("ignore", category=ConstantInputWarning)
-        except ImportError:  # scipy not available or older version
-            pass
-        pearson = float(df["rcm_v1"].corr(df["cand_2"]))
-        spearman = float(df["rcm_v1"].corr(df["cand_2"], method="spearman"))
-    if not np.isfinite(pearson):
-        return _empty_diagnostic(
-            cell, n=n,
-            reason=f"pearson non-finite ({pearson}) — zero variance in at least one series",
-        )
-
-    # 2. down-market conditional correlation (SPY day < -0.5%)
-    # Guard: n_down >= 5 (sample-size); also guard against zero-variance
-    # in the conditional subset (auditor §2.3).
-    down_mask = df["spy_ret_d"] < -0.005
-    n_down = int(down_mask.sum())
-    down_corr = None
-    if n_down >= 5:
-        with np.errstate(invalid="ignore", divide="ignore"), warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            try:
-                from scipy.stats import ConstantInputWarning  # type: ignore[import-not-found]
-                warnings.simplefilter("ignore", category=ConstantInputWarning)
-            except ImportError:
-                pass
-            c = float(df.loc[down_mask, "rcm_v1"].corr(df.loc[down_mask, "cand_2"]))
-        if np.isfinite(c):
-            down_corr = c
-        # else: leave None (zero variance in conditional subset)
-
-    # 3. up-market conditional (same guards)
-    up_mask = df["spy_ret_d"] > 0.005
-    n_up = int(up_mask.sum())
-    up_corr = None
-    if n_up >= 5:
-        with np.errstate(invalid="ignore", divide="ignore"), warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            try:
-                from scipy.stats import ConstantInputWarning  # type: ignore[import-not-found]
-                warnings.simplefilter("ignore", category=ConstantInputWarning)
-            except ImportError:
-                pass
-            c = float(df.loc[up_mask, "rcm_v1"].corr(df.loc[up_mask, "cand_2"]))
-        if np.isfinite(c):
-            up_corr = c
-
-    # 4. rolling 30d correlation (corr of one series against the other)
-    roll = df["rcm_v1"].rolling(30).corr(df["cand_2"]).dropna()
-    roll_min = float(roll.min()) if len(roll) else None
-    roll_max = float(roll.max()) if len(roll) else None
-    roll_mean = float(roll.mean()) if len(roll) else None
-
-    # 5. drawdown overlap — days both candidates in DD from cell-start peak
-    eq_rcm = (1 + df["rcm_v1"]).cumprod()
-    eq_cnd = (1 + df["cand_2"]).cumprod()
-    dd_rcm = eq_rcm / eq_rcm.cummax() - 1
-    dd_cnd = eq_cnd / eq_cnd.cummax() - 1
-    both_in_dd = ((dd_rcm < -0.001) & (dd_cnd < -0.001)).sum()
-    pct_both_dd = float(both_in_dd / n)
-    rcm_max_dd = float(dd_rcm.min())
-    cnd_max_dd = float(dd_cnd.min())
-
-    # 6. holdings overlap — average across all days where both candidates
-    # are invested. target_portfolio_daily.csv is wide (symbol-per-column).
-    pos_rcm = load_positions(rcm_dir)
-    pos_cnd = load_positions(cand_dir)
-    holdings_overlap_jaccard_avg = None
-    holdings_top10_overlap_last = None
-    if pos_rcm is not None and pos_cnd is not None:
-        rcm_w = pos_rcm.set_index("date")
-        cnd_w = pos_cnd.set_index("date")
-        common_dates = rcm_w.index.intersection(cnd_w.index)
-        jaccards: list[float] = []
-        for d in common_dates:
-            rcm_set = set(rcm_w.columns[(rcm_w.loc[d] > 0)])
-            cnd_set = set(cnd_w.columns[(cnd_w.loc[d] > 0)])
-            if not rcm_set and not cnd_set:
-                continue
-            jaccards.append(len(rcm_set & cnd_set) / max(len(rcm_set | cnd_set), 1))
-        if jaccards:
-            holdings_overlap_jaccard_avg = float(np.mean(jaccards))
-
-        last_date = df.index.max()
-        if last_date in rcm_w.index and last_date in cnd_w.index:
-            rcm_last = rcm_w.loc[last_date]
-            cnd_last = cnd_w.loc[last_date]
-            rcm_top = set(rcm_last.nlargest(10).index[rcm_last.nlargest(10) > 0])
-            cnd_top = set(cnd_last.nlargest(10).index[cnd_last.nlargest(10) > 0])
-            holdings_top10_overlap_last = len(rcm_top & cnd_top)
-
-    # 7. beta-to-QQQ for each
-    beta_rcm_qqq = float(df["rcm_v1"].cov(df["qqq_ret_d"]) / df["qqq_ret_d"].var())
-    beta_cnd_qqq = float(df["cand_2"].cov(df["qqq_ret_d"]) / df["qqq_ret_d"].var())
-    beta_rcm_spy = float(df["rcm_v1"].cov(df["spy_ret_d"]) / df["spy_ret_d"].var())
-    beta_cnd_spy = float(df["cand_2"].cov(df["spy_ret_d"]) / df["spy_ret_d"].var())
-
-    return {
-        "cell": cell,
-        "n_days": n,
-        "date_range": [str(df.index.min().date()), str(df.index.max().date())],
-        "status": "ok",
-        "status_reason": None,
-        "pearson_corr": pearson,
-        "spearman_corr": spearman,
-        "n_down_days": n_down,
-        "down_market_corr": down_corr,
-        "n_up_days": n_up,
-        "up_market_corr": up_corr,
-        "rolling_30d_corr": {
-            "min": roll_min,
-            "max": roll_max,
-            "mean": roll_mean,
-        },
-        "max_dd": {
-            "rcm_v1": rcm_max_dd,
-            "cand_2": cnd_max_dd,
-        },
-        "pct_days_both_in_dd": pct_both_dd,
-        "holdings_overlap_jaccard_avg": holdings_overlap_jaccard_avg,
-        "holdings_top10_overlap_last": holdings_top10_overlap_last,
-        "beta_to_qqq": {"rcm_v1": beta_rcm_qqq, "cand_2": beta_cnd_qqq},
-        "beta_to_spy": {"rcm_v1": beta_rcm_spy, "cand_2": beta_cnd_spy},
-    }
-
-
-def combined_diagnostics(per_cell: list[dict], cells: dict) -> dict:
-    """Pool both cells (concat returns, ignoring time gap) for an aggregate
-    correlation. The gap between 2022-12 and 2024-01 is treated as a
-    discontinuity (no synthetic returns inserted).
-
-    Returns insufficient_data status if pooled pearson cannot be
-    computed (n<2 or zero variance).
-    """
-    frames = []
-    for cell, paths in cells.items():
-        rcm = load_pnl(paths["rcm_v1"]).rename(columns={"ret": "rcm_v1"})
-        cnd = load_pnl(paths["cand_2"]).rename(columns={"ret": "cand_2"})
-        df = pd.concat([rcm, cnd], axis=1).dropna()
-        df = df.assign(cell=cell)
-        frames.append(df)
-    pooled = pd.concat(frames).sort_index() if frames else pd.DataFrame(columns=["rcm_v1", "cand_2"])
-    n = len(pooled)
-    if n < 2:
-        return {
-            "n_days_pooled": n,
-            "pearson_corr_pooled": None,
-            "spearman_corr_pooled": None,
-            "status": "insufficient_data",
-            "status_reason": f"only {n} pooled overlap row(s); pearson undefined for n<2",
-        }
-    with np.errstate(invalid="ignore", divide="ignore"):
-        pearson = float(pooled["rcm_v1"].corr(pooled["cand_2"]))
-        spearman = float(pooled["rcm_v1"].corr(pooled["cand_2"], method="spearman"))
-    if not np.isfinite(pearson):
-        return {
-            "n_days_pooled": n,
-            "pearson_corr_pooled": None,
-            "spearman_corr_pooled": None,
-            "status": "insufficient_data",
-            "status_reason": "pooled pearson non-finite — zero variance in at least one series",
-        }
-    return {
-        "n_days_pooled": n,
-        "pearson_corr_pooled": pearson,
-        "spearman_corr_pooled": spearman,
-        "status": "ok",
-        "status_reason": None,
-    }
-
-
-def classify(corr: float | None) -> str:
-    """Tier classification per audit-Round-2 revision (2026-04-30) +
-    external-reviewer §3 (2026-04-30).
-
-    Mirror Step 5 fleet correlation budget with one extra gate at 0.50:
-    long-only US equity has a market-beta correlation floor that makes
-    flat 0.40 (factor-IC config) structurally over-strict at NAV level.
-    """
-    if corr is None:
-        return "insufficient_data"
-    if corr < 0.50:
-        return "true_diversifier"
-    if corr < 0.70:
-        return "partial_diversifier"
-    if corr < 0.85:
-        return "warn_label_void"
-    return "reject_step5"
-
-
-def compute_residual_correlation(
-    df: pd.DataFrame, *, benchmark_col: str
-) -> dict:
-    """Beta-neutralize each candidate against benchmark; then correlate
-    residuals.
-
-    Per external-reviewer 2026-04-30 §4.3: raw NAV correlation alone
-    cannot distinguish "shared market beta" from "shared alpha". If
-    residual correlation drops sharply (raw > 0.85 → residual < 0.40),
-    the NAV correlation is mostly market beta — Track C should look for
-    defensive / cross-asset / cash-timing strategies. If residual stays
-    high (> 0.70), the alpha sleeves themselves are similar — Track C
-    needs entirely different factor families or universe / cadence.
-
-    Adjacent: also report residual Sharpe to catch the case where
-    residuals correlate but one is +SR and the other is -SR (organic
-    diversification value) vs both same-sign-same-size (genuine
-    redundancy).
-    """
-    if benchmark_col not in df.columns:
-        return {"benchmark": benchmark_col, "status": "missing_benchmark"}
-    bm = df[benchmark_col]
-    bm_var = float(bm.var())
-    if not np.isfinite(bm_var) or bm_var == 0.0:
-        return {"benchmark": benchmark_col, "status": "zero_variance_benchmark"}
-
-    def _residualize(s: pd.Series) -> tuple[pd.Series, float]:
-        beta = float(s.cov(bm) / bm_var)
-        return s - beta * bm, beta
-
-    rcm_res, beta_rcm = _residualize(df["rcm_v1"])
-    cnd_res, beta_cnd = _residualize(df["cand_2"])
-
-    with np.errstate(invalid="ignore", divide="ignore"):
-        residual_corr = float(rcm_res.corr(cnd_res))
-
-    # residual annualised Sharpe (sign + magnitude — diagnostic for
-    # whether residuals are alpha-positive on each side, alpha-negative
-    # on each side, or split). Returns None on zero-variance residual
-    # rather than silent NaN (per audit hardening 2026-04-30 §2.3).
-    def _ann_sharpe(s: pd.Series) -> float | None:
-        std = float(s.std(ddof=1))
-        # Guard against both exact-zero AND floating-point near-zero residuals
-        # (R4 audit 2026-04-30: synthetic perfect-beta candidate produced
-        # std ~1e-15 → fake Sharpe 0.44 from ratio of two near-zero values).
-        # 1e-10 is well below any plausible daily-return std (~0.01).
-        if not np.isfinite(std) or std < 1e-10:
-            return None
-        v = float(s.mean() / std * np.sqrt(252))
-        return v if np.isfinite(v) else None
-
-    return {
-        "benchmark": benchmark_col,
-        "status": "ok" if np.isfinite(residual_corr) else "non_finite",
-        "beta_rcm": beta_rcm,
-        "beta_cnd": beta_cnd,
-        "residual_pearson": residual_corr if np.isfinite(residual_corr) else None,
-        "residual_ann_sharpe_rcm": _ann_sharpe(rcm_res),
-        "residual_ann_sharpe_cnd": _ann_sharpe(cnd_res),
-    }
-
-
-def classify_residual(raw_corr: float | None, residual_corr: float | None) -> str:
-    """Diagnose root cause of high raw NAV correlation by residual drop.
-
-    Returns one of:
-      - "shared_market_beta_dominant": raw high (>=0.70) AND residual
-        drops materially (>=0.30 absolute) AND residual < 0.50
-      - "shared_alpha_dominant": raw high AND residual stays > 0.70
-      - "mixed": between the two
-      - "low_raw": raw is low to begin with — residual is moot
-      - "insufficient_data": missing inputs
-    """
-    if raw_corr is None or residual_corr is None:
-        return "insufficient_data"
-    if raw_corr < 0.70:
-        return "low_raw"
-    drop = raw_corr - residual_corr
-    if residual_corr < 0.50 and drop >= 0.30:
-        return "shared_market_beta_dominant"
-    if residual_corr >= 0.70:
-        return "shared_alpha_dominant"
-    return "mixed"
+# Legacy pair-specific configuration. Frozen for the 2026-04-30
+# RCMv1 × Cand-2 finding; Track C nominees use generic runner.
+RCMV1_RUN_DIRS = [
+    REPO / "data/paper_runs/rcm_v1_defensive_composite_01/20260425T041403Z",
+    REPO / "data/paper_runs/rcm_v1_defensive_composite_01/20260425T041358Z",
+]
+CAND2_RUN_DIRS = [
+    REPO / "data/paper_runs/candidate_2_orthogonal_01/20260425T041405Z",
+    REPO / "data/paper_runs/candidate_2_orthogonal_01/20260425T041400Z",
+]
+CELL_LABELS = ["2022_h2", "2024_q1"]
 
 
 def main() -> None:
-    per_cell = [cell_diagnostics(c, paths["rcm_v1"], paths["cand_2"]) for c, paths in CELLS.items()]
-    pooled = combined_diagnostics(per_cell, CELLS)
+    result = run_pair_correlation(
+        cand_a_id="rcm_v1_defensive_composite_01",
+        cand_a_run_dirs=RCMV1_RUN_DIRS,
+        cand_b_id="candidate_2_orthogonal_01",
+        cand_b_run_dirs=CAND2_RUN_DIRS,
+        cell_labels=CELL_LABELS,
+        min_overlap=60,
+        # Pass legacy column names so cell-level keys stay identical
+        # to pre-refactor output (max_dd.rcm_v1 / beta_to_spy.cand_2 etc).
+        cand_a_col="rcm_v1",
+        cand_b_col="cand_2",
+    )
 
-    # Pooled residual correlation vs SPY and QQQ (external-reviewer §4.3)
-    pooled_residual = {}
-    pooled_frames = []
-    for cell, paths in CELLS.items():
-        rcm = load_pnl(paths["rcm_v1"]).rename(columns={"ret": "rcm_v1"})
-        cnd = load_pnl(paths["cand_2"]).rename(columns={"ret": "cand_2"})
-        bmk = load_benchmark(paths["rcm_v1"])
-        df = pd.concat([rcm, cnd, bmk], axis=1).dropna()
-        pooled_frames.append(df)
-    pooled_df = pd.concat(pooled_frames).sort_index() if pooled_frames else pd.DataFrame()
-    if len(pooled_df) >= 2:
-        pooled_residual["vs_spy_ret_d"] = compute_residual_correlation(pooled_df, benchmark_col="spy_ret_d")
-        pooled_residual["vs_qqq_ret_d"] = compute_residual_correlation(pooled_df, benchmark_col="qqq_ret_d")
-    else:
-        pooled_residual = {"status": "insufficient_data"}
-
-    raw_pooled = pooled.get("pearson_corr_pooled")
-    res_spy = pooled_residual.get("vs_spy_ret_d", {}).get("residual_pearson") if isinstance(pooled_residual, dict) else None
-    res_qqq = pooled_residual.get("vs_qqq_ret_d", {}).get("residual_pearson") if isinstance(pooled_residual, dict) else None
-    root_cause_spy = classify_residual(raw_pooled, res_spy)
-    root_cause_qqq = classify_residual(raw_pooled, res_qqq)
-
-    out = {
-        "experiment": "rcmv1_vs_cand2_historical_nav_correlation",
-        "as_of": "2026-04-30",
-        # Tiers per audit-R2 revision + external-reviewer §3 (2026-04-30).
-        # Replaces flat 0.40 (factor-IC config) which is structurally over-
-        # strict for long-only US-equity NAV correlation.
-        "nav_orthogonality_tiers": {
-            "true_diversifier":     "< 0.50",
-            "partial_diversifier":  ">= 0.50 and < 0.70",
-            "warn_label_void":      ">= 0.70 and < 0.85",
-            "reject_step5":         ">= 0.85",
-        },
-        "step5_thresholds": {
-            "warn": 0.70,
-            "reject": 0.85,
-            "min_overlap_days": 60,
-        },
-        "per_cell": per_cell,
-        "pooled": pooled,
-        "pooled_residual_correlation": pooled_residual,
-        "classification_pooled": classify(pooled["pearson_corr_pooled"]),
-        "classification_per_cell": [
-            {"cell": c["cell"], "label": classify(c["pearson_corr"])}
-            for c in per_cell
-        ],
-        "residual_root_cause": {
-            "vs_spy": root_cause_spy,
-            "vs_qqq": root_cause_qqq,
-        },
-    }
+    # Override experiment field to match pre-refactor canonical name + as_of date.
+    result["experiment"] = "rcmv1_vs_cand2_historical_nav_correlation"
+    result["as_of"] = "2026-04-30"
+    # Pre-refactor output didn't have these two fields (they were
+    # added by the generic runner) — drop for byte-cleaner diff vs
+    # legacy snapshot. They're informational; the tier table below
+    # already covers them.
+    result.pop("candidate_a_id", None)
+    result.pop("candidate_b_id", None)
+    result.pop("min_overlap_days", None)
+    result.pop("overlap_warning", None)
 
     out_dir = REPO / "data" / "memos"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "20260430_rcmv1_cand2_realized_correlation.json"
-    # allow_nan=False forces explicit insufficient_data handling above —
-    # any silent NaN slipping into the output here is a bug (R4 audit
-    # 2026-04-30).
-    out_path.write_text(json.dumps(out, indent=2, allow_nan=False))
+    out_path.write_text(json.dumps(result, indent=2, allow_nan=False))
 
-    print(json.dumps(out, indent=2, allow_nan=False))
+    print(json.dumps(result, indent=2, allow_nan=False))
     print()
     print(f"Wrote machine-readable result to: {out_path}")
 
