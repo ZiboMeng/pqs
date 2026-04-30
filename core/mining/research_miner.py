@@ -192,6 +192,8 @@ def suggest_composite_spec(
     min_families: int = 3,
     max_features_per_family: int = 2,
     weight_step: float = 0.05,
+    composite_weighting: str = "tpe_normalized",
+    target_n_features: Optional[int] = None,
 ) -> ResearchCompositeSpec:
     """Family-aware composite sampler (PRD §8.5).
 
@@ -200,8 +202,17 @@ def suggest_composite_spec(
          of features to draw from that family.
       2. If total selected families < min_families, raise optuna.TrialPruned
          (or caller re-draws).
-      3. For each selected feature, Optuna suggests a raw weight
-         (float 0..1, step=weight_step). Weights are normalized to sum=1.
+      3. (cycle 2026-04-30 #01 A+ patch) If `target_n_features` is set
+         and total deduped feature count != target_n_features, prune.
+      4. For each selected feature, weights determined by
+         `composite_weighting`:
+           - "tpe_normalized" (default, legacy behavior): Optuna suggests
+             a raw weight (float 0..1, step=weight_step) per feature;
+             weights are normalized to sum=1.
+           - "equal_weight": skip TPE weight sampling entirely; weights
+             are uniform (1/n). Eliminates one cherry-pick degree-of-
+             freedom (matches Cand-2 PRD §5.5 + cycle 2026-04-30 #01
+             pre-registered criteria yaml).
 
     Notes:
       - Picks which specific features within a family via deterministic
@@ -218,7 +229,18 @@ def suggest_composite_spec(
     families         : which families to sample from (default FAMILIES_V1)
     min_families     : reject spec with fewer active families
     max_features_per_family : upper bound on per-family feature count
-    weight_step      : granularity for raw weight suggestions
+    weight_step      : granularity for raw weight suggestions (only used
+                       when composite_weighting="tpe_normalized")
+    composite_weighting : "tpe_normalized" (default; legacy) or
+                       "equal_weight". When "equal_weight", weights
+                       become 1/n uniform and `trial.suggest_float`
+                       is NOT called for w_<feat> — eliminates that
+                       slice of search-space + cherry-pick risk.
+    target_n_features : if set, post-dedup feature count MUST equal
+                       this exact integer; mismatch → TrialPruned.
+                       Default None (no enforcement; pre-A+ behavior).
+                       Cycle 2026-04-30 #01 uses target_n_features=3
+                       per pre-registered criteria yaml.
 
     Returns
     -------
@@ -226,8 +248,16 @@ def suggest_composite_spec(
 
     Raises
     ------
-    optuna.TrialPruned if the sampled spec has fewer than min_families.
+    optuna.TrialPruned if the sampled spec has fewer than min_families,
+    or (when target_n_features is set) if post-dedup cardinality != target.
+    ValueError on invalid composite_weighting argument.
     """
+    if composite_weighting not in ("tpe_normalized", "equal_weight"):
+        raise ValueError(
+            f"composite_weighting must be 'tpe_normalized' or 'equal_weight', "
+            f"got {composite_weighting!r}"
+        )
+
     # Import optuna lazily so this module is importable without optuna
     # for pure-dataclass tests.
     try:
@@ -280,21 +310,44 @@ def suggest_composite_spec(
                 f"min_families={min_families}"
             )
 
-    # Raw weights per selected feature
-    raw_weights: List[float] = []
-    for fam_name, feat in unique_selected:
-        w = trial.suggest_float(
-            f"w_{feat}", 0.0, 1.0, step=weight_step,
+    # ── A+ patch 2026-04-30: target_n_features exact-cardinality enforce ──
+    # When pre-registered criteria specifies exact composite cardinality
+    # (e.g. cycle #01 composite_cardinality=3), prune any trial whose
+    # post-dedup feature count differs. This prevents the miner's natural
+    # search shape (3 to ~12 features) from drifting away from the spec.
+    if target_n_features is not None and len(unique_selected) != target_n_features:
+        msg = (
+            f"spec post-dedup has {len(unique_selected)} features, "
+            f"target_n_features={target_n_features}"
         )
-        raw_weights.append(w)
+        if optuna is not None:
+            raise optuna.TrialPruned(msg)
+        else:
+            raise ValueError(msg)
 
-    total_raw = sum(raw_weights)
-    if total_raw <= 0:
-        # All-zero edge: use uniform
-        n = len(raw_weights)
+    # ── A+ patch 2026-04-30: composite_weighting branch ────────────────
+    # equal_weight: skip TPE weight sampling entirely. Uniform 1/n.
+    # tpe_normalized: legacy behavior — sample raw weights via TPE,
+    # normalize to sum=1.
+    if composite_weighting == "equal_weight":
+        n = len(unique_selected)
         normalized = [1.0 / n] * n
     else:
-        normalized = [w / total_raw for w in raw_weights]
+        # Raw weights per selected feature (TPE-tuned normalized)
+        raw_weights: List[float] = []
+        for fam_name, feat in unique_selected:
+            w = trial.suggest_float(
+                f"w_{feat}", 0.0, 1.0, step=weight_step,
+            )
+            raw_weights.append(w)
+
+        total_raw = sum(raw_weights)
+        if total_raw <= 0:
+            # All-zero edge: use uniform
+            n = len(raw_weights)
+            normalized = [1.0 / n] * n
+        else:
+            normalized = [w / total_raw for w in raw_weights]
 
     # Round normalized weights so the sum==1 check in ResearchCompositeSpec
     # tolerance (1e-6) is comfortable.
@@ -682,6 +735,8 @@ class ResearchMiner:
         min_families: int = 3,
         max_features_per_family: int = 2,
         weight_step: float = 0.05,
+        composite_weighting: str = "tpe_normalized",
+        target_n_features: Optional[int] = None,
         horizon: int = 21,
         lag: int = 1,
         archive: Any = None,
@@ -704,6 +759,22 @@ class ResearchMiner:
         self.min_families = min_families
         self.max_features_per_family = max_features_per_family
         self.weight_step = weight_step
+        # A+ patch 2026-04-30: honor pre-registered composite_weighting
+        # and composite_cardinality (target_n_features). Default values
+        # preserve legacy behavior for any existing study.
+        if composite_weighting not in ("tpe_normalized", "equal_weight"):
+            raise ValueError(
+                f"composite_weighting must be 'tpe_normalized' or "
+                f"'equal_weight', got {composite_weighting!r}"
+            )
+        self.composite_weighting = composite_weighting
+        if target_n_features is not None:
+            if not isinstance(target_n_features, int) or target_n_features < 1:
+                raise ValueError(
+                    f"target_n_features must be positive int or None, "
+                    f"got {target_n_features!r}"
+                )
+        self.target_n_features = target_n_features
         self.horizon = int(horizon)
         self.lag = int(lag)
         # R12: optional persistence. When archive is provided, each
@@ -779,6 +850,8 @@ class ResearchMiner:
             min_families=self.min_families,
             max_features_per_family=self.max_features_per_family,
             weight_step=self.weight_step,
+            composite_weighting=self.composite_weighting,
+            target_n_features=self.target_n_features,
         )
         # Codex R21 P0.1: enforce M6 C5 role-remint guard BEFORE evaluation.
         # If the same spec was already recorded under a DIFFERENT role within

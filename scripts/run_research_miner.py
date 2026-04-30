@@ -268,7 +268,136 @@ def main() -> int:
              "Audit guard fail_closed_if_role_unspecified_at_mining_start "
              "+ M6 C1+C2 (pre-mining lock; no post-hoc reclassification).",
     )
+    # ── A+ patch 2026-04-30: pre-registered criteria yaml as source of
+    # truth ─────────────────────────────────────────────────────────────
+    # When --criteria-yaml is provided, the mining_config block of that
+    # yaml IS the source of truth for: composite_weighting,
+    # composite_cardinality, n_trials, seed, sampler, panel_end_date,
+    # drop_symbols, min_families, max_features_per_family, lineage_tag.
+    # Any explicit CLI flag that conflicts with the yaml value FAILS
+    # CLOSED (raises SystemExit). This prevents the gap that pre-flight
+    # 2026-04-30 caught: yaml asserted equal_weight + cardinality=3 but
+    # miner code didn't honor those fields, so they were silently
+    # decorative.
+    parser.add_argument(
+        "--criteria-yaml", default=None,
+        help="Path to pre-registered cycle criteria yaml. When provided, "
+             "yaml.mining_config is the source of truth for "
+             "composite_weighting / composite_cardinality / n_trials / "
+             "seed / sampler / panel_end_date / drop_symbols / "
+             "min_families / max_features_per_family / lineage_tag. "
+             "Any conflicting CLI flag fails closed.",
+    )
+    parser.add_argument(
+        "--composite-weighting", default=None,
+        choices=["tpe_normalized", "equal_weight"],
+        help="Composite weighting scheme. Default tpe_normalized (legacy). "
+             "When --criteria-yaml is provided this CLI flag must match "
+             "yaml.mining_config.composite_weighting or be omitted.",
+    )
+    parser.add_argument(
+        "--composite-cardinality", type=int, default=None,
+        help="Exact post-dedup feature count. None = no enforcement. "
+             "When --criteria-yaml is provided this CLI flag must match "
+             "yaml.mining_config.composite_cardinality or be omitted.",
+    )
     args = parser.parse_args()
+
+    # ── Apply criteria yaml as source of truth (fail-closed mismatch) ──
+    if args.criteria_yaml is not None:
+        import yaml as _yaml
+        crit_path = Path(args.criteria_yaml)
+        if not crit_path.exists():
+            raise SystemExit(
+                f"--criteria-yaml path not found: {crit_path}"
+            )
+        crit_doc = _yaml.safe_load(crit_path.read_text())
+        mc = crit_doc.get("mining_config") or {}
+        cy_lineage = crit_doc.get("lineage_tag")
+
+        # Field map: yaml key → (CLI attr, CLI cli-flag-display-name)
+        # CLI default sentinel detection: argparse default values listed
+        # explicitly so we can distinguish "user passed default" from
+        # "user did not pass". For numeric/string defaults we do a value
+        # compare; for None-default flags (composite_weighting,
+        # composite_cardinality, end_date, drop_symbols) None means
+        # "unspecified".
+        _yaml_to_cli = [
+            # (yaml_key,                      cli_attr,                   default_marker, friendly_flag_name)
+            ("composite_weighting",           "composite_weighting",       None,          "--composite-weighting"),
+            ("composite_cardinality",         "composite_cardinality",     None,          "--composite-cardinality"),
+            ("n_trials",                      "trials",                    50,            "--trials"),
+            ("seed",                          "seed",                      42,            "--seed"),
+            ("sampler",                       "sampler",                   "tpe",         "--sampler"),
+            ("panel_end_date",                "end_date",                  None,          "--end-date"),
+            ("min_families",                  "min_families",              3,             "--min-families"),
+            ("max_features_per_family",       "max_features_per_family",   2,             "--max-features-per-family"),
+        ]
+        mismatches: list[str] = []
+        for yaml_key, cli_attr, default, flag_name in _yaml_to_cli:
+            yaml_val = mc.get(yaml_key)
+            cli_val = getattr(args, cli_attr)
+            if yaml_val is None:
+                continue  # yaml didn't specify this field
+            # CLI explicitly set (non-default) AND non-equal → mismatch
+            if cli_val != default and cli_val != yaml_val:
+                mismatches.append(
+                    f"  {flag_name}={cli_val!r} conflicts with "
+                    f"yaml.mining_config.{yaml_key}={yaml_val!r}"
+                )
+            # Override default with yaml value
+            if cli_val == default or cli_val is None:
+                setattr(args, cli_attr, yaml_val)
+
+        # drop_symbols: yaml is a list; CLI default is None
+        yaml_drop = mc.get("drop_symbols") if isinstance(mc.get("drop_symbols"), list) else None
+        # Fall back to universe_panel_mask_spec.drop_symbols (cycle #01 yaml schema)
+        if yaml_drop is None:
+            ums = (crit_doc.get("hard_requirements") or {}).get("universe_panel_mask_spec") or {}
+            ymd = ums.get("drop_symbols")
+            if isinstance(ymd, list):
+                yaml_drop = ymd
+        if yaml_drop is not None:
+            if args.drop_symbols is not None and args.drop_symbols != yaml_drop:
+                mismatches.append(
+                    f"  --drop-symbols={args.drop_symbols!r} conflicts with "
+                    f"yaml.drop_symbols={yaml_drop!r}"
+                )
+            if args.drop_symbols is None:
+                args.drop_symbols = yaml_drop
+
+        # lineage_tag: yaml is source of truth for naming
+        if cy_lineage is not None:
+            if args.lineage != "post-2026-04-24-rcm-v1" and args.lineage != cy_lineage:
+                mismatches.append(
+                    f"  --lineage={args.lineage!r} conflicts with "
+                    f"yaml.lineage_tag={cy_lineage!r}"
+                )
+            if args.lineage == "post-2026-04-24-rcm-v1":
+                args.lineage = cy_lineage
+
+        if mismatches:
+            raise SystemExit(
+                "criteria-yaml / CLI mismatch (fail-closed per A+ patch "
+                "2026-04-30):\n" + "\n".join(mismatches) + "\n"
+                "Resolution: omit the conflicting CLI flag (yaml is "
+                "source of truth) OR use a different yaml."
+            )
+
+        logger.info(
+            "Criteria yaml loaded as source of truth: lineage=%s "
+            "composite_weighting=%s composite_cardinality=%s trials=%d "
+            "seed=%d sampler=%s end_date=%s drop_symbols=%s",
+            cy_lineage, args.composite_weighting, args.composite_cardinality,
+            args.trials, args.seed, args.sampler, args.end_date,
+            args.drop_symbols,
+        )
+
+    # CLI defaults stay for non-yaml mining (legacy flow): if
+    # composite_weighting still None after potential yaml override,
+    # default to legacy tpe_normalized.
+    if args.composite_weighting is None:
+        args.composite_weighting = "tpe_normalized"
 
     study_id = args.study or (
         "rcm-v1-run-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
@@ -365,6 +494,8 @@ def main() -> int:
         objective_weights=ObjectiveWeights(),
         min_families=args.min_families,
         max_features_per_family=args.max_features_per_family,
+        composite_weighting=args.composite_weighting,
+        target_n_features=args.composite_cardinality,
         horizon=args.horizon,
         lag=args.lag,
         archive=archive,
