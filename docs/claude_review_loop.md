@@ -5177,5 +5177,232 @@ future readers can't slip back into conflating them.
   (one criteria yaml per role); I prefer 4-field because future
   multi-role mining might share a criteria yaml across roles.
 
+## Round 40 (Claude) — alpha-first prep ship: P0 cycle #01 criteria yaml + P1 generic NAV runner + P1 β-stamp
+
+commits:
+  - `main f770d05` — Track C cycle 2026-04-30-01 pre-registered criteria yaml (sha256 `95027106100b38ef56878c48c3bada407c9b92e798d425a421e3c813acc2a11d`)
+  - `main 4eb75bd` — Generic NAV pair diagnostic runner refactor + legacy wrapper
+  - `main 812a14f` — Track A acceptance β-stamp minimal extension (P1 prep)
+
+Per user explicit-go on the priority realign roadmap (R37 +
+R38 + R39), this round ships the three pre-cycle prep tasks
+identified by R39 net state, in dependency order:
+
+  P0  cycle #01 pre-registered criteria yaml (tier 3 immutability)
+  P1  generic NAV pair runner refactor (evidence pack §4.6 prep)
+  P1  Track A β-stamp helper (avoids B.MV impl rebound on candidate)
+
+NO A.MV / B.MV runner / Fleet Step 6+ work. Strict alpha-first
+discipline preserved.
+
+### P0 — cycle #01 pre-registered criteria yaml
+
+`data/research_candidates/track-c-cycle-2026-04-30-01_promotion_criteria.yaml`
+(454 lines).
+
+**Canonical pre-registration sha256**:
+`95027106100b38ef56878c48c3bada407c9b92e798d425a421e3c813acc2a11d`
+
+Recorded in commit message of `f770d05`. Mining trials may begin
+only after this commit lands. ALL fields below this point of the
+git history are FROZEN for lineage track-c-cycle-2026-04-30-01.
+
+Hard requirements (20 fields, ANY failure = nominee disqualification):
+
+- Track A acceptance evaluator must aggregate-pass; 2025 hard on core role
+- min_ic_ir_full_period 0.25 (matches prior cycle)
+- min_walk_forward_folds_positive 3/4 (Track A split)
+- m12 concentration tier ceiling = warning; top1 0.40 / top3 0.70
+- watchlist_total_share_max 0.30 (SAME 0.30 ceiling that closed
+  prior cycle 2026-04-26 #01; reverse-validation sentinel)
+- thin_data_weighted_share_max 0.10 (post-M12 weighted defn)
+- tqqq_share_max 0.10 / soxl_share_max 0.10 (CLAUDE.md invariant)
+- QQQ outperformance hard rule (full-period + 252d holdout +
+  walk-forward avg-OOS positive)
+- NAV-level orthogonality vs RCMv1 + Cand-2 with audit-R2 tiers
+  (true_diversifier <0.50 / partial 0.50-0.70 / warn_label_void
+  0.70-0.85 / reject_step5 ≥0.85). BOTH raw AND residual must be
+  in true_diversifier band; residual evaluated vs SPY OR vs QQQ.
+  Pooled minimum 60 overlap days.
+- cost_robustness_2x_must_remain_positive_cagr
+- panel_cutoff_max_date 2025-12-31 (NOT 2024-12-31 like prior cycle —
+  Track A split includes 2025 in validation)
+
+Anti-sibling discipline (audit R36 §4 codified):
+must_classify_alpha_source_in_evidence_pack=true. Quantitative
+heuristic for "presumed structurally different": both
+nav_orthogonality vs_rcm_v1.residual_pearson AND
+vs_cand_2.residual_pearson in true_diversifier band; otherwise
+reviewer must document concrete mechanism (event-calendar / sector
+sleeve / intraday cadence / etc.).
+
+Hard blockers (acceptance-independent, 4 conditions): any_validation
+_year_maxdd_above_0_20, any_stress_slice_maxdd_above_0_25, validation
+_aggregate_excess_vs_qqq_le_0, validation_2025_role_hard_gate_failure.
+
+Closeout discipline (audit R39 codified — operator-level substitute
+for future A.MV 4-field sealed_lock_key):
+sealed_window_single_use=true; spec_retuning_after_sealed_failure
+_prohibited=true; reopen_requires_new_criteria_yaml AND
+new_sealed_window. Future A.MV ledger composition (split_name,
+criteria_yaml_sha256, sealed_window_id, role) documented for
+forward reference.
+
+Report-only fields (must report; do NOT gate): regime IR per 6
+PQS regimes, portfolio-weighted β stats, stress-slice diagnostics
+(covid_flash + rate_hike_2022), turnover proxy, composite-IC
+correlation vs existing pair, **human path-knowledge inventory**
+(priority realign tier-4 acknowledgment — declares what 2026
+information was visible during yaml authoring; diagnostic only,
+does not move gate).
+
+### P1 — Generic NAV pair diagnostic runner
+
+`dev/scripts/correlation/run_pair_nav_correlation.py` (520 lines).
+
+CLI: `--candidate-a-id / --candidate-a-run-dirs / --candidate-b-id /
+--candidate-b-run-dirs / --cell-labels / --min-overlap / --output-json`.
+
+Programmatic API: `run_pair_correlation()`, `classify()`,
+`classify_residual()`, `compute_residual_correlation()` — all
+take parametric `cand_a_col` / `cand_b_col` for column names.
+
+Legacy `rcmv1_cand2_realized_nav_correlation.py` reduced to thin
+wrapper. Canonical output JSON path
+(`data/memos/20260430_rcmv1_cand2_realized_correlation.json`)
+preserved; existing memo references intact.
+
+**Critical R3 verification: 11/11 numerical equivalence checks
+PASS** between pre-refactor snapshot and post-refactor wrapper:
+
+  pooled pearson           0.8982427762621483 → identical
+  residual vs SPY          0.609343015578696  → identical
+  residual vs QQQ          0.5790621548098179 → identical
+  classification           reject_step5       → identical
+  per-cell betas           1.41/1.13/1.50/1.23 → identical
+  residual ann sharpes     1.16/2.08/1.56/2.77 → identical
+  classification per cell  reject/warn_label_void → identical
+
+R4 boundary coverage: missing benchmark column, zero-variance
+benchmark, perfect-beta synthetic (1e-10 floor), n=0/n=1 empty
+diagnostic with parametric column names, overlap_warning when
+pooled n < min_overlap, CLI generic path produces correct
+cand_a/cand_b shape.
+
+**Two regressions caught by R3 at refactor time** (documented in
+commit message + cell_diagnostics docstring + this entry for
+future maintainers):
+
+1. Initial generic `run_pair_correlation` passed a single
+   `benchmark_source_dir` to ALL cells. Cell N's benchmark loaded
+   from cell 0's dir produced zero date overlap → cell falsely
+   fell into `_empty_diagnostic` path. Fix: each cell loads
+   benchmark from its own `cand_a_dir`; pooled residual
+   computation also loads benchmark per-cell.
+
+2. `_empty_diagnostic` hardcoded keys `cand_a`/`cand_b` ignoring
+   caller's parametric column names. Fix: `cand_a_col`/`cand_b_col`
+   passthrough to `_empty_diagnostic`.
+
+Key-name compatibility: pre-refactor JSON had a small inconsistency
+(cell-level `max_dd`/`beta_to_qqq`/`beta_to_spy` used full column
+names but residual block used short names `beta_rcm`/`beta_cnd`).
+Post-refactor residual block uses full names for internal
+consistency. Headline numbers numerically identical; only residual
+block KEY LABELS changed. Existing memo references describe these
+by NUMBER not by JSON key, so no doc churn.
+
+### P1 — Track A acceptance β-stamp minimal extension
+
+`core/research/acceptance_helpers.py` (+125 lines) +
+`tests/unit/research/test_acceptance_helpers.py` (+8 tests).
+
+Two new pure functions:
+
+```python
+compute_beta_to_benchmark(strat_ret_d, bench_ret_d) -> float
+    # OLS β = cov(s,b)/var(b); ValueError on zero/non-finite var
+
+build_estimated_beta_at_freeze(
+    *, strat_ret_d, spy_ret_d, qqq_ret_d, n_obs,
+    window_label="train_plus_validation",  # default; legacy uses other labels
+    source="track_a_acceptance",            # default; legacy uses other sources
+    computed_at, computed_by,
+    used_by_b_mv=True,                       # default; legacy=False
+    reason_unused=None,                      # required when used_by_b_mv=False
+) -> dict
+    # Canonical schema per bmv_schema_decision.md §estimated_beta_at_freeze
+```
+
+This is the MINIMAL extension. NOT full A.MV. Just β-computation +
+nested-block-writer ready for whatever code path eventually freezes
+a candidate spec yaml. Wiring into Track A acceptance happens later
+(P2 candidate-gated per priority realign).
+
+Test surface: 34 tests in test_acceptance_helpers.py (26 pre-existing
++ 8 new β-stamp tests). All PASS. Tests cover: synthetic β
+recovery (target 1.5 ± tolerance), zero-variance ValueError, NaN
+ValueError, canonical schema field set, legacy backfill schema use,
+schema invariant enforcement (used_by_b_mv=False without
+reason_unused → ValueError), ValueError bubbling up from compute
+helper, yaml round-trip serialization.
+
+### Self-audit (4 rounds)
+
+- **R1 factual**: 14 yaml-key assertions PASS on cycle #01 criteria;
+  11 numerical equivalence PASS for NAV runner refactor; 8 new
+  β-stamp tests PASS. sha256 of cycle #01 yaml recorded in commit
+  message.
+- **R2 logical**: 4-tier unseen taxonomy enforcement consistent
+  across criteria yaml + temporal_split.yaml + acceptance evaluator
+  contracts. β-stamp helper signature matches schema in
+  bmv_schema_decision.md exactly. Generic NAV runner column-name
+  parametrization matches the dual-purpose use (legacy wrapper
+  + Track C generic).
+- **R3 runtime**: cycle #01 yaml parses cleanly via yaml.safe_load;
+  legacy NAV correlation wrapper produces output numerically
+  identical to pre-refactor snapshot; β-stamp test suite executes
+  end-to-end. R3 caught two real regressions during NAV runner
+  refactor (cross-cell benchmark dir; empty_diagnostic key
+  parametrization) — both fixed and verified.
+- **R4 boundary**: cycle #01 yaml refers to existing temporal_split
+  / universe / acceptance / factor_registry / prior_cycle / memos
+  (12 path checks PASS). Generic NAV runner handles missing
+  benchmark, zero-variance, near-zero residual (1e-10 floor),
+  empty input, n=1 input, overlap_warning. β-stamp helpers handle
+  zero-variance benchmark, schema invariant violations.
+
+### Net state at end of R40
+
+Three pre-cycle preparation artifacts committed and locked. Status
+of each leg of the priority realign roadmap:
+
+| Leg | Status |
+|-----|--------|
+| P0 cycle #01 criteria yaml (tier 3 immutability) | ✅ shipped `f770d05`; sha256 frozen |
+| P1 generic NAV pair runner | ✅ shipped `4eb75bd`; numerically equivalent to legacy |
+| P1 Track A β-stamp minimal | ✅ shipped `812a14f`; pure helpers + 8 tests |
+| P0 ext E.MV §4.6+§4.7 reviewer signoff | ⏳ external dependency |
+| P0 cycle #01 mining compute | 🟡 ready post-signoff |
+| Cycle #01 closeout (anti-sibling, alpha-source classify) | ⏸ post-mining |
+| B.MV full impl | ⏸ candidate-gated |
+| A.MV full impl | ⏸ candidate-gated |
+| Fleet Step 6+ | 🚫 HARD PAUSED |
+
+### Open for codex / external reviewer next round
+
+- **E.MV §4.6+§4.7 signoff** is now the only remaining external
+  dependency before cycle #01 mining can begin. All internal
+  prep work is complete.
+- **Cycle #01 criteria yaml review**: reviewer may push back on
+  any threshold (anti-sibling heuristic vs explicit mechanism
+  documentation, watchlist 0.30 ceiling, β-stamp schema field
+  set). Per criteria immutability, push-backs would NOT alter
+  this lineage's yaml; they would inform a future cycle's yaml.
+- **β-stamp wiring into Track A acceptance**: NOT done in this
+  round (intentional minimal scope). Wire-up is part of the
+  candidate freeze pipeline; happens when cycle #01 first
+  produces a candidate to freeze.
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
