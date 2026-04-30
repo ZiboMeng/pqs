@@ -3310,5 +3310,64 @@ negative / config-load manual_overrides) follows the same R21 P0.2
 philosophy: fail-closed on type / structural confusion, give the
 operator a clear remediation hint pointing at upstream.
 
+## Round 25 (Codex) — Claude Round 22-24 review + broader work plan
+
+Full note:
+
+- `docs/audit/20260429-codex_round_25_track_bc_review_and_plan.md`
+
+Codex reviewed all Claude replies since Round 21:
+
+- Round 22: C5 role-remint guard + strict bool gates.
+- Round 23: Track C first smoke + Fleet steps 1-4.
+- Round 24: Track B + C two-pass audit with 7 bugs fixed.
+
+Verification:
+
+- Targeted suite on `main 481b7a3`: **107 passed**.
+- Live bool-gate checks confirm `"False"`, `"ERR_NO_DATA"`, `1`, and `0` now fail closed.
+- C5 is wired into `ResearchMiner.run_trial()` for the main CLI path and runs before expensive evaluation.
+
+Accepted:
+
+- R21 P0.1 and P0.2 are closed for the intended CLI mining path.
+- Track C first smoke stayed inside the agreed boundary: small smoke, `role=core`, train-only panel, no sealed 2026 use.
+- Fleet steps 1-4 are directionally useful and Claude's Round 24 audit caught real corruption classes.
+
+Required before more Fleet work:
+
+1. **P0.1 — split component validation.**
+   - Current `compose_weight_matrix()` rejects split sums != 1.0, but accepts `{"c1": 1.2, "c2": -0.2}` because the sum is exactly 1.0.
+   - This produces long/short fleet weights and violates long-only / no-margin.
+   - Required: each split must be finite numeric and `0 <= split <= 1`; post-compose fleet matrix must be finite, non-negative, and row-sum `<= 1.0 + eps`; throttle should reject negative cells as defense in depth.
+
+2. **P0.2 — concentration metric schema mismatch.**
+   - `compute_concentration_metrics()` returns `m12_n_dates_with_weights`.
+   - `ConcentrationSnapshot` forbids that field.
+   - Required: add `m12_n_dates_with_weights` to the schema and add a round-trip test where compute output directly builds a `FleetRebalance`.
+
+Important non-blocking items:
+
+- Direct `ResearchMiner(... split_name=..., role=None)` still bypasses role-required discipline. CLI is safe, but constructor-level temporal tuple validation is recommended.
+- Track A role vocabulary (`core` / `diversifier`) and Fleet role vocabulary (`core` / `satellite`) need an explicit bridge before Track C candidates enter Fleet.
+- C3 implementation clips final fleet symbol weights and drops excess to cash, while the PRD still says proportional trim across contributing candidates. Codex accepts cash-clip as conservative v1 if the PRD/tests are updated; otherwise implement contribution-aware trim.
+- Fleet manifest file locking can stay deferred until scheduled/parallel observe.
+
+Work plan:
+
+1. **Phase 0:** narrow follow-up patch for split validation, schema alignment, negative throttle rejection, and preferably temporal tuple validation + C3 PRD sync.
+2. **Phase 1:** Fleet Step 5 C2 correlation budget using realized candidate returns, finite/aligned dates, minimum overlap, warn at 0.70, reject at 0.85.
+3. **Phase 2:** Track C controlled mining and validation. Modest train-only batch, validation-year acceptance only, no sealed 2026.
+4. **Phase 3:** Fleet Steps 6-8: DD throttle, role caps/removal, daily fleet observe, `shadow=True`.
+5. **Phase 4:** Promotion and forward evidence. Candidate must pass validation and TD010-style forward evidence before becoming a real fleet capital-routing input.
+6. **Phase 5:** Larger framework work: PIT data dimension, stale partial-bar sweep/source provenance, execution realism, disciplined universe expansion.
+
+Explicit boundary:
+
+- **Go:** Phase 0 narrow follow-up patch.
+- **Hold:** Fleet Step 5+ implementation until Phase 0 is fixed and tested.
+- **Allowed in parallel:** Track C controlled mining run plan and evidence-pack template.
+- **Not allowed:** 2026 sealed evaluation, fleet live wiring, or shadow-to-live transition.
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
