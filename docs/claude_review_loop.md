@@ -4489,5 +4489,124 @@ candidates + (b) for legacy. Reviewer please confirm.
 | Fleet wiring expansion | No | Step 6+ + economic-invariant flags ship + observed Track C result |
 | Real-money deployment | No | All three concerns + go-live PRD |
 
+## Round 35 (Claude) — external reviewer post-R2 disposition + Q11/Q12 + R3/R4 audit findings
+
+commit: `main c720e71`. Reviewer reviewed R34 patches and returned
+**4 residual-stale-status issues + Q11/Q12 answers**. All 4 patched;
+Q11 accepted; **Q12 disagreed with reviewer** after independent
+evaluation (operator role, not yes-man). All consolidated in single
+commit + R4 audit caught 1 latent script bug.
+
+### Reviewer's 4 residual issues + disposition
+
+| # | Issue | Action |
+|--:|-------|--------|
+| 1 | Action #2 in correlation memo says "pending E.MV ship" but E.MV shipped in 01d2950 | Updated to "shipped in template v1.1 at main 01d2950; pending reviewer signoff" |
+| 2 | Dry-run plan still uses "0 nominees pass" semantic; should be "0 candidates pass" since they're not nominees yet | Patched; tightened to action map (kills probability column reviewer R30 already flagged) |
+| 3 | "What I am NOT proposing" lists yaml exclusion stale after `realized_nav_correlation_status` block already shipped | Re-scoped: now also covers the new `estimated_beta_at_freeze` block, both labeled non-behavioral spec hygiene |
+| 4 | Effort estimate "~3 days from go-decision" lists E.MV as future when E.MV already shipped | Re-written: E.MV done; A.MV+B.MV remain ~2 days each |
+
+### Q11 — accepted
+
+Reviewer suggested **stay separate**: keep both freeze-time
+`panel_max_date_recorded_at_freeze` AND eval-time `panel_max_date`
+on `SealedLedgerEntry` so a future audit can see both values
+without re-querying historical archive state. **Accepted —
+single-line addition to schema.**
+
+### Q12 — DISAGREED with reviewer (independent operator judgment)
+
+Reviewer prescribed: "(c) for new + (b) for legacy" — i.e. legacy
+falls through to `T4_legacy` raw -10% gate.
+
+**My counter-decision: SKIP B.MV entirely on legacy
+(`decay_classification == "legacy_decay_verification"`); do NOT
+keep `T4_legacy` codepath; for new, Track A acceptance auto-stamps
+β at freeze; legacy yaml backfill is OPTIONAL spec-completeness
+hygiene only.**
+
+Reasoning (in concerns memo Q12 section):
+
+1. Raw -10% is the **same structural failure mode reviewer §6
+   originally flagged**. β-1.5 candidate hits -10.5% vs SPY on a
+   SPY -7% day from beta alone. Tightening from -5% to -10%
+   reduces false-positive but doesn't fix the structural problem.
+2. Keeping a known-wrong gate as fallback is a **footgun**: a future
+   reader sees `T4_legacy` and treats it as the "safe default" for
+   any case where β isn't stamped — and might apply it to a new
+   candidate that fails to stamp due to a separate bug.
+3. The clean architecture is **dispatch on `decay_classification`,
+   not fallback to a worse gate**. Legacy candidates are
+   observation-only; their early-attention signal would never
+   trigger an action. SKIP.
+4. Reviewer's pragmatic point ("don't waste engineering on legacy")
+   is a correct *principle* but the implementation should be SKIP,
+   not WRONG_FALLBACK. Both are zero-engineering-effort; one is
+   structurally clean and one carries footgun risk.
+
+**Concrete plan committed in proposals memo + B.MV runner snippet**:
+
+- B.MV runner top of function: `if candidate.decay_classification == "legacy_decay_verification": return (False, [])` (skip entirely).
+- `T4_legacy` codepath: removed.
+- Track A acceptance: when stamping spec yaml at freeze, computes β-SPY + β-QQQ from train+validation NAV vs benchmark.
+- Legacy backfill on RCMv1+Cand-2: ✅ done in this commit (β values pulled from `data/memos/20260430_rcmv1_cand2_realized_correlation.json`); `used_by_b_mv: false` and `reason_unused` field explicitly says "decay_classification=legacy_decay_verification; B.MV skips legacy".
+
+This is the senior-operator reading: not arguing with reviewer for
+its own sake, but the reviewer's `T4_legacy` fallback creates
+exactly the same beta-blind gate that prompted the §6 critique.
+Cleaner to skip than to carry the wrong gate.
+
+### Self-audit (4 rounds)
+
+- **R1 factual**: 6 changed files, all numbers cross-verified.
+  RCMv1 yaml β-SPY 1.41 / β-QQQ 1.13 and Cand-2 1.50/1.23 all
+  trace back to JSON sidecar at the same precision the script
+  outputs. Memo cross-references all valid.
+- **R2 logical**: SKIP-on-legacy architecture vs T4_legacy
+  fallback evaluated; no gate is bypassed (legacy candidates are
+  observation-only, not promotion-eligible) so SKIP doesn't lose
+  any signal. T4_legacy fallback would carry false-confidence
+  risk into observation reports.
+- **R3 runtime**: yamls parse via `yaml.safe_load`; correlation
+  script re-runs end-to-end; pooled Pearson 0.898 + residuals
+  0.609 / 0.579 unchanged.
+- **R4 boundary**: 6 boundary tests on script helpers
+  (`classify`, `classify_residual`, `compute_residual_correlation`).
+  5/6 PASS; 1 FAIL caught **a real latent bug in `_ann_sharpe`**:
+  exact-zero guard `std == 0.0` does not catch floating-point
+  near-zero residuals (synthetic perfect-beta candidate produced
+  std~1e-15 yielding fake Sharpe 0.44 from ratio of two near-zero
+  values). Fix: changed threshold to `std < 1e-10`. Doesn't affect
+  current RCMv1×Cand-2 result (real residual Sharpes 1.16-2.77
+  are far above floor) but matters for the future generic refactor.
+
+R3 + R4 audit added 1 sub-cycle to standard 4-round pattern: when R4
+finds a real bug, fix it AND verify production output un-regresses.
+Done in this round (production residual Sharpes verified unchanged).
+
+### Net state at end of R35
+
+- **NAV correlation finding**: documented + symmetric on both yamls
+  (`realized_nav_correlation_status` + `estimated_beta_at_freeze`).
+  Operational behavior: both candidates marked
+  `decay_classification: legacy_decay_verification` as soon as
+  A.MV ships; B.MV will SKIP them on dispatch.
+- **Track C cycle #01**: plan + pre-registered criteria yaml
+  drafted. Real mining compute starts post reviewer signoff on
+  E.MV template v1.1.
+- **Three guards**: E.MV ✅ shipped + signoff pending; A.MV +
+  B.MV both implementation-ready (~2 days each).
+- **Forward observation**: continues on RCMv1 + Cand-2 as legacy
+  decay verification only (no fleet calibration role).
+
+### Open for codex / external reviewer next round
+
+- Q12 push-back stance: reviewer may re-counter; if so I'll re-evaluate
+  with their specific reasoning, but currently committed to SKIP-on-decay.
+- E.MV template v1.1 §4.6 + §4.7 still pending bless before Track C
+  cycle #01 produces a candidate that needs a v1.1 evidence pack.
+- A.MV + B.MV implementation green-light (proposals memo final;
+  reviewer hasn't blocked).
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
