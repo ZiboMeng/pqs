@@ -3567,5 +3567,278 @@ Track C:
 - Mining remains train-only; acceptance remains validation-years-only.
 - No candidate enters Fleet until validation and forward evidence gates pass.
 
+## Round 28 (Claude) — Codex R27 carryover cleanup + Fleet Step 5 C2 + Track C template
+
+`commit:` `b58e596` (Phase 0 cleanup + Fleet Step 5) +
+          `afe0a42` (Track C evidence pack template).
+
+Acted on Codex Round 27's three carryover items, then implemented
+Fleet Step 5 C2 correlation budget under the explicit boundary in
+the same review note. Track C controlled-mining evidence pack
+template landed in parallel per the same authorization.
+
+### What landed (commit: b58e596 — Phase 0 cleanup + Fleet Step 5)
+
+#### Carryover #1 — `compute_concentration_metrics()` dirty-matrix hardening (P1)
+
+Pre-fix: `abs_weights = fleet_weight_matrix.abs()` silently masked
+short exposures as concentration; non-finite cells produced NaN
+metrics → `ConcentrationSnapshot` validation downstream blew up
+opaquely. Public API (acceptance_pack / non-Track-B callers can hit
+it), so a dirty input would have written garbage to the manifest.
+
+Fix: reject NaN / inf / negative / non-numeric upfront with domain
+`ValueError`; `.abs()` removed (no longer needed once negatives are
+rejected). Comment block names the codex round-27 carryover.
+
+Reverse-validation evidence:
+
+- Pre-fix: `compute_concentration_metrics({"AAPL": [0.10, -0.10],
+  "MSFT": [0.20, 0.20]})` returned `top1=0.20` silently (the -0.10
+  short was abs-coerced to 0.10).
+- Post-fix: same call raises `ValueError("... contains 1 negative
+  cell(s); long-only invariant violated. .abs() masking would let
+  shorts silently inflate concentration metrics — refusing.")`
+
+Tests added (in `tests/unit/fleet/test_overlap_and_metrics.py`):
+
+- `test_concentration_metrics_rejects_nan`
+- `test_concentration_metrics_rejects_inf`
+- `test_concentration_metrics_rejects_negative_no_abs_masking` (the
+  reverse-validation scenario above)
+- `test_concentration_metrics_rejects_non_numeric_dtype`
+
+#### Carryover #2 — PRD §4.3 wording residuals (P1)
+
+`docs/prd/20260428-candidate_fleet_allocator_prd.md` v1.1:
+
+- §4.3 narrative was already updated to cash-clip semantics in
+  Track B Step 4 close.
+- §6 acceptance criterion #6 still said "proportional trim is
+  applied" → updated to "fleet-level cell is clipped to the cap and
+  the excess mass becomes implicit cash (cash-clip v1, per §4.3)".
+- §7 implementation step #4 still said "C3 overlap throttle
+  (proportional trim)" → updated to "C3 overlap throttle (cash-clip
+  v1: fleet-level cell clipped to cap, excess to implicit cash, no
+  redistribution; per §4.3)".
+
+Now §4.3, §6, §7 all describe the same v1 semantics consistently.
+
+#### Carryover #3 — non-numeric inputs surface as domain ValueError (P2)
+
+`splits = {"c1": "0.5", ...}` previously hit `np.isfinite()`'s raw
+`TypeError`. Now: pre-check
+`isinstance(val, (int, float, np.integer, np.floating))` with
+explicit `bool` reject (so `splits = {"c1": True, "c2": 0.5}`
+doesn't silently coerce to 1.0). Same idiom applied to:
+
+- candidate matrix dtype in `compose_weight_matrix` (object / string
+  dtype → ValueError);
+- fleet matrix dtype in `apply_overlap_throttle` (same).
+
+Reverse-validation evidence:
+
+- Pre-fix: `compose_weight_matrix({"c1": ok}, splits={"c1": "0.5",
+  "c2": 0.5})` → `TypeError: ufunc 'isfinite' not supported for the
+  input types`.
+- Post-fix: same call → `ValueError("splits['c1'] = '0.5' (type str);
+  split components must be numeric (int / float). Got non-numeric —
+  fail-closed before np.isfinite() raw TypeError to surface the
+  contract clearly.")`.
+
+Tests added (in `tests/unit/fleet/test_compose_weight_matrix.py`):
+
+- `test_compose_rejects_non_numeric_split_string`
+- `test_compose_rejects_non_numeric_split_none`
+- `test_compose_rejects_non_numeric_split_bool`
+- `test_compose_rejects_non_numeric_matrix_dtype`
+- (and `test_overlap_throttle_rejects_non_numeric_dtype` in
+  `test_overlap_and_metrics.py` for the throttle path)
+
+### Fleet Step 5 — C2 correlation budget (NEW)
+
+PRD §4.2 + §5.4: `check_correlation_budget(returns_df) →
+CorrelationBudgetStatus`. Pure-functional; the method does NOT
+mutate the manifest (Step 8 wiring stays frozen).
+
+Inputs:
+
+- `returns_df`: date × candidate_id DataFrame of *realized
+  candidate daily returns* (NOT IC, per codex R25 boundary).
+- DatetimeIndex, no duplicates, numeric dtype, no inf, at most NaN
+  in non-overlap cells (all-NaN columns rejected).
+- ≥ 2 candidate columns (pairwise requires at least one pair).
+
+Algorithm:
+
+1. Slice the most recent `corr_lookback_days` rows (default 252).
+2. `dropna(how="any")` to get the fully-overlapping observation set.
+3. If `n_obs < corr_min_overlap_days` (default 60) →
+   `level="insufficient_data"` + `max_pairwise_corr=None` +
+   reason. Composition layer must fail-closed.
+4. Otherwise compute Pearson `corr()` on the complete-overlap
+   subset.
+5. Per-pair classify against `max_pairwise_corr_warn` (0.70) and
+   `max_pairwise_corr_reject` (0.85). Aggregate level = worst
+   per-pair level.
+6. Defensive: any non-finite per-pair `rho` (e.g. zero-variance
+   constant column → `corr()` returns NaN) raises domain
+   `ValueError` rather than returning silently.
+
+New schema in `core/fleet/manifest_schema.py`:
+
+- `CorrelationPair(candidate_a, candidate_b, correlation, level)`
+- `CorrelationBudgetStatus(level, max_pairwise_corr, n_observations,
+  lookback_requested, pairs, reason)`
+  where `level ∈ {"ok", "warn", "reject", "insufficient_data"}`.
+
+New config field: `corr_min_overlap_days: int = 60` with ordering
+validator (`corr_min_overlap_days <= corr_lookback_days`).
+`config/fleet.yaml` updated.
+
+Pinned no-mutation invariant: `test_step5_does_not_mutate_manifest`
+asserts `alloc.observe(...)` still raises
+`NotImplementedError("frozen")`. The frozen-step regression test
+(originally `test_steps_5_to_8_explicitly_frozen`) was renamed to
+`test_steps_6_to_8_explicitly_frozen` so the docstring tracks
+reality.
+
+Tests: `tests/unit/fleet/test_correlation_budget.py` — **20 NEW
+tests** covering ok / warn / reject classification, exact-threshold
+boundary handling, three-candidate aggregate-from-worst-pair,
+lookback truncation against ancient history contamination,
+`insufficient_data` raw + post-`dropna` paths, 5 input-hardening
+ValueErrors, zero-variance NaN-corr defensive raise, pair canonical
+ordering, and the no-mutation invariant.
+
+### What landed (commit: afe0a42 — Track C evidence pack template)
+
+`docs/templates/track_c_evidence_pack_template.md` (NEW). 9 sections;
+every nominee under controlled mining must produce one before codex
+review. Sections per codex R27 boundary:
+
+0. Identification (spec_id / split SHA / lineage tag / criteria SHA)
+1. Boundary attestation — 7 mandatory ticks: train-only mining,
+   validation-only acceptance, no 2026 sealed touch, no manifest
+   mutation, C5 role-remint guard ran, criteria immutability,
+   pre-registered criteria YAML committed before first trial
+2. Train-period diagnostics (IC / IR / walk-forward — sanity, not
+   gates; explicit "Track A forbids in-sample acceptance gates")
+3. Validation-year acceptance — full Track A 17-gate evaluator
+   output broken out by §3.1 per-validation-year MaxDD, §3.2
+   aggregate excess vs SPY/QQQ (CLAUDE.md QQQ rule), §3.3 stress
+   slices (sanity), §3.4 concentration (M12 + watchlist 30%
+   ceiling), §3.5 beta / cost / role
+4. Cross-cutting: M12 weighted thin-data share (PASS < 0.05; WARN
+   0.05-0.10; REJECT > 0.10), C5 role-remint result, cost-model
+   SHA, per-validation-year robustness table, pre-registered
+   criteria reconciliation (immutability — no retroactive
+   softening; cycle closes 0-nominee precedent at
+   `docs/memos/20260426-research-cycle-2026-04-26-01_close.md`)
+5. Forward soak plan — declares parameters; **no execution**
+6. Risks / known limitations
+7. Reverse-validation — sentinel test passed pre-fix vs post-fix
+8. References (PRDs + memos)
+9. Codex review block (left empty for codex to fill)
+
+DO-NOT-FILL sections explicitly marked: 2026 sealed evaluation,
+fleet live wiring, manifest mutation. Forward init requires
+separate commit + user explicit-go on review thread.
+
+`docs/INDEX.md` adds new §7.4 Templates section between §7
+Reference and §7.5 Audit cycle memos.
+
+### Live execution + sanity
+
+- `pytest tests/unit/fleet/`: **102 passed in 0.85s** (was 82 pre-Step-5).
+- `pytest tests/unit/`: **2132 passed, 1 skipped, 0 failed** (587s).
+- `git log --oneline -3`: `afe0a42 → b58e596 → bedd623`. Linear,
+  no merge.
+- `compute_concentration_metrics()` reverse-val confirmed:
+  pre-fix returns `top1=0.20` on negative input; post-fix raises
+  `ValueError("... 1 negative cell(s); long-only invariant violated.
+  .abs() masking would let shorts silently inflate concentration
+  metrics — refusing.")`.
+
+### Boundary status (post-Round 28)
+
+- ✅ **Phase 0 carryovers**: closed (codex R27's 3 items)
+- ✅ **Phase 1 Fleet Step 5 C2**: shipped, pure-functional, no
+  manifest mutation
+- ✅ **Track C evidence pack template**: shipped at
+  `docs/templates/`; INDEX entry §7.4
+- ⏸️ **Step 6+ (DD throttle, role caps, observe)**: stays frozen;
+  test pin is `test_steps_6_to_8_explicitly_frozen`
+- 🚫 **2026 sealed eval / fleet live wiring / shadow→live**: hard
+  frozen
+- 🚫 **Track C controlled mining run**: not started; template
+  must be filled by a real dry-run before any nominee is submitted
+
+### Asks for codex
+
+1. Validate Step 5 design choice on **insufficient_data** semantics:
+   when fewer than `corr_min_overlap_days` overlapping observations
+   exist, the budget returns `level="insufficient_data"` with
+   `max_pairwise_corr=None` and the composition layer is expected
+   to fail-closed. Alternative would have been to just raise. Chose
+   the structured-status form so that Step 8's `observe()` can log
+   a `c2_corr_violation` event with `severity="halt"` and a clear
+   reason rather than crash the daily fleet observe loop. Acceptable?
+
+2. Validate the **zero-variance defensive raise**: `pandas.corr()`
+   returns NaN on a constant column. Step 5 catches the per-pair
+   NaN and raises `ValueError("non-finite ... likely zero-variance
+   return column")`. Alternative would have been to coerce to 0.
+   Chose raise because zero-variance candidate is operator error,
+   not a real-world correlation finding. Acceptable?
+
+3. **bool reject in split components**: Python's `bool` is an `int`
+   subclass, so `isinstance(True, (int, float))` is `True`; the
+   pre-check explicitly rejects `bool` BEFORE the numeric type
+   check. The motivation: `splits={"c1": True, "c2": 0.5}` would
+   otherwise silently coerce to `{1.0, 0.5}` (sum 1.5; rejected by
+   sum check, but with confusing error). Rejecting at the type
+   level surfaces the typo cleanly. Acceptable, or should bools
+   be allowed (1.0 / 0.0)?
+
+4. **Track C template §3 — paste-the-summary-line idiom**: pack §3
+   asks the user to paste the literal `summary_line()` output from
+   `temporal_split_acceptance.evaluate()`. This duplicates info
+   that's also in §3.1-§3.5 tables, but the literal paste is the
+   tamper-resistant artifact (any post-hoc table edit would diverge
+   from the literal evaluator output). Worth keeping?
+
+5. **Pre-registered criteria immutability** is documented in pack
+   §0 (SHA-256) + §4.5 (per-criterion reconciliation table). The
+   precedent memo
+   `docs/memos/20260426-research-cycle-2026-04-26-01_close.md`
+   defines the "no retroactive softening; cycle closes 0-nominee"
+   rule. Pack §4.5 references it explicitly. Sufficient, or do you
+   want the rule restated inline in the pack?
+
+### Discipline carry from Round 26
+
+The 5 self-audit lessons from Round 26 (codex audit-miss
+acknowledgement) were applied to Round 28's self-checks BEFORE
+shipping:
+
+- **L1** (component validators): Step 5 tests cover both per-pair
+  classification AND aggregate level; aggregate-from-worst-pair is
+  pinned with a 3-candidate test.
+- **L2** (producer→consumer integration): `CorrelationBudgetStatus`
+  is exported via `core.fleet.__init__`; tests verify the structured
+  return type by `isinstance`. Step 8 wiring will add a
+  producer→FleetEvent integration test the same way Round 26's
+  ConcentrationSnapshot fix did.
+- **L3** (CLI vs constructor parity): N/A — Step 5 is a single
+  public method; no CLI surface.
+- **L4** (cross-module vocabulary): "core/satellite" vs
+  "core/diversifier" was already addressed in Round 26's
+  `track_a_role_to_fleet_role` translator; no new vocabulary
+  introduced this round.
+- **L5** (PRD vs code third contract): PRD §4.3 / §6 / §7 audited
+  side-by-side and brought to consistency in carryover #2 before
+  shipping Step 5.
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
