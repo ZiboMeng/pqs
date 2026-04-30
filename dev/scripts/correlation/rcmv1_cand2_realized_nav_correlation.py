@@ -19,6 +19,33 @@ two paper cells the candidates were nominated on.
 Outputs:
   - prints to stdout
   - dumps machine-readable JSON next to the memo for re-use
+
+==============================================================================
+SCOPE NOTE — this is a PAIR-SPECIFIC diagnostic (RCMv1 × Cand-2).
+==============================================================================
+Column names `rcm_v1` / `cand_2` and the `CELLS` dict are hardcoded
+because this script answers exactly one question: "is the
+2026-04-24 fleet-of-two assumption justified at NAV level?".
+
+When Track C cycle #01 produces a candidate, evidence pack §4.6
+will need NAV-correlation diagnostics for that candidate against
+EVERY active candidate (RCMv1, Cand-2, and any future fleet
+member). At that point this script must be either refactored to a
+generic pair runner, or wrapped by a new
+`dev/scripts/correlation/run_pair_nav_correlation.py` taking:
+
+    --candidate-a-id, --candidate-a-run-dirs <list>,
+    --candidate-b-id, --candidate-b-run-dirs <list>,
+    --benchmark-source, --min-overlap, --output-json
+
+The deferral is intentional: per reviewer 2026-04-30 §2.2, this
+"doesn't block mining compute, blocks candidate→nominee transition
+in evidence pack §4.6". Refactor when concrete requirements (e.g.
+N-candidate matrix, not just 2) are known. Until then, treat the
+classify() / classify_residual() / compute_residual_correlation()
+helpers as the reusable primitives — column-name parametrization
+is the missing piece.
+==============================================================================
 """
 from __future__ import annotations
 
@@ -130,20 +157,39 @@ def cell_diagnostics(cell: str, rcm_dir: Path, cand_dir: Path) -> dict:
         )
 
     # 2. down-market conditional correlation (SPY day < -0.5%)
+    # Guard: n_down >= 5 (sample-size); also guard against zero-variance
+    # in the conditional subset (auditor §2.3).
     down_mask = df["spy_ret_d"] < -0.005
     n_down = int(down_mask.sum())
+    down_corr = None
     if n_down >= 5:
-        down_corr = float(df.loc[down_mask, "rcm_v1"].corr(df.loc[down_mask, "cand_2"]))
-    else:
-        down_corr = None
+        with np.errstate(invalid="ignore", divide="ignore"), warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            try:
+                from scipy.stats import ConstantInputWarning  # type: ignore[import-not-found]
+                warnings.simplefilter("ignore", category=ConstantInputWarning)
+            except ImportError:
+                pass
+            c = float(df.loc[down_mask, "rcm_v1"].corr(df.loc[down_mask, "cand_2"]))
+        if np.isfinite(c):
+            down_corr = c
+        # else: leave None (zero variance in conditional subset)
 
-    # 3. up-market conditional
+    # 3. up-market conditional (same guards)
     up_mask = df["spy_ret_d"] > 0.005
     n_up = int(up_mask.sum())
+    up_corr = None
     if n_up >= 5:
-        up_corr = float(df.loc[up_mask, "rcm_v1"].corr(df.loc[up_mask, "cand_2"]))
-    else:
-        up_corr = None
+        with np.errstate(invalid="ignore", divide="ignore"), warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            try:
+                from scipy.stats import ConstantInputWarning  # type: ignore[import-not-found]
+                warnings.simplefilter("ignore", category=ConstantInputWarning)
+            except ImportError:
+                pass
+            c = float(df.loc[up_mask, "rcm_v1"].corr(df.loc[up_mask, "cand_2"]))
+        if np.isfinite(c):
+            up_corr = c
 
     # 4. rolling 30d correlation (corr of one series against the other)
     roll = df["rcm_v1"].rolling(30).corr(df["cand_2"]).dropna()
@@ -326,12 +372,18 @@ def compute_residual_correlation(
 
     # residual annualised Sharpe (sign + magnitude — diagnostic for
     # whether residuals are alpha-positive on each side, alpha-negative
-    # on each side, or split)
-    def _ann_sharpe(s: pd.Series) -> float:
+    # on each side, or split). Returns None on zero-variance residual
+    # rather than silent NaN (per audit hardening 2026-04-30 §2.3).
+    def _ann_sharpe(s: pd.Series) -> float | None:
         std = float(s.std(ddof=1))
-        if not np.isfinite(std) or std == 0.0:
-            return float("nan")
-        return float(s.mean() / std * np.sqrt(252))
+        # Guard against both exact-zero AND floating-point near-zero residuals
+        # (R4 audit 2026-04-30: synthetic perfect-beta candidate produced
+        # std ~1e-15 → fake Sharpe 0.44 from ratio of two near-zero values).
+        # 1e-10 is well below any plausible daily-return std (~0.01).
+        if not np.isfinite(std) or std < 1e-10:
+            return None
+        v = float(s.mean() / std * np.sqrt(252))
+        return v if np.isfinite(v) else None
 
     return {
         "benchmark": benchmark_col,

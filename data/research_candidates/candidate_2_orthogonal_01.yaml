@@ -55,6 +55,19 @@ realized_nav_correlation_status:
     only.
   retraction_date: 2026-04-30
 
+# Backfilled 2026-04-30 from data/memos/20260430_rcmv1_cand2_realized_correlation.json
+# (pooled across 154-day post-step3b paper sample). For SPEC COMPLETENESS only —
+# this candidate has decay_classification="legacy_decay_verification" so B.MV
+# runner skips it entirely (per Q12 decision in
+# docs/memos/20260430-concerns_abE_proposed_solutions.md). NOT used for
+# any operational early-attention trigger.
+estimated_beta_at_freeze:
+  beta_to_spy: 1.50
+  beta_to_qqq: 1.23
+  source: pooled_pearson_154d_paper_sample_2026-04-30
+  used_by_b_mv: false
+  reason_unused: "decay_classification=legacy_decay_verification; B.MV skips legacy"
+
 oos_holdout_summary:
   note: >-
     IC probe on post-2026-04-24-rcm-v1-lag1 lineage window (>= 2015-01)

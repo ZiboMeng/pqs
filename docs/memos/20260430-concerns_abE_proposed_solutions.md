@@ -179,10 +179,11 @@ Set ONCE, immutable thereafter (any change requires explicit
 user-go).
 
 For Cand-2 the corresponding `realized_nav_correlation_status`
-block has already shipped on `data/research_candidates/candidate_2_orthogonal_01.yaml`
-(commit `ffd4793`). **The same block must also ship on
-`rcm_v1_defensive_composite_01.yaml` for symmetric labeling**
-— pending in the same A.MV step (caught by self-audit Round 1).
+block shipped on `data/research_candidates/candidate_2_orthogonal_01.yaml`
+at commit `ffd4793`. The symmetric block on
+`rcm_v1_defensive_composite_01.yaml` shipped at `main 8f46bc4`
+(R1 audit caught the asymmetric labeling and fixed it in the same
+audit cycle).
 
 ### A.Full — what we'd want long-term
 
@@ -293,7 +294,20 @@ def evaluate_early_attention(
     """Returns (should_flag, list_of_trigger_names).
 
     All triggers OR'd together. Any one trigger sets the flag.
+
+    DISPATCH: legacy candidates (decay_classification ==
+    "legacy_decay_verification" per A.MV) skip B.MV entirely.
+    They're observation-only; their early-attention signal would
+    never trigger an action. This is cleaner than carrying a
+    "T4_legacy fallback" code path which is the same failure
+    mode reviewer §6 originally flagged (raw vs_benchmark
+    underperformance is structurally beta-explained for high-β
+    strategies).
     """
+    decay_class = (candidate_spec.get("decay_classification") or {}).get("label")
+    if decay_class == "legacy_decay_verification":
+        return (False, [])  # SKIP — see dispatch comment above
+
     triggers = []
 
     last = runs[-1]
@@ -331,15 +345,23 @@ def evaluate_early_attention(
     # when alpha is intact. The relevant signal is whether the
     # strategy underperforms WHAT BETA WOULD PREDICT.
     #
-    # estimated_beta_to_spy: estimated at candidate freeze time from
-    # the candidate's train+validation NAV vs SPY (panel-level OLS;
-    # recompute monthly during forward observation). Stored on
-    # candidate_spec yaml so it's available without re-running.
-    # If absent (legacy candidate), fall back to T4_legacy below.
-    if last.vs_spy is not None and last.cum_ret is not None and \
-       candidate_spec.get("estimated_beta_to_spy") is not None:
+    # estimated_beta_to_spy: stamped at candidate freeze time by
+    # Track A acceptance, computed from train+validation NAV vs SPY.
+    # Required field for new candidates. Legacy candidates with
+    # decay_classification="legacy_decay_verification" already
+    # short-circuited B.MV at function entry above. Any new candidate
+    # missing this field is a Track A acceptance bug, not a fall-
+    # through case — fail loud rather than silently downgrade gate.
+    if candidate_spec.get("estimated_beta_to_spy") is None:
+        raise ValueError(
+            f"candidate {candidate_spec.get('candidate_id')!r} missing "
+            f"estimated_beta_to_spy; B.MV trigger T4 requires this stamped "
+            f"by Track A acceptance at freeze. (Legacy candidates with "
+            f"decay_classification='legacy_decay_verification' should have "
+            f"been short-circuited at function entry.)"
+        )
+    if last.vs_spy is not None and last.cum_ret is not None:
         beta = candidate_spec["estimated_beta_to_spy"]
-        # SPY total cum return over the same TD window
         spy_cum = last.spy_cum_ret if hasattr(last, "spy_cum_ret") else None
         if spy_cum is not None:
             beta_explained = beta * spy_cum
@@ -348,14 +370,6 @@ def evaluate_early_attention(
                 triggers.append(
                     "beta_adjusted_residual_underperformance_below_minus_5pct"
                 )
-    # T4_legacy fallback (only when beta not available — last resort,
-    # not the default; expect ~all post-2026-04 candidates to have
-    # estimated_beta_to_spy stamped at freeze):
-    elif last.vs_spy is not None and last.vs_qqq is not None:
-        # tighten threshold here vs the original to avoid false-positive
-        # spam on high-beta candidates without beta annotation
-        if last.vs_spy < -0.10 and last.vs_qqq < -0.10:
-            triggers.append("vs_spy_and_qqq_both_below_minus_10pct_legacy")
 
     # T5: data drift event AND PnL deterioration co-occur on same TD
     if last.data_revision_event is not None and last.cum_ret < runs[-2].cum_ret if len(runs) >= 2 else False:
@@ -640,35 +654,132 @@ template work without losing nomination discipline.
 
 ---
 
-## Open questions for external reviewer
+## Decisions taken from Q&A with reviewers (originally "open questions")
 
-1. **A.MV obsolete: lineage_family replaced by freeze-date + market-path-preobserved**
-   (per reviewer §5.3, 2026-04-30). Original Q1 was about strict-vs-permissive
-   lineage_family scoping. That abstraction was wrong. Replaced with two-rule
-   structure: HARD `eval_start_date > candidate_freeze_date AND >
-   panel_max_date_recorded_at_freeze`; SOFT `market_path_preobserved` flag for
-   any forward observation overlap (any lineage). No outstanding question on
-   A.MV scoping; reviewer can challenge the new rule structure.
-2. **B.MV trigger thresholds + beta-adjusted T4** — start strict (T3 = -8%
-   cum, T1 = 75% of validation-year ceiling)? Original draft used raw
-   `vs_spy < -5% AND vs_qqq < -5%` for T4; revised (per reviewer §6) to
-   beta-adjusted residual underperformance < -5% with legacy fallback at
-   -10% raw. Reviewer please confirm both the strict-vs-loose start AND
-   the residual-vs-raw choice.
-3. **E.MV §4.6 threshold structure (audit-Round-2 revised)** —
-   I originally proposed `< 0.40` flat (matching factor-IC config).
-   R2 audit revised to **tiered**: < 0.50 true_diversifier; 0.50-0.70
-   partial_diversifier (warning); 0.70-0.85 warn (label_void);
-   ≥ 0.85 reject. This mirrors Step 5 with one extra gate at 0.50.
-   Reviewer please confirm tier structure or counter-propose.
-4. **Order of ship (audit-Round-2 revised)** — was "E → A+B
-   parallel"; revised to **"E → B → A"** based on critical-path
-   distance: E is concurrent with dry run; B is needed at T+1-2w
-   for forward init; A is needed at T+3mo for sealed eval. Reviewer
-   please confirm the critical-path reading.
-5. **Effort vs cycle scheduling** — 4.5 days nominal MV; ~9 days
-   realistic with audit-fix cycles (2x multiplier observed in this
-   round). Acceptable, or should scope be cut?
+> Update 2026-04-30 R3: most original "open questions" now have
+> explicit answers. Each entry shows status (decided / open) +
+> rationale. Items still open are reviewer-blocking; decided
+> items are recorded for audit, not for further debate.
+
+### Q1 (decided) — A.MV scoping abstraction
+
+**Decision**: replace lineage_family with two-rule freeze-date HARD
++ market-path-preobserved SOFT structure.
+
+**Rationale**: lineage_family was the wrong abstraction (per reviewer
+§5.3, 2026-04-30). Sealed-eval contamination is broader than same-
+candidate observation; the operational invariant is "candidate cannot
+sealed-eval over a window that ended before it was defined".
+Implementation in §A.MV.
+
+### Q2 (decided) — B.MV trigger thresholds
+
+**Decision**: keep strict thresholds at MV ship: T3 = -8% cum,
+T1 = 75% of validation-year ceiling. T4 = beta-adjusted residual
+underperformance < -5%.
+
+**Rationale**: high-beta strategies (RCMv1+Cand-2 β-SPY 1.3-1.6)
+need beta accounting before "underperformance" is alpha-meaningful.
+Strict-then-relax-on-evidence is the right cycle order; loosening
+without observation history is premature.
+
+### Q3 (decided) — NAV orthogonality threshold structure
+
+**Decision**: tiered 0.50 / 0.70 / 0.85 mirroring Step 5 with one
+extra 0.50 gate.
+
+**Rationale**: long-only US equity has a market-beta correlation
+floor that makes flat 0.40 (factor-IC config) structurally over-
+strict at NAV level. Tier structure verified by R3+R4 audit on the
+diagnostic script. Reviewer §3 (2026-04-30) confirmed.
+
+### Q4 (decided) — Order of ship
+
+**Decision**: E → B → A by critical-path distance.
+
+**Rationale**: A.MV is the FARTHEST blocker (sealed eval is
+months out). B.MV is needed at forward init (~T+1-2w). E.MV is
+concurrent with mining compute. Reviewer §5.2 (2026-04-30) confirmed.
+
+### Q5 (decided) — Effort scheduling
+
+**Decision**: 4.5 days nominal MV; ~9 days realistic with audit-fix
+cycles (2x multiplier observed in this round). Accept the realistic
+estimate; do not cut scope.
+
+**Rationale**: the MV scope is genuinely minimum (no nice-to-have
+sneak-in). A 2x multiplier is empirical, not pessimistic; subsequent
+rounds should still aim for 1x but plan for 2x.
+
+### Q11 (decided) — `panel_max_date_recorded_at_freeze` field design
+
+**Decision**: NEW field, separate from `SealedLedgerEntry.panel_max_date`.
+
+**Rationale**: the two values represent different audit moments:
+- `panel_max_date_at_freeze`: data boundary visible to candidate at freeze
+- `panel_max_date_at_eval`: data boundary at sealed-eval execution
+
+Re-using a single field would conflate two semantics and structurally
+weaken the freeze-date HARD rule (because eval-time panel max is
+later than freeze-time, the constraint `eval_start > eval-time
+panel max` is structurally weaker and may not catch the issue).
+
+**Recommended naming** (final):
+- spec yaml: `panel_max_date_at_freeze` + `candidate_freeze_date`
+- ledger row: `eval_start_date` + `eval_end_date` + `panel_max_date_at_eval` (existing) + new `candidate_freeze_date_recorded_from_spec`
+
+Hard rule:
+```
+eval_start_date > candidate_freeze_date
+eval_start_date > panel_max_date_at_freeze
+```
+
+### Q12 (decided, with explicit pushback on auditor) — `estimated_beta_to_spy` legacy handling
+
+**Decision**: SKIP B.MV entirely on `decay_classification: legacy_decay_verification` candidates; do NOT keep T4_legacy fallback in code; for new candidates, Track A acceptance auto-stamps `estimated_beta_to_spy` at freeze; backfill on legacy yamls is OPTIONAL spec-completeness hygiene (~30 sec, since betas already in NAV correlation JSON), not a B.MV operational requirement.
+
+**Why this differs from the auditor's prescription**:
+
+The auditor proposed: "legacy uses fallback raw -10%; no mandatory backfill". I disagree on the fallback path.
+
+1. Raw -10% is the same failure mode reviewer §6 originally flagged
+   ("high-beta strategies show large negative vs_benchmark in market
+   drawdowns even when alpha is intact"). Tightening from -5% to -10%
+   reduces false-positive rate but doesn't fix the structural problem
+   (β-1.5 candidate hits -10.5% vs SPY on a SPY -7% day, purely from
+   beta).
+2. Keeping a known-wrong gate as fallback is a footgun: a future
+   reader sees `T4_legacy` in code and treats it as the "safe
+   default" for cases where beta isn't stamped — and might apply it
+   to new candidates that fail to stamp due to a separate bug.
+3. The cleaner architecture is *dispatch* on `decay_classification`,
+   not *fallback* to a worse gate. Legacy candidates are
+   observation-only; they're not getting promoted; their early-
+   attention signals would never trigger an action. SKIP B.MV
+   entirely on them.
+4. The auditor's pragmatic point ("don't waste engineering on
+   legacy") is correct as a principle but the implementation should
+   be SKIP, not WRONG_FALLBACK. Both are zero-engineering-effort;
+   one is structurally clean and one carries footgun risk.
+
+**Concrete plan**:
+
+- `B.MV` runner top of function: if `candidate.decay_classification == "legacy_decay_verification"`: return `(False, [])` (skip entirely).
+- `T4_legacy` codepath: removed.
+- `Track A` acceptance: when stamping spec yaml at freeze, compute β to SPY and β to QQQ from train+validation NAV vs benchmark, stamp `estimated_beta_to_spy` and `estimated_beta_to_qqq`.
+- Legacy backfill on RCMv1+Cand-2: ✅ DONE 2026-04-30 (commit pending) as spec-completeness hygiene only — `estimated_beta_at_freeze` block added to both yamls with `used_by_b_mv: false` because B.MV short-circuits on `decay_classification=legacy_decay_verification`. Values pulled from `data/memos/20260430_rcmv1_cand2_realized_correlation.json` (RCMv1 β-SPY 1.41 / β-QQQ 1.13, Cand-2 β-SPY 1.50 / β-QQQ 1.23).
+
+**B.Full upgrade path** (post-MV, pre-live-money): rolling beta
+re-estimation from forward TDs once n_TDs ≥ 30; alert if rolling
+beta deviates from freeze-time by ≥ 0.5; gate on this for any
+status-change trigger.
+
+### Items still open for reviewer
+
+The above 7 items are decided. **Nothing in this proposal is
+currently blocking on a reviewer answer.** Reviewer may still
+challenge any of them; that's normal. But the proposal does not
+pause for an answer.
 
 ---
 
@@ -677,8 +788,11 @@ template work without losing nomination discipline.
 - New PRDs (these proposals fold into existing PRDs as v-bumps).
 - Changes to acceptance gates / Track A split / Step 5 budget
   thresholds.
-- Changes to RCMv1 / Cand-2 spec yamls beyond the existing NAV-
-  correlation status block.
+- Behavioral changes to RCMv1 / Cand-2 spec yamls beyond the
+  NAV-correlation status block + the spec-completeness
+  `estimated_beta_at_freeze` block (both shipped 2026-04-30,
+  neither alters operational behavior — B.MV short-circuits on
+  decay_classification).
 - Pre-emptive Step 6+ work.
 - A separate invariant-test framework directory under `tests/`
   (deferred to E.Full).
@@ -687,10 +801,13 @@ template work without losing nomination discipline.
 
 ## My recommendation
 
-Ship **E.MV first** (~1 day), then **A.MV + B.MV in parallel** (~2
-days each, can be parallelized). Track C dry run runs concurrent
-with E.MV. Total wall clock: ~3 days from go-decision to having
-all three guards landed plus a Track C dry-run result in hand.
+E.MV ✅ shipped 2026-04-30 in template v1.1 (commit
+`01d2950`); reviewer signoff pending. **A.MV + B.MV** still to
+implement (~2 days each, can be parallelized). Track C cycle
+#01 plan written and pre-registered criteria yaml drafted; real
+mining compute starts post reviewer signoff on E.MV. Wall clock
+from green-light on A.MV + B.MV: ~2-3 days to all three guards
+landed; Track C cycle #01 result follows from there.
 
 If reviewer disagrees on any of the four open questions, this
 estimate adjusts but the structure does not.

@@ -11,13 +11,13 @@
 **Status:** Plan only. Execution gated on (a) external-reviewer or
 codex signoff on the corrected Track C evidence-pack template
 (`docs/templates/track_c_evidence_pack_template.md`, post-R30 fixes
-landed in `main 1a24033`) PLUS the §4.6 NAV-orthogonality + §4.7
-economic-assumption-flag additions (E.MV per
-`docs/memos/20260430-concerns_abE_proposed_solutions.md` — pending
-separate ship) AND (b) NAV-orthogonality threshold consistency
-patched in all three places (this plan §3, the correlation memo
-§5 action items, the diagnostic script `classify()`) — tiered
-0.50 / 0.70 / 0.85 per audit-R2 + reviewer §3.
+landed in `main 1a24033`; **§4.6 NAV-orthogonality + §4.7
+economic-assumption flags landed in template v1.1 at `main 01d2950`**
+— pending reviewer signoff before Track C nomination use, NOT
+pending separate ship). AND (b) NAV-orthogonality threshold
+consistency patched in all three places (this plan §3, the
+correlation memo §5 action items, the diagnostic script
+`classify()`) — tiered 0.50 / 0.70 / 0.85 per audit-R2 + reviewer §3.
 
 **Owner:** Claude
 **Lineage:** `track-c-cycle-2026-04-30-01` — first Track C cycle
@@ -248,7 +248,7 @@ Step 7: submit evidence pack to external review on
 
 | Condition | Action |
 |-----------|--------|
-| 0 nominees pass Track A acceptance | Cycle closes 0-nominee. Closeout memo at `docs/memos/<YYYY-MM-DD>-track-c-cycle-2026-04-30-01_close.md`. Drafts of "gate recalibration PRD" or "new factor family PRD" follow as separate work, NOT same cycle. |
+| 0 candidates pass Track A acceptance (no candidate even reaches the economic-invariant-pack stage) | Cycle closes 0-candidate. Closeout memo at `docs/memos/<YYYY-MM-DD>-track-c-cycle-2026-04-30-01_close.md`. Drafts of "gate recalibration PRD" or "new factor family PRD" follow as separate work, NOT same cycle. |
 | ≥ 1 nominee passes Track A acceptance but fails NAV orthogonality | Nominee logged as "alpha-positive but redundant"; not promoted to forward init; closeout memo records the position. |
 | ≥ 1 nominee passes both | Evidence pack submitted; cycle pauses pending external review. No forward init until Concern A/B/E guards ship. |
 | Any criterion in pre-registered YAML fails on the top trial | Cycle closes 0-nominee under immutability rule. NO retroactive softening. |
