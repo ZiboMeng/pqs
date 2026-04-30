@@ -65,8 +65,17 @@
 ├── 我想跑 forward observation (锁候选看未来 N 天)
 │       → §0.4 forward 概念图 → dev/scripts/oos_mvp/run_forward_observe.py --help
 │
+├── 我想跑 Track C controlled mining (新框架的真实挖矿)
+│       → §10.9 Track 框架 → docs/memos/20260430-track_c_dry_run_plan.md
+│       → docs/templates/track_c_evidence_pack_template.md
+│
+├── 我想看 fleet 怎么组合多个 candidate
+│       → §10.8 Fleet Allocator → §9.13 fleet.yaml
+│       → core/fleet/allocator.py
+│
 ├── 我维护代码 / 准备 PR
 │       → §2 核心约束 → §14 测试套件 → CLAUDE.md (claude code 自用约束)
+│       → 重要改动按 docs/checkpoints/20260430-self_audit_methodology.md 4 轮自审
 │
 └── 我撞墙了
         → §16 故障排查 → §19 卡住路标
@@ -202,6 +211,12 @@
 - **测试**: 当前计数 / git head 见 `data/baseline/latest.json`；刷新用 `dev/scripts/baseline/build_research_baseline_snapshot.py --run-tests`
 - **Framework**: M0-M8 + M10-M16 已交付（M11a / M11b / M12 / M14 在 2026-04-24 → 2026-04-27 ship；详见 `CLAUDE.md` §"Framework Completion PRD"）。开放项 M17（live-feed infra）+ M18（DSL func expansion）
 - **Forward OOS evidence guard**: forward 运行的 manifest 现在在 `init` 时锁定一份 `ConfigSnapshot`（universe / factor_registry / research_mask / risk / system 5 个 hash），`observe` 每次跑 revalidate 时检查 config 漂移。Halt-class（universe / factor_registry / risk）会把 `current_status` 翻成 `requires_data_review`；warn-class（research_mask / system）只记录。Pre-PRD-F manifest 走 lazy-migration（不强制 halt），可用 `dev/scripts/forward/backfill_config_snapshot.py --dry-run` opt-in 接管。详细契约：`docs/prd/20260428-config_universe_snapshot_hardening_prd.md`
+- **Track 三件套**（2026-04-29+ 主线）:
+  - **Track A** ✅ — 时序切分纪律 (`config/temporal_split.yaml` `alternating_regime_holdout_v1` split + 17-gate acceptance evaluator + sealed_eval ledger + C5 role-remint guard)。详 `docs/prd/20260429-temporal_split_holdout_discipline_prd.md` v1.1
+  - **Track B** ✅ — Fleet allocator Step 1-5 已 land (`config/fleet.yaml` + `core/fleet/`)。Step 5 = C2 correlation budget (warn 0.70 / reject 0.85, pairwise on realized candidate daily returns)。Steps 6-9 (DD throttle / role caps / fleet observe / shadow-to-live) codex-frozen 等 explicit-go
+  - **Track C** ⏸️ — Real controlled mining 等 `docs/templates/track_c_evidence_pack_template.md` codex 签 + 三个 concern guards (A 2026 sealed double-dip / B forward TD60 early-attention / E economic-invariant tests)。Plan 在 `docs/memos/20260430-track_c_dry_run_plan.md`
+- **Forward observation 现状（legacy decay verification）**: `RCMv1` + `Cand-2` 两个 candidate 在 forward observe，但 2026-04-30 NAV-correlation 实验显示 pooled Pearson **0.898** > Step 5 reject 阈值 0.85 — Cand-2 "orthogonal" 标签**作废**，fleet-of-two 等权组合不产生 risk diversification。两 candidate 已 reclassified 为 legacy decay verification（不进 fleet promotion）。证据 + 撤回详见 `docs/memos/20260430-rcmv1_cand2_realized_correlation.md`
+- **自审方法论**（forward-only 2026-04-30+）: 重要改动须经 4-round audit (R1 事实 / R2 逻辑 / R3 真正执行 / R4 边界故障)。详 `docs/checkpoints/20260430-self_audit_methodology.md`
 - **历史阶段总结**: 入口在 `docs/INDEX.md` §"Final synthesis docs"；ralph-loop 工作日志在 `docs/20260420-ralph_loop_log.md`
 
 ---
@@ -378,15 +393,30 @@ pqs/
 │   ├── reporting.yaml           - 报告风格
 │   ├── events.yaml              - 事件日历
 │   ├── notify.yaml              - 消息推送 (微信 / Server 酱)
-│   └── cross_ticker_rules.yaml  - 跨标的声明式规则 DSL (PRD M4, enabled:true, 5 rules)
+│   ├── cross_ticker_rules.yaml  - 跨标的声明式规则 DSL (PRD M4, enabled:true, 5 rules)
+│   ├── temporal_split.yaml      - Track A alternating_regime_holdout_v1 (train/validation/sealed splits + role gates + stress slices)
+│   ├── fleet.yaml               - Track B FleetAllocator config (Steps 1-5: capital split + C2 corr budget + C3 overlap throttle)
+│   ├── research_mask.yaml       - 因子研究面板的 min_price / min_usd_volume / window mask
+│   └── acceptance.yaml          - Tier-D + walk-forward + factor-tier 阈值单一真源 (PRD threshold unification)
 ├── core/                        ← 核心业务代码
-│   ├── backtest/                - BacktestEngine / WindowAnalyzer
+│   ├── backtest/                - BacktestEngine / WindowAnalyzer / concentration_metrics
 │   ├── config/                  - pydantic schemas + loader
 │   ├── data/                    - MarketDataStore / BarStore / panel_loader / vix_loader
 │   ├── factors/                 - factor_generator / factor_registry / base_factors
 │   ├── features/                - feature engineering helpers
 │   ├── signals/                 - strategies (MFS, dual_momentum, etc.) + left_side
-│   ├── mining/                  - MiningEvaluator / StrategyMiner / Archive / strategy_space
+│   ├── mining/                  - MiningEvaluator / StrategyMiner / Archive / acceptance_pack / rcm_archive / research_miner
+│   ├── fleet/                   - FleetAllocator (Track B Step 1-5; correlation budget / overlap throttle / capital split / manifest_io / evidence)
+│   ├── research/
+│   │   ├── concentration/       - M12 concentration gate (top1 / top3 / watchlist exposure / weighted thin-data)
+│   │   ├── forward/             - forward OOS runner / manifest_schema / revalidate (PRD F + v2.1.3 hardening)
+│   │   ├── robustness/          - window_spec / EvidenceClass enum
+│   │   ├── temporal_split.py    - Track A alternating_regime_holdout_v1 split loader
+│   │   ├── temporal_split_acceptance.py - Track A 17-gate acceptance evaluator
+│   │   ├── sealed_ledger.py     - 2026 sealed-eval ledger (M5 fail_closed_on_repeat + R20 split-failure guard)
+│   │   ├── regime_classifier.py - M9 manual + auto regime tag (tiered disagreement policy)
+│   │   ├── frozen_spec.py       - FrozenStrategySpec loader (research_candidates yaml)
+│   │   └── ...
 │   ├── portfolio/               - PortfolioConstructor
 │   ├── execution/               - CostModel / ExecutionSimulator / BrokerAdapter
 │   ├── paper_trading/           - PaperTradingEngine
@@ -401,6 +431,16 @@ pqs/
 │   ├── notify/                  - 消息推送
 │   └── logging_setup.py         - 全局 logging 初始化
 ├── scripts/                     ← 全部 CLI 入口（详见 §8）
+├── dev/                         ← 开发 / 研究脚本（不属于 production CLI）
+│   └── scripts/
+│       ├── baseline/            - build_research_baseline_snapshot.py (PRD M0)
+│       ├── correlation/         - rcmv1_cand2_realized_nav_correlation.py (Track B Step 5 prep)
+│       ├── forward/             - backfill_config_snapshot.py (PRD F lazy-migration opt-in)
+│       ├── oos_mvp/             - run_forward_observe.py / run_robustness_eval.py / smoke.py
+│       ├── llm_handoff/         - dump_llm_handoff_context.py (PRD M15)
+│       ├── data_integrity/      - rebuild_daily.py
+│       ├── research_cycle/      - run_close_eval.py
+│       └── (其他 ops / migrations / demos)
 ├── tests/                       ← pytest 套件（计数见 `data/baseline/latest.json`）
 │   ├── unit/
 │   └── integration/
@@ -408,11 +448,13 @@ pqs/
 │   ├── daily/                   - 日线 parquet
 │   ├── intraday/{1m,5m,...,60m}/ - intraday parquet
 │   ├── ref/                     - splits, bar_provenance
-│   ├── mining/                  - archive.db, optuna.db
+│   ├── mining/                  - archive.db, optuna.db, rcm_archive.db (Track A C5 lookup)
 │   ├── paper_trading/           - paper_trading.db
+│   ├── paper_runs/              - per-candidate per-cell paper artifacts (pnl_daily / fills / target_portfolio / drift_*)
 │   ├── ml/                      - 研究产出（llm candidates, grid results 等）
 │   ├── baseline/                - latest.json snapshot（git SHA / pytest count / archive 计数）
-│   └── research_candidates/     - frozen spec yaml + forward_run_manifest.json（per candidate）
+│   ├── memos/                   - 机器可读 memo artifacts (e.g. NAV correlation JSON)
+│   └── research_candidates/     - frozen spec yaml + forward_run_manifest.json + sealed_eval_ledger.parquet
 ├── research/                    ← 研究源码（tracked）
 │   └── llm_candidates/          - LLM 生成的 factor 候选 (R1-R14 各 round)
 ├── docs/                        ← 研究文档 + PRD + 阶段性 synthesis（详见 docs/INDEX.md）
@@ -1366,6 +1408,92 @@ factor_tiers:                 # factor_evaluator._auto_tier 消费（live）
 - mining 6-stage funnel 阈值（`config/backtest.yaml::mining`）— 不在 acceptance 层。
 - 6 regime 阈值（`config/regime.yaml`）、Kill switch 阈值（`config/risk.yaml::drawdown_limits`）。
 
+### 9.12 `temporal_split.yaml` ⭐ (Track A, PRD `20260429-temporal_split_holdout_discipline_prd.md` v1.1)
+
+Track A 的核心 config: 训练/验证/sealed 三段切分 + 角色门 + stress slices。
+
+```yaml
+split_name: alternating_regime_holdout_v1   # immutable until new PRD bumps name
+description: "alternating-regime holdout split (R1.1)"
+
+train_years:        [2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2020, 2022, 2024]
+validation_years:   [2018, 2019, 2021, 2023, 2025]   # 2025 是 hard gate (core role)
+sealed_years:       [2026]                            # single-shot, do NOT touch
+
+stress_slices:                                       # borrowed for MaxDD sanity only
+  covid_flash:      {start: "2020-02-19", end: "2020-04-07", maxdd_threshold: 0.25}
+  rate_hike_2022:   {start: "2022-01-03", end: "2022-10-14", maxdd_threshold: 0.25}
+
+roles:
+  core:        validation_gates: [excess_vs_qqq > 0, maxdd <= 0.20]   # 2025 HARD
+  diversifier: validation_gates: [excess_vs_qqq > -0.05, maxdd <= 0.18]
+               eligibility:     [vs_existing_core_correlation < 0.40]
+
+acceptance:
+  validation_year_pass.maxdd_per_year_max: 0.20
+  stress_slice_pass.maxdd_per_slice_max:    0.25
+  cost_robustness.multiplier_2x_must_remain_positive: true
+```
+
+**关键约束**:
+- `split_name` 一旦发版**不可改**；改 split 要 bump 名字开新 PRD
+- C5 role-remint guard: 同一 `(spec_sha, split_name)` 不能在不同 role 复审；
+  same-role 决定性 rerun 允许但需在 evidence pack §4.2 披露
+- 2025 是 holdout hard gate；2026 sealed eval 是 single-shot 最后审
+
+**消费路径**: `core/research/temporal_split.py::load_temporal_split()` →
+`scripts/run_research_miner.py --temporal-split --role=core`
+
+### 9.13 `fleet.yaml` ⭐ (Track B Steps 1-5)
+
+Track B FleetAllocator 当前 config:
+
+```yaml
+candidates:                                    # current legacy candidates (NAV-correlated, see §1.4)
+  - {candidate_id: rcm_v1_defensive_composite_01, role: core, base_weight: 0.5}
+  - {candidate_id: candidate_2_orthogonal_01,    role: core, base_weight: 0.5}
+
+split_policy: equal_weight                     # equal_weight | manual_overrides
+
+# Step 5 — C2 correlation budget (codex R30 accepted)
+max_pairwise_corr_warn:    0.70                # pairwise on realized daily returns
+max_pairwise_corr_reject:  0.85                # blocks composition
+corr_lookback_days:        252
+corr_min_overlap_days:     60                  # below this → status=insufficient_data
+
+# Step 4 — C3 overlap throttle
+max_fleet_symbol_weight:   0.20
+
+# Step 6+ schema only (codex-frozen until explicit-go)
+core_min_capital_pct:        0.60
+satellite_max_capital_pct:   0.40
+dd_throttle:    {warning_pct: 0.10, defensive_pct: 0.15, halt_pct: 0.20, ...}
+removal_rules:  {forward_decision_fail: true, pairwise_corr_above: 0.95, ...}
+parking_rules:  {m12_thin_data_extreme: 0.10}
+```
+
+**当前实际效用**: equal_weight 组合 RCMv1 + Cand-2 — 2026-04-30 NAV-correlation
+0.898 已表明**不产生 diversification**（详 §1.4 + `docs/memos/20260430-rcmv1_cand2_realized_correlation.md`）。
+两 candidate 保留为 legacy decay verification observation；fleet 真正 wiring 等
+Track C 出 NAV-orthogonal candidate。
+
+**消费路径**: `core/fleet/allocator.py::FleetAllocator` →
+`alloc.check_correlation_budget(returns_df)` 返回 `CorrelationBudgetStatus(level=warn|reject|ok|insufficient_data, pairs=[...])`。
+
+### 9.14 `research_mask.yaml` (factor research panel)
+
+```yaml
+min_price:           5.0      # exclude penny stocks from research panel
+min_usd_volume:      20_000_000
+rolling_window_days: 20
+implementation:      core/factors/base_masks.py::research_mask_default
+```
+
+**何时影响什么**:
+- factor IC / OOS / regime research 跑前 mask 一次
+- backtest 不用此 mask（backtest 直接读 universe.yaml）
+- 改这里不改 universe；只影响 factor research 的 effective panel
+
 ---
 
 ## 10. 关键概念
@@ -1501,6 +1629,87 @@ python dev/scripts/oos_mvp/run_forward_observe.py decide \
 - paper = 把当前生产策略每日跑一次, 跟踪 P&L
 - forward = 把候选策略**事先锁住**, 看 N 天后表现
 - 两者**不能互替**; 一个是"上线运行", 一个是"上线前最后一道 OOS"
+
+### 10.8 Fleet Allocator（Track B）
+
+**目的**: 多个 candidate 组成一个 portfolio sleeve（"舰队"）。每个
+candidate 自己已经过 acceptance；fleet 层负责"它们组合在一起"是否依然合理。
+
+**Track B 已 land Step 1-5**（`config/fleet.yaml` + `core/fleet/`）：
+
+| Step | 已 land | 内容 |
+|---|---|---|
+| 1 | ✅ | Schema (`FleetConfig` / `FleetCandidate` / `FleetManifest`) + manifest I/O |
+| 2 | ✅ | C1 capital split (equal_weight / manual_overrides) |
+| 3 | ✅ | `compose_weight_matrix` (unconstrained fleet weights) |
+| 4 | ✅ | C3 overlap throttle (per-symbol weight cap，目前 0.20) |
+| 5 | ✅ | C2 pairwise correlation budget (warn 0.70 / reject 0.85，realized daily returns) |
+| 6+ | ⏸️ codex-frozen | DD throttle / role caps / removal / fleet observe / shadow→live |
+
+**关键检查**:
+
+```python
+from core.fleet.allocator import FleetAllocator
+from core.fleet.manifest_schema import FleetConfig
+import yaml
+cfg = FleetConfig(**yaml.safe_load(open("config/fleet.yaml")))
+alloc = FleetAllocator(cfg)
+status = alloc.check_correlation_budget(returns_df)
+# status.level ∈ {ok, warn, reject, insufficient_data}
+# status.pairs = [CorrelationPair(a, b, correlation, level), ...]
+```
+
+**Factor-IC orthogonal ≠ NAV orthogonal**: 因子 IC 维度低相关，
+组合层 NAV 仍可能高度相关（共享 market beta / Mag7 / risk-on 暴露）。
+真正的 fleet 分散化必须看 NAV-level 相关。这个教训出自 RCMv1 + Cand-2
+2026-04-30 NAV-correlation 实验（pooled Pearson 0.898 → reject）。
+详 `docs/memos/20260430-rcmv1_cand2_realized_correlation.md`。
+
+### 10.9 Track A / B / C 框架（2026-04-29+ 主线）
+
+项目从 Phase D 迭代优化进入"三件套"研究框架：
+
+```
+Track A — 时序切分纪律
+  ├─ alternating_regime_holdout_v1 split (config/temporal_split.yaml)
+  ├─ 17-gate acceptance evaluator (validation 5 年 + stress + concentration + cost + role)
+  ├─ sealed_eval ledger (M5 fail_closed_on_repeat + R20 split-failure guard)
+  ├─ C5 role-remint guard (no spec_sha cross-role mining within same split_name)
+  └─ regime classifier with tiered disagreement policy
+       ✅ 已 ship 2026-04-29 (`docs/prd/20260429-temporal_split_holdout_discipline_prd.md`)
+
+Track B — Fleet Allocator
+  ├─ Step 1-5 已 land (capital split + compose + C3 overlap + C2 corr budget)
+  └─ Step 6-9 codex-frozen (DD throttle / role caps / fleet observe / shadow-to-live)
+       ✅ partial — 详 §10.8
+
+Track C — Real Controlled Mining
+  ├─ Evidence-pack template (docs/templates/track_c_evidence_pack_template.md)
+  ├─ Pre-registered criteria YAML (immutable from first trial)
+  ├─ Reverse-validation sentinel (designed-to-fail criteria)
+  └─ NAV-orthogonality gate vs every active candidate
+       ⏸️ 等 codex 签 + 三个 concern guards 落地（A 2026 sealed double-dip / B
+          forward TD60 early-attention / E economic-invariant tests，详
+          `docs/memos/20260430-pre_track_c_strategic_concerns.md` +
+          `docs/memos/20260430-concerns_abE_proposed_solutions.md`）
+```
+
+**Track 之间的依赖**:
+- Track A 必须先 ship → 提供新 split / acceptance / sealed_ledger
+- Track B 可与 A 并行 → 提供 fleet-level orthogonality 工具
+- Track C 依赖 A + B → 真实挖矿用 A 的 split + 用 B 的 NAV-orth 检查
+
+**Track 边界规则**（hard line）:
+
+| 工作流 | 允许 | 阻塞 on |
+|---|---|---|
+| Track C dry run | ✅ | template signoff |
+| Track C 出 nominee 走 acceptance evaluation | ✅ | — |
+| 写 evidence pack | ✅ | — |
+| Forward init for Track C nominee | ❌ | Concern B Tier 1 |
+| 2026 sealed eval | ❌ | Concern A 2026 double-dip guard |
+| Fleet wiring expansion | ❌ | Step 6+ + economic-invariant flags |
+| 真钱部署 | ❌ | 全部 + go-live PRD |
 
 ---
 
@@ -1812,6 +2021,39 @@ xfail 解除条件必须文档化在 reason 参数里。
 **Phase 2 (未来，不推荐)**: 程序化 Anthropic API 调用。Phase 1/1.5 当前
 未成瓶颈，无计划启动。
 
+### 15.7 4-round Self-audit Methodology（forward-only 2026-04-30+）
+
+**目的**: 单测过 + smoke test 通过 ≠ 改动审过；尤其涉及 schema / 阈值 /
+新 pipeline / numerical 声明的改动，必须经 4 轮自审。
+
+| Round | 焦点 | 必须做的 |
+|---|---|---|
+| **R1** 事实 | 文件 / 字段 / 数字 / yaml 语法 | 每个声明配 verification 命令；不能凭记忆引用 |
+| **R2** 逻辑 | 阈值 domain-correctness / critical path / 假设 / effort 真实估算 | 每个 borrowed threshold 想清楚是不是从相邻 domain 抄过来的 |
+| **R3** 真正执行 | **跑代码 + 对比期望**，不只 grep / smoke test | pydantic loader 实际加载；synthetic input 验证 corner; 数字 4dp 一致 |
+| **R4** 边界故障 | ≥ 5 个 corner case，每个写明期望行为分类 (raise / safe-default / transparent) | 真正构造异常输入跑脚本 |
+
+**反模式**（不算 R3）:
+- 重读你刚写的文件
+- 只看 yaml.safe_load passes（那是 R1）
+- "tests pass" 不挖测试覆盖了什么
+- "看起来合理"
+
+**完整契约**: `docs/checkpoints/20260430-self_audit_methodology.md`。
+
+**适用范围**:
+
+| 改动类型 | 必须做 |
+|---|---|
+| Schema 改动 (pydantic / yaml / parquet) | R1 + R2 + R3 + R4 |
+| 阈值改动 (acceptance / risk / fleet) | R1 + R2 + R3 + R4 |
+| 新 script / 新 pipeline 阶段 | R1 + R2 + R3 + R4 |
+| 含具体数字 / 代码状态声明的 memo | R1 + R2 + R3 |
+| 一行注释 / typo / 纯文字 | R1 |
+
+R3 是经验上**最容易跳过**也**收益最高**的一轮 — README 自审就抓出 3 个
+runtime bug，靠的就是真正用边界 fixture 跑代码。
+
 ---
 
 ## 16. 故障排查
@@ -1943,7 +2185,11 @@ df = store.load("SPY", freq="1m", fallback="auto")  # 自动尾部补全
 >
 > 本节只描述系统**今天**的状态：未解 blocker + 术语约定。
 
-### 17.1 未解 blockers 摘要（带客观数据，2026-04-29 freshly verified）
+### 17.1 未解 blockers 摘要
+
+> **过期检查**: 本节内容会随项目演进过期。当前活跃工作 / 决策记录在
+> `CLAUDE.md` "Current TODO Checklist" + `docs/memos/`，本节只快照
+> "宏观 blocker 类别"。具体客观数据日期标在每条末尾。
 
 - **OOS IR ≥ 0.20 promote threshold 仍未跨过**（Deep Mining 唯一
   candidate `6d15b735a64c` OOS IR +0.292，但 full-period fresh
@@ -1984,6 +2230,20 @@ df = store.load("SPY", freq="1m", fallback="auto")  # 自动尾部补全
 - **突破方向候选**：universe 再扩容（参考 R37 `data/ml/R37_sp500_alpha.csv`
   511-symbol pool）/ 新数据源（microstructure / order flow / sentiment）
   / structurally new factor family
+
+- **Track A/B/C 三件套未闭环**（截至 2026-04-30）— Track A + B Step 1-5
+  已 land；Track C real mining 等 codex 签 evidence-pack template + 三个
+  concern guards (A 2026 sealed double-dip ledger / B forward TD60
+  early-attention flag / E economic-invariant matrix in evidence pack)。
+  详 `docs/memos/20260430-pre_track_c_strategic_concerns.md` +
+  `docs/memos/20260430-concerns_abE_proposed_solutions.md`
+
+- **Fleet-of-two 假设破裂**（2026-04-30）— 当前 forward-observe 中的
+  RCMv1 + Cand-2 NAV-correlation pooled Pearson **0.898**（Step 5 reject
+  阈值 0.85），β-SPY 1.3-1.6（都不是 defensive），76% 天数同时 drawdown，
+  top-10 持仓重叠 4/10。Cand-2 "orthogonal" 标签作废；fleet 真正 wiring
+  等 Track C 出 NAV-orthogonal candidate。详
+  `docs/memos/20260430-rcmv1_cand2_realized_correlation.md`
 
 ### 17.2 术语约定
 
