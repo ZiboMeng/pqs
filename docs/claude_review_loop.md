@@ -4320,5 +4320,78 @@ Drafted in `docs/memos/20260430-concerns_abE_proposed_solutions.md`
 align before any code lands. Once aligned, those proposals become
 the actual implementation specs.
 
+## Round 33 (Claude) — proposals revised after 4-round self-audit
+
+commit: `main 8f46bc4`. Same-day follow-up to R32 — user requested
+two more audit rounds with actual code execution (not just file
+reading). Codified as
+`docs/checkpoints/20260430-self_audit_methodology.md` for
+forward-only application.
+
+### What this round shipped
+
+Audit findings forced proposals revisions before submission to
+external reviewer. Net outcome: same MV scope, sharper details,
+hardened diagnostic script.
+
+| Round | Severity | Finding | Fix |
+|------:|----------|---------|-----|
+| R1 | BLOCKER | `evidence_class` field collision on ForwardRunManifest (already pinned to `forward_oos`) — proposal would fail schema validation | §A.MV rewritten to use sibling `decay_classification` field |
+| R1 | BLOCKER | RCMv1 yaml lacked symmetric `realized_nav_correlation_status` block; only Cand-2 had it | Added matching block to RCMv1 yaml in same commit |
+| R1 | minor | Redundant stored `early_attention_first_triggered_td` field | Removed; derived at read time |
+| R2 | important | NAV orthogonality threshold imported `0.40` from factor-IC config (`temporal_split.yaml` line 111). Long-only US equity has higher market-beta correlation floor — flat 0.40 is structurally over-strict for NAV-level | Tiered: < 0.50 true / 0.50-0.70 partial / 0.70-0.85 warn / ≥ 0.85 reject (mirrors Step 5) |
+| R2 | important | Cross-concern order "E → A+B parallel" was wrong critical-path reading. A is the FARTHEST blocker (sealed eval months downstream), not parallel-with B | Revised to "E → B → A" with critical-path diagram |
+| R2 | medium | Effort estimate 4.5d nominal MV was lower bound only | Updated to ~9d realistic (2x audit-fix multiplier observed) |
+| R3 | clean | All 7 numerical claims in NAV correlation memo cross-verified against JSON to 4dp; numpy-independent path matched script to 6dp; FleetConfig + FrozenStrategySpec.from_yaml_file + ForwardRunManifest all parse modified files; FleetAllocator.check_correlation_budget exercised with synthetic 0.898 input → "reject" classification | — |
+| R4 | BLOCKER | Diagnostic script raised `AttributeError: 'float' has no attribute 'date'` on empty input | `_empty_diagnostic` helper + early-return guards |
+| R4 | important | n=1 → silent NaN pearson; zero-variance → silent NaN + RuntimeWarnings | structured `insufficient_data` status with reason; np.errstate + warnings.catch_warnings; np.isfinite guard |
+| R4 | medium | json.dumps default allow_nan=True could let NaN slip past | `allow_nan=False` to fail loud |
+
+Production data unchanged: pooled pearson 0.898, classification
+reject_step5, both cells `status=ok` (script now emits explicit
+status field).
+
+### Methodology codification
+
+`docs/checkpoints/20260430-self_audit_methodology.md` documents
+the 4-round audit process forward-only:
+
+- R1 factual (file paths, schema, numbers, syntax)
+- R2 logical (domain-correctness, critical path, assumption tests, effort honesty)
+- R3 runtime (actually run the code, compare to expected, independent path)
+- R4 boundary (≥5 corner cases per change, classify expected behavior)
+
+R3 is the most-skipped and highest-yielding — anti-pattern is
+"compiles + tests pass = audit done". This round R3 caught nothing
+material in production data path but R4 caught 3 runtime bugs in
+the diagnostic script that smoke-test passed but corner cases
+failed.
+
+### Asks for codex / external reviewer
+
+R32 ask Q8 (Track C dry-run pre-conditions) + new ask Q9-Q10
+arising from this round:
+
+**Q9** — Does R4-revised NAV orthogonality tier (< 0.50 / < 0.70
+/ < 0.85) make sense for long-only US equity, or should the
+0.50 boundary move (0.45 stricter / 0.55 more permissive)?
+
+**Q10** — Was the audit methodology document
+(`docs/checkpoints/20260430-self_audit_methodology.md`) sufficient
+or are there additional audit rounds / categories you'd add?
+Specifically: should there be a **R5 cross-checkout** round
+(would the proposed change break any other workflow that
+currently works)?
+
+### Boundary stance unchanged from R32
+
+| Workstream | Allowed | Blocked on |
+|------------|---------|------------|
+| Track C dry run | Yes (after Q8 signoff) | — |
+| Forward init for any nominee | No | Concern B Tier 1 |
+| 2026 sealed eval | No | Concern A guard |
+| Fleet wiring expansion | No | B.Full + economic-invariant flags |
+| Real-money deployment | No | All three concerns + go-live PRD |
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
