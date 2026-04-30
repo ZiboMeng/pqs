@@ -96,37 +96,53 @@ class SealedLedgerEntry:
     evidence_class: str = "sealed"   # "sealed" | "legacy_forward_evidence" | "legacy_pre_prd_a"
 ```
 
-**Pre-flight `check_eligibility` extension.** Existing rules
-(`fail_closed_on_repeat`, `fail_closed_on_split_failure`) preserved.
-Add one new rule:
+**Pre-flight `check_eligibility` extension** (revised per reviewer
+§5.3 2026-04-30 — replaces the lineage_family-only formulation
+which was the wrong abstraction). Two layered rules:
 
 ```
-fail_closed_on_forward_interval_overlap (PRD-A):
-  Given (spec_sha256, split_name, role, eval_start_date, eval_end_date):
-    For every forward manifest under data/research_candidates/
-    *_forward_manifest.json:
-      For every TD run with as_of_date in [eval_start_date, eval_end_date]:
-        If forward candidate's lineage_family == this candidate's lineage_family:
-          → SealedEvalDeniedError(rule="forward_interval_overlap",
-              prior_rows=[<the conflicting TD entries>])
+RULE 1 — fail_closed_on_freeze_date_violation (HARD):
+  Given (spec_sha256, split_name, role, eval_start_date,
+         eval_end_date, candidate_freeze_date,
+         panel_max_date_recorded_at_freeze):
+    Required:
+      eval_start_date > candidate_freeze_date
+      eval_start_date > panel_max_date_recorded_at_freeze
+    Otherwise → SealedEvalDeniedError(
+        rule="sealed_eval_window_overlaps_known_panel",
+        details=[freeze_date, panel_max_date])
 
-Rationale: lineage_family scoping prevents over-blocking — a fully
-unrelated lineage's forward observation does not lock you out of
-sealed eval. But same-lineage observation does.
+RULE 2 — flag_market_path_preobserved (SOFT, NOT a hard fail):
+  For every forward run on ANY candidate (regardless of lineage)
+  whose observed dates overlap [eval_start_date, eval_end_date]:
+    Stamp the resulting sealed entry with:
+      market_path_preobserved = True
+      preobserving_candidates = [list of candidate_ids]
+      preobserving_runs = [list of forward_run pointers]
+    Stamp does not block; it labels evidence_class for audit:
+      evidence_class = "partially_tainted_sealed" (vs "clean_sealed")
 ```
 
-**Lineage_family resolution.** New field on
-`research_candidates/<id>.yaml`:
+**Why this replaces lineage_family:**
 
-```yaml
-lineage_family: rcm_v1            # or cand_2 / track_c_2026_04_30 / ...
-```
+- The old "lineage_family" abstraction tried to scope contamination
+  to "same family" candidates. But contamination is broader: as a
+  human, observing a 2026 market window biases my research direction
+  even if I select a structurally different candidate next.
+- The freeze-date rule is the operational invariant: a candidate
+  cannot be sealed-eval'd over a window that ended before it was
+  defined. This catches the most common error path — looking back.
+- The market-path-preobserved flag captures the softer truth that
+  any 2026 window already observed by humans on ANY active forward
+  is partially tainted as "clean OOS" — without preventing reasonable
+  use, but documenting it explicitly so audit can weigh it.
 
-Default: if absent, `lineage_family = candidate_id` (each candidate
-is its own family). Reviewer should weigh in on whether RCMv1 +
-Cand-2 share a family for this purpose (I lean **no**, since their
-specs are distinct, but a strict reviewer could argue **yes**
-because they were composed as a fleet).
+**Operational consequence (today, 2026-04-30):** any Track C
+candidate that freezes today CANNOT use 2026-Q1 + April 2026 as a
+clean sealed window. The reachable clean window starts 2026-05-01
+at earliest (and only if no human-research uses 2026-Q2 data
+between now and freeze). The operational unit is "remaining
+unseen window after freeze", NOT "2026 calendar year".
 
 **Legacy backfill helper.**
 `dev/scripts/sealed_ledger/backfill_eval_windows.py` — opt-in CLI
@@ -305,12 +321,38 @@ def evaluate_early_attention(
     if last.cum_ret <= -0.08:
         triggers.append("cum_return_below_minus_8pct")
 
-    # T4: vs SPY AND vs QQQ both deteriorate beyond market beta
-    if last.vs_spy is not None and last.vs_qqq is not None:
-        # Simple form: both negative AND magnitude > expected from beta
-        # (full beta-decomp deferred to B.Full)
-        if last.vs_spy < -0.05 and last.vs_qqq < -0.05:
-            triggers.append("vs_spy_and_qqq_both_below_minus_5pct")
+    # T4: beta-adjusted residual underperformance (per reviewer §6
+    # 2026-04-30). Raw `vs_spy < -0.05 and vs_qqq < -0.05` was too
+    # crude — high-beta strategies (β-SPY 1.3-1.6 like RCMv1+Cand-2)
+    # naturally show large negative vs_spy in market drawdowns even
+    # when alpha is intact. The relevant signal is whether the
+    # strategy underperforms WHAT BETA WOULD PREDICT.
+    #
+    # estimated_beta_to_spy: estimated at candidate freeze time from
+    # the candidate's train+validation NAV vs SPY (panel-level OLS;
+    # recompute monthly during forward observation). Stored on
+    # candidate_spec yaml so it's available without re-running.
+    # If absent (legacy candidate), fall back to T4_legacy below.
+    if last.vs_spy is not None and last.cum_ret is not None and \
+       candidate_spec.get("estimated_beta_to_spy") is not None:
+        beta = candidate_spec["estimated_beta_to_spy"]
+        # SPY total cum return over the same TD window
+        spy_cum = last.spy_cum_ret if hasattr(last, "spy_cum_ret") else None
+        if spy_cum is not None:
+            beta_explained = beta * spy_cum
+            residual = last.cum_ret - beta_explained
+            if residual < -0.05:
+                triggers.append(
+                    "beta_adjusted_residual_underperformance_below_minus_5pct"
+                )
+    # T4_legacy fallback (only when beta not available — last resort,
+    # not the default; expect ~all post-2026-04 candidates to have
+    # estimated_beta_to_spy stamped at freeze):
+    elif last.vs_spy is not None and last.vs_qqq is not None:
+        # tighten threshold here vs the original to avoid false-positive
+        # spam on high-beta candidates without beta annotation
+        if last.vs_spy < -0.10 and last.vs_qqq < -0.10:
+            triggers.append("vs_spy_and_qqq_both_below_minus_10pct_legacy")
 
     # T5: data drift event AND PnL deterioration co-occur on same TD
     if last.data_revision_event is not None and last.cum_ret < runs[-2].cum_ret if len(runs) >= 2 else False:
@@ -578,22 +620,38 @@ production data path but R4 found 3 runtime bugs in the diagnostic
 script — pattern is "first cut works on happy path, real
 robustness needs ~1 cycle of corner-case fixes").
 
-**Track C dry run is NOT blocked on any of A.MV / B.MV / E.MV.**
-Dry run can compute concurrent with E.MV drafting. B.MV and A.MV
-only need to ship before nominee progresses past evidence pack →
-forward → sealed.
+**Track C cycle compute is NOT blocked on E.MV / B.MV / A.MV; but
+nomination IS blocked on E.MV** (per reviewer §5.1 sharper boundary,
+2026-04-30):
+
+> Mining compute can run concurrent with E.MV drafting. But until
+> §4.6 NAV-orthogonality + §4.7 economic-flag sections are in the
+> Track C evidence pack template, any candidate that passes
+> acceptance is "candidate pending economic-invariant pack" — NOT
+> a "nominee". Nomination requires the pack to be filled; pack
+> requires §4.6 + §4.7 to be defined.
+
+This rephrasing is operationally cheaper than "wait for E.MV to ship
+before mining": it lets the compute step happen in parallel with
+template work without losing nomination discipline.
 
 ---
 
 ## Open questions for external reviewer
 
-1. **A.MV lineage_family resolution** — should RCMv1 and Cand-2
-   share `legacy_2026_04_24` family (strict, more blocking) or
-   each be own family (permissive, less blocking)? I lean
-   permissive but accept a strict ruling.
-2. **B.MV trigger thresholds** — start strict (T3 = -8% cum, T1 =
-   75% of validation-year ceiling) or looser? My take: strict +
-   relax post-observation.
+1. **A.MV obsolete: lineage_family replaced by freeze-date + market-path-preobserved**
+   (per reviewer §5.3, 2026-04-30). Original Q1 was about strict-vs-permissive
+   lineage_family scoping. That abstraction was wrong. Replaced with two-rule
+   structure: HARD `eval_start_date > candidate_freeze_date AND >
+   panel_max_date_recorded_at_freeze`; SOFT `market_path_preobserved` flag for
+   any forward observation overlap (any lineage). No outstanding question on
+   A.MV scoping; reviewer can challenge the new rule structure.
+2. **B.MV trigger thresholds + beta-adjusted T4** — start strict (T3 = -8%
+   cum, T1 = 75% of validation-year ceiling)? Original draft used raw
+   `vs_spy < -5% AND vs_qqq < -5%` for T4; revised (per reviewer §6) to
+   beta-adjusted residual underperformance < -5% with legacy fallback at
+   -10% raw. Reviewer please confirm both the strict-vs-loose start AND
+   the residual-vs-raw choice.
 3. **E.MV §4.6 threshold structure (audit-Round-2 revised)** —
    I originally proposed `< 0.40` flat (matching factor-IC config).
    R2 audit revised to **tiered**: < 0.50 true_diversifier; 0.50-0.70

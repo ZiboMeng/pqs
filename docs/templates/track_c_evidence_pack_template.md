@@ -1,7 +1,13 @@
 ---
 template: track_c_evidence_pack
-version: 1.0
+version: 1.1
 authorized_by: codex_round_27_boundary_memo + user_explicit_go_2026-04-29
+revision_history:
+  v1.0 (2026-04-29): initial template
+  v1.1 (2026-04-30): added §4.6 NAV-orthogonality + §4.7 economic-assumption flags
+                     per E.MV (concerns_abE_proposed_solutions.md) and reviewer §3 / §4.3.
+                     Added sign-convention callout above §3.1, fixed MaxDD threshold table,
+                     re-pointed C5 archive ref to RCMArchive, fixed leak-guard wording.
 status: TEMPLATE — copy this file when nominating a controlled-mining candidate
 ---
 
@@ -227,6 +233,108 @@ after the first mining trial starts a **new lineage** (new
 `lineage_tag` + new YAML SHA-256 + new evidence pack); it does
 not amend the current cycle. The current cycle still closes
 under its original criteria.
+
+### 4.6 NAV-level orthogonality vs every active candidate [REQUIRED]
+
+> Added 2026-04-30 (E.MV per
+> `docs/memos/20260430-concerns_abE_proposed_solutions.md` §E.MV +
+> external-reviewer §3 / §4.3 2026-04-30).
+
+Source script:
+`dev/scripts/correlation/rcmv1_cand2_realized_nav_correlation.py`
+(adapt for nominee × every active candidate).
+
+#### 4.6.1 Raw NAV correlation — pooled Pearson
+
+For each active candidate (e.g. RCMv1, Cand-2, any later live
+candidates), report:
+
+| Active candidate | Pooled n_days | Raw Pearson | Tier | Diversifier-eligible? |
+|-----------------:|--------------:|------------:|------|----------------------:|
+| `<id_a>` | `<n>` | `<float>` | `<true_diversifier | partial_diversifier | warn_label_void | reject_step5>` | `<Y/N>` |
+| `<id_b>` | `<n>` | `<float>` | `...` | `...` |
+
+Tier definitions (mirrors Step 5 fleet correlation budget +
+`temporal_split.yaml::diversifier eligibility` after the audit-R2
+revision):
+
+- `< 0.50` → `true_diversifier` (eligible for diversifier role)
+- `0.50 - 0.70` → `partial_diversifier` (warning; pack must justify
+  diversifier role per §4.6.4)
+- `0.70 - 0.85` → `warn_label_void` (cannot claim diversifier role;
+  may claim core-additive)
+- `≥ 0.85` → `reject_step5` (Step 5 reject; not eligible for fleet
+  entry at all)
+
+`pooled_min_overlap_days` = 60. Below 60, status = `insufficient_data`.
+
+#### 4.6.2 Residual NAV correlation (beta-stripped) — same tiers
+
+Compute per-candidate beta to SPY and to QQQ, take residuals,
+correlate residuals. Report against each active candidate:
+
+| Active candidate | β-SPY (nominee) | β-SPY (active) | Residual Pearson vs SPY | Residual tier vs SPY | Residual Pearson vs QQQ | Residual tier vs QQQ |
+|-----------------:|----------------:|---------------:|------------------------:|----------------------|------------------------:|----------------------|
+| `<id_a>` | `<float>` | `<float>` | `<float>` | `<tier>` | `<float>` | `<tier>` |
+
+#### 4.6.3 Adjacent diagnostics (FLAG only, not gates)
+
+| Diagnostic | Threshold for "clean" | Action if violated |
+|------------|-----------------------:|--------------------|
+| Down-market (SPY day < -0.5%) Pearson vs each active | < 0.50 | warning (residual stress test) |
+| Drawdown overlap (% days both in DD) | < 50% | warning (regime co-movement) |
+| Top-10 holdings overlap on cell-final date | ≤ 4/10 | warning (concentrated overlap) |
+| Rolling 30d Pearson worst-case | < 0.65 | warning (regime-dependent corr spike) |
+
+#### 4.6.4 Diversifier-role eligibility decision
+
+A candidate claiming `role: diversifier` must:
+
+- Raw Pearson `true_diversifier` (< 0.50) vs **every** active candidate; AND
+- Residual Pearson `true_diversifier` (< 0.50) vs SPY OR vs QQQ; AND
+- All adjacent diagnostics clean OR each violation explicitly
+  justified in pack.
+
+If the candidate falls into `partial_diversifier` (0.50-0.70) on
+either raw OR residual, the pack must include a "partial-diversifier
+justification" subsection answering:
+
+- Why is partial diversification economically meaningful? (e.g.
+  drawdown-overlap < 30%, even though raw corr ~ 0.55)
+- What's the residual-correlation root cause classification —
+  `shared_market_beta_dominant` / `shared_alpha_dominant` / `mixed`?
+- What unique exposure does the candidate add at the portfolio
+  level despite the partial correlation?
+
+A candidate in `warn_label_void` (0.70-0.85) cannot claim the
+diversifier role; can only claim `core` (additive alpha).
+
+A candidate in `reject_step5` (≥ 0.85) is not eligible for fleet
+entry under the new framework.
+
+### 4.7 Economic-assumption flags [REQUIRED — flag-only, not gates]
+
+> Added 2026-04-30 (E.MV per
+> `docs/memos/20260430-concerns_abE_proposed_solutions.md` §E.MV).
+
+Each flag tells you "the candidate's CLAIM does not match what the
+realized data SHOWS". A flag does NOT auto-reject; it requires one
+sentence of explanation in the pack. Multiple flags with poor
+justifications → reviewer rejects on procedural grounds.
+
+| # | Flag | How to compute | Threshold for FLAG | Notes |
+|--:|------|----------------|--------------------|-------|
+| F1 | factor_ic vs nav_corr gap | `\|factor_IC_corr_vs_active − realized_NAV_corr_vs_active\|` | gap ≥ 0.30 | Cand-2 case: factor IC corr 0.40 vs NAV corr 0.898 → gap 0.50 → would flag |
+| F2 | "defensive" claim vs realized β-SPY | If candidate description / spec contains "defensive", verify realized β-SPY < 1.0 | β-SPY ≥ 1.0 | RCMv1 case: nominated as "defensive composite", realized β-SPY 1.38 → would flag |
+| F3 | diversifier claim vs realized NAV corr | If `role: diversifier`, raw NAV pearson must be in `true_diversifier` tier (§4.6) | any active raw ≥ 0.50 | Hard requirement at §4.6.4; here as redundant flag |
+| F4 | QQQ excess concentration | % of `excess_vs_qqq` cumulative attributable to top-3 names + TQQQ + SOXL | ≥ 50% | If yes, the alpha is concentration-driven, not strategy-driven |
+| F5 | regime-dependent acceptance | Pass 2025 hard gate but fail 2023 OR 2018 OR 2019 OR 2021 individually | any single year fail with 2025 pass | Suggests the strategy benefits from a specific regime not robust to others |
+| F6 | residual root cause | `classify_residual()` returns `shared_alpha_dominant` (residual ≥ 0.70 vs any active) | always flag if true | Means new candidate's alpha sleeve is the same as an existing one — not just shared market beta |
+
+Pack content for each flag: F# / observed value / threshold / FLAG_YES / explanation_one_sentence.
+
+A pack with all flags clean is "economically clean". A pack with
+≥ 3 flags + weak explanations → reviewer rejection.
 
 ---
 

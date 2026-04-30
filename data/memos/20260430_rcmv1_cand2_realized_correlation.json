@@ -1,12 +1,17 @@
 {
   "experiment": "rcmv1_vs_cand2_historical_nav_correlation",
   "as_of": "2026-04-30",
+  "nav_orthogonality_tiers": {
+    "true_diversifier": "< 0.50",
+    "partial_diversifier": ">= 0.50 and < 0.70",
+    "warn_label_void": ">= 0.70 and < 0.85",
+    "reject_step5": ">= 0.85"
+  },
   "step5_thresholds": {
     "warn": 0.7,
     "reject": 0.85,
     "min_overlap_days": 60
   },
-  "diversifier_threshold_temporal_split_yaml": 0.4,
   "per_cell": [
     {
       "cell": "2022_h2",
@@ -88,6 +93,26 @@
     "status": "ok",
     "status_reason": null
   },
+  "pooled_residual_correlation": {
+    "vs_spy_ret_d": {
+      "benchmark": "spy_ret_d",
+      "status": "ok",
+      "beta_rcm": 1.4101667148079218,
+      "beta_cnd": 1.50126726823857,
+      "residual_pearson": 0.609343015578696,
+      "residual_ann_sharpe_rcm": 1.1567915834790916,
+      "residual_ann_sharpe_cnd": 1.5551014992759273
+    },
+    "vs_qqq_ret_d": {
+      "benchmark": "qqq_ret_d",
+      "status": "ok",
+      "beta_rcm": 1.1264927446162085,
+      "beta_cnd": 1.2316919201950167,
+      "residual_pearson": 0.5790621548098179,
+      "residual_ann_sharpe_rcm": 2.0838359933693003,
+      "residual_ann_sharpe_cnd": 2.7733443499242103
+    }
+  },
   "classification_pooled": "reject_step5",
   "classification_per_cell": [
     {
@@ -98,5 +123,9 @@
       "cell": "2024_q1",
       "label": "warn_label_void"
     }
-  ]
+  ],
+  "residual_root_cause": {
+    "vs_spy": "mixed",
+    "vs_qqq": "mixed"
+  }
 }

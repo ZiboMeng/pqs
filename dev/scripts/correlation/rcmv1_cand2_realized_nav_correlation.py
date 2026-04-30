@@ -270,9 +270,16 @@ def combined_diagnostics(per_cell: list[dict], cells: dict) -> dict:
 
 
 def classify(corr: float | None) -> str:
+    """Tier classification per audit-Round-2 revision (2026-04-30) +
+    external-reviewer §3 (2026-04-30).
+
+    Mirror Step 5 fleet correlation budget with one extra gate at 0.50:
+    long-only US equity has a market-beta correlation floor that makes
+    flat 0.40 (factor-IC config) structurally over-strict at NAV level.
+    """
     if corr is None:
         return "insufficient_data"
-    if corr < 0.40:
+    if corr < 0.50:
         return "true_diversifier"
     if corr < 0.70:
         return "partial_diversifier"
@@ -281,26 +288,140 @@ def classify(corr: float | None) -> str:
     return "reject_step5"
 
 
+def compute_residual_correlation(
+    df: pd.DataFrame, *, benchmark_col: str
+) -> dict:
+    """Beta-neutralize each candidate against benchmark; then correlate
+    residuals.
+
+    Per external-reviewer 2026-04-30 §4.3: raw NAV correlation alone
+    cannot distinguish "shared market beta" from "shared alpha". If
+    residual correlation drops sharply (raw > 0.85 → residual < 0.40),
+    the NAV correlation is mostly market beta — Track C should look for
+    defensive / cross-asset / cash-timing strategies. If residual stays
+    high (> 0.70), the alpha sleeves themselves are similar — Track C
+    needs entirely different factor families or universe / cadence.
+
+    Adjacent: also report residual Sharpe to catch the case where
+    residuals correlate but one is +SR and the other is -SR (organic
+    diversification value) vs both same-sign-same-size (genuine
+    redundancy).
+    """
+    if benchmark_col not in df.columns:
+        return {"benchmark": benchmark_col, "status": "missing_benchmark"}
+    bm = df[benchmark_col]
+    bm_var = float(bm.var())
+    if not np.isfinite(bm_var) or bm_var == 0.0:
+        return {"benchmark": benchmark_col, "status": "zero_variance_benchmark"}
+
+    def _residualize(s: pd.Series) -> tuple[pd.Series, float]:
+        beta = float(s.cov(bm) / bm_var)
+        return s - beta * bm, beta
+
+    rcm_res, beta_rcm = _residualize(df["rcm_v1"])
+    cnd_res, beta_cnd = _residualize(df["cand_2"])
+
+    with np.errstate(invalid="ignore", divide="ignore"):
+        residual_corr = float(rcm_res.corr(cnd_res))
+
+    # residual annualised Sharpe (sign + magnitude — diagnostic for
+    # whether residuals are alpha-positive on each side, alpha-negative
+    # on each side, or split)
+    def _ann_sharpe(s: pd.Series) -> float:
+        std = float(s.std(ddof=1))
+        if not np.isfinite(std) or std == 0.0:
+            return float("nan")
+        return float(s.mean() / std * np.sqrt(252))
+
+    return {
+        "benchmark": benchmark_col,
+        "status": "ok" if np.isfinite(residual_corr) else "non_finite",
+        "beta_rcm": beta_rcm,
+        "beta_cnd": beta_cnd,
+        "residual_pearson": residual_corr if np.isfinite(residual_corr) else None,
+        "residual_ann_sharpe_rcm": _ann_sharpe(rcm_res),
+        "residual_ann_sharpe_cnd": _ann_sharpe(cnd_res),
+    }
+
+
+def classify_residual(raw_corr: float | None, residual_corr: float | None) -> str:
+    """Diagnose root cause of high raw NAV correlation by residual drop.
+
+    Returns one of:
+      - "shared_market_beta_dominant": raw high (>=0.70) AND residual
+        drops materially (>=0.30 absolute) AND residual < 0.50
+      - "shared_alpha_dominant": raw high AND residual stays > 0.70
+      - "mixed": between the two
+      - "low_raw": raw is low to begin with — residual is moot
+      - "insufficient_data": missing inputs
+    """
+    if raw_corr is None or residual_corr is None:
+        return "insufficient_data"
+    if raw_corr < 0.70:
+        return "low_raw"
+    drop = raw_corr - residual_corr
+    if residual_corr < 0.50 and drop >= 0.30:
+        return "shared_market_beta_dominant"
+    if residual_corr >= 0.70:
+        return "shared_alpha_dominant"
+    return "mixed"
+
+
 def main() -> None:
     per_cell = [cell_diagnostics(c, paths["rcm_v1"], paths["cand_2"]) for c, paths in CELLS.items()]
     pooled = combined_diagnostics(per_cell, CELLS)
 
+    # Pooled residual correlation vs SPY and QQQ (external-reviewer §4.3)
+    pooled_residual = {}
+    pooled_frames = []
+    for cell, paths in CELLS.items():
+        rcm = load_pnl(paths["rcm_v1"]).rename(columns={"ret": "rcm_v1"})
+        cnd = load_pnl(paths["cand_2"]).rename(columns={"ret": "cand_2"})
+        bmk = load_benchmark(paths["rcm_v1"])
+        df = pd.concat([rcm, cnd, bmk], axis=1).dropna()
+        pooled_frames.append(df)
+    pooled_df = pd.concat(pooled_frames).sort_index() if pooled_frames else pd.DataFrame()
+    if len(pooled_df) >= 2:
+        pooled_residual["vs_spy_ret_d"] = compute_residual_correlation(pooled_df, benchmark_col="spy_ret_d")
+        pooled_residual["vs_qqq_ret_d"] = compute_residual_correlation(pooled_df, benchmark_col="qqq_ret_d")
+    else:
+        pooled_residual = {"status": "insufficient_data"}
+
+    raw_pooled = pooled.get("pearson_corr_pooled")
+    res_spy = pooled_residual.get("vs_spy_ret_d", {}).get("residual_pearson") if isinstance(pooled_residual, dict) else None
+    res_qqq = pooled_residual.get("vs_qqq_ret_d", {}).get("residual_pearson") if isinstance(pooled_residual, dict) else None
+    root_cause_spy = classify_residual(raw_pooled, res_spy)
+    root_cause_qqq = classify_residual(raw_pooled, res_qqq)
+
     out = {
         "experiment": "rcmv1_vs_cand2_historical_nav_correlation",
         "as_of": "2026-04-30",
+        # Tiers per audit-R2 revision + external-reviewer §3 (2026-04-30).
+        # Replaces flat 0.40 (factor-IC config) which is structurally over-
+        # strict for long-only US-equity NAV correlation.
+        "nav_orthogonality_tiers": {
+            "true_diversifier":     "< 0.50",
+            "partial_diversifier":  ">= 0.50 and < 0.70",
+            "warn_label_void":      ">= 0.70 and < 0.85",
+            "reject_step5":         ">= 0.85",
+        },
         "step5_thresholds": {
             "warn": 0.70,
             "reject": 0.85,
             "min_overlap_days": 60,
         },
-        "diversifier_threshold_temporal_split_yaml": 0.40,
         "per_cell": per_cell,
         "pooled": pooled,
+        "pooled_residual_correlation": pooled_residual,
         "classification_pooled": classify(pooled["pearson_corr_pooled"]),
         "classification_per_cell": [
             {"cell": c["cell"], "label": classify(c["pearson_corr"])}
             for c in per_cell
         ],
+        "residual_root_cause": {
+            "vs_spy": root_cause_spy,
+            "vs_qqq": root_cause_qqq,
+        },
     }
 
     out_dir = REPO / "data" / "memos"

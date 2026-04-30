@@ -19,6 +19,18 @@ reject); the 2024-Q1 cell pairs at **0.795** (above warn 0.70, just
 below reject 0.85). Both cells run concurrent drawdowns on >64% of
 days and share 4/10 of their top-10 holdings on the 2022 final cut.
 
+**Updated 2026-04-30 R2 (per external reviewer §4.3):** the
+candidates are not "holdings clones" — average Jaccard ~16%. They
+are a **NAV-level risk clone / highly correlated sleeve**. A
+beta-neutralization decomposes this further: residual Pearson vs
+SPY = **0.609** (drop 0.29); vs QQQ = **0.579** (drop 0.32). About
+30% of raw correlation is shared market beta; the other ~60%
+remains in the alpha sleeves. Both residual annualized Sharpes are
+positive and large (vs QQQ: RCMv1 +2.08, Cand-2 +2.77). Track C's
+new candidate must therefore differ on BOTH beta exposure AND
+residual alpha — a mere "low-beta defensive" candidate would only
+fix ~30% of the problem. See §2.7.
+
 **Concrete next-step consequences (decided in this note):**
 
 1. The diversifier hypothesis behind the two-candidate fleet is
@@ -148,6 +160,15 @@ scope for this note).
 
 ## 3. Interpretation — operator view
 
+> **Terminology update (per external reviewer §4.2):** the
+> candidates are not "holdings clones" — Jaccard ~16% and top-10
+> overlap 4/10 (2022) / 2/10 (2024). The accurate framing is
+> **NAV-level risk clone / highly correlated sleeve**. High
+> correlation comes from concentrated overlap on a few large names
+> + shared SPY/QQQ-beta exposure on the rest + same universe + same
+> top_n + same long-only constraint forcing both portfolios toward
+> the highest-momentum names of the period.
+
 ### Why factor-IC orthogonality wasn't enough
 
 Cand-2's nomination basis was a factor-IC orthogonal composite:
@@ -199,6 +220,68 @@ This is the textbook trap the reviewer warned about.
 
 ---
 
+### 2.7 Residual (beta-neutralized) correlation — addendum 2026-04-30 R2
+
+Per external-reviewer §4.3 (2026-04-30): raw NAV correlation alone
+cannot tell us whether high correlation comes from **shared market
+beta** (which a different strategy could fix by being defensive /
+cross-asset / cash-timing) or from **shared alpha sleeve** (which
+needs entirely different factor families or universe / cadence).
+
+Diagnostic: regress each candidate daily return on SPY (and QQQ),
+take residual, correlate residuals.
+
+| Reference | Beta RCMv1 | Beta Cand-2 | Pooled raw Pearson | **Pooled residual Pearson** | Drop |
+|-----------|-----------:|------------:|-------------------:|----------------------------:|-----:|
+| SPY | 1.41 | 1.50 | 0.898 | **0.609** | 0.29 |
+| QQQ | 1.13 | 1.23 | 0.898 | **0.579** | 0.32 |
+
+Residual annualized Sharpe (over the 154-day pool):
+
+| Reference | RCMv1 residual SR | Cand-2 residual SR |
+|-----------|------------------:|-------------------:|
+| vs SPY | +1.16 | +1.56 |
+| vs QQQ | +2.08 | +2.77 |
+
+**Interpretation:**
+
+- Beta-stripping the raw correlation removes ~30% of the linear
+  comovement — confirming shared market beta is part of the story
+  (consistent with both candidates running β-SPY 1.3-1.6).
+- But residual Pearson stays at **0.58-0.61**, well above 0.50.
+  After beta is removed, the alpha sleeves themselves still move
+  together strongly. Track C cannot fix this by simply shipping a
+  defensive / low-beta candidate; the new candidate's alpha sleeve
+  must also be uncorrelated from RCMv1's residual.
+- Both residual Sharpes are positive and large — both candidates
+  have legitimate alpha after beta is stripped. So this is not "two
+  bad strategies"; it's "two real strategies with overlapping alpha
+  sources".
+- Classification per `classify_residual()`: **`mixed`** (raw high +
+  residual stays > 0.50 but < 0.70). Not "shared_beta_dominant"
+  (would require residual < 0.50 with drop ≥ 0.30); not
+  "shared_alpha_dominant" (would require residual ≥ 0.70).
+
+**Track C implication (operationally):**
+
+- A new candidate that's just "defensive / low-β" but uses the
+  same long-only momentum / quality / value family on the same
+  universe will likely solve the beta-dominant ~30% but leave the
+  ~60% residual problem.
+- The needed candidate must be either (a) on a different alpha
+  family (e.g. mean-reversion intraday, statistical arb on
+  microstructure, event-driven on calendar features), (b) on a
+  different universe (sector rotation, cross-asset rotation, fixed
+  income sleeve), or (c) on a different cadence (weekly / intraday
+  vs monthly), enough that residual correlation against current
+  RCMv1 sleeve drops below 0.50.
+
+This finding does not change the headline retraction (Cand-2 is
+not a fleet diversifier; pooled raw 0.898 still rejects). It
+sharpens the path forward: not just any alpha is good enough.
+
+---
+
 ## 4. Caveats / what this note does NOT prove
 
 - **Sample size 154 days, two non-contiguous windows.** This is
@@ -223,23 +306,28 @@ This is the textbook trap the reviewer warned about.
 
 ## 5. Action items (decided in this note)
 
-| # | Action | Owner | Trigger |
-|--:|--------|-------|---------|
-| 1 | Mark `candidate_2_orthogonal_01` as **NAV-correlation-failed-diversifier** in `data/research_candidates/candidate_2_orthogonal_01.yaml` (add `realized_nav_correlation_status` field referencing this memo) | Claude | Immediate |
-| 2 | Add a **NAV-correlation gate** to the Track C evidence-pack template (§4 or new §4.6): any new candidate must report Pearson / down-market / drawdown-overlap / top-10 holdings overlap against EVERY active fleet candidate. Diversifier-role candidate must show pooled Pearson < 0.40 over ≥60 day overlap | Claude | Before next Track C cycle |
-| 3 | Update `config/fleet.yaml` candidates section comment to reflect the legacy/decay-verification status and the failed orthogonality finding | Claude | Same commit as this memo |
-| 4 | Forward TD60 decision-pack template (when written) must include this same NAV-correlation diagnostic computed over the forward observation window | Claude | Before TD60 |
-| 5 | When Track C nominates a candidate, run this same diagnostic against RCMv1 + Cand-2 BEFORE the candidate is added to fleet | Claude | At Track C nomination time |
+| # | Action | Owner | Trigger | Status |
+|--:|--------|-------|---------|--------|
+| 1 | Mark `candidate_2_orthogonal_01` as **NAV-correlation-failed-diversifier** in `data/research_candidates/candidate_2_orthogonal_01.yaml` (add `realized_nav_correlation_status` field referencing this memo) | Claude | Immediate | ✅ shipped commit `ffd4793` |
+| 1b | Mirror `realized_nav_correlation_status` block on `data/research_candidates/rcm_v1_defensive_composite_01.yaml` (symmetry — finding is pair-level, not Cand-2-only) | Claude | Immediate | ✅ shipped commit `8f46bc4` |
+| 2 | Add NAV-correlation gate (§4.6) + economic-assumption flags (§4.7) to Track C evidence-pack template. **Tiered thresholds** (audit-R2 + reviewer §3 revision): pooled Pearson < 0.50 = `true_diversifier`; 0.50-0.70 = `partial_diversifier` (justify); 0.70-0.85 = `warn_label_void` (cannot claim diversifier); ≥ 0.85 = `reject_step5`. Match Step 5 fleet correlation budget tiering | Claude | Before any Track C nomination | ⏸️ pending E.MV ship |
+| 3 | Update `config/fleet.yaml` candidates section comment to reflect the legacy/decay-verification status and the failed orthogonality finding | Claude | Same commit as this memo | ✅ shipped commit `ffd4793` |
+| 4 | Forward TD60 decision-pack template (when written) must include this same NAV-correlation diagnostic + residual-correlation diagnostic over the forward observation window | Claude | Before TD60 of any Track C nominee | ⏸️ pending |
+| 5 | When Track C produces a candidate that passes acceptance, run this same diagnostic (raw NAV pearson + residual NAV pearson + drawdown overlap + holdings overlap) against RCMv1 + Cand-2 BEFORE the candidate is labeled "nominee" | Claude | At Track C nomination time | ⏸️ pending |
+| 6 | Track C diversifier-role candidate eligibility (audit-R2 + reviewer §3): pooled raw NAV Pearson < 0.50 AND residual NAV Pearson < 0.50 vs every active candidate. Reviewer judgment on partial-diversifier (0.50-0.70 raw OR 0.50-0.70 residual) | Claude | Track C eligibility | ⏸️ pending |
 
 ---
 
 ## 6. References
 
 - External reviewer's 2026-04-30 response (the prompt for this experiment).
-- Step 5 C2 correlation budget: `core/research/fleet/correlation_budget.py`,
-  `config/fleet.yaml`.
-- `core/research/temporal_split.py` diversifier eligibility constraint
-  `vs_existing_core_correlation < 0.40`.
+- Step 5 C2 correlation budget: `core/fleet/allocator.py::FleetAllocator.check_correlation_budget`,
+  `core/fleet/manifest_schema.py::CorrelationBudgetStatus`, `config/fleet.yaml`.
+- `config/temporal_split.yaml` line 111 diversifier eligibility constraint
+  `vs_existing_core_correlation < 0.40` — **factor-IC level only**, NOT the
+  same as the NAV correlation tiers in §2.7 / §5 (the audit-R2 revision
+  established that NAV-level uses 0.50/0.70/0.85 because long-only US
+  equity has a market-beta floor that factor-IC does not have).
 - Round-3 data integrity closeout: `docs/memos/20260425-data_integrity_round3_close.md`.
 - Cand-2 nomination basis: `docs/20260424-phase_e_post_cand2_final_synthesis.md`.
 
