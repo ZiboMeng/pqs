@@ -4393,5 +4393,101 @@ currently works)?
 | Fleet wiring expansion | No | B.Full + economic-invariant flags |
 | Real-money deployment | No | All three concerns + go-live PRD |
 
+## Round 34 (Claude) — external reviewer R2 patches shipped + residual diagnostic
+
+commit: `main 01d2950`. Same-day. Reviewer responded to R32+R33 with
+**1 BLOCKER (NAV threshold inconsistency) + 8 substantive refinements**.
+All accepted after independent evaluation; 9 reviewer points applied
+in this single commit.
+
+### Reviewer's 9 points and disposition
+
+| # | Reviewer point | Severity | Action |
+|--:|----------------|----------|--------|
+| 1 | NAV tier inconsistency — proposals memo had tiered 0.50/0.70/0.85, but dry-run plan + correlation memo + script `classify()` still on flat 0.40 | **BLOCKER** | Patched 3 places to single source of truth |
+| 2 | "clone" wording over-strong (Jaccard 16% / top-10 4-of-10 not "holdings clone") | refinement | Replaced with "NAV-level risk clone / highly correlated sleeve" |
+| 3 | Add residual correlation diagnostic (beta-strip + correlate residuals) | high-value | Added `compute_residual_correlation` + `classify_residual` to script. Result: pooled raw 0.898 → residual vs SPY **0.609** (drop 0.29) / vs QQQ **0.579** (drop 0.32). Both residual Sharpes positive (vs QQQ: RCMv1 +2.08, Cand-2 +2.77). Classification: **mixed** |
+| 4 | "Mining doesn't wait E.MV; nomination waits E.MV" sharper than "dry run not blocked on E.MV" | refinement | Updated proposals memo Cross-concern integration section |
+| 5 | A.MV `lineage_family` is wrong abstraction; replace with `eval_start > candidate_freeze_date` + `market_path_preobserved` flag | strategic | Two-rule rewrite of A.MV: HARD freeze-date violation + SOFT market-path preobserved labeling |
+| 6 | A.MV needs market-path-seen tier (any-lineage forward overlap labels softly) | strategic | Captured in same rewrite (rule 2) |
+| 7 | B.MV trigger T4 should be beta-adjusted, not raw `vs_spy < -5%` | important | T4 → `beta_adjusted_residual_underperformance < -5%` with legacy fallback at raw -10% |
+| 8 | Rename "dry-run" → "controlled cycle #01" (formal cycle, not smoke test) | semantic | Plan title + status banner updated |
+| 9 | Drop 40/30/20/10 probabilities; pure action map | refinement | Replaced with action-only map + "candidate vs nominee" distinction + multi-candidate cluster check |
+
+Plus: **E.MV shipped in same commit** — §4.6 NAV-orthogonality (raw + residual + adjacent + role-eligibility) and §4.7 economic-assumption flags (F1-F6) added to evidence pack template; version 1.0 → 1.1 with revision_history.
+
+### Residual correlation finding — operational implication
+
+The diagnostic decomposed pooled raw 0.898 into beta-share (~30%, drop
+to 0.61 against SPY / 0.58 against QQQ) and residual-share (~60%
+remains). Both residual Sharpes are positive and large. Track C must
+find a candidate that differs on **BOTH beta exposure AND residual
+alpha** — a low-beta defensive candidate alone fixes only ~30% of the
+problem. The needed candidate is on a different alpha family (e.g.
+mean-reversion, statistical arb on microstructure, event-driven on
+calendar features), or different universe (sector / cross-asset),
+or different cadence (intraday / weekly).
+
+This sharpens the original "find a NAV-orthogonal candidate" objective.
+
+### One mild extension to reviewer's framing (not disagreement)
+
+Reviewer §4.2 prescribed terminology fix "NAV-level risk clone". The
+residual-correlation finding ALSO hardens the substantive claim:
+even after stripping shared market beta, the alpha sleeves themselves
+correlate at ~0.60. That's more specific than "shared market beta"
+and changes what Track C should look for. Worth explicit acknowledgment
+because reviewer §4.3 ("residual decomposition tells us where to look
+next") fully landed.
+
+### Self-audit (4 rounds)
+
+- **R1 factual**: all numbers cross-verified. Correlation memo §6
+  References had wrong path `core/research/fleet/correlation_budget.py`;
+  corrected to `core/fleet/allocator.py::FleetAllocator.check_correlation_budget`.
+- **R2 logical**: tier 0.50 boundary defensible (long-only US equity
+  market-beta floor); residual classification thresholds (drop ≥ 0.30
+  AND residual < 0.50 → shared_beta_dominant) reflect "what
+  beta-stripping should explain if beta were the whole story".
+- **R3 runtime**: script re-runs clean; manual numpy residual matches
+  script residual to 6 decimal places (0.609343); 4 production yaml
+  files all parse cleanly; tier table consistent across 3 source-of-
+  truth locations (script + dry-run plan + correlation memo).
+- **R4 boundary**: 10 tier-classification cases at exact boundaries
+  (0.50/0.70/0.85/0.0/-0.5/None) all correct; 10 classify_residual
+  cases all correct; missing_benchmark / zero_variance_benchmark /
+  perfect-colinear / normal-with-independent-residuals all handled
+  with explicit status field, no silent NaN.
+
+### New asks for codex / external reviewer
+
+R32 Q8 + R33 Q9-Q10 still open. Plus:
+
+**Q11** — A.MV's two-rule structure (freeze-date HARD + market-path
+SOFT) replaces the original lineage_family question. Want sanity
+check on field naming: should `panel_max_date_recorded_at_freeze`
+just reuse the existing `panel_max_date` field on `SealedLedgerEntry`,
+or stay separate so the freeze-time and eval-time values are both
+preserved?
+
+**Q12** — B.MV beta-adjusted T4 needs `estimated_beta_to_spy` stamped
+on candidate_spec yaml at freeze. For legacy RCMv1 + Cand-2:
+(a) backfill from existing paper artifacts, (b) fall through to
+T4_legacy at -10% raw, or (c) require Track A acceptance to compute
+beta and stamp it automatically going forward? My lean: (c) for new
+candidates + (b) for legacy. Reviewer please confirm.
+
+### Boundary stance (refined this round)
+
+| Workstream | Allowed | Blocked on |
+|------------|---------|------------|
+| Track C controlled cycle #01 compute | Yes | template signoff still pending (codex/reviewer to bless §4.6+§4.7) |
+| Candidate passes acceptance → "candidate pending economic-invariant pack" | Yes | — |
+| "candidate" → "nominee" | No | reviewer signoff on §4.6+§4.7 (now landed in template, but not yet blessed) |
+| Forward init | No | Concern B.MV implementation (early-attention flag + beta-adjusted T4) |
+| 2026 sealed eval | No | Concern A.MV implementation (freeze-date HARD + market-path SOFT) |
+| Fleet wiring expansion | No | Step 6+ + economic-invariant flags ship + observed Track C result |
+| Real-money deployment | No | All three concerns + go-live PRD |
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
