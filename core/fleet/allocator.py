@@ -175,15 +175,97 @@ class FleetAllocator:
 
         return fleet
 
-    # ── Step 4+: throttles + concentration metrics ───────────────────────
+    # ── Step 4: M12 fleet metrics + C3 overlap throttle ──────────────────
 
-    def compute_concentration_metrics(self, fleet_weight_matrix):
-        """M12 fleet-level concentration (Step 4)."""
-        raise NotImplementedError("compute_concentration_metrics lands in Step 4")
+    def compute_concentration_metrics(self, fleet_weight_matrix) -> dict:
+        """M12 fleet-level concentration metrics (PRD §5.3 schema).
+
+        Returns ``{"m12_top1_weight_max": float, "m12_top3_weight_max":
+        float, "m12_n_dates_with_weights": int}``.
+
+        - ``m12_top1_weight_max``: max single-symbol weight observed
+          across the entire date × symbol grid.
+        - ``m12_top3_weight_max``: max sum-of-top-3 weights observed
+          across all dates (top-3 computed per date, then maxed).
+        - ``m12_n_dates_with_weights``: number of dates where any
+          symbol has weight > 0 (sanity counter).
+
+        Empty / all-zero matrix → all metrics 0 with n_dates_with_weights=0.
+        """
+        import pandas as _pd
+        if not isinstance(fleet_weight_matrix, _pd.DataFrame):
+            raise TypeError(
+                f"fleet_weight_matrix must be DataFrame, got {type(fleet_weight_matrix).__name__}"
+            )
+        if fleet_weight_matrix.empty:
+            return {
+                "m12_top1_weight_max": 0.0,
+                "m12_top3_weight_max": 0.0,
+                "m12_n_dates_with_weights": 0,
+            }
+
+        # Per-date top1 and top3 (using absolute value — long-only system,
+        # so weights should be non-negative anyway, but defensive).
+        abs_weights = fleet_weight_matrix.abs()
+        per_date_top1 = abs_weights.max(axis=1)
+        # Top3 sum per date: sort each row descending, take first 3, sum
+        per_date_top3 = abs_weights.apply(
+            lambda row: row.nlargest(min(3, len(row))).sum(), axis=1
+        )
+        active = (abs_weights.sum(axis=1) > 0).sum()
+
+        return {
+            "m12_top1_weight_max": float(per_date_top1.max()) if len(per_date_top1) else 0.0,
+            "m12_top3_weight_max": float(per_date_top3.max()) if len(per_date_top3) else 0.0,
+            "m12_n_dates_with_weights": int(active),
+        }
 
     def apply_overlap_throttle(self, fleet_weight_matrix):
-        """C3 single-symbol-cap proportional trim (Step 4)."""
-        raise NotImplementedError("apply_overlap_throttle lands in Step 4")
+        """C3 single-symbol-cap proportional trim.
+
+        For each date, if any symbol's weight exceeds
+        ``config.max_fleet_symbol_weight``, clip that symbol's weight to
+        the cap. Other symbols are NOT renormalised — the fleet weight
+        sum on that date drops below 1.0, which is the intended behavior
+        (the trimmed mass goes to cash, not redistributed to risk).
+
+        This is the simplest semantically-correct interpretation of the
+        PRD §4.3 ``proportional trim``: clip the offending column. A more
+        elaborate "proportional redistribution" version is deferred to
+        future iteration if the operator wants to preserve invested
+        notional — for v1, dropping concentration into cash is more
+        conservative and matches the long-only no-margin invariant.
+
+        Returns the throttled DataFrame plus a ``trim_events`` list
+        describing what was clipped.
+        """
+        import pandas as _pd
+        if not isinstance(fleet_weight_matrix, _pd.DataFrame):
+            raise TypeError(
+                f"fleet_weight_matrix must be DataFrame, got {type(fleet_weight_matrix).__name__}"
+            )
+        cap = self.config.max_fleet_symbol_weight
+        # Find (date, symbol) cells exceeding the cap
+        exceeded_mask = fleet_weight_matrix > cap
+        trim_events = []
+        if exceeded_mask.any().any():
+            for col in fleet_weight_matrix.columns:
+                col_mask = exceeded_mask[col]
+                if col_mask.any():
+                    affected = fleet_weight_matrix.loc[col_mask, col]
+                    for dt, original in affected.items():
+                        trim_events.append({
+                            "date": dt,
+                            "symbol": col,
+                            "original_weight": float(original),
+                            "trimmed_to": cap,
+                            "delta": float(original - cap),
+                        })
+            trimmed = fleet_weight_matrix.where(~exceeded_mask, cap)
+        else:
+            trimmed = fleet_weight_matrix.copy()
+
+        return trimmed, trim_events
 
     def check_correlation_budget(self, returns_df):
         """C2 pairwise correlation check (Step 5; codex-frozen)."""

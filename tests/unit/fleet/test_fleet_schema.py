@@ -231,13 +231,17 @@ def test_step3_method_now_implemented():
     assert isinstance(fleet, pd.DataFrame)
 
 
-def test_step4_methods_signature_pending():
+def test_step4_methods_now_implemented():
+    """Step 4 landed: compute_concentration_metrics + apply_overlap_throttle."""
+    import pandas as pd
     cfg = load_fleet_config("config/fleet.yaml")
     alloc = FleetAllocator(cfg)
-    with pytest.raises(NotImplementedError, match="Step 4"):
-        alloc.compute_concentration_metrics(None)
-    with pytest.raises(NotImplementedError, match="Step 4"):
-        alloc.apply_overlap_throttle(None)
+    fleet = pd.DataFrame({"AAPL": [0.10]}, index=["2026-01-02"])
+    m = alloc.compute_concentration_metrics(fleet)
+    assert "m12_top1_weight_max" in m
+    trimmed, events = alloc.apply_overlap_throttle(fleet)
+    assert isinstance(trimmed, pd.DataFrame)
+    assert isinstance(events, list)
 
 
 def test_steps_5_to_8_explicitly_frozen():
