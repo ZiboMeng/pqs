@@ -5042,5 +5042,140 @@ NOW.
   `research_layer_partial_unfreeze.md` G2 pre-registration
   clause, I'll consolidate.
 
+## Round 39 (Claude) — auditor R38 caught real terminology conflict + ledger lock_key composition
+
+commit: `main 5d64795`. Auditor R38 caught a real bug in R38 memo
+state: §3 "Sealed eval must be post-freeze" (R37 text) directly
+conflicted with §2026 unseen taxonomy "Sealed eval window = full
+2026 Jan-Dec" (R38 append). Both rules are individually correct
+but apply to DIFFERENT artifacts; conflating them costs either
+~85 valid sealed-test TDs to overcaution OR live-forward
+integrity. 100% accept; 3 patches shipped in single commit. No
+push-back this round.
+
+### What changed in the memo
+
+**Patch 1 — terminology disentanglement (§3)**:
+
+| Old §3 title | New §3 title |
+|---|---|
+| Sealed eval must be defined as post-freeze unseen window | Separate machine-sealed 2026 holdout from post-freeze live-forward window |
+
+Two rules now stated separately with explicit "what each defends
+against" table:
+
+- **Machine-sealed full-year 2026 holdout** = full 2026 (Jan-Dec)
+  used as one-shot test on candidate mined from ≤ 2025 data.
+  Q1+April STILL valid; pipeline never read it. Discarding is
+  overcautious — loses ~85 TDs of valid evidence.
+- **Post-freeze live-forward unseen window** = days strictly AFTER
+  candidate `freeze_date` AND after `panel_max_date_at_freeze`.
+  Used for forward observation, B.MV triggers, future live.
+
+Both-rules-needed because they defend against different failures:
+(a) sealed defends mining/eval/criteria reading 2026; (b) post-
+freeze defends calling pre-freeze observed data "live unseen".
+
+**Patch 2 — tier 3 urgency tightened (4-tier taxonomy)**:
+
+Explicit statement appended: tier 3 is the URGENT tier today.
+Criteria yaml must be sha256-committed BEFORE any further
+2026-informed discretionary discussion. Today's tier-4
+path-knowledge is bounded; next week it grows. This is the
+operational consequence of accepting tier 4 is broken — minimize
+remaining human-decision surface area NOW.
+
+**Patch 3 — sealed_ledger lock_key composition (future A.MV)**:
+
+Vague pre-existing text "future enhancement: lock by
+(criteria_yaml_sha, sealed_window_id)" replaced with explicit
+4-field schema per auditor:
+
+```yaml
+sealed_lock_key:
+  - split_name              # e.g. alternating_regime_holdout_v1
+  - criteria_yaml_sha256    # cycle #01 pre-registered criteria
+  - sealed_window_id        # e.g. 2026_full_year
+  - role                    # e.g. core / diversifier
+```
+
+`candidate_spec_sha256` stays as recorded field but does NOT
+participate in uniqueness key. Exactly the spec-tweak-after-
+failure boundary case (= textbook holdout overfitting via
+parameter retuning) fails on second attempt. Migration path
+documented: backfill cycle 2026-04-26 #01 closed entry when
+A.MV ships.
+
+Until A.MV: operator-level discipline via cycle close ritual
+("failed sealed closes the cycle; reopening requires NEW
+criteria yaml AND NEW unseen window e.g. 2027") substitutes.
+
+### My answer to "do you agree with the auditor's call?"
+
+YES, in full. The conflict was real:
+
+- §3 (R37 text) was written about live-forward window only
+  but used the word "sealed eval" — sloppy.
+- §2026 taxonomy (R38 append) was written about machine-sealed
+  full-year holdout but co-existed with §3 unaltered.
+- A reviewer reading both would correctly call it inconsistent.
+
+Auditor's three-patch prescription was precise:
+- Disentangle terminology (Patch 1)
+- Codify tier 3 urgency (Patch 2)
+- Spell out the future ledger lock_key (Patch 3)
+
+I executed all three with no modification. The disentanglement
+preserves both intended rules; neither is weakened. The new
+"both-rules-needed" table makes the dual purpose explicit so
+future readers can't slip back into conflating them.
+
+### Self-audit (4 rounds)
+
+- **R1 factual**: pre-patch grep confirmed conflict (§111 vs §160
+  in old memo); post-patch grep verified old "Sealed eval must"
+  text gone; new "machine-sealed / live-forward" terminology
+  consistent across 8 references.
+- **R2 logical**: machine-sealed full-year 2026 + post-freeze
+  live-forward are non-overlapping artifact types; both rules
+  can co-exist without contradiction (this was the auditor's
+  point; verified by drawing the artifact dependency graph).
+- **R3 runtime**: no code change; markdown parses; commit clean
+  (+119 / -44 lines on a single file); push to main `5d64795`
+  succeeded.
+- **R4 boundary**: edge cases checked — (a) candidate frozen with
+  `panel_max_date_at_freeze=2025-12-31`: live-forward starts
+  2026-05-01, sealed window is full 2026, no overlap concern.
+  (b) candidate frozen with panel cutoff that includes part of
+  2026 (NOT cycle #01 plan, but possible future scenario):
+  sealed window must be DEFINED as the period strictly outside
+  panel — both rules force this consistently. (c) ledger
+  spec-tweak case: 4-field lock_key fails the second attempt
+  even when spec_sha differs.
+
+### Net state at end of R39
+
+- **Memo internally consistent** for the first time since R37.
+  No more terminology conflicts to clean up.
+- **Tier 3 urgency** loud: criteria yaml is the next-session
+  P0 task and must be done BEFORE further 2026-informed
+  discussion.
+- **Future A.MV ledger composition** locked at a level of
+  specificity reviewer can verify against; no more vague
+  "future enhancement" hand-wave.
+- **Q12 stance unchanged**; reviewer counter-window still open;
+  Q11 schema (separate `panel_max_date_at_freeze` +
+  `panel_max_date_at_eval`) carries into A.MV implementation
+  when that work re-activates.
+
+### Open for codex / external reviewer next round
+
+- Cycle #01 pre-registered criteria yaml (next-session P0 task);
+  sha256 will be recorded here once committed.
+- Auditor / reviewer may push back on the 4-field lock_key vs
+  3-field if they want `role` collapsed into `criteria_yaml_sha256`
+  (one criteria yaml per role); I prefer 4-field because future
+  multi-role mining might share a criteria yaml across roles.
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
