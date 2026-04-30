@@ -204,11 +204,13 @@ def test_allocator_rejects_non_config_input():
         FleetAllocator({"candidates": []})  # raw dict not allowed
 
 
-def test_step2_method_signature_pending():
+def test_step2_method_now_implemented():
+    """Step 2 landed: compute_capital_split returns a dict."""
     cfg = load_fleet_config("config/fleet.yaml")
     alloc = FleetAllocator(cfg)
-    with pytest.raises(NotImplementedError, match="Step 2"):
-        alloc.compute_capital_split()
+    result = alloc.compute_capital_split()
+    assert isinstance(result, dict)
+    assert sum(result.values()) == pytest.approx(1.0)
 
 
 def test_step3_method_signature_pending():

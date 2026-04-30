@@ -38,19 +38,72 @@ class FleetAllocator:
             )
         self.config = config
 
-    # ── Step 2: C1 capital split (NotImplemented in Step 1) ──────────────
+    # ── Step 2: C1 capital split ─────────────────────────────────────────
 
-    def compute_capital_split(self, active_candidates: Optional[list] = None) -> dict:
+    def compute_capital_split(
+        self, active_candidates: Optional[list] = None
+    ) -> dict:
         """C1 capital split between active candidates.
 
         Returns a dict mapping ``candidate_id`` → fraction in [0, 1] that
-        sums to 1.0 (modulo throttle factor in later steps).
+        sums to 1.0.
 
-        ``active_candidates`` (Step 6+ extension) limits the split to a
-        subset; None means all configured candidates participate. Step 1
-        ships the signature; Step 2 fills in the body.
+        Two policies (declared in ``config.split_policy``):
+
+        - ``equal_weight``: each active candidate gets ``1 / N`` regardless
+          of ``base_weight``. This is the v1 default — equal-weight is
+          dimensionally correct under the codex round-14 sleeve reframe
+          (no per-candidate floors).
+
+        - ``manual_overrides``: each active candidate gets its declared
+          ``base_weight``. The active subset's base_weights MUST sum to
+          1.0 (within float tolerance). If not, raise ``ValueError`` —
+          silently renormalising would hide an operator-input bug.
+
+        ``active_candidates`` is an optional list of candidate IDs to
+        include. None (default) means every configured candidate
+        participates. An ID not declared in ``config.candidates`` is a
+        hard error. Step 6+ uses this to drop candidates when the C5 DD
+        throttle parks them.
         """
-        raise NotImplementedError("compute_capital_split lands in Step 2")
+        configured_ids = [c.candidate_id for c in self.config.candidates]
+        if active_candidates is None:
+            ids = list(configured_ids)
+        else:
+            unknown = sorted(set(active_candidates) - set(configured_ids))
+            if unknown:
+                raise ValueError(
+                    f"active_candidates contains IDs not declared in fleet "
+                    f"config: {unknown}; configured: {configured_ids}"
+                )
+            ids = [cid for cid in configured_ids if cid in set(active_candidates)]
+
+        if not ids:
+            raise ValueError(
+                "no active candidates: cannot compute capital split with empty fleet"
+            )
+
+        if self.config.split_policy == "equal_weight":
+            w = 1.0 / len(ids)
+            return {cid: w for cid in ids}
+
+        if self.config.split_policy == "manual_overrides":
+            # Filter base_weights to active subset, then verify sum == 1.0
+            id_to_weight = {c.candidate_id: c.base_weight
+                            for c in self.config.candidates}
+            weights = {cid: id_to_weight[cid] for cid in ids}
+            total = sum(weights.values())
+            if abs(total - 1.0) > 1e-9:
+                raise ValueError(
+                    f"manual_overrides: active candidates' base_weights sum to "
+                    f"{total} (must be exactly 1.0). Active set: {ids}; "
+                    f"weights: {weights}. Fix base_weight values or filter the "
+                    f"active set differently — silent renormalisation is unsafe."
+                )
+            return weights
+
+        # Should be unreachable due to Literal validator, but defensive:
+        raise ValueError(f"unknown split_policy: {self.config.split_policy!r}")
 
     # ── Step 3: compose_weight_matrix (NotImplemented in Step 1) ─────────
 
