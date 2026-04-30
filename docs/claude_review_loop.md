@@ -4920,5 +4920,127 @@ full text. Key claims worth re-stating here for review continuity:
   session; final criteria yaml hash will be recorded here once
   committed.
 
+## Round 38 (Claude) — auditor R37 follow-up: "isolation IS authentic unseen" + 4-tier taxonomy
+
+commit: `main 7d62531`. Auditor clarified post-R37:
+
+> 针对 26 年的数据只要做好隔离 就是 authentic unseen data
+
+Direction agreed (this is exactly what `temporal_split.yaml` +
+sealed ledger + Track C plan are designed to enforce). I added a
+**4-tier unseen taxonomy** instead of the auditor's 2-tier
+framing because different layers have different failure modes
+and different defense mechanisms.
+
+### My 4-tier refinement vs auditor's 2-tier
+
+Auditor framed it as machine-unseen vs human-path-aware. I
+broke the machine side into 3 tiers because tier 3 (rule-unseen)
+is the LAST tier where pre-registration saves us; collapsing it
+into "machine layer" obscures where today's discipline must
+focus.
+
+| Tier | Defense | Status today |
+|------|---------|--------------|
+| 1 Machine training | `temporal_split.yaml` train+val ≤ 2025 | ✅ enforced |
+| 2 Machine evaluation | acceptance evaluator non-2026 | ✅ enforced |
+| 3 Machine rule | criteria yaml sha256 BEFORE mining | ⚠️ MUST pre-register |
+| 4 Human decision | early criteria yaml + mechanical mining | ❌ already broken (today is 4-30); damage limited |
+
+### Sealed window vs forward window — keep distinct
+
+Auditor's note hints at this but doesn't separate cleanly. I
+make it explicit:
+
+- **Sealed eval window** = full 2026 (Jan-Dec). 2026 Q1+April
+  is STILL valid sealed-eval data because mining pipeline never
+  read it. Discarding to be "extra clean of human knowledge"
+  loses ~85 TDs of valid machine-unseen evidence to overcaution.
+- **Forward observation window** = post-freeze 2026-05+ (~166
+  remaining TDs in 2026).
+
+Cycle #01 candidates use BOTH paths:
+1. acceptance gates on ≤ 2025 train+validation
+2. sealed single-shot on full 2026
+3. (if pass) forward init begins TD001 from 2026-05-something
+
+### sealed_ledger boundary I want flagged
+
+`SealedLedgerEntry.fail_closed_on_repeat` (Track A R20 B1) keys
+on `spec_sha`. That's the right machine defense.
+
+But: human cycle #01 sealed fails → human modifies one weight →
+new spec_sha → ledger lets it through → 2026 leaks parameter
+info via the failed run. Defense requires POLICY not code:
+
+1. Criteria yaml must include "no spec re-tuning after sealed,
+   regardless of result"
+2. Failed sealed eval closes the cycle; reopening requires NEW
+   criteria yaml AND NEW unseen window (e.g. 2027)
+3. Future A.MV extension: lock on
+   `(criteria_yaml_sha, sealed_window_id)` not just `spec_sha`
+
+This isn't an emergency, but it's the kind of foot-gun that
+needs to be stated in writing now so it can't surprise us later.
+
+### My answer to "do you agree?"
+
+YES on the substantive direction. Specifically:
+- Strict isolation of 2026 = authentic machine-unseen ✓
+- Auditor's recommendation "先 mining，不要先 A.MV/B.MV" matches
+  exactly what R37 priority realign already shipped ✓
+- "Don't repeatedly consume the same 2026" = sealed_ledger logic
+  already shipped at machine level; needs criteria yaml clause
+  for human-level coverage ✓
+
+Adjustments I made on top:
+- 4-tier taxonomy instead of 2-tier (operational discipline
+  needs the granularity)
+- Sealed-vs-forward window distinction (auditor implies but
+  doesn't separate)
+- Human-level defense in criteria yaml (auditor mentions
+  "rules locked before sealed run" but doesn't connect to
+  spec_sha boundary case)
+
+### Active next-step impact
+
+The 4-tier framing tightens the urgency on **cycle #01 criteria
+yaml drafting in the next session, BEFORE any deeper 2026 market
+inspection unrelated to mining setup**. Today (2026-04-30) my
+cumulative 2026 path-knowledge is bounded; next week it grows;
+criteria written today is cleaner than criteria written in two
+weeks.
+
+This is the operational consequence of accepting tier 4 is
+broken: minimize the remaining human-decision surface area
+NOW.
+
+### Self-audit (4 rounds)
+
+- **R1 factual**: 4-tier taxonomy maps cleanly to existing
+  defenses (`temporal_split.yaml`, acceptance evaluator,
+  criteria yaml from prior cycle, sealed_ledger). All 4 paths
+  exist today.
+- **R2 logical**: tier 3 immutability + tier 4 unrecoverability
+  imply criteria-yaml-as-early-as-possible; this is a binding
+  consequence not a stylistic choice.
+- **R3 runtime**: no code change; memo append + commit verified
+  end-to-end (89 lines added, file parses as markdown, all
+  cross-references resolve).
+- **R4 boundary**: edge case where cycle #01 sealed fails AND
+  human wants to retry → spec_sha-only ledger lets it through.
+  Documented as policy gap in §sealed_ledger boundary, with
+  three explicit defenses (criteria clause, cycle close ritual,
+  future A.MV extension).
+
+### Open for codex / external reviewer next round
+
+- Criteria yaml content: I'll draft next session and post the
+  sha256 here before any mining trial.
+- Tier 3/Tier 4 distinction acceptance: if reviewer prefers
+  tighter framing or sees redundancy with existing
+  `research_layer_partial_unfreeze.md` G2 pre-registration
+  clause, I'll consolidate.
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
