@@ -3840,5 +3840,179 @@ shipping:
   side-by-side and brought to consistency in carryover #2 before
   shipping Step 5.
 
+## Round 29 (Claude) — Phase 0 + Step 5 self-audit (R1+R2): 1 P1 determinism bug + 3 stale docs
+
+`commit:` `28c7324` (audit fixes, on top of `b58e596` + `afe0a42`).
+
+User asked for two adversarial-rounds self-audit on Round 28's ship
+before sending to codex review ("不要再让codex找出来一些bug"). Two
+real bugs found and fixed; 3 stale docs synced. Full unit suite
+**2133 passed / 1 skipped / 0 failed** post-fix. Fleet suite 102 → 103
+(+1 R2.6 regression test).
+
+### R1 — live execution / module-doc sweep (15 checks)
+
+Ran the actual changed code paths against 15 scenarios. R1.1-R1.14
+PASSED (negative rejection / producer→consumer round-trip / identical
+candidates → reject / anti-correlated → ok one-sided / negative DAILY
+returns ARE valid input / numpy.True_ → ValueError not raw TypeError /
+string matrix → ValueError / tz-aware DatetimeIndex / n_obs boundary /
+config validators / NaN dropna math / near-identical correlation no
+fp drift past 1.0).
+
+R1.15-R1.19 cross-cutting verified clean: PRD wording sweep / Track C
+template references all exist / backtest 144 passed / research 545
+passed / no orphan refs to old test name `test_steps_5_to_8_*`.
+
+#### R1 fix #1 — `apply_overlap_throttle` docstring stale
+
+Carryover #2 in Round 28 fixed PRD wording (proportional trim →
+cash-clip), but the method's own docstring still said "C3
+single-symbol-cap proportional trim" + "PRD §4.3 ``proportional
+trim``: clip the offending column". Internally inconsistent; the
+code does cash-clip, the docstring claims proportional trim.
+
+Rewrote to "C3 single-symbol cash-clip overlap throttle (PRD §4.3
+v1)" with explicit rationale paragraph (cash-clip is conservative,
+matches long-only no-margin, composes cleanly with C5 DD throttle).
+
+#### R1 fix #2 — module docstrings drift after Step 5
+
+- `core/fleet/allocator.py` module docstring: said "Step 1 ships the
+  class shell" + "Steps 5-9 are codex-frozen". Rewrote to explicit
+  "Shipped (live)" / "Frozen" tables.
+- `core/fleet/__init__.py`: same drift; rewrote.
+- `core/fleet/manifest_schema.py`: said "Step 1 covers schema only";
+  rewrote to per-step schema additions table + clarified that the
+  manifest-write pathway (Step 8) is the codex-frozen boundary.
+
+### R2 — adversarial / cross-cutting / serialization / determinism (12 checks)
+
+R2.1-R2.5, R2.7-R2.12 PASSED (zero-variance defensive raise / int
+dtype accepted / dropna→insufficient_data / Field(ge=21) lower bound
+/ thread safety 8 concurrent calls byte-identical / JSON round-trip
+/ mixed pair levels aggregate-from-worst / extra='forbid' on both
+ConcentrationSnapshot and CorrelationBudgetStatus / 1-row → safe).
+
+#### R2 BUG (P1) — pair / status determinism across input column permutations
+
+R2.6 found: passing the SAME returns_df with columns in a different
+order produced different `CorrelationBudgetStatus.model_dump_json()`
+bytes. Two layered failure modes:
+
+(a) Pair tuples flipped depending on input column order:
+    - df cols `[s1, c2, c1]` → pairs `[("s1","c2"), ("s1","c1"), ("c2","c1")]`
+    - df cols `[c1, c2, s1]` → pairs `[("c1","c2"), ("c1","s1"), ("c2","s1")]`
+    Set-equal but tuple-unequal.
+
+(b) After fixing (a) by sorting `candidate_ids` for canonical pair
+    iteration, pandas `.corr()` STILL produced ~1e-17 float drift
+    between input column orderings (column-by-column accumulation
+    order matters at sub-precision). Per-pair `correlation` field
+    differed at ~1e-17; JSON bytes still diverged.
+
+Fix: sort BOTH the column axis AND the row index to canonical order
+BEFORE any downstream pandas op:
+
+```python
+candidate_ids = sorted(returns_df.columns)
+canonical = returns_df.reindex(columns=candidate_ids).sort_index()
+lookback = self.config.corr_lookback_days
+sliced = canonical.iloc[-lookback:]
+```
+
+Why this matters: once Step 8 wires `CorrelationBudgetStatus` into
+`FleetEvent` on the manifest, two semantically-identical fleet runs
+that differ only in candidate ordering would have hashed to
+different manifest blobs — silent reproducibility violation.
+
+Reverse-validation:
+
+- Pre-fix: `s1.model_dump_json() == s2.model_dump_json()` → False
+  (after column permutation; my original test only verified
+  same-input-same-output).
+- Post-fix: same call → True. Verified live + new regression test
+  `test_pair_order_invariant_across_input_column_permutations`
+  pins JSON-byte equality.
+- Strengthened existing `test_pair_record_uses_pair_a_b_in_canonical_order`
+  to assert per-pair `candidate_a < candidate_b`.
+
+#### R2 fix #2 — PRD §7 step 5 description (docs-only)
+
+R2.13 found: PRD §7 step 5 still said "C2 correlation budget +
+manifest event recording + 3 unit tests" — directly contradicts
+codex R25 "NO observe yet" boundary. Step 5 ships PURE-FUNCTIONAL;
+manifest event recording is Step 8 (frozen) territory. Updated to:
+
+> Step 5: C2 correlation budget — pure-functional
+>   `check_correlation_budget(returns_df) → CorrelationBudgetStatus`
+>   + 3+ unit tests. **No manifest mutation in Step 5** (codex R25
+>   boundary 2026-04-29). The structured `CorrelationBudgetStatus`
+>   is the contract surface; Step 8 is the boundary that translates
+>   a non-`ok` status into a `c2_corr_violation` `FleetEvent` on
+>   the manifest.
+
+#### R2 fix #3 — `CorrelationBudgetStatus` docstring qualifier (docs-only)
+
+`(codex-frozen)` was ambiguous re what was frozen. Rewrote: "Step 5
+itself does NOT mutate the manifest; the manifest-write pathway
+(``observe`` / Step 8) is the codex-frozen boundary."
+
+#### R2 fix #4 — `test_correlation_budget.py` module docstring (docs-only)
+
+Same ambiguity; rewrote.
+
+### Audit hygiene applied (the 5 lessons from Round 26)
+
+- **L1** (component vs aggregate validators): the original Step 5
+  test for pair canonical order tested SAME-input determinism;
+  missed semantically-equal-but-reordered-input determinism. R2.6
+  is exactly the kind of bug L1 says to look for. Now caught,
+  pinned with regression test.
+- **L2** (producer→consumer integration): R2.8 pinned JSON
+  round-trip; combined with the determinism fix, Step 8 can rely
+  on byte-equality for manifest hashing without re-engineering
+  the schema.
+- **L3** (CLI vs constructor parity): N/A this round.
+- **L4** (cross-module vocabulary): N/A; no new vocabulary.
+- **L5** (PRD vs code third contract): R1.15 grep + R2.13 PRD §7
+  step 5 audit surfaced both docstring drift and PRD inconsistency.
+
+### Test surface change
+
+| Layer | Pre-audit | Post-audit |
+|-------|-----------|-----------|
+| `tests/unit/fleet/test_correlation_budget.py` | 20 | 21 (+1 R2.6 regression) |
+| All fleet tests | 102 | 103 |
+| Full unit suite | 2132 | **2133** |
+
+### Boundary status (post-Round 29)
+
+- ✅ **Phase 0 carryovers**: closed
+- ✅ **Phase 1 Fleet Step 5 C2**: shipped + audited
+- ✅ **Track C evidence pack template**: shipped
+- ✅ **Self-audit R1+R2**: closed; 1 P1 determinism bug + 3 stale
+  docs fixed before codex review
+- ⏸️ **Step 6+ (DD throttle, role caps, observe)**: stays frozen
+- 🚫 **2026 sealed eval / fleet live wiring / shadow→live**: hard frozen
+- 🚫 **Track C controlled mining run**: not started (template
+  awaiting codex review)
+
+### Asks for codex (carry from Round 28 + 1 new)
+
+1-5: same as Round 28 (insufficient_data semantics / zero-variance
+defensive raise / bool reject in splits / template paste-summary
+idiom / criteria immutability documentation level).
+
+6 (NEW): **canonical column + index sort before .corr()**. The R2.6
+fix pre-sorts the DataFrame columns alphabetically and sort_index()s
+the rows BEFORE `dropna()` and `.corr()` to guarantee byte-identical
+`model_dump_json()` across input column permutations. Acceptable
+implementation choice? Alternative would have been to round
+correlations to a fixed precision (e.g. 12 decimals) before
+serialization. Chose pre-sort because it's free of arbitrary
+tolerance choices and addresses the root cause (pandas accumulation
+order). Worth reviewing.
+
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
