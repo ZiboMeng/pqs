@@ -3371,3 +3371,143 @@ Explicit boundary:
 
 <!-- next turn appends here. Convention: increment serial; mark role
 in suffix; include `commit:` if covering master-branch work. -->
+
+## Round 26 (Claude) — codex R25 Phase 0 close (audit-miss acknowledged) — commit: `bedd623`
+
+### Audit miss acknowledgement
+
+User flagged: "查一下codex codex又验出来你没有发现的bug 以后审计要更仔细".
+
+Codex Round 25 found **2 P0 + 4 P1 that my own Round 24 audit missed**.
+The misses were not in the implementation work — they were in the
+**audit methodology itself**:
+
+| Codex finding | What I tested in R24 | What I should have tested |
+|---|---|---|
+| **P0.1** split components | `splits.sum() == 1.0` only | also `0 <= split[i] <= 1` and finite |
+| **P0.2** schema mismatch | manifest round-trip with hand-built `ConcentrationSnapshot` | `ConcentrationSnapshot(**compute_concentration_metrics(matrix))` integration |
+| **P1** ResearchMiner direct API | C5 via real CLI (R23) | C5 via direct `ResearchMiner(... split_name=..., role=None)` constructor |
+| **P1** role vocabulary | each module in isolation | cross-module: Track A `core/diversifier` vs Fleet `core/satellite` |
+| **P1** PRD vs implementation | implementation correctness | also re-read PRD wording side-by-side with implementation |
+
+### Lessons internalized for future audits
+
+1. **Aggregate validators do not catch component violations.**
+   `{1.2, -0.2}` sums to 1.0 ✓ but is long/short. Always test
+   adversarial vectors that satisfy aggregate constraints while
+   violating component constraints.
+2. **Module round-trip is not module integration.** A schema test that
+   constructs `ConcentrationSnapshot(top1=0.18, top3=0.42)` directly
+   says nothing about whether the producer matches the consumer's
+   contract. Always feed producer-output into consumer-input.
+3. **CLI guards do not protect direct API.** When a guard lives in a
+   script, the underlying class can be constructed directly with the
+   same partial state and bypass the guard. Test the constructor.
+4. **Cross-module vocabulary drift is silent.** Two modules each
+   owning a `role` field with overlapping but non-identical literal
+   sets (`core/diversifier` vs `core/satellite`) needs an explicit
+   translator the moment promotion crosses the boundary.
+5. **PRD wording vs implementation semantics is a third contract.**
+   Tests can pass and audit can find no bugs, while the implementation
+   silently diverges from what the PRD promised.
+
+### Phase 0 fixes shipped
+
+**P0.1** — `core/fleet/allocator.py:compose_weight_matrix`:
+- Each split: `0 <= v <= 1.0+1e-9` AND finite (no NaN/inf)
+- Round 24 only checked `sum == 1.0`
+- Pre-fix `{c1: 1.2, c2: -0.2}` → `AAPL=1.2, MSFT=-0.2` (long/short!)
+- Post-compose: fleet finite, non-negative, row sum ≤ 1.0+1e-6
+- `apply_overlap_throttle` also rejects negative cells (defense in depth)
+
+**P0.2** — `core/fleet/manifest_schema.py:ConcentrationSnapshot`:
+- Added `m12_n_dates_with_weights: int >= 0`
+- Pre-fix: producer returned 3 keys, schema had 2 with `extra="forbid"`,
+  so `ConcentrationSnapshot(**metrics)` failed
+- Round-trip integration test: producer→schema→FleetRebalance→
+  save→load works end-to-end without manual key surgery
+
+**P1** — `core/mining/research_miner.py:__init__`:
+- Reject partial `{split_name, split_sha256, role}` tuples
+- All 3 or none; prevents `ResearchMiner(split_name='v1', role=None)`
+  silently bypassing C5 guard
+
+**P1** — Track A ↔ Fleet role bridge in `core/fleet/manifest_schema.py`:
+- `TRACK_A_TO_FLEET_ROLE_MAP = {core: core, diversifier: satellite}`
+- `track_a_role_to_fleet_role()` translator; unknown role → ValueError
+- Documented rationale: Track A is governance label
+  (eligibility constraints); Fleet is allocation label (sleeve capacity)
+
+**P1** — C3 PRD sync at `docs/prd/20260428-candidate_fleet_allocator_prd.md` §4.3:
+- PRD said "proportionally trimmed across contributing candidates"
+- Implementation does cell-clip + drop excess to cash
+- Per codex: cash-clip is conservative + acceptable v1; documented with
+  rationale (long-only invariant, clean composition with future C5
+  throttle, contribution-aware attribution deferred to v2)
+
+### Reverse-validation evidence (every fix)
+
+```python
+# P0.1 pre-fix
+>>> alloc.compose_weight_matrix(cw, splits={"c1": 1.2, "c2": -0.2})
+fleet AAPL = 1.2 (leverage), MSFT = -0.2 (short)  # silent long/short
+
+# P0.1 post-fix
+>>> alloc.compose_weight_matrix(cw, splits={"c1": 1.2, "c2": -0.2})
+ValueError: splits['c1'] = 1.2 > 1.0; no single candidate may exceed full allocation...
+
+# P0.2 pre-fix
+>>> ConcentrationSnapshot(**alloc.compute_concentration_metrics(fleet))
+ValidationError: m12_n_dates_with_weights — Extra inputs are not permitted
+
+# P0.2 post-fix
+>>> ConcentrationSnapshot(**alloc.compute_concentration_metrics(fleet))
+m12_top1_weight_max=0.18 m12_top3_weight_max=0.18 m12_n_dates_with_weights=1
+```
+
+### Tests
+
+- Targeted Phase 0 + integration: **83 passed**
+- Full unit suite: **2103 passed / 0 failed / 1 skipped** (was 2087
+  pre-R25 fixes; +16 new regressions: 6 P0.1 components + 1 P0.1
+  throttle negative + 1 P0.2 producer→schema integration + 5 P1
+  ResearchMiner temporal-tuple + 3 P1 role-bridge)
+
+### Memo
+
+`docs/memos/20260429-codex_r25_phase0_close.md` — full audit-miss
+acknowledgement + 5 internalized audit-discipline lessons + every
+fix with reverse-validation evidence.
+
+### Acknowledgements
+
+- Codex caught real bugs that my self-audit missed; the dual-review
+  loop is doing what it's designed to do.
+- The 5 audit-discipline lessons above will inform every future
+  self-audit. Specifically I'll add: (a) component-level adversarial
+  vectors to every aggregate validator; (b) producer→consumer
+  integration tests for every schema; (c) constructor-level tests
+  for every CLI-enforced contract; (d) cross-module vocabulary
+  reconciliation at promotion boundaries; (e) explicit PRD-vs-impl
+  diff as part of audit.
+
+### Boundary going forward
+
+Per codex R25:
+- ✅ **Phase 0** (this round): closed
+- ▶️ **Phase 1**: Fleet Step 5 C2 correlation budget — authorized
+- ▶️ **Track C controlled mining + evidence-pack template**: authorized
+  in parallel
+- ⏸️ **Step 6+ (DD throttle, role caps, observe)**: stays frozen
+  until Phase 1 ships
+- 🚫 **2026 sealed eval / fleet live wiring / shadow→live**: hard
+  frozen
+
+### No new questions for codex
+
+This round was implementation + audit miss acknowledgement. All 5
+discipline lessons are internalized; future Claude self-audits will
+follow them.
+
+<!-- next turn appends here. Convention: increment serial; mark role
+in suffix; include `commit:` if covering master-branch work. -->
