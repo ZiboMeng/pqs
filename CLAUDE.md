@@ -741,6 +741,75 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   Closeout:
   `docs/memos/20260501-track_c_cycle_2026-05-01-04_close.md`.
 
+- **Track C cycle 2026-05-01 #05 anchor-sensitivity diagnostic**
+  (2026-05-01 ✅, **0 nominee under strict CLAUDE.md QQQ rule**, 7 Tier 1
+  R41 verdicts but only trial 9 passes yaml hard blockers, fails project
+  invariant on OOS walk-forward window-mean) — first cycle to produce ANY
+  Tier 1 R41 classification. Yaml sha256
+  `ce559a0ac97a7eb36243de7494c44650ea0779839ec70bc159b94da06a2cbaf7`
+  (commit `5110266`). Single-axis diff vs cycle #04 = ban
+  `drawup_from_252d_low + amihud_20d` in `mining_config.explicit_exclusions`.
+  Mining 200 trials, 149 finite, 44 archived. Best IC_IR=+0.5483 (down 54%
+  from cycle04 +1.1991). Top-1: `rs_vs_spy_126d, max_dd_126d, ret_2d`.
+  Top-10 R41: 7 Tier 1, 3 Tier 2 (NO Tier 1-conditional, NO Tier 5).
+
+  **Trial 9 (`6c745c601a47`) deep audit** — passes yaml hard blockers BUT
+  fails CLAUDE.md project invariant:
+  - Spec: `beta_spy_60d (1/3) + max_dd_126d (1/3) + ret_1d (1/3)` (A/B/F)
+  - cum_ret 502.6% / sharpe 0.78 / full max_dd -24.5% / vs_qqq full +6.3%
+  - Per-year max_dd: 2018=-15.2%, 2019=-6.8%, 2021=-6.0%, 2023=-9.3%,
+    **2025=-18.2%** (all > -20% ✓)
+  - Per-year vs_qqq: 2018=+3.7%, 2019=-13.2%, 2021=-3.3%, 2023=-19.8%,
+    2025=+9.6% → **5-window mean = -4.59% < 0** (CLAUDE.md QQQ Rule
+    HARD constraint FAILS)
+  - Stress slices: covid_flash max_dd=-13.3%, rate_hike_2022=-15.8% (both
+    > -25% ✓)
+  - NAV: raw 0.54-0.69 vs all 5 anchors (`partial_diversifier` band);
+    residual 0.07-0.36; factor_overlap_max=1 (only beta_spy_60d shared)
+  - Asset-class: equity 28.5% / bond 15.4% / commodity 6.3% / cash 10.4%
+    / non_equity_avg 32.1% (HIGHER than cycle04 trial 8 ~24%)
+
+  **Hypothesis verdict**: H1 (anchor-specific) SUPPORTED — mining found
+  Tier 1 with overlap=0/1 with RCMv1; max_dd_126d substitutes drawup in
+  Family B for 4/7 Tier 1 trials. H3 (drawup+amihud binding at IC) PARTIAL
+  — IC_IR drop 54% confirms IC anchoring. H2 (low-vol attractor universal)
+  PARTIAL — trial 9 has low-vol character (max_dd_126d) but mixed with
+  short-momentum + market beta.
+
+  **Strategic review options pre-authored, NOT pre-selected** (yaml
+  pre-commit table didn't exactly fit Tier-1-but-fails-invariant outcome
+  shape):
+  - Option A: User softens CLAUDE.md OOS walk-forward window-mean rule
+    for `diversifier` role (NOT `core_alpha`). Directional decision
+    required.
+  - Option B: D3b regime-aware mining objective (~1 week eng).
+  - Option C: Two-stage allocation architecture (4-6 week PRD).
+  - Option D: Lightweight diversifier role tag (1-2 day eng; pairs with A).
+  - Option E: Hold + observe (default if user authorizes nothing).
+  - Option F: Universe expansion (cycle #06 candidate IF A+D fails forward).
+
+  Operator's recommended sequence (NOT user-locked): A+D → forward observe
+  trial 9 as diversifier → if forward unhealthy, consider B; if forward
+  healthy + multi-candidate, consider C as architecture pivot.
+
+  **Methodology findings (R4 boundary)**:
+  - smoke_abort_clause's "5-10 trial smoke" wording is misleading — at
+    min_families=3 + cardinality=3 + max_per_family=2, prior probability
+    of valid spec ~2.7%/trial → 80% of all-fail in 8 trials normal
+    sampling. Cycle04 actually ran fixed-spec smoke. Yaml clause needs
+    rewording for cycle #06+ if used.
+  - Anchor max_dd full-period contains 2008-2009 (-44% to -48%), making
+    Tier 1-conditional c3 lenient. Future cycles with overlap=2 candidates
+    must use shared-window max_dd.
+  - CLAUDE.md QQQ Rule "OOS walk-forward (average)" wording ambiguous —
+    interpreted as Track A per-validation-year mean for cycle #05; if user
+    interprets as rolling-window walk-forward (separate framework), trial
+    9 standing changes.
+
+  Sealed 2026 panel NEVER read. Research-mining workstream auto re-frozen
+  at this boundary. Cycle #06 NOT auto-fired per pre-committed stop rule.
+  Closeout: `docs/memos/20260501-track_c_cycle_2026-05-01-05_close.md`.
+
 **Forward OOS active workstream (observation mode)**:
 - **R-fwd-1 done** — forward runner minimum closed loop (init /
   status / observe / decide / readiness) + source-boundary sidecar

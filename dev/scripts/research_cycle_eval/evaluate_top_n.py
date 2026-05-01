@@ -628,6 +628,11 @@ def main():
     ap.add_argument("--top-k", type=int, default=10)
     ap.add_argument("--out-dir", default=None,
                     help="default: data/ml/research_cycle_eval/<lineage>/")
+    ap.add_argument("--lineage-override", default=None,
+                    help="Override yaml.lineage_tag for archive query. Use for "
+                         "smoke runs where mining lineage differs from yaml "
+                         "(e.g. <lineage>-smoke). Construction + thresholds "
+                         "still come from yaml.")
     args = ap.parse_args()
 
     yaml_path = Path(args.yaml_path)
