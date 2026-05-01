@@ -1,0 +1,420 @@
+# Promotion Criteria — Track C Cycle #05 anchor-sensitivity diagnostic
+#
+# THIS IS AN ANCHOR-SENSITIVITY DIAGNOSTIC, NOT A NOMINEE PATH.
+# Cycle #04 closed 0 nominee with all 10 top trials at Tier 2 by NAV/factor:
+#   - Cluster A (4 trials): factor_overlap=2 with RCMv1 on
+#     {drawup_from_252d_low, amihud_20d}; raw NAV 0.66-0.70 (partial
+#     diversifier band per cycle04 yaml classification).
+#   - Cluster B (6 trials): vol-anchored; raw NAV 0.91-0.94 (reject band).
+# Cycle #05 single-axis change vs cycle #04: BAN drawup_from_252d_low +
+# amihud_20d in mining_config.explicit_exclusions. All other construction,
+# universe, gates, and thresholds identical to cycle #04.
+#
+# Hypothesis to test:
+#   H1 (anchor-specific): mining converges on a DIFFERENT diversifier
+#       composite (factor_overlap < 2 with RCMv1) that achieves Cluster A
+#       drawdown improvement. Indicates Cluster A breakthrough was
+#       drawup+amihud-anchored, not low-volatility-attractor universal.
+#       This would be a Tier 1 nominee path (subject to Track A acceptance).
+#   H2 (low-vol attractor): mining converges on a different low-volatility
+#       composite (e.g. days_since_52w_high, hl_range, market_vol_ratio)
+#       that produces same Cluster A character but with new factor anchors.
+#       Indicates the structural attractor is "low-volatility long-only over
+#       cap-aware cross-asset top-N", not the specific factor pair.
+#       Diagnostic value high; nominee path conditional on policy review.
+#   H3 (no convergence): mining IC_IR drops materially (no archived trials
+#       above threshold OR Tier 5 across top-10). Indicates drawup+amihud
+#       ARE the binding constraint of cap_aware_cross_asset diversifier
+#       construction; cap_aware_cross_asset alone cannot escape RCMv1
+#       sibling space.
+#
+# Stop rule (PRE-COMMITTED):
+#   If cycle #05 closes 0 nominee, NO cycle #06 mining without strategic
+#   review. Pivot per cycle #04 closeout §"Cycle #05 stop rule":
+#   D3b regime-aware objective / two-stage allocation architecture /
+#   diversifier reframe / objective redesign / change of frequency, data,
+#   tools, or strategy type. Strategic review options page authored in
+#   cycle #05 closeout (operator lists; user decides).
+#
+# Authority:
+#   - docs/memos/20260501-track_c_cycle_2026-05-01-04_close.md (cycle #04
+#     close: 0 nominee, ban-drawup-amihud hypothesis recommended)
+#   - core/research/anti_sibling_policy.py POLICY_VERSION
+#     'v2.0_conditional_review_2026-05-01' (cycle #05+ effective; NOT
+#     applied retroactively to cycle #04)
+#   - User explicit-go (zibo, 2026-05-01, "我同意 你可以再审计一下你的这
+#     个决策 如果没有变化 那就开工")
+#   - Senior quant collaborator follow-up advisory 2026-05-01 (F+G
+#     immediately, A as anchor-sensitivity diagnostic, factor-overlap
+#     conditional review, two-stage allocation architecture as macro pivot)
+#
+# IMMUTABILITY CONTRACT:
+#   Once committed with sha256 recorded in commit message, ALL fields
+#   below are FROZEN for this lineage. Cycle #05 yaml does NOT modify
+#   cycle #04 yaml retroactively; conditional review thresholds apply
+#   to cycle #05+ output only.
+#
+# SHA256 verification:
+#   sha256sum data/research_candidates/track-c-cycle-2026-05-01-05_promotion_criteria.yaml
+#
+# Lineage tag:    track-c-cycle-2026-05-01-05
+# Authored:       2026-05-01
+# Authored by:    Claude (operator) under user explicit-go + collaborator advisory
+# Authoring axis: anchor-sensitivity diagnostic
+#                 (single-variable diff vs cycle #04 = ban drawup + amihud)
+
+lineage_tag: track-c-cycle-2026-05-01-05
+panel_max_date_at_freeze: 2024-12-31
+freeze_date: 2026-05-01
+factor_registry_pool: RESEARCH_FACTORS
+data_source_canonical: post_rebuild_2026_05_01_canonical_plus_yfinance_backfill_2009_2014
+end_date: 2025-12-31  # G4 cutoff (sealed 2026 NEVER read)
+
+# Anti-sibling policy version gating (cycle #05+ requirement).
+# Module: core.research.anti_sibling_policy.POLICY_VERSION
+# Evaluator MUST refuse to run if module POLICY_VERSION differs.
+anti_sibling_policy_version: v2.0_conditional_review_2026-05-01
+
+drop_symbols:
+  - BRK-B  # round-3 step3b drop, no_1m_data
+  - USO    # cycle #04 preflight §"USO 单独提示"; out of scope
+  - SLV    # not cluster-mapped; reserve for future cross-asset expansion
+
+
+# ── Universe (identical to cycle #04) ─────────────────────────────────
+
+universe_extension:
+  mode: stocks_plus_cross_asset
+  stocks_count: 53
+  cross_asset_count: 6
+  total_eligible: 59
+  cluster_count_total: 22
+  cross_asset_cluster_map_module: core.research.risk_cluster_map.CROSS_ASSET_RISK_CLUSTER_MAP
+  unified_cluster_map_helper: core.research.risk_cluster_map.make_unified_cluster_map
+  asset_class_map_module: core.research.risk_cluster_map.ASSET_CLASS_BY_CLUSTER
+
+
+# ── Construction (identical to cycle #04) ─────────────────────────────
+
+construction:
+  mode: cap_aware_cross_asset
+  rebalance_cadence: monthly
+  top_n: 10
+  cluster_cap: 0.20
+  max_single_weight: 0.10
+  min_holding_days: 1
+  long_only: true
+  no_short: true
+  no_margin: true
+  asset_class_caps:
+    equities_max:    0.70
+    bonds_max:       0.40
+    commodities_max: 0.20
+    cash_anchor_max: 0.30
+  asset_class_min_report_only:
+    non_equity_weight_avg_min_report: 0.15  # report-only
+    non_equity_weight_p25_min_report: 0.05  # report-only
+
+
+# ── Mining (SINGLE-AXIS DIFF vs cycle #04: +explicit_exclusions) ─────
+
+mining_config:
+  sampler: tpe
+  seed: 42
+  n_trials: 200
+  min_families: 3
+  max_features_per_family: 2
+  composite_cardinality: 3
+  composite_weighting: equal_weight
+  archive_db: data/mining/rcm_archive.db
+  optuna_db: data/mining/rcm_optuna.db
+  out_dir: data/ml/research_miner/track-c-cycle-2026-05-01-05
+  panel_start_date: "2009-01-02"
+  panel_end_date: "2025-12-31"
+  temporal_split_role: core
+  factor_registry_source: core/factors/factor_registry.py
+  factor_registry_pool: RESEARCH_FACTORS
+  explicit_exclusions:
+    # Carried forward from cycle #04 (intraday-dependent factors with
+    # unmet daily-mining data dependency)
+    - intraday_autocorr_21d
+    - intraday_vol_ratio_21d
+    - realized_vol_60m_21d
+    # NEW for cycle #05: ban RCMv1 anchors that drove Cluster A breakthrough
+    # in cycle #04. Tests whether breakthrough was anchor-specific or
+    # universal-low-vol attractor.
+    - drawup_from_252d_low   # RCMv1 anchor #2 (largest weight 0.302)
+    - amihud_20d             # RCMv1 anchor #4 (smallest weight 0.117)
+
+
+# ── Smoke-abort gate (D3 enhancement, operator addition) ──────────────
+# Carried forward from cycle #04. Now ADDITIONALLY informative under
+# anchor-sensitivity diagnostic framing: if non-equity drops vs cycle #04,
+# the drawup+amihud ban materially weakens cross-asset selection.
+
+smoke_abort_clause:
+  enabled: true
+  smoke_n_trials: 8
+  decision_metric: non_equity_weight_avg_across_smoke_trials
+  thresholds:
+    abort_below:    0.05   # non-equity < 5% → ABORT 200-trial; escalate D3b
+    warn_below:     0.15
+    pass_at:        0.15
+  abort_action: do_not_run_full_mining; close cycle in smoke-abort state;
+                surface to user for D3b decision
+  warn_action:  run_full_mining; closeout MUST trigger D3b consideration
+                regardless of nominee outcome
+
+
+# ── Hard requirements (Track A acceptance gates) ─────────────────────
+
+hard_requirements:
+  composite_ic_ir_full_period_min: 0.30
+  walk_forward_ic_ir_min_per_fold: 0.0
+  composite_cardinality: 3
+  fwd_return_horizon_days: 21
+  ic_evaluation_lag_bars: 1
+
+
+# ── Hard blockers ─────────────────────────────────────────────────────
+
+hard_blockers:
+  - any_validation_year_maxdd_above_0_20
+  - any_stress_slice_maxdd_above_0_25
+  - validation_aggregate_excess_vs_qqq_le_0
+  - validation_2025_role_hard_gate_failure
+
+
+# ── 2025 QQQ soft-miss trade-off (D4 enhancement, operator addition) ──
+# Carried forward from cycle #04 unchanged.
+
+post_2025_qqq_soft_miss_trade_off_clause:
+  enabled: true
+  trigger_when_all_satisfied:
+    - validation_2025_excess_vs_qqq_lt_0
+    - validation_2025_excess_vs_spy_gt_0
+    - full_period_excess_vs_qqq_gt_0
+    - validation_2025_max_dd_le_qqq_2025_max_dd_minus_5pp
+  action_on_trigger: |
+    Closeout records "soft 2025 QQQ miss with diversifier offset".
+    Surface to user as informed choice on whether to soften the 2025
+    QQQ hard gate to a directional warning. Cycle still closes 0
+    nominee; user decision required on gate softening before the
+    candidate can advance.
+  rationale: |
+    Same as cycle #04: a cross-asset basket with 30%+ non-equity in a
+    strong-NVDA-driven 2025 may legitimately fail vs-QQQ while passing
+    other gates and having materially better drawdown.
+
+
+# ── Anti-sibling discipline (UPGRADED for cycle #05+) ─────────────────
+# Module: core.research.anti_sibling_policy.POLICY_VERSION matches above.
+# Conditional review path NEW vs cycle #04: factor_overlap=2 with non-
+# active-core anchor + ALL of (raw NAV<0.70, residual NAV<0.50, MaxDD
+# strictly better than anchor, 2025 vs_qqq strict pass) → Tier 1-conditional
+# (review path, not auto-promote). Active core overlap=2 STILL hard-rejects.
+
+anti_sibling_discipline:
+  factor_overlap_hard_reject: 3   # >= 3 with anyone → Tier 2
+  factor_overlap_conditional: 2   # == 2 routes via conditional review
+  realized_nav_correlation_pooled_max: 0.85   # tier 2 sibling-by-NAV
+  realized_nav_correlation_residual_max: 0.70 # tier 2 sibling-by-NAV
+  conditional_review_thresholds:
+    raw_nav_max:           0.70   # strictly tighter than tier 2
+    residual_nav_max:      0.50
+    max_dd_strictly_better_than_anchor: true
+    require_2025_qqq_strict_pass: true
+    active_core_overlap_eq_0_required: true   # cannot also overlap >=2 with active core
+  classification_thresholds:
+    pooled_lt_0_50:    true_diversifier
+    pooled_0_50_0_70:  partial_diversifier
+    pooled_0_70_0_85:  warn_label_void
+    pooled_gte_0_85:   reject_step5
+  anchor_status_registry:
+    active_core: []                                      # empty 2026-05-01
+    active_legacy_decay: ["rcm_v1", "cand_2"]
+    historical_failed: ["cycle_01_top", "cycle_02_top", "cycle_03_top"]
+  expected_outcome_under_h1: |
+    Mining finds a non-RCMv1-anchor composite (drawup + amihud banned
+    forces Family B + Family C to use other factors). Top-K should
+    show factor_overlap < 2 with RCMv1; raw NAV may still be > 0.85
+    if convergence on similar low-vol attractor (=> H2). H1 confirmed
+    only if both factor_overlap < 2 AND raw NAV in 0.50-0.70 band.
+  expected_outcome_under_h2: |
+    Mining converges on different low-vol composite (e.g. days_since_52w_high
+    + hl_range + market_vol_ratio) → factor_overlap with cycle_03_top
+    likely high; conditional review evaluates whether non-active-anchor
+    overlap qualifies. NAV correlation may still exceed 0.70 raw band.
+  expected_outcome_under_h3: |
+    Mining IC_IR drops or top-K becomes Tier 5. Indicates drawup+amihud
+    binding; cap_aware_cross_asset alone insufficient. Strategic review
+    triggered.
+
+
+# ── Pre-commit closeout outcome table (PRE-REGISTERED) ────────────────
+# Closeout MUST classify result against this 4-row table. No retroactive
+# softening; if 0 nominee, strategic review options page authored.
+
+pre_commit_closeout_outcome_table:
+  - condition: at_least_one_tier_1_OR_tier_1_conditional_passing_acceptance
+    action: enter_track_d_forward_init
+    note: |
+      Subject to Track A acceptance β-stamp + evidence pack §4.6+§4.7
+      (alpha-source taxonomy classification). Tier 1-conditional
+      candidates ALSO require operator signoff on conditional review
+      details before forward init.
+  - condition: zero_nominee_AND_h1_refuted_AND_cluster_A_alike_emerges
+    action: strategic_review_with_options_page
+    note: |
+      H1 refuted; H2 partially supported (different anchors → similar
+      attractor). Diagnostic value confirmed. Strategic review surfaces
+      options: D3b regime-aware objective / two-stage allocation /
+      diversifier reframe / objective redesign. NO cycle #06 auto-fire.
+  - condition: zero_nominee_AND_h1_refuted_AND_no_cluster_alike
+    action: strategic_review_with_options_page
+    note: |
+      H3 confirmed: drawup+amihud are binding. cap_aware_cross_asset
+      alone insufficient as cycle's outer construction. Strongest case
+      for two-stage allocation pivot. Strategic review surfaces options;
+      cycle #05 is officially the LAST single-stage diagnostic.
+  - condition: zero_nominee_AND_unclear_diagnostic
+    action: strategic_review_with_methodology_review
+    note: |
+      Mining failed to produce useful signal AND couldn't classify
+      against H1/H2/H3. Stop and review methodology before any
+      additional mining. Possible methodology gaps: factor zoo
+      coverage, mining objective, evaluator config.
+
+
+# ── Report-only / interpretive (carried forward + extensions) ────────
+
+report_only:
+
+  asset_class_exposure:
+    must_report:
+      - equity_weight_avg
+      - bond_weight_avg
+      - commodity_weight_avg
+      - cash_anchor_weight_avg
+      - non_equity_weight_avg
+      - non_equity_weight_p25
+      - non_equity_weight_p50
+      - non_equity_weight_p75
+      - non_equity_weight_min
+      - non_equity_weight_max
+      - days_with_zero_non_equity_pct
+
+  regime_stability_per_regime_ir:
+    must_report_regimes:
+      - BULL
+      - BEAR
+      - RISK_ON
+      - RISK_OFF
+      - CRISIS
+      - SIDEWAYS
+
+  benchmark_beta_statistics:
+    must_report:
+      - portfolio_weighted_mean_beta_vs_spy
+      - portfolio_weighted_mean_beta_vs_qqq
+      - portfolio_weighted_std_beta
+      - max_abs_per_symbol_beta
+      - n_symbols_with_beta
+
+  stress_slice_diagnostics:
+    must_report_per_slice:
+      - covid_flash
+      - rate_hike_2022
+      - eurozone_2011
+    fields:
+      - cum_ret
+      - sharpe
+      - max_dd
+      - vs_spy
+      - vs_qqq
+
+  drawdown_reduction_metric:
+    must_report:
+      - max_dd_full_period
+      - max_dd_full_period_vs_spy_max_dd_diff
+      - max_dd_full_period_vs_qqq_max_dd_diff
+      - cagr_difference_vs_qqq
+      - drawdown_reduction_per_pct_return_sacrificed
+
+  turnover_proxy:
+    must_report: true
+
+  cluster_diversity:
+    must_report:
+      - n_unique_clusters_per_rebalance_avg
+      - cluster_concentration_max
+      - n_picks_avg
+      - implicit_cash_pct_avg
+      - top_3_clusters_by_average_weight
+
+  composite_nav_correlation_vs_existing_pair:
+    must_report:
+      - rcm_v1_pooled_pearson_raw
+      - rcm_v1_pooled_pearson_residual_vs_spy
+      - rcm_v1_pooled_pearson_residual_vs_qqq
+      - cand_2_pooled_pearson_raw
+      - cand_2_pooled_pearson_residual_vs_spy
+      - cand_2_pooled_pearson_residual_vs_qqq
+      - cycle_03_top_pooled_pearson_raw
+      - cycle_03_top_pooled_pearson_residual_vs_spy
+      - cycle_03_top_pooled_pearson_residual_vs_qqq
+      - cycle_01_top_pooled_pearson_raw
+      - cycle_02_top_pooled_pearson_raw
+
+  human_path_knowledge_inventory:
+    today_date: "2026-05-01"
+    declared_2026_observations:
+      - "Cycle #04 (cap_aware_cross_asset) closed 0 nominee. Top-10 split
+         into Cluster A (4 trials, RCMv1-anchored drawup+amihud, raw NAV
+         0.66-0.70 partial diversifier) and Cluster B (6 trials,
+         vol-anchored, raw NAV 0.91-0.94 reject). 8/10 passed 2025 QQQ
+         hard gate; trial 8 best at +10.5% vs QQQ with -19% DD vs QQQ
+         -22.86%."
+      - "Cycle #04 v1 evaluator shipped with empty NAV correlation +
+         binary R41 (factor-overlap-only). Bug; fixed via post-eval
+         cross_cycle_nav_correlation script. Cycle #05 evaluator folds
+         this inline + uses anti_sibling_policy module for 5-tier verdict."
+      - "Cycle #05 single-variable diff vs cycle #04: ban
+         drawup_from_252d_low + amihud_20d. All else identical. Tests
+         H1 (anchor-specific) vs H2 (low-vol attractor universal)
+         vs H3 (drawup+amihud binding)."
+      - "Cycle #05 stop rule pre-committed: 0 nominee → strategic review,
+         NO cycle #06 mining. Per cycle #04 closeout §stop rule."
+      - "Anti-sibling policy v2.0 effective from cycle #05. Conditional
+         review path adds Tier 1-conditional outcome at factor_overlap=2
+         with non-active anchors + 4-condition gate (raw NAV<0.70 +
+         residual NAV<0.50 + MaxDD strictly better + 2025 strict pass).
+         Active core overlap=2 still hard-rejects. Module:
+         core.research.anti_sibling_policy.POLICY_VERSION."
+      - "Cycle #05 is the LAST single-stage diagnostic before strategic
+         review. Two-stage allocation architecture is a candidate macro
+         pivot per collaborator advisory; not pre-committed."
+
+
+# ── Authorization markers ─────────────────────────────────────────────
+
+authorization:
+  research_layer_unfreeze: docs/memos/20260426-research_layer_partial_unfreeze.md
+  alpha_first_priority: docs/memos/20260430-priority_realign_alpha_first.md
+  cycle04_close: docs/memos/20260501-track_c_cycle_2026-05-01-04_close.md
+  anti_sibling_policy_module: core/research/anti_sibling_policy.py
+  generic_evaluator: dev/scripts/research_cycle_eval/evaluate_top_n.py
+  user_explicit_go: |
+    zibo 2026-05-01: "我同意 你可以再审计一下你的这个决策 如果没有变化
+    那就开工"
+  collaborator_advisory: |
+    senior US equity quant collaborator follow-up 2026-05-01: F+G
+    immediately, A as anchor-sensitivity diagnostic (not nominee path),
+    factor-overlap conditional review with strict pre-registered
+    thresholds, two-stage allocation architecture as macro direction
+    pending strategic review at cycle #05 closeout if 0 nominee.
+  predecessors:
+    - track-c-cycle-2026-05-01-04 (cap_aware_cross_asset; 0 nominee, 10/10 Tier 2)
+    - track-c-cycle-2026-05-01-02 (cap_aware stock-only; 0 nominee, 10/10 Tier 2)
+    - track-c-cycle-2026-04-30-02 (5d weekly; archived data quality)
+    - track-c-cycle-2026-04-30-01 (21d global top-N; sibling)
