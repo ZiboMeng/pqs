@@ -70,7 +70,7 @@ def _build_inputs():
 
     sys.path.insert(0, str(PROJ))
     from core.config.loader import load_config
-    from core.data.market_data_store import MarketDataStore
+    from core.data.bar_store import BarStore
     from core.factors.factor_generator import generate_all_factors
     from core.research.temporal_split import (
         load_temporal_split,
@@ -78,7 +78,10 @@ def _build_inputs():
     )
 
     cfg = load_config(PROJ / "config")
-    store = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
+    # Use BarStore.load(adjusted=True) — applies splits.parquet cascade.
+    # MarketDataStore.read returns RAW heterogeneously-split-adjusted parquet,
+    # which produces NAV-explosion artifacts (Step 0 finding 2026-04-30).
+    store = BarStore(root=Path(cfg.system.paths.data_dir))
 
     # Universe: 78 syms minus BRK-B (matches yaml.universe_panel_mask_spec)
     uni = cfg.universe
@@ -97,9 +100,15 @@ def _build_inputs():
     ]
     tradable = [s for s in tradable if s != "BRK-B"]
 
+    # Always include benchmarks for vs_spy/vs_qqq even if they aren't in
+    # the tradable universe.
+    for bench in ("SPY", "QQQ"):
+        if bench not in tradable:
+            tradable.append(bench)
+
     frames = {k: {} for k in ("close", "open", "high", "low", "volume")}
     for sym in tradable:
-        df = store.read(sym, "1d")
+        df = store.load(sym, freq="1d", adjusted=True, fallback="local")
         if df is None or df.empty or "close" not in df.columns:
             continue
         frames["close"][sym] = df["close"]
@@ -229,6 +238,18 @@ def _evaluate_one_candidate(
     feats = trial_row["features_csv"].split(",")
     weights = [float(w) for w in trial_row["weights_csv"].split(",")]
     family_counts = json.loads(trial_row["family_counts_json"])
+
+    # Archive stores weights as f"{w:.6f}" (rcm_archive.py:310); equal-weight
+    # 1/3 truncates to 0.333333 → sum=0.999999 < 1.0 strict tolerance (1e-6).
+    # Renormalize, then absorb residual into the max weight (mirrors
+    # research_miner.py:599-606 absorb-into-largest pattern).
+    total = sum(weights)
+    if abs(total - 1.0) > 0:
+        weights = [w / total for w in weights]
+        residual = 1.0 - sum(weights)
+        if abs(residual) > 0:
+            max_idx = max(range(len(weights)), key=lambda i: weights[i])
+            weights[max_idx] += residual
 
     # Build spec
     spec = ResearchCompositeSpec(
