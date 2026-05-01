@@ -482,6 +482,95 @@ def sealed_year_set(cfg: TemporalSplitConfig) -> set:
     return {sy.year for sy in cfg.partition.sealed_test_years}
 
 
+def partition_for_role(
+    frames,
+    cfg: TemporalSplitConfig,
+    role: str,
+):
+    """Filter price/volume frames to the partitions accessible by ``role``.
+
+    Mining stage: role="miner". Reads ``cfg.access_rules.miner_may_access``
+    (which for `alternating_regime_holdout_v1` = `["train"]`) → produces
+    a train-only panel matching `restrict_frames_to_train` output.
+
+    Evaluation stage: role="selector". Reads
+    ``cfg.access_rules.selector_may_access`` (= `["train", "validation"]`)
+    → produces a panel covering train+validation years. Sealed years
+    are NEVER included unless `selector_may_access` explicitly contains
+    "sealed_test", which the canonical yaml does NOT.
+
+    Sealed evaluation: role="sealed_test_runner". Returns SEALED YEARS
+    ONLY (single-shot evaluation). Mining + selector access rules do
+    NOT include this; the role exists for completeness but the loader
+    + sealed-eval ledger gate this so it can only run once per
+    split_name.
+
+    Why this exists (cycle #02 audit WARN #2 — 2026-04-30):
+    `restrict_frames_to_train` is the right function for mining but
+    the WRONG function for downstream evaluation: cycle eval needs to
+    compute per-validation-year metrics, which requires the panel to
+    actually CONTAIN validation-year rows. Pre-fix, the cycle #02
+    eval script called restrict_frames_to_train and silently produced
+    empty per-validation-year metrics. partition_for_role makes the
+    role-aware access policy explicit at the API.
+
+    Parameters
+    ----------
+    frames : Mapping[str, Optional[pd.DataFrame]]
+        Dict of price/volume frames (close/open/high/low/volume).
+        DatetimeIndex required.
+    cfg : TemporalSplitConfig
+    role : str
+        One of {"miner", "selector", "sealed_test_runner"}.
+        - "miner"               → train years only (mining)
+        - "selector"            → train + validation years (evaluation)
+        - "sealed_test_runner"  → sealed years only (single-shot final eval)
+
+    Returns
+    -------
+    Same dict-of-frames structure with rows filtered to the role's
+    accessible partitions. Sealed years are ALWAYS excluded for
+    role={"miner", "selector"} regardless of yaml.
+
+    Raises
+    ------
+    ValueError if role is unrecognized.
+    """
+    import pandas as pd
+
+    if role == "miner":
+        allowed = set(cfg.access_rules.miner_may_access)
+    elif role == "selector":
+        allowed = set(cfg.access_rules.selector_may_access)
+    elif role == "sealed_test_runner":
+        allowed = {"sealed_test"}
+    else:
+        raise ValueError(
+            f"unknown role {role!r}; expected one of "
+            f"{{miner, selector, sealed_test_runner}}"
+        )
+
+    train = train_year_set(cfg) if "train" in allowed else set()
+    validation = validation_year_set(cfg) if "validation" in allowed else set()
+    sealed = sealed_year_set(cfg) if "sealed_test" in allowed else set()
+    all_years = train | validation | sealed
+
+    out = {}
+    for k, df in frames.items():
+        if df is None:
+            out[k] = None
+            continue
+        idx = df.index
+        if not hasattr(idx, "year"):
+            raise TypeError(
+                f"frame {k!r} index lacks .year attribute; expected "
+                f"DatetimeIndex, got {type(idx).__name__}"
+            )
+        mask = idx.year.isin(all_years)
+        out[k] = df.loc[mask]
+    return out
+
+
 def restrict_frames_to_train(
     frames,
     cfg: TemporalSplitConfig,
