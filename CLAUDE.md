@@ -618,6 +618,64 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   asset / C-2 long/short), not further factor-zoo expansion.
   Research-mining workstream auto re-frozen at this boundary.
 
+- **Track C cycle 2026-04-30 #02** (2026-04-30, ARCHIVED 2026-05-01,
+  **numerical results NOT reliable**) — second controlled-mining
+  cycle; single-variable diff vs #01 = +C-1 weekly cadence. Mining
+  produced top-1 IC_IR=1.0592 on `beta_spy_60d × mom_12_1 ×
+  volume_ratio_20d` — IDENTICAL composite to cycle #01's top-1 (3-of-3
+  factor identical). C-1 horizon hypothesis fully refuted at the IC
+  level (weekly + global top-N produces same sibling as monthly +
+  global top-N). **ARCHIVED post-execution** (Task #49 / heterogeneous
+  split-adjustment fix on 2026-05-01) — the daily price panel cycle
+  #02 mined on had inconsistent split scaling for 13/78 universe
+  symbols (LRCX 2015-04 alternating $72/$7 day-to-day etc.); the
+  numeric IC_IR=1.0592 / NAV trajectories / Pearson correlations are
+  not reproducible. Factor identity verdict (cycle #02 = cycle #01
+  sibling) survives the data corruption (verified by post-fix harness
+  re-run on top-1 spec). Yaml + archive marker preserved per
+  immutability contract:
+  `data/research_candidates/track-c-cycle-2026-04-30-02_ARCHIVED.md`.
+
+- **Track C cycle 2026-05-01 #01** (2026-05-01, INVALID, do not cite) —
+  yaml typo `mining_config.trials: 200` instead of canonical
+  `n_trials: 200` caused miner CLI yaml→cli mapping to silently fall
+  back to default 50 trials; only 3 archived. Yaml sha256 `5df2c305…`
+  preserved. **Superseded by `track-c-cycle-2026-05-01-02`** (same
+  axis, corrected yaml). Operator self-audit caught (not user); first
+  example of why the "依赖捋清楚" rigor matters at yaml field level.
+
+- **Track C cycle 2026-05-01 #02** (2026-05-01 ✅, **0 nominee**,
+  10/10 trials Tier 2 sibling-by-NAV) — first cap-aware-construction
+  cycle. Yaml sha256
+  `9fa478f0ffad33dc2d40eff8ec63b2e86799404b06695b2626390970f169ff23`
+  (commit `1edc42b`). Cap-aware = cluster_cap=0.20 + max_single=0.10
+  over `core/research/risk_cluster_map.STOCK_RISK_CLUSTER_MAP` (17
+  single-layer trade-level clusters, 54 stocks, 25 ETFs excluded) at
+  top_n=10 monthly 21d horizon, full RESEARCH_FACTORS pool. Mining
+  200 TPE trials, 58 archived. Best IC_IR=1.187 on `rs_vs_spy_126d ×
+  drawup_from_252d_low × market_vol_ratio` — DIFFERENT from cycle
+  #01/#02 sibling (sibling factors `beta_spy_60d` / `mom_12_1` appear
+  at most once each in top-10; 13 unique factors across 30 top-10
+  slots). **However**: cap-aware harness eval over top-10 + RCMv1 +
+  Cand-2 reference NAVs found 100% (20/20) of pooled-raw-Pearson
+  pairs ≥ 0.85 reject threshold (median 0.902, range 0.852-0.947).
+  Residual after stripping shared SPY+QQQ beta: median 0.64; only
+  1/20 above the 0.70 warn threshold. **Headline finding**: ~85% of
+  NAV correlation is structural shared market beta of any long-only
+  top-N portfolio over a 54-stock universe; cluster_cap construction
+  does NOT break it because the universe itself is the binding
+  constraint. Cluster_concentration_max ~0.30 vs cap_aware target
+  0.20 is intra-month price drift between monthly rebalances, not a
+  selector bug. Closeout:
+  `docs/memos/20260501-track_c_cycle_2026-05-01-02_close.md`. Eval
+  artifact:
+  `data/ml/cycle03_evaluation/track-c-cycle-2026-05-01-02/evaluation_summary.json`.
+  Research-mining workstream auto re-frozen. **Next-axis
+  recommendation: C-4 cross-asset** (universe expansion to bonds +
+  commodities + cash anchor) — directly attacks the structural cause
+  this cycle exposed. C-1 weekly cap_aware secondary; C-2 long-short
+  violates `no-short` invariant (out of scope).
+
 **Forward OOS active workstream (observation mode)**:
 - **R-fwd-1 done** — forward runner minimum closed loop (init /
   status / observe / decide / readiness) + source-boundary sidecar
