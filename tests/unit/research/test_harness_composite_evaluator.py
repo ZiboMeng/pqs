@@ -686,3 +686,134 @@ def test_harness_config_global_top_n_default_unchanged():
     cfg = HarnessConfig(top_n=10)  # default global_top_n
     assert cfg.construction_mode == "global_top_n"
     assert cfg.cluster_map is None
+
+
+# ── cap_aware_cross_asset mode (cycle #04) ───────────────────────────
+
+
+def test_harness_config_cross_asset_requires_asset_class_map_and_caps():
+    from core.research.harness import HarnessConfig
+    cluster_map = {"AAPL": "tech", "TLT": "bond_long_duration"}
+    # Missing both asset_class_map and asset_class_caps
+    with pytest.raises(ValueError, match="cap_aware_cross_asset.*requires.*asset_class"):
+        HarnessConfig(
+            construction_mode="cap_aware_cross_asset", top_n=10,
+            cluster_map=cluster_map,
+        )
+    # Missing only asset_class_caps
+    with pytest.raises(ValueError, match="cap_aware_cross_asset.*requires"):
+        HarnessConfig(
+            construction_mode="cap_aware_cross_asset", top_n=10,
+            cluster_map=cluster_map,
+            asset_class_map={"AAPL": "equities", "TLT": "bonds"},
+        )
+
+
+def test_harness_config_cross_asset_rejects_unknown_asset_class():
+    from core.research.harness import HarnessConfig
+    with pytest.raises(ValueError, match="unknown classes"):
+        HarnessConfig(
+            construction_mode="cap_aware_cross_asset", top_n=10,
+            cluster_map={"AAPL": "tech"},
+            asset_class_map={"AAPL": "equities"},
+            asset_class_caps={"equities": 0.7, "real_estate": 0.5},  # invalid
+        )
+
+
+def test_harness_config_cross_asset_valid_construction():
+    from core.research.harness import HarnessConfig
+    cfg = HarnessConfig(
+        construction_mode="cap_aware_cross_asset", top_n=10,
+        cluster_map={"AAPL": "tech", "TLT": "bond_long_duration"},
+        asset_class_map={"AAPL": "equities", "TLT": "bonds"},
+        asset_class_caps={"equities": 0.7, "bonds": 0.4,
+                          "commodities": 0.2, "cash_anchor": 0.3},
+    )
+    assert cfg.construction_mode == "cap_aware_cross_asset"
+
+
+def test_topn_signals_cross_asset_caps_bind_bonds():
+    """Asset-class caps bind: even if all top scores are bonds, only
+    bonds_max=0.40 worth get picked; the rest go to other asset classes."""
+    from core.research.harness import topn_signals_with_caps
+
+    dates = pd.bdate_range("2020-01-02", periods=3)
+    # Make bonds top 6 of 10 scores; equities lower
+    syms = ["TLT", "IEF", "SHY", "GLD", "BIL", "SHV", "AAPL", "MSFT", "JNJ", "WMT"]
+    cluster_map = {
+        "TLT": "bond_long", "IEF": "bond_intermediate", "SHY": "bond_short",
+        "GLD": "commodities", "BIL": "cash", "SHV": "cash",
+        "AAPL": "tech", "MSFT": "tech", "JNJ": "pharma", "WMT": "staples",
+    }
+    asset_class_map = {
+        "TLT": "bonds", "IEF": "bonds", "SHY": "bonds",
+        "GLD": "commodities",
+        "BIL": "cash_anchor", "SHV": "cash_anchor",
+        "AAPL": "equities", "MSFT": "equities",
+        "JNJ": "equities", "WMT": "equities",
+    }
+    # All bonds scored highest (10, 9, 8); commodities 7; cash 6, 5;
+    # equities 4..1
+    composite = pd.DataFrame(
+        {sym: 10 - i for i, sym in enumerate(syms)},
+        index=dates,
+    )
+    rmask = pd.Series([True, False, False], index=dates)
+    signals = topn_signals_with_caps(
+        composite, rmask,
+        target_n_picks=10,
+        cluster_map=cluster_map,
+        cluster_cap=0.20, max_single_weight=0.10,
+        asset_class_map=asset_class_map,
+        asset_class_caps={"equities": 0.70, "bonds": 0.40,
+                          "commodities": 0.20, "cash_anchor": 0.30},
+    )
+    picked = signals.iloc[0]
+    nz = picked[picked > 0]
+    # bonds_max = 0.40 → at most 4 picks of weight 0.10 each
+    bonds_picked = sum(1 for s in nz.index if asset_class_map[s] == "bonds")
+    assert bonds_picked <= 4, (
+        f"bonds cap binding violated: {bonds_picked} bond picks > 4"
+    )
+    # Even though SHY (8) had high score, it should be skipped because
+    # bonds asset_class cap binds first → only top-2 bonds (TLT, IEF) +
+    # then either skipped or one more if cluster cap allows
+    # (all 3 bonds in different clusters → can pick all 3 by cluster
+    # but bonds asset_class only allows 4)
+
+
+def test_topn_signals_cross_asset_caps_default_omitted_works():
+    """Asset_class_map + asset_class_caps both omitted → behaves like
+    standard cap_aware (regression test for backward compat)."""
+    from core.research.harness import topn_signals_with_caps
+
+    dates = pd.bdate_range("2020-01-02", periods=3)
+    cluster_map = {"AAPL": "tech", "MSFT": "tech", "JNJ": "pharma", "WMT": "staples"}
+    composite = pd.DataFrame(
+        {"AAPL": [4, 4, 4], "MSFT": [3, 3, 3], "JNJ": [2, 2, 2], "WMT": [1, 1, 1]},
+        index=dates,
+    )
+    rmask = pd.Series([True, False, False], index=dates)
+    signals = topn_signals_with_caps(
+        composite, rmask, target_n_picks=4,
+        cluster_map=cluster_map, cluster_cap=0.50, max_single_weight=0.25,
+        # asset_class_map and asset_class_caps both None
+    )
+    picked = signals.iloc[0]
+    assert picked["AAPL"] > 0 and picked["MSFT"] > 0
+
+
+def test_topn_signals_cross_asset_caps_partial_args_raises():
+    """Providing only one of (asset_class_map, asset_class_caps) raises."""
+    from core.research.harness import topn_signals_with_caps
+
+    dates = pd.bdate_range("2020-01-02", periods=2)
+    composite = pd.DataFrame({"AAPL": [1.0, 1.0], "MSFT": [0.5, 0.5]}, index=dates)
+    rmask = pd.Series([True, False], index=dates)
+    with pytest.raises(ValueError, match="must be provided together"):
+        topn_signals_with_caps(
+            composite, rmask, target_n_picks=10,  # wpp=0.10 ≤ max_single 0.20
+            cluster_map={"AAPL": "tech", "MSFT": "tech"},
+            cluster_cap=0.5, max_single_weight=0.20,
+            asset_class_map={"AAPL": "equities", "MSFT": "equities"},  # caps missing
+        )

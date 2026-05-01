@@ -244,6 +244,140 @@ from core.research.sector_map import ETF_EXCLUDED_FROM_SECTOR_SELECTION  # noqa:
 ETF_EXCLUDED_FROM_CLUSTER_SELECTION: Set[str] = ETF_EXCLUDED_FROM_SECTOR_SELECTION
 
 
+# ── Cross-asset extension (cycle #04 cross-asset preflight) ────────────
+# Authority: docs/memos/20260501-cycle04_cross_asset_preflight.md
+# (D5 design: 5 new cross-asset clusters; total → 22).
+#
+# These clusters cover bond / commodity / cash ETFs that participate in
+# cycle #04+ cap_aware_cross_asset selection. They are NOT in
+# STOCK_RISK_CLUSTER_MAP (which is stocks-only for cycle #03 backwards
+# compatibility). Cycle #04 callers use ``make_unified_cluster_map(
+# include_cross_asset=True)`` to merge both into one dict for the
+# selector.
+#
+# USO deliberately excluded (cycle #04 preflight memo §"USO 单独提示"):
+# 2 single-day jumps > 50%, futures roll yield structurally different
+# from spot oil — re-evaluate in a future cycle.
+
+CROSS_ASSET_CLUSTER_DEFINITIONS: Dict[str, str] = {
+    "bond_long_duration": (
+        "Long-duration Treasury bond ETF. TLT = 20+ year Treasury. "
+        "Beta ~ -0.2 to 0.0 (mildly negative in equity drawdowns). "
+        "Drivers: long-end rates, term-premium, flight-to-quality flows."
+    ),
+    "bond_intermediate_duration": (
+        "Intermediate-duration Treasury ETF. IEF = 7-10 year Treasury. "
+        "Beta ~ -0.1 to 0.1; lower vol than TLT. Drivers: belly-of-curve "
+        "rates, Fed-path expectations."
+    ),
+    "bond_short_duration": (
+        "Short-duration Treasury ETF. SHY = 1-3 year Treasury. Near-cash "
+        "with mild duration. Drivers: short-end rates."
+    ),
+    "commodity_metals": (
+        "Precious metals commodity ETF. GLD = gold bullion (physically "
+        "backed; no roll yield). Beta to equities ~ 0; high beta to USD "
+        "weakness + real-rates falling. Drivers: real rates, USD, "
+        "inflation expectations, geopolitical premium."
+    ),
+    "cash_anchor": (
+        "Ultra-short T-bill ETF. BIL/SHV = 1-3 month / sub-1-year T-bills. "
+        "Behaves as cash with current Fed rate yield. Beta ~ 0 to all "
+        "asset classes. Drivers: Fed funds rate. Both ETFs grouped "
+        "together because they are functionally interchangeable cash "
+        "proxies; cluster_cap=0.20 prevents 'load 20% in BIL + 20% in "
+        "SHV = 40% cash' from passing through as 2 distinct positions."
+    ),
+}
+
+
+CROSS_ASSET_RISK_CLUSTER_MAP: Dict[str, str] = {
+    "TLT": "bond_long_duration",
+    "IEF": "bond_intermediate_duration",
+    "SHY": "bond_short_duration",
+    "GLD": "commodity_metals",
+    "BIL": "cash_anchor",
+    "SHV": "cash_anchor",
+}
+
+
+# ── Asset class (for cycle #04 asset_class_caps) ────────────────────────
+# Per cycle #04 yaml `construction.asset_class_caps`. Maps every cluster
+# (stock + cross-asset) to its asset_class. The cap_aware selector reads
+# this when building the second-layer asset_class cap on top of the
+# cluster cap.
+#
+# 4 asset classes: equities | bonds | commodities | cash_anchor.
+#   - equities: all 17 stock clusters
+#   - bonds: bond_long_duration, bond_intermediate_duration, bond_short_duration
+#   - commodities: commodity_metals
+#   - cash_anchor: cash_anchor
+
+ASSET_CLASS_BY_CLUSTER: Dict[str, str] = {
+    # Cross-asset
+    "bond_long_duration":         "bonds",
+    "bond_intermediate_duration": "bonds",
+    "bond_short_duration":        "bonds",
+    "commodity_metals":           "commodities",
+    "cash_anchor":                "cash_anchor",
+    # Stocks (all 17 stock clusters → equities)
+    **{cluster: "equities" for cluster in CLUSTER_DEFINITIONS},
+}
+
+
+def make_unified_cluster_map(include_cross_asset: bool = False) -> Dict[str, str]:
+    """Build the symbol→cluster map for the requested universe scope.
+
+    include_cross_asset=False (cycle #03 default): returns
+    STOCK_RISK_CLUSTER_MAP (54 stocks; ETFs excluded).
+
+    include_cross_asset=True (cycle #04+): merges STOCK_RISK_CLUSTER_MAP
+    with CROSS_ASSET_RISK_CLUSTER_MAP (54 stocks + 6 cross-asset ETFs;
+    USO and equity-sector ETFs still excluded). The cap_aware selector
+    receives this merged dict; symbols not in the dict are filtered
+    silently.
+    """
+    if not include_cross_asset:
+        return dict(STOCK_RISK_CLUSTER_MAP)
+    merged = dict(STOCK_RISK_CLUSTER_MAP)
+    # Cross-asset symbols never collide with stocks in PQS universe;
+    # assert defensively in case future expansion adds collisions.
+    for sym, clu in CROSS_ASSET_RISK_CLUSTER_MAP.items():
+        if sym in merged:
+            raise ValueError(
+                f"Symbol {sym!r} appears in both STOCK_RISK_CLUSTER_MAP "
+                f"and CROSS_ASSET_RISK_CLUSTER_MAP — disambiguate before "
+                f"calling make_unified_cluster_map(include_cross_asset=True)."
+            )
+        merged[sym] = clu
+    return merged
+
+
+def get_asset_class_for_cluster(cluster: str) -> str:
+    """Return the asset class for a cluster string (equities | bonds |
+    commodities | cash_anchor). Raises KeyError on unknown cluster."""
+    if cluster not in ASSET_CLASS_BY_CLUSTER:
+        raise KeyError(
+            f"Unknown cluster {cluster!r}: not in ASSET_CLASS_BY_CLUSTER. "
+            f"Add to risk_cluster_map.py."
+        )
+    return ASSET_CLASS_BY_CLUSTER[cluster]
+
+
+def get_asset_class(symbol: str) -> str:
+    """Return the asset class for a symbol. Convenience wrapper for
+    sym → cluster → asset_class lookup. Uses unified cluster map
+    (stocks + cross-asset). Raises KeyError on unknown symbol."""
+    unified = make_unified_cluster_map(include_cross_asset=True)
+    if symbol not in unified:
+        raise KeyError(
+            f"Symbol {symbol!r} not in unified cluster map "
+            f"(stocks + cross-asset). Add to STOCK_RISK_CLUSTER_MAP "
+            f"or CROSS_ASSET_RISK_CLUSTER_MAP."
+        )
+    return get_asset_class_for_cluster(unified[symbol])
+
+
 # ── API ────────────────────────────────────────────────────────────────
 
 

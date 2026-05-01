@@ -18,6 +18,17 @@ Forward adjustment (standard quant convention):
   adj_volume(t) = raw_volume(t) / adj_factor(t)
   adj_amount    = unchanged (dollar value is invariant to splits)
 
+Total-return adjustment (cycle #04 cross-asset preflight, 2026-05-01):
+  Optional opt-in via load(..., adjusted_total_return=True). Composes ON TOP
+  of split adjustment (splits applied first, then distribution cascade).
+  Cascade convention matches yfinance auto_adjust=True:
+    div_factor(t) = Π (1 - X_i / close_pre_ex_i)  over divs i where ex_date_i > t
+    tr_close(t)   = split_adj_close(t) * div_factor(t)
+  Sidecar: data/ref/distributions.parquet (per-ex-date factor stamped at
+  build time using same split-adj basis as load output). Invariant tracker:
+  splits_table_sha column — if splits.parquet changes, distributions sidecar
+  must rebuild. Currently fail-closed via warning, not hard error.
+
 yfinance fallback (for ETF 2024+ gap in local data):
   fallback='auto' (default): if the requested range extends past what local
     parquet covers, fetch the missing tail from yfinance and merge in.
@@ -71,6 +82,7 @@ class BarStore:
     def __init__(self, root: Path | str = DEFAULT_ROOT):
         self.root = Path(root)
         self._splits: Optional[pd.DataFrame] = None
+        self._distributions: Optional[pd.DataFrame] = None
 
     # ── paths ────────────────────────────────────────────────────────────────
 
@@ -84,6 +96,9 @@ class BarStore:
 
     def _splits_path(self) -> Path:
         return self.root / "ref" / "splits.parquet"
+
+    def _distributions_path(self) -> Path:
+        return self.root / "ref" / "distributions.parquet"
 
     # ── splits ref ───────────────────────────────────────────────────────────
 
@@ -114,6 +129,43 @@ class BarStore:
         sub = sub[sub["date"] <= as_of]
         return sub.sort_values("date").reset_index(drop=True)
 
+    # ── distributions ref (cycle #04) ────────────────────────────────────────
+
+    @property
+    def distributions(self) -> pd.DataFrame:
+        """Cached canonical distributions table (per-ex-date factors).
+
+        Schema: symbol, ex_date, cash_amount, ref_close_pre_ex, factor,
+        source, pulled_at, splits_table_sha. Built via
+        ``dev/scripts/data_integrity/build_distributions_parquet.py``.
+        Empty if file missing — distribution adjustment becomes no-op.
+        """
+        if self._distributions is None:
+            p = self._distributions_path()
+            if not p.exists():
+                self._distributions = pd.DataFrame(columns=[
+                    "symbol", "ex_date", "cash_amount", "ref_close_pre_ex",
+                    "factor", "source", "pulled_at", "splits_table_sha",
+                ])
+            else:
+                self._distributions = pd.read_parquet(p)
+        return self._distributions
+
+    def _distributions_for(
+        self,
+        symbol: str,
+        as_of: Optional[pd.Timestamp] = None,
+    ) -> pd.DataFrame:
+        """Distributions for one symbol with future-dated (> as_of) removed."""
+        df = self.distributions
+        sub = df[df["symbol"] == symbol].copy()
+        if sub.empty:
+            return sub
+        if as_of is None:
+            as_of = pd.Timestamp.today().normalize()
+        sub = sub[pd.to_datetime(sub["ex_date"]) <= as_of]
+        return sub.sort_values("ex_date").reset_index(drop=True)
+
     # ── core load ────────────────────────────────────────────────────────────
 
     def load(
@@ -125,6 +177,7 @@ class BarStore:
         end: Optional[str | pd.Timestamp] = None,
         as_of: Optional[pd.Timestamp] = None,
         fallback: str = "auto",
+        adjusted_total_return: bool = False,
     ) -> pd.DataFrame:
         """Load bars for (symbol, freq). Forward-adjusted by default.
 
@@ -132,6 +185,17 @@ class BarStore:
           'auto'     — local + yfinance tail-fill (default)
           'local'    — local only
           'yfinance' — yfinance only (skip local)
+
+        adjusted_total_return: opt-in distribution back-adjustment on top of
+          split adjustment. Requires `adjusted=True` (raises ValueError if
+          combined with adjusted=False — distribution cascade is in split-
+          adjusted basis). Cascade convention matches yfinance auto_adjust=
+          True; numerically reproducible against
+          `yf.Ticker(...).history(auto_adjust=True).Close`. Sidecar:
+          data/ref/distributions.parquet. Apply ONLY to symbols where the
+          sidecar has rows; symbols without rows pass through unchanged
+          (no-op, no warning — symbols without distributions are
+          legitimate, e.g., GLD).
 
         Provenance: every returned DataFrame carries data-source metadata on
         `.attrs["provenance"]` — list of dicts with keys
@@ -144,6 +208,11 @@ class BarStore:
             raise ValueError(f"unsupported freq: {freq}")
         if fallback not in ("auto", "local", "yfinance"):
             raise ValueError(f"unsupported fallback: {fallback}")
+        if adjusted_total_return and not adjusted:
+            raise ValueError(
+                "adjusted_total_return=True requires adjusted=True; "
+                "distribution cascade is in split-adjusted basis"
+            )
 
         local_df = self._load_local(symbol, freq, adjusted, start, end, as_of)
 
@@ -167,6 +236,11 @@ class BarStore:
                     combined = pd.concat([local_df, yf_df])
                     combined = combined[~combined.index.duplicated(keep="first")]
                     out = combined.sort_index()
+
+        # Apply distribution cascade on top of (already split-adjusted) out.
+        # Mounted here so it runs once after local + fallback are merged.
+        if adjusted_total_return and len(out) > 0:
+            out = self._apply_forward_distributions(out, symbol, as_of=as_of)
 
         prov = self.get_provenance(symbol, freq)
         # Append yfinance span if auto fallback actually fetched
@@ -425,6 +499,89 @@ class BarStore:
         if "volume" in df.columns:
             df["volume"] = (df["volume"].astype("float64") / factors).round().astype("int64")
         # amount (dollar volume) is invariant to splits
+        return df
+
+    def _apply_forward_distributions(
+        self,
+        df: pd.DataFrame,
+        symbol: str,
+        as_of: Optional[pd.Timestamp] = None,
+    ) -> pd.DataFrame:
+        """Apply distribution back-adjustment cascade to already-split-adj df.
+
+        Cascade convention matches yfinance auto_adjust=True:
+          factor_at(t) = Π factor_i over divs i where ex_date_i > t
+          adj_close(t) = split_adj_close(t) * factor_at(t)
+
+        Per-event factor is pre-computed in distributions.parquet:
+          factor_i = 1 - cash_amount_i / ref_close_pre_ex_i
+
+        Where ref_close_pre_ex_i is the close on the trading day BEFORE
+        ex_date_i, in the same split-adjusted basis as load output.
+
+        Notes:
+          - Bars on or after the ex_date receive factor 1.0 from that
+            event (treated as post-distribution).
+          - Volume is unaffected by distributions.
+          - amount (dollar volume) is unaffected.
+          - If sidecar has no rows for `symbol`, returns df unchanged
+            (legitimate for non-distributing symbols, e.g., GLD).
+          - splits_table_sha mismatch is reported as a one-time warning;
+            not a hard error to avoid mass-failing CLI usage.
+        """
+        divs = self._distributions_for(symbol, as_of=as_of)
+        if divs.empty:
+            return df
+
+        # Invariant check (warn-only)
+        try:
+            current_sha = (
+                hashlib.sha256(self._splits_path().read_bytes()).hexdigest()[:16]
+                if self._splits_path().exists() else "no_splits_table"
+            )
+            stamped = divs["splits_table_sha"].dropna().unique()
+            if len(stamped) > 0 and current_sha not in set(stamped):
+                # Don't spam; print once per process per symbol.
+                attr = f"_distributions_sha_warned_{symbol}"
+                if not getattr(self, attr, False):
+                    print(
+                        f"[BarStore] WARN: distributions.parquet for "
+                        f"{symbol} stamped splits_table_sha={list(stamped)} "
+                        f"but current splits.parquet sha={current_sha}; "
+                        f"distributions sidecar may be stale relative to "
+                        f"current splits — rebuild via "
+                        f"dev/scripts/data_integrity/build_distributions_parquet.py"
+                    )
+                    setattr(self, attr, True)
+        except Exception:
+            pass  # invariant check is non-critical
+
+        # Sort by ex_date ascending; build cumulative product from the right.
+        divs_sorted = divs.sort_values("ex_date").reset_index(drop=True)
+        per_event = divs_sorted["factor"].astype("float64").values
+        # suffix_prod[i] = product of per_event[i:]
+        suffix_prod = np.ones(len(per_event) + 1, dtype="float64")
+        for i in range(len(per_event) - 1, -1, -1):
+            suffix_prod[i] = suffix_prod[i + 1] * per_event[i]
+
+        # For each bar timestamp, factor = product of per_event[j:] where
+        # j = first ex_date > t. Equivalently: count of ex_dates with
+        # ex_date <= t (call it k); factor = suffix_prod[k].
+        idx_times = df.index.normalize().to_numpy(dtype="datetime64[ns]")
+        ex_dates = pd.to_datetime(divs_sorted["ex_date"]).to_numpy(
+            dtype="datetime64[ns]"
+        )
+        # side='right': bar on ex_date → treated as post-distribution
+        # (i.e., that event's factor excluded — bar is in post-div basis
+        # because the close on ex_date is already post-drop).
+        k_arr = np.searchsorted(ex_dates, idx_times, side="right")
+        factors = suffix_prod[k_arr]
+
+        df = df.copy()
+        for col in ("open", "high", "low", "close"):
+            if col in df.columns:
+                df[col] = (df[col].astype("float64") * factors).astype("float32")
+        # volume + amount unaffected by distributions
         return df
 
 

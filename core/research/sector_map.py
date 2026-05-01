@@ -148,8 +148,11 @@ ETF_EXCLUDED_FROM_SECTOR_SELECTION: Set[str] = {
     "SPY", "QQQ",
     # Leveraged (2)
     "TQQQ", "SOXL",
-    # Cross-asset / commodity / fixed-income (5)
-    "GLD", "SLV", "TLT", "IEF", "SHY",
+    # Cross-asset / commodity / fixed-income (8)
+    # Originally 5; cycle #04 cross-asset preflight added BIL, SHV
+    # (T-bill / cash) + USO (oil futures, excluded from cycle #04 per
+    # preflight memo §"USO 单独提示").
+    "GLD", "SLV", "TLT", "IEF", "SHY", "BIL", "SHV", "USO",
 }
 
 

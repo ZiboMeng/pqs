@@ -190,6 +190,219 @@ class TestReverseSplit:
         assert adj["volume"].iloc[0] == 2000  # 10000 / 5
 
 
+# ── distribution back-adjustment (cycle #04 cross-asset preflight) ───────────
+
+
+def _write_distributions(tmp_path: Path, rows: list[dict]) -> None:
+    """Helper: write tmp distributions.parquet."""
+    ref = tmp_path / "ref"
+    ref.mkdir(parents=True, exist_ok=True)
+    if rows:
+        df = pd.DataFrame(rows)
+        df["ex_date"] = pd.to_datetime(df["ex_date"])
+    else:
+        df = pd.DataFrame({
+            "symbol": pd.Series(dtype="string"),
+            "ex_date": pd.Series(dtype="datetime64[ns]"),
+            "cash_amount": pd.Series(dtype="float64"),
+            "ref_close_pre_ex": pd.Series(dtype="float64"),
+            "factor": pd.Series(dtype="float64"),
+            "source": pd.Series(dtype="string"),
+            "pulled_at": pd.Series(dtype="string"),
+            "splits_table_sha": pd.Series(dtype="string"),
+        })
+    df.to_parquet(ref / "distributions.parquet", compression="snappy", index=False)
+
+
+class TestDistributionAdjustment:
+    def test_no_distributions_is_identity(self, tmp_path):
+        """Symbols not in sidecar pass through unchanged when
+        adjusted_total_return=True."""
+        idx = pd.DatetimeIndex(["2020-06-01", "2020-06-02"], name="timestamp")
+        raw = pd.DataFrame({
+            "open":  pd.Series(100.0, index=idx, dtype="float32"),
+            "high":  pd.Series(100.5, index=idx, dtype="float32"),
+            "low":   pd.Series(99.5,  index=idx, dtype="float32"),
+            "close": pd.Series(100.1, index=idx, dtype="float32"),
+            "volume": pd.Series(1000, index=idx, dtype="int64"),
+        })
+        _write_bars(tmp_path, "GLD", "daily", raw)
+        _write_splits(tmp_path, [])
+        _write_distributions(tmp_path, [])  # empty sidecar
+        store = BarStore(tmp_path)
+
+        tr = store.load("GLD", freq="daily", adjusted=True,
+                        adjusted_total_return=True, fallback="local")
+        sa = store.load("GLD", freq="daily", adjusted=True,
+                        adjusted_total_return=False, fallback="local")
+        pd.testing.assert_frame_equal(tr, sa)
+
+    def test_single_future_distribution(self, tmp_path):
+        """One ex-div in the future: pre-ex bar gets factor (1 - X/ref)."""
+        idx = pd.DatetimeIndex(["2020-06-01", "2020-08-01"], name="timestamp")
+        raw = pd.DataFrame({
+            "open":  pd.Series(100.0, index=idx, dtype="float32"),
+            "high":  pd.Series(100.5, index=idx, dtype="float32"),
+            "low":   pd.Series(99.5,  index=idx, dtype="float32"),
+            "close": pd.Series(100.0, index=idx, dtype="float32"),
+            "volume": pd.Series(1000, index=idx, dtype="int64"),
+        })
+        _write_bars(tmp_path, "TLT", "daily", raw)
+        _write_splits(tmp_path, [])
+        # One $1 div on 2020-07-01, ref close = $100 → factor = 0.99
+        _write_distributions(tmp_path, [{
+            "symbol": "TLT", "ex_date": "2020-07-01",
+            "cash_amount": 1.0, "ref_close_pre_ex": 100.0, "factor": 0.99,
+            "source": "test", "pulled_at": "2026-05-01T00:00:00Z",
+            "splits_table_sha": "no_splits_table",
+        }])
+        store = BarStore(tmp_path)
+
+        tr = store.load("TLT", freq="daily", adjusted=True,
+                        adjusted_total_return=True, fallback="local",
+                        as_of=pd.Timestamp("2025-01-01"))
+        # 2020-06-01 (pre-ex): factor = 0.99 → adj_close = 100 × 0.99 = 99.0
+        # 2020-08-01 (post-ex): factor = 1 → adj_close = 100.0
+        assert tr["close"].iloc[0] == pytest.approx(99.0, abs=1e-3)
+        assert tr["close"].iloc[1] == pytest.approx(100.0, abs=1e-3)
+        # Volume unchanged by distributions
+        assert tr["volume"].iloc[0] == 1000
+        assert tr["volume"].iloc[1] == 1000
+
+    def test_multiple_distributions_compound(self, tmp_path):
+        """Multiple ex-divs: factor on pre-event bar = product of factors."""
+        idx = pd.DatetimeIndex(["2020-01-01"], name="timestamp")
+        raw = pd.DataFrame({
+            "open":  pd.Series(100.0, index=idx, dtype="float32"),
+            "high":  pd.Series(100.5, index=idx, dtype="float32"),
+            "low":   pd.Series(99.5,  index=idx, dtype="float32"),
+            "close": pd.Series(100.0, index=idx, dtype="float32"),
+            "volume": pd.Series(1000, index=idx, dtype="int64"),
+        })
+        _write_bars(tmp_path, "TLT", "daily", raw)
+        _write_splits(tmp_path, [])
+        _write_distributions(tmp_path, [
+            {"symbol": "TLT", "ex_date": "2020-06-01", "cash_amount": 1.0,
+             "ref_close_pre_ex": 100.0, "factor": 0.99,
+             "source": "test", "pulled_at": "2026-05-01T00:00:00Z",
+             "splits_table_sha": "no_splits_table"},
+            {"symbol": "TLT", "ex_date": "2020-12-01", "cash_amount": 0.50,
+             "ref_close_pre_ex": 100.0, "factor": 0.995,
+             "source": "test", "pulled_at": "2026-05-01T00:00:00Z",
+             "splits_table_sha": "no_splits_table"},
+        ])
+        store = BarStore(tmp_path)
+
+        tr = store.load("TLT", freq="daily", adjusted=True,
+                        adjusted_total_return=True, fallback="local",
+                        as_of=pd.Timestamp("2025-01-01"))
+        # cumulative factor = 0.99 × 0.995 = 0.98505
+        assert tr["close"].iloc[0] == pytest.approx(100.0 * 0.99 * 0.995, abs=1e-3)
+
+    def test_bar_on_ex_date_is_post_distribution(self, tmp_path):
+        """Bar AT ex_date → post-distribution basis (factor for that
+        event excluded; close on ex_date is already post-drop)."""
+        idx = pd.DatetimeIndex(["2020-07-01"], name="timestamp")
+        raw = pd.DataFrame({
+            "open":  pd.Series(100.0, index=idx, dtype="float32"),
+            "high":  pd.Series(100.5, index=idx, dtype="float32"),
+            "low":   pd.Series(99.5,  index=idx, dtype="float32"),
+            "close": pd.Series(99.0,  index=idx, dtype="float32"),
+            "volume": pd.Series(1000, index=idx, dtype="int64"),
+        })
+        _write_bars(tmp_path, "TLT", "daily", raw)
+        _write_splits(tmp_path, [])
+        _write_distributions(tmp_path, [{
+            "symbol": "TLT", "ex_date": "2020-07-01",
+            "cash_amount": 1.0, "ref_close_pre_ex": 100.0, "factor": 0.99,
+            "source": "test", "pulled_at": "2026-05-01T00:00:00Z",
+            "splits_table_sha": "no_splits_table",
+        }])
+        store = BarStore(tmp_path)
+
+        tr = store.load("TLT", freq="daily", adjusted=True,
+                        adjusted_total_return=True, fallback="local",
+                        as_of=pd.Timestamp("2025-01-01"))
+        # Bar AT ex_date → factor=1 → close stays at 99.0 (post-drop)
+        assert tr["close"].iloc[0] == pytest.approx(99.0, abs=1e-3)
+
+    def test_future_distribution_excluded_by_as_of(self, tmp_path):
+        """as_of < ex_date → distribution not yet visible → factor=1."""
+        idx = pd.DatetimeIndex(["2020-01-01"], name="timestamp")
+        raw = pd.DataFrame({
+            "open":  pd.Series(100.0, index=idx, dtype="float32"),
+            "high":  pd.Series(100.5, index=idx, dtype="float32"),
+            "low":   pd.Series(99.5,  index=idx, dtype="float32"),
+            "close": pd.Series(100.0, index=idx, dtype="float32"),
+            "volume": pd.Series(1000, index=idx, dtype="int64"),
+        })
+        _write_bars(tmp_path, "TLT", "daily", raw)
+        _write_splits(tmp_path, [])
+        _write_distributions(tmp_path, [{
+            "symbol": "TLT", "ex_date": "2020-07-01",
+            "cash_amount": 1.0, "ref_close_pre_ex": 100.0, "factor": 0.99,
+            "source": "test", "pulled_at": "2026-05-01T00:00:00Z",
+            "splits_table_sha": "no_splits_table",
+        }])
+        store = BarStore(tmp_path)
+
+        # Viewing from 2020-03-01 — div hasn't happened yet → factor 1.0
+        tr = store.load("TLT", freq="daily", adjusted=True,
+                        adjusted_total_return=True, fallback="local",
+                        as_of=pd.Timestamp("2020-03-01"))
+        assert tr["close"].iloc[0] == pytest.approx(100.0, abs=1e-3)
+
+    def test_volume_unchanged_by_distributions(self, tmp_path):
+        """Distributions affect price but not volume."""
+        idx = pd.DatetimeIndex(["2020-01-01"], name="timestamp")
+        raw = pd.DataFrame({
+            "open":  pd.Series(100.0, index=idx, dtype="float32"),
+            "high":  pd.Series(100.5, index=idx, dtype="float32"),
+            "low":   pd.Series(99.5,  index=idx, dtype="float32"),
+            "close": pd.Series(100.0, index=idx, dtype="float32"),
+            "volume": pd.Series(5000, index=idx, dtype="int64"),
+        })
+        _write_bars(tmp_path, "TLT", "daily", raw)
+        _write_splits(tmp_path, [])
+        _write_distributions(tmp_path, [{
+            "symbol": "TLT", "ex_date": "2020-06-01",
+            "cash_amount": 5.0, "ref_close_pre_ex": 100.0, "factor": 0.95,
+            "source": "test", "pulled_at": "2026-05-01T00:00:00Z",
+            "splits_table_sha": "no_splits_table",
+        }])
+        store = BarStore(tmp_path)
+
+        tr = store.load("TLT", freq="daily", adjusted=True,
+                        adjusted_total_return=True, fallback="local",
+                        as_of=pd.Timestamp("2025-01-01"))
+        # Price reduced by factor 0.95
+        assert tr["close"].iloc[0] == pytest.approx(95.0, abs=1e-3)
+        # Volume unchanged
+        assert tr["volume"].iloc[0] == 5000
+
+    def test_adjusted_total_return_requires_adjusted_true(self, tmp_path):
+        """adjusted=False + adjusted_total_return=True must raise."""
+        store = BarStore(tmp_path)
+        with pytest.raises(ValueError, match="requires adjusted=True"):
+            store.load("TLT", freq="daily", adjusted=False,
+                       adjusted_total_return=True, fallback="local")
+
+    def test_default_path_unchanged_when_atr_false(self, tmp_path):
+        """Default load(adjusted=True) byte-identical to
+        load(adjusted=True, adjusted_total_return=False) — regression
+        guard for stocks not in the distribution sidecar."""
+        raw = _make_1m_frame("2020-06-01 09:30", 3, price=100.0)
+        _write_bars(tmp_path, "AAPL", "1m", raw)
+        _write_splits(tmp_path, [])
+        # no distributions sidecar at all
+        store = BarStore(tmp_path)
+
+        default = store.load("AAPL", freq="1m", adjusted=True, fallback="local")
+        explicit = store.load("AAPL", freq="1m", adjusted=True,
+                              adjusted_total_return=False, fallback="local")
+        pd.testing.assert_frame_equal(default, explicit)
+
+
 # ── yfinance fallback (mocked) ───────────────────────────────────────────────
 
 class FakeYF:

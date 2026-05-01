@@ -72,7 +72,12 @@ def test_no_extra_symbols_in_map():
     extra_stocks = set(STOCK_SECTOR_MAP) - universe - {"BRK-B"}
     extra_etfs = ETF_EXCLUDED_FROM_SECTOR_SELECTION - universe
     # Intentional ETFs we keep mapped even if not in current universe yaml
-    intentional_extras = {"SLV"}  # cross_asset block sometimes has SLV
+    # SLV: cross_asset block sometimes has SLV (legacy)
+    # BIL/SHV/USO: cycle #04 cross-asset preflight reservations — added
+    #   to the exclusion list before universe.yaml may be re-organized
+    #   to reference them directly. Once cycle #04 yaml lands they
+    #   should appear in universe.yaml `cross_asset` block.
+    intentional_extras = {"SLV", "BIL", "SHV", "USO"}
     extra_etfs -= intentional_extras
     assert not extra_stocks, f"Stale stocks in map: {extra_stocks}"
     assert not extra_etfs, f"Stale ETFs in exclusion list: {extra_etfs}"

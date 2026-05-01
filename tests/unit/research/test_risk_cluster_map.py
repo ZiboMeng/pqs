@@ -156,3 +156,155 @@ def test_all_clusters_returns_canonical_list():
     assert "cyclical_semi" in clusters
     assert "ev_disruptor" in clusters
     assert len(clusters) == 17
+
+
+# ── Cross-asset extension (cycle #04 preflight) ───────────────────────
+
+
+def test_cross_asset_cluster_definitions_complete():
+    """5 cross-asset clusters defined per cycle #04 preflight memo §D5."""
+    from core.research.risk_cluster_map import CROSS_ASSET_CLUSTER_DEFINITIONS
+    assert set(CROSS_ASSET_CLUSTER_DEFINITIONS.keys()) == {
+        "bond_long_duration",
+        "bond_intermediate_duration",
+        "bond_short_duration",
+        "commodity_metals",
+        "cash_anchor",
+    }
+    for name, desc in CROSS_ASSET_CLUSTER_DEFINITIONS.items():
+        assert isinstance(desc, str) and len(desc) > 50, (
+            f"{name} description too short: {desc!r}"
+        )
+
+
+def test_cross_asset_map_covers_6_etfs():
+    """6 cross-asset ETFs mapped; USO deliberately excluded."""
+    from core.research.risk_cluster_map import CROSS_ASSET_RISK_CLUSTER_MAP
+    assert set(CROSS_ASSET_RISK_CLUSTER_MAP.keys()) == {
+        "TLT", "IEF", "SHY", "GLD", "BIL", "SHV",
+    }
+    # USO must NOT be in the map (cycle #04 design exclusion)
+    assert "USO" not in CROSS_ASSET_RISK_CLUSTER_MAP
+
+
+def test_cross_asset_map_assignments():
+    from core.research.risk_cluster_map import CROSS_ASSET_RISK_CLUSTER_MAP
+    assert CROSS_ASSET_RISK_CLUSTER_MAP["TLT"] == "bond_long_duration"
+    assert CROSS_ASSET_RISK_CLUSTER_MAP["IEF"] == "bond_intermediate_duration"
+    assert CROSS_ASSET_RISK_CLUSTER_MAP["SHY"] == "bond_short_duration"
+    assert CROSS_ASSET_RISK_CLUSTER_MAP["GLD"] == "commodity_metals"
+    # BIL + SHV both → cash_anchor (functionally interchangeable)
+    assert CROSS_ASSET_RISK_CLUSTER_MAP["BIL"] == "cash_anchor"
+    assert CROSS_ASSET_RISK_CLUSTER_MAP["SHV"] == "cash_anchor"
+
+
+def test_make_unified_cluster_map_default_is_stocks_only():
+    from core.research.risk_cluster_map import (
+        STOCK_RISK_CLUSTER_MAP, make_unified_cluster_map,
+    )
+    unified = make_unified_cluster_map(include_cross_asset=False)
+    assert unified == STOCK_RISK_CLUSTER_MAP
+    # Must be a copy not a reference (mutation of caller-side
+    # shouldn't poison the canonical dict)
+    unified["NEW_TICKER"] = "synthetic_cluster"
+    assert "NEW_TICKER" not in STOCK_RISK_CLUSTER_MAP
+
+
+def test_make_unified_cluster_map_with_cross_asset_merges_correctly():
+    from core.research.risk_cluster_map import (
+        CROSS_ASSET_RISK_CLUSTER_MAP, STOCK_RISK_CLUSTER_MAP,
+        make_unified_cluster_map,
+    )
+    unified = make_unified_cluster_map(include_cross_asset=True)
+    # All stocks present
+    for sym, clu in STOCK_RISK_CLUSTER_MAP.items():
+        assert unified[sym] == clu
+    # All cross-asset present
+    for sym, clu in CROSS_ASSET_RISK_CLUSTER_MAP.items():
+        assert unified[sym] == clu
+    # No collision (n_stocks + n_cross_asset == total)
+    assert len(unified) == (
+        len(STOCK_RISK_CLUSTER_MAP) + len(CROSS_ASSET_RISK_CLUSTER_MAP)
+    )
+
+
+def test_asset_class_by_cluster_complete():
+    """ASSET_CLASS_BY_CLUSTER covers every cluster (stock + cross-asset)."""
+    from core.research.risk_cluster_map import (
+        ASSET_CLASS_BY_CLUSTER, CLUSTER_DEFINITIONS,
+        CROSS_ASSET_CLUSTER_DEFINITIONS,
+    )
+    expected_clusters = (
+        set(CLUSTER_DEFINITIONS.keys()) | set(CROSS_ASSET_CLUSTER_DEFINITIONS.keys())
+    )
+    assert set(ASSET_CLASS_BY_CLUSTER.keys()) == expected_clusters
+    # Asset class values are the canonical 4
+    valid_classes = {"equities", "bonds", "commodities", "cash_anchor"}
+    for cluster, asset_class in ASSET_CLASS_BY_CLUSTER.items():
+        assert asset_class in valid_classes, (
+            f"{cluster} → {asset_class!r} not in valid classes"
+        )
+
+
+def test_asset_class_by_cluster_assignments():
+    from core.research.risk_cluster_map import ASSET_CLASS_BY_CLUSTER
+    # All 17 stock clusters → equities
+    assert ASSET_CLASS_BY_CLUSTER["mega_cap_platform"] == "equities"
+    assert ASSET_CLASS_BY_CLUSTER["ai_compute_semi"] == "equities"
+    assert ASSET_CLASS_BY_CLUSTER["energy_oilgas"] == "equities"
+    # Cross-asset → respective classes
+    assert ASSET_CLASS_BY_CLUSTER["bond_long_duration"] == "bonds"
+    assert ASSET_CLASS_BY_CLUSTER["bond_intermediate_duration"] == "bonds"
+    assert ASSET_CLASS_BY_CLUSTER["bond_short_duration"] == "bonds"
+    assert ASSET_CLASS_BY_CLUSTER["commodity_metals"] == "commodities"
+    assert ASSET_CLASS_BY_CLUSTER["cash_anchor"] == "cash_anchor"
+
+
+def test_get_asset_class_for_cluster():
+    from core.research.risk_cluster_map import get_asset_class_for_cluster
+    assert get_asset_class_for_cluster("mega_cap_platform") == "equities"
+    assert get_asset_class_for_cluster("bond_long_duration") == "bonds"
+    assert get_asset_class_for_cluster("cash_anchor") == "cash_anchor"
+    with pytest.raises(KeyError, match="Unknown cluster"):
+        get_asset_class_for_cluster("non_existent_cluster")
+
+
+def test_get_asset_class_for_symbol():
+    from core.research.risk_cluster_map import get_asset_class
+    # Stock
+    assert get_asset_class("AAPL") == "equities"
+    assert get_asset_class("NVDA") == "equities"
+    # Cross-asset
+    assert get_asset_class("TLT") == "bonds"
+    assert get_asset_class("GLD") == "commodities"
+    assert get_asset_class("BIL") == "cash_anchor"
+    assert get_asset_class("SHV") == "cash_anchor"
+    # Unknown raises
+    with pytest.raises(KeyError):
+        get_asset_class("NOT_A_REAL_TICKER")
+
+
+def test_uso_excluded_from_cross_asset():
+    """USO must NOT be eligible for cycle #04 (per preflight memo)."""
+    from core.research.risk_cluster_map import (
+        CROSS_ASSET_RISK_CLUSTER_MAP, make_unified_cluster_map,
+    )
+    assert "USO" not in CROSS_ASSET_RISK_CLUSTER_MAP
+    unified = make_unified_cluster_map(include_cross_asset=True)
+    assert "USO" not in unified
+    # USO also not eligible for legacy stocks-only behavior
+    from core.research.risk_cluster_map import is_eligible_for_cluster_selection
+    assert is_eligible_for_cluster_selection("USO") is False
+
+
+def test_cross_asset_unified_22_clusters_total():
+    """Cycle #04 universe: 17 stock clusters + 5 cross-asset = 22 total."""
+    from core.research.risk_cluster_map import (
+        CLUSTER_DEFINITIONS, CROSS_ASSET_CLUSTER_DEFINITIONS,
+    )
+    total_clusters = (
+        set(CLUSTER_DEFINITIONS.keys()) | set(CROSS_ASSET_CLUSTER_DEFINITIONS.keys())
+    )
+    assert len(total_clusters) == 22, (
+        f"Expected 22 clusters total (17 stock + 5 cross-asset), got {len(total_clusters)}"
+    )

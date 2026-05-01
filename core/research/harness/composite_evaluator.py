@@ -131,8 +131,18 @@ def topn_signals_with_caps(
     cluster_cap: float,
     max_single_weight: float,
     min_holding_days: int = 1,
+    asset_class_map: Optional[Dict[str, str]] = None,
+    asset_class_caps: Optional[Dict[str, float]] = None,
 ) -> pd.DataFrame:
     """Cap-aware selection: greedy by composite score with cluster + single-name caps.
+
+    Optional second-layer asset_class caps (cycle #04 cross-asset preflight):
+    if both ``asset_class_map`` and ``asset_class_caps`` are provided, each
+    candidate is also rejected if adding it would push its asset_class total
+    weight past the corresponding cap. Asset_class caps trigger BEFORE
+    cluster caps (asset_class is the broader bucket; failing asset_class
+    means failing cluster automatically). When omitted (cycle #03 default
+    behavior), no asset_class layer is enforced.
 
     At each rebalance date:
       1. Score row restricted to symbols in ``cluster_map`` (ETFs and
@@ -142,6 +152,9 @@ def topn_signals_with_caps(
       3. Walk top-down. For each candidate symbol:
          - reject if adding it would push its cluster's total weight
            past ``cluster_cap``;
+         - reject if its asset_class total weight would exceed
+           ``asset_class_caps[asset_class]`` (only when both
+           ``asset_class_map`` and ``asset_class_caps`` provided);
          - reject if individual weight (= 1/target_n_picks at this stage)
            exceeds ``max_single_weight``.
       4. Stop once ``target_n_picks`` accepted, or eligible exhausted.
@@ -198,6 +211,28 @@ def topn_signals_with_caps(
             f"increase target_n_picks or relax max_single_weight"
         )
 
+    # Asset-class caps: optional second-layer constraint. Both map +
+    # caps must be provided (or both omitted). Validate consistency.
+    use_asset_class_caps = (
+        asset_class_map is not None and asset_class_caps is not None
+    )
+    if (asset_class_map is None) != (asset_class_caps is None):
+        raise ValueError(
+            "asset_class_map and asset_class_caps must be provided together "
+            "or both omitted; got map="
+            f"{asset_class_map is not None} caps={asset_class_caps is not None}"
+        )
+    if use_asset_class_caps:
+        for ac, cap in asset_class_caps.items():
+            if not (0 < cap <= 1.0):
+                raise ValueError(
+                    f"asset_class_caps[{ac!r}]={cap} must be in (0, 1]"
+                )
+        # Every cluster_map symbol's asset_class must be representable.
+        # We only need asset_class for symbols in cluster_map (the
+        # eligible universe); missing entries fail-closed at selection
+        # time below.
+
     eligible_cols = [c for c in composite.columns if c in cluster_map]
     if not eligible_cols:
         raise ValueError(
@@ -228,15 +263,33 @@ def topn_signals_with_caps(
         sorted_idx = scores.sort_values(ascending=False).index
         picks: List[str] = []
         cluster_used: Dict[str, float] = {}
+        ac_used: Dict[str, float] = {}  # asset_class → cumulative weight
 
         for sym in sorted_idx:
             if len(picks) >= target_n_picks:
                 break
             clu = cluster_map[sym]
+            # Asset-class layer (broader bucket; check first).
+            if use_asset_class_caps:
+                if sym not in asset_class_map:
+                    # Fail-closed: cluster_map says sym is eligible but
+                    # asset_class_map doesn't classify it. Skip to avoid
+                    # silently violating the asset-class cap.
+                    continue
+                ac = asset_class_map[sym]
+                if ac not in asset_class_caps:
+                    # Asset class declared on sym but no cap → fail-closed
+                    continue
+                if ac_used.get(ac, 0.0) + weight_per_pick > asset_class_caps[ac] + _eps:
+                    continue
+            # Cluster layer.
             if cluster_used.get(clu, 0.0) + weight_per_pick > cluster_cap + _eps:
                 continue
             picks.append(sym)
             cluster_used[clu] = cluster_used.get(clu, 0.0) + weight_per_pick
+            if use_asset_class_caps:
+                ac = asset_class_map[sym]
+                ac_used[ac] = ac_used.get(ac, 0.0) + weight_per_pick
 
         if not picks:
             signals.loc[date] = last_selection.values
@@ -320,7 +373,7 @@ def _residual_pair_corr(a: pd.Series, b: pd.Series, bench: pd.Series) -> float:
 # ── Configuration + Result dataclasses ──────────────────────────────────────
 
 
-_VALID_CONSTRUCTION_MODES = ("global_top_n", "cap_aware")
+_VALID_CONSTRUCTION_MODES = ("global_top_n", "cap_aware", "cap_aware_cross_asset")
 
 
 @dataclass(frozen=True)
@@ -333,16 +386,30 @@ class HarnessConfig:
       - 'cap_aware': cycle #03+ path. Greedy by composite score with
         cluster_cap + max_single_weight binding. Forces ≥ ceil(1 /
         cluster_cap) clusters to contribute. Requires cluster_map.
+      - 'cap_aware_cross_asset': cycle #04+ path. Same as 'cap_aware'
+        plus a second-layer asset_class_caps constraint binding bonds /
+        commodities / cash_anchor / equities exposure. Requires both
+        cluster_map AND asset_class_map AND asset_class_caps. Used with
+        ``make_unified_cluster_map(include_cross_asset=True)`` and
+        ``ASSET_CLASS_BY_CLUSTER`` from ``core.research.risk_cluster_map``.
 
     rebalance_cadence: one of 'monthly' | 'weekly' | 'daily'.
-    top_n: under 'global_top_n' mode = picks held; under 'cap_aware'
+    top_n: under 'global_top_n' mode = picks held; under 'cap_aware*'
       = target_n_picks (greedy stops at this many).
-    cluster_map: REQUIRED when construction_mode='cap_aware'. Pass
-      ``core.research.risk_cluster_map.STOCK_RISK_CLUSTER_MAP``.
+    cluster_map: REQUIRED when construction_mode in {'cap_aware',
+      'cap_aware_cross_asset'}.
     cluster_cap: max portfolio weight per cluster (e.g. 0.20 = 20%).
-      Only used in 'cap_aware' mode.
+      Only used in cap_aware* modes.
     max_single_weight: max portfolio weight per name (e.g. 0.10).
-      Only used in 'cap_aware' mode.
+      Only used in cap_aware* modes.
+    asset_class_map: REQUIRED when construction_mode='cap_aware_cross_asset'.
+      Maps each symbol → asset_class string (one of 'equities' | 'bonds' |
+      'commodities' | 'cash_anchor'). Build via
+      ``{sym: get_asset_class(sym) for sym in cluster_map}``.
+    asset_class_caps: REQUIRED when construction_mode='cap_aware_cross_asset'.
+      Maps asset_class string → max portfolio weight cap. Cycle #04 default
+      from preflight: equities=0.70, bonds=0.40, commodities=0.20,
+      cash_anchor=0.30.
     min_holding_days: min trading days between rebalances.
     horizon_days: mining forward-return horizon (NOT used by harness;
       recorded for evidence pack).
@@ -356,6 +423,8 @@ class HarnessConfig:
     cluster_map: Optional[Dict[str, str]] = None
     cluster_cap: float = 0.20
     max_single_weight: float = 0.10
+    asset_class_map: Optional[Dict[str, str]] = None
+    asset_class_caps: Optional[Dict[str, float]] = None
     min_holding_days: int = 1
     horizon_days: int = 21
     initial_capital: float = 100_000.0
@@ -387,14 +456,35 @@ class HarnessConfig:
             raise ValueError(f"horizon_days must be ≥ 1, got {self.horizon_days}")
         if self.initial_capital <= 0:
             raise ValueError(f"initial_capital must be > 0, got {self.initial_capital}")
-        if self.construction_mode == "cap_aware" and self.cluster_map is None:
+        if (
+            self.construction_mode in ("cap_aware", "cap_aware_cross_asset")
+            and self.cluster_map is None
+        ):
             raise ValueError(
-                "construction_mode='cap_aware' requires cluster_map "
-                "(pass core.research.risk_cluster_map.STOCK_RISK_CLUSTER_MAP)"
+                f"construction_mode={self.construction_mode!r} requires "
+                f"cluster_map (pass core.research.risk_cluster_map."
+                f"STOCK_RISK_CLUSTER_MAP for cap_aware, or "
+                f"make_unified_cluster_map(include_cross_asset=True) for "
+                f"cap_aware_cross_asset)"
             )
+        if self.construction_mode == "cap_aware_cross_asset":
+            if self.asset_class_map is None or self.asset_class_caps is None:
+                raise ValueError(
+                    "construction_mode='cap_aware_cross_asset' requires "
+                    "BOTH asset_class_map and asset_class_caps; got "
+                    f"map={self.asset_class_map is not None} "
+                    f"caps={self.asset_class_caps is not None}"
+                )
+            valid_classes = {"equities", "bonds", "commodities", "cash_anchor"}
+            unknown = set(self.asset_class_caps.keys()) - valid_classes
+            if unknown:
+                raise ValueError(
+                    f"asset_class_caps has unknown classes: {unknown}; "
+                    f"valid: {valid_classes}"
+                )
         # weight_per_pick floor check (catches "target_n_picks=5,
         # max_single_weight=0.10" → 0.20 > 0.10 invalid)
-        if self.construction_mode == "cap_aware":
+        if self.construction_mode in ("cap_aware", "cap_aware_cross_asset"):
             wpp = 1.0 / self.top_n
             if wpp > self.max_single_weight + 1e-12:
                 raise ValueError(
@@ -515,6 +605,17 @@ def evaluate_composite_spec(
             cluster_cap=cfg.cluster_cap,
             max_single_weight=cfg.max_single_weight,
             min_holding_days=cfg.min_holding_days,
+        )
+    elif cfg.construction_mode == "cap_aware_cross_asset":
+        signals = topn_signals_with_caps(
+            composite, mask,
+            target_n_picks=cfg.top_n,
+            cluster_map=cfg.cluster_map,
+            cluster_cap=cfg.cluster_cap,
+            max_single_weight=cfg.max_single_weight,
+            min_holding_days=cfg.min_holding_days,
+            asset_class_map=cfg.asset_class_map,
+            asset_class_caps=cfg.asset_class_caps,
         )
     else:  # global_top_n (default; cycle #01+#02 path)
         signals = topn_signals_from_composite(
