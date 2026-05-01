@@ -44,6 +44,7 @@ from core.research.temporal_split import (
     compute_split_sha256,
     ensure_role_assigned,
     load_temporal_split,
+    purge_labels_at_boundary,
     restrict_frames_to_train,
     validate_no_holdout_leakage,
 )
@@ -120,8 +121,20 @@ def _load_price_volume(
 
 def _build_factor_panel_map(
     frames: dict, tradable: list[str], horizon: int = 21,
+    split_cfg=None,
 ) -> tuple[dict[str, pd.DataFrame], pd.DataFrame, pd.DataFrame, int]:
     """Generate factor panels + forward returns + research mask.
+
+    When ``split_cfg`` is provided, forward-return labels whose horizon
+    window crosses a partition boundary (train ↔ validation ↔ sealed)
+    are set to NaN via ``purge_labels_at_boundary`` (M4, financial-ML
+    purging rule). This is required for non-contiguous train panels:
+    e.g. with train_years = 2009-2017+2020+2022+2024, the row 2017-12-29
+    in a train-restricted panel would otherwise carry a fwd_return
+    computed across the 2018+2019 validation gap to 2020-01-08, which
+    is methodologically meaningless for IC purposes (no leak — both
+    endpoints are train data — but the value matches a 2-year-and-10-day
+    return to a 5-day-horizon position label).
 
     Returns (factor_panel_map, fwd_returns_<horizon>d, mask, n_masked_out)
     """
@@ -157,6 +170,13 @@ def _build_factor_panel_map(
     # Forward returns: `horizon`-day CC return (default 21d = medium-term)
     fwd_all = compute_forward_returns(close, horizons=[horizon], mode="cc")
     fwd_h = fwd_all[horizon]
+
+    # M4 (cycle #02 audit fix 2026-04-30): purge cross-boundary labels.
+    # config/temporal_split.yaml has purge_at_split_boundary=true, but
+    # pre-fix the miner script never invoked the function. See
+    # docs/memos/20260430-cycle02_data_isolation_audit.md §1B-9.
+    if split_cfg is not None:
+        fwd_h = purge_labels_at_boundary(fwd_h, split_cfg)
 
     n_masked_out = None
     if mask is not None:
@@ -506,8 +526,14 @@ def main() -> int:
 
     logger.info("Generating factors (this takes 1-2 min)...")
     panel_map, fwd_h, mask, n_masked = _build_factor_panel_map(
-        frames, tradable, horizon=args.horizon,
+        frames, tradable, horizon=args.horizon, split_cfg=split_cfg,
     )
+    if split_cfg is not None:
+        logger.info(
+            "purge_labels_at_boundary: applied (split=%s, horizon_max=%dd)",
+            split_cfg.split_name,
+            split_cfg.acceptance.purge_rules.label_horizon_days_max,
+        )
     # A++ patch 2026-04-30: select family list per factor_registry_pool
     # contract. None → FAMILIES_V1 (legacy, 33 factors). Cycle 2026-04-30
     # #01 yaml asserts RESEARCH_FACTORS → FAMILIES_V2 (64 factors).

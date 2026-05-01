@@ -210,3 +210,98 @@ def test_end_date_and_drop_symbols_compose():
 
     assert "BRK-B" not in out["close"].columns
     assert out["close"].index.max() <= pd.Timestamp("2023-12-31")
+
+
+# ── purge_labels_at_boundary integration (cycle #02 audit fix 2026-04-30) ──
+
+
+def _build_split_cfg_for_purge_test():
+    """Mini split config matching the audit-fix scenario: train years
+    2009-2017+2020+2022+2024 with validation 2018/2019/2021/2023/2025
+    (alternating regime). Forces non-contiguous train segments so
+    fwd_returns near segment boundaries fall across calendar gaps.
+    """
+    from core.research.temporal_split import load_temporal_split
+    return load_temporal_split(ROOT / "config" / "temporal_split.yaml")
+
+
+def test_build_factor_panel_map_purges_cross_boundary_fwd_returns():
+    """When split_cfg is provided and train years are non-contiguous
+    (2009-2017+2020+2022+2024), forward-return labels at the LAST DAY
+    of a train segment must be NaN'd out by purge_labels_at_boundary.
+
+    Pre-fix (cycle #02 audit): the miner script never invoked
+    purge_labels_at_boundary, so e.g. row 2017-12-29 carried a
+    non-NaN fwd_return that spanned the 2018-2019 validation gap to
+    a 2020-01-08 close.
+
+    Post-fix: that row's fwd_return is NaN, signaling no IC contribution
+    from gap-spanning labels.
+    """
+    mod = _load_runner_module()
+    syms = ["AAA", "BBB", "SPY", "QQQ"]
+    # Use only train years for the synthetic panel to mimic
+    # post-restrict_frames_to_train state.
+    train_dates = pd.bdate_range("2009-01-02", "2017-12-29").union(
+        pd.bdate_range("2020-01-02", "2020-12-31")
+    ).union(pd.bdate_range("2022-01-03", "2022-12-30")).union(
+        pd.bdate_range("2024-01-02", "2024-12-31"))
+
+    rng = pd.RangeIndex(len(train_dates))
+    df = pd.DataFrame(
+        {sym: 100.0 + rng for sym in syms},
+        index=train_dates,
+    )
+    frames = {
+        "close": df, "open": df, "high": df * 1.01,
+        "low": df * 0.99, "volume": pd.DataFrame(
+            {sym: 1_000_000 for sym in syms}, index=train_dates,
+        ),
+    }
+    split_cfg = _build_split_cfg_for_purge_test()
+    panel_map, fwd_h, mask, _ = mod._build_factor_panel_map(
+        frames, syms, horizon=5, split_cfg=split_cfg,
+    )
+
+    # Last day of 2017 train segment: forward window crosses into
+    # validation 2018 → row should be NaN-purged
+    last_2017 = pd.Timestamp("2017-12-29")
+    assert last_2017 in fwd_h.index
+    assert fwd_h.loc[last_2017].isna().all(), (
+        f"fwd_h at {last_2017} must be NaN (window crosses validation 2018) "
+        f"but got {fwd_h.loc[last_2017].tolist()}"
+    )
+
+    # Mid-2015 deep in train → forward window stays in train → not purged
+    mid_2015 = pd.Timestamp("2015-06-15")
+    if mid_2015 in fwd_h.index:
+        assert not fwd_h.loc[mid_2015].isna().all(), (
+            f"fwd_h at {mid_2015} should NOT be all-NaN (deep in train)"
+        )
+
+
+def test_build_factor_panel_map_no_purge_when_split_cfg_none():
+    """When split_cfg is None (no temporal-split mode), purge is a
+    no-op — fwd_h matches pre-fix behavior so legacy non-split runs
+    are unchanged."""
+    mod = _load_runner_module()
+    syms = ["AAA", "SPY"]
+    idx = pd.bdate_range("2020-01-02", "2024-12-31")
+    df = pd.DataFrame({sym: 100.0 + pd.RangeIndex(len(idx)) for sym in syms},
+                       index=idx)
+    frames = {
+        "close": df, "open": df, "high": df * 1.01,
+        "low": df * 0.99, "volume": pd.DataFrame(
+            {sym: 1_000_000 for sym in syms}, index=idx),
+    }
+    panel_map, fwd_h, mask, _ = mod._build_factor_panel_map(
+        frames, syms, horizon=5, split_cfg=None,
+    )
+    # Standard fwd_h: only the LAST 5 rows should be NaN (no future bars)
+    last_5 = fwd_h.tail(5)
+    earlier = fwd_h.iloc[:-10]
+    assert last_5.isna().all().all(), "tail rows should be NaN (no future)"
+    # Some earlier rows should be finite (no purge applied)
+    assert earlier.notna().any().any(), (
+        "without split_cfg, mid-panel fwd_returns should be finite"
+    )
