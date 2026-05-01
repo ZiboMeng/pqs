@@ -281,6 +281,7 @@ def evaluate_composite_spec(
     config: Optional[HarnessConfig] = None,
     validation_years: Optional[List[int]] = None,
     stress_slices: Optional[Dict[str, tuple[str, str]]] = None,
+    research_mask: Optional[pd.DataFrame] = None,
 ) -> EvaluatedComposite:
     """Evaluate a research composite spec end-to-end.
 
@@ -324,6 +325,16 @@ def evaluate_composite_spec(
     composite = build_composite_series(spec, factor_panel_map)
     if composite.empty:
         raise ValueError("composite series is empty; check spec features and panel map")
+
+    # Apply research_mask if provided. This matches the paper-candidate
+    # code path (`scripts/run_paper_candidate.py::_compute_composite_signal`)
+    # which masks the composite AFTER weighted-zscore aggregation but
+    # BEFORE top-N selection. Without this, harness-vs-paper composite
+    # signals diverge on dates+symbols where research_mask=False (e.g.,
+    # thin-data or low-volume cells).
+    if research_mask is not None:
+        from core.factors.base_masks import apply_research_mask
+        composite = apply_research_mask(composite, research_mask)
 
     # 2) Construct rebalance mask + top-N signals
     mask = rebalance_mask(composite.index, cadence=cfg.rebalance_cadence)
