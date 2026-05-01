@@ -19,12 +19,13 @@
       60
     ]
   },
-  "current_status": "in_progress",
+  "current_status": "aborted",
   "data_integrity_snapshot": {
     "daily_store_rebuild_commit": "f170b0c00000",
     "baseline_snapshot_path": "data/baseline/latest.json",
     "generated_at_utc": "2026-04-26T03:08:41.492653Z"
   },
+  "config_snapshot": null,
   "runs": [
     {
       "checkpoint_label": "TD001",
@@ -45,7 +46,8 @@
       "bar_hash_inputs": null,
       "source_layer_breakdown": null,
       "data_revision_event": null,
-      "held_today_weights": null
+      "held_today_weights": null,
+      "config_drift_event": null
     },
     {
       "checkpoint_label": "TD002",
@@ -886,7 +888,22 @@
           "mixed_n_symbols": 1
         }
       },
-      "data_revision_event": null,
+      "data_revision_event": {
+        "detected_at_utc": "2026-04-30T23:57:05.758304Z",
+        "revised_symbols": [],
+        "detected_by_run_label": "observe@2026-04-30T23:57:05+00:00",
+        "delta_summary": "scopes=['signal_input']; n_revised_cells=0; materiality_class=bound_only; triggers=['bound_only (signal_input scope diff with empty per_cell_digest (track_per_cell=False) \u2014 cannot prove diff is subset of execution_nav-anchored cells; conservative bound_only per PRD \u00a74.4 (codex Round-10 Blocker 2))']",
+        "estimated_nav_impact_bps": null,
+        "estimated_cum_ret_drift_bps": null,
+        "estimated_vs_spy_drift_bps": null,
+        "estimated_vs_qqq_drift_bps": null,
+        "decision_sign_flip": false,
+        "raw_max_close_drift_pct": null,
+        "affected_scopes": [
+          "signal_input"
+        ],
+        "policy_decision": "invalidated"
+      },
       "held_today_weights": {
         "SOXL": 0.1,
         "KLAC": 0.1,
@@ -898,7 +915,8 @@
         "MTUM": 0.1,
         "QUAL": 0.1,
         "VLUE": 0.1
-      }
+      },
+      "config_drift_event": null
     },
     {
       "checkpoint_label": "TD003",
@@ -1789,7 +1807,38 @@
           "mixed_n_symbols": 1
         }
       },
-      "data_revision_event": null,
+      "data_revision_event": {
+        "detected_at_utc": "2026-04-30T23:57:05.932200Z",
+        "revised_symbols": [
+          "BKNG",
+          "CLX",
+          "KLAC",
+          "MTUM",
+          "MU",
+          "QQQ",
+          "QUAL",
+          "SOXL",
+          "SPY",
+          "TER",
+          "TKO",
+          "TT",
+          "VLUE"
+        ],
+        "detected_by_run_label": "observe@2026-04-30T23:57:05+00:00",
+        "delta_summary": "scopes=['benchmark', 'execution_nav', 'signal_input']; n_revised_cells=16; materiality_class=bound_only; triggers=['bound_only (signal_input scope diff with empty per_cell_digest (track_per_cell=False) \u2014 cannot prove diff is subset of execution_nav-anchored cells; conservative bound_only per PRD \u00a74.4 (codex Round-10 Blocker 2))', 'E1 NAV 108.38 bps', 'E2/E3 cum_ret 108.38 bps', 'E2/E3 vs_qqq 37.96 bps', 'E5 raw drift 2.416%']",
+        "estimated_nav_impact_bps": null,
+        "estimated_cum_ret_drift_bps": 108.3813,
+        "estimated_vs_spy_drift_bps": 21.2906,
+        "estimated_vs_qqq_drift_bps": 37.958,
+        "decision_sign_flip": false,
+        "raw_max_close_drift_pct": 0.024165,
+        "affected_scopes": [
+          "benchmark",
+          "execution_nav",
+          "signal_input"
+        ],
+        "policy_decision": "invalidated"
+      },
       "held_today_weights": {
         "SOXL": 0.1,
         "CLX": 0.1,
@@ -1801,7 +1850,30 @@
         "MTUM": 0.1,
         "QUAL": 0.1,
         "VLUE": 0.1
-      }
+      },
+      "config_drift_event": null
+    },
+    {
+      "checkpoint_label": "DECIDE",
+      "as_of_date": "2026-04-28",
+      "n_observed_trading_days": 3,
+      "cum_ret": null,
+      "sharpe": null,
+      "max_dd": null,
+      "vs_spy": null,
+      "vs_qqq": null,
+      "notes": "decide=aborted: Aborted 2026-04-30 after material data revision (108 bps NAV drift, 2.42% raw drift across 13 held-eligible symbols incl. SPY+QQQ; F-PRD v2.1 \u00a74.4 fail-closed). Candidate is legacy decay verification only (post-G2.A reclassification per priority_realign_alpha_first.md); will not enter fleet under new framework. Cycle #01 closeout (track_c_cycle_2026-04-30-01_close.md) confirmed construction-collapse hypothesis: candidate is structural sibling of any defensive low-beta composite. Forward observation has no further evaluation value. Pre-A++ cycle #01 + post-A++ cycle #01 + 4-day fwd_obs all converge on same conclusion. Re-opening requires new candidate_id under new lineage.",
+      "source_mix": null,
+      "legacy_unhashed_inputs": null,
+      "signal_input_hash": null,
+      "execution_nav_hash": null,
+      "benchmark_hash": null,
+      "bar_hash": null,
+      "bar_hash_inputs": null,
+      "source_layer_breakdown": null,
+      "data_revision_event": null,
+      "held_today_weights": null,
+      "config_drift_event": null
     }
   ]
 }

@@ -19,12 +19,13 @@
       60
     ]
   },
-  "current_status": "in_progress",
+  "current_status": "aborted",
   "data_integrity_snapshot": {
     "daily_store_rebuild_commit": "f170b0c00000",
     "baseline_snapshot_path": "data/baseline/latest.json",
     "generated_at_utc": "2026-04-26T03:33:41.492542Z"
   },
+  "config_snapshot": null,
   "runs": [
     {
       "checkpoint_label": "TD001",
@@ -45,7 +46,8 @@
       "bar_hash_inputs": null,
       "source_layer_breakdown": null,
       "data_revision_event": null,
-      "held_today_weights": null
+      "held_today_weights": null,
+      "config_drift_event": null
     },
     {
       "checkpoint_label": "TD002",
@@ -1046,7 +1048,22 @@
           "mixed_n_symbols": 1
         }
       },
-      "data_revision_event": null,
+      "data_revision_event": {
+        "detected_at_utc": "2026-04-30T23:57:07.876074Z",
+        "revised_symbols": [],
+        "detected_by_run_label": "observe@2026-04-30T23:57:07+00:00",
+        "delta_summary": "scopes=['signal_input']; n_revised_cells=0; materiality_class=bound_only; triggers=['bound_only (signal_input scope diff with empty per_cell_digest (track_per_cell=False) \u2014 cannot prove diff is subset of execution_nav-anchored cells; conservative bound_only per PRD \u00a74.4 (codex Round-10 Blocker 2))']",
+        "estimated_nav_impact_bps": null,
+        "estimated_cum_ret_drift_bps": null,
+        "estimated_vs_spy_drift_bps": null,
+        "estimated_vs_qqq_drift_bps": null,
+        "decision_sign_flip": false,
+        "raw_max_close_drift_pct": null,
+        "affected_scopes": [
+          "signal_input"
+        ],
+        "policy_decision": "invalidated"
+      },
       "held_today_weights": {
         "GOOGL": 0.1,
         "NVDA": 0.1,
@@ -1058,7 +1075,8 @@
         "MU": 0.1,
         "TER": 0.1,
         "TXN": 0.1
-      }
+      },
+      "config_drift_event": null
     },
     {
       "checkpoint_label": "TD003",
@@ -2121,7 +2139,41 @@
           "mixed_n_symbols": 1
         }
       },
-      "data_revision_event": null,
+      "data_revision_event": {
+        "detected_at_utc": "2026-04-30T23:57:08.018693Z",
+        "revised_symbols": [
+          "AVGO",
+          "CAT",
+          "COP",
+          "GOOGL",
+          "KLAC",
+          "LRCX",
+          "MU",
+          "NVDA",
+          "PWR",
+          "QQQ",
+          "SOXL",
+          "SPY",
+          "TER",
+          "TRGP",
+          "TXN",
+          "UNH"
+        ],
+        "detected_by_run_label": "observe@2026-04-30T23:57:07+00:00",
+        "delta_summary": "scopes=['benchmark', 'execution_nav', 'signal_input']; n_revised_cells=21; materiality_class=bound_only; triggers=['bound_only (signal_input scope diff with empty per_cell_digest (track_per_cell=False) \u2014 cannot prove diff is subset of execution_nav-anchored cells; conservative bound_only per PRD \u00a74.4 (codex Round-10 Blocker 2))', 'E1 NAV 101.80 bps', 'E2/E3 cum_ret 101.80 bps', 'E2/E3 vs_qqq 37.96 bps', 'E5 raw drift 2.416%']",
+        "estimated_nav_impact_bps": null,
+        "estimated_cum_ret_drift_bps": 101.8019,
+        "estimated_vs_spy_drift_bps": 21.2906,
+        "estimated_vs_qqq_drift_bps": 37.958,
+        "decision_sign_flip": false,
+        "raw_max_close_drift_pct": 0.024165,
+        "affected_scopes": [
+          "benchmark",
+          "execution_nav",
+          "signal_input"
+        ],
+        "policy_decision": "invalidated"
+      },
       "held_today_weights": {
         "SOXL": 0.1,
         "PWR": 0.1,
@@ -2133,7 +2185,30 @@
         "TRGP": 0.1,
         "TXN": 0.1,
         "UNH": 0.1
-      }
+      },
+      "config_drift_event": null
+    },
+    {
+      "checkpoint_label": "DECIDE",
+      "as_of_date": "2026-04-28",
+      "n_observed_trading_days": 3,
+      "cum_ret": null,
+      "sharpe": null,
+      "max_dd": null,
+      "vs_spy": null,
+      "vs_qqq": null,
+      "notes": "decide=aborted: Aborted 2026-04-30 after material data revision (108 bps NAV drift, 2.42% raw drift across 16 held-eligible symbols incl. SPY+QQQ; F-PRD v2.1 \u00a74.4 fail-closed). Candidate is legacy decay verification only (post-G2.A reclassification per priority_realign_alpha_first.md); 'orthogonal' label retracted at NAV level (raw NAV correlation 0.898 vs RCMv1 per rcmv1_cand2_realized_correlation.md). Will not enter fleet under new framework. Cycle #01 closeout confirmed construction-collapse hypothesis. Forward observation has no further evaluation value. Re-opening requires new candidate_id under new lineage.",
+      "source_mix": null,
+      "legacy_unhashed_inputs": null,
+      "signal_input_hash": null,
+      "execution_nav_hash": null,
+      "benchmark_hash": null,
+      "bar_hash": null,
+      "bar_hash_inputs": null,
+      "source_layer_breakdown": null,
+      "data_revision_event": null,
+      "held_today_weights": null,
+      "config_drift_event": null
     }
   ]
 }
