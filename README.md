@@ -411,11 +411,14 @@ pqs/
 │   │   ├── concentration/       - M12 concentration gate (top1 / top3 / watchlist exposure / weighted thin-data)
 │   │   ├── forward/             - forward OOS runner / manifest_schema / revalidate (PRD F + v2.1.3 hardening)
 │   │   ├── robustness/          - window_spec / EvidenceClass enum
-│   │   ├── temporal_split.py    - Track A alternating_regime_holdout_v1 split loader
+│   │   ├── temporal_split.py    - Track A alternating_regime_holdout_v1 split loader (+ partition_for_role miner/selector/sealed_test_runner)
 │   │   ├── temporal_split_acceptance.py - Track A 17-gate acceptance evaluator
 │   │   ├── sealed_ledger.py     - 2026 sealed-eval ledger (M5 fail_closed_on_repeat + R20 split-failure guard)
 │   │   ├── regime_classifier.py - M9 manual + auto regime tag (tiered disagreement policy)
 │   │   ├── frozen_spec.py       - FrozenStrategySpec loader (research_candidates yaml)
+│   │   ├── risk_cluster_map.py  - 17 trade-level risk clusters (54 stocks; cycle #03+ cap_aware construction)
+│   │   ├── sector_map.py        - GICS-11 stock→sector map (54 stocks; concentration reporting)
+│   │   ├── harness/             - per-trial composite-spec → paper-NAV evaluator (HarnessConfig: global_top_n / cap_aware modes)
 │   │   └── ...
 │   ├── portfolio/               - PortfolioConstructor
 │   ├── execution/               - CostModel / ExecutionSimulator / BrokerAdapter
