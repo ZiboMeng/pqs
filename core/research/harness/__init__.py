@@ -41,6 +41,7 @@ from .composite_evaluator import (
     evaluate_composite_spec,
     rebalance_mask,
     topn_signals_from_composite,
+    topn_signals_with_caps,
 )
 
 __all__ = [
@@ -49,4 +50,5 @@ __all__ = [
     "evaluate_composite_spec",
     "rebalance_mask",
     "topn_signals_from_composite",
+    "topn_signals_with_caps",
 ]

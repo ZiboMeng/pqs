@@ -514,3 +514,175 @@ def test_evaluate_composite_spec_no_benchmark_omits_correlation_keys():
     # Full-period metrics still present (just no vs_spy/vs_qqq)
     assert "cum_ret" in result.metrics_full_period
     assert "sharpe" in result.metrics_full_period
+
+
+# ── topn_signals_with_caps + cap_aware mode (cycle #03) ──────────────
+
+
+def test_topn_signals_with_caps_basic_diversification():
+    """Cap-aware selection forces structural diversity. With cluster_cap
+    = 0.20 and target_n_picks=10 (weight_per_pick=0.10), max 2 picks
+    per cluster → if a single cluster has top-5 scores, only 2 get
+    picked, the other 3 are skipped, picks come from other clusters."""
+    from core.research.harness import topn_signals_with_caps
+
+    dates = pd.bdate_range("2020-01-02", periods=20)
+    syms = [f"S{i}" for i in range(20)]
+    # Make S0..S4 the highest-scoring (descending), all in cluster 'A'.
+    # S5..S9 in cluster 'B', S10..S14 in 'C', S15..S19 in 'D'.
+    cluster_map = {}
+    for i in range(20):
+        if i < 5:    cluster_map[f"S{i}"] = "A"
+        elif i < 10: cluster_map[f"S{i}"] = "B"
+        elif i < 15: cluster_map[f"S{i}"] = "C"
+        else:        cluster_map[f"S{i}"] = "D"
+
+    composite = pd.DataFrame(
+        {sym: 20 - i for i, sym in enumerate(syms)},
+        index=dates,
+    )
+    rmask = pd.Series(False, index=dates)
+    rmask.iloc[0] = True
+
+    signals = topn_signals_with_caps(
+        composite, rmask,
+        target_n_picks=10,
+        cluster_map=cluster_map,
+        cluster_cap=0.20,           # max 2 picks per cluster
+        max_single_weight=0.10,
+    )
+
+    picked = signals.iloc[0]
+    picked_nz = picked[picked > 0]
+    # Cluster cap binding: max 2 per cluster
+    cluster_count = {}
+    for s in picked_nz.index:
+        c = cluster_map[s]
+        cluster_count[c] = cluster_count.get(c, 0) + 1
+    for c, n in cluster_count.items():
+        assert n <= 2, f"cluster {c} has {n} picks > cap of 2"
+
+    # Picked from at least 5 clusters? With 4 clusters × 2 each = 8
+    # picks max with these caps. Total picks may be 8 or 10 depending
+    # on whether algorithm fills.
+    assert len(picked_nz) >= 8
+
+
+def test_topn_signals_with_caps_first_two_in_top_cluster():
+    """The 2 highest-scoring members of the top-scored cluster MUST be
+    picked (they're best-in-class within the cluster)."""
+    from core.research.harness import topn_signals_with_caps
+
+    dates = pd.bdate_range("2020-01-02", periods=5)
+    syms = ["AAPL", "MSFT", "GOOGL", "META", "AMZN", "JNJ", "WMT"]
+    cluster_map = {
+        "AAPL": "platform", "MSFT": "platform", "GOOGL": "platform",
+        "META": "internet", "AMZN": "internet",
+        "JNJ": "pharma", "WMT": "staples",
+    }
+    # AAPL > MSFT > GOOGL > META > AMZN > JNJ > WMT
+    composite = pd.DataFrame(
+        {sym: 7 - i for i, sym in enumerate(syms)},
+        index=dates,
+    )
+    rmask = pd.Series([True, False, False, False, False], index=dates)
+
+    signals = topn_signals_with_caps(
+        composite, rmask,
+        target_n_picks=5, cluster_map=cluster_map,
+        cluster_cap=0.40, max_single_weight=0.20,  # 2/5=0.20 each
+    )
+    picks = set(signals.iloc[0][signals.iloc[0] > 0].index)
+    # AAPL+MSFT (top 2 in platform), then META+AMZN (top 2 in internet),
+    # then JNJ (only pharma; only 1 needed)
+    assert {"AAPL", "MSFT"}.issubset(picks)
+    assert "GOOGL" not in picks  # cluster cap rejects 3rd platform pick
+
+
+def test_topn_signals_with_caps_excludes_unmapped():
+    """Symbols NOT in cluster_map are silently excluded from selection."""
+    from core.research.harness import topn_signals_with_caps
+
+    dates = pd.bdate_range("2020-01-02", periods=3)
+    syms = ["AAPL", "MSFT", "SPY", "QQQ", "JNJ"]
+    # SPY/QQQ NOT in cluster_map → must be excluded even if score high
+    cluster_map = {"AAPL": "tech", "MSFT": "tech", "JNJ": "pharma"}
+    composite = pd.DataFrame(
+        {"SPY": [100, 100, 100], "QQQ": [99, 99, 99],
+         "AAPL": [50, 50, 50], "MSFT": [40, 40, 40], "JNJ": [10, 10, 10]},
+        index=dates,
+    )
+    rmask = pd.Series([True, False, False], index=dates)
+    signals = topn_signals_with_caps(
+        composite, rmask, target_n_picks=3, cluster_map=cluster_map,
+        cluster_cap=0.7, max_single_weight=0.5,
+    )
+    picked = signals.iloc[0]
+    assert picked["SPY"] == 0.0
+    assert picked["QQQ"] == 0.0
+    assert picked["AAPL"] > 0
+    assert picked["MSFT"] > 0
+    assert picked["JNJ"] > 0
+
+
+def test_topn_signals_with_caps_implicit_cash():
+    """When cluster caps bind tightly and not enough eligible picks
+    exist, the portfolio is partially in cash (signal sum < 1.0)."""
+    from core.research.harness import topn_signals_with_caps
+
+    dates = pd.bdate_range("2020-01-02", periods=3)
+    cluster_map = {"S0": "A", "S1": "A", "S2": "B"}  # only 3 stocks
+    composite = pd.DataFrame(
+        {"S0": [3, 3, 3], "S1": [2, 2, 2], "S2": [1, 1, 1]},
+        index=dates,
+    )
+    rmask = pd.Series([True, False, False], index=dates)
+    # target=10, but cluster_cap=0.10 = max 1/cluster, only 2 clusters
+    # → max 2 picks, sum=0.20, 0.80 implicit cash
+    signals = topn_signals_with_caps(
+        composite, rmask, target_n_picks=10, cluster_map=cluster_map,
+        cluster_cap=0.10, max_single_weight=0.10,
+    )
+    picked = signals.iloc[0]
+    assert (picked > 0).sum() == 2  # only 2 picks fit
+    assert abs(picked.sum() - 0.20) < 1e-6  # 80% cash
+
+
+def test_harness_config_cap_aware_requires_cluster_map():
+    """cap_aware mode without cluster_map must raise."""
+    from core.research.harness import HarnessConfig
+    with pytest.raises(ValueError, match="cap_aware.*requires cluster_map"):
+        HarnessConfig(construction_mode="cap_aware", top_n=10)
+
+
+def test_harness_config_validates_caps():
+    """cluster_cap and max_single_weight must be in (0, 1]."""
+    from core.research.harness import HarnessConfig
+    with pytest.raises(ValueError, match="cluster_cap"):
+        HarnessConfig(cluster_cap=0.0)
+    with pytest.raises(ValueError, match="cluster_cap"):
+        HarnessConfig(cluster_cap=1.5)
+    with pytest.raises(ValueError, match="max_single_weight"):
+        HarnessConfig(max_single_weight=-0.1)
+
+
+def test_harness_config_weight_per_pick_cannot_exceed_max_single():
+    """target_n_picks=5 + max_single_weight=0.10 gives wpp=0.20 > 0.10
+    → invalid. cap_aware mode must catch this at construction."""
+    from core.research.harness import HarnessConfig
+    with pytest.raises(ValueError, match="weight_per_pick"):
+        HarnessConfig(
+            construction_mode="cap_aware",
+            top_n=5,
+            cluster_map={"AAPL": "tech"},
+            max_single_weight=0.10,
+        )
+
+
+def test_harness_config_global_top_n_default_unchanged():
+    """Existing cycle #01/#02 default config still validates and works
+    (no construction_mode breaking change)."""
+    from core.research.harness import HarnessConfig
+    cfg = HarnessConfig(top_n=10)  # default global_top_n
+    assert cfg.construction_mode == "global_top_n"
+    assert cfg.cluster_map is None

@@ -122,6 +122,134 @@ def topn_signals_from_composite(
     return signals
 
 
+def topn_signals_with_caps(
+    composite: pd.DataFrame,
+    rebal_mask: pd.Series,
+    *,
+    target_n_picks: int,
+    cluster_map: Dict[str, str],
+    cluster_cap: float,
+    max_single_weight: float,
+    min_holding_days: int = 1,
+) -> pd.DataFrame:
+    """Cap-aware selection: greedy by composite score with cluster + single-name caps.
+
+    At each rebalance date:
+      1. Score row restricted to symbols in ``cluster_map`` (ETFs and
+         unmapped symbols silently skipped — they do NOT participate in
+         selection).
+      2. Sort eligible symbols by composite score descending.
+      3. Walk top-down. For each candidate symbol:
+         - reject if adding it would push its cluster's total weight
+           past ``cluster_cap``;
+         - reject if individual weight (= 1/target_n_picks at this stage)
+           exceeds ``max_single_weight``.
+      4. Stop once ``target_n_picks`` accepted, or eligible exhausted.
+      5. Equal-weight all accepted picks at 1/target_n_picks. The
+         portfolio may NOT reach 100% invested if cluster caps bind
+         tightly — remaining weight is implicit cash.
+      6. Forward-fill between rebalances (same as topn_signals_from_composite).
+
+    Why this exists (cycle #03 path memo, 2026-05-01):
+    Cycles #01 + #02 confirmed that global top-N selection always picks
+    the same {β + 12-1 mom + volume} winners (NVDA/AAPL/MSFT/AVGO).
+    Risk-cluster cap forces structural diversification: each cluster
+    contributes ≤ cluster_cap × portfolio. With cluster_cap=0.20 and
+    target_n_picks=10, max 2 picks per cluster → 10 picks span ≥ 5
+    clusters → cannot collapse to "all 10 are AI-capex bets".
+
+    Parameters
+    ----------
+    composite          : DataFrame (date × symbol) of composite scores
+    rebal_mask         : Series (date → bool) of rebalance flags
+    target_n_picks     : target number of names held (e.g. 10)
+    cluster_map        : dict[symbol → cluster_string]; ETFs and
+                         unknown symbols (None or missing) are
+                         excluded from selection
+    cluster_cap        : maximum portfolio weight a single cluster
+                         can hold (e.g. 0.20 = 20%)
+    max_single_weight  : maximum portfolio weight a single name can
+                         hold (e.g. 0.10 = 10%)
+    min_holding_days   : minimum trading days between rebalances
+
+    Returns
+    -------
+    signals_df : DataFrame (date × symbol). Weights sum to ≤ 1.0
+                 (less when cluster caps bind tightly → implicit cash).
+    """
+    if target_n_picks < 1:
+        raise ValueError(f"target_n_picks must be ≥ 1, got {target_n_picks}")
+    if not (0 < cluster_cap <= 1.0):
+        raise ValueError(
+            f"cluster_cap must be in (0, 1], got {cluster_cap}"
+        )
+    if not (0 < max_single_weight <= 1.0):
+        raise ValueError(
+            f"max_single_weight must be in (0, 1], got {max_single_weight}"
+        )
+    if min_holding_days < 1:
+        raise ValueError(f"min_holding_days must be ≥ 1, got {min_holding_days}")
+
+    weight_per_pick = 1.0 / target_n_picks
+    if weight_per_pick > max_single_weight + 1e-12:
+        raise ValueError(
+            f"weight_per_pick (1/{target_n_picks}={weight_per_pick:.4f}) "
+            f"exceeds max_single_weight={max_single_weight}; either "
+            f"increase target_n_picks or relax max_single_weight"
+        )
+
+    eligible_cols = [c for c in composite.columns if c in cluster_map]
+    if not eligible_cols:
+        raise ValueError(
+            "No composite columns are in cluster_map; cannot apply "
+            "cap-aware selection. Did you pass STOCK_RISK_CLUSTER_MAP?"
+        )
+
+    signals = pd.DataFrame(0.0, index=composite.index, columns=composite.columns)
+    last_selection = pd.Series(0.0, index=composite.columns)
+    days_since_rebal = min_holding_days
+
+    # Float-tolerant cap check: cluster_used + weight_per_pick ≤ cluster_cap.
+    # Add a tiny epsilon to absorb 1e-15 fp drift from repeated additions.
+    _eps = 1e-9
+
+    for date in composite.index:
+        days_since_rebal += 1
+        is_rebal_day = bool(rebal_mask.get(date, False))
+        if not is_rebal_day or days_since_rebal < min_holding_days:
+            signals.loc[date] = last_selection.values
+            continue
+
+        scores = composite.loc[date, eligible_cols].dropna()
+        if scores.empty:
+            signals.loc[date] = last_selection.values
+            continue
+
+        sorted_idx = scores.sort_values(ascending=False).index
+        picks: List[str] = []
+        cluster_used: Dict[str, float] = {}
+
+        for sym in sorted_idx:
+            if len(picks) >= target_n_picks:
+                break
+            clu = cluster_map[sym]
+            if cluster_used.get(clu, 0.0) + weight_per_pick > cluster_cap + _eps:
+                continue
+            picks.append(sym)
+            cluster_used[clu] = cluster_used.get(clu, 0.0) + weight_per_pick
+
+        if not picks:
+            signals.loc[date] = last_selection.values
+            continue
+
+        new_selection = pd.Series(0.0, index=composite.columns)
+        new_selection.loc[picks] = weight_per_pick
+        last_selection = new_selection
+        signals.loc[date] = last_selection.values
+        days_since_rebal = 0
+    return signals
+
+
 # ── Metrics extraction helpers ──────────────────────────────────────────────
 
 
@@ -192,27 +320,42 @@ def _residual_pair_corr(a: pd.Series, b: pd.Series, bench: pd.Series) -> float:
 # ── Configuration + Result dataclasses ──────────────────────────────────────
 
 
+_VALID_CONSTRUCTION_MODES = ("global_top_n", "cap_aware")
+
+
 @dataclass(frozen=True)
 class HarnessConfig:
     """Per-evaluation knobs for the harness.
 
-    rebalance_cadence: one of 'monthly' | 'weekly' | 'daily'. Default
-      'monthly' matches RCMv1 + Cand-2 legacy. 'weekly' is the Cycle
-      #02 C-1 axis.
-    top_n: number of symbols held at each rebalance (equal-weight).
-      Default 10 matches RCMv1 + Cand-2.
-    min_holding_days: minimum trading days between rebalances. 1
-      means rebalance can fire on every rebal_mask=True date.
-    horizon_days: forward-return horizon used by mining (NOT used by
-      the backtest path; recorded for evidence pack).
-    initial_capital: starting NAV for the backtest. Default 100k.
-    rebalance_threshold: passed to BacktestEngine; weight drift below
-      this is ignored (no trade).
-    integer_shares: whether to use integer-share execution. Default
-      False (fractional, aligns with cycle #01 mining defaults).
+    construction_mode:
+      - 'global_top_n' (default): cycle #01+#02 path. Pick top_n
+        symbols by composite score, equal-weight. No structural diversity.
+      - 'cap_aware': cycle #03+ path. Greedy by composite score with
+        cluster_cap + max_single_weight binding. Forces ≥ ceil(1 /
+        cluster_cap) clusters to contribute. Requires cluster_map.
+
+    rebalance_cadence: one of 'monthly' | 'weekly' | 'daily'.
+    top_n: under 'global_top_n' mode = picks held; under 'cap_aware'
+      = target_n_picks (greedy stops at this many).
+    cluster_map: REQUIRED when construction_mode='cap_aware'. Pass
+      ``core.research.risk_cluster_map.STOCK_RISK_CLUSTER_MAP``.
+    cluster_cap: max portfolio weight per cluster (e.g. 0.20 = 20%).
+      Only used in 'cap_aware' mode.
+    max_single_weight: max portfolio weight per name (e.g. 0.10).
+      Only used in 'cap_aware' mode.
+    min_holding_days: min trading days between rebalances.
+    horizon_days: mining forward-return horizon (NOT used by harness;
+      recorded for evidence pack).
+    initial_capital: starting NAV.
+    rebalance_threshold: passed to BacktestEngine.
+    integer_shares: integer-share execution flag.
     """
     rebalance_cadence: str = "monthly"
+    construction_mode: str = "global_top_n"
     top_n: int = 10
+    cluster_map: Optional[Dict[str, str]] = None
+    cluster_cap: float = 0.20
+    max_single_weight: float = 0.10
     min_holding_days: int = 1
     horizon_days: int = 21
     initial_capital: float = 100_000.0
@@ -225,14 +368,40 @@ class HarnessConfig:
                 f"rebalance_cadence must be one of {_VALID_CADENCES!r}, "
                 f"got {self.rebalance_cadence!r}"
             )
+        if self.construction_mode not in _VALID_CONSTRUCTION_MODES:
+            raise ValueError(
+                f"construction_mode must be one of "
+                f"{_VALID_CONSTRUCTION_MODES!r}, got {self.construction_mode!r}"
+            )
         if self.top_n < 1:
             raise ValueError(f"top_n must be ≥ 1, got {self.top_n}")
+        if not (0 < self.cluster_cap <= 1.0):
+            raise ValueError(f"cluster_cap must be in (0, 1], got {self.cluster_cap}")
+        if not (0 < self.max_single_weight <= 1.0):
+            raise ValueError(
+                f"max_single_weight must be in (0, 1], got {self.max_single_weight}"
+            )
         if self.min_holding_days < 1:
             raise ValueError(f"min_holding_days must be ≥ 1, got {self.min_holding_days}")
         if self.horizon_days < 1:
             raise ValueError(f"horizon_days must be ≥ 1, got {self.horizon_days}")
         if self.initial_capital <= 0:
             raise ValueError(f"initial_capital must be > 0, got {self.initial_capital}")
+        if self.construction_mode == "cap_aware" and self.cluster_map is None:
+            raise ValueError(
+                "construction_mode='cap_aware' requires cluster_map "
+                "(pass core.research.risk_cluster_map.STOCK_RISK_CLUSTER_MAP)"
+            )
+        # weight_per_pick floor check (catches "target_n_picks=5,
+        # max_single_weight=0.10" → 0.20 > 0.10 invalid)
+        if self.construction_mode == "cap_aware":
+            wpp = 1.0 / self.top_n
+            if wpp > self.max_single_weight + 1e-12:
+                raise ValueError(
+                    f"weight_per_pick (1/{self.top_n}={wpp:.4f}) exceeds "
+                    f"max_single_weight={self.max_single_weight}; either "
+                    f"raise top_n or relax max_single_weight"
+                )
 
 
 @dataclass
@@ -336,11 +505,23 @@ def evaluate_composite_spec(
         from core.factors.base_masks import apply_research_mask
         composite = apply_research_mask(composite, research_mask)
 
-    # 2) Construct rebalance mask + top-N signals
+    # 2) Construct rebalance mask + signals (selector by mode)
     mask = rebalance_mask(composite.index, cadence=cfg.rebalance_cadence)
-    signals = topn_signals_from_composite(
-        composite, mask, top_n=cfg.top_n, min_holding_days=cfg.min_holding_days,
-    )
+    if cfg.construction_mode == "cap_aware":
+        signals = topn_signals_with_caps(
+            composite, mask,
+            target_n_picks=cfg.top_n,
+            cluster_map=cfg.cluster_map,
+            cluster_cap=cfg.cluster_cap,
+            max_single_weight=cfg.max_single_weight,
+            min_holding_days=cfg.min_holding_days,
+        )
+    else:  # global_top_n (default; cycle #01+#02 path)
+        signals = topn_signals_from_composite(
+            composite, mask,
+            top_n=cfg.top_n,
+            min_holding_days=cfg.min_holding_days,
+        )
 
     # 3) Run BacktestEngine
     if cost_model is None:
