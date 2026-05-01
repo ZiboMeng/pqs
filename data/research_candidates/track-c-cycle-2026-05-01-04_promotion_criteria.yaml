@@ -1,0 +1,346 @@
+# Promotion Criteria — Track C Cycle #04 cross-asset (cap_aware_cross_asset)
+#
+# Authority:
+#   - docs/memos/20260426-research_layer_partial_unfreeze.md (research layer)
+#   - docs/memos/20260501-track_c_cycle_2026-05-01-02_close.md (cycle #03
+#     close: cap-aware single-universe NAV floor 0.85; refuted)
+#   - docs/memos/20260501-cycle04_cross_asset_preflight.md (preflight; 3
+#     hard blockers identified, all addressed via P0a-P0d shipped 2026-05-01)
+#   - User explicit-go (zibo, 2026-05-01, "1 不需要停下 你只需要确认你
+#     自己做的东西是对的就可以 所以你做好之后自己审计一下")
+#   - Senior quant collaborator recommendation 2026-05-01 (D1a/D2a/D3a/
+#     core_alpha/D5+tweaks adopted; 2 enhancements added by operator):
+#     (i) D3a smoke-abort gate at 5-10 trials
+#     (ii) D4 core_alpha 2025 QQQ soft-miss trade-off pre-registration
+#
+# IMMUTABILITY CONTRACT:
+#   Once this file is committed with sha256 recorded in commit message,
+#   ALL fields below are FROZEN for this lineage. If any threshold turns
+#   out wrong in hindsight, the next research cycle gets new criteria;
+#   this lineage's bar does NOT move. (Cycle #03 yaml frozen at sha256
+#   9fa478f0...23, untouched even when archived.)
+#
+# SHA256 verification:
+#   sha256sum data/research_candidates/track-c-cycle-2026-05-01-04_promotion_criteria.yaml
+#
+# Lineage tag:    track-c-cycle-2026-05-01-04
+# Authored:       2026-05-01
+# Authored by:    Claude (operator) under user explicit-go + collaborator advisory
+# Authoring axis: cap-aware cross-asset (universe expansion, NOT objective change)
+#                 = stocks (54) + bonds (3 ETFs) + commodity (1 ETF) + cash (2 ETFs)
+#                 with cluster_cap=0.20 + max_single=0.10 + asset_class_caps
+#                 (equities=0.70 / bonds=0.40 / commodities=0.20 / cash=0.30).
+
+lineage_tag: track-c-cycle-2026-05-01-04
+panel_max_date_at_freeze: 2024-12-31
+freeze_date: 2026-05-01
+factor_registry_pool: RESEARCH_FACTORS
+data_source_canonical: post_rebuild_2026_05_01_canonical_plus_yfinance_backfill_2009_2014
+end_date: 2025-12-31  # G4 cutoff (validation 2025 visible to selector,
+                       # not to miner; sealed 2026 NEVER read)
+
+drop_symbols:
+  - BRK-B  # round-3 step3b drop, no_1m_data
+  - USO    # cycle #04 preflight §"USO 单独提示" — futures roll yield +
+           # 2 single-day jumps > 50% in 2020 oil collapse; out of scope
+  - SLV    # not cluster-mapped in cycle #04; reserve for future cross-asset
+           # expansion that includes additional commodity sleeves
+
+
+# ── Universe (cycle #04: stocks + cross-asset) ────────────────────────
+
+universe_extension:
+  mode: stocks_plus_cross_asset
+  stocks_count: 53          # 54 base − BRK-B drop
+  cross_asset_count: 6      # TLT, IEF, SHY, GLD, BIL, SHV
+  total_eligible: 59
+  cluster_count_total: 22   # 17 stock + 5 cross-asset
+  cross_asset_cluster_map_module: core.research.risk_cluster_map.CROSS_ASSET_RISK_CLUSTER_MAP
+  unified_cluster_map_helper: core.research.risk_cluster_map.make_unified_cluster_map
+  asset_class_map_module: core.research.risk_cluster_map.ASSET_CLASS_BY_CLUSTER
+
+
+# ── Construction (NEW for cycle #04) ──────────────────────────────────
+
+construction:
+  mode: cap_aware_cross_asset
+  rebalance_cadence: monthly
+  top_n: 10
+  cluster_cap: 0.20
+  max_single_weight: 0.10
+  min_holding_days: 1
+  long_only: true
+  no_short: true
+  no_margin: true
+  asset_class_caps:
+    equities_max:    0.70   # binding ceiling on equity sleeve
+    bonds_max:       0.40   # bond sleeve cap
+    commodities_max: 0.20   # GLD-only commodity sleeve cap
+    cash_anchor_max: 0.30   # BIL+SHV combined cash sleeve cap
+  asset_class_min_report_only:
+    non_equity_weight_avg_min_report: 0.15  # NOT enforced; report-only
+    non_equity_weight_p25_min_report: 0.05  # NOT enforced; report-only
+
+
+# ── Mining ──────────────────────────────────────────────────────────────
+
+mining_config:
+  sampler: tpe
+  seed: 42
+  n_trials: 200                  # CANONICAL field name (verified vs cycle
+                                 # #03-01 typo `trials: 200` — checked
+                                 # scripts/run_research_miner.py:384
+                                 # yaml→cli mapping expects `n_trials`)
+  min_families: 3
+  max_features_per_family: 2
+  composite_cardinality: 3
+  composite_weighting: equal_weight
+  archive_db: data/mining/rcm_archive.db
+  optuna_db: data/mining/rcm_optuna.db
+  out_dir: data/ml/research_miner/track-c-cycle-2026-05-01-04
+  panel_start_date: "2009-01-02"  # NOW POSSIBLE post P0b backfill
+  panel_end_date: "2025-12-31"
+  temporal_split_role: core
+  factor_registry_source: core/factors/factor_registry.py
+  factor_registry_pool: RESEARCH_FACTORS
+  explicit_exclusions:
+    - intraday_autocorr_21d
+    - intraday_vol_ratio_21d
+    - realized_vol_60m_21d
+
+
+# ── Smoke-abort gate (D3 enhancement, operator addition) ──────────────
+# Pre-mining 5-10 trial smoke evaluates whether selector picks non-equity
+# under D1+D2 fixed data. If non-equity weight is materially zero,
+# 200-trial mining would just confirm the structural mining-objective
+# bias against cross-asset diversifiers. ABORT and escalate to D3b
+# (regime-aware mining objective) instead of wasting compute.
+
+smoke_abort_clause:
+  enabled: true
+  smoke_n_trials: 8
+  decision_metric: non_equity_weight_avg_across_smoke_trials
+  thresholds:
+    abort_below:    0.05   # non-equity < 5% → ABORT 200-trial; escalate D3b
+    warn_below:     0.15   # 5%-15% → run 200-trial but flag in closeout
+    pass_at:        0.15   # ≥ 15% → run 200-trial normally
+  abort_action: do_not_run_full_mining; close cycle in smoke-abort state;
+                surface to user for D3b decision
+  warn_action:  run_full_mining; closeout MUST trigger D3b consideration
+                regardless of nominee outcome
+
+
+# ── Hard requirements (Track A acceptance gates) ──────────────────────
+
+hard_requirements:
+  composite_ic_ir_full_period_min: 0.30
+  walk_forward_ic_ir_min_per_fold: 0.0
+  composite_cardinality: 3
+  fwd_return_horizon_days: 21    # SAME as cycle #01+#03 horizon
+  ic_evaluation_lag_bars: 1
+
+
+# ── Hard blockers ─────────────────────────────────────────────────────
+
+hard_blockers:
+  - any_validation_year_maxdd_above_0_20
+  - any_stress_slice_maxdd_above_0_25
+  - validation_aggregate_excess_vs_qqq_le_0    # full-period vs QQQ; HARD
+  - validation_2025_role_hard_gate_failure     # 2025 vs QQQ excess > 0; HARD
+
+
+# ── 2025 QQQ soft-miss trade-off (D4 enhancement, operator addition) ──
+# Pre-registers what closeout reports if the candidate fails 2025 QQQ
+# hard gate but has substantively better defensive properties. NOT a
+# softening of the hard gate; it's pre-registering the trade-off
+# triggers so failures are clearly categorized rather than debated
+# post-hoc.
+
+post_2025_qqq_soft_miss_trade_off_clause:
+  enabled: true
+  trigger_when_all_satisfied:
+    - validation_2025_excess_vs_qqq_lt_0       # 2025 vs QQQ excess < 0
+    - validation_2025_excess_vs_spy_gt_0       # 2025 vs SPY excess > 0
+    - full_period_excess_vs_qqq_gt_0           # full-period vs QQQ > 0
+    - validation_2025_max_dd_le_qqq_2025_max_dd_minus_5pp  # 5pp better DD
+  action_on_trigger: |
+    Closeout records "soft 2025 QQQ miss with diversifier offset".
+    Surface to user as informed choice on whether to soften the 2025
+    QQQ hard gate to a directional warning. Cycle still closes 0
+    nominee; user decision required on gate softening before the
+    candidate can advance.
+  rationale: |
+    A cross-asset basket with 30%+ non-equity in a strong-NVDA-driven
+    2025 may legitimately fail vs-QQQ while passing vs-SPY +
+    full-period + having materially better drawdown. Without
+    pre-registering this trade-off, closeout would face fait-
+    accompli "should we soften?" debate.
+
+
+# ── Anti-sibling discipline ───────────────────────────────────────────
+
+anti_sibling_discipline:
+  factor_overlap_threshold: 2
+  realized_nav_correlation_pooled_max: 0.85
+  realized_nav_correlation_residual_max: 0.70
+  classification_thresholds:
+    pooled_lt_0_50:    true_diversifier
+    pooled_0_50_0_70:  partial_diversifier
+    pooled_0_70_0_85:  warn_label_void
+    pooled_gte_0_85:   reject_step5
+  expected_cycle04_outcome_under_correctness: |
+    Cycle #03 cap-aware single-universe gave pooled raw 0.852-0.947.
+    Cycle #04 cross-asset adds 30% non-equity sleeve with raw beta to
+    SPY ~0 (bonds) to slightly positive (commodities). Naive 1/3-1/3-
+    1/3 {SPY,TLT,GLD} basket has pooled raw vs SPY = 0.545. Cycle
+    #04 candidates with ≥ 25% non-equity should land in the 0.50-0.75
+    raw band — a meaningful drop but unlikely below 0.50. 1+ true
+    diversifier (raw < 0.50) would be a strong signal; 1+ partial
+    diversifier (0.50-0.70) is the realistic best case.
+
+
+# ── Report-only / interpretive ──────────────────────────────────────
+
+report_only:
+
+  asset_class_exposure:
+    must_report:
+      - equity_weight_avg
+      - bond_weight_avg
+      - commodity_weight_avg
+      - cash_anchor_weight_avg
+      - non_equity_weight_avg
+      - non_equity_weight_p25
+      - non_equity_weight_p50
+      - non_equity_weight_p75
+      - non_equity_weight_min
+      - non_equity_weight_max
+      - days_with_zero_non_equity_pct
+
+  regime_stability_per_regime_ir:
+    must_report_regimes:
+      - BULL
+      - BEAR
+      - RISK_ON
+      - RISK_OFF
+      - CRISIS
+      - SIDEWAYS
+
+  regime_diagnostics_macro:
+    # Collaborator §"regime allocation" recommendation: cross-asset
+    # value is regime-specific, must be measured per regime.
+    must_report:
+      - equity_drawdown_regime_return       # > 5% peak-to-trough SPY
+      - equity_drawdown_regime_hit_rate
+      - high_vix_regime_return              # VIX > 25
+      - rates_up_regime_return              # ΔTNX +50bps over 60d
+      - rates_down_regime_return            # ΔTNX -50bps over 60d
+      - inflation_shock_regime_return       # CPI > 4% YoY (when available)
+      - usd_strength_regime_return          # DXY breakout (~95th pct)
+
+  benchmark_beta_statistics:
+    must_report:
+      - portfolio_weighted_mean_beta_vs_spy
+      - portfolio_weighted_mean_beta_vs_qqq
+      - portfolio_weighted_std_beta
+      - max_abs_per_symbol_beta
+      - n_symbols_with_beta
+
+  stress_slice_diagnostics:
+    must_report_per_slice:
+      - covid_flash      # 2020-02-15 → 2020-04-30
+      - rate_hike_2022   # 2022-08-15 → 2022-10-15
+      - eurozone_2011    # 2011-08-01 → 2011-10-15  (cycle #04 NEW; uses backfilled bonds)
+    fields:
+      - cum_ret
+      - sharpe
+      - max_dd
+      - vs_spy
+      - vs_qqq
+
+  drawdown_reduction_metric:
+    # Collaborator: "drawdown reduction per unit return sacrificed"
+    must_report:
+      - max_dd_full_period
+      - max_dd_full_period_vs_spy_max_dd_diff      # negative = better than SPY
+      - max_dd_full_period_vs_qqq_max_dd_diff
+      - cagr_difference_vs_qqq                     # positive = beats QQQ
+      - drawdown_reduction_per_pct_return_sacrificed
+
+  turnover_proxy:
+    must_report: true
+
+  cluster_diversity:
+    must_report:
+      - n_unique_clusters_per_rebalance_avg
+      - cluster_concentration_max
+      - n_picks_avg
+      - implicit_cash_pct_avg
+      - top_3_clusters_by_average_weight
+
+  composite_nav_correlation_vs_existing_pair:
+    must_report:
+      - rcm_v1_pooled_pearson_raw
+      - rcm_v1_pooled_pearson_residual_vs_spy
+      - rcm_v1_pooled_pearson_residual_vs_qqq
+      - cand_2_pooled_pearson_raw
+      - cand_2_pooled_pearson_residual_vs_spy
+      - cand_2_pooled_pearson_residual_vs_qqq
+      - cycle03_top_pooled_pearson_raw  # cycle #03 best vs cycle #04 best
+
+  human_path_knowledge_inventory:
+    today_date: "2026-05-01"
+    declared_2026_observations:
+      - "Cycle #03 (cap-aware stock-only) closed 0 nominee; pooled raw
+         NAV Pearson 0.852-0.947 vs RCMv1+Cand-2 across all 10 trials.
+         ~85% of NAV correlation is structural shared market beta of
+         long-only top-N over 54-stock universe. Cluster_cap construction
+         insufficient — universe itself is binding constraint."
+      - "Naive {SPY, TLT, GLD} 1/3 basket has pooled Pearson vs SPY=0.545,
+         vs QQQ=0.541. Cross-asset universe expansion mechanically
+         breaks the 0.85 floor (preflight memo)."
+      - "P0a distribution sidecar shipped 2026-05-01 commit cc582a2.
+         BarStore.load(adjusted_total_return=True) parity vs yfinance
+         auto_adjust=True: CAGR ≤ 0.01% across 6 cross-asset ETFs.
+         Bond/cash ETF total return now correctly captured (BIL/SHV
+         CAGR shifts from 0% to 1.9% over 2009-2026 with distribution
+         adjustment)."
+      - "P0b 2009-2014 backfill shipped commit cc582a2. 1509 new daily
+         rows × 6 ETFs = 9054 total. Coverage now 2009-01-02 to
+         2026-04-15. BIL phantom-split (2017-11-30) handled in backfill
+         via yfinance-split-undo."
+      - "Cycle #04 (this) tests cross-asset universe expansion at 21d
+         horizon with cap_aware_cross_asset construction. Single-variable
+         diff vs cycle #03 = +cross-asset universe (no construction or
+         objective change yet)."
+      - "Pre-mining smoke-abort gate (operator addition): if first 8
+         trials show non-equity weight avg < 5%, mining ABORTS without
+         running 200 trials. Triggers D3b regime-aware-objective
+         escalation discussion."
+      - "BIL splits.parquet has phantom 2017-11-30 1-for-2 reverse
+         split (data error, BIL never actually split). yfinance has
+         the same phantom split. BarStore cascade and P0b backfill
+         both handle it consistently. 1-day price discontinuity at
+         2017-11-30 is the only remaining data inconsistency
+         (documented; doesn't affect IC mining)."
+
+
+# ── Authorization markers ─────────────────────────────────────────────
+
+authorization:
+  research_layer_unfreeze: docs/memos/20260426-research_layer_partial_unfreeze.md
+  alpha_first_priority: docs/memos/20260430-priority_realign_alpha_first.md
+  cycle04_preflight: docs/memos/20260501-cycle04_cross_asset_preflight.md
+  cycle03_close: docs/memos/20260501-track_c_cycle_2026-05-01-02_close.md
+  user_explicit_go: |
+    zibo 2026-05-01: "1 不需要停下 你只需要确认你自己做的东西是对的就
+    可以 所以你做好之后自己审计一下 结合咱们最初的需求"
+  collaborator_advisory: |
+    senior US equity quant collaborator 2026-05-01: D1a + D2a + D3a +
+    core_alpha + D5+tweaks adopted; operator added smoke-abort gate
+    (D3a hardening) + 2025 QQQ soft-miss pre-registration (D4
+    hardening).
+  predecessors:
+    - track-c-cycle-2026-05-01-02 (cap-aware stock-only; 0 nominee)
+    - track-c-cycle-2026-04-30-02 (5d weekly; archived data quality)
+    - track-c-cycle-2026-04-30-01 (21d global top-N; sibling)

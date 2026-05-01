@@ -146,11 +146,17 @@ factor_etfs:
   - SCHD  # Dividend
 
 # Cross-asset / Defensive
+# Cycle #04 cross-asset preflight added GLD + BIL + SHV (2026-05-01).
+# USO deliberately excluded (futures roll yield + 2020 oil-collapse
+# 50% jumps; preflight memo §"USO 单独提示").
 cross_asset:
-  - TLT   # 20+ Year Treasury
-  - IEF   # 7-10 Year Treasury
-  - SHY   # 1-3 Year Treasury (cash proxy)
-  - SLV   # Silver
+  - TLT   # 20+ Year Treasury (long duration; bond_long_duration cluster)
+  - IEF   # 7-10 Year Treasury (intermediate duration)
+  - SHY   # 1-3 Year Treasury (short duration)
+  - SLV   # Silver (legacy entry; not cycle #04 cluster mapped)
+  - GLD   # Gold (commodity_metals cluster, cycle #04+)
+  - BIL   # 1-3 Month T-Bill ETF (cash_anchor cluster, cycle #04+)
+  - SHV   # < 1 Year T-Bill ETF (cash_anchor cluster, cycle #04+)
 
 # Macro reference series (non-tradeable, used for regime/features only)
 macro_reference:
