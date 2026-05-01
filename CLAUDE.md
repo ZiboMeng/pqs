@@ -676,6 +676,71 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   this cycle exposed. C-1 weekly cap_aware secondary; C-2 long-short
   violates `no-short` invariant (out of scope).
 
+- **Track C cycle 2026-05-01 #04 cross-asset** (2026-05-01 ✅,
+  **0 nominee**, 10/10 Tier 2 by R41 v2 with NAV correlation) —
+  first cap_aware_cross_asset cycle (53 stocks + 6 cross-asset ETFs:
+  TLT/IEF/SHY/GLD/BIL/SHV; USO/SLV excluded). Yaml sha256
+  `b07ece9c9b8c82325d48a0376a871e100f934cab79da98c227dca431fbdd9efc`
+  (commit `56457f3`). Construction: cluster_cap=0.20 +
+  max_single=0.10 + asset_class_caps={equities=0.70 / bonds=0.40 /
+  commodities=0.20 / cash_anchor=0.30}, 22-cluster unified map (17
+  stock + 5 cross-asset). 200 TPE trials, 62 archived. P0a-P0d prep
+  shipped commit `cc582a2`: distribution sidecar
+  `data/ref/distributions.parquet` + `BarStore.load(adjusted_total_return=
+  True)` (CAGR parity vs yfinance auto_adjust ≤ 0.01% on 6/6 ETF) +
+  P0b 2009-2014 backfill (9054 new daily rows; BIL phantom-split
+  handled via yfinance-split-undo) + P0c risk_cluster_map cross-asset
+  extension + P0d composite_evaluator cap_aware_cross_asset mode.
+  P0e shipped commit `56457f3`: cycle #04 yaml + universe.yaml
+  extension + eval pipeline. Closeout shipped commit `dac4176`:
+  closeout memo + cross_cycle_nav_correlation post-eval.
+
+  Two character clusters in top-10:
+  (a) **Cluster A** (4 trials, drawup+amihud anchored): pooled raw
+      NAV corr **0.66-0.70** vs RCMv1/Cand-2/Cycle03-top — first
+      cycle ever achieving < 0.85 raw (PARTIAL DIVERSIFIER per yaml).
+      Max_dd -16% to -18% (vs cycle03's -27%). Tier 2 by
+      factor-overlap=2 with RCMv1.
+  (b) **Cluster B** (6 trials, vol-anchored): pooled raw 0.91-0.94
+      (NAV reject); max_dd -27% (similar to cycle03); 2025 vs_qqq
+      +9.8% to +10.6% (8/10 trials pass hard gate; trial 8 best at
+      +10.5% with -19% DD vs QQQ -22.86%). Tier 2 by NAV.
+
+  **Empirical headline**: cap_aware_cross_asset DOES break NAV
+  correlation for some mining outcomes (Cluster A first <0.85), but
+  mining objective converges on RCMv1-anchor factors (drawup +
+  amihud) → factor-overlap rule disqualifies the NAV-diverse trials.
+  Breaking mechanism = asymmetric factor coverage on bonds (amihud
+  doesn't compute on cash → composite NaN → selector defaults).
+
+  **Process bug + fix**: cycle04 eval shipped with empty
+  nav_correlation_vs_existing_pair → R41 v1 verdict was
+  factor-overlap-only and incorrectly reported 5 Tier-1 nominees.
+  Caught in self-audit; fixed via
+  `dev/scripts/cycle04/cross_cycle_nav_correlation.py` post-eval.
+  R41 v1 → v2 verdict shift: 5 false-positive Tier 1 → all Tier 2.
+  Pipeline lesson: cross-cycle correlation must be in main eval for
+  cycle #05+, not deferred to post-eval.
+
+  Sealed 2026 panel NEVER read. Research-mining workstream auto
+  re-frozen. **Next-cycle hypothesis (NOT pre-registered, awaits
+  user authorization)**: cycle #05 should ban
+  `drawup_from_252d_low + amihud_20d` in
+  `mining_config.explicit_exclusions`; force factor diversity past
+  RCMv1 anchors. Same construction + thresholds.
+
+  **Operator-added enhancements (validated)**: smoke-abort gate
+  (cycle03-top1 spec smoked at 34% non-equity → mining authorized);
+  2025 QQQ soft-miss trade-off pre-registration (informational only;
+  trial 2 partially triggered).
+
+  **Cycle #06 stop rule pre-committed**: if cycle #05 also 0
+  nominee, no cycle #06 mining; pivot strategically per collaborator
+  §"更宏观的判断" (objective / data / frequency / tools / strategy
+  type changes — long-only relaxation requires user explicit-go).
+  Closeout:
+  `docs/memos/20260501-track_c_cycle_2026-05-01-04_close.md`.
+
 **Forward OOS active workstream (observation mode)**:
 - **R-fwd-1 done** — forward runner minimum closed loop (init /
   status / observe / decide / readiness) + source-boundary sidecar
