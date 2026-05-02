@@ -553,8 +553,14 @@ def resolve_split_path(
     Parameters
     ----------
     role : str
-        Candidate role. One of {"core", "diversifier",
-        "legacy_decay_verification", "risk_control"}.
+        Track A acceptance role string — one of ``"core"`` or ``"diversifier"``.
+        If a Phase C-PRD-1 caller has a CandidateRole enum value
+        (``"core_alpha"`` / ``"diversifier"`` / ``"legacy_decay_verification"``
+        / ``"risk_control"``), translate via
+        ``forward.manifest_schema.phase_c_role_to_track_a_role()`` first.
+        ``"core_alpha"`` arriving here un-translated will silently route to
+        v1 (no longer matches the diversifier branch) — wrong dispatch but
+        not an exception, hence the explicit translation contract.
     freeze_date : Optional[date]
         Candidate freeze_date (== promoted_at date for forward candidates,
         or yaml.created_at for mining candidates). None defaults to v1

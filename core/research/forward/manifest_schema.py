@@ -90,6 +90,77 @@ class CandidateRole(str, Enum):
     risk_control = "risk_control"
 
 
+# ---------------------------------------------------------------------------
+# Phase C-PRD-1 ↔ Track A role vocabulary bridge.
+# ---------------------------------------------------------------------------
+#
+# Phase C-PRD-1 distinguishes 4 candidate roles (core_alpha / diversifier /
+# legacy_decay_verification / risk_control) at the forward-runner +
+# candidate_registry level — the GOVERNANCE label.
+#
+# Track A (mining + sealed_ledger + temporal_split.yaml.roles) only knows
+# 2 roles (core / diversifier) — the ACCEPTANCE label.
+#
+# These vocabularies must NOT be silently coerced. The bridge below is the
+# ONE explicit translation point used at the candidate_registry → Track A
+# acceptance boundary. Mirrors the established `track_a_role_to_fleet_role`
+# pattern (fleet/manifest_schema.py:62) for consistency.
+#
+# Self-audit found 2026-05-02: Phase C-PRD-1 ship 7dcdf50 added the
+# `core_alpha` enum value but did NOT add a bridge from there to Track A's
+# `core` role. Without this, the next Track A acceptance run with a
+# `core_alpha` Phase C role raises ValueError at `ensure_role_assigned`.
+# Trial 9 (diversifier) escapes the bug because the name happens to match
+# in both vocabularies; cycle #06+ core_alpha promotion would have hit it.
+PHASE_C_TO_TRACK_A_ROLE_MAP: dict[str, str] = {
+    "core_alpha":  "core",
+    "diversifier": "diversifier",
+}
+
+
+def phase_c_role_to_track_a_role(phase_c_role: str) -> str:
+    """Translate a Phase C-PRD-1 role to its Track A acceptance equivalent.
+
+    Phase C-PRD-1 uses ``core_alpha`` / ``diversifier`` / ``legacy_decay_
+    verification`` / ``risk_control`` (4 governance roles).
+    Track A acceptance + sealed_ledger + temporal_split.yaml use ``core`` /
+    ``diversifier`` (2 acceptance roles).
+
+    Translation:
+      - ``core_alpha``                  → ``core``
+      - ``diversifier``                 → ``diversifier``
+      - ``legacy_decay_verification``   → ValueError (RCMv1/Cand-2 era;
+        not Track A acceptance eligible per priority_realign 2026-04-30)
+      - ``risk_control``                → ValueError (rule-based sleeves
+        do not pass through Track A mining/acceptance)
+
+    Raises ``ValueError`` on unknown / Track-A-ineligible inputs to
+    prevent silent re-interpretation at promotion time. Use this bridge
+    at the candidate_registry → Track A acceptance boundary; do NOT
+    open-code the dict lookup elsewhere.
+    """
+    if not isinstance(phase_c_role, str):
+        raise TypeError(
+            f"phase_c_role must be str, got {type(phase_c_role).__name__}"
+        )
+    if phase_c_role in ("legacy_decay_verification", "risk_control"):
+        raise ValueError(
+            f"Phase C role {phase_c_role!r} is not Track A acceptance "
+            f"eligible. legacy_decay_verification candidates predate the "
+            f"new framework (priority_realign 2026-04-30); risk_control "
+            f"sleeves are rule-based and do not pass through Track A "
+            f"mining/acceptance."
+        )
+    if phase_c_role not in PHASE_C_TO_TRACK_A_ROLE_MAP:
+        raise ValueError(
+            f"unknown Phase C role {phase_c_role!r}; expected one of "
+            f"{sorted(PHASE_C_TO_TRACK_A_ROLE_MAP) + ['legacy_decay_verification', 'risk_control']}. "
+            f"If a new Phase C role is introduced, extend "
+            f"PHASE_C_TO_TRACK_A_ROLE_MAP explicitly."
+        )
+    return PHASE_C_TO_TRACK_A_ROLE_MAP[phase_c_role]
+
+
 class CostAssumptions(BaseModel):
     """Cost-model assumptions frozen at forward-run start.
 

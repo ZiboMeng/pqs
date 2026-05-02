@@ -410,3 +410,86 @@ def test_claude_md_diversifier_exception_cites_prd_and_memo():
     text = claude_path.read_text()
     assert "20260501-two_stage_allocation_architecture_prd.md" in text
     assert "20260501-diversifier_role_decision.md" in text
+
+
+# ─── Phase C-PRD-1 ↔ Track A role bridge (R2-A self-audit fix 2026-05-02) ──
+
+
+def test_phase_c_to_track_a_bridge_core_alpha_to_core():
+    """core_alpha is the Phase C name; Track A acceptance expects core."""
+    from core.research.forward.manifest_schema import phase_c_role_to_track_a_role
+    assert phase_c_role_to_track_a_role("core_alpha") == "core"
+
+
+def test_phase_c_to_track_a_bridge_diversifier_passthrough():
+    """diversifier name is identical in both vocabularies."""
+    from core.research.forward.manifest_schema import phase_c_role_to_track_a_role
+    assert phase_c_role_to_track_a_role("diversifier") == "diversifier"
+
+
+def test_phase_c_to_track_a_bridge_legacy_decay_rejected():
+    """legacy_decay_verification predates new framework; not Track A acceptance eligible."""
+    from core.research.forward.manifest_schema import phase_c_role_to_track_a_role
+    with pytest.raises(ValueError, match="not Track A acceptance eligible"):
+        phase_c_role_to_track_a_role("legacy_decay_verification")
+
+
+def test_phase_c_to_track_a_bridge_risk_control_rejected():
+    """risk_control sleeves are rule-based; do not enter mining/acceptance."""
+    from core.research.forward.manifest_schema import phase_c_role_to_track_a_role
+    with pytest.raises(ValueError, match="not Track A acceptance eligible"):
+        phase_c_role_to_track_a_role("risk_control")
+
+
+def test_phase_c_to_track_a_bridge_unknown_role_rejected():
+    """Unknown role name fail-closes with informative error."""
+    from core.research.forward.manifest_schema import phase_c_role_to_track_a_role
+    with pytest.raises(ValueError, match="unknown Phase C role"):
+        phase_c_role_to_track_a_role("orphan_role_xyz")
+
+
+def test_phase_c_to_track_a_bridge_non_string_input_typeerror():
+    """Boundary: non-string input raises TypeError, not ValueError."""
+    from core.research.forward.manifest_schema import phase_c_role_to_track_a_role
+    with pytest.raises(TypeError, match="must be str"):
+        phase_c_role_to_track_a_role(None)
+    with pytest.raises(TypeError, match="must be str"):
+        phase_c_role_to_track_a_role(42)
+
+
+def test_phase_c_to_track_a_bridge_integration_with_ensure_role_assigned():
+    """End-to-end: bridge output is accepted by Track A's ensure_role_assigned.
+
+    Simulates the future cycle #06+ core_alpha promotion path:
+      candidate_registry stores role='core_alpha'
+      → bridge → 'core'
+      → temporal_split.ensure_role_assigned('core', cfg) accepts
+    """
+    from core.research.forward.manifest_schema import phase_c_role_to_track_a_role
+    from core.research.temporal_split import (
+        ensure_role_assigned,
+        load_temporal_split,
+    )
+
+    cfg = load_temporal_split()
+    # Without bridge: ensure_role_assigned('core_alpha', cfg) would raise
+    with pytest.raises(ValueError, match="not declared in split"):
+        ensure_role_assigned("core_alpha", cfg)
+    # With bridge: translation → 'core' → accepted
+    track_a_role = phase_c_role_to_track_a_role("core_alpha")
+    assert ensure_role_assigned(track_a_role, cfg) == "core"
+
+
+def test_phase_c_to_track_a_bridge_diversifier_v2_dispatch_unchanged():
+    """Diversifier path through bridge does NOT break v1↔v2 dispatch.
+
+    Trial 9 path: candidate_registry role='diversifier' → bridge → 'diversifier'
+    → resolve_split_path('diversifier', 2026-05-04) → v2 yaml.
+    """
+    from datetime import date as _date
+    from core.research.forward.manifest_schema import phase_c_role_to_track_a_role
+    from core.research.temporal_split import resolve_split_path, _DEFAULT_PATH_V2
+
+    track_a_role = phase_c_role_to_track_a_role("diversifier")
+    resolved = resolve_split_path(track_a_role, _date(2026, 5, 4))
+    assert resolved == _DEFAULT_PATH_V2
