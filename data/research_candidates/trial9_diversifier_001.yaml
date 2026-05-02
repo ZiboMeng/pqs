@@ -1,0 +1,282 @@
+# Frozen strategy spec for trial9_diversifier_001.
+#
+# First diversifier-role candidate per Two-Stage Allocation Architecture
+# PRD (docs/prd/20260501-two_stage_allocation_architecture_prd.md) Phase
+# C-PRD-1 (lightweight role tag + Trial 9 forward init).
+#
+# Source: cycle #05 archived trial 6c745c601a47 (lineage track-c-cycle-2026-05-01-05).
+#
+# DO NOT MODIFY any field after freeze without a new candidate_id.
+# To change this spec: freeze a new candidate_id, revoke this one with
+# revoke_reason=candidate_superseded.
+
+candidate_id: trial9_diversifier_001
+strategy_version: trial9-diversifier-2026-05-01
+strategy_type: single_factor_composite
+family: research_composite
+candidate_role: diversifier   # PRD §6.2; user explicit-go 2026-05-01
+
+# Authority + decision memo
+decision_memo: docs/memos/20260501-diversifier_role_decision.md
+prd: docs/prd/20260501-two_stage_allocation_architecture_prd.md
+cycle_closeout: docs/memos/20260501-track_c_cycle_2026-05-01-05_close.md
+
+# ── FrozenStrategySpec mandatory summaries ──────────────────────────────
+# (Required by core/research/frozen_spec.py validation; cannot be empty)
+
+benchmark_relative_summary:
+  full_period_vs_spy: 2.7070       # +270.7% (passes hard >0)
+  full_period_vs_qqq: 0.0626       # +6.3% (passes hard >0)
+  holdout_2025_vs_qqq: 0.0959      # +9.6% (passes 2025 strict >0)
+  oos_window_mean_vs_qqq: -0.0459  # -4.6% (WAIVED per diversifier role)
+  note: >-
+    Diversifier role: window-mean rule waived per CLAUDE.md QQQ Rule
+    diversifier exception (PRD §6.2). Full-period + holdout strict
+    pass. Stress-slice vs_qqq: covid_flash +26.1%, rate_hike_2022 +9.6%
+    (both meaningfully positive in stress).
+
+oos_holdout_summary:
+  walk_forward_n_folds: 5
+  walk_forward_folds_positive: 2     # 2018 + 2025 positive vs_qqq
+  walk_forward_weakest_window: 2023  # vs_qqq -19.75%
+  walk_forward_strongest_window: 2025  # vs_qqq +9.59%
+  walk_forward_window_mean_vs_qqq: -0.0459
+  full_period_vs_qqq: 0.0626
+  full_period_n_dates: 4876
+  holdout_2025_vs_qqq: 0.0959
+  holdout_2025_max_dd: -0.1816
+  note: >-
+    Walk-forward window-mean is negative because 2019/2021/2023 were
+    BULL years that QQQ tech-led; trial 9 underperformed QQQ in those
+    windows but provided drawdown protection. 2018 (BEAR) and 2025
+    (RISK_OFF/CRISIS) windows positive — diversifier value visible in
+    non-bull regimes.
+
+robustness_summary:
+  weight_sensitivity: not_yet_evaluated_phase_c_prd_1
+  dominant_feature: max_dd_126d         # Family B substitute for drawup
+  alternative_weighting: equal_weight_only_currently
+  cost_2x_stress_status: deferred_to_b_mv_track_a_extension
+  cost_turnover_proxy: 0.5218           # higher than RCMv1 (0.196)
+  corr_concentration: 0.1400            # 3.8x RCMv1 (0.037)
+  note: >-
+    Phase C-PRD-1 robustness summary is partial — no weight-sensitivity
+    sweep, no random-baseline comparison, no cost-2x stress run yet.
+    Trial 9 enters forward observation as diversifier candidate; full
+    robustness sweep deferred to Phase C-PRD-2 sleeve abstraction work
+    when Trial 9 also gets Track A acceptance β-stamp.
+
+# ── Source trial reference (immutable archive pointer) ───────────────────
+source:
+  trial_id: 6c745c601a47
+  lineage_tag: track-c-cycle-2026-05-01-05
+  archive_db: data/mining/rcm_archive.db
+  study: cycle05-2026-05-01
+  sampler: TPESampler
+  seed: 42
+  n_trials_in_study: 200
+  cycle_yaml_path: data/research_candidates/track-c-cycle-2026-05-01-05_promotion_criteria.yaml
+  cycle_yaml_sha256: ce559a0ac97a7eb36243de7494c44650ea0779839ec70bc159b94da06a2cbaf7
+
+# ── Composite spec (frozen) ──────────────────────────────────────────────
+feature_set:
+  - name: beta_spy_60d
+    family: A             # Benchmark-relative / Residual / Risk Exposure
+    weight: 0.333333
+    source: core/factors/factor_generator.py::_family_a_benchmark_relative
+  - name: max_dd_126d
+    family: B             # Position / Breakout / Path Shape
+    weight: 0.333333
+    source: core/factors/factor_generator.py::_family_b_position_breakout
+  - name: ret_1d
+    family: F             # Short-term momentum / reversal
+    weight: 0.333333
+    source: core/factors/factor_generator.py::_family_f_short_term
+
+family_counts: {A: 1, B: 1, C: 0, D: 0, E: 0, F: 1}
+
+transforms:
+  standardization: zscore_cross_sectional
+  min_periods: 5
+  implementation: core/mining/research_miner.py::zscore_cs
+
+composite_rule:
+  method: weighted_sum
+  formula: "sum(weight[i] * zscore_cs(feature[i])) for i in feature_set"
+  implementation: core/mining/research_miner.py::build_composite_series
+
+labels:
+  fwd_return_horizon_days: 21
+  fwd_return_mode: cc
+  ic_evaluation_lag_bars: 1
+
+# ── Construction (cap_aware_cross_asset per cycle #05 yaml) ──────────────
+construction:
+  mode: cap_aware_cross_asset
+  rebalance_cadence: monthly
+  top_n: 10
+  cluster_cap: 0.20
+  max_single_weight: 0.10
+  min_holding_days: 1
+  long_only: true
+  no_short: true
+  no_margin: true
+  asset_class_caps:
+    equities_max:    0.70
+    bonds_max:       0.40
+    commodities_max: 0.20
+    cash_anchor_max: 0.30
+
+# ── Panel contract ───────────────────────────────────────────────────────
+panel_contract:
+  universe: "config/universe.yaml::seed_pool + sector_etfs + factor_etfs + cross_asset (53 stocks + 6 cross_asset)"
+  drop_symbols: [BRK-B, USO, SLV]
+  n_tradable_at_proposal: 79
+  start_date: 2009-01-02
+  end_date: 2025-12-31
+  benchmark_map:
+    SPY: close_series
+    QQQ: close_series
+  mask:
+    type: research_mask
+    min_price: 5.0
+    min_usd_volume: 20000000
+    rolling_window_days: 20
+
+# ── Research evidence (verified vs eval JSON 2026-05-01) ────────────────
+research_evidence:
+  full_period:
+    cum_ret: 5.026425       # +502.6%
+    sharpe: 0.7747
+    max_dd: -0.2449         # -24.5% full-period (NOT per-year gate)
+    vs_spy: 2.7070          # +270.7%
+    vs_qqq: 0.0626          # +6.3% (passes hard >0)
+    spy_cum_ret: 2.3194
+    qqq_cum_ret: 4.9638
+  per_validation_year:
+    2018: {cum_ret: 0.0100, sharpe: 0.13, max_dd: -0.1519, vs_spy: 0.0795, vs_qqq:  0.0366}
+    2019: {cum_ret: 0.2408, sharpe: 1.53, max_dd: -0.0683, vs_spy: -0.0454, vs_qqq: -0.1316}
+    2021: {cum_ret: 0.2526, sharpe: 1.63, max_dd: -0.0599, vs_spy: -0.0348, vs_qqq: -0.0330}
+    2023: {cum_ret: 0.3508, sharpe: 1.86, max_dd: -0.0926, vs_spy:  0.1027, vs_qqq: -0.1975}
+    2025: {cum_ret: 0.3000, sharpe: 1.13, max_dd: -0.1816, vs_spy:  0.1336, vs_qqq:  0.0959}
+  oos_walk_forward_window_mean_vs_qqq: -0.0459   # WAIVED per diversifier role
+  per_stress_slice:
+    covid_flash:    {cum_ret: 0.1946, max_dd: -0.1328, vs_spy: 0.3322, vs_qqq: 0.2610}
+    rate_hike_2022: {cum_ret: -0.1219, max_dd: -0.1584, vs_spy: 0.0440, vs_qqq: 0.0956}
+  concentration:
+    m12_top1_weight_max: 0.1437
+    m12_top3_weight_max: 0.3481
+    m12_n_dates_with_weights: 4876
+  asset_class_exposure:
+    equity_weight_avg: 0.2850
+    bond_weight_avg: 0.1543
+    commodity_weight_avg: 0.0629
+    cash_anchor_weight_avg: 0.1040
+    non_equity_weight_avg: 0.3213       # 32.1% (passes diversifier >= 15%)
+    non_equity_weight_p25: 0.2001
+    non_equity_weight_p50: 0.2941
+    non_equity_weight_p75: 0.4915
+    days_with_zero_non_equity_pct: 0.0110  # 1.1% (passes diversifier <= 5%)
+  cluster_diversity:
+    n_unique_clusters_per_rebalance_avg: 8.93
+    cluster_concentration_max: 0.2461
+    n_picks_avg: 6.12
+  nav_correlation_pooled_n_overlap: 2164
+  nav_correlation_vs_anchors:
+    rcm_v1:        {raw: 0.649, residual_vs_spy: 0.267, residual_vs_qqq: 0.233}
+    cand_2:        {raw: 0.565, residual_vs_spy: 0.114, residual_vs_qqq: 0.096}
+    cycle_03_top:  {raw: 0.541, residual_vs_spy: 0.071, residual_vs_qqq: 0.039}
+    cycle_01_top:  {raw: 0.689, residual_vs_spy: 0.355, residual_vs_qqq: 0.321}
+    cycle_02_top:  {raw: 0.689, residual_vs_spy: 0.355, residual_vs_qqq: 0.321}
+  factor_overlap:
+    rcm_v1: 1     # only beta_spy_60d shared
+    cand_2: 0
+    cycle_03_top: 0
+    cycle_01_top: 1
+    cycle_02_top: 1
+    max_overlap: 1
+  mining:
+    ic_mean: 0.0386
+    ic_std: 0.3151
+    ic_ir: 0.4246
+    n_dates: 1113
+    turnover_proxy: 0.5218
+    corr_concentration: 0.1400
+    objective: 0.0237
+
+# ── Diversifier acceptance pre-evaluation (per PRD §6.2 + temporal_split_v2.yaml) ──
+diversifier_acceptance_pre_evaluation:
+  policy_version: "alternating_regime_holdout_v2"
+  evaluated_at: 2026-05-01
+  standalone_required:
+    full_period_vs_spy:           {value:  0.2707, gate: ">", threshold: 0.0,  status: PASS}
+    full_period_vs_qqq:           {value:  0.0626, gate: ">", threshold: 0.0,  status: PASS}
+    holdout_2025_vs_qqq:          {value:  0.0959, gate: ">", threshold: 0.0,  status: PASS}
+    per_year_max_dd_max:          {value: -0.1816, gate: "<=", threshold: 0.20, status: PASS_HARD,
+                                    note: "max year=2025 (-18.16%); soft-warn at 18%, hard-fail at 20%"}
+    per_year_max_dd_soft_warn:    {value: -0.1816, gate: "<=", threshold: 0.18, status: SOFT_WARN,
+                                    flag: "diversifier_2025_maxdd_18_20pct",
+                                    clear_condition: "td60_60d_rolling_maxdd_le_15pct"}
+    stress_max_dd_max:            {value: -0.1584, gate: "<=", threshold: 0.25, status: PASS}
+    long_only:                    PASS
+    no_short:                     PASS
+    no_margin:                    PASS
+  diversification_required:
+    nav_corr_raw_max_vs_anchors:      {value: 0.689, gate: "<", threshold: 0.70, status: PASS_TIGHT}
+    nav_corr_residual_max_vs_anchors: {value: 0.355, gate: "<", threshold: 0.50, status: PASS}
+    factor_overlap_with_active_core:  {value: 0,     gate: "==", threshold: 0,    status: PASS_TRIVIAL,
+                                        note: "no active_core exists 2026-05-01"}
+    factor_overlap_with_legacy:       {value: 1,     gate: "<=", threshold: 1,    status: PASS_TIGHT}
+    non_equity_weight_avg:            {value: 0.3213, gate: ">=", threshold: 0.15, status: PASS}
+    days_with_zero_non_equity_pct:    {value: 0.0110, gate: "<=", threshold: 0.05, status: PASS}
+  waived_for_diversifier:
+    oos_walk_forward_window_mean_vs_qqq:
+      value: -0.0459
+      reason: "WAIVED per CLAUDE.md QQQ Rule diversifier exception (PRD §6.2)"
+  forward_observation_required:
+    pre_acceptance: true
+    minimum_td: 60
+    portfolio_combo_evidence: required
+    soft_warn_self_clearing_required: true
+  overall_acceptance_status: ENTER_FORWARD_AS_DIVERSIFIER_WITH_SOFT_WARN
+  soft_warn_flags:
+    - diversifier_2025_maxdd_18_20pct
+
+# ── Realized-NAV correlation status (no current NAV pair finding) ────────
+realized_nav_correlation_status:
+  status: pending_forward_observation
+  scope: pre_forward
+  pooled_pearson: null
+  pooled_n_days: 0
+  evidence_memo: null
+
+# ── Candidate lifecycle classification ───────────────────────────────────
+decay_classification:
+  label: diversifier_active
+  reason: first_diversifier_role_candidate_phase_c_prd_1
+  set_at: 2026-05-01
+  set_by: trial9_diversifier_001_freeze
+
+# ── Estimated β at freeze (from 5-window validation regression) ──────────
+estimated_beta_at_freeze:
+  beta_to_spy: null   # to be computed in Phase C-PRD-1 follow-up
+  beta_to_qqq: null
+  method: "deferred_to_b_mv_track_a_extension"
+  source: track_a_acceptance_b_stamp_pending
+  computed_at: null
+  used_by_b_mv: false
+  reason_unused: "diversifier role; B.MV trigger T4 dispatch on role; deferred to Phase C-PRD-2"
+
+# ── Risk overlay ────────────────────────────────────────────────────────
+benchmark_definition:
+  primary: SPY
+  secondary: QQQ
+
+risk_overlay:
+  inherits_from: config/risk.yaml
+  diversifier_role_caps:
+    max_single_symbol_weight: 0.10        # cap_aware spec
+    max_cluster_weight: 0.20
+    max_diversifier_total_in_fleet: 0.25  # PRD §5.1.3 initial cap
+
+cost_model_version: config/cost_model.yaml

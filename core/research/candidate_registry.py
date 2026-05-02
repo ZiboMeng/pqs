@@ -145,6 +145,19 @@ CREATE INDEX IF NOT EXISTS idx_research_candidates_source
     ON research_candidates(source_trial_id, source_lineage_tag)
 """
 
+# Two-Stage Allocation Architecture PRD additive (2026-05-01).
+# Idempotent ALTER TABLE for `role` column; defaults to
+# 'legacy_decay_verification' for existing rows. SQLite ALTER TABLE
+# semantics: adding a column with default fills existing rows.
+_ALTER_ADD_ROLE = """
+ALTER TABLE research_candidates
+ADD COLUMN role TEXT NOT NULL DEFAULT 'legacy_decay_verification'
+"""
+
+_VALID_ROLES = frozenset({
+    "core_alpha", "diversifier", "legacy_decay_verification", "risk_control",
+})
+
 
 # ── Row dataclass ─────────────────────────────────────────────────────────────
 
@@ -165,6 +178,9 @@ class CandidateRecord:
     revoked_at: Optional[str] = None
     revoke_reason: Optional[str] = None
     revoke_memo_path: Optional[str] = None
+    # Two-Stage Allocation Architecture PRD additive (2026-05-01).
+    # IMMUTABLE post-init. See manifest_schema.CandidateRole + PRD §6.
+    role: str = "legacy_decay_verification"
 
     def to_dict(self) -> dict[str, Any]:
         d = {
@@ -180,6 +196,7 @@ class CandidateRecord:
             "revoked_at": self.revoked_at,
             "revoke_reason": self.revoke_reason,
             "revoke_memo_path": self.revoke_memo_path,
+            "role": self.role,
         }
         return d
 
@@ -215,6 +232,15 @@ class CandidateRegistry:
             conn.execute(_CREATE_TABLE)
             conn.execute(_CREATE_INDEX_STATUS)
             conn.execute(_CREATE_INDEX_SOURCE)
+            # Idempotent ALTER for `role` column (Two-Stage PRD 2026-05-01).
+            # Existing rows get default 'legacy_decay_verification'.
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(research_candidates)")}
+            if "role" not in cols:
+                conn.execute(_ALTER_ADD_ROLE)
+                logger.info(
+                    "Migrated research_candidates: added role column "
+                    "(default=legacy_decay_verification for existing rows)"
+                )
             conn.commit()
 
     # ── Registration ────────────────────────────────────────────────────
@@ -229,6 +255,7 @@ class CandidateRegistry:
         frozen_spec_path: Optional[str] = None,
         decision_memo_path: Optional[str] = None,
         promoted_at: Optional[str] = None,
+        role: str = "legacy_decay_verification",
     ) -> CandidateRecord:
         """Register a new candidate.
 
@@ -236,9 +263,22 @@ class CandidateRegistry:
         migration of RCMv1 memo in R3) but business rules still apply —
         if status != S0, promoted_at is required.
 
+        ``role`` (Two-Stage Allocation Architecture PRD 2026-05-01):
+        candidate role per PRD §6. IMMUTABLE post-init. Default = legacy_
+        decay_verification (matches lazy-migration semantic for pre-PRD
+        candidates). Valid values: core_alpha, diversifier,
+        legacy_decay_verification, risk_control. Mutation of role on an
+        existing candidate is REJECTED — to change role, revoke the
+        candidate and re-register under a new candidate_id.
+
         Raises DuplicateCandidateError if candidate_id already exists.
+        Raises ValueError if role is not in _VALID_ROLES.
         """
         self._validate_status(status)
+        if role not in _VALID_ROLES:
+            raise ValueError(
+                f"role={role!r} not in valid roles {sorted(_VALID_ROLES)}"
+            )
         if status != CandidateStatus.S0_PROTOTYPE and not promoted_at:
             promoted_at = _now_utc_iso()
         now = _now_utc_iso()
@@ -249,12 +289,12 @@ class CandidateRegistry:
                     INSERT INTO research_candidates (
                         candidate_id, source_trial_id, source_lineage_tag,
                         status, frozen_spec_path, decision_memo_path,
-                        promoted_at, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        promoted_at, created_at, updated_at, role
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (candidate_id, source_trial_id, source_lineage_tag,
                      status.value, frozen_spec_path, decision_memo_path,
-                     promoted_at, now, now),
+                     promoted_at, now, now, role),
                 )
                 conn.commit()
             except sqlite3.IntegrityError as e:
@@ -262,8 +302,8 @@ class CandidateRegistry:
                     f"candidate_id={candidate_id!r} already registered"
                 ) from e
         logger.info(
-            "Registered candidate %s (source_trial_id=%s, status=%s)",
-            candidate_id, source_trial_id, status.value,
+            "Registered candidate %s (source_trial_id=%s, status=%s, role=%s)",
+            candidate_id, source_trial_id, status.value, role,
         )
         return self.get(candidate_id)
 
@@ -455,17 +495,24 @@ class CandidateRegistry:
 
 
 def _row_to_record(row: sqlite3.Row) -> CandidateRecord:
+    # `role` column is added via ALTER TABLE migration; rows from a
+    # pre-PRD DB that just had migration applied have role=
+    # 'legacy_decay_verification' (column DEFAULT). Defensive .get-style
+    # access via dict() so older sqlite3.Row variants without the column
+    # still work for testing.
+    row_dict = dict(row)
     return CandidateRecord(
-        candidate_id=row["candidate_id"],
-        source_trial_id=row["source_trial_id"],
-        source_lineage_tag=row["source_lineage_tag"],
-        status=CandidateStatus(row["status"]),
-        created_at=row["created_at"],
-        updated_at=row["updated_at"],
-        frozen_spec_path=row["frozen_spec_path"],
-        decision_memo_path=row["decision_memo_path"],
-        promoted_at=row["promoted_at"],
-        revoked_at=row["revoked_at"],
-        revoke_reason=row["revoke_reason"],
-        revoke_memo_path=row["revoke_memo_path"],
+        candidate_id=row_dict["candidate_id"],
+        source_trial_id=row_dict["source_trial_id"],
+        source_lineage_tag=row_dict["source_lineage_tag"],
+        status=CandidateStatus(row_dict["status"]),
+        created_at=row_dict["created_at"],
+        updated_at=row_dict["updated_at"],
+        frozen_spec_path=row_dict.get("frozen_spec_path"),
+        decision_memo_path=row_dict.get("decision_memo_path"),
+        promoted_at=row_dict.get("promoted_at"),
+        revoked_at=row_dict.get("revoked_at"),
+        revoke_reason=row_dict.get("revoke_reason"),
+        revoke_memo_path=row_dict.get("revoke_memo_path"),
+        role=row_dict.get("role", "legacy_decay_verification"),
     )

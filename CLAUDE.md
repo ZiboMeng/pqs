@@ -50,6 +50,30 @@
 - Display QQQ excess in strategy summary
 - Flag any promoted strategy that fails full-period or holdout QQQ constraint
 
+#### Diversifier Role Exception [ADDED 2026-05-01, user explicit-go]
+
+**Scope**: candidates registered in `core/research/forward/manifest_schema.py` with `candidate_role = CandidateRole.DIVERSIFIER`. Does NOT apply to `core_alpha`, `legacy_decay_verification`, or `risk_control` roles.
+
+**Waived rule cell** (exactly one):
+- `OOS walk-forward (average) | Mean excess return vs QQQ > 0 across all windows` → **WAIVED for diversifier role only**
+
+**NOT waived** (explicit list — diversifier MUST still pass):
+- `Full backtest period | Strategy CAGR > QQQ CAGR | Hard constraint`
+- `Holdout period (last 252d) | Strategy return > QQQ return | Hard constraint` (interpreted as "validation 2025 vs_qqq > 0 strict" under Track A temporal split)
+- `Full backtest period | Strategy vs SPY > 0`
+- All risk constraints: per-validation-year MaxDD ≤ 20% (hard) / ≤ 18% (soft warn for diversifier with TD60 self-clearing); stress slice MaxDD ≤ 25%
+- All concentration constraints (M12 top1 ≤ 40%, top3 ≤ 70%)
+- Long-only / no-short / no-margin invariants
+- Anti-sibling NAV correlation (diversifier requires STRICTER thresholds: raw NAV < 0.70 vs all anchors, residual NAV < 0.50)
+- Anti-sibling factor overlap (diversifier requires `factor_overlap_with_active_core = 0`)
+- Cross-asset utilization (diversifier requires `non_equity_weight_avg ≥ 15%`)
+
+**Rationale**: a diversifier in a fleet legitimately can underperform QQQ in individual BULL windows if the fleet's combined NAV outperforms. The window-mean rule was originally designed for standalone core strategies. Diversifier role's mechanism is portfolio-level risk reduction, not standalone alpha.
+
+**Authority**: PRD `docs/prd/20260501-two_stage_allocation_architecture_prd.md` §6.2; decision memo `docs/memos/20260501-diversifier_role_decision.md`; user explicit-go 2026-05-01.
+
+**Reversibility**: revocation requires user explicit-go + draft of `docs/memos/YYYY-MM-DD-diversifier_role_revoke_memo.md`; CLAUDE.md edit reverted; active diversifier candidates revert to `legacy_decay_verification` role.
+
 ---
 
 ### Pricing and Valuation Semantics [NEW]

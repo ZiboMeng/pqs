@@ -499,6 +499,8 @@ def init(
     daily_store_rebuild_commit: Optional[str] = None,
     config_dir: Path = _DEFAULT_CONFIG_DIR,
     overwrite: bool = False,
+    candidate_role: Optional["CandidateRole"] = None,
+    soft_warn_flags: Optional[list] = None,
 ) -> ForwardRunManifest:
     """Create a forward_run_manifest.json for ``candidate_id``.
 
@@ -566,6 +568,13 @@ def init(
     # detect mid-run config drift distinctly from data-tier revisions.
     config_snapshot = _build_config_snapshot(Path(config_dir))
 
+    # Two-Stage Allocation Architecture PRD: candidate_role + soft_warn_flags
+    # are optional with safe defaults so legacy init() callers (RCMv1, Cand-2)
+    # still work — they get role=legacy_decay_verification and no soft warns.
+    from core.research.forward.manifest_schema import CandidateRole as _CR
+    role_value = candidate_role if candidate_role is not None else _CR.legacy_decay_verification
+    flags = list(soft_warn_flags) if soft_warn_flags else []
+
     manifest = ForwardRunManifest(
         schema_version="1.0",
         candidate_id=candidate_id,
@@ -582,6 +591,8 @@ def init(
         current_status=ForwardRunStatus.not_started,
         data_integrity_snapshot=snapshot,
         config_snapshot=config_snapshot,
+        candidate_role=role_value,
+        soft_warn_flags=flags,
         runs=[],
     )
     # `spec` is loaded above as a sanity check that the frozen yaml is

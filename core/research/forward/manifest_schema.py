@@ -58,6 +58,38 @@ class ForwardRunStatus(str, Enum):
     requires_data_review = "requires_data_review"
 
 
+class CandidateRole(str, Enum):
+    """Candidate role per Two-Stage Allocation Architecture PRD
+    (docs/prd/20260501-two_stage_allocation_architecture_prd.md).
+
+    Lazy-migration compatible: existing manifests without a candidate_role
+    field default to ``legacy_decay_verification`` on load. Pre-PRD
+    candidates (RCMv1, Cand-2) have role=legacy_decay_verification per
+    backfill 2026-05-01.
+
+    Role dispatches role-specific acceptance gates per PRD §6.
+
+    - ``core_alpha``: full CLAUDE.md QQQ Outperformance Rule applies;
+      independently deployable
+    - ``diversifier``: window-mean vs QQQ rule WAIVED; STRICTER NAV
+      correlation + factor overlap + non-equity exposure gates; portfolio-
+      contribution-judged (PRD §6.2)
+    - ``legacy_decay_verification``: pre-G2.A / pre-M12-fix candidates
+      forward-observed for decay tracking only; not eligible for new-
+      framework promotion
+    - ``risk_control``: bonds/cash/gold sleeves; rule-based; no
+      alpha-source acceptance (PRD §6.3)
+
+    Role tag is set ONCE at forward init and IMMUTABLE thereafter.
+    Mutation requires explicit revoke + re-init under new candidate_id.
+    """
+
+    core_alpha = "core_alpha"
+    diversifier = "diversifier"
+    legacy_decay_verification = "legacy_decay_verification"
+    risk_control = "risk_control"
+
+
 class CostAssumptions(BaseModel):
     """Cost-model assumptions frozen at forward-run start.
 
@@ -430,6 +462,28 @@ class ForwardRunManifest(BaseModel):
     # INFO once per run id. Backfill utility:
     # ``dev/scripts/forward/backfill_config_snapshot.py``.
     config_snapshot: Optional[ConfigSnapshot] = None
+    # Two-Stage Allocation Architecture PRD (2026-05-01) additive:
+    # Optional with default for lazy migration. Pre-PRD manifests (RCMv1,
+    # Cand-2 TD001-TD003 era) load with default = legacy_decay_verification
+    # so observe() doesn't break. Backfill utility:
+    # ``dev/scripts/forward/backfill_candidate_role.py``.
+    # See: docs/prd/20260501-two_stage_allocation_architecture_prd.md §6
+    candidate_role: CandidateRole = Field(
+        default=CandidateRole.legacy_decay_verification,
+        description=(
+            "Candidate role per PRD §6. IMMUTABLE post-init. Drives "
+            "role-specific acceptance dispatch. Lazy migration default = "
+            "legacy_decay_verification."
+        ),
+    )
+    soft_warn_flags: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Diversifier role D10c soft-warn flags (e.g., "
+            "'diversifier_2025_maxdd_18_20pct'). Cleared by TD60 "
+            "self-clearing condition or escalated to red per PRD §7.1."
+        ),
+    )
     runs: list[ForwardRun] = Field(default_factory=list)
 
     @model_validator(mode="after")
