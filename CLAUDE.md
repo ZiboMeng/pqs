@@ -950,6 +950,58 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   gates. Forward TD60 observation continues to record decay signal but
   these two will not enter fleet, will not calibrate new-framework gates.
 
+- **Trial 9 (2026-05-01 ✅, A+D Phase C-PRD-1 SHIPPED commit `7dcdf50`)** —
+  first **diversifier-role** forward observation candidate. PRD:
+  `docs/prd/20260501-two_stage_allocation_architecture_prd.md`. Decision
+  memo: `docs/memos/20260501-diversifier_role_decision.md`. User
+  explicit-go 2026-05-01 + D10c compromise (soft-warn at 18% / hard-fail
+  at 20% per-year max_dd + TD60 self-clearing). Source: cycle #05 trial
+  `6c745c601a47` (`beta_spy_60d + max_dd_126d + ret_1d`).
+  - candidate_id: `trial9_diversifier_001`
+  - candidate_role: `diversifier` (first non-legacy role assigned in PQS)
+  - spec_hash: `8f58d40d2ef579a7c1b0fee53cd29da23763f336dd91a4b4db2c97eb2acec5a6`
+  - start_date: 2026-05-04 (Mon, next trading day)
+  - soft_warn_flags: `['diversifier_2025_maxdd_18_20pct']`
+  - frozen spec: `data/research_candidates/trial9_diversifier_001.yaml`
+  - manifest: `data/research_candidates/trial9_diversifier_001_forward_manifest.json`
+  - init script: `dev/scripts/forward/init_trial9_diversifier.py`
+
+  **Phase C-PRD-1 deliverables** (all in commit `7dcdf50`):
+  - `CandidateRole` enum (4 values) in `core/research/forward/manifest_schema.py`
+  - `ForwardRunManifest.candidate_role + soft_warn_flags` (lazy migration)
+  - `CandidateRecord.role` + idempotent `ALTER TABLE` migration
+  - `runner.init(candidate_role=..., soft_warn_flags=...)` kwargs
+  - `config/temporal_split_v2.yaml` (split_name v1→v2 per locked-after-first-use
+    C4 policy; partition UNCHANGED; only diversifier role thresholds updated to
+    PRD §6.2 evidence-derived values)
+  - CLAUDE.md QQQ Outperformance Rule diversifier exception (waives ONLY
+    OOS walk-forward window-mean rule for role=diversifier; all other gates
+    unchanged; STRICTER for diversifier on NAV correlation + factor overlap
+    + non-equity exposure)
+  - `dev/scripts/forward/backfill_candidate_role.py` (legacy candidates
+    explicitly tagged role=legacy_decay_verification; idempotent)
+  - 32 new tests (`test_diversifier_role_phase_c_prd_1.py`) + 138 existing
+    forward+registry+temporal_split tests pass (no regression)
+
+  **TD60 decision point pre-committed** (~2026-07-30):
+  - GREEN: residual NAV corr 60d <0.4 + per-regime BULL vs_qqq 60d > -3% +
+    portfolio combo positive + soft_warn_flag self-cleared (60d rolling
+    max_dd ≤ 15%) → authorize Phase C-PRD-2 (sleeve abstraction)
+  - YELLOW: 0.4-0.6 residual OR BULL vs_qqq 60d in [-10%, -3%] → continue
+    to TD90
+  - RED: residual >0.6 OR BULL vs_qqq 60d <-10% OR portfolio combo
+    negative → stop trial 9 forward; do NOT build C architecture for it
+
+  **Phase C-PRD-2/3/4 NOT authorized** (deferred per PRD §8 evidence-gated
+  triggers). D3b regime-aware mining objective DEFERRED + absorbed into
+  Phase C-PRD-3 Stage 1 allocation. Track B Step 6+ ABSORBED into
+  Phase C-PRD-3/4 (Steps 1-5 already shipped; reused unchanged as Stage 3
+  inputs).
+
+  **Operational contract**: forward `fetchdata` MUST run post-NYSE 16:15-16:30
+  ET close (codex R20 operational note). Trial 9 first observe = 2026-05-04
+  EOD; produces TD001 entry.
+
 **Track A — Temporal Split & Holdout Discipline (SHIPPED 2026-04-29)**
 
 PRD `docs/prd/20260429-temporal_split_holdout_discipline_prd.md` v1.1
