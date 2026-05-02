@@ -1253,8 +1253,13 @@ v1.2) — shipped M0-M8 + M10 + M13 + M15 + M16 (see archive); open:
 - [x] Provenance sidecar (trades_scanner + migration + BarStore API)
 - [x] Factor guard (data_sensitivity config + apply_data_sensitivity_mask)
 - [x] Notify module (base + wecom_bot + server_chan + stdout)
-- [ ] Master report / diagnostics: show per-ticker data-epoch contribution
-      (护栏 3 downstream — BarStore.attrs["provenance"] now available)
+- [DEFERRED] Master report / diagnostics: show per-ticker data-epoch
+      contribution (护栏 3 downstream — BarStore.attrs["provenance"]
+      ready). Display layer NOT shipped per resident-quant decision
+      2026-05-02: 0 immediate consumer (Trial 9 = 100% yfinance frontier),
+      forward soak window not the time to change reporting surfaces.
+      Activation triggers + ~2-hour impl sketch:
+      `docs/memos/20260502-master_report_provenance_display_deferred.md`.
 - [ ] fetch_data.py equivalent for universe + macro: currently one-off
       yfinance fetch in `scripts/`; productionize as part of pipeline
 - [ ] validate_vs_yfinance 1m batching (yfinance 1m API limits 8d/req)
