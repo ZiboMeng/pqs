@@ -1128,11 +1128,25 @@ What's still open:
     rule applies (clean window starts strictly after candidate
     `freeze_date` AND after `panel_max_date_at_freeze`).
   - **Minimal Track A acceptance β-stamp extension (NOT full
-    A.MV) IS scheduled P1 pre-cycle**: when Track A acceptance
-    promotes a candidate, compute β-SPY+β-QQQ on `train+validation`
-    window and write nested `estimated_beta_at_freeze` block per
-    `bmv_schema_decision.md`. Cost ~half day; avoids B.MV
-    rework when candidate eventually arrives.
+    A.MV) SHIPPED prep** commit `812a14f` (2026-04-30):
+    `core/research/acceptance_helpers.py` adds
+    `compute_beta_to_benchmark` + `build_estimated_beta_at_freeze`
+    canonical-block builder per `bmv_schema_decision.md`
+    §`estimated_beta_at_freeze` (8 unit tests).
+    Schema invariant enforced: `used_by_b_mv=False` requires
+    `reason_unused`. Defaults: `window=train_plus_validation`,
+    `source=track_a_acceptance`, `used_by_b_mv=True`.
+    **Pipeline wiring** (call site at the actual promotion path) is
+    intentionally deferred to first cycle #06+ candidate that
+    survives Track A acceptance — wiring with no consumer is dead
+    code. Verified live 2026-05-02: 8 tests PASS, builder importable
+    from `core.research.acceptance_helpers`. When wiring lands,
+    promotion code calls
+    `build_estimated_beta_at_freeze(strat_ret_d=..., spy_ret_d=...,
+    qqq_ret_d=..., n_obs=..., computed_at=YYYY-MM-DD,
+    computed_by="core/research/temporal_split_acceptance.py")` and
+    writes returned dict under top-level `estimated_beta_at_freeze`
+    key in candidate spec yaml.
 - **NAV orthogonality tier** (single source of truth across script /
   dry-run plan / correlation memo / template, per audit-R2 + reviewer
   §3): `< 0.50` = `true_diversifier`; `0.50-0.70` = `partial_diversifier`;
