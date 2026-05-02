@@ -983,17 +983,32 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   - 32 new tests (`test_diversifier_role_phase_c_prd_1.py`) + 138 existing
     forward+registry+temporal_split tests pass (no regression)
 
-  **Post-ship gap fix (commit pending)**: v2 yaml was created at ship but
-  the loader (`core/research/temporal_split.py:_DEFAULT_PATH`) defaulted
-  to v1; v2 was only consumed by the 32 unit tests, NOT by acceptance
-  pipeline / future cycle #06 mining. Closed via `resolve_split_path(role,
-  freeze_date)` dispatch helper + `run_split_acceptance(freeze_date=...)`
-  threading + extended `GateRule` schema for `action: soft_warn` (with
-  `soft_warn_label` / `soft_warn_clear_condition` / `soft_warn_unclear_action`
-  fields required iff soft_warn). Dispatch rule: `role=diversifier AND
+  **Post-ship gap fix #1 — v2 dispatch (commit `60e0dfe`)**: v2 yaml was
+  created at ship but the loader (`core/research/temporal_split.py:_DEFAULT_PATH`)
+  defaulted to v1; v2 was only consumed by the 32 unit tests, NOT by
+  acceptance pipeline / future cycle #06 mining. Closed via
+  `resolve_split_path(role, freeze_date)` dispatch helper +
+  `run_split_acceptance(freeze_date=...)` threading + extended `GateRule`
+  schema for `action: soft_warn` (with `soft_warn_label` /
+  `soft_warn_clear_condition` / `soft_warn_unclear_action` fields
+  required iff soft_warn). Dispatch rule: `role=diversifier AND
   freeze_date >= 2026-05-01 → v2`; everything else → v1 (legacy contract;
   immutability for cycle04+05 archived trials + RCMv1+Cand-2). 20 new
-  dispatch tests + full unit suite 2292 passed.
+  dispatch tests.
+
+  **Post-ship gap fix #2 — forward attention check automation (commit
+  pending)**: TD20/TD40/TD60 milestones need automated derived metrics
+  beyond what `observe()` captures (residual NAV correlation, combo NAV,
+  rolling 60d MaxDD, non-equity exposure drift, soft_warn self-clearing
+  status, PRD §7.1 GREEN/YELLOW/RED verdict). Shipped pure-compute
+  module `core/research/forward/attention_report.py` + CLI driver
+  `dev/scripts/forward/attention_check.py`. Outputs JSON to
+  `data/ml/forward_attention/` + stdout markdown. Gracefully handles
+  empty manifests (trial 9 currently 0 runs; full report computable
+  TD60+). 31 unit tests covering: NAV series derivation, multi-candidate
+  combo, rolling MaxDD, residual corr (regress out benchmark beta),
+  asset-class classification, PRD §7.1 verdict logic, end-to-end
+  graceful degradation. Full unit suite 2323 passed (no regression).
 
   **TD60 decision point pre-committed** (~2026-07-30):
   - GREEN: residual NAV corr 60d <0.4 + per-regime BULL vs_qqq 60d > -3% +
