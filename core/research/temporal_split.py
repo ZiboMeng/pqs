@@ -68,6 +68,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 _DEFAULT_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "temporal_split.yaml"
 _DEFAULT_PATH_V2 = Path(__file__).resolve().parent.parent.parent / "config" / "temporal_split_v2.yaml"
+_DEFAULT_PATH_V3 = Path(__file__).resolve().parent.parent.parent / "config" / "temporal_split_v3.yaml"
 
 # Cutoff date for v2 dispatch. Candidates frozen on or after this date with
 # role=diversifier read v2 thresholds (PRD §6.2 evidence-derived NAV-level
@@ -76,6 +77,13 @@ _DEFAULT_PATH_V2 = Path(__file__).resolve().parent.parent.parent / "config" / "t
 # pre-PRD candidates (RCMv1 / Cand-2 legacy_decay_verification + cycle04+05
 # archived trials). See `docs/memos/20260501-diversifier_role_decision.md`.
 _V2_DISPATCH_CUTOFF = date(2026, 5, 1)
+
+# v3 dispatch cutoff: any role (core or diversifier) with freeze_date
+# >= 2026-05-02 reads v3, which deprecates QQQ as hard outperformance
+# gate (per docs/memos/20260502-qqq_benchmark_deprecation.md). v3 takes
+# precedence over v2; pre-cutoff dispatch unchanged (preserves cycle04+05
+# + RCMv1/Cand-2 + Trial-9-via-v2 immutability).
+_V3_DISPATCH_CUTOFF = date(2026, 5, 2)
 
 
 # ---------------------------------------------------------------------------
@@ -190,12 +198,17 @@ class AccessRules(BaseModel):
 
 _GATE_OP = Literal[">", ">=", "<", "<=", "=="]
 # Gate actions:
-#   kill_candidate — hard fail, candidate cannot proceed (v1 + v2)
-#   soft_warn      — candidate proceeds with a labelled warning that must
-#                    be cleared by a forward observation condition (v2 only,
-#                    introduced for diversifier 2025 maxdd 18-20% tier per
-#                    PRD §6.2 + decision memo 20260501)
-_GATE_ACTION = Literal["kill_candidate", "soft_warn"]
+#   kill_candidate  — hard fail, candidate cannot proceed (v1 + v2 + v3)
+#   soft_warn       — candidate proceeds with a labelled warning that must
+#                     be cleared by a forward observation condition (v2 + v3,
+#                     introduced for diversifier 2025 maxdd 18-20% tier per
+#                     PRD §6.2 + decision memo 20260501)
+#   diagnostic_only — gate evaluated and reported, but `passed=True`
+#                     unconditionally (does NOT block candidate). Introduced
+#                     in v3 (2026-05-02) for QQQ benchmark deprecation
+#                     per `docs/memos/20260502-qqq_benchmark_deprecation.md`.
+#                     Actual evaluation outcome stored in `values.diagnostic_actual_passed`.
+_GATE_ACTION = Literal["kill_candidate", "soft_warn", "diagnostic_only"]
 
 
 class GateRule(BaseModel):
@@ -228,7 +241,8 @@ class GateRule(BaseModel):
                     f"field={self.field!r} op={self.op} value={self.value}"
                 )
         else:
-            # kill_candidate: soft_warn fields must be unset (avoid drift).
+            # kill_candidate / diagnostic_only: soft_warn fields must be
+            # unset (avoid schema drift).
             for name in ("soft_warn_label", "soft_warn_clear_condition",
                         "soft_warn_unclear_action"):
                 if getattr(self, name) is not None:
@@ -263,6 +277,13 @@ class ValidationYearPass(BaseModel):
     excess_vs_spy_positive_min: int = Field(ge=0)
     excess_vs_qqq_positive_min: int = Field(ge=0)
     maxdd_per_year_max: float = Field(gt=0.0, le=1.0)
+    # When True, the validation_aggregate_excess_vs_qqq gate is reported
+    # as diagnostic only (passed=True regardless of count); the actual
+    # count is still computed and stored in values.diagnostic_actual_passed.
+    # Introduced in v3 (2026-05-02) per QQQ benchmark deprecation memo
+    # docs/memos/20260502-qqq_benchmark_deprecation.md. Defaults to False
+    # to preserve v1 / v2 behavior.
+    excess_vs_qqq_diagnostic_only: bool = False
 
 
 class StressSlicePass(BaseModel):
@@ -526,29 +547,34 @@ def resolve_split_path(
     *,
     v1_path: Optional[Path] = None,
     v2_path: Optional[Path] = None,
+    v3_path: Optional[Path] = None,
 ) -> Path:
-    """Dispatch between v1 and v2 temporal_split yaml.
+    """Dispatch between v1, v2, and v3 temporal_split yaml.
 
-    Rule (per PRD §6.2 + decision memo
-    ``docs/memos/20260501-diversifier_role_decision.md``):
+    Dispatch rules (precedence: v3 > v2 > v1):
 
+    - freeze_date is not None AND freeze_date >= 2026-05-02 (v3 cutoff)
+      → v3 (ALL roles; QQQ benchmark deprecated as hard gate per
+      ``docs/memos/20260502-qqq_benchmark_deprecation.md``)
     - role == "diversifier" AND freeze_date is not None AND
-      freeze_date >= 2026-05-01  → v2
-    - everything else                                       → v1
+      freeze_date >= 2026-05-01 AND freeze_date < 2026-05-02
+      → v2 (per ``docs/memos/20260501-diversifier_role_decision.md``)
+    - everything else
+      → v1 (legacy contract; preserves immutability of cycle04+05
+      archived trials + RCMv1/Cand-2 + Trial 9 source)
 
-    Why role + freeze_date and not just role:
-      v2 yaml's diversifier thresholds are evidence-derived from cycle04+05
-      partial_diversifier band (0.50-0.70 raw NAV correlation). cycle04+05
-      archived trials and pre-2026-05-01 candidates predate that evidence;
-      they remain bound to v1 for immutability (cycle04+05 yaml hashes
-      already pinned to v1 contract).
+    Why v3 covers all roles unconditionally on freeze_date:
+      QQQ benchmark deprecation is a setup-property change applying to
+      both core_alpha and diversifier (8-angle analysis in QQQ
+      deprecation memo §A6). v2 was role-aware (diversifier-only NAV
+      thresholds); v3 is universally-applied benchmark deprecation
+      with v2's diversifier rules carried forward.
 
-    Why role-aware and not just date-aware:
-      v2 modifies ONLY the diversifier role; core / legacy_decay_verification
-      are unchanged. Routing a non-diversifier candidate to v2 would change
-      nothing semantically but would pollute the audit trail (split_name
-      stamped as `_v2` for a candidate whose role is not affected by v2
-      changes). Conservative: only dispatch v2 when role is the affected one.
+    Why dispatch by date, not by yaml hash inspection:
+      yaml hash + locked-after-first-use C4 invariant prevent silent
+      gate drift on already-evaluated candidates. v3 is a NEW yaml; old
+      yamls untouched. Date-based dispatch routes new mining to new
+      gate without re-opening old contracts.
 
     Parameters
     ----------
@@ -559,13 +585,13 @@ def resolve_split_path(
         / ``"risk_control"``), translate via
         ``forward.manifest_schema.phase_c_role_to_track_a_role()`` first.
         ``"core_alpha"`` arriving here un-translated will silently route to
-        v1 (no longer matches the diversifier branch) — wrong dispatch but
-        not an exception, hence the explicit translation contract.
+        the v1 branch (no longer matches the diversifier branch in v2;
+        v3 doesn't gate on role). Hence the explicit translation contract.
     freeze_date : Optional[date]
         Candidate freeze_date (== promoted_at date for forward candidates,
         or yaml.created_at for mining candidates). None defaults to v1
         (conservative: assume legacy contract).
-    v1_path / v2_path : Optional[Path]
+    v1_path / v2_path / v3_path : Optional[Path]
         Override the default yaml paths (test injection point).
 
     Returns
@@ -575,11 +601,28 @@ def resolve_split_path(
     Raises
     ------
     FileNotFoundError if the resolved path does not exist (catches the
-    case where v2 yaml has been deleted but a diversifier candidate
-    requests it).
+    case where v3/v2 yaml has been deleted but a candidate requests it).
     """
     v1 = Path(v1_path) if v1_path else _DEFAULT_PATH
     v2 = Path(v2_path) if v2_path else _DEFAULT_PATH_V2
+    v3 = Path(v3_path) if v3_path else _DEFAULT_PATH_V3
+    # v3 takes precedence for active mining roles (core + diversifier).
+    # legacy_decay_verification and risk_control stay on v1 unconditionally
+    # — they predate the new framework and do not re-evaluate against new
+    # gates (RCMv1+Cand-2 are aborted; risk_control sleeves are rule-based
+    # not mined).
+    if (
+        role in ("core", "diversifier")
+        and freeze_date is not None
+        and freeze_date >= _V3_DISPATCH_CUTOFF
+    ):
+        if not v3.exists():
+            raise FileNotFoundError(
+                f"v3 dispatch requested (role={role}, freeze_date="
+                f"{freeze_date.isoformat()}) but v3 yaml not found at {v3}"
+            )
+        return v3
+    # v2: diversifier-specific between 2026-05-01 and 2026-05-02
     if (
         role == "diversifier"
         and freeze_date is not None

@@ -567,3 +567,113 @@ def test_cost_gate_rejects_numpy_array_with_bool_dtype():
     res = evaluate_candidate(metrics, cfg, "core")
     cost = res.gate_named("cost_robustness_2x")
     assert cost is not None and not cost.passed
+
+
+# ─── v3 QQQ deprecation tests (2026-05-02) ─────────────────────────────
+
+
+def test_v3_load_yields_qqq_diagnostic_only_flag():
+    """v3 yaml's acceptance.validation_year_pass.excess_vs_qqq_diagnostic_only
+    must be True (per QQQ deprecation 2026-05-02).
+    """
+    from core.research.temporal_split import (
+        load_temporal_split, _DEFAULT_PATH_V3,
+    )
+    cfg = load_temporal_split(_DEFAULT_PATH_V3)
+    assert cfg.acceptance.validation_year_pass.excess_vs_qqq_diagnostic_only is True
+
+
+def test_v3_validation_aggregate_qqq_passes_regardless_of_count():
+    """When excess_vs_qqq_diagnostic_only=True, the aggregate gate passes
+    even when qqq_pos_count < threshold.
+    """
+    from core.research.temporal_split import load_temporal_split, _DEFAULT_PATH_V3
+    from core.research.temporal_split_acceptance import _eval_validation_aggregate
+    cfg = load_temporal_split(_DEFAULT_PATH_V3)
+    # All vs_qqq = -0.10 (every year fails) but should still pass aggregate
+    metrics = {
+        "validation": {
+            "2018": {"excess_vs_spy": 0.05, "excess_vs_qqq": -0.10},
+            "2019": {"excess_vs_spy": 0.05, "excess_vs_qqq": -0.10},
+            "2021": {"excess_vs_spy": 0.05, "excess_vs_qqq": -0.10},
+            "2023": {"excess_vs_spy": 0.05, "excess_vs_qqq": -0.10},
+            "2025": {"excess_vs_spy": 0.05, "excess_vs_qqq": -0.10},
+        }
+    }
+    gates = _eval_validation_aggregate(metrics, cfg)
+    qqq_gate = [g for g in gates if g.name == "validation_aggregate_excess_vs_qqq"][0]
+    assert qqq_gate.passed is True
+    # Actual outcome still recorded in values
+    assert qqq_gate.values["diagnostic_actual_passed"] is False
+    assert qqq_gate.values["positive_count"] == 0
+    assert "diagnostic_only mode" in qqq_gate.notes
+
+
+def test_v3_role_gate_diagnostic_only_passes_regardless():
+    """Role gate with action=diagnostic_only sets passed=True even when
+    actual evaluation fails. diagnostic_actual_passed records truth.
+    """
+    from core.research.temporal_split import load_temporal_split, _DEFAULT_PATH_V3
+    from core.research.temporal_split_acceptance import _eval_role_gates
+    cfg = load_temporal_split(_DEFAULT_PATH_V3)
+    # Provide minimal metrics; vs_spy passes, vs_qqq fails
+    metrics = {
+        "validation": {
+            "2025": {"excess_vs_spy": 0.05, "excess_vs_qqq": -0.05, "maxdd": 0.10},
+        },
+    }
+    gates = _eval_role_gates(metrics, cfg, "core")
+    # Find the vs_qqq diagnostic gate
+    qqq_gates = [g for g in gates if "excess_vs_qqq" in g.name]
+    assert len(qqq_gates) == 1
+    g = qqq_gates[0]
+    assert g.passed is True  # diagnostic_only ALWAYS passes
+    assert g.values["diagnostic_actual_passed"] is False  # actual eval false
+    assert "diagnostic_only" in g.notes
+    # vs_spy gate is hard kill_candidate
+    spy_gates = [g for g in gates if "excess_vs_spy" in g.name]
+    assert len(spy_gates) == 1
+    assert spy_gates[0].passed is True  # vs_spy=0.05 passes >0
+
+
+def test_v3_role_gate_diagnostic_only_with_missing_data_does_not_block():
+    """diagnostic_only gate with missing metric data still passes (no block);
+    diagnostic_actual_passed records False for transparency.
+    """
+    from core.research.temporal_split import load_temporal_split, _DEFAULT_PATH_V3
+    from core.research.temporal_split_acceptance import _eval_role_gates
+    cfg = load_temporal_split(_DEFAULT_PATH_V3)
+    # vs_spy present (passes), vs_qqq absent (would fail-closed if hard)
+    metrics = {
+        "validation": {
+            "2025": {"excess_vs_spy": 0.05, "maxdd": 0.10},
+        },
+    }
+    gates = _eval_role_gates(metrics, cfg, "core")
+    qqq_gates = [g for g in gates if "excess_vs_qqq" in g.name]
+    assert len(qqq_gates) == 1
+    g = qqq_gates[0]
+    assert g.passed is True  # diagnostic does not block on missing
+    assert g.values["diagnostic_actual_passed"] is False
+    assert "missing or non-numeric" in g.notes
+
+
+def test_v3_kill_candidate_action_with_missing_data_still_fails_closed():
+    """Hard kill_candidate gate with missing metric MUST still fail (regression
+    check that diagnostic_only logic doesn't accidentally apply to kill_candidate).
+    """
+    from core.research.temporal_split import load_temporal_split, _DEFAULT_PATH_V3
+    from core.research.temporal_split_acceptance import _eval_role_gates
+    cfg = load_temporal_split(_DEFAULT_PATH_V3)
+    # vs_spy missing — should fail-closed as hard gate
+    metrics = {
+        "validation": {
+            "2025": {"excess_vs_qqq": -0.05, "maxdd": 0.10},
+        },
+    }
+    gates = _eval_role_gates(metrics, cfg, "core")
+    spy_gates = [g for g in gates if "excess_vs_spy" in g.name]
+    assert len(spy_gates) == 1
+    assert spy_gates[0].passed is False  # hard kill_candidate still fail-closed
+    # diagnostic_actual_passed should NOT be in values for hard gates
+    assert "diagnostic_actual_passed" not in spy_gates[0].values

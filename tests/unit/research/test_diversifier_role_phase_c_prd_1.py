@@ -394,15 +394,27 @@ def test_temporal_split_v2_diversifier_thresholds_per_prd():
 # ─── CLAUDE.md QQQ Rule diversifier exception ──────────────────────────
 
 
-def test_claude_md_diversifier_exception_present():
-    """CLAUDE.md must contain the diversifier role exception clause."""
+def test_claude_md_diversifier_section_present():
+    """CLAUDE.md must contain the diversifier role section.
+
+    Renamed 2026-05-02 from "Diversifier Role Exception" to "Diversifier
+    Role Additional Constraints" after QQQ deprecation made the exception
+    cell (OOS walk-forward window-mean vs QQQ) diagnostic for ALL roles
+    — exception became redundant, section retained for diversifier-specific
+    STRICTER rules (NAV correlation, factor overlap, cross-asset utilization,
+    soft-warn maxdd).
+    """
     claude_path = PROJ / "CLAUDE.md"
     text = claude_path.read_text()
-    assert "Diversifier Role Exception" in text
-    # The waived rule cell must be exactly one
-    assert "OOS walk-forward (average)" in text
-    # NOT waived list must include critical gates
-    assert "Full backtest period | Strategy CAGR > QQQ CAGR" in text
+    # New section name (post-2026-05-02 simplification)
+    assert "Diversifier Role Additional Constraints" in text
+    # Pre-deprecation history note still present (audit trail)
+    assert "Diversifier Role Exception" in text  # in history note
+    # Diversifier-specific STRICTER rules retained
+    assert "nav_corr_raw_max_vs_anchors" not in text  # config-level, not CLAUDE.md
+    assert "raw NAV < 0.70" in text or "raw NAV correlation" in text.lower()
+    assert "factor_overlap_with_active_core" in text
+    assert "non_equity_weight_avg" in text
 
 
 def test_claude_md_diversifier_exception_cites_prd_and_memo():
@@ -483,13 +495,19 @@ def test_phase_c_to_track_a_bridge_integration_with_ensure_role_assigned():
 def test_phase_c_to_track_a_bridge_diversifier_v2_dispatch_unchanged():
     """Diversifier path through bridge does NOT break v1↔v2 dispatch.
 
-    Trial 9 path: candidate_registry role='diversifier' → bridge → 'diversifier'
-    → resolve_split_path('diversifier', 2026-05-04) → v2 yaml.
+    Trial 9 path POST-2026-05-02 QQQ deprecation: candidate_registry
+    role='diversifier' → bridge → 'diversifier' → resolve_split_path(
+    'diversifier', 2026-05-04) → v3 yaml (since freeze_date >= v3 cutoff
+    2026-05-02 routes core+diversifier to v3 unconditionally per
+    docs/memos/20260502-qqq_benchmark_deprecation.md).
+
+    For v2 dispatch test see test_temporal_split_v1_v2_dispatch.py
+    test_diversifier_v2_dispatch_loads_v2_thresholds (uses 2026-05-01).
     """
     from datetime import date as _date
     from core.research.forward.manifest_schema import phase_c_role_to_track_a_role
-    from core.research.temporal_split import resolve_split_path, _DEFAULT_PATH_V2
+    from core.research.temporal_split import resolve_split_path, _DEFAULT_PATH_V3
 
     track_a_role = phase_c_role_to_track_a_role("diversifier")
     resolved = resolve_split_path(track_a_role, _date(2026, 5, 4))
-    assert resolved == _DEFAULT_PATH_V2
+    assert resolved == _DEFAULT_PATH_V3
