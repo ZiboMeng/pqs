@@ -106,7 +106,7 @@
 | 词 | 含义 |
 |---|---|
 | **SPY** | S&P 500 ETF。本项目主 benchmark |
-| **QQQ** | NASDAQ-100 ETF。次 benchmark；策略必须跑赢两者 |
+| **QQQ** | NASDAQ-100 ETF。Diagnostic reference only post-2026-05-02 ([memo](docs/memos/20260502-qqq_benchmark_deprecation.md)) |
 | **TQQQ** | 3x leveraged QQQ。本项目允许但严审 |
 | **SOXL** | 3x leveraged 半导体（SOXX 底层）。允许但严审 |
 | **SQQQ** | 3x **inverse** QQQ。**本项目黑名单** |
@@ -231,7 +231,7 @@
 | 2 | **SQQQ 黑名单; TQQQ/SOXL 严审** | 杠杆反向 ETF 极端风险 |
 | 3 | **No real broker API this phase** | 模拟盘 = internal simulation |
 | 4 | **macOS / Linux 本地运行** | 不上 AWS / cloud 优先 |
-| 5 | **Benchmark: SPY 主 / QQQ 次** | 策略必须跑赢两者 (see §15.2) |
+| 5 | **Benchmark: SPY 主 (HARD outperform); QQQ diagnostic only** | post-2026-05-02 QQQ deprecation; see §15.2 |
 | 6 | **Left-side trading = enhancement only** | 永不作默认 engine |
 | 7 | **Intraday: 60m/30m 主; 15m research-only** | 数据可得性约束 |
 | 8 | **所有阈值必须 config/*.yaml 可调** | 不硬编码 |
@@ -1963,20 +1963,34 @@ xfail 解除条件必须文档化在 reason 参数里。
 
 12 条硬约束。任何 PR 都要自检不破坏这些。
 
-### 15.2 QQQ Outperformance Rule ⭐ 新近强化
+### 15.2 Benchmark Outperformance Rule [REVISED 2026-05-02 — QQQ deprecated]
 
-**硬目标**: 策略 CAGR 必须跑赢 QQQ，不接受"接近"或"落后 ≤ 2%"。
+**硬目标**: 策略长期跑赢 SPY (full period + 2025 holdout, both HARD)。
+**QQQ 作为 diagnostic reference**, 不再是 hard outperformance gate。
 
-| 维度 | 要求 | 类型 |
+| 维度 | vs SPY | vs QQQ |
 |---|---|---|
-| Full-period | CAGR > QQQ | Hard |
-| Holdout 252d | Return > QQQ | Hard |
-| OOS walk-forward avg | Mean excess > 0 | Hard |
-| Per-window | Reported | Diagnostic |
-| Per-regime | Reported | Diagnostic |
+| Full-period | **CAGR > SPY — HARD** | CAGR vs QQQ — diagnostic |
+| 2025 holdout | **return > SPY — HARD** | return vs QQQ — diagnostic |
+| OOS walk-forward avg | Mean excess > 0 — diagnostic (preferred) | Mean excess vs QQQ — diagnostic |
+| Per-window | Reported | Reported |
+| Per-regime | Reported | Reported |
+
+**Why QQQ deprecated** (8-angle analysis at
+[memo](docs/memos/20260502-qqq_benchmark_deprecation.md)):
+- QQQ = sector-tilt ETF (60% tech), NOT market-broad benchmark
+- 1999-2025 long-term: QQQ +8.3% vs SPY +7.8% (+0.5% only; 2009-2021
+  outperformance was zero-rate cherry-pick)
+- Long-only beat-QQQ requires beta>1 → MaxDD>QQQ → DIRECTLY violates
+  15-20% MaxDD invariant
+- Industry/academic norm: long-only US large-cap → S&P 500/Russell 1000
 
 **Risk guardrail**: 不许通过"集中 ≤3 symbols" / 违反 position limit /
-恶化 MaxDD 来硬换 QQQ 超额。
+恶化 MaxDD 来硬换 SPY 超额。Black swan resilience quantified to
+2008-style scenario MaxDD ≤ 25%.
+
+**Authority**: branch `invariant-revision-2026-05-02` merged 2026-05-02
+(checkpoint at `docs/checkpoints/20260502-invariant_revision.md`).
 
 ### 15.3 Pricing Semantics
 
