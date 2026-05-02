@@ -66,7 +66,7 @@ from __future__ import annotations
 
 import operator
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from core.research.temporal_split import (
@@ -615,8 +615,23 @@ def run_split_acceptance(
     metrics: Dict[str, Any],
     role: str,
     split_path: Optional[str] = None,
+    freeze_date: Optional[date] = None,
 ) -> SplitAcceptanceResult:
-    """Convenience driver: load split YAML + evaluate."""
+    """Convenience driver: load split YAML + evaluate.
+
+    When ``split_path`` is None, dispatches between v1 and v2 yaml using
+    ``resolve_split_path(role, freeze_date)``: role=diversifier candidates
+    frozen on/after 2026-05-01 read v2 thresholds (PRD §6.2 evidence-derived);
+    everything else reads v1 (immutability for pre-PRD candidates).
+
+    Explicit ``split_path`` always wins over dispatch (test/eval scripts
+    that pin a specific yaml for reproducibility).
+    """
     from pathlib import Path as _P
-    cfg = load_temporal_split(_P(split_path) if split_path else None)
+    from core.research.temporal_split import resolve_split_path
+    if split_path:
+        path = _P(split_path)
+    else:
+        path = resolve_split_path(role=role, freeze_date=freeze_date)
+    cfg = load_temporal_split(path)
     return evaluate_candidate(metrics, cfg, role)

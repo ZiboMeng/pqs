@@ -67,6 +67,15 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 
 _DEFAULT_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "temporal_split.yaml"
+_DEFAULT_PATH_V2 = Path(__file__).resolve().parent.parent.parent / "config" / "temporal_split_v2.yaml"
+
+# Cutoff date for v2 dispatch. Candidates frozen on or after this date with
+# role=diversifier read v2 thresholds (PRD §6.2 evidence-derived NAV-level
+# correlation + 18%/20% maxdd tier + TD60 self-clearing). All other
+# (role, freeze_date) combinations read v1 to preserve immutability of
+# pre-PRD candidates (RCMv1 / Cand-2 legacy_decay_verification + cycle04+05
+# archived trials). See `docs/memos/20260501-diversifier_role_decision.md`.
+_V2_DISPATCH_CUTOFF = date(2026, 5, 1)
 
 
 # ---------------------------------------------------------------------------
@@ -180,7 +189,13 @@ class AccessRules(BaseModel):
 
 
 _GATE_OP = Literal[">", ">=", "<", "<=", "=="]
-_GATE_ACTION = Literal["kill_candidate"]
+# Gate actions:
+#   kill_candidate — hard fail, candidate cannot proceed (v1 + v2)
+#   soft_warn      — candidate proceeds with a labelled warning that must
+#                    be cleared by a forward observation condition (v2 only,
+#                    introduced for diversifier 2025 maxdd 18-20% tier per
+#                    PRD §6.2 + decision memo 20260501)
+_GATE_ACTION = Literal["kill_candidate", "soft_warn"]
 
 
 class GateRule(BaseModel):
@@ -189,6 +204,39 @@ class GateRule(BaseModel):
     op: _GATE_OP
     value: float
     action: _GATE_ACTION
+    # soft_warn-only fields. Required iff action == "soft_warn"; ignored
+    # otherwise. Validated by _validate_soft_warn_fields below.
+    soft_warn_label: Optional[str] = None
+    soft_warn_clear_condition: Optional[str] = None
+    soft_warn_unclear_action: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _validate_soft_warn_fields(self) -> "GateRule":
+        if self.action == "soft_warn":
+            missing = [
+                name
+                for name, val in (
+                    ("soft_warn_label", self.soft_warn_label),
+                    ("soft_warn_clear_condition", self.soft_warn_clear_condition),
+                    ("soft_warn_unclear_action", self.soft_warn_unclear_action),
+                )
+                if val is None
+            ]
+            if missing:
+                raise ValueError(
+                    f"action=soft_warn requires fields {missing} on gate "
+                    f"field={self.field!r} op={self.op} value={self.value}"
+                )
+        else:
+            # kill_candidate: soft_warn fields must be unset (avoid drift).
+            for name in ("soft_warn_label", "soft_warn_clear_condition",
+                        "soft_warn_unclear_action"):
+                if getattr(self, name) is not None:
+                    raise ValueError(
+                        f"action={self.action} must not set {name} "
+                        f"(soft_warn-only field) on gate field={self.field!r}"
+                    )
+        return self
 
 
 class EligibilityConstraint(BaseModel):
@@ -456,6 +504,11 @@ def load_temporal_split(path: Optional[Path] = None) -> TemporalSplitConfig:
 
     Raises ``FileNotFoundError`` if the path does not exist, and
     ``pydantic.ValidationError`` for any schema violation.
+
+    For role-aware dispatch between v1 and v2 yaml, use
+    ``resolve_split_path(role, freeze_date)`` to compute the path first,
+    then pass it here. This keeps loader pure (loads what you give it)
+    and centralises dispatch policy in one helper.
     """
     if path is None:
         path = _DEFAULT_PATH
@@ -465,6 +518,80 @@ def load_temporal_split(path: Optional[Path] = None) -> TemporalSplitConfig:
     with path.open("r", encoding="utf-8") as f:
         raw = yaml.safe_load(f)
     return TemporalSplitConfig.model_validate(raw)
+
+
+def resolve_split_path(
+    role: str,
+    freeze_date: Optional[date] = None,
+    *,
+    v1_path: Optional[Path] = None,
+    v2_path: Optional[Path] = None,
+) -> Path:
+    """Dispatch between v1 and v2 temporal_split yaml.
+
+    Rule (per PRD §6.2 + decision memo
+    ``docs/memos/20260501-diversifier_role_decision.md``):
+
+    - role == "diversifier" AND freeze_date is not None AND
+      freeze_date >= 2026-05-01  → v2
+    - everything else                                       → v1
+
+    Why role + freeze_date and not just role:
+      v2 yaml's diversifier thresholds are evidence-derived from cycle04+05
+      partial_diversifier band (0.50-0.70 raw NAV correlation). cycle04+05
+      archived trials and pre-2026-05-01 candidates predate that evidence;
+      they remain bound to v1 for immutability (cycle04+05 yaml hashes
+      already pinned to v1 contract).
+
+    Why role-aware and not just date-aware:
+      v2 modifies ONLY the diversifier role; core / legacy_decay_verification
+      are unchanged. Routing a non-diversifier candidate to v2 would change
+      nothing semantically but would pollute the audit trail (split_name
+      stamped as `_v2` for a candidate whose role is not affected by v2
+      changes). Conservative: only dispatch v2 when role is the affected one.
+
+    Parameters
+    ----------
+    role : str
+        Candidate role. One of {"core", "diversifier",
+        "legacy_decay_verification", "risk_control"}.
+    freeze_date : Optional[date]
+        Candidate freeze_date (== promoted_at date for forward candidates,
+        or yaml.created_at for mining candidates). None defaults to v1
+        (conservative: assume legacy contract).
+    v1_path / v2_path : Optional[Path]
+        Override the default yaml paths (test injection point).
+
+    Returns
+    -------
+    Path to the appropriate yaml.
+
+    Raises
+    ------
+    FileNotFoundError if the resolved path does not exist (catches the
+    case where v2 yaml has been deleted but a diversifier candidate
+    requests it).
+    """
+    v1 = Path(v1_path) if v1_path else _DEFAULT_PATH
+    v2 = Path(v2_path) if v2_path else _DEFAULT_PATH_V2
+    if (
+        role == "diversifier"
+        and freeze_date is not None
+        and freeze_date >= _V2_DISPATCH_CUTOFF
+    ):
+        if not v2.exists():
+            raise FileNotFoundError(
+                f"v2 dispatch requested (role=diversifier, freeze_date="
+                f"{freeze_date.isoformat()}) but v2 yaml not found at {v2}"
+            )
+        return v2
+    if not v1.exists():
+        raise FileNotFoundError(
+            f"v1 dispatch requested (role={role!r}, freeze_date="
+            f"{freeze_date.isoformat() if freeze_date else 'None'}) "
+            f"but v1 yaml not found at {v1}"
+        )
+    return v1
 
 
 def train_year_set(cfg: TemporalSplitConfig) -> set:
