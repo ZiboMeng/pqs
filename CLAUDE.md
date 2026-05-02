@@ -3,76 +3,86 @@
 ## Phase C: Continuous Development PRD (v3)
 
 ### System Identity
-个人量化研究与模拟交易系统。目标：长期可持续跑赢 SPY **和 QQQ**，保持低回撤（15%-20%），具备黑天鹅韧性。
+个人量化研究与模拟交易系统。目标：长期可持续跑赢 SPY，保持低回撤（15%-20%），具备黑天鹅韧性（2008-style 场景 MaxDD ≤ 25%）。**QQQ 作为 sector-tilt diagnostic reference，非 hard outperformance gate**（per `docs/memos/20260502-qqq_benchmark_deprecation.md`）。
 
 ### Invariant Constraints (NEVER violate without explicit user approval)
 - long-only, no-margin, no-short
 - SQQQ blacklisted; TQQQ/SOXL require stricter risk thresholds
 - No real broker/API integration this phase; paper trading = internal simulation
 - macOS local execution; no AWS/cloud deployment priority
-- Benchmark: SPY primary, QQQ secondary; **strategy must outperform both SPY and QQQ over full evaluation period and holdout** (see QQQ Outperformance Rule) [REVISED]
+- Benchmark: **SPY primary (HARD outperform gate over full period + 2025 holdout); QQQ secondary (DIAGNOSTIC only — sector-tilt reference, NOT a hard gate)** [REVISED 2026-05-02 per `docs/memos/20260502-qqq_benchmark_deprecation.md`]
 - Left-side trading = enhancement module only, never default engine
 - Intraday: 60m/30m primary, 15m research only
 - All thresholds must be configurable (config/*.yaml), never hardcoded
 - Must preserve backtest-execution consistency
 - Chinese reporting, English code naming
-- Initial capital ~$10,000, must scale to $1M+
-- Max drawdown target 15%-20%, not worse than SPY in crisis
-- **Outperforming QQQ does not waive drawdown, crisis-resilience, or long-only risk constraints** [NEW]
+- Initial capital ~$10,000, **target scale $100K (10x in 5-10 years)** [REVISED 2026-05-02 — $1M+ aspiration deprecated as fund-grade-not-individual-realistic]
+- Max drawdown target 15%-20%, not worse than SPY in crisis; **2008-style scenario MaxDD ≤ 25% (testable via stress slices)** [QUANTIFIED 2026-05-02]
+- **Outperforming SPY does not waive drawdown, crisis-resilience, or long-only risk constraints**
 
-### QQQ Outperformance Rule [NEW]
+### Benchmark Outperformance Rule [REVISED 2026-05-02 — QQQ deprecated]
 
-**硬目标：策略收益必须跑赢 QQQ，不接受仅仅"接近 QQQ"或"落后不超过 2%"。**
+**硬目标：策略收益必须长期跑赢 SPY** (full period + 2025 holdout, both HARD)。**QQQ 作为 diagnostic reference，非 hard gate** —— sector-concentrated benchmark 的 outperformance 是 active strategy bet (NOT invariant).
 
-旧标准 `excess vs QQQ >= -2%` 已废止。新标准如下：
+| Evaluation Scope | vs SPY | vs QQQ |
+|-----------------|--------|--------|
+| Full backtest period | **Strategy CAGR > SPY CAGR — HARD** | Strategy CAGR vs QQQ — diagnostic |
+| 2025 holdout (Track A validation) | **Strategy return > SPY return — HARD** | Strategy return vs QQQ — diagnostic |
+| OOS walk-forward (average) | Mean excess vs SPY > 0 — diagnostic (preferred) | Mean excess vs QQQ — diagnostic |
+| Individual OOS window | Excess vs SPY reported per window — diagnostic | Excess vs QQQ reported — diagnostic |
+| Individual regime period | vs SPY reported per regime — diagnostic | vs QQQ reported — diagnostic |
 
-| Evaluation Scope | Requirement | Type |
-|-----------------|-------------|------|
-| Full backtest period | Strategy CAGR > QQQ CAGR | **Hard constraint** |
-| Holdout period (last 252d) | Strategy return > QQQ return | **Hard constraint** |
-| OOS walk-forward (average) | Mean excess return vs QQQ > 0 across all windows | **Hard constraint** |
-| Individual OOS window | Excess vs QQQ reported per window | Diagnostic observation |
-| Individual regime period | vs QQQ reported per regime | Diagnostic observation |
+**Why QQQ deprecated as hard gate** (8-angle analysis at `docs/memos/20260502-qqq_benchmark_deprecation.md`):
+- QQQ = Nasdaq-100 = sector-tilt (60% tech), not market-broad
+- 1999-2025 long-term: QQQ +8.3% vs SPY +7.8% = +0.5% only (the 2009-2021 +5.7%/yr gap was zero-rate cherry-pick, not regime invariant)
+- Long-only beat-QQQ requires beta>1 → MaxDD>QQQ → DIRECTLY violates 15-20% MaxDD invariant
+- Industry / academic norm: long-only US large-cap benchmark = S&P 500 / Russell 1000, NOT QQQ
+- 5 mining cycles' sibling-by-NAV convergence root-caused by infeasibility of (beat QQQ AND MaxDD ≤ 20%)
 
-**Rationale for tiered approach:**
-- QQQ is tech-concentrated; in pure bull markets (BULL regime), even well-diversified strategies may lag QQQ temporarily
-- Requiring per-window outperformance would force dangerous tech concentration, conflicting with drawdown and diversification goals
-- Full-period + holdout + average-OOS constraints ensure the strategy genuinely outperforms QQQ in aggregate
-
-**Risk guardrail:** Strategies must not achieve QQQ outperformance by:
-- Concentrating in ≤3 symbols
-- Exceeding position limits in config/risk.yaml
-- Accepting MaxDD materially worse than SPY
-- Disabling regime-based risk scaling
+**Risk guardrails** (unchanged from prior version):
+- No concentration in ≤3 symbols
+- Position limits per config/risk.yaml respected
+- MaxDD not materially worse than SPY (and 2008-style scenario MaxDD ≤ 25% per `Black Swan Quantification` below)
+- Regime-based risk scaling enabled
 
 **Master report must:**
-- Display `vs QQQ` column in regime-stratified table
-- Display QQQ excess in strategy summary
-- Flag any promoted strategy that fails full-period or holdout QQQ constraint
+- Display `vs SPY` column as primary outperformance display
+- Display `vs QQQ` column as diagnostic (does NOT block promotion)
+- Display QQQ excess in strategy summary as informational
+- Flag "fails QQQ diagnostic" as info note (NOT a gate)
 
-#### Diversifier Role Exception [ADDED 2026-05-01, user explicit-go]
+#### Black Swan Quantification [QUANTIFIED 2026-05-02]
 
-**Scope**: candidates registered in `core/research/forward/manifest_schema.py` with `candidate_role = CandidateRole.DIVERSIFIER`. Does NOT apply to `core_alpha`, `legacy_decay_verification`, or `risk_control` roles.
+Pre-2026-05-02 invariant said "黑天鹅韧性" without testable threshold.
+Replaced by:
+- **Stress slice MaxDD ≤ 25%** for 2008-equivalent regime (lehman/covid_flash/rate_hike_2022)
+- Future: regime-conditional Monte Carlo per stress test (TBD post-Trial-9 forward)
 
-**Waived rule cell** (exactly one):
-- `OOS walk-forward (average) | Mean excess return vs QQQ > 0 across all windows` → **WAIVED for diversifier role only**
+#### Diversifier Role Additional Constraints [SIMPLIFIED 2026-05-02]
 
-**NOT waived** (explicit list — diversifier MUST still pass):
-- `Full backtest period | Strategy CAGR > QQQ CAGR | Hard constraint`
-- `Holdout period (last 252d) | Strategy return > QQQ return | Hard constraint` (interpreted as "validation 2025 vs_qqq > 0 strict" under Track A temporal split)
-- `Full backtest period | Strategy vs SPY > 0`
-- All risk constraints: per-validation-year MaxDD ≤ 20% (hard) / ≤ 18% (soft warn for diversifier with TD60 self-clearing); stress slice MaxDD ≤ 25%
-- All concentration constraints (M12 top1 ≤ 40%, top3 ≤ 70%)
+**Scope**: candidates with `candidate_role = CandidateRole.DIVERSIFIER`.
+
+**Pre-2026-05-02 history**: this section was named "Diversifier Role Exception" because the OOS walk-forward window-mean vs QQQ rule was waived for diversifier role only. After 2026-05-02 QQQ deprecation, that cell is diagnostic for ALL roles (no exception needed). Section renamed to reflect remaining content = diversifier-specific STRICTER constraints.
+
+**Diversifier-specific STRICTER rules** (apply only to role=`diversifier`):
+- Anti-sibling NAV correlation: raw NAV < 0.70 vs all anchors, residual NAV < 0.50
+- Anti-sibling factor overlap: `factor_overlap_with_active_core = 0`
+- Cross-asset utilization: `non_equity_weight_avg ≥ 15%`
+- Per-validation-year MaxDD ≤ 20% (hard) / ≤ 18% (soft warn with TD60 self-clearing per D10c)
+
+**Standard rules** (apply to ALL roles, including diversifier):
+- Full-period vs SPY > 0 (HARD)
+- 2025 holdout vs SPY > 0 (HARD)
+- Per-validation-year MaxDD ≤ 20% (hard)
+- Stress slice MaxDD ≤ 25%
+- Concentration: M12 top1 ≤ 40%, top3 ≤ 70%
 - Long-only / no-short / no-margin invariants
-- Anti-sibling NAV correlation (diversifier requires STRICTER thresholds: raw NAV < 0.70 vs all anchors, residual NAV < 0.50)
-- Anti-sibling factor overlap (diversifier requires `factor_overlap_with_active_core = 0`)
-- Cross-asset utilization (diversifier requires `non_equity_weight_avg ≥ 15%`)
 
-**Rationale**: a diversifier in a fleet legitimately can underperform QQQ in individual BULL windows if the fleet's combined NAV outperforms. The window-mean rule was originally designed for standalone core strategies. Diversifier role's mechanism is portfolio-level risk reduction, not standalone alpha.
+**Rationale**: a diversifier in a fleet contributes via low-correlation NAV addition + cross-asset exposure. The stricter rules are designed to ensure diversifier ROLE delivery is mechanism-distinct from core_alpha (which delivers via standalone alpha).
 
-**Authority**: PRD `docs/prd/20260501-two_stage_allocation_architecture_prd.md` §6.2; decision memo `docs/memos/20260501-diversifier_role_decision.md`; user explicit-go 2026-05-01.
+**Authority**: PRD `docs/prd/20260501-two_stage_allocation_architecture_prd.md` §6.2; decision memo `docs/memos/20260501-diversifier_role_decision.md`; QQQ deprecation memo `docs/memos/20260502-qqq_benchmark_deprecation.md`; user explicit-go 2026-05-01 + 2026-05-02.
 
-**Reversibility**: revocation requires user explicit-go + draft of `docs/memos/YYYY-MM-DD-diversifier_role_revoke_memo.md`; CLAUDE.md edit reverted; active diversifier candidates revert to `legacy_decay_verification` role.
+**Reversibility**: revocation of diversifier role requires user explicit-go + draft of `docs/memos/YYYY-MM-DD-diversifier_role_revoke_memo.md`; CLAUDE.md edit reverted; active diversifier candidates revert to `legacy_decay_verification` role. Revocation of QQQ deprecation is a separate decision (see `docs/checkpoints/20260502-invariant_revision.md`).
 
 ---
 

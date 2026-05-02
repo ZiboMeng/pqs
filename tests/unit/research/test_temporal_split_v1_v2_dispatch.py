@@ -63,10 +63,24 @@ def test_diversifier_post_cutoff_routes_to_v2():
     assert p == _DEFAULT_PATH_V2
 
 
-def test_diversifier_post_cutoff_future_routes_to_v2():
-    """role=diversifier + freeze_date in future → v2."""
-    p = resolve_split_path(role="diversifier", freeze_date=date(2027, 1, 1))
+def test_diversifier_post_v2_pre_v3_routes_to_v2():
+    """role=diversifier + freeze_date in [2026-05-01, 2026-05-02) → v2."""
+    # 2026-05-01 is in v2 window (post-v2-cutoff, pre-v3-cutoff).
+    # 2026-05-02 onward routes to v3 (test below).
+    p = resolve_split_path(role="diversifier", freeze_date=date(2026, 5, 1))
     assert p == _DEFAULT_PATH_V2
+
+
+def test_diversifier_post_v3_routes_to_v3():
+    """role=diversifier + freeze_date >= 2026-05-02 → v3 (QQQ deprecated).
+
+    Per docs/memos/20260502-qqq_benchmark_deprecation.md: v3 dispatch
+    cutoff at 2026-05-02; takes precedence over v2 for both core and
+    diversifier roles.
+    """
+    from core.research.temporal_split import _DEFAULT_PATH_V3
+    p = resolve_split_path(role="diversifier", freeze_date=date(2027, 1, 1))
+    assert p == _DEFAULT_PATH_V3
 
 
 def test_diversifier_pre_cutoff_routes_to_v1():
@@ -167,13 +181,25 @@ def test_v2_path_override_used_when_provided(tmp_path: Path):
 
 
 def test_v2_dispatch_fails_when_v2_missing(tmp_path: Path):
-    """Diversifier post-cutoff dispatch with missing v2 yaml raises FileNotFoundError."""
+    """Diversifier in v2 window (pre-v3-cutoff) with missing v2 raises FileNotFoundError."""
     missing_v2 = tmp_path / "nonexistent_v2.yaml"
+    # Use date in [2026-05-01, 2026-05-02) — v2 window, before v3 cutoff
     with pytest.raises(FileNotFoundError, match="v2 dispatch requested"):
         resolve_split_path(
             role="diversifier",
-            freeze_date=date(2026, 6, 1),
+            freeze_date=date(2026, 5, 1),
             v2_path=missing_v2,
+        )
+
+
+def test_v3_dispatch_fails_when_v3_missing(tmp_path: Path):
+    """Core/diversifier post-v3-cutoff with missing v3 raises FileNotFoundError."""
+    missing_v3 = tmp_path / "nonexistent_v3.yaml"
+    with pytest.raises(FileNotFoundError, match="v3 dispatch requested"):
+        resolve_split_path(
+            role="core",
+            freeze_date=date(2026, 6, 1),
+            v3_path=missing_v3,
         )
 
 
@@ -196,12 +222,15 @@ def test_v1_dispatch_fails_when_v1_missing(tmp_path: Path):
 def test_diversifier_v2_dispatch_loads_v2_thresholds():
     """End-to-end: dispatch + load gives v2 split_name + diversifier thresholds.
 
+    v2 window = [2026-05-01, 2026-05-02). Trial 9 (freeze_date 2026-05-04)
+    is now post-v3-cutoff so this test uses the v2 window edge date.
+
     v2 yaml must have:
       - split_name == "alternating_regime_holdout_v2"
       - diversifier role with PRD §6.2 thresholds (NAV-level corrs, 0/1
         factor overlap, non-equity ≥15%)
     """
-    p = resolve_split_path(role="diversifier", freeze_date=date(2026, 5, 4))
+    p = resolve_split_path(role="diversifier", freeze_date=date(2026, 5, 1))
     cfg = load_temporal_split(p)
     assert cfg.split_name == "alternating_regime_holdout_v2"
     assert "diversifier" in cfg.roles
@@ -212,6 +241,56 @@ def test_diversifier_v2_dispatch_loads_v2_thresholds():
     assert "nav_corr_residual_max_vs_anchors" in field_names
     assert "factor_overlap_with_active_core" in field_names
     assert "non_equity_weight_avg" in field_names
+
+
+def test_diversifier_v3_dispatch_loads_v3_with_qqq_diagnostic():
+    """End-to-end: post-v3-cutoff diversifier loads v3 with QQQ deprecated.
+
+    v3 yaml must have:
+      - split_name == "alternating_regime_holdout_v3"
+      - validation_year_pass.excess_vs_qqq_diagnostic_only == True
+      - core role validation_gates: at least one diagnostic_only action
+      - core role validation_gates: at least one vs_spy kill_candidate
+    """
+    p = resolve_split_path(role="diversifier", freeze_date=date(2026, 5, 4))
+    cfg = load_temporal_split(p)
+    assert cfg.split_name == "alternating_regime_holdout_v3"
+    assert cfg.acceptance.validation_year_pass.excess_vs_qqq_diagnostic_only is True
+    # v3 core role: vs_qqq diagnostic_only, vs_spy kill_candidate (NEW)
+    core_role = cfg.roles["core"]
+    actions = {(g.field, g.action) for g in core_role.validation_gates}
+    assert ("validation.2025.excess_vs_qqq", "diagnostic_only") in actions
+    assert ("validation.2025.excess_vs_spy", "kill_candidate") in actions
+    # v3 diversifier: vs_qqq diagnostic, vs_spy kill_candidate
+    div_role = cfg.roles["diversifier"]
+    div_actions = {(g.field, g.action) for g in div_role.validation_gates}
+    assert ("validation.2025.excess_vs_qqq", "diagnostic_only") in div_actions
+    assert ("validation.2025.excess_vs_spy", "kill_candidate") in div_actions
+    assert ("full_period.excess_vs_qqq", "diagnostic_only") in div_actions
+    assert ("full_period.excess_vs_spy", "kill_candidate") in div_actions
+
+
+def test_legacy_decay_verification_post_v3_cutoff_still_v1():
+    """legacy_decay_verification stays on v1 even post-v3-cutoff.
+
+    v3 dispatch is gated on role IN {core, diversifier}; legacy and
+    risk_control are excluded by design (they predate the new framework
+    and do not re-evaluate against new gates).
+    """
+    p = resolve_split_path(
+        role="legacy_decay_verification",
+        freeze_date=date(2027, 1, 1),  # well past v3 cutoff
+    )
+    assert p == _DEFAULT_PATH
+
+
+def test_risk_control_post_v3_cutoff_still_v1():
+    """risk_control stays on v1 even post-v3-cutoff (rule-based, not mined)."""
+    p = resolve_split_path(
+        role="risk_control",
+        freeze_date=date(2027, 1, 1),
+    )
+    assert p == _DEFAULT_PATH
 
 
 def test_core_v1_dispatch_loads_v1_split_name():

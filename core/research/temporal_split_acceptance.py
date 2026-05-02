@@ -335,13 +335,33 @@ def _eval_validation_aggregate(
         ),
         SplitGateResult(
             name="validation_aggregate_excess_vs_qqq",
-            passed=(qqq_pos_count >= vy_pass.excess_vs_qqq_positive_min),
-            values={"positive_count": qqq_pos_count, "per_year": qqq_per_year,
-                    "missing_or_invalid_years": qqq_missing_years},
+            # Diagnostic mode (v3+, QQQ deprecated): passed=True regardless;
+            # actual count vs threshold recorded in values.diagnostic_actual_passed.
+            passed=(
+                True
+                if vy_pass.excess_vs_qqq_diagnostic_only
+                else (qqq_pos_count >= vy_pass.excess_vs_qqq_positive_min)
+            ),
+            values={
+                "positive_count": qqq_pos_count, "per_year": qqq_per_year,
+                "missing_or_invalid_years": qqq_missing_years,
+                **(
+                    {"diagnostic_actual_passed":
+                        qqq_pos_count >= vy_pass.excess_vs_qqq_positive_min}
+                    if vy_pass.excess_vs_qqq_diagnostic_only else {}
+                ),
+            },
             threshold={"min_positive_years": vy_pass.excess_vs_qqq_positive_min,
-                       "total_years": len(val_years)},
-            notes=("missing/non-numeric: " + ",".join(str(y) for y in qqq_missing_years))
-                  if qqq_missing_years else "",
+                       "total_years": len(val_years),
+                       "diagnostic_only": vy_pass.excess_vs_qqq_diagnostic_only},
+            notes=(
+                ("diagnostic_only mode (per QQQ deprecation 2026-05-02); "
+                 "does not block; ")
+                if vy_pass.excess_vs_qqq_diagnostic_only else ""
+            ) + (
+                "missing/non-numeric: " + ",".join(str(y) for y in qqq_missing_years)
+                if qqq_missing_years else ""
+            ),
         ),
     ]
 
@@ -393,22 +413,42 @@ def _eval_role_gates(
         raw = _resolve_metric(metrics, gate.field)
         value = _as_float_or_none(raw)
         gate_name = f"role_{role}__{gate.field.replace('.', '__')}"
+        is_diagnostic = gate.action == "diagnostic_only"
         if value is None:
+            # Diagnostic-only gates with missing data don't block — they
+            # just record "missing". Hard gates (kill_candidate / soft_warn)
+            # still fail-closed on missing.
             out.append(SplitGateResult(
                 name=gate_name,
-                passed=False,
+                passed=True if is_diagnostic else False,
                 values={"missing_or_invalid": gate.field,
-                        "raw": (None if raw is _MISSING else repr(raw))},
-                threshold={"op": gate.op, "value": gate.value},
-                notes=f"role gate field {gate.field} missing or non-numeric; fail-closed",
+                        "raw": (None if raw is _MISSING else repr(raw)),
+                        **({"diagnostic_actual_passed": False} if is_diagnostic else {})},
+                threshold={"op": gate.op, "value": gate.value, "action": gate.action},
+                notes=(
+                    f"diagnostic gate field {gate.field} missing or non-numeric; "
+                    "reported as actual_passed=False but does not block"
+                    if is_diagnostic else
+                    f"role gate field {gate.field} missing or non-numeric; fail-closed"
+                ),
             ))
             continue
-        passed = _eval_op(gate.op, value, gate.value)
+        actual_passed = _eval_op(gate.op, value, gate.value)
         out.append(SplitGateResult(
             name=gate_name,
-            passed=passed,
-            values={"role": role, "field": gate.field, "actual": value},
+            # Diagnostic-only: passed=True regardless; record actual outcome
+            # in values.diagnostic_actual_passed for reporter / audit.
+            passed=True if is_diagnostic else actual_passed,
+            values={
+                "role": role, "field": gate.field, "actual": value,
+                **({"diagnostic_actual_passed": actual_passed} if is_diagnostic else {}),
+            },
             threshold={"op": gate.op, "value": gate.value, "action": gate.action},
+            notes=(
+                f"diagnostic_only gate (per QQQ deprecation 2026-05-02): "
+                f"actual_passed={actual_passed} but does not block candidate"
+                if is_diagnostic else ""
+            ),
         ))
     return out
 
