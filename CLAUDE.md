@@ -1145,16 +1145,29 @@ What's still open:
   R1 factual / R2 logical / R3 actually-run-the-code / R4 boundary.
   Required for schema / threshold / new-pipeline / numerical-claim
   changes. Codified at `docs/checkpoints/20260430-self_audit_methodology.md`.
-- **Generic NAV pair diagnostic runner** (P1 prep, 2026-04-30):
-  Refactor `dev/scripts/correlation/rcmv1_cand2_realized_nav_correlation.py`
-  to generic `dev/scripts/correlation/run_pair_nav_correlation.py`
-  taking `--candidate-a-id / --candidate-a-run-dirs / --candidate-b-id /
-  --candidate-b-run-dirs / --benchmark-source / --min-overlap /
-  --output-json`. Legacy pair-specific script kept as wrapper. Goal:
-  evidence pack §4.6 ready when cycle #01 produces a candidate; manual
-  script-edit at nominee time is audit risk. Refactor 80% works for
-  RCMv1×Cand-2 today (legacy still runs), fill cycle #01 candidate
-  IDs at nominee time.
+- **Generic NAV pair diagnostic runner** SHIPPED (2026-04-30 commit
+  `4eb75bd`). `dev/scripts/correlation/run_pair_nav_correlation.py`
+  takes any pair via `--candidate-a-id / --candidate-a-run-dirs /
+  --candidate-b-id / --candidate-b-run-dirs / [--cell-labels] /
+  [--min-overlap 60] / [--output-json]`. Legacy
+  `rcmv1_cand2_realized_nav_correlation.py` reduced to thin wrapper
+  preserving canonical
+  `data/memos/20260430_rcmv1_cand2_realized_correlation.json` path.
+  R3 numerical equivalence: 11/11 PASS vs pre-refactor snapshot
+  (pooled pearson 0.898 / residual vs SPY 0.609 / vs QQQ 0.579 /
+  reject_step5 — all identical to bit). R4 boundary: missing-bench-col
+  / zero-var-bench / perfect-beta / n=0 / overlap < min all handled.
+  **Design note**: pre-refactor CLAUDE.md spec listed
+  `--benchmark-source` flag; R3 audit caught that a global benchmark
+  source dir produces a cross-cell-benchmark regression (cell N's
+  benchmark loaded from cell 0's window → zero overlap → false
+  empty_diagnostic). Per-cell benchmark loading from each cell's own
+  `benchmark_relative_paper.csv` is the correct architecture; no
+  global flag needed. Verified live 2026-05-02 (legacy wrapper +
+  generic CLI both reproduce headline numbers identically).
+  Smoke pre-flight (2026-05-02): cycle #06+ candidate evidence pack
+  §4.6 ready; manual script-edit at nominee time is no longer audit
+  risk.
 - **Track D** forward + first promotion: triggered when Track C
   produces a candidate that passes the new-framework acceptance + 2026
   sealed test (single-shot, gated on A.MV freeze-date rule).
