@@ -1,0 +1,33 @@
+{
+  "params": {
+    "initial_nav": 10000.0,
+    "dte_open_days": 21,
+    "put_otm_pct": 0.05,
+    "cc_otm_pct": 0.05,
+    "put_skew": 1.11,
+    "call_skew": 0.69,
+    "defend_basis_mult": 1.02,
+    "vix_halt_hard": 40.0,
+    "dd_halt_pct": 0.1
+  },
+  "headline": {
+    "nav_initial": 10000.0,
+    "nav_final": 20354.46439438253,
+    "cum_return": 1.0354464394382528,
+    "cagr": 0.021625841005196822,
+    "sharpe": 0.3203861186668968,
+    "max_dd": -0.32715076316443026,
+    "n_years": 33.21825396825397
+  },
+  "spy_buy_hold": {
+    "cagr": 0.10760206298618646,
+    "sharpe": 0.6428506867567103,
+    "max_dd": -0.5518943514056331
+  },
+  "cycle_events": {
+    "csp_expired_worthless": 110,
+    "cc_expired_worthless": 96,
+    "csp_assigned": 5,
+    "cc_called_away": 5
+  }
+}
