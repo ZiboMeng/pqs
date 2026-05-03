@@ -34,6 +34,7 @@ data/trades_scanner_state*.json
 data/options/snapshots/
 data/options/backtest/
 data/options/analysis/*.parquet
+data/options/paper_runs/
 data/*.db
 data/*.db-shm
 data/*.db-wal
