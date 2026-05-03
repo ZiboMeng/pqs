@@ -29,6 +29,11 @@ data/_catalog.parquet
 data/baseline/
 data/paper_runs/
 data/trades_scanner_state*.json
+# Options branch data — raw fetches + derived parquets (regenerable);
+# summary JSONs stay tracked as audit trail.
+data/options/snapshots/
+data/options/backtest/
+data/options/analysis/*.parquet
 data/*.db
 data/*.db-shm
 data/*.db-wal

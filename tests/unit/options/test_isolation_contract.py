@@ -207,6 +207,11 @@ def test_options_branch_writes_only_to_options_namespace():
     )
 
     def _is_allowed(path: str) -> bool:
+        # .gitignore: legitimate to add ignore patterns for new options
+        # namespace (data/options/snapshots/, etc); does NOT affect stock
+        # workstream behavior.
+        if path == ".gitignore":
+            return True
         for prefix in allowed_prefixes:
             if path.startswith(prefix):
                 # For docs/, additionally check filename contains "options"
