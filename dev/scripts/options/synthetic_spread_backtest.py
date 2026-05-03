@@ -71,6 +71,12 @@ DD_HALT_WINDOW = 21
 TREND_MA_DAYS = 200
 MOMENTUM_DAYS = 20
 
+# Vol-regime signal params (Path A)
+VRP_RV_WINDOW = 21               # SPY realized vol window for VRP gap
+VIX_TIER_LOW = 12.0              # below this: vol crush, premium too thin
+VIX_TIER_HIGH = 25.0             # above this: tail risk dominates
+VIX_5D_CHANGE_HALT_PCT = 0.50    # if VIX up >50% in 5 days: vol expansion stress, halt
+
 
 @dataclass
 class SpreadPosition:
@@ -120,6 +126,19 @@ def _load_data() -> pd.DataFrame:
     df.loc[bull, "regime"] = "bull"
     df.loc[bear, "regime"] = "bear"
     df.loc[~(bull | bear) & df["spy_ma200"].notna(), "regime"] = "mixed"
+
+    # Vol-regime signal columns (Path A)
+    log_ret_spy = np.log(df["spy"] / df["spy"].shift(1))
+    df["spy_rv21"] = log_ret_spy.rolling(VRP_RV_WINDOW, min_periods=VRP_RV_WINDOW).std() \
+                                 * np.sqrt(252) * 100.0
+    df["vrp"] = df["vix"] - df["spy_rv21"]               # vol pts; >0 = harvest favorable
+    df["vix_5d_change"] = df["vix"].pct_change(5)        # term-structure stress proxy
+    df["vol_regime_go"] = (
+        (df["vrp"] > 0)
+        & (df["vix"] >= VIX_TIER_LOW)
+        & (df["vix"] <= VIX_TIER_HIGH)
+        & (df["vix_5d_change"] < VIX_5D_CHANGE_HALT_PCT)
+    )
     return df
 
 
@@ -331,6 +350,24 @@ def run_backtest(df: pd.DataFrame, *, mode: str) -> tuple[pd.DataFrame, list[Spr
                         chosen_struct = "iron_condor"
                     else:
                         chosen_struct = None  # warmup
+                elif mode == "vol_regime_filter_only":
+                    # Vol-regime says GO; default to neutral (iron_condor)
+                    if bool(df["vol_regime_go"].iat[i]):
+                        chosen_struct = "iron_condor"
+                    else:
+                        chosen_struct = None
+                elif mode == "vol_regime_plus_trend":
+                    # Vol-regime is the GO/NO-GO filter; trend picks structure
+                    if not bool(df["vol_regime_go"].iat[i]):
+                        chosen_struct = None
+                    elif regime == "bull":
+                        chosen_struct = "bull_put"
+                    elif regime == "bear":
+                        chosen_struct = "bear_call"
+                    elif regime == "mixed":
+                        chosen_struct = "iron_condor"
+                    else:
+                        chosen_struct = None
                 if chosen_struct is not None:
                     pos = _open_spread(state, chosen_struct, today, spot, iv,
                                        panel_index, i)
@@ -471,10 +508,12 @@ def main() -> int:
 
     summaries = []
     for mode_label, mode in [
-        ("baseline_bull_put",   "baseline:bull_put"),
-        ("baseline_bear_call",  "baseline:bear_call"),
-        ("baseline_iron_condor","baseline:iron_condor"),
-        ("signal_driven",       "signal_driven"),
+        ("baseline_bull_put",     "baseline:bull_put"),
+        ("baseline_bear_call",    "baseline:bear_call"),
+        ("baseline_iron_condor",  "baseline:iron_condor"),
+        ("signal_driven",         "signal_driven"),
+        ("vol_regime_filter_only","vol_regime_filter_only"),
+        ("vol_regime_plus_trend", "vol_regime_plus_trend"),
     ]:
         print(f"[bt] running {mode_label} ...")
         nav, pos = run_backtest(df, mode=mode)
