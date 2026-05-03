@@ -1,0 +1,39 @@
+{
+  "spot": 720.6500244140625,
+  "vix": 16.989999771118164,
+  "expiration": "2026-05-29",
+  "ratios": {
+    "otm_2pct": {
+      "put_strike": 706.0,
+      "call_strike": 735.0,
+      "put_iv_pct": 15.827257751464845,
+      "call_iv_pct": 13.575083007812502,
+      "put_iv_over_vix": 0.9315631527182301,
+      "call_iv_over_vix": 0.7990043078687508
+    },
+    "otm_5pct": {
+      "put_strike": 685.0,
+      "call_strike": 755.0,
+      "put_iv_pct": 18.872881591796876,
+      "call_iv_pct": 11.744046630859376,
+      "put_iv_over_vix": 1.1108229456176617,
+      "call_iv_over_vix": 0.6912328892919382
+    },
+    "otm_8pct": {
+      "put_strike": 663.0,
+      "call_strike": 780.0,
+      "put_iv_pct": 22.04667797851562,
+      "call_iv_pct": 12.74501318359375,
+      "put_iv_over_vix": 1.2976267378174697,
+      "call_iv_over_vix": 0.7501479314472622
+    },
+    "otm_10pct": {
+      "put_strike": 649.0,
+      "call_strike": 795.0,
+      "put_iv_pct": 24.15847326660156,
+      "call_iv_pct": 14.1610146484375,
+      "put_iv_over_vix": 1.421923107242727,
+      "call_iv_over_vix": 0.8334911618133307
+    }
+  }
+}

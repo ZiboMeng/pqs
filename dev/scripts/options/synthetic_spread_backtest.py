@@ -111,17 +111,30 @@ class State:
     history: list[dict] = field(default_factory=list)
 
 
-def _load_data(skew_uplift: float = 1.0) -> pd.DataFrame:
-    """skew_uplift: multiply ATM IV (from VIX) to approximate put-side skew
-    premium. Real SPY 5%-OTM put IV trades ~1.20-1.50× VIX. Default 1.0
-    = no skew (synthetic underprices)."""
+def _load_data(skew_uplift: float = 1.0,
+               put_skew: float | None = None,
+               call_skew: float | None = None) -> pd.DataFrame:
+    """skew_uplift: uniform multiplier on ATM IV (legacy, simple sweep).
+    put_skew / call_skew: per-leg multipliers (overrides skew_uplift).
+    Empirical SPY 5pct-OTM ratios from yfinance 2026-05 chain:
+      put_skew ≈ 1.11, call_skew ≈ 0.69
+    """
     if not (SNAP_DIR / "vix_history.parquet").exists():
         raise FileNotFoundError("Run vix_rv_gap_analysis.py first")
     vix = pd.read_parquet(SNAP_DIR / "vix_history.parquet")["close"].rename("vix")
     spy = pd.read_parquet(SNAP_DIR / "spy_history.parquet")["close"].rename("spy")
     df = pd.concat([vix, spy], axis=1, join="inner").dropna()
     iv_atm = ((df["vix"] - IV_HAIRCUT_VOL_PTS) / 100.0).clip(lower=0.05)
-    df["iv"] = (iv_atm * skew_uplift).clip(lower=0.05)
+    if put_skew is not None or call_skew is not None:
+        ps = put_skew if put_skew is not None else 1.0
+        cs = call_skew if call_skew is not None else 1.0
+        df["iv_put"] = (iv_atm * ps).clip(lower=0.05)
+        df["iv_call"] = (iv_atm * cs).clip(lower=0.05)
+        df["iv"] = df["iv_put"]  # fallback for any legacy code path
+    else:
+        df["iv"] = (iv_atm * skew_uplift).clip(lower=0.05)
+        df["iv_put"] = df["iv"]
+        df["iv_call"] = df["iv"]
     df["spy_ma200"] = df["spy"].rolling(TREND_MA_DAYS, min_periods=TREND_MA_DAYS).mean()
     df["spy_mom20"] = df["spy"].pct_change(MOMENTUM_DAYS)
     df["regime"] = "warmup"
@@ -154,7 +167,7 @@ def _is_last_bday_of_month(idx: pd.DatetimeIndex, i: int) -> bool:
 
 def _open_spread(
     state: State, structure: str,
-    today: pd.Timestamp, spot: float, iv: float,
+    today: pd.Timestamp, spot: float, iv_put: float, iv_call: float,
     panel_index: pd.DatetimeIndex, today_loc: int,
 ) -> SpreadPosition | None:
     expiry_loc = min(today_loc + DTE_OPEN_DAYS, len(panel_index) - 1)
@@ -163,13 +176,14 @@ def _open_spread(
     if t_years <= 0:
         return None
     width = spot * WIDTH_PCT
+    iv_for_pos = iv_put  # bookkeeping anchor; per-leg used in pricing below
 
     if structure == "bull_put":
         k_short_put = spot * (1.0 - SHORT_OTM_PCT)
         k_long_put = k_short_put - width
         spread = BullPutSpread(
             spot_at_open=spot, k_short_put=k_short_put, k_long_put=k_long_put,
-            t_years=t_years, sigma=iv, r=RISK_FREE_RATE,
+            t_years=t_years, sigma=iv_put, r=RISK_FREE_RATE,
         )
         m = bull_put_spread_metrics(spread)
         ks = dict(k_short_put=k_short_put, k_long_put=k_long_put)
@@ -178,23 +192,41 @@ def _open_spread(
         k_long_call = k_short_call + width
         spread = BearCallSpread(
             spot_at_open=spot, k_short_call=k_short_call, k_long_call=k_long_call,
-            t_years=t_years, sigma=iv, r=RISK_FREE_RATE,
+            t_years=t_years, sigma=iv_call, r=RISK_FREE_RATE,
         )
         m = bear_call_spread_metrics(spread)
         ks = dict(k_short_call=k_short_call, k_long_call=k_long_call)
+        iv_for_pos = iv_call
     elif structure == "iron_condor":
         k_short_put = spot * (1.0 - SHORT_OTM_PCT)
         k_long_put = k_short_put - width
         k_short_call = spot * (1.0 + SHORT_OTM_PCT)
         k_long_call = k_short_call + width
-        spread = IronCondor(
-            spot_at_open=spot, k_long_put=k_long_put, k_short_put=k_short_put,
-            k_short_call=k_short_call, k_long_call=k_long_call,
-            t_years=t_years, sigma=iv, r=RISK_FREE_RATE,
+        # Asymmetric: price put leg at iv_put, call leg at iv_call, sum
+        bull = BullPutSpread(spot_at_open=spot, k_short_put=k_short_put,
+                             k_long_put=k_long_put, t_years=t_years,
+                             sigma=iv_put, r=RISK_FREE_RATE)
+        bear = BearCallSpread(spot_at_open=spot, k_short_call=k_short_call,
+                              k_long_call=k_long_call, t_years=t_years,
+                              sigma=iv_call, r=RISK_FREE_RATE)
+        bull_m = bull_put_spread_metrics(bull)
+        bear_m = bear_call_spread_metrics(bear)
+        # Composite IronCondor metrics (asymmetric IV per leg):
+        net_credit = bull_m.net_credit_per_share + bear_m.net_credit_per_share
+        width_max = max(bull_m.width_per_share, bear_m.width_per_share)
+        max_loss = max(width_max - net_credit, 0.0)
+        from core.options.strategies.spreads import SpreadMetrics
+        m = SpreadMetrics(
+            net_credit_per_share=net_credit, max_loss_per_share=max_loss,
+            max_profit_per_share=net_credit,
+            breakeven_low=k_short_put - net_credit,
+            breakeven_high=k_short_call + net_credit,
+            width_per_share=width_max,
         )
-        m = iron_condor_metrics(spread)
         ks = dict(k_short_put=k_short_put, k_long_put=k_long_put,
                   k_short_call=k_short_call, k_long_call=k_long_call)
+        # Persist mid-IV for MtM (split per-leg in MtM dispatch)
+        iv_for_pos = (iv_put + iv_call) / 2.0
     else:
         raise ValueError(f"unknown structure: {structure}")
 
@@ -214,7 +246,7 @@ def _open_spread(
 
     return SpreadPosition(
         structure=structure, open_date=today, expiry_date=expiry_date,
-        spot_at_open=spot, iv_at_open=iv,
+        spot_at_open=spot, iv_at_open=iv_for_pos,
         credit_per_share=m.net_credit_per_share,
         max_loss_per_share=m.max_loss_per_share,
         width_per_share=m.width_per_share,
@@ -222,23 +254,31 @@ def _open_spread(
     )
 
 
-def _mtm_per_share(pos: SpreadPosition, spot: float, iv: float, t_years: float) -> float:
+def _mtm_per_share(pos: SpreadPosition, spot: float,
+                   iv_put: float, iv_call: float, t_years: float) -> float:
+    """MtM with per-leg IV (asymmetric skew aware)."""
     if pos.structure == "bull_put":
         s = BullPutSpread(spot_at_open=pos.spot_at_open, k_short_put=pos.k_short_put,
                           k_long_put=pos.k_long_put, t_years=pos.expiry_date.day,
                           sigma=pos.iv_at_open, r=RISK_FREE_RATE)
-        return bull_put_spread_mtm(s, spot, iv, t_years, RISK_FREE_RATE)
+        return bull_put_spread_mtm(s, spot, iv_put, t_years, RISK_FREE_RATE)
     if pos.structure == "bear_call":
         s = BearCallSpread(spot_at_open=pos.spot_at_open, k_short_call=pos.k_short_call,
                            k_long_call=pos.k_long_call, t_years=pos.expiry_date.day,
                            sigma=pos.iv_at_open, r=RISK_FREE_RATE)
-        return bear_call_spread_mtm(s, spot, iv, t_years, RISK_FREE_RATE)
+        return bear_call_spread_mtm(s, spot, iv_call, t_years, RISK_FREE_RATE)
     if pos.structure == "iron_condor":
-        s = IronCondor(spot_at_open=pos.spot_at_open,
-                       k_long_put=pos.k_long_put, k_short_put=pos.k_short_put,
-                       k_short_call=pos.k_short_call, k_long_call=pos.k_long_call,
-                       t_years=pos.expiry_date.day, sigma=pos.iv_at_open, r=RISK_FREE_RATE)
-        return iron_condor_mtm(s, spot, iv, t_years, RISK_FREE_RATE)
+        # MtM put + call legs separately at their respective IVs
+        bull_s = BullPutSpread(spot_at_open=pos.spot_at_open,
+                               k_short_put=pos.k_short_put, k_long_put=pos.k_long_put,
+                               t_years=pos.expiry_date.day, sigma=pos.iv_at_open,
+                               r=RISK_FREE_RATE)
+        bear_s = BearCallSpread(spot_at_open=pos.spot_at_open,
+                                k_short_call=pos.k_short_call, k_long_call=pos.k_long_call,
+                                t_years=pos.expiry_date.day, sigma=pos.iv_at_open,
+                                r=RISK_FREE_RATE)
+        return (bull_put_spread_mtm(bull_s, spot, iv_put, t_years, RISK_FREE_RATE)
+                + bear_call_spread_mtm(bear_s, spot, iv_call, t_years, RISK_FREE_RATE))
     raise ValueError(pos.structure)
 
 
@@ -295,7 +335,8 @@ def run_backtest(df: pd.DataFrame, *, mode: str) -> tuple[pd.DataFrame, list[Spr
     for i, today in enumerate(panel_index):
         spot = float(df["spy"].iat[i])
         vix = float(df["vix"].iat[i])
-        iv = float(df["iv"].iat[i])
+        iv_put = float(df["iv_put"].iat[i])
+        iv_call = float(df["iv_call"].iat[i])
         regime = str(df["regime"].iat[i])
 
         # 1) Mark + manage open positions
@@ -307,7 +348,7 @@ def run_backtest(df: pd.DataFrame, *, mode: str) -> tuple[pd.DataFrame, list[Spr
                 _expire_position(state, pos, today, spot)
                 continue
             t_years = max(dte / 365.0, 1e-6)
-            mtm = _mtm_per_share(pos, spot, iv, t_years)
+            mtm = _mtm_per_share(pos, spot, iv_put, iv_call, t_years)
             unrealized_pnl = pos.credit_per_share - mtm  # per share
             # Stop loss (close at 80% of max loss = -0.8 * max_loss in P&L)
             if unrealized_pnl <= -STOP_LOSS_FRAC * pos.max_loss_per_share:
@@ -328,7 +369,7 @@ def run_backtest(df: pd.DataFrame, *, mode: str) -> tuple[pd.DataFrame, list[Spr
             if pos.is_open:
                 dte = (pos.expiry_date - today).days
                 t_years = max(dte / 365.0, 1e-6)
-                mtm = _mtm_per_share(pos, spot, iv, t_years)
+                mtm = _mtm_per_share(pos, spot, iv_put, iv_call, t_years)
                 unrealized += (pos.credit_per_share - mtm) * 100.0 * pos.contracts
         nav_today = state.cash + state.collateral + unrealized
         state.nav = nav_today
@@ -373,8 +414,8 @@ def run_backtest(df: pd.DataFrame, *, mode: str) -> tuple[pd.DataFrame, list[Spr
                     else:
                         chosen_struct = None
                 if chosen_struct is not None:
-                    pos = _open_spread(state, chosen_struct, today, spot, iv,
-                                       panel_index, i)
+                    pos = _open_spread(state, chosen_struct, today, spot,
+                                       iv_put, iv_call, panel_index, i)
                     if pos is not None:
                         state.positions.append(pos)
                         opened = True
@@ -501,21 +542,39 @@ def main() -> int:
     ap.add_argument("--start", default=None)
     ap.add_argument("--end", default=None)
     ap.add_argument("--skew-uplift", type=float, default=1.0,
-                    help="Multiply IV by this factor (1.30 = +30 pct put skew premium)")
+                    help="Uniform IV multiplier (legacy; ignored if --put-skew set)")
+    ap.add_argument("--put-skew", type=float, default=None,
+                    help="Per-leg put IV multiplier (empirical SPY 5pct OTM = 1.11)")
+    ap.add_argument("--call-skew", type=float, default=None,
+                    help="Per-leg call IV multiplier (empirical SPY 5pct OTM = 0.69)")
+    ap.add_argument("--otm-pct", type=float, default=None,
+                    help="Override SHORT_OTM_PCT (default 0.05)")
     ap.add_argument("--label", default=None,
-                    help="Suffix for output files (default _skewNN when uplift not 1.0)")
+                    help="Suffix for output files")
     args = ap.parse_args()
 
     BT_DIR.mkdir(parents=True, exist_ok=True)
     ANAL_DIR.mkdir(parents=True, exist_ok=True)
 
-    df = _load_data(skew_uplift=args.skew_uplift)
+    if args.otm_pct is not None:
+        global SHORT_OTM_PCT
+        SHORT_OTM_PCT = args.otm_pct
+    df = _load_data(skew_uplift=args.skew_uplift,
+                    put_skew=args.put_skew, call_skew=args.call_skew)
     if args.start: df = df.loc[args.start:]
     if args.end:   df = df.loc[:args.end]
-    label = args.label or (f"_skew{int(args.skew_uplift*100)}"
-                           if args.skew_uplift != 1.0 else "")
+    if args.put_skew is not None or args.call_skew is not None:
+        ps = args.put_skew if args.put_skew is not None else 1.0
+        cs = args.call_skew if args.call_skew is not None else 1.0
+        default_label = f"_p{int(ps*100)}c{int(cs*100)}"
+    elif args.skew_uplift != 1.0:
+        default_label = f"_skew{int(args.skew_uplift*100)}"
+    else:
+        default_label = ""
+    label = args.label or default_label
     print(f"[bt] panel {df.index.min().date()} → {df.index.max().date()} "
-          f"({len(df)} rows), skew_uplift={args.skew_uplift}, label='{label}'")
+          f"({len(df)} rows), put_skew={args.put_skew}, "
+          f"call_skew={args.call_skew}, uniform={args.skew_uplift}, label='{label}'")
 
     summaries = []
     for mode_label, mode in [
