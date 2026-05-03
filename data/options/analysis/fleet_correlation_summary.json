@@ -1,0 +1,268 @@
+{
+  "scope_1_options_vs_spy_33yr": {
+    "n_overlap_days": 8370,
+    "window": [
+      "1993-02-01",
+      "2026-05-01"
+    ],
+    "correlation_with_spy": {
+      "bull_put": 0.32102849852475135,
+      "bear_call": -0.18029025909741103,
+      "iron_condor": 0.10085084664520522,
+      "signal_driven": 0.07591549788869338
+    },
+    "options_pairwise_corr": {
+      "bull_put": {
+        "bull_put": 1.0,
+        "bear_call": 0.38,
+        "iron_condor": 0.616,
+        "signal_driven": 0.592
+      },
+      "bear_call": {
+        "bull_put": 0.38,
+        "bear_call": 1.0,
+        "iron_condor": 0.647,
+        "signal_driven": 0.584
+      },
+      "iron_condor": {
+        "bull_put": 0.616,
+        "bear_call": 0.647,
+        "iron_condor": 1.0,
+        "signal_driven": 0.757
+      },
+      "signal_driven": {
+        "bull_put": 0.592,
+        "bear_call": 0.584,
+        "iron_condor": 0.757,
+        "signal_driven": 1.0
+      }
+    },
+    "options_individual_sharpe": {
+      "bull_put": 0.4613846697150885,
+      "bear_call": 0.08907522812921043,
+      "iron_condor": 0.372202813483115,
+      "signal_driven": 0.33457722962615877
+    },
+    "spy_individual_sharpe": 0.6428506867567103
+  },
+  "scope_2_direct_overlap_cells": {
+    "2022_h2": {
+      "window": [
+        "2022-08-26",
+        "2022-12-15"
+      ],
+      "n_days": 78,
+      "individual_sharpe": {
+        "bull_put": 1.154451177579934,
+        "bear_call": 0.19788828622356,
+        "iron_condor": 0.455720244680986,
+        "signal_driven": 0.2294852754146843,
+        "spy": -0.7385535711598062,
+        "rcm_v1": 0.6485162621789021,
+        "cand_2": 0.46971481580227953
+      },
+      "individual_max_dd": {
+        "bull_put": -0.0060697948894640795,
+        "bear_call": -0.016649810814877868,
+        "iron_condor": -0.03254862034928849,
+        "signal_driven": -0.016649810814877757,
+        "spy": -0.12883031432782086,
+        "rcm_v1": -0.13311955066299808,
+        "cand_2": -0.15803527202003284
+      },
+      "stock_vs_options_corr": {
+        "bull_put": {
+          "rcm_v1": 0.276,
+          "cand_2": 0.223
+        },
+        "bear_call": {
+          "rcm_v1": -0.219,
+          "cand_2": -0.265
+        },
+        "iron_condor": {
+          "rcm_v1": 0.1,
+          "cand_2": 0.073
+        },
+        "signal_driven": {
+          "rcm_v1": -0.02,
+          "cand_2": -0.057
+        }
+      },
+      "stock_vs_spy_corr": {
+        "rcm_v1": 0.87,
+        "cand_2": 0.885
+      },
+      "rcm_vs_cand2_corr": 0.937,
+      "fleet_combos": {
+        "stock_only_eq": {
+          "weights": {
+            "rcm_v1": 0.5,
+            "cand_2": 0.5
+          },
+          "n_days": 78,
+          "annual_return": 0.21664574013409046,
+          "annual_vol": 0.38444241485485936,
+          "sharpe": 0.5635323568963687,
+          "max_dd": -0.14511791835602786
+        },
+        "stock_plus_iron_condor_3way": {
+          "weights": {
+            "rcm_v1": 0.3333333333333333,
+            "cand_2": 0.3333333333333333,
+            "iron_condor": 0.3333333333333333
+          },
+          "n_days": 78,
+          "annual_return": 0.15934021617902822,
+          "annual_vol": 0.26118333991606585,
+          "sharpe": 0.6100703675442468,
+          "max_dd": -0.09610825820599803
+        },
+        "stock_plus_signal_driven_3way": {
+          "weights": {
+            "rcm_v1": 0.3333333333333333,
+            "cand_2": 0.3333333333333333,
+            "signal_driven": 0.3333333333333333
+          },
+          "n_days": 78,
+          "annual_return": 0.14858491592108497,
+          "annual_vol": 0.2562153477247831,
+          "sharpe": 0.5799219962446954,
+          "max_dd": -0.09505415362525506
+        },
+        "stock_plus_iron_condor_50_50": {
+          "weights": {
+            "rcm_v1": 0.25,
+            "cand_2": 0.25,
+            "iron_condor": 0.5
+          },
+          "n_days": 78,
+          "annual_return": 0.13068745420149713,
+          "annual_vol": 0.20248216363630442,
+          "sharpe": 0.6454269939362961,
+          "max_dd": -0.07149002064643992
+        },
+        "stock_70_options_30": {
+          "weights": {
+            "rcm_v1": 0.35,
+            "cand_2": 0.35,
+            "iron_condor": 0.3
+          },
+          "n_days": 78,
+          "annual_return": 0.16507076857453454,
+          "annual_vol": 0.27325085843664754,
+          "sharpe": 0.604099725501158,
+          "max_dd": -0.10107686437591608
+        }
+      }
+    },
+    "2024_h1": {
+      "window": [
+        "2024-01-02",
+        "2024-04-19"
+      ],
+      "n_days": 76,
+      "individual_sharpe": {
+        "bull_put": -1.460567334689577,
+        "bear_call": -0.8677245311688287,
+        "iron_condor": -0.7926012240497479,
+        "signal_driven": -1.4605673346896606,
+        "spy": 1.329652525615106,
+        "rcm_v1": 0.7235441346588821,
+        "cand_2": 1.6970135856723794
+      },
+      "individual_max_dd": {
+        "bull_put": -0.008645275928494374,
+        "bear_call": -0.009365430445747629,
+        "iron_condor": -0.01279467516479456,
+        "signal_driven": -0.008645275928494484,
+        "spy": -0.05353887991053551,
+        "rcm_v1": -0.11452759518277239,
+        "cand_2": -0.056482680125988664
+      },
+      "stock_vs_options_corr": {
+        "bull_put": {
+          "rcm_v1": 0.406,
+          "cand_2": 0.371
+        },
+        "bear_call": {
+          "rcm_v1": -0.427,
+          "cand_2": -0.335
+        },
+        "iron_condor": {
+          "rcm_v1": -0.046,
+          "cand_2": -0.001
+        },
+        "signal_driven": {
+          "rcm_v1": 0.406,
+          "cand_2": 0.371
+        }
+      },
+      "stock_vs_spy_corr": {
+        "rcm_v1": 0.769,
+        "cand_2": 0.705
+      },
+      "rcm_vs_cand2_corr": 0.795,
+      "fleet_combos": {
+        "stock_only_eq": {
+          "weights": {
+            "rcm_v1": 0.5,
+            "cand_2": 0.5
+          },
+          "n_days": 76,
+          "annual_return": 0.26995215232443653,
+          "annual_vol": 0.21534058034353737,
+          "sharpe": 1.253605576309752,
+          "max_dd": -0.08559987030484564
+        },
+        "stock_plus_iron_condor_3way": {
+          "weights": {
+            "rcm_v1": 0.3333333333333333,
+            "cand_2": 0.3333333333333333,
+            "iron_condor": 0.3333333333333333
+          },
+          "n_days": 76,
+          "annual_return": 0.17317955599746548,
+          "annual_vol": 0.14359326353786678,
+          "sharpe": 1.2060423430086369,
+          "max_dd": -0.05898590327317594
+        },
+        "stock_plus_signal_driven_3way": {
+          "weights": {
+            "rcm_v1": 0.3333333333333333,
+            "cand_2": 0.3333333333333333,
+            "signal_driven": 0.3333333333333333
+          },
+          "n_days": 76,
+          "annual_return": 0.17438590643237017,
+          "annual_vol": 0.14517195235062275,
+          "sharpe": 1.201236902919024,
+          "max_dd": -0.05974939301430993
+        },
+        "stock_plus_iron_condor_50_50": {
+          "weights": {
+            "rcm_v1": 0.25,
+            "cand_2": 0.25,
+            "iron_condor": 0.5
+          },
+          "n_days": 76,
+          "annual_return": 0.12479325783397983,
+          "annual_vol": 0.10810198518940076,
+          "sharpe": 1.1544030168857218,
+          "max_dd": -0.045586462968602075
+        },
+        "stock_70_options_30": {
+          "weights": {
+            "rcm_v1": 0.35,
+            "cand_2": 0.35,
+            "iron_condor": 0.3
+          },
+          "n_days": 76,
+          "annual_return": 0.18285681563016265,
+          "annual_vol": 0.15073514944303007,
+          "sharpe": 1.213100038748911,
+          "max_dd": -0.06165854478700652
+        }
+      }
+    }
+  }
+}
