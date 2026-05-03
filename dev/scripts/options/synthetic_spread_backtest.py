@@ -111,13 +111,17 @@ class State:
     history: list[dict] = field(default_factory=list)
 
 
-def _load_data() -> pd.DataFrame:
+def _load_data(skew_uplift: float = 1.0) -> pd.DataFrame:
+    """skew_uplift: multiply ATM IV (from VIX) to approximate put-side skew
+    premium. Real SPY 5%-OTM put IV trades ~1.20-1.50× VIX. Default 1.0
+    = no skew (synthetic underprices)."""
     if not (SNAP_DIR / "vix_history.parquet").exists():
         raise FileNotFoundError("Run vix_rv_gap_analysis.py first")
     vix = pd.read_parquet(SNAP_DIR / "vix_history.parquet")["close"].rename("vix")
     spy = pd.read_parquet(SNAP_DIR / "spy_history.parquet")["close"].rename("spy")
     df = pd.concat([vix, spy], axis=1, join="inner").dropna()
-    df["iv"] = ((df["vix"] - IV_HAIRCUT_VOL_PTS) / 100.0).clip(lower=0.05)
+    iv_atm = ((df["vix"] - IV_HAIRCUT_VOL_PTS) / 100.0).clip(lower=0.05)
+    df["iv"] = (iv_atm * skew_uplift).clip(lower=0.05)
     df["spy_ma200"] = df["spy"].rolling(TREND_MA_DAYS, min_periods=TREND_MA_DAYS).mean()
     df["spy_mom20"] = df["spy"].pct_change(MOMENTUM_DAYS)
     df["regime"] = "warmup"
@@ -496,15 +500,22 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--start", default=None)
     ap.add_argument("--end", default=None)
+    ap.add_argument("--skew-uplift", type=float, default=1.0,
+                    help="Multiply IV by this factor (1.30 = +30 pct put skew premium)")
+    ap.add_argument("--label", default=None,
+                    help="Suffix for output files (default _skewNN when uplift not 1.0)")
     args = ap.parse_args()
 
     BT_DIR.mkdir(parents=True, exist_ok=True)
     ANAL_DIR.mkdir(parents=True, exist_ok=True)
 
-    df = _load_data()
+    df = _load_data(skew_uplift=args.skew_uplift)
     if args.start: df = df.loc[args.start:]
     if args.end:   df = df.loc[:args.end]
-    print(f"[bt] panel {df.index.min().date()} → {df.index.max().date()} ({len(df)} rows)")
+    label = args.label or (f"_skew{int(args.skew_uplift*100)}"
+                           if args.skew_uplift != 1.0 else "")
+    print(f"[bt] panel {df.index.min().date()} → {df.index.max().date()} "
+          f"({len(df)} rows), skew_uplift={args.skew_uplift}, label='{label}'")
 
     summaries = []
     for mode_label, mode in [
@@ -517,7 +528,7 @@ def main() -> int:
     ]:
         print(f"[bt] running {mode_label} ...")
         nav, pos = run_backtest(df, mode=mode)
-        nav.to_parquet(BT_DIR / f"spread_{mode_label}_nav.parquet")
+        nav.to_parquet(BT_DIR / f"spread_{mode_label}{label}_nav.parquet")
         summaries.append(_summarize(nav, pos, mode_label))
 
     bh = _buy_hold(df)
@@ -530,11 +541,12 @@ def main() -> int:
             "stop_loss_frac": STOP_LOSS_FRAC, "time_stop_dte": TIME_STOP_DTE,
             "dd_halt_pct": DD_HALT_PCT, "trend_ma_days": TREND_MA_DAYS,
             "momentum_days": MOMENTUM_DAYS,
+            "skew_uplift": args.skew_uplift,
         },
         "runs": {s["label"]: s for s in summaries},
         "buy_hold_spy": bh,
     }
-    out = ANAL_DIR / "spread_backtest_summary.json"
+    out = ANAL_DIR / f"spread_backtest_summary{label}.json"
     out.write_text(json.dumps(summary, indent=2, default=str))
     print(f"[bt] wrote {out}")
     print()
