@@ -216,6 +216,10 @@
   - **Track B** ✅ — Fleet allocator Step 1-5 已 land (`config/fleet.yaml` + `core/fleet/`)。Step 5 = C2 correlation budget (warn 0.70 / reject 0.85, pairwise on realized candidate daily returns)。Steps 6-9 (DD throttle / role caps / fleet observe / shadow-to-live) codex-frozen 等 explicit-go
   - **Track C** ⏸️ — Real controlled mining 等 `docs/templates/track_c_evidence_pack_template.md` codex 签 + 三个 concern guards (A 2026 sealed double-dip / B forward TD60 early-attention / E economic-invariant tests)。Plan 在 `docs/memos/20260430-track_c_dry_run_plan.md`
 - **Forward observation 现状（legacy decay verification）**: `RCMv1` + `Cand-2` 两个 candidate 在 forward observe，但 2026-04-30 NAV-correlation 实验显示 pooled Pearson **0.898** > Step 5 reject 阈值 0.85 — Cand-2 "orthogonal" 标签**作废**，fleet-of-two 等权组合不产生 risk diversification。两 candidate 已 reclassified 为 legacy decay verification（不进 fleet promotion）。证据 + 撤回详见 `docs/memos/20260430-rcmv1_cand2_realized_correlation.md`
+- **Options research track**（独立 sleeve，不进 production candidate registry / fleet allocator，详 `CLAUDE.md` §"Options Research Track"）:
+  - **Phase 1** ✅ — free-path D→A→C→B→E sweep done (`pqs-options-v1-2026-05-02` branch, merged 2026-05-03)。honest winner = SPY 8% OTM bull put 在 realistic asymmetric skew (put 1.30 / call 0.75 × VIX) 下 Sharpe **0.62** / CAGR **+0.99%/yr** / MaxDD -2.96%（synthetic 33yr backtest，需 paper-observe 验证）；wheel **REJECTED**（MaxDD -32.72% > 25% ceiling，long-only no-margin 结构性原因）
+  - **Path 2** ▶️ — paper-trading layer active (`spy_8otm_bull_put_v1`, first observe 2026-05-04 EOD)；51 unit tests 含 isolation contract HARD merge gate；$10K 起始 NAV 是 mechanism validation 不是 Sharpe estimation（生产 sizing 需 $50-100K+）
+  - **下一决策窗口 ~2026-07-30** — Trial 9 TD60 + options paper TD60 同期对齐时判 paid chain data 是否上 (ORATS / Polygon options ~$50-200/mo) + 单股扩展（Path B 标 NVDA/AMD 为 Tier 1）。Phase 1.4 viability memo 明确建议在此之前 DEFER 付费决定
 - **自审方法论**（forward-only 2026-04-30+）: 重要改动须经 4-round audit (R1 事实 / R2 逻辑 / R3 真正执行 / R4 边界故障)。详 `docs/checkpoints/20260430-self_audit_methodology.md`
 - **历史阶段总结**: 入口在 `docs/INDEX.md` §"Final synthesis docs"；ralph-loop 工作日志在 `docs/20260420-ralph_loop_log.md`
 
