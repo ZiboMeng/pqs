@@ -46,21 +46,49 @@ def _target_date() -> str:
 
 
 def _check_options(target: str) -> str | None:
+    msgs: list[str] = []
+
+    # VRP scan history
     p = PROJ / "data" / "options" / "analysis" / "vrp_history.parquet"
     if not p.exists():
-        return ("📉 options VRP scan: no parquet yet\n"
-                "   bootstrap: /home/zibo/miniconda3/envs/pqs/bin/python "
-                "dev/scripts/options/cumulative_vrp_scan.py --bootstrap")
-    df = pd.read_parquet(p)
-    last = str(df["snapshot_date"].max())
-    if last >= target:
-        return None
-    return (f"📉 options VRP scan stale: last={last}, target={target}\n"
-            f"   /home/zibo/miniconda3/envs/pqs/bin/python "
-            f"dev/scripts/options/cumulative_vrp_scan.py")
+        msgs.append(
+            "📉 options VRP scan: no parquet yet\n"
+            "   bootstrap: /home/zibo/miniconda3/envs/pqs/bin/python "
+            "dev/scripts/options/cumulative_vrp_scan.py --bootstrap")
+    else:
+        df = pd.read_parquet(p)
+        last = str(df["snapshot_date"].max())
+        if last < target:
+            msgs.append(
+                f"📉 options VRP scan stale: last={last}, target={target}\n"
+                f"   /home/zibo/miniconda3/envs/pqs/bin/python "
+                f"dev/scripts/options/cumulative_vrp_scan.py")
+
+    # Paper-run manifests
+    paper_dir = PROJ / "data" / "options" / "paper_runs"
+    if paper_dir.exists():
+        for run_dir in sorted(paper_dir.iterdir()):
+            mf = run_dir / "manifest.json"
+            if not mf.exists():
+                continue
+            d = json.loads(mf.read_text())
+            last = d.get("last_observe_date")
+            if last is None or str(last) < target:
+                msgs.append(
+                    f"📊 options paper run stale: {run_dir.name} "
+                    f"last={last or 'never'}, target={target}\n"
+                    f"   /home/zibo/miniconda3/envs/pqs/bin/python "
+                    f"dev/scripts/options/observe_options_forward.py "
+                    f"--candidate-id {run_dir.name}")
+
+    return "\n".join(msgs) if msgs else None
 
 
 def _check_forward(target: str) -> str | None:
+    # Terminal statuses absorb observe() per v2.1/PRD-F evidence contract
+    # (see core/research/forward/runner.py); not actionable, exclude from
+    # nag list.
+    TERMINAL = {"aborted", "decided", "promoted", "rejected", "requires_data_review"}
     stale: list[str] = []
     for cid in CANDIDATES:
         m = PROJ / "data" / "research_candidates" / f"{cid}_forward_manifest.json"
@@ -68,10 +96,13 @@ def _check_forward(target: str) -> str | None:
             stale.append(f"   {cid}: manifest missing")
             continue
         d = json.loads(m.read_text())
+        status = d.get("current_status")
+        if status in TERMINAL:
+            continue
         runs = d.get("runs", [])
         last = runs[-1].get("as_of_date") if runs else None
         if last is None or str(last) < target:
-            stale.append(f"   {cid}: last={last or 'never'}")
+            stale.append(f"   {cid}: last={last or 'never'} (status={status})")
     if not stale:
         return None
     body = "\n".join(stale)

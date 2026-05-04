@@ -130,6 +130,22 @@ _FACTOR_REGISTRY: dict[str, FactorInputContract] = {
         lookback_days=2,
         cross_sectional=False,
     ),
+    # Trial 9 features (diversifier role, Phase C-PRD-1)
+    "max_dd_126d": FactorInputContract(
+        factor_name="max_dd_126d",
+        # Chains rolling(252).max → drawdown → rolling(126).min: earliest
+        # bar whose change feeds today's value is t-251-125=t-376. Use
+        # 378 for safety. See core.factors.factor_generator._quality_factors.
+        attributes=("close",),
+        lookback_days=378,
+        cross_sectional=False,
+    ),
+    "ret_1d": FactorInputContract(
+        factor_name="ret_1d",
+        attributes=("close",),
+        lookback_days=1,
+        cross_sectional=False,
+    ),
 }
 
 
