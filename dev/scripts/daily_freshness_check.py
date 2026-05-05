@@ -87,13 +87,17 @@ def _check_options(target: str) -> str | None:
 def _check_forward(target: str) -> str | None:
     # Terminal statuses absorb observe() per v2.1/PRD-F evidence contract
     # (see core/research/forward/runner.py); not actionable, exclude from
-    # nag list.
-    TERMINAL = {"aborted", "decided", "promoted", "rejected", "requires_data_review"}
-    stale: list[str] = []
+    # nag list. ``requires_data_review`` is also halt-class but recoverable
+    # via ``recover`` CLI under PRD 20260505 — keep it on the nag list so
+    # the operator sees it.
+    TERMINAL = {"aborted", "decided", "promoted", "rejected"}
+    stale_lines: list[str] = []
+    stale_cids: list[str] = []
     for cid in CANDIDATES:
         m = PROJ / "data" / "research_candidates" / f"{cid}_forward_manifest.json"
         if not m.exists():
-            stale.append(f"   {cid}: manifest missing")
+            stale_lines.append(f"   {cid}: manifest missing")
+            stale_cids.append(cid)
             continue
         d = json.loads(m.read_text())
         status = d.get("current_status")
@@ -102,19 +106,20 @@ def _check_forward(target: str) -> str | None:
         runs = d.get("runs", [])
         last = runs[-1].get("as_of_date") if runs else None
         if last is None or str(last) < target:
-            stale.append(f"   {cid}: last={last or 'never'} (status={status})")
-    if not stale:
+            stale_lines.append(f"   {cid}: last={last or 'never'} (status={status})")
+            stale_cids.append(cid)
+    if not stale_lines:
         return None
-    body = "\n".join(stale)
+    body = "\n".join(stale_lines)
     cmds = ("\n".join(
         f"   /home/zibo/miniconda3/envs/pqs/bin/python "
         f"dev/scripts/oos_mvp/run_forward_observe.py observe --candidate-id {cid}"
-        for cid in CANDIDATES))
+        for cid in stale_cids))
     return ("🔬 forward observe stale (target: " + target + ")\n"
             + body
             + "\n   1) /home/zibo/miniconda3/envs/pqs/bin/python "
               "scripts/fetch_data.py  (NYSE close+15min)\n"
-              "   2) per candidate:\n"
+              "   2) per stale candidate:\n"
             + cmds)
 
 

@@ -1039,6 +1039,13 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   ET close (codex R20 operational note). Trial 9 first observe = 2026-05-04
   EOD; produces TD001 entry.
 
+  **Trial 9 forward state (2026-05-05 EOD)**: TD001 (2026-05-04, cum_ret=0.0)
+  + TD002 (2026-05-05, cum_ret +3.60%, vs_spy +2.80%, vs_qqq +2.31%, max_dd
+  0.00%); status=in_progress. TD002 only after PRD 20260505 E4 near-zero
+  exemption + `recover` CLI (see Phase E shipped list). TD001 carries 1
+  PolicyRecoveryEvent in `policy_recovery_log` (audit trail; original
+  data_revision_event downgraded `invalidated → flagged_only`).
+
 **Track A — Temporal Split & Holdout Discipline (SHIPPED 2026-04-29)**
 
 PRD `docs/prd/20260429-temporal_split_holdout_discipline_prd.md` v1.1
@@ -1294,7 +1301,8 @@ sweep on `pqs-options-v1-2026-05-02` branch, merged to main 2026-05-03
 commit `b32fad6`); Path 2 paper-trading layer SHIPPED (commit `25e7613`);
 first paper candidate `spy_8otm_bull_put_v1` initialized 2026-05-04
 (`n_observe_days=0` at init; first observe = 2026-05-04 EOD); cumulative
-single-name VRP scanner SHIPPED (commit `2645bb9`, N=2 snapshots so far).
+single-name VRP scanner SHIPPED (commit `2645bb9`, N=3 snapshots so far,
+COIN +11.7 ± 2.7 / NVDA +9.4 ± 1.3 / AMD +3.1 ± 5.9 ranks unchanged).
 
 **Phase 1 verified numbers** (Sharpe / MaxDD grep'd from
 `spread_backtest_summary_otm8_realistic.json` + `wheel_backtest_summary.json`):

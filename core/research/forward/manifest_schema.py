@@ -504,6 +504,42 @@ class ForwardRun(BaseModel):
     config_drift_event: Optional[ConfigDriftEvent] = None
 
 
+class PolicyRecoveryEvent(BaseModel):
+    """Audit record of a manifest-level status recovery from
+    ``requires_data_review`` back to ``in_progress``, triggered by an
+    updated materiality policy.
+
+    Distinct from :class:`DataRevisionEvent` (bar-side drift) and
+    :class:`ConfigDriftEvent` (config-side drift): this records that
+    the SAME drift, re-evaluated under updated revalidate policy,
+    no longer escalates to ``invalidated``. Lazy-migration compatible:
+    pre-PRD-20260505 manifests load with ``policy_recovery_log = []``.
+
+    Append-only: once an entry is on a manifest it does not mutate.
+    Successful ``recover()`` calls append; failed recovery (still
+    invalidated) does not write anything.
+
+    PRD: docs/prd/20260505-revalidate_e4_near_zero_cum_ret_exemption_prd.md
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    detected_at_utc: datetime
+    recovered_run_label: str = Field(
+        min_length=1,
+        description="checkpoint_label of the TD entry whose event was downgraded",
+    )
+    prior_policy_decision: Literal["invalidated"]
+    new_policy_decision: Literal["flagged_only"]
+    prior_triggers: list[str] = Field(default_factory=list)
+    new_triggers: list[str] = Field(default_factory=list)
+    prd_reference: str = Field(
+        min_length=1,
+        description="Path to the PRD memo authorizing this recovery (audit trail)",
+    )
+    operator_note: Optional[str] = None
+
+
 class ForwardRunManifest(BaseModel):
     """Schema for ``forward_run_manifest.json`` (PRD v3 §B).
 
@@ -553,6 +589,19 @@ class ForwardRunManifest(BaseModel):
             "Diversifier role D10c soft-warn flags (e.g., "
             "'diversifier_2025_maxdd_18_20pct'). Cleared by TD60 "
             "self-clearing condition or escalated to red per PRD §7.1."
+        ),
+    )
+    # PRD 20260505 additive: audit trail of policy recoveries (status
+    # was flipped from requires_data_review back to in_progress because
+    # the same drift re-evaluated under updated policy code no longer
+    # escalates to invalidated). Lazy-migration compatible: pre-PRD
+    # manifests load with [].
+    policy_recovery_log: list[PolicyRecoveryEvent] = Field(
+        default_factory=list,
+        description=(
+            "Append-only audit of recover() calls that downgraded "
+            "requires_data_review back to in_progress under updated "
+            "materiality policy. Each entry is a permanent audit record."
         ),
     )
     runs: list[ForwardRun] = Field(default_factory=list)

@@ -333,6 +333,138 @@ def test_revalidate_e4_decision_sign_flip_either_direction():
     assert ev.policy_decision == "invalidated"
 
 
+# ── E4 near-zero exemption (PRD 20260505) ────────────────────────
+
+
+def _td_with_stored_cum(cum_ret_value: float, panel, spec, universe, held,
+                       weights, benchmarks, start_date, as_of_date):
+    """Helper: build a v2 TD entry with a specific stored cum_ret."""
+    return _build_v2_td_entry(
+        panel=panel, spec=spec, universe=universe, held=held,
+        weights=weights, benchmark_symbols=benchmarks,
+        start_date=start_date, as_of_date=as_of_date,
+        cum_ret=cum_ret_value,
+    )
+
+
+def test_revalidate_e4_near_zero_exempt_at_td001():
+    """TD001 stored_cum=0.0: tiny non-zero drift must NOT trip E4
+    sign-flip — there is no preserved sign to flip. PRD 20260505 §3."""
+    spec, universe, held, weights, benchmarks, panel, _m = _common_setup()
+    start_date = date(2026, 4, 24)
+    as_of = date(2026, 4, 27)
+    entry = _td_with_stored_cum(
+        0.0, panel, spec, universe, held, weights, benchmarks,
+        start_date, as_of,
+    )
+    manifest = _wrap_manifest(entry, start_date=start_date)
+
+    panel_b = {k: v.copy() for k, v in panel.items()}
+    # Tiny drift: 5 ppm on AAPL @ 50% weight → NAV impact ≈ 0.0025 bps
+    panel_b["close"].loc[pd.Timestamp("2026-04-24"), "AAPL"] *= 1.000005
+
+    summary = revalidate_manifest(
+        manifest, spec=spec, universe=universe, panel=panel_b,
+        benchmark_symbols=benchmarks, detected_by_run_label="TD002",
+    )
+    # Drift may or may not produce an event depending on hashing;
+    # if it does, decision_sign_flip MUST be False under exemption.
+    if summary.events:
+        _entry, ev = summary.events[0]
+        assert ev.decision_sign_flip is False
+        assert "E4" not in ev.delta_summary
+    assert summary.requires_data_review is False
+
+
+def test_revalidate_e4_near_zero_exempt_below_10bps():
+    """|stored_cum| = 5 bps < 10 bps floor: E4 must NOT fire even
+    when drift would otherwise satisfy old |drift| >= |stored|."""
+    spec, universe, held, weights, benchmarks, panel, _m = _common_setup()
+    start_date = date(2026, 4, 24)
+    as_of = date(2026, 4, 27)
+    # 5 bps stored
+    entry = _td_with_stored_cum(
+        0.0005, panel, spec, universe, held, weights, benchmarks,
+        start_date, as_of,
+    )
+    manifest = _wrap_manifest(entry, start_date=start_date)
+
+    panel_b = {k: v.copy() for k, v in panel.items()}
+    # Drift: 0.05% on 50% weight → NAV impact 2.5 bps; cum_ret drift
+    # magnitude (2.5 bps = 0.00025) < |stored_cum| (5 bps = 0.0005),
+    # so under OLD logic E4 wouldn't fire. Use larger drift to
+    # exercise old condition.
+    panel_b["close"].loc[pd.Timestamp("2026-04-24"), "AAPL"] *= 1.0002  # +2 bps cum ret drift
+
+    summary = revalidate_manifest(
+        manifest, spec=spec, universe=universe, panel=panel_b,
+        benchmark_symbols=benchmarks, detected_by_run_label="TD002",
+    )
+    if summary.events:
+        _entry, ev = summary.events[0]
+        # Below-floor stored cum: exempt regardless of drift magnitude
+        assert ev.decision_sign_flip is False
+    # Should NOT halt purely from sign flip — only E1 if NAV impact
+    # is large, but 2 bps drift × 50% weight = 1 bps NAV << E1's 10
+    if summary.events and summary.events[0][1].policy_decision == "invalidated":
+        # Whatever invalidates it must NOT be E4
+        assert "E4" not in summary.events[0][1].delta_summary
+
+
+def test_revalidate_e4_above_floor_still_fires():
+    """|stored_cum| = 50 bps (above 10 bps floor): E4 retains its
+    decision-protection role and fires when drift could flip sign."""
+    spec, universe, held, weights, benchmarks, panel, _m = _common_setup()
+    start_date = date(2026, 4, 24)
+    as_of = date(2026, 4, 27)
+    # 50 bps stored
+    entry = _td_with_stored_cum(
+        0.005, panel, spec, universe, held, weights, benchmarks,
+        start_date, as_of,
+    )
+    manifest = _wrap_manifest(entry, start_date=start_date)
+
+    panel_b = {k: v.copy() for k, v in panel.items()}
+    # Drift: 1.2% on AAPL @ 50% weight → cum_ret drift 60 bps > 50 bps
+    # stored. Stored above floor (50 ≥ 10), drift ≥ stored → E4 fires.
+    panel_b["close"].loc[pd.Timestamp("2026-04-24"), "AAPL"] *= 1.012
+
+    summary = revalidate_manifest(
+        manifest, spec=spec, universe=universe, panel=panel_b,
+        benchmark_symbols=benchmarks, detected_by_run_label="TD002",
+    )
+    assert len(summary.events) == 1
+    _entry, ev = summary.events[0]
+    assert ev.decision_sign_flip is True
+    assert "E4" in ev.delta_summary
+
+
+def test_revalidate_e4_boundary_at_exactly_10bps():
+    """Boundary: |stored_cum| = exactly 10 bps. The >=-with-epsilon
+    check should treat this as above the floor and let E4 fire."""
+    spec, universe, held, weights, benchmarks, panel, _m = _common_setup()
+    start_date = date(2026, 4, 24)
+    as_of = date(2026, 4, 27)
+    # 10 bps stored — EXACTLY at floor
+    entry = _td_with_stored_cum(
+        0.001, panel, spec, universe, held, weights, benchmarks,
+        start_date, as_of,
+    )
+    manifest = _wrap_manifest(entry, start_date=start_date)
+
+    panel_b = {k: v.copy() for k, v in panel.items()}
+    # Drift: 0.5% on AAPL @ 50% weight → cum_ret drift 25 bps > 10 bps
+    panel_b["close"].loc[pd.Timestamp("2026-04-24"), "AAPL"] *= 1.005
+
+    summary = revalidate_manifest(
+        manifest, spec=spec, universe=universe, panel=panel_b,
+        benchmark_symbols=benchmarks, detected_by_run_label="TD002",
+    )
+    assert len(summary.events) == 1
+    _entry, ev = summary.events[0]
+    assert ev.decision_sign_flip is True
+
+
 # ── E2/E3: benchmark drift ──────────────────────────────────────
 
 

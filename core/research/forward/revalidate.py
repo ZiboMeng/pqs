@@ -118,6 +118,12 @@ NAV_IMPACT_BPS_THRESHOLD = 10.0
 CHECKPOINT_DRIFT_BPS_THRESHOLD = 25.0
 # E5: raw close/open drift secondary guard (fraction).
 RAW_DRIFT_PCT_THRESHOLD = 0.005   # = 0.50%
+# E4 near-zero exemption: when |stored_cum_ret| is below this floor,
+# its sign is itself sub-noise and "flipping" it conveys no decision-
+# relevant information. Aligned in value with E1's NAV impact noise
+# floor by symmetry, but independently revisable.
+# PRD: docs/prd/20260505-revalidate_e4_near_zero_cum_ret_exemption_prd.md
+MIN_STORED_CUM_FOR_SIGN_FLIP_BPS = 10.0
 
 # Float-precision tolerance for boundary comparisons. yfinance-style
 # revisions are typically expressed as multiplicative scalars (e.g.
@@ -477,9 +483,23 @@ def _revalidate_entry(
     # know the sign of the revision a priori), so the worst-case
     # check is symmetric: if |drift| >= |stored_cum|, sign COULD flip
     # depending on which direction the revision pushes NAV.
+    #
+    # Near-zero exemption (PRD 20260505): when |stored_cum| is below
+    # MIN_STORED_CUM_FOR_SIGN_FLIP_BPS (= E1's noise floor), the stored
+    # sign is itself sub-noise; "flipping" it cannot change a decision
+    # because the baseline magnitude was already decision-irrelevant.
+    # Without this gate, TD001 (cum_ret=0.0) trips E4 on any non-zero
+    # drift — a known false-positive on the v2.1 contract that halted
+    # trial9_diversifier_001 on 2026-05-05 over 0.0962 bps drift.
     stored_cum = entry.cum_ret
+    stored_cum_magnitude_bps = abs(stored_cum or 0.0) * 10000.0
+    stored_cum_above_noise = (
+        stored_cum_magnitude_bps
+        >= MIN_STORED_CUM_FOR_SIGN_FLIP_BPS - _BPS_EPS
+    )
     if (stored_cum is not None and cum_ret_drift_bps is not None
-            and abs(cum_ret_drift_bps) > 0):
+            and abs(cum_ret_drift_bps) > 0
+            and stored_cum_above_noise):
         drift_magnitude = abs(cum_ret_drift_bps) / 10000.0
         if drift_magnitude >= abs(stored_cum):
             # Magnitude is large enough that at least one revision

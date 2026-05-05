@@ -29,12 +29,14 @@ from .manifest_schema import (
     ForwardRunManifest,
     ForwardRunStatus,
     PerScopeHashInputs,
+    PolicyRecoveryEvent,
     SourceLayerBreakdown,
     SourceLayerView,
 )
 from .readiness import ReadinessReport, check_readiness
 from .revalidate import (
     CHECKPOINT_DRIFT_BPS_THRESHOLD,
+    MIN_STORED_CUM_FOR_SIGN_FLIP_BPS,
     NAV_IMPACT_BPS_THRESHOLD,
     RAW_DRIFT_PCT_THRESHOLD,
     RevalidationSummary,
@@ -50,6 +52,7 @@ from .runner import (
     decide,
     init,
     observe,
+    recover,
     status,
 )
 
@@ -64,7 +67,9 @@ __all__ = [
     "DEFAULT_BAR_REVISION",
     "DataRevisionEvent",
     "FactorInputContract",
+    "MIN_STORED_CUM_FOR_SIGN_FLIP_BPS",
     "NAV_IMPACT_BPS_THRESHOLD",
+    "PolicyRecoveryEvent",
     "RAW_DRIFT_PCT_THRESHOLD",
     "RevalidationSummary",
     "compute_bar_hash_rollup",
@@ -89,6 +94,7 @@ __all__ = [
     "manifest_path",
     "max_lookback",
     "observe",
+    "recover",
     "resolve_factor_input_contract",
     "revalidate_manifest",
     "save_manifest",

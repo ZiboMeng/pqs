@@ -69,6 +69,7 @@ from .manifest_schema import (
     ForwardRun,
     ForwardRunManifest,
     ForwardRunStatus,
+    PolicyRecoveryEvent,
     SourceLayerBreakdown,
     SourceLayerView,
 )
@@ -1090,6 +1091,213 @@ def observe(
     if not dry_run:
         save_manifest(new_manifest, out_path)
     return appended
+
+
+_RECOVER_PRD_REFERENCE = (
+    "docs/prd/20260505-revalidate_e4_near_zero_cum_ret_exemption_prd.md"
+)
+
+
+def _extract_triggers_from_summary(delta_summary: str) -> list[str]:
+    """Best-effort extraction of triggers list from DataRevisionEvent
+    delta_summary (format: ``"...; triggers=['E4 cum_ret sign flip', ...]"``).
+
+    Returns ``[]`` if not parseable. Pure audit purpose; no logic gates.
+    """
+    marker = "triggers="
+    idx = delta_summary.find(marker)
+    if idx == -1:
+        return []
+    tail = delta_summary[idx + len(marker):].strip()
+    # tail typically begins with [..]
+    if not tail.startswith("["):
+        return []
+    end = tail.find("]")
+    if end == -1:
+        return []
+    inner = tail[1:end]
+    if not inner.strip():
+        return []
+    parts: list[str] = []
+    for raw in inner.split(","):
+        raw = raw.strip().strip("'\"")
+        if raw:
+            parts.append(raw)
+    return parts
+
+
+def recover(
+    candidate_id: str,
+    *,
+    output_dir: Path = DEFAULT_OUTPUT_DIR,
+    cost_model_path: Union[str, Path] = DEFAULT_COST_MODEL_PATH,
+    operator_note: Optional[str] = None,
+    cfg=None,
+    store: Optional[PriceStore] = None,
+    dry_run: bool = False,
+    config_dir: Path = _DEFAULT_CONFIG_DIR,
+) -> PolicyRecoveryEvent:
+    """Re-evaluate a ``requires_data_review`` manifest under current
+    materiality policy; flip status back to ``in_progress`` if the
+    same drift no longer escalates to ``invalidated``.
+
+    Returns the persisted ``PolicyRecoveryEvent`` on success.
+
+    Raises ``ForwardHaltError`` when:
+      - ``current_status`` is not ``requires_data_review`` (only halted
+        manifests may be recovered).
+      - the re-evaluated revalidate summary still has
+        ``requires_data_review=True`` (current policy code still
+        invalidates the same drift).
+      - no ``data_revision_event`` with ``policy_decision="invalidated"``
+        is found on any TD entry (status was likely flipped by a
+        ``ConfigDriftEvent``, which is out of scope for this recovery
+        path — it requires a separate policy revision).
+
+    Audit trail: appends a ``PolicyRecoveryEvent`` to
+    ``manifest.policy_recovery_log`` with prior + new triggers and the
+    PRD reference; updates the affected TD's
+    ``data_revision_event.policy_decision`` to the new value.
+
+    PRD: docs/prd/20260505-revalidate_e4_near_zero_cum_ret_exemption_prd.md
+    """
+    out_path = manifest_path(candidate_id, Path(output_dir))
+    manifest = load_manifest(out_path)
+
+    if manifest.current_status is not ForwardRunStatus.requires_data_review:
+        raise ForwardHaltError(
+            f"recover: candidate {candidate_id} is in status "
+            f"{manifest.current_status.value!r}, not "
+            f"'requires_data_review'. recover() only operates on "
+            f"manifests previously halted by revalidate."
+        )
+
+    cost_path = Path(cost_model_path)
+    _verify_cost_hash_or_halt(manifest, cost_path)
+
+    if cfg is None:
+        cfg = load_config()
+    if store is None:
+        store = create_default_store(cfg)
+
+    panel = _load_panel(
+        cfg, store,
+        start=pd.Timestamp("1900-01-01"),
+        end=pd.Timestamp("2100-01-01"),
+    )
+    close = panel["close"]
+    if close.empty:
+        raise ForwardHaltError(
+            f"recover: no price data available for candidate "
+            f"{candidate_id}; cannot revalidate"
+        )
+
+    spec_path = Path(output_dir) / f"{candidate_id}.yaml"
+    spec = FrozenStrategySpec.from_yaml_file(spec_path)
+
+    universe = sorted(panel["close"].columns.tolist())
+    bench_syms = sorted({manifest.benchmark} | (
+        {manifest.secondary_benchmark} if manifest.secondary_benchmark else set()
+    ))
+    current_config_snapshot = _build_config_snapshot(Path(config_dir))
+    detected_label = (
+        f"recover@{datetime.now(timezone.utc).isoformat(timespec='seconds')}"
+    )
+    reval = revalidate_manifest(
+        manifest, spec=spec, universe=universe, panel=panel,
+        benchmark_symbols=bench_syms,
+        detected_by_run_label=detected_label,
+        current_config_snapshot=current_config_snapshot,
+    )
+
+    if reval.requires_data_review:
+        # Determine reason for the still-blocked verdict so the operator
+        # gets actionable feedback (data revision still invalidating vs
+        # config drift halt vs both).
+        reasons: list[str] = []
+        if any(
+            ev.policy_decision == "invalidated" for (_e, ev) in reval.events
+        ):
+            inv_triggers: list[str] = []
+            for (_e, ev) in reval.events:
+                if ev.policy_decision == "invalidated":
+                    inv_triggers.extend(_extract_triggers_from_summary(ev.delta_summary))
+            reasons.append(
+                "data revision still invalidated under current policy "
+                f"(triggers: {inv_triggers or 'unparsed'})"
+            )
+        if reval.config_drift_event is not None and reval.config_drift_event.severity == "halt":
+            reasons.append(
+                "config drift halt-class active "
+                f"(drifted_sources: {sorted(reval.config_drift_event.drifted_sources)})"
+            )
+        raise ForwardHaltError(
+            f"recover: candidate {candidate_id} still escalates to "
+            f"requires_data_review under current policy. Reasons: "
+            f"{'; '.join(reasons) or 'unknown'}. Either further "
+            f"policy revision is needed, or use decide --status aborted "
+            f"to close the candidate."
+        )
+
+    # Find the TD entry whose data_revision_event was originally
+    # invalidated. Match by checkpoint_label across pre-recover manifest
+    # and reval.events (event-list pairs are (entry_obj, new_event)).
+    pre_invalidated_label: Optional[str] = None
+    pre_event_summary: str = ""
+    for entry in manifest.runs:
+        ev = entry.data_revision_event
+        if ev is not None and ev.policy_decision == "invalidated":
+            pre_invalidated_label = entry.checkpoint_label
+            pre_event_summary = ev.delta_summary
+            break
+
+    if pre_invalidated_label is None:
+        raise ForwardHaltError(
+            f"recover: candidate {candidate_id} has status "
+            f"requires_data_review but no DataRevisionEvent with "
+            f"policy_decision='invalidated' found on any TD. The halt "
+            f"was likely triggered by a ConfigDriftEvent, which is "
+            f"out of scope for this recovery path."
+        )
+
+    # Apply revalidate's new (less severe) events to the manifest runs.
+    affected_id_to_event = {id(e): ev for (e, ev) in reval.events}
+    new_runs: list[ForwardRun] = []
+    new_event_for_recovered = None
+    for entry in manifest.runs:
+        new_ev = affected_id_to_event.get(id(entry))
+        if new_ev is not None:
+            new_runs.append(entry.model_copy(update={"data_revision_event": new_ev}))
+            if entry.checkpoint_label == pre_invalidated_label:
+                new_event_for_recovered = new_ev
+        else:
+            new_runs.append(entry)
+
+    new_triggers = (
+        _extract_triggers_from_summary(new_event_for_recovered.delta_summary)
+        if new_event_for_recovered is not None else []
+    )
+
+    recovery = PolicyRecoveryEvent(
+        detected_at_utc=datetime.now(timezone.utc),
+        recovered_run_label=pre_invalidated_label,
+        prior_policy_decision="invalidated",
+        new_policy_decision="flagged_only",
+        prior_triggers=_extract_triggers_from_summary(pre_event_summary),
+        new_triggers=new_triggers,
+        prd_reference=_RECOVER_PRD_REFERENCE,
+        operator_note=operator_note,
+    )
+
+    new_manifest = manifest.model_copy(update={
+        "runs": new_runs,
+        "current_status": ForwardRunStatus.in_progress,
+        "policy_recovery_log": list(manifest.policy_recovery_log) + [recovery],
+    })
+
+    if not dry_run:
+        save_manifest(new_manifest, out_path)
+    return recovery
 
 
 def decide(
