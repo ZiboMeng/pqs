@@ -141,6 +141,18 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     # isolated-strategy MaxDD is -77% (Round 5). Use as composite
     # component inside a risk-managed strategy.
     "drawup_from_252d_low",
+    # Swing-extrema S/R family (PRD 20260505 Step 2). Daily-resolution
+    # nearest-support / nearest-resistance via local swing highs/lows
+    # (`core.intraday.sr_swing.distance_to_sr`, n=5 confirmation, 20-bar
+    # lookback). All three factors are non-negative fractions when
+    # defined; NaN when no qualifying swing in lookback. CONDITIONAL on
+    # high_df + low_df availability (mirrors _volume_factors pattern).
+    # Sign convention (long-only US large-cap): smaller dist_to_swing_low
+    # signals proximity to support; smaller sr_range_compression signals
+    # near-term range expansion. Mining discovers IC sign from history;
+    # NOT promoted to PRODUCTION_FACTORS pending Step 5+ backtest evidence.
+    "dist_to_swing_high_20d", "dist_to_swing_low_20d",
+    "sr_range_compression_20d",
     # Relative strength
     "rs_vs_spy_21d", "rs_vs_spy_63d", "rs_vs_spy_126d",
     "rs_acceleration",

@@ -29,7 +29,7 @@ Factor families (35):
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -109,6 +109,7 @@ def generate_all_factors(
     if volume_df is not None:
         factors.update(_volume_factors(effective_price_df, volume_df))
     factors.update(_quality_factors(effective_price_df))
+    factors.update(_sr_swing_factors(effective_price_df, high_df, low_df))
     factors.update(_relative_strength_factors(effective_price_df, benchmark_col))
     factors.update(_sector_rotation_factors(effective_price_df))
     factors.update(_macro_regime_factors(effective_price_df, benchmark_col))
@@ -622,6 +623,75 @@ def _volume_factors(
     factors["price_volume_div"] = daily_ret.rolling(20).mean() - vol_chg.rolling(20).mean()
 
     return factors
+
+
+def _sr_swing_factors(
+    price_df: pd.DataFrame,
+    high_df: Optional[pd.DataFrame],
+    low_df: Optional[pd.DataFrame],
+    n: int = 5,
+    lookback: int = 20,
+) -> Dict[str, pd.DataFrame]:
+    """Daily-resolution swing-extrema-based S/R factors.
+
+    Per-symbol Python loop wraps `core.intraday.sr_swing.distance_to_sr`.
+    Computes nearest support / resistance from local swing highs / lows
+    in the past ``lookback`` daily bars (after a confirmation lag of
+    ``n`` bars).
+
+    Returns 3 factors, each a fraction (NOT percent) for convention
+    with `dist_52w_high`, `breakout_20d_strength`, etc.:
+
+      - ``dist_to_swing_high_20d``: (R - close) / close, non-negative
+        when defined, NaN when no qualifying swing high above close in
+        last ``lookback`` bars. Small = close to resistance.
+      - ``dist_to_swing_low_20d``: (close - S) / close, non-negative
+        when defined, NaN when no qualifying swing low below close.
+        Small = close to support.
+      - ``sr_range_compression_20d``: (R - S) / close, non-negative
+        when both defined, NaN if either missing. Small = price wedged
+        between near S and near R; often precedes range expansion.
+
+    Sign convention: factor magnitudes are always non-negative when
+    defined; mining discovers the directional IC from history.
+
+    CONDITIONAL: requires both ``high_df`` and ``low_df``. Returns empty
+    dict if either is None (mirrors `_volume_factors` pattern).
+
+    PRD path: docs/prd/20260505-* (Step 2 of S/R alpha-first plan).
+    """
+    if high_df is None or low_df is None:
+        return {}
+
+    from core.intraday.sr_swing import distance_to_sr
+
+    cols = price_df.columns
+    idx = price_df.index
+    dist_R = pd.DataFrame(np.nan, index=idx, columns=cols, dtype=float)
+    dist_S = pd.DataFrame(np.nan, index=idx, columns=cols, dtype=float)
+    range_compression = pd.DataFrame(np.nan, index=idx, columns=cols, dtype=float)
+
+    for col in cols:
+        if col not in high_df.columns or col not in low_df.columns:
+            continue
+        sym_bars = pd.DataFrame({
+            "high": high_df[col],
+            "low": low_df[col],
+            "close": price_df[col],
+        }).dropna()
+        if len(sym_bars) < 2 * n + 1:
+            continue
+        out = distance_to_sr(sym_bars, n=n, lookback=lookback)
+        # Convert pct → fraction (factor convention; / 100)
+        dist_R.loc[out.index, col] = out["dist_to_resistance_pct"].values / 100.0
+        dist_S.loc[out.index, col] = out["dist_to_support_pct"].values / 100.0
+        range_compression.loc[out.index, col] = out["sr_range_pct"].values / 100.0
+
+    return {
+        "dist_to_swing_high_20d": dist_R,
+        "dist_to_swing_low_20d": dist_S,
+        "sr_range_compression_20d": range_compression,
+    }
 
 
 def _quality_factors(price_df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
