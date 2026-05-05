@@ -171,6 +171,36 @@ class IntradayTimingConfig(BaseModel):
     mult_30m_contradict: float = Field(default=0.5, ge=0.0, le=1.0)
     mult_30m_neutral:    float = Field(default=0.8, ge=0.0, le=1.0)
 
+    # ── S/R-aware timing modifier (PRD 20260505 Step 3, opt-in) ─────────
+    # When enabled, the 60m timing path queries swing-based resistance
+    # levels (core.intraday.sr_swing) and applies a scale-DOWN modifier
+    # when the current close is hugging a resistance line. Long-only
+    # safety: only scales down, never up. Default off — preserves all
+    # pre-PRD behavior verbatim.
+    #
+    # Activation gate: caller must pass `sr_levels=...` to decide_timing
+    # AND set this flag. If either is missing, S/R logic is silently
+    # skipped (graceful degradation).
+    enable_sr_timing: bool = False
+
+    # How close the current close must be to resistance (as a fraction
+    # of close) for the modifier to fire. Default 0.5% (50 bps). Tighter
+    # = fewer activations.
+    sr_near_resistance_pct: float = Field(default=0.005, ge=0.0, le=0.10)
+
+    # Scale multiplier applied when close is near resistance. Default
+    # 0.5 = halve effective weight. Use 1.0 to disable the down-scale
+    # while keeping the diagnostic (vote tag still recorded).
+    sr_scale_when_near_resistance: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    # Half-width of the swing-detection window (passed to
+    # core.intraday.sr_swing.distance_to_sr). Default 5; tied to the
+    # daily-resolution factor family (Step 2) for consistency.
+    sr_swing_n: int = Field(default=5, ge=1)
+
+    # Lookback window for the nearest-swing search. Default 20 bars.
+    sr_lookback_bars: int = Field(default=20, ge=1)
+
 
 class RiskConfig(BaseModel):
     """Top-level risk management configuration."""

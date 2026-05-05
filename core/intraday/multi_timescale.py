@@ -418,6 +418,13 @@ class TimingThresholds:
     mult_30m_contradict:       float = 0.5
     mult_30m_neutral:          float = 0.8
 
+    # ── S/R-aware timing modifier (PRD 20260505 Step 3, opt-in) ─────
+    enable_sr_timing:              bool = False
+    sr_near_resistance_pct:        float = 0.005
+    sr_scale_when_near_resistance: float = 0.5
+    sr_swing_n:                    int = 5
+    sr_lookback_bars:              int = 20
+
     @classmethod
     def from_config(cls, cfg) -> "TimingThresholds":
         """Build from a `RiskConfig.intraday_timing` pydantic object."""
@@ -428,7 +435,77 @@ class TimingThresholds:
             scale_when_60m_neutral    = cfg.scale_when_60m_neutral,
             mult_30m_contradict       = cfg.mult_30m_contradict,
             mult_30m_neutral          = cfg.mult_30m_neutral,
+            # PRD 20260505 Step 3 — fields default-False on legacy yaml
+            # without these keys (lazy migration via pydantic defaults).
+            enable_sr_timing              = getattr(cfg, "enable_sr_timing", False),
+            sr_near_resistance_pct        = getattr(cfg, "sr_near_resistance_pct", 0.005),
+            sr_scale_when_near_resistance = getattr(cfg, "sr_scale_when_near_resistance", 0.5),
+            sr_swing_n                    = getattr(cfg, "sr_swing_n", 5),
+            sr_lookback_bars              = getattr(cfg, "sr_lookback_bars", 20),
         )
+
+
+@dataclass(frozen=True)
+class SRLevels:
+    """Per-frequency S/R reference snapshot at a decision time.
+
+    Computed by ``compute_sr_levels_at`` from a symbol's bar history.
+    Passed to ``decide_timing(..., sr_levels={"60m": SRLevels(...)})``
+    when ``TimingThresholds.enable_sr_timing`` is True.
+
+    PRD: docs/prd/20260505-* Step 3.
+    """
+    freq:          str
+    decision_time: pd.Timestamp
+    current_close: float
+    resistance:    Optional[float] = None
+    support:       Optional[float] = None
+
+
+def compute_sr_levels_at(
+    bars_df: pd.DataFrame,
+    as_of: pd.Timestamp,
+    freq: str,
+    n: int = 5,
+    lookback: int = 20,
+) -> Optional[SRLevels]:
+    """Compute swing-based S/R levels from `bars_df` history truncated
+    at ``as_of`` (inclusive — must be a completed bar).
+
+    Returns ``None`` when:
+      - ``bars_df`` is None / empty
+      - History up to ``as_of`` has fewer than 2n+1 bars (insufficient
+        for swing detection)
+      - The latest bar's close is NaN
+
+    Otherwise returns an ``SRLevels`` snapshot for the latest bar at-or-
+    before ``as_of``. ``resistance`` / ``support`` may individually be
+    None when no qualifying swing is found in the lookback window.
+    """
+    if bars_df is None or bars_df.empty:
+        return None
+    valid = bars_df[bars_df.index <= as_of]
+    if len(valid) < 2 * n + 1:
+        return None
+    if pd.isna(valid["close"].iloc[-1]):
+        return None
+    # Localized import: avoids module-load cycle on package init.
+    from core.intraday.sr_swing import compute_nearest_sr
+    sr = compute_nearest_sr(valid, n=n, lookback=lookback)
+    last = sr.iloc[-1]
+    return SRLevels(
+        freq=freq,
+        decision_time=valid.index[-1],
+        current_close=float(valid["close"].iloc[-1]),
+        resistance=(
+            float(last["resistance"])
+            if pd.notna(last["resistance"]) else None
+        ),
+        support=(
+            float(last["support"])
+            if pd.notna(last["support"]) else None
+        ),
+    )
 
 
 _DEFAULT_THRESHOLDS = TimingThresholds()
@@ -440,6 +517,7 @@ def decide_timing(
     base_weight:  float,
     daily_side:   int = 1,
     thresholds:   Optional[TimingThresholds] = None,
+    sr_levels:    Optional[Dict[str, SRLevels]] = None,
 ) -> TimingDecision:
     """Canonical multi-TF timing API.
 
@@ -462,6 +540,12 @@ def decide_timing(
                   hardcoded constants). Pass
                   `TimingThresholds.from_config(cfg.risk.intraday_timing)`
                   in production to enable config-driven tuning.
+    sr_levels   : Optional ``{freq: SRLevels}`` — when provided AND
+                  ``thresholds.enable_sr_timing=True``, the 60m entry
+                  triggers an S/R-aware scale-down when current close
+                  is hugging resistance. Long-only safety: only scales
+                  DOWN, never UP. Default None → S/R logic skipped.
+                  PRD 20260505 Step 3.
     """
     th = thresholds or _DEFAULT_THRESHOLDS
 
@@ -517,6 +601,28 @@ def decide_timing(
     else:
         votes["30m"] = "neutral"
         scale *= th.mult_30m_neutral
+
+    # ── S/R-aware modifier (PRD 20260505 Step 3, opt-in) ─────────────
+    # Applied AFTER 30m vote and BEFORE 15m/5m defer triggers, so a
+    # near-resistance scale-down composes multiplicatively with prior
+    # 60m + 30m scaling but does not interact with the 15m/5m execute
+    # gate. Long-only safety: only scales DOWN.
+    if (
+        th.enable_sr_timing
+        and sr_levels is not None
+        and "60m" in sr_levels
+    ):
+        sr_60 = sr_levels["60m"]
+        if (sr_60.resistance is not None
+                and sr_60.current_close > 0
+                and sr_60.resistance > sr_60.current_close):
+            gap_frac = (
+                (sr_60.resistance - sr_60.current_close)
+                / sr_60.current_close
+            )
+            if gap_frac <= th.sr_near_resistance_pct:
+                scale *= th.sr_scale_when_near_resistance
+                votes["sr_60m"] = "near_resistance"
 
     # 15m trigger — defers but cannot flip.
     execute = True
@@ -581,6 +687,28 @@ def make_timing_target_provider(
     """
     th = thresholds or _DEFAULT_THRESHOLDS
 
+    def _build_sr_levels(sym: str, bar_ts: pd.Timestamp) -> Optional[Dict[str, SRLevels]]:
+        """Compute per-freq S/R levels for a symbol at decision time.
+
+        Returns None when feature disabled or no S/R-eligible bars
+        available — decide_timing then skips the modifier.
+        """
+        if not th.enable_sr_timing:
+            return None
+        sr_per_freq: Dict[str, SRLevels] = {}
+        # Currently we only consume 60m S/R inside decide_timing; if
+        # 30m/15m are added in a future PRD round, expand this loop.
+        for freq in ("60m",):
+            sym_bars = (multi_bars.get(freq) or {}).get(sym)
+            sr = compute_sr_levels_at(
+                sym_bars, bar_ts, freq=freq,
+                n=th.sr_swing_n,
+                lookback=th.sr_lookback_bars,
+            )
+            if sr is not None:
+                sr_per_freq[freq] = sr
+        return sr_per_freq if sr_per_freq else None
+
     def _provider(
         bar_ts:    pd.Timestamp,
         positions: Dict[str, float],
@@ -591,9 +719,11 @@ def make_timing_target_provider(
             if bw <= 0:
                 continue
             ctx = build_context(multi_bars, sym, bar_ts)
+            sr_lvls = _build_sr_levels(sym, bar_ts)
             decision = decide_timing(
                 ctx, sym, base_weight=float(bw),
                 daily_side=1, thresholds=th,
+                sr_levels=sr_lvls,
             )
             if decision.execute:
                 out[sym] = decision.effective_weight
