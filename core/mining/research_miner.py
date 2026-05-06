@@ -386,6 +386,18 @@ class ResearchCompositeSpec:
     features: Tuple[str, ...]
     weights: Tuple[float, ...]
     family_counts: Mapping[str, int] = field(default_factory=dict)
+    # PRD-AC v1.1 §4.5 Phase 3 round 1 search-space extension.
+    # Default None preserves backward compat: existing call sites
+    # constructing ResearchCompositeSpec(features=..., weights=...,
+    # family_counts=...) work unchanged.
+    holding_freq: Optional[str] = None  # one of {None, 'daily', 'weekly', 'monthly'}
+    # Phase 3 round 1 SR-defer sampling stub. Always False until the
+    # full SR-defer mining integration ships in Phase 3 round 2 (60m
+    # bar loading at constructor + apply_sr_defer_filter pre-NAV +
+    # second BacktestEngine run on filtered weights). Sampling this
+    # field but forcing False keeps the archive schema ready and gives
+    # PRD §5.2 cell coverage a path to 6 cells once round 2 lands.
+    enable_sr_defer: bool = False
 
     # NOTE: __post_init__ validates invariants. Frozen dataclass still
     # allows this callback.
@@ -403,6 +415,13 @@ class ResearchCompositeSpec:
         if abs(total - 1.0) > 1e-6:
             raise ValueError(
                 f"weights must sum to 1.0, got {total} (diff {total-1.0:+.2e})"
+            )
+        if self.holding_freq is not None and self.holding_freq not in (
+            "daily", "weekly", "monthly",
+        ):
+            raise ValueError(
+                f"holding_freq must be one of None / 'daily' / 'weekly' / "
+                f"'monthly', got {self.holding_freq!r}"
             )
 
     @property
@@ -426,6 +445,15 @@ def suggest_composite_spec(
     composite_weighting: str = "tpe_normalized",
     target_n_features: Optional[int] = None,
     excluded_factors: Optional[Sequence[str]] = None,
+    *,
+    # PRD-AC v1.1 §4.5 Phase 3 round 1 search-space extension. Default
+    # holding_freq_choices=None preserves legacy 2-dim search (factors +
+    # weights). Pass an explicit list to opt into the holding_freq cell.
+    holding_freq_choices: Optional[Sequence[str]] = None,
+    # Phase 3 round 2 (deferred): SR-defer search dim. Round 1 always
+    # samples enable_sr_defer=False; round 2 adds True branch + the
+    # actual filter application during NAV gate.
+    enable_sr_defer_choices: Sequence[bool] = (False,),
 ) -> ResearchCompositeSpec:
     """Family-aware composite sampler (PRD §8.5).
 
@@ -605,10 +633,24 @@ def suggest_composite_spec(
         weights_list[max_idx] += adj
         weights_tup = tuple(weights_list)
 
+    # PRD-AC v1.1 §4.5 search-dim sampling. holding_freq sampled at the
+    # END so it doesn't perturb factor/weight TPE search-name namespace
+    # (legacy trial keys preserved for cycle04/05 archive replay).
+    holding_freq: Optional[str] = None
+    if holding_freq_choices:
+        holding_freq = trial.suggest_categorical(
+            "holding_freq", list(holding_freq_choices),
+        )
+    enable_sr_defer = bool(trial.suggest_categorical(
+        "enable_sr_defer", list(enable_sr_defer_choices),
+    )) if len(enable_sr_defer_choices) > 1 else bool(enable_sr_defer_choices[0])
+
     return ResearchCompositeSpec(
         features=features_tup,
         weights=weights_tup,
         family_counts=dict(family_counts),
+        holding_freq=holding_freq,
+        enable_sr_defer=enable_sr_defer,
     )
 
 
@@ -930,6 +972,16 @@ def evaluate_composite(
             mask_train_boundary_returns,
             recompute_nav_metrics_train_only,
         )
+        # PRD-AC v1.1 §4.5 I8: spec.holding_freq overrides
+        # harness_config.rebalance_cadence at runtime (frozen dataclass
+        # → dataclasses.replace). Backward compat: spec.holding_freq=None
+        # preserves caller-supplied harness_config cadence.
+        effective_harness_config = harness_config
+        if spec.holding_freq is not None and harness_config is not None:
+            from dataclasses import replace as _dc_replace
+            effective_harness_config = _dc_replace(
+                harness_config, rebalance_cadence=spec.holding_freq,
+            )
         result = expost_eval(
             spec,
             factor_panel_map=factor_panel_map,
@@ -937,7 +989,7 @@ def evaluate_composite(
             open_df=open_df,
             spy_series=spy_series,
             qqq_series=qqq_series,
-            config=harness_config,
+            config=effective_harness_config,
             research_mask=mask,
         )
         # PRD §6 Phase 2 I9 fix: harness ``metrics_full_period`` includes
@@ -1162,6 +1214,11 @@ class ResearchMiner:
         spy_series: Optional[pd.Series] = None,
         qqq_series: Optional[pd.Series] = None,
         harness_config: Optional[Any] = None,
+        # PRD-AC v1.1 §4.5 Phase 3 round 1 search-space kwargs. Default
+        # None / (False,) preserves cycle04/05 legacy behavior. Pass an
+        # explicit holding_freq_choices list to opt into the search dim.
+        holding_freq_choices: Optional[Sequence[str]] = None,
+        enable_sr_defer_choices: Sequence[bool] = (False,),
     ) -> None:
         # A++ patch 2026-04-30: pre-flight assert reachability matches
         # the pre-registered factor_registry_pool. Run before storing
@@ -1277,6 +1334,12 @@ class ResearchMiner:
         self.spy_series = spy_series
         self.qqq_series = qqq_series
         self.harness_config = harness_config
+        # Phase 3 round 1 search-space configuration. None / (False,)
+        # disables the search dim (legacy 2-dim factor+weights sampling).
+        self.holding_freq_choices = (
+            list(holding_freq_choices) if holding_freq_choices else None
+        )
+        self.enable_sr_defer_choices = tuple(enable_sr_defer_choices)
         self._anchor_residual_returns: Optional[pd.Series] = None
         if self.objective_weights.is_nav_based():
             if price_df is None or spy_series is None:
@@ -1321,6 +1384,8 @@ class ResearchMiner:
             excluded_factors=(
                 self.explicit_exclusions if self.explicit_exclusions else None
             ),
+            holding_freq_choices=self.holding_freq_choices,
+            enable_sr_defer_choices=self.enable_sr_defer_choices,
         )
         # Codex R21 P0.1: enforce M6 C5 role-remint guard BEFORE evaluation.
         # If the same spec was already recorded under a DIFFERENT role within

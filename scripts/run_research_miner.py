@@ -444,9 +444,44 @@ def main() -> int:
                 "found non-zero NAV weights — set objective_version="
                 "'v2_nav_based' to opt into NAV objective"
             )
+        # PRD-AC v1.1 §4.5 Phase 3 round 1 search-space yaml fields:
+        # - holding_freq_choices: list[str] subset of {daily, weekly, monthly}
+        # - enable_sr_defer_choices: list[bool] (round 1 only [false])
+        # Both default None / [false] preserves cycle04/05 legacy 2-dim
+        # search behavior bit-for-bit.
+        yaml_holding_choices = mc.get("holding_freq_choices")
+        if yaml_holding_choices is not None:
+            if not isinstance(yaml_holding_choices, list) or any(
+                v not in ("daily", "weekly", "monthly")
+                for v in yaml_holding_choices
+            ):
+                mismatches.append(
+                    "  yaml.mining_config.holding_freq_choices must be a list "
+                    "of {'daily','weekly','monthly'} subsets, got "
+                    f"{yaml_holding_choices!r}"
+                )
+                yaml_holding_choices = None
+        yaml_sr_choices = mc.get("enable_sr_defer_choices")
+        if yaml_sr_choices is not None:
+            if (
+                not isinstance(yaml_sr_choices, list)
+                or any(not isinstance(v, bool) for v in yaml_sr_choices)
+                or any(v is True for v in yaml_sr_choices)
+            ):
+                # Round 1: True choice not yet supported; surface as
+                # mismatch rather than silently dropping the True choice.
+                mismatches.append(
+                    "  yaml.mining_config.enable_sr_defer_choices must be a "
+                    "list of bools and currently must NOT contain True "
+                    "(Phase 3 round 1 ships False-only; round 2 will "
+                    f"add True). Got {yaml_sr_choices!r}"
+                )
+                yaml_sr_choices = None
         # Stash for later use after mismatches block
         args._objective_version = yaml_obj_version
         args._objective_weights_dict = yaml_obj_weights
+        args._holding_freq_choices = yaml_holding_choices
+        args._enable_sr_defer_choices = yaml_sr_choices or [False]
 
         # explicit_exclusions: yaml mining_config.explicit_exclusions list.
         # When yaml lists exclusions and CLI ALSO lists exclusions, fail-
@@ -688,6 +723,12 @@ def main() -> int:
         ),
         qqq_series=(
             frames["close"]["QQQ"] if "QQQ" in frames["close"].columns else None
+        ),
+        # PRD-AC v1.1 §4.5 Phase 3 round 1: search-space dims from yaml.
+        # Default None / (False,) preserves cycle04/05 legacy behavior.
+        holding_freq_choices=getattr(args, "_holding_freq_choices", None),
+        enable_sr_defer_choices=tuple(
+            getattr(args, "_enable_sr_defer_choices", [False])
         ),
         min_families=args.min_families,
         max_features_per_family=args.max_features_per_family,

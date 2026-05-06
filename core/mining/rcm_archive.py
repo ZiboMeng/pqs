@@ -150,11 +150,27 @@ def _hash_spec(spec_json: str) -> str:
 
 
 def _serialize_spec(spec) -> dict:
-    return {
+    """Canonical spec-to-dict serializer. PRD-AC v1.1 §4.5 Phase 3 round 1
+    adds ``holding_freq`` + ``enable_sr_defer`` to the dict ONLY when
+    non-default — old cycle04/05 specs (without these fields) hash to
+    identical trial_ids as before. The trial_id IS the sha256 of the
+    serialized dict, so any unconditional addition would break backward
+    compat (existing trial rows would no longer match their hashes).
+    """
+    out: dict = {
         "features": list(spec.features),
         "weights": list(spec.weights),
         "family_counts": dict(spec.family_counts),
     }
+    # Only emit when non-default to preserve cycle04/05 archive
+    # trial_id stability.
+    holding_freq = getattr(spec, "holding_freq", None)
+    if holding_freq is not None:
+        out["holding_freq"] = holding_freq
+    enable_sr_defer = getattr(spec, "enable_sr_defer", False)
+    if enable_sr_defer:
+        out["enable_sr_defer"] = True
+    return out
 
 
 def compute_spec_id(spec) -> str:
