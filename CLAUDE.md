@@ -844,6 +844,74 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   at this boundary. Cycle #06 NOT auto-fired per pre-committed stop rule.
   Closeout: `docs/memos/20260501-track_c_cycle_2026-05-01-05_close.md`.
 
+- **PRD-AC v1.1 implementation + Track C cycle 2026-05-06 #01** (2026-05-06 ✅,
+  **0 nominee** per Track A acceptance + 4 strategic findings) — first
+  v2_nav_based mining cycle. PRD: `docs/prd/20260505-mining_objective_nav_based_plus_execution_policy_prd.md`
+  (v1.1 post-critique). 6 implementation commits (`f2b6059..3fec344`):
+  Phase 1 schema + ObjectiveWeights extension; Phase 2 round 1 NAV
+  evaluator gate + SPY-residual anchor + I20 detector; Phase 2 round 2
+  I9 boundary mask fix + wall-clock benchmark (median 19.36s/trial);
+  Phase 3 round 1 holding_freq end-to-end + sr_defer sampling stub
+  (round 2 SR-defer full integration deferred); Phase 4 prep + cycle06
+  yaml + analysis script. Yaml sha256
+  `7b3e20dd8485900c0307c0ef89adc0228ccfb42964d54447550a52184a1bc1df`.
+  Mining: 200 trials / 149 finite / 66 archived; top-1 trial
+  `bab8cfe88af3` features `drawup_from_252d_low + trend_tstat_20d + ret_2d`
+  (sibling pattern with cycle04/05 continues). Hypothesis tests:
+  H1 Spearman v2/v1 = 0.89 (FAIL — too IR-heavy at 0.7/0.15 weights);
+  H2 holding_freq monthly=49/weekly=10/daily=7 (FAIL by archived count;
+  process finding: H2 should test SAMPLED not ARCHIVED); H3 v2 top-1
+  nav_sharpe 0.565 < v1 top-1 0.664 (FAIL — Pareto regression);
+  H4 anchor_corr 100% < 0.50 (PASS — Option β viable but suspiciously
+  clean). Track A acceptance evaluator on top-3 trials: 0/3 pass; all
+  fail validation_aggregate_excess_vs_spy/qqq + beta_to_qqq. Cycle
+  stop rule fires per cycle04 close memo; strategic pivot to PRD-E
+  (TAA) authorized. Closeout:
+  `docs/memos/20260506-cycle06_closeout.md`. Phase 3 round 2 (SR-defer
+  full mining integration) + cycle07 reweight authorization deferred
+  pending forward observation evidence. Research-mining workstream
+  auto re-frozen at this boundary.
+
+- **PRD-E v1.1 implementation (TAA / regime allocation)** (2026-05-06 ✅,
+  **5/7 hard gates PASS — defensive sleeve confirmed, standalone alpha
+  rejected**) — first non-mining strategy framework in PQS. PRD:
+  `docs/prd/20260505-taa_regime_allocation_framework_prd.md` v1.1
+  (post-critique). 3 phases shipped over 3 commits (`4bc85ab`,
+  `288c3c0`, `281729b`):
+  Phase 1 = regime_rules (V1 + V0_MINIMAL) + regime_label_generator
+  (daily/monthly cadence + KL/Hamming) + asset_class_builder (universe
+  → equal-weight target_wts). Phase 2 = taa_harness.run_taa_backtest
+  + train-only smoke (4 variants V1/V0_MINIMAL × monthly/daily on
+  partition_for_role(miner) panel). Phase 3 = taa_acceptance G1-G7
+  evaluator + selector-panel validation run.
+
+  **Phase 3 verdict (V1 + monthly + selector panel)**:
+  - PASS: G1 2018 vs SPY +8.08% (BEAR year defensive value confirmed);
+    G3 stress slices (covid_flash -4.73% / rate_hike_2022 -5.04%);
+    G4 per-validation-year MaxDD ≤ 20% (max -4.42% in 2021);
+    G5 BULL beta to SPY 0.008 (essentially zero); G7 full MaxDD
+    -16.04% vs SPY -34.23% (half SPY's drawdown).
+  - FAIL: G2 2025 vs SPY -11.20% (CLAUDE.md core role HARD; BULL year
+    underperformance per PRD §7 acknowledged risk); G6 Calmar 0.073
+    vs SPY 0.337 (HARD primary risk-adjusted; SPY's 10x CAGR offsets
+    its 2.1x deeper drawdown).
+  - Per-regime DD: BULL -4.89% / CRISIS -5.11% / NEUTRAL -10.26%
+    (worst). CRISIS DD < 10% PRD-E target threshold ✓.
+  - Standalone alpha verdict: NON-VIABLE (G2 + G6 fail). Defensive
+    sleeve verdict: STRONG (5 of 5 defensive gates pass).
+
+  **User directional decision 2026-05-06 = Option B**: close PRD-E1
+  standalone path + PRESERVE TAA modules dormant for future fleet
+  integration (PRD-E2 / Phase C-PRD-3). No alpha-first cost (modules
+  don't run unless caller invokes); audit trail preserved. PRD-E2
+  (forward observation runner integration) gated on user explicit-go
+  + Trial 9 TD60 evidence (~2026-07-30).
+
+  **Preserved (dormant)**: `core/research/taa/` (6 modules) +
+  `tests/unit/research/taa/` (62 tests) + `dev/scripts/taa/`
+  (2 dev scripts) + `data/audit/taa_phase{2,3}*.json`.
+  Closeout: `docs/memos/20260506-prd_e_phase3_closeout.md`.
+
 **Forward OOS active workstream (observation mode)**:
 - **R-fwd-1 done** — forward runner minimum closed loop (init /
   status / observe / decide / readiness) + source-boundary sidecar
