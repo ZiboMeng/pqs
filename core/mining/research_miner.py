@@ -832,6 +832,20 @@ def evaluate_composite(
     mask: Optional[pd.DataFrame] = None,
     horizon: int = 21,
     lag: int = 1,
+    *,
+    # PRD-AC v1.1 §4.3 NAV gate kwargs. Defaults preserve v1_legacy
+    # behavior bit-for-bit (no NAV path executed). Pass non-None values
+    # AND set ``compute_nav=True`` to opt into v2_nav_based: the harness's
+    # ex-post evaluator runs a full BacktestEngine eval, four NAV metrics
+    # are folded into CompositeMetrics, and the I20 cross-asset detector
+    # zeros out the orthogonality term for >30%-non-equity specs.
+    price_df: Optional[pd.DataFrame] = None,
+    open_df: Optional[pd.DataFrame] = None,
+    spy_series: Optional[pd.Series] = None,
+    qqq_series: Optional[pd.Series] = None,
+    anchor_residual_returns: Optional[pd.Series] = None,
+    harness_config: Optional[Any] = None,
+    compute_nav: bool = False,
 ) -> CompositeMetrics:
     """Evaluate a research composite spec against forward returns.
 
@@ -893,6 +907,53 @@ def evaluate_composite(
         ic_ir = float("nan")
     turnover = _turnover_proxy(composite)
     corr_conc = _corr_concentration(spec, factor_panel_map)
+    # PRD-AC v1.1 §4.3 NAV gate. Defaults all NaN → v1_legacy compute_objective
+    # treats as 0 contribution. Triggered ONLY when caller passes
+    # ``compute_nav=True`` AND the four required panels are all non-None.
+    nav_sharpe = float("nan")
+    nav_max_dd = float("nan")
+    nav_corr_anchor = float("nan")
+    nav_vs_qqq = float("nan")
+    if compute_nav:
+        if price_df is None or spy_series is None:
+            raise ValueError(
+                "evaluate_composite(compute_nav=True) requires non-None "
+                "price_df and spy_series; got "
+                f"price_df={price_df is not None} spy_series={spy_series is not None}"
+            )
+        from core.research.harness.composite_evaluator import (
+            evaluate_composite_spec as expost_eval,
+        )
+        from core.mining.nav_objective import (
+            classify_cross_asset_spec,
+            compute_spec_residual_pooled_raw_correlation,
+        )
+        result = expost_eval(
+            spec,
+            factor_panel_map=factor_panel_map,
+            price_df=price_df,
+            open_df=open_df,
+            spy_series=spy_series,
+            qqq_series=qqq_series,
+            config=harness_config,
+            research_mask=mask,
+        )
+        full = result.metrics_full_period
+        nav_sharpe = float(full.get("sharpe", float("nan")))
+        nav_max_dd = float(full.get("max_dd", float("nan")))
+        nav_vs_qqq = float(full.get("vs_qqq", float("nan")))
+        # I20 cross-asset detector: skip orthogonality (NaN → 0 penalty
+        # in compute_objective) when realized non-equity weight > 30%.
+        # SPY-residual anchor assumes equity-beta-driven spec; cross-
+        # asset specs have low SPY β and residuals are largely cross-
+        # asset alpha unrelated to the SPY-bound long-only floor.
+        if anchor_residual_returns is not None and not classify_cross_asset_spec(
+            result.weights,
+        ):
+            nav_corr_anchor = compute_spec_residual_pooled_raw_correlation(
+                result.daily_returns, anchor_residual_returns, spy_series,
+            )
+        # else: nav_corr_anchor stays NaN → orthogonality term contributes 0
     return CompositeMetrics(
         n_features=spec.n_features,
         n_families=spec.n_families,
@@ -903,6 +964,10 @@ def evaluate_composite(
         turnover_proxy=turnover,
         corr_concentration=corr_conc,
         horizon=int(horizon),
+        nav_sharpe=nav_sharpe,
+        nav_max_dd=nav_max_dd,
+        nav_correlation_vs_anchor_pooled_raw=nav_corr_anchor,
+        nav_vs_qqq_excess_full_period=nav_vs_qqq,
     )
 
 
@@ -1067,6 +1132,15 @@ class ResearchMiner:
         # legacy / direct-instantiation behavior.
         factor_registry_pool: Optional[str] = None,
         explicit_exclusions: Optional[Sequence[str]] = None,
+        # PRD-AC v1.1 §4.3 NAV gate kwargs. Required iff
+        # objective_weights.is_nav_based() (any w_nav_* > 0). Default None
+        # preserves v1_legacy behavior (no NAV path; cycle04/05 archive
+        # replay reproduces).
+        price_df: Optional[pd.DataFrame] = None,
+        open_df: Optional[pd.DataFrame] = None,
+        spy_series: Optional[pd.Series] = None,
+        qqq_series: Optional[pd.Series] = None,
+        harness_config: Optional[Any] = None,
     ) -> None:
         # A++ patch 2026-04-30: pre-flight assert reachability matches
         # the pre-registered factor_registry_pool. Run before storing
@@ -1173,6 +1247,35 @@ class ResearchMiner:
                 split_sha256=split_sha256,
                 role=role,
             )
+        # PRD-AC v1.1 §4.3 NAV gate panel storage + anchor pre-build.
+        # Validation is fail-closed when any w_nav_* > 0 but a required
+        # panel is missing — surfaces miswired callers immediately rather
+        # than silently degrading every trial to v1_legacy ranking.
+        self.price_df = price_df
+        self.open_df = open_df
+        self.spy_series = spy_series
+        self.qqq_series = qqq_series
+        self.harness_config = harness_config
+        self._anchor_residual_returns: Optional[pd.Series] = None
+        if self.objective_weights.is_nav_based():
+            if price_df is None or spy_series is None:
+                raise ValueError(
+                    "ResearchMiner: objective_weights.is_nav_based()=True "
+                    "requires non-None price_df and spy_series for the "
+                    "PRD-AC v1.1 §4.3 NAV gate; got "
+                    f"price_df={price_df is not None} "
+                    f"spy_series={spy_series is not None}"
+                )
+            # Build the SPY-residual anchor ONCE at construction. The
+            # anchor depends only on the panel + SPY (not per-spec), so
+            # caching it here amortizes the OLS β computation across
+            # all trials in the study.
+            from core.mining.nav_objective import (
+                build_universe_baseline_residual_returns,
+            )
+            self._anchor_residual_returns = build_universe_baseline_residual_returns(
+                price_df, spy_series,
+            )
         # Cache of trial results for in-memory analysis
         self.results: List[TrialResult] = []
 
@@ -1230,6 +1333,10 @@ class ResearchMiner:
                     raise optuna.TrialPruned(str(exc)) from exc
                 except ImportError:
                     raise
+        # PRD-AC v1.1 §4.3: route to NAV gate when the objective opts in
+        # via any non-zero w_nav_*. v1_legacy path (compute_nav=False) is
+        # bit-identical to the pre-PRD-AC behavior.
+        nav_active = self.objective_weights.is_nav_based()
         metrics = evaluate_composite(
             spec,
             self.factor_panel_map,
@@ -1237,6 +1344,15 @@ class ResearchMiner:
             mask=self.mask,
             horizon=self.horizon,
             lag=self.lag,
+            price_df=self.price_df if nav_active else None,
+            open_df=self.open_df if nav_active else None,
+            spy_series=self.spy_series if nav_active else None,
+            qqq_series=self.qqq_series if nav_active else None,
+            anchor_residual_returns=(
+                self._anchor_residual_returns if nav_active else None
+            ),
+            harness_config=self.harness_config if nav_active else None,
+            compute_nav=nav_active,
         )
         objective = compute_objective(
             metrics,

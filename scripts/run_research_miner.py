@@ -669,6 +669,26 @@ def main() -> int:
         objective_weights=ObjectiveWeights(
             **getattr(args, "_objective_weights_dict", {})
         ),
+        # PRD-AC v1.1 §4.3 NAV gate panels. Required when objective_version=
+        # v2_nav_based (any w_nav_* > 0). Constructor validates and fails
+        # closed if v2_nav_based + missing panels (cycle04/05 v1_legacy
+        # mining unaffected: ObjectiveWeights() defaults all w_nav_*=0).
+        # SPY / QQQ are extracted from frames["close"]; the universe panel
+        # excludes them so the equal-weight anchor baseline is computed on
+        # the tradable universe only.
+        price_df=frames["close"].drop(
+            columns=["SPY", "QQQ"], errors="ignore",
+        ),
+        open_df=(
+            frames["open"].drop(columns=["SPY", "QQQ"], errors="ignore")
+            if frames["open"] is not None else None
+        ),
+        spy_series=(
+            frames["close"]["SPY"] if "SPY" in frames["close"].columns else None
+        ),
+        qqq_series=(
+            frames["close"]["QQQ"] if "QQQ" in frames["close"].columns else None
+        ),
         min_families=args.min_families,
         max_features_per_family=args.max_features_per_family,
         composite_weighting=args.composite_weighting,

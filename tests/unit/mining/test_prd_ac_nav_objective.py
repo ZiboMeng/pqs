@@ -22,6 +22,8 @@ import sqlite3
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from core.mining.rcm_archive import RCMArchive
 from core.mining.research_miner import (
     CompositeMetrics,
@@ -295,14 +297,246 @@ def test_research_miner_record_study_stamps_v1_legacy(tmp_path):
     assert ow["w_vs_qqq_excess"] == 0.0
 
 
+# ── Integration: evaluate_composite NAV gate ──────────────────────────────────
+
+
+def _build_synthetic_panel(n_days=180, n_syms=8, seed=0):
+    """Build (panel_map, fwd_returns, price_df, open_df, spy, qqq) for
+    an integration smoke that exercises the full NAV gate."""
+    import numpy as np
+    import pandas as pd
+    from core.mining.research_miner import zscore_cs
+
+    rng = np.random.default_rng(seed)
+    dates = pd.date_range("2020-01-01", periods=n_days, freq="B")
+    syms = [f"S{i}" for i in range(n_syms)]
+    market = rng.normal(0, 0.01, size=n_days)
+    sym_specific = rng.normal(0, 0.005, size=(n_days, n_syms))
+    rets = market[:, None] + sym_specific
+    prices = 100.0 * np.cumprod(1 + rets, axis=0)
+    price_df = pd.DataFrame(prices, index=dates, columns=syms)
+    open_df = price_df * (1 + rng.normal(0, 0.001, size=(n_days, n_syms)))
+    fwd = price_df.pct_change(21).shift(-21)
+    # Two factor panels (zscored cross-sectionally)
+    f1 = zscore_cs(price_df.pct_change(20))
+    f2 = zscore_cs(price_df.pct_change(60))
+    panel_map = {"momentum_20d": f1, "momentum_60d": f2}
+    spy = pd.Series(
+        400.0 * np.cumprod(1 + market + rng.normal(0, 0.001, size=n_days)),
+        index=dates, name="SPY",
+    )
+    qqq = pd.Series(
+        300.0 * np.cumprod(
+            1 + market * 1.1 + rng.normal(0, 0.002, size=n_days)
+        ),
+        index=dates, name="QQQ",
+    )
+    return panel_map, fwd, price_df, open_df, spy, qqq
+
+
+def test_evaluate_composite_v1_legacy_default_path_nan_nav():
+    """Default compute_nav=False leaves all 4 nav_* fields NaN."""
+    from core.mining.research_miner import (
+        ResearchCompositeSpec, evaluate_composite,
+    )
+
+    panel_map, fwd, *_ = _build_synthetic_panel(n_days=120)
+    spec = ResearchCompositeSpec(
+        features=("momentum_20d", "momentum_60d"),
+        weights=(0.6, 0.4),
+        family_counts={"A": 2},
+    )
+    metrics = evaluate_composite(spec, panel_map, fwd)
+    assert math.isfinite(metrics.ic_ir) or math.isnan(metrics.ic_ir)
+    # NAV path NOT triggered → all NaN
+    assert math.isnan(metrics.nav_sharpe)
+    assert math.isnan(metrics.nav_max_dd)
+    assert math.isnan(metrics.nav_correlation_vs_anchor_pooled_raw)
+    assert math.isnan(metrics.nav_vs_qqq_excess_full_period)
+
+
+def test_evaluate_composite_v2_nav_path_populates_metrics():
+    """compute_nav=True with all required panels → 4 nav_* fields populated."""
+    from core.mining.research_miner import (
+        ResearchCompositeSpec, evaluate_composite,
+    )
+    from core.mining.nav_objective import (
+        build_universe_baseline_residual_returns,
+    )
+
+    panel_map, fwd, price_df, open_df, spy, qqq = _build_synthetic_panel()
+    anchor = build_universe_baseline_residual_returns(price_df, spy)
+    spec = ResearchCompositeSpec(
+        features=("momentum_20d", "momentum_60d"),
+        weights=(0.6, 0.4),
+        family_counts={"A": 2},
+    )
+    metrics = evaluate_composite(
+        spec, panel_map, fwd,
+        price_df=price_df, open_df=open_df,
+        spy_series=spy, qqq_series=qqq,
+        anchor_residual_returns=anchor,
+        compute_nav=True,
+    )
+    # All 4 NAV fields populated (finite or at worst non-NaN — sharpe
+    # may be 0.0 on degenerate window but should not be NaN)
+    assert not math.isnan(metrics.nav_sharpe), \
+        f"nav_sharpe NaN: {metrics.nav_sharpe}"
+    assert not math.isnan(metrics.nav_max_dd), \
+        f"nav_max_dd NaN: {metrics.nav_max_dd}"
+    # nav_corr_anchor MAY be NaN if I20 cross-asset triggered or anchor
+    # window too short on synthetic 180-day panel; both are valid
+    # outcomes. nav_vs_qqq populated from harness.
+    assert math.isfinite(metrics.nav_max_dd)
+    assert metrics.nav_max_dd <= 0.0  # MaxDD always ≤ 0
+
+
+def test_evaluate_composite_compute_nav_requires_panels():
+    """compute_nav=True without panels → fail-closed ValueError."""
+    from core.mining.research_miner import (
+        ResearchCompositeSpec, evaluate_composite,
+    )
+
+    panel_map, fwd, *_ = _build_synthetic_panel(n_days=120)
+    spec = ResearchCompositeSpec(
+        features=("momentum_20d", "momentum_60d"),
+        weights=(0.6, 0.4),
+        family_counts={"A": 2},
+    )
+    with pytest.raises(ValueError, match="non-None price_df and spy_series"):
+        evaluate_composite(
+            spec, panel_map, fwd,
+            compute_nav=True,  # but no price_df / spy_series
+        )
+
+
+def test_research_miner_v1_legacy_no_panels_required():
+    """v1_legacy ResearchMiner accepts None panels (no NAV gate)."""
+    from core.mining.research_miner import ResearchMiner
+
+    panel_map, fwd, *_ = _build_synthetic_panel(n_days=60)
+    # No panels passed; v1_legacy should accept this
+    miner = ResearchMiner(
+        factor_panel_map=panel_map, fwd_returns=fwd,
+        objective_weights=ObjectiveWeights(),  # all w_nav_*=0
+    )
+    assert miner._anchor_residual_returns is None
+
+
+def test_research_miner_v2_nav_based_fail_closed_without_panels():
+    """v2_nav_based ResearchMiner without panels → fail-closed."""
+    from core.mining.research_miner import ResearchMiner
+
+    panel_map, fwd, *_ = _build_synthetic_panel(n_days=60)
+    with pytest.raises(ValueError, match="is_nav_based"):
+        ResearchMiner(
+            factor_panel_map=panel_map, fwd_returns=fwd,
+            objective_weights=ObjectiveWeights(w_nav_sharpe=0.15),
+            # No price_df / spy_series — should fail-closed
+        )
+
+
+def test_research_miner_v2_nav_based_builds_anchor_at_construction():
+    """v2_nav_based ResearchMiner caches the anchor at construction time."""
+    from core.mining.research_miner import ResearchMiner
+
+    panel_map, fwd, price_df, _open, spy, _qqq = _build_synthetic_panel()
+    miner = ResearchMiner(
+        factor_panel_map=panel_map, fwd_returns=fwd,
+        objective_weights=ObjectiveWeights(w_nav_sharpe=0.15),
+        price_df=price_df, spy_series=spy,
+    )
+    assert miner._anchor_residual_returns is not None
+    assert len(miner._anchor_residual_returns) > 0
+    assert miner._anchor_residual_returns.name == "universe_baseline_residual"
+
+
+def test_evaluate_composite_v2_nav_path_handles_non_contiguous_panel():
+    """PRD §6 Phase 2 I9 boundary check (lightweight): NAV gate runs
+    end-to-end on a panel with a multi-year gap (mimics
+    partition_for_role(miner) train-only output).
+
+    Doesn't compare drift vs an external archive (full I9 verify needs
+    cycle04 archive + replay). Verifies the NAV gate doesn't NaN/crash
+    at the year boundary, which is the structural concern.
+    """
+    import numpy as np
+    import pandas as pd
+    from core.mining.research_miner import (
+        ResearchCompositeSpec, evaluate_composite, zscore_cs,
+    )
+    from core.mining.nav_objective import (
+        build_universe_baseline_residual_returns,
+    )
+
+    rng = np.random.default_rng(7)
+    # Two train segments with a 2-year gap (mimics 2017 → 2020 boundary)
+    seg_a = pd.date_range("2017-01-02", "2017-12-29", freq="B")
+    seg_b = pd.date_range("2020-01-02", "2020-12-31", freq="B")
+    dates = seg_a.union(seg_b)
+    n = len(dates)
+    n_syms = 6
+    syms = [f"S{i}" for i in range(n_syms)]
+    market = rng.normal(0, 0.01, size=n)
+    sym_specific = rng.normal(0, 0.005, size=(n, n_syms))
+    rets = market[:, None] + sym_specific
+    prices = 100.0 * np.cumprod(1 + rets, axis=0)
+    price_df = pd.DataFrame(prices, index=dates, columns=syms)
+    open_df = price_df * (1 + rng.normal(0, 0.001, size=(n, n_syms)))
+    fwd = price_df.pct_change(21).shift(-21)
+    panel_map = {
+        "momentum_20d": zscore_cs(price_df.pct_change(20)),
+        "momentum_60d": zscore_cs(price_df.pct_change(60)),
+    }
+    spy = pd.Series(
+        400.0 * np.cumprod(1 + market + rng.normal(0, 0.001, size=n)),
+        index=dates, name="SPY",
+    )
+    qqq = pd.Series(
+        300.0 * np.cumprod(1 + market * 1.1 + rng.normal(0, 0.002, size=n)),
+        index=dates, name="QQQ",
+    )
+    anchor = build_universe_baseline_residual_returns(price_df, spy)
+    spec = ResearchCompositeSpec(
+        features=("momentum_20d", "momentum_60d"),
+        weights=(0.6, 0.4),
+        family_counts={"A": 2},
+    )
+    metrics = evaluate_composite(
+        spec, panel_map, fwd,
+        price_df=price_df, open_df=open_df,
+        spy_series=spy, qqq_series=qqq,
+        anchor_residual_returns=anchor,
+        compute_nav=True,
+    )
+    # Boundary-day artifacts would manifest as NaN-explosion or |max_dd|
+    # near 100% (e.g. price gap interpreted as a -90% return).
+    assert math.isfinite(metrics.nav_max_dd), \
+        "non-contiguous panel produced NaN max_dd (boundary artifact)"
+    assert metrics.nav_max_dd > -0.50, (
+        f"non-contiguous panel max_dd={metrics.nav_max_dd:.2%} "
+        f"suspiciously large; potential boundary artifact"
+    )
+    assert math.isfinite(metrics.nav_sharpe), \
+        "non-contiguous panel produced NaN Sharpe"
+
+
 def test_research_miner_record_study_stamps_v2_nav_based(tmp_path):
-    """Non-zero w_nav_* → study JSON has objective_version=v2_nav_based."""
+    """Non-zero w_nav_* → study JSON has objective_version=v2_nav_based.
+
+    PRD-AC v1.1 §4.3 also requires NAV-gate panels at construction; pass
+    minimal stubs (price_df + spy_series) to satisfy the fail-closed
+    guard. This test verifies the JSON stamping path, not the NAV
+    eval itself (covered by test_evaluate_composite_v2_nav_path).
+    """
     import pandas as pd
     from core.mining.research_miner import ResearchMiner
 
     dates = pd.date_range("2020-01-01", periods=10, freq="B")
     fwd = pd.DataFrame(0.01, index=dates, columns=["AAPL"])
     panel_map = {"beta_spy_60d": pd.DataFrame(0.5, index=dates, columns=["AAPL"])}
+    price_df = pd.DataFrame(100.0, index=dates, columns=["AAPL"])
+    spy = pd.Series(400.0, index=dates, name="SPY")
 
     db = tmp_path / "study.db"
     arch = RCMArchive(db)
@@ -310,6 +544,7 @@ def test_research_miner_record_study_stamps_v2_nav_based(tmp_path):
         factor_panel_map=panel_map, fwd_returns=fwd,
         objective_weights=ObjectiveWeights(w_nav_sharpe=0.15),
         archive=arch, lineage_tag="test", study_id="s1",
+        price_df=price_df, spy_series=spy,
     )
     with sqlite3.connect(db) as conn:
         ow_json = conn.execute(
