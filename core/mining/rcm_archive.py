@@ -114,6 +114,18 @@ _ALTER_TRIALS_TRACK_A = [
     "ALTER TABLE rcm_trials ADD COLUMN max_factor_lookback_days INTEGER",
 ]
 
+# PRD-AC v1.1 §4.2 + §4.7: NAV-based mining objective metrics. NULL on
+# v1_legacy trials (default). Idempotent ALTER (silently skipped via
+# _init_schema's OperationalError handler when columns already present).
+# objective_version is recorded as part of `rcm_studies.objective_weights_json`
+# (already a JSON blob), no separate column needed at study level.
+_ALTER_TRIALS_NAV_BASED = [
+    "ALTER TABLE rcm_trials ADD COLUMN nav_sharpe REAL",
+    "ALTER TABLE rcm_trials ADD COLUMN nav_max_dd REAL",
+    "ALTER TABLE rcm_trials ADD COLUMN nav_correlation_vs_anchor_pooled_raw REAL",
+    "ALTER TABLE rcm_trials ADD COLUMN nav_vs_qqq_excess_full_period REAL",
+]
+
 _CREATE_INDEX_LINEAGE = """
 CREATE INDEX IF NOT EXISTS idx_rcm_trials_lineage
     ON rcm_trials(lineage_tag)
@@ -179,7 +191,11 @@ class RCMArchive:
             conn.execute(_CREATE_INDEX_OBJECTIVE)
             conn.execute(_CREATE_INDEX_STUDY)
             # Track A v1 migrations (idempotent — silent skip if already applied)
-            for stmt in (_ALTER_STUDIES_TRACK_A + _ALTER_TRIALS_TRACK_A):
+            for stmt in (
+                _ALTER_STUDIES_TRACK_A
+                + _ALTER_TRIALS_TRACK_A
+                + _ALTER_TRIALS_NAV_BASED
+            ):
                 try:
                     conn.execute(stmt)
                 except sqlite3.OperationalError as exc:
@@ -291,7 +307,10 @@ class RCMArchive:
                     n_dates, ic_mean, ic_std, ic_ir,
                     turnover_proxy, corr_concentration,
                     benchmark_excess, regime_stddev, objective,
-                    split_sha256, panel_max_date, role, max_factor_lookback_days
+                    split_sha256, panel_max_date, role, max_factor_lookback_days,
+                    nav_sharpe, nav_max_dd,
+                    nav_correlation_vs_anchor_pooled_raw,
+                    nav_vs_qqq_excess_full_period
                 )
                 VALUES (
                     ?, ?, ?, ?,
@@ -300,7 +319,10 @@ class RCMArchive:
                     ?, ?, ?, ?,
                     ?, ?,
                     ?, ?, ?,
-                    ?, ?, ?, ?
+                    ?, ?, ?, ?,
+                    ?, ?,
+                    ?,
+                    ?
                 )
                 """,
                 (
@@ -319,6 +341,14 @@ class RCMArchive:
                     float(regime_stddev),
                     _as_float(trial.objective),
                     split_sha256, panel_max_date, role, max_factor_lookback_days,
+                    _as_float(getattr(m, "nav_sharpe", float("nan"))),
+                    _as_float(getattr(m, "nav_max_dd", float("nan"))),
+                    _as_float(getattr(
+                        m, "nav_correlation_vs_anchor_pooled_raw", float("nan"),
+                    )),
+                    _as_float(getattr(
+                        m, "nav_vs_qqq_excess_full_period", float("nan"),
+                    )),
                 ),
             )
             # Bump study trial counter

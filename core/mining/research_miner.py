@@ -798,6 +798,14 @@ class CompositeMetrics:
     turnover_proxy: float
     corr_concentration: float
     horizon: int = 21       # forecast horizon in trading days (for audit)
+    # PRD-AC v1.1 §4.2: NAV-based metrics. Default NaN so v1_legacy
+    # flow leaves them unset; v2_nav_based flow populates via the
+    # mining-internal NAV gate (research_miner.py evaluate_composite +
+    # core/research/harness/composite_evaluator.evaluate_composite_spec).
+    nav_sharpe: float = float("nan")
+    nav_max_dd: float = float("nan")
+    nav_correlation_vs_anchor_pooled_raw: float = float("nan")
+    nav_vs_qqq_excess_full_period: float = float("nan")
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -810,6 +818,10 @@ class CompositeMetrics:
             "turnover_proxy": self.turnover_proxy,
             "corr_concentration": self.corr_concentration,
             "horizon": self.horizon,
+            "nav_sharpe": self.nav_sharpe,
+            "nav_max_dd": self.nav_max_dd,
+            "nav_correlation_vs_anchor_pooled_raw": self.nav_correlation_vs_anchor_pooled_raw,
+            "nav_vs_qqq_excess_full_period": self.nav_vs_qqq_excess_full_period,
         }
 
 
@@ -902,12 +914,33 @@ class ObjectiveWeights:
     """PRD §8.6 weighted-sum objective weights.
 
     Default mirrors PRD example; callers can tune via CLI.
+
+    PRD-AC v1.1 §4.1 NAV-based extension: ``w_nav_*`` fields default to
+    0.0 → ``v1_legacy`` objective behavior preserved bit-for-bit on cycle
+    #04/#05 archive replay. Setting any to non-zero opts the trial into
+    the NAV path (mining-internal evaluator runs ex-post harness eval
+    and folds nav_sharpe / nav_max_dd / nav_corr_anchor / nav_vs_qqq_excess
+    into the weighted sum).
     """
     w_ir: float = 1.0               # + weight on OOS IR
     w_turnover: float = 0.5         # − penalty on turnover proxy
     w_corr_conc: float = 1.0        # − penalty on correlation concentration
     w_bench_excess: float = 0.3     # + weight on benchmark excess
     w_regime_stddev: float = 0.2    # − penalty on regime-IC stddev
+    # PRD-AC v1.1 §4.1 — defaults all 0.0 = v1_legacy backward compat.
+    w_nav_sharpe: float = 0.0           # + weight on full-period NAV Sharpe
+    w_nav_max_dd_penalty: float = 0.0   # − penalty on |full-period max_dd|
+    w_nav_orthogonality: float = 0.0    # − penalty on max(0, raw_corr_vs_anchor − 0.5)
+    w_vs_qqq_excess: float = 0.0        # + weight on full-period vs_qqq excess
+
+    def is_nav_based(self) -> bool:
+        """True iff any ``w_nav_*`` weight is non-zero (objective_version=v2)."""
+        return (
+            self.w_nav_sharpe != 0.0
+            or self.w_nav_max_dd_penalty != 0.0
+            or self.w_nav_orthogonality != 0.0
+            or self.w_vs_qqq_excess != 0.0
+        )
 
 
 def compute_objective(
@@ -916,16 +949,27 @@ def compute_objective(
     regime_stddev: float = 0.0,
     weights: Optional[ObjectiveWeights] = None,
 ) -> float:
-    """PRD §8.6 weighted-sum objective.
+    """PRD §8.6 + PRD-AC v1.1 §4.4 weighted-sum objective.
 
-    objective = w_ir * IR
-              - w_turnover * turnover_proxy
-              - w_corr_conc * corr_concentration
-              + w_bench_excess * benchmark_excess
-              - w_regime_stddev * regime_stddev
+    v1_legacy (default; all w_nav_* = 0):
+        objective = w_ir * IR
+                  - w_turnover * turnover_proxy
+                  - w_corr_conc * corr_concentration
+                  + w_bench_excess * benchmark_excess
+                  - w_regime_stddev * regime_stddev
+
+    v2_nav_based (any w_nav_* > 0):
+        objective = (v1_legacy)
+                  + w_nav_sharpe * nav_sharpe
+                  - w_nav_max_dd_penalty * |nav_max_dd|
+                  - w_nav_orthogonality * max(0, nav_corr_anchor - 0.5)
+                  + w_vs_qqq_excess * nav_vs_qqq_excess_full_period
 
     NaN-safe: any NaN metric contributes 0 (logged at caller as "insufficient
-    data"). Returns -inf if IC_IR itself is NaN (no signal).
+    data"). Returns -inf if IC_IR itself is NaN (no signal). NaN nav_*
+    metrics also contribute 0 → if a v2 trial has w_nav_sharpe>0 but the
+    NAV gate did not run, that trial silently degrades to v1 ranking
+    (caller must ensure NAV gate runs when w_nav_* > 0).
     """
     w = weights or ObjectiveWeights()
     ir = metrics.ic_ir if np.isfinite(metrics.ic_ir) else float("-inf")
@@ -935,13 +979,35 @@ def compute_objective(
     corr_c = metrics.corr_concentration if np.isfinite(metrics.corr_concentration) else 0.0
     be = benchmark_excess if np.isfinite(benchmark_excess) else 0.0
     rs = regime_stddev if np.isfinite(regime_stddev) else 0.0
-    return (
+    legacy_terms = (
         w.w_ir * ir
         - w.w_turnover * turnover
         - w.w_corr_conc * corr_c
         + w.w_bench_excess * be
         - w.w_regime_stddev * rs
     )
+    # PRD-AC v1.1 §4.4 NAV terms. NaN-safe: missing NAV metrics
+    # contribute 0 (a v1_legacy trial with all w_nav_*=0 lands here
+    # with all four terms = 0 and returns identical to legacy path).
+    nav_sharpe = metrics.nav_sharpe if np.isfinite(metrics.nav_sharpe) else 0.0
+    nav_max_dd = metrics.nav_max_dd if np.isfinite(metrics.nav_max_dd) else 0.0
+    nav_corr = (
+        metrics.nav_correlation_vs_anchor_pooled_raw
+        if np.isfinite(metrics.nav_correlation_vs_anchor_pooled_raw)
+        else 0.0
+    )
+    nav_vs_qqq = (
+        metrics.nav_vs_qqq_excess_full_period
+        if np.isfinite(metrics.nav_vs_qqq_excess_full_period)
+        else 0.0
+    )
+    nav_terms = (
+        w.w_nav_sharpe * nav_sharpe
+        - w.w_nav_max_dd_penalty * abs(nav_max_dd)
+        - w.w_nav_orthogonality * max(0.0, nav_corr - 0.5)
+        + w.w_vs_qqq_excess * nav_vs_qqq
+    )
+    return legacy_terms + nav_terms
 
 
 @dataclass
@@ -1081,15 +1147,27 @@ class ResearchMiner:
         self.role = role
         self.max_factor_lookback_days = max_factor_lookback_days
         if archive is not None:
+            # PRD-AC v1.1 §4.7: objective_version + 4 new w_nav_* weights
+            # are recorded inside the same JSON blob (no schema migration
+            # needed at study level). v1_legacy = all w_nav_* default 0;
+            # v2_nav_based opts in via at least one non-zero w_nav_*.
+            ow = self.objective_weights
             archive.record_study(
                 study_id=study_id,
                 lineage_tag=lineage_tag,
                 objective_weights={
-                    "w_ir": self.objective_weights.w_ir,
-                    "w_turnover": self.objective_weights.w_turnover,
-                    "w_corr_conc": self.objective_weights.w_corr_conc,
-                    "w_bench_excess": self.objective_weights.w_bench_excess,
-                    "w_regime_stddev": self.objective_weights.w_regime_stddev,
+                    "objective_version": (
+                        "v2_nav_based" if ow.is_nav_based() else "v1_legacy"
+                    ),
+                    "w_ir": ow.w_ir,
+                    "w_turnover": ow.w_turnover,
+                    "w_corr_conc": ow.w_corr_conc,
+                    "w_bench_excess": ow.w_bench_excess,
+                    "w_regime_stddev": ow.w_regime_stddev,
+                    "w_nav_sharpe": ow.w_nav_sharpe,
+                    "w_nav_max_dd_penalty": ow.w_nav_max_dd_penalty,
+                    "w_nav_orthogonality": ow.w_nav_orthogonality,
+                    "w_vs_qqq_excess": ow.w_vs_qqq_excess,
                 },
                 split_name=split_name,
                 split_sha256=split_sha256,

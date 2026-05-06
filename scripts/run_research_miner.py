@@ -406,6 +406,48 @@ def main() -> int:
             if cli_val == default or cli_val is None:
                 setattr(args, cli_attr, yaml_val)
 
+        # PRD-AC v1.1 §4.7: objective_version + objective_weights from yaml.
+        # `objective_version` is informational (recorded in archive +
+        # closeout memo); `objective_weights` is the actual ObjectiveWeights
+        # dict consumed by ResearchMiner. Default = v1_legacy + empty dict
+        # → ObjectiveWeights() default constructor → cycle04/05 backward
+        # compat preserved bit-for-bit.
+        yaml_obj_version = mc.get("objective_version") or "v1_legacy"
+        yaml_obj_weights = mc.get("objective_weights")
+        if yaml_obj_weights is not None and not isinstance(yaml_obj_weights, dict):
+            mismatches.append(
+                f"  yaml.mining_config.objective_weights must be a dict, got "
+                f"{type(yaml_obj_weights).__name__}"
+            )
+            yaml_obj_weights = None
+        if yaml_obj_weights is None:
+            yaml_obj_weights = {}
+        # Cross-check: v2_nav_based version must have at least one
+        # w_nav_* > 0; v1_legacy must have all w_nav_* == 0 (or absent).
+        nav_weight_keys = (
+            "w_nav_sharpe", "w_nav_max_dd_penalty",
+            "w_nav_orthogonality", "w_vs_qqq_excess",
+        )
+        any_nav_nonzero = any(
+            float(yaml_obj_weights.get(k, 0.0)) != 0.0 for k in nav_weight_keys
+        )
+        if yaml_obj_version == "v2_nav_based" and not any_nav_nonzero:
+            mismatches.append(
+                "  yaml.mining_config.objective_version='v2_nav_based' "
+                "requires at least one of "
+                f"{nav_weight_keys} to be non-zero"
+            )
+        if yaml_obj_version == "v1_legacy" and any_nav_nonzero:
+            mismatches.append(
+                "  yaml.mining_config.objective_version='v1_legacy' "
+                "requires all w_nav_* weights to be 0 (or absent); "
+                "found non-zero NAV weights — set objective_version="
+                "'v2_nav_based' to opt into NAV objective"
+            )
+        # Stash for later use after mismatches block
+        args._objective_version = yaml_obj_version
+        args._objective_weights_dict = yaml_obj_weights
+
         # explicit_exclusions: yaml mining_config.explicit_exclusions list.
         # When yaml lists exclusions and CLI ALSO lists exclusions, fail-
         # closed unless they match exactly (yaml is source of truth).
@@ -624,7 +666,9 @@ def main() -> int:
         fwd_returns=fwd_h,
         mask=mask,
         families=active_families,
-        objective_weights=ObjectiveWeights(),
+        objective_weights=ObjectiveWeights(
+            **getattr(args, "_objective_weights_dict", {})
+        ),
         min_families=args.min_families,
         max_features_per_family=args.max_features_per_family,
         composite_weighting=args.composite_weighting,
