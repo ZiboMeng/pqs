@@ -65,6 +65,10 @@ from core.research.robustness.runner import (
     _compute_composite,
     _load_panel,
 )
+from core.research.sr_signal_filter import (
+    SRDeferConfig,
+    apply_sr_defer_filter,
+)
 
 
 def _build_label(args: argparse.Namespace, spec_id: str) -> str:
@@ -403,14 +407,33 @@ def main(argv: Optional[list[str]] = None) -> int:
                 store, target_syms, freqs=["60m"],
             )
             thresholds = TimingThresholds.from_config(cfg.risk.intraday_timing)
-            print(f"[harness] applying SR defer filter "
-                  f"(near_R_pct={thresholds.sr_near_resistance_pct})...")
-            target_wts, n_defers, n_eval = _apply_sr_defer_filter(
-                target_wts, multi_bars, thresholds,
+            # Use productionized RTH-aware filter (post-2026-05-05 fix);
+            # eliminates the post-market 20:00/21:00 bar contamination
+            # that affected Step 5b v1 numbers. See
+            # core/research/sr_signal_filter.py module docstring.
+            sr_cfg = SRDeferConfig(
+                swing_n=thresholds.sr_swing_n,
+                lookback_bars=thresholds.sr_lookback_bars,
+                near_resistance_pct=thresholds.sr_near_resistance_pct,
+            )
+            print(f"[harness] applying RTH-fixed SR defer filter "
+                  f"(near_R_pct={sr_cfg.near_resistance_pct})...")
+            target_wts, defer_stats_obj = apply_sr_defer_filter(
+                target_wts,
+                multi_bars.get("60m", {}),
+                config=sr_cfg,
                 start=pd.Timestamp(args.start),
                 end=pd.Timestamp(args.end),
             )
-            defer_stats = {"n_sr_defers": n_defers, "n_sr_evaluated": n_eval}
+            n_defers = defer_stats_obj.n_defers
+            n_eval = defer_stats_obj.n_evaluated
+            defer_stats = {
+                "n_sr_defers": n_defers,
+                "n_sr_evaluated": n_eval,
+                "n_sr_skipped_no_60m": defer_stats_obj.n_skipped_no_60m_coverage,
+                "n_sr_skipped_short_history": defer_stats_obj.n_skipped_short_history,
+                "n_sr_skipped_no_rth_today": defer_stats_obj.n_skipped_no_rth_bars_today,
+            }
             defer_pct = (n_defers / n_eval * 100) if n_eval > 0 else 0
             print(f"[harness] SR defer fired: {n_defers}/{n_eval} cells "
                   f"({defer_pct:.2f}%)")
