@@ -258,3 +258,136 @@ def test_loads_real_rcmv1_frozen_yaml():
     assert len(spec2.feature_set) == len(spec.feature_set)
     assert spec2.source == spec.source
     assert spec2.research_evidence == spec.research_evidence
+
+
+# ── execution_policy lazy migration (PRD 20260505 Step 6.1-min) ──────────────
+
+
+def test_execution_policy_default_none():
+    """Default construction → execution_policy is None (no policy = legacy path)."""
+    spec = FrozenStrategySpec(**_minimal_kwargs())
+    assert spec.execution_policy is None
+
+
+def test_execution_policy_absent_in_to_dict_when_none():
+    """to_dict must NOT emit execution_policy key when None.
+
+    Crucial for lazy migration: pre-PRD candidate yamls must round-trip
+    BIT-IDENTICAL through to_dict / to_yaml when no policy is set,
+    otherwise spec_hash on existing 3 candidates (RCMv1/Cand-2/trial9)
+    would change and corrupt forward-observation continuity.
+    """
+    spec = FrozenStrategySpec(**_minimal_kwargs())
+    d = spec.to_dict()
+    assert "execution_policy" not in d
+
+
+def test_execution_policy_round_trip():
+    """Synthetic spec with execution_policy populated round-trips."""
+    policy = {
+        "enable_sr_defer": True,
+        "sr_defer": {
+            "near_resistance_pct": 0.005,
+            "swing_n": 5,
+            "lookback_bars": 20,
+        },
+    }
+    spec = FrozenStrategySpec(**_minimal_kwargs(execution_policy=policy))
+    assert spec.execution_policy == policy
+    y = spec.to_yaml()
+    assert "execution_policy" in y
+    spec2 = FrozenStrategySpec.from_yaml(y)
+    assert spec2.execution_policy == policy
+
+
+def test_execution_policy_yaml_without_field_loads_as_none():
+    """Pre-PRD yaml (no execution_policy key) loads with field = None.
+
+    Lazy migration invariant: existing candidate yamls written before
+    Step 6.1-min must not require migration to load.
+    """
+    yaml_text = """
+candidate_id: c1
+strategy_version: test-v1
+source_trial_id: abc
+feature_set:
+  - name: x
+    weight: 1.0
+benchmark_relative_summary:
+  ic: 0.03
+oos_holdout_summary:
+  folds: 4
+robustness_summary:
+  range: [0.3, 0.5]
+decision_memo: /tmp/m.md
+"""
+    spec = FrozenStrategySpec.from_yaml(yaml_text)
+    assert spec.execution_policy is None
+
+
+def test_execution_policy_in_yaml_loads():
+    """Yaml with execution_policy present loads field correctly."""
+    yaml_text = """
+candidate_id: c1
+strategy_version: test-v1
+source_trial_id: abc
+feature_set:
+  - name: x
+    weight: 1.0
+benchmark_relative_summary:
+  ic: 0.03
+oos_holdout_summary:
+  folds: 4
+robustness_summary:
+  range: [0.3, 0.5]
+decision_memo: /tmp/m.md
+execution_policy:
+  enable_sr_defer: true
+  sr_defer:
+    near_resistance_pct: 0.005
+"""
+    spec = FrozenStrategySpec.from_yaml(yaml_text)
+    assert spec.execution_policy is not None
+    assert spec.execution_policy["enable_sr_defer"] is True
+    assert spec.execution_policy["sr_defer"]["near_resistance_pct"] == 0.005
+
+
+def test_execution_policy_not_in_extras():
+    """execution_policy is a known top-level key, must NOT land in extras."""
+    yaml_text = """
+candidate_id: c1
+strategy_version: test-v1
+source_trial_id: abc
+feature_set:
+  - name: x
+benchmark_relative_summary: n/a
+oos_holdout_summary: n/a
+robustness_summary: n/a
+decision_memo: m
+execution_policy:
+  enable_sr_defer: false
+"""
+    spec = FrozenStrategySpec.from_yaml(yaml_text)
+    assert "execution_policy" not in spec.extras
+    assert spec.execution_policy == {"enable_sr_defer": False}
+
+
+@pytest.mark.parametrize("yaml_name", [
+    "rcm_v1_defensive_composite_01.yaml",
+    "candidate_2_orthogonal_01.yaml",
+    "trial9_diversifier_001.yaml",
+])
+def test_existing_candidate_yamls_load_with_execution_policy_none(yaml_name):
+    """The 3 pre-PRD-6.1-min candidate yamls must load with execution_policy
+    = None. This is the load-bearing isolation invariant: forward observation
+    on these 3 candidates is bit-identical pre/post-PRD because the runner's
+    execution_policy branch sees None and takes the legacy path.
+    """
+    path = Path("data/research_candidates") / yaml_name
+    if not path.exists():
+        pytest.skip(f"{yaml_name} not present (expected in repo)")
+    spec = FrozenStrategySpec.from_yaml_file(path)
+    assert spec.execution_policy is None, (
+        f"{yaml_name} unexpectedly carries execution_policy={spec.execution_policy!r} "
+        "— this would route forward observation through the new SR defer path"
+    )

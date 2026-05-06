@@ -135,6 +135,25 @@ class FrozenStrategySpec:
     research_evidence: Optional[dict] = None
     notes: Optional[str] = None
 
+    # ── Execution policy (PRD 20260505 Step 6.1-min, opt-in) ──────────
+    # When None or absent → forward runner uses default daily T+1 open
+    # path (matches all pre-policy candidates: RCMv1 / Cand-2 / trial9).
+    # When present → forward runner consults the dict to decide whether
+    # to apply Path A SR defer filter (or future signal filters).
+    #
+    # Documented shape (v1.0):
+    #     execution_policy:
+    #       enable_sr_defer: bool       # default False; only consumed when True
+    #       sr_defer:                    # optional, only read if enable_sr_defer=True
+    #         near_resistance_pct: float (default 0.005 = 50 bps)
+    #         swing_n: int               (default 5)
+    #         lookback_bars: int         (default 20)
+    #
+    # Future expansion (NOT in v1.0): additional filter blocks
+    # (e.g., sr_volume_profile, anchored_vwap, etc.) would slot in
+    # parallel to ``sr_defer``.
+    execution_policy: Optional[dict] = None
+
     # ── Extras (catch-all for future fields) ──────────────────────────
     extras: dict = field(default_factory=dict)
 
@@ -207,7 +226,7 @@ class FrozenStrategySpec:
             "labels", "panel_contract", "rebalance", "weighting_rule",
             "benchmark_definition", "risk_overlay", "cost_model_version",
             "alternative_weighting_variant", "source", "research_evidence",
-            "notes",
+            "notes", "execution_policy",
         ):
             v = getattr(self, field_name)
             if v is not None:
@@ -302,7 +321,7 @@ class FrozenStrategySpec:
             "labels", "panel_contract", "rebalance", "weighting_rule",
             "benchmark_definition", "risk_overlay", "cost_model_version",
             "alternative_weighting_variant", "source", "research_evidence",
-            "notes",
+            "notes", "execution_policy",
         }
         extras = {k: v for k, v in d.items() if k not in known}
 
@@ -330,6 +349,7 @@ class FrozenStrategySpec:
             source=d.get("source"),
             research_evidence=d.get("research_evidence"),
             notes=d.get("notes"),
+            execution_policy=d.get("execution_policy"),
             extras=extras,
         )
 

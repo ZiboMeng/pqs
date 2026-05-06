@@ -49,6 +49,10 @@ from core.research.robustness.runner import (
     _composite_to_target_weights,
     _load_panel,
 )
+from core.research.sr_signal_filter import (
+    SRDeferConfig,
+    apply_sr_defer_filter,
+)
 
 from .bar_hash import (
     DEFAULT_BAR_REVISION,
@@ -457,6 +461,72 @@ def _verify_cost_hash_or_halt(
             )
 
 
+def _maybe_apply_sr_defer(
+    spec: FrozenStrategySpec,
+    target_wts: pd.DataFrame,
+    store: PriceStore,
+    end_ts: Optional[pd.Timestamp] = None,
+) -> pd.DataFrame:
+    """Optionally apply Path A S/R defer filter (PRD 20260505 Step 6.1-min).
+
+    Returns target_wts unchanged when the candidate spec carries no
+    ``execution_policy`` or has ``enable_sr_defer`` falsy. Returns a
+    new (filtered) target_wts otherwise.
+
+    Lazy migration invariant: pre-policy candidates (RCMv1 / Cand-2 /
+    trial9 / cycle04 / cycle05 archive) MUST take the early-return
+    branch and observe identical NAV trajectories pre/post-PRD.
+
+    The 60m bars are loaded per symbol via ``store.read(sym, '60m')``;
+    symbols missing from the 60m freq pass through unchanged inside
+    ``apply_sr_defer_filter`` (counted as ``n_skipped_no_60m_coverage``).
+    Filter applies RTH-only swing detection — see
+    ``core.research.sr_signal_filter`` docstring for invariants.
+    """
+    policy = spec.execution_policy
+    if not isinstance(policy, dict):
+        return target_wts
+    if not policy.get("enable_sr_defer"):
+        return target_wts
+
+    sr_block = policy.get("sr_defer") or {}
+    cfg = SRDeferConfig(
+        swing_n=int(sr_block.get("swing_n", 5)),
+        lookback_bars=int(sr_block.get("lookback_bars", 20)),
+        near_resistance_pct=float(
+            sr_block.get("near_resistance_pct", 0.005)
+        ),
+    )
+
+    bars_60m: dict[str, pd.DataFrame] = {}
+    for sym in target_wts.columns:
+        try:
+            df = store.read(sym, "60m")
+        except Exception:  # noqa: BLE001
+            df = None
+        if df is None or len(df) == 0:
+            continue
+        bars_60m[sym] = df
+
+    filtered, stats = apply_sr_defer_filter(
+        target_wts,
+        bars_60m,
+        config=cfg,
+        end=end_ts,
+    )
+    _log.info(
+        "SR defer filter (candidate=%s): n_defers=%d / n_evaluated=%d "
+        "(no_60m=%d short=%d no_rth=%d)",
+        spec.candidate_id,
+        stats.n_defers,
+        stats.n_evaluated,
+        stats.n_skipped_no_60m_coverage,
+        stats.n_skipped_short_history,
+        stats.n_skipped_no_rth_bars_today,
+    )
+    return filtered
+
+
 def _resolve_dates_to_observe(
     manifest: ForwardRunManifest,
     available_index: pd.DatetimeIndex,
@@ -849,6 +919,17 @@ def observe(
 
     composite, _all_factors = _compute_composite(spec, panel)
     target_wts = _composite_to_target_weights(composite, top_n=top_n)
+
+    # PRD 20260505 Step 6.1-min: optional Path A SR defer filter.
+    # No-op when execution_policy is absent or enable_sr_defer is false
+    # (lazy migration: RCMv1 / Cand-2 / trial9 take this fast-return path
+    # and observe identical NAV trajectories vs pre-PRD).
+    target_wts = _maybe_apply_sr_defer(
+        spec,
+        target_wts,
+        store,
+        end_ts=available_index.max(),
+    )
 
     # Run a single backtest over the windowed panel; we slice per-day
     # NAV / fills out of it for each new date.
