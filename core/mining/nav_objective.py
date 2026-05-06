@@ -166,6 +166,115 @@ def compute_spec_residual_pooled_raw_correlation(
     return float(spec_res.corr(df["anchor"]))
 
 
+# ── Train-boundary gap-return masking (PRD §6 Phase 2 I9 fix) ──────────────
+
+
+def mask_train_boundary_returns(
+    daily_returns: pd.Series,
+    *,
+    gap_threshold_days: int = 30,
+) -> pd.Series:
+    """Zero out daily returns at year-boundary days where the prior trading
+    day is more than ``gap_threshold_days`` calendar days earlier.
+
+    Why: ``partition_for_role(role='miner')`` returns a non-contiguous
+    train-only panel (e.g. ``alternating_regime_holdout_v1`` train years
+    = 2009-2017+2020/2022/2024 with validation gaps). The harness
+    BacktestEngine carries forward EOD positions across the gap, then
+    on the first day of the next train segment computes
+    ``pct_change`` between adjacent index dates — which represents a
+    full-validation-year hold return, NOT an in-train-year alpha return.
+
+    Empirical example (cycle #04 cap_aware_cross_asset top-1 trial
+    ``ddc2896f9d8e`` per ``data/audit/i9_boundary_verify_*.json``):
+    2022-12-31 → 2024-01-02 boundary return = +10.36% on positions
+    held across the 2023 validation gap. Including this in NAV-Sharpe
+    falsely rewards specs whose 2022 EOY portfolios happened to gain
+    in 2023; the mining objective should select for in-train alpha,
+    not cross-gap luck.
+
+    Fix: zero out boundary returns BEFORE computing Sharpe / max_dd /
+    nav_vs_qqq_excess. ``v1_legacy`` IC-only objective is unaffected
+    (IC works on per-date forward returns, not NAV path).
+
+    Parameters
+    ----------
+    daily_returns : pd.Series
+        Daily return series (NAV.pct_change output).
+    gap_threshold_days : int
+        Calendar-day threshold above which the day-over-day return is
+        masked. Default 30 (covers all train_year boundaries while
+        leaving long-weekend / Christmas-week gaps intact).
+
+    Returns
+    -------
+    pd.Series
+        Copy of input with boundary returns set to 0.
+    """
+    if len(daily_returns) < 2:
+        return daily_returns.copy()
+    masked = daily_returns.copy()
+    deltas = masked.index.to_series().diff()
+    boundary_mask = deltas > pd.Timedelta(days=gap_threshold_days)
+    masked.loc[boundary_mask] = 0.0
+    return masked
+
+
+def _max_drawdown_from_returns(daily_returns: pd.Series) -> float:
+    """Cumulative-product NAV → max drawdown (negative). Helper kept
+    local to avoid a dependency on the harness."""
+    if len(daily_returns) == 0:
+        return 0.0
+    nav = (1.0 + daily_returns.fillna(0.0)).cumprod()
+    peak = nav.cummax()
+    dd = (nav - peak) / peak
+    return float(dd.min()) if len(dd) > 0 else 0.0
+
+
+def _annualized_sharpe_from_returns(
+    daily_returns: pd.Series, periods_per_year: int = 252,
+) -> float:
+    """Annualized Sharpe from daily returns; degenerate-safe."""
+    if len(daily_returns) < 2:
+        return 0.0
+    sd = float(daily_returns.std())
+    if not np.isfinite(sd) or sd < 1e-12:
+        return 0.0
+    return float(daily_returns.mean() / sd * np.sqrt(periods_per_year))
+
+
+def recompute_nav_metrics_train_only(
+    daily_returns: pd.Series,
+    qqq_series: Optional[pd.Series] = None,
+    *,
+    gap_threshold_days: int = 30,
+) -> dict:
+    """Recompute (sharpe, max_dd, vs_qqq) AFTER masking train-boundary
+    gap returns. Used by the PRD-AC v1.1 NAV gate in lieu of the harness's
+    raw ``metrics_full_period`` values, which include cross-gap returns.
+
+    Returns
+    -------
+    dict with keys ``sharpe``, ``max_dd``, ``vs_qqq`` (NaN if undefined).
+    """
+    masked = mask_train_boundary_returns(
+        daily_returns, gap_threshold_days=gap_threshold_days,
+    )
+    sharpe = _annualized_sharpe_from_returns(masked)
+    max_dd = _max_drawdown_from_returns(masked)
+    vs_qqq = float("nan")
+    if qqq_series is not None:
+        # Compute QQQ daily return series, mask boundary, take cum_ret
+        qqq_ret = qqq_series.pct_change().reindex(masked.index)
+        qqq_masked = mask_train_boundary_returns(
+            qqq_ret, gap_threshold_days=gap_threshold_days,
+        )
+        spec_cum = float((1.0 + masked.fillna(0.0)).prod() - 1.0)
+        qqq_cum = float((1.0 + qqq_masked.fillna(0.0)).prod() - 1.0)
+        vs_qqq = spec_cum - qqq_cum
+    return {"sharpe": sharpe, "max_dd": max_dd, "vs_qqq": vs_qqq}
+
+
 # ── I20 cross-asset spec detector ──────────────────────────────────────────
 
 

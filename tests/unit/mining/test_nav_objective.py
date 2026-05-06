@@ -135,6 +135,90 @@ def test_spec_residual_correlation_handles_min_obs_floor():
     assert math.isnan(corr)
 
 
+# ── mask_train_boundary_returns (PRD §6 Phase 2 I9 fix) ─────────────────────
+
+
+def test_mask_train_boundary_returns_zeroes_gap_days():
+    """Returns at days where the prior trading day is > 30 days earlier
+    are zeroed; in-segment returns are preserved."""
+    from core.mining.nav_objective import mask_train_boundary_returns
+
+    seg_a = pd.date_range("2017-01-02", "2017-12-29", freq="B")
+    seg_b = pd.date_range("2020-01-02", "2020-12-31", freq="B")
+    idx = seg_a.union(seg_b)
+    rets = pd.Series(0.001, index=idx)
+    rets.loc[pd.Timestamp("2020-01-02")] = 0.10  # the dirty boundary day
+    masked = mask_train_boundary_returns(rets)
+    assert masked.loc[pd.Timestamp("2020-01-02")] == 0.0
+    # In-segment days unchanged
+    assert masked.loc[pd.Timestamp("2017-06-15")] == 0.001
+
+
+def test_mask_train_boundary_returns_preserves_in_segment_holidays():
+    """Long-weekend / Christmas-week gaps (≤30 days) are NOT masked."""
+    from core.mining.nav_objective import mask_train_boundary_returns
+
+    # 4-day Christmas gap: 2020-12-24 (Thu) → 2020-12-28 (Mon) is normal
+    # market behavior, not a train_year boundary
+    idx = pd.DatetimeIndex([
+        "2020-12-23", "2020-12-24", "2020-12-28", "2020-12-29",
+    ])
+    rets = pd.Series(0.005, index=idx)
+    masked = mask_train_boundary_returns(rets, gap_threshold_days=30)
+    assert (masked == rets).all(), "holiday gap incorrectly masked"
+
+
+def test_mask_train_boundary_returns_handles_short_series():
+    """Series with < 2 elements returns a copy unchanged."""
+    from core.mining.nav_objective import mask_train_boundary_returns
+
+    one = pd.Series([0.01], index=[pd.Timestamp("2020-01-01")])
+    masked = mask_train_boundary_returns(one)
+    assert (masked == one).all()
+
+
+def test_recompute_nav_metrics_train_only_excludes_gap_returns():
+    """Sharpe / max_dd / vs_qqq computed on masked returns differ from
+    raw values when the input has a gap-day spike."""
+    from core.mining.nav_objective import recompute_nav_metrics_train_only
+
+    seg_a = pd.date_range("2017-01-02", "2017-12-29", freq="B")
+    seg_b = pd.date_range("2020-01-02", "2020-06-30", freq="B")
+    idx = seg_a.union(seg_b)
+    np.random.seed(0)
+    rets = pd.Series(np.random.normal(0.0005, 0.005, size=len(idx)), index=idx)
+    rets.loc[pd.Timestamp("2020-01-02")] = 0.10  # +10% gap-day spike
+    out_with_gap = recompute_nav_metrics_train_only(rets)
+    # Without our fix, the spike would dominate. With fix, sharpe should
+    # not be inflated by the spike.
+    rets_clean = rets.copy()
+    rets_clean.loc[pd.Timestamp("2020-01-02")] = 0.0
+    out_no_gap = recompute_nav_metrics_train_only(rets_clean)
+    assert abs(out_with_gap["sharpe"] - out_no_gap["sharpe"]) < 1e-6, (
+        "mask did not zero out gap return: "
+        f"{out_with_gap['sharpe']} vs {out_no_gap['sharpe']}"
+    )
+
+
+def test_recompute_nav_metrics_train_only_with_qqq_benchmark():
+    """vs_qqq computed on masked returns excludes gap days for both
+    spec AND QQQ (consistent comparison)."""
+    from core.mining.nav_objective import recompute_nav_metrics_train_only
+
+    seg_a = pd.date_range("2017-01-02", "2017-12-29", freq="B")
+    seg_b = pd.date_range("2020-01-02", "2020-06-30", freq="B")
+    idx = seg_a.union(seg_b)
+    rets = pd.Series(0.001, index=idx)
+    rets.loc[pd.Timestamp("2020-01-02")] = 0.05  # spec spike
+    qqq_prices = pd.Series(
+        np.cumprod(1 + np.full(len(idx), 0.0008)) * 300.0, index=idx,
+    )
+    qqq_prices.loc[pd.Timestamp("2020-01-02")] *= 1.08  # QQQ spike at boundary
+    out = recompute_nav_metrics_train_only(rets, qqq_series=qqq_prices)
+    # vs_qqq is finite even after masking both legs
+    assert math.isfinite(out["vs_qqq"])
+
+
 # ── classify_cross_asset_spec ────────────────────────────────────────────────
 
 

@@ -927,6 +927,8 @@ def evaluate_composite(
         from core.mining.nav_objective import (
             classify_cross_asset_spec,
             compute_spec_residual_pooled_raw_correlation,
+            mask_train_boundary_returns,
+            recompute_nav_metrics_train_only,
         )
         result = expost_eval(
             spec,
@@ -938,10 +940,21 @@ def evaluate_composite(
             config=harness_config,
             research_mask=mask,
         )
-        full = result.metrics_full_period
-        nav_sharpe = float(full.get("sharpe", float("nan")))
-        nav_max_dd = float(full.get("max_dd", float("nan")))
-        nav_vs_qqq = float(full.get("vs_qqq", float("nan")))
+        # PRD §6 Phase 2 I9 fix: harness ``metrics_full_period`` includes
+        # gap-period returns on positions held across train_year
+        # boundaries (empirically ~10% jump on cycle #04 top-1 at the
+        # 2022→2024 boundary across the 2023 validation gap). Mining
+        # objective must select for in-train alpha, not cross-gap luck;
+        # recompute Sharpe / max_dd / vs_qqq after masking boundary
+        # returns. v1_legacy IC-only objective is unaffected (no NAV
+        # path). See docs/memos/20260506-i9_boundary_artifact_finding.md
+        # for the empirical evidence.
+        recomputed = recompute_nav_metrics_train_only(
+            result.daily_returns, qqq_series=qqq_series,
+        )
+        nav_sharpe = float(recomputed["sharpe"])
+        nav_max_dd = float(recomputed["max_dd"])
+        nav_vs_qqq = float(recomputed["vs_qqq"])
         # I20 cross-asset detector: skip orthogonality (NaN → 0 penalty
         # in compute_objective) when realized non-equity weight > 30%.
         # SPY-residual anchor assumes equity-beta-driven spec; cross-
@@ -950,8 +963,16 @@ def evaluate_composite(
         if anchor_residual_returns is not None and not classify_cross_asset_spec(
             result.weights,
         ):
+            # Mask boundary returns on spec returns BEFORE residual corr
+            # so the corr is computed on in-train days only (anchor
+            # residual is built on train-only panel which already does
+            # this implicitly via ``pct_change`` on a non-contiguous
+            # index, but it produces NaN at boundary indices, dropped
+            # by ``dropna``; spec returns from harness need explicit
+            # masking).
+            masked_spec_ret = mask_train_boundary_returns(result.daily_returns)
             nav_corr_anchor = compute_spec_residual_pooled_raw_correlation(
-                result.daily_returns, anchor_residual_returns, spy_series,
+                masked_spec_ret, anchor_residual_returns, spy_series,
             )
         # else: nav_corr_anchor stays NaN → orthogonality term contributes 0
     return CompositeMetrics(
