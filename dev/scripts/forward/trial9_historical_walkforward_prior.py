@@ -354,8 +354,28 @@ def main():
     print(f"  RCMv1 NAV: {'OK' if rcmv1_nav is not None else 'MISSING'}")
     print(f"  Cand-2 NAV: {'OK' if cand2_nav is not None else 'MISSING'}")
 
-    spy = panel["close"].get("SPY")
-    qqq = panel["close"].get("QQQ")
+    # Load SPY / QQQ directly via BarStore — cycle05 panel rebuilds them
+    # from a 53-stock + 6-cross-asset universe where SPY/QQQ have 2110+
+    # NaN gaps (panel is outer-merge of per-symbol availability), which
+    # destroys 200d rolling means and forces every regime label to UNKNOWN.
+    # BarStore's adjusted-daily reads have clean continuous SPY/QQQ from
+    # 2007 onward — the right source for benchmark-driven regime labels.
+    from core.data.bar_store import BarStore
+    bs = BarStore()
+    panel_start = panel["close"].index.min()
+    panel_end = panel["close"].index.max()
+    spy_df = bs.load("SPY", freq="1d", adjusted=True,
+                     start=panel_start, end=panel_end)
+    qqq_df = bs.load("QQQ", freq="1d", adjusted=True,
+                     start=panel_start, end=panel_end)
+    # Reindex SPY/QQQ to the panel calendar (trial9_nav.index) so per-window
+    # .loc lookups don't KeyError on dates absent from BarStore but present
+    # in the cycle05 panel calendar.
+    panel_idx = panel["close"].index
+    spy = (spy_df["close"].reindex(panel_idx).ffill()
+           if (spy_df is not None and not spy_df.empty) else None)
+    qqq = (qqq_df["close"].reindex(panel_idx).ffill()
+           if (qqq_df is not None and not qqq_df.empty) else None)
 
     print("[trial9 historical wf prior] Computing manual regime labels...")
     regime_labels = manual_regime_labels(spy, qqq)
