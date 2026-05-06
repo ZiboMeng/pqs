@@ -2,11 +2,19 @@
 
 **Lineage tag**: `taa-regime-allocation-2026-05-05`  
 **Authored**: 2026-05-05  
+**Revision**: v1.1 — 2026-05-05 (post-critique; 7 issues addressed per
+`docs/memos/20260505-prd_ac_e_critique_log.md`)  
 **Status**: DRAFT — awaiting user signoff before implementation  
 **Authority**: User explicit-go 2026-05-05 ("ACE 都做"); cycle #04 close memo
 strategic pivot path §"Change strategy type"; this is independent of
 cycle path (cycle #06 stop rule is about factor mining, TAA is separate
 framework).
+
+**Scope clarification** (per critique I11): This PRD = **PRD-E1
+(research framework)**. Forward observation runner integration is
+**PRD-E2 (separate, gated on PRD-E1 success)**. PRD-E1 deliverable =
+TAA candidate eligible for forward freeze; PRD-E1 does NOT itself ship
+forward integration code.
 
 ---
 
@@ -71,17 +79,22 @@ on train-only panel, evidence-based PRD-E candidate (or rejection).
 
 ## 4. Design
 
-### 4.1 Reusable infrastructure (verified in R3-E-1/2)
+### 4.1 Reusable infrastructure (verified in R3-E-1/2) — REVISED I14
 
 | Component | Path | Reuse rate |
 |---|---|---|
-| Regime classifier | `core/regime/regime_detector.py::RegimeDetector` (BULL/RISK_ON/NEUTRAL/CAUTIOUS/RISK_OFF/CRISIS) | 100% |
-| Manual regime labels | `core/research/regime_classifier.py` (M9 disagreement policy) | 100% |
+| Regime classifier | `core/regime/regime_detector.py::RegimeDetector` (BULL/RISK_ON/NEUTRAL/CAUTIOUS/RISK_OFF/CRISIS) | **High (with thin wrapper, ~30 lines)** |
+| Manual regime labels | `core/research/regime_classifier.py` (M9 disagreement policy) | 100% (matches `manual_regime_labels` heuristic in trial9_historical_walkforward_prior.py) |
 | Asset class mapping | `core/research/risk_cluster_map.py::ASSET_CLASS_BY_CLUSTER` (equities/bonds/commodities/cash_anchor) | 100% |
 | Cap-aware allocator (cluster-level) | `core/research/harness/composite_evaluator.py::cap_aware_cross_asset` | 70% (mechanism reusable, regime-driven path 需重写) |
 | BarStore SPY/QQQ + bond ETFs | `core/data/bar_store.py` (TLT/IEF/SHY/GLD/BIL/SHV in cycle #04 universe) | 100% |
 | BacktestEngine T+1 open + cost model | `core/backtest/backtest_engine.py` | 100% |
 | Train-only filter | `core/research/temporal_split.py::partition_for_role` | 100% |
+
+**I14 fix**: `RegimeDetector.classify_series` schema (output type, index
+alignment) NOT hands-on verified at PRD draft time. Phase 1 includes
+explicit verification task + thin wrapper module if schema needs
+alignment with `manual_regime_labels` series output.
 
 ### 4.2 New components (verified ~400 lines new code)
 
@@ -109,7 +122,13 @@ class RegimeAllocation:
                  self.commodities_pct + self.cash_anchor_pct)
         assert abs(total - 1.0) < 1e-6, f"Allocation must sum to 1.0, got {total}"
 
-# Default v1 rule set (informed by 60/40 + Permanent Portfolio + David Swensen)
+# Default v1 rule set
+# Sources: 60/40 portfolio (Vanguard / Modern Portfolio Theory),
+# Permanent Portfolio (Harry Browne — 25/25/25/25 stocks/bonds/gold/cash),
+# David Swensen "Unconventional Success" (30% equities / 30% bonds /
+# 20% real estate / 20% TIPS for individual investor; adapted to
+# our 4-class equities/bonds/commodities/cash_anchor framework).
+# v1 numbers are informed averaging of these 3 conventions, NOT mined.
 DEFAULT_TAA_RULES_V1 = {
     RegimeState.BULL:     RegimeAllocation(BULL,     0.70, 0.20, 0.05, 0.05),
     RegimeState.RISK_ON:  RegimeAllocation(RISK_ON,  0.60, 0.30, 0.05, 0.05),
@@ -118,6 +137,17 @@ DEFAULT_TAA_RULES_V1 = {
     RegimeState.RISK_OFF: RegimeAllocation(RISK_OFF, 0.20, 0.55, 0.05, 0.20),
     RegimeState.CRISIS:   RegimeAllocation(CRISIS,   0.05, 0.65, 0.00, 0.30),
 }
+
+# I13 fix: Minimum viable variant (sanity baseline) — only 2 regime states,
+# fewer DOF, easier to interpret if v1 over-engineered.
+DEFAULT_TAA_RULES_V0_MINIMAL = {
+    RegimeState.BULL:     RegimeAllocation(BULL,     0.60, 0.40, 0.00, 0.00),  # 60/40
+    RegimeState.RISK_ON:  RegimeAllocation(RISK_ON,  0.60, 0.40, 0.00, 0.00),
+    RegimeState.NEUTRAL:  RegimeAllocation(NEUTRAL,  0.50, 0.50, 0.00, 0.00),
+    RegimeState.CAUTIOUS: RegimeAllocation(CAUTIOUS, 0.30, 0.70, 0.00, 0.00),
+    RegimeState.RISK_OFF: RegimeAllocation(RISK_OFF, 0.30, 0.70, 0.00, 0.00),
+    RegimeState.CRISIS:   RegimeAllocation(CRISIS,   0.30, 0.70, 0.00, 0.00),
+}
 ```
 
 Within asset class: equal-weight across symbols in that class (per
@@ -125,12 +155,30 @@ Within asset class: equal-weight across symbols in that class (per
 
 **Versioned rule sets**: `v1` is default; future tuning bumps to `v2` etc.
 
-### 4.4 TAA backtest harness
+**Phase 2 sanity**: Run TAA backtest on BOTH `DEFAULT_TAA_RULES_V1` AND
+`DEFAULT_TAA_RULES_V0_MINIMAL` to verify v1's added complexity (24
+free numbers vs 12) actually improves performance. If v0_minimal NAV
+≥ v1 NAV (simpler beats complex), accept v0_minimal as default and
+deprecate v1 (Occam's razor; simpler rule set is preferable when
+performance equivalent).
+
+### 4.4 TAA backtest harness — REVISED I16
+
+**Regime detection cadence design choice (I16 fix)**: regime label
+computed **monthly** (at month-start, T-day-only — looks back, not
+forward). Rationale:
+- Daily cadence = mid-month regime change immediate response, but high
+  turnover on transition days (TAA portfolio rebalance every regime
+  change, not every month-start)
+- Monthly cadence = align with rebalance cycle, low turnover, but
+  mid-month regime change DELAYED to next month-start
+- Monthly cadence chosen as primary (operational simplicity + low cost);
+  daily cadence variant 留作 Phase 2 sensitivity check (per §7 risks)
 
 ```python
 def run_taa_backtest(
     panel,                              # OHLCV panel from existing data layer
-    regime_labels: pd.Series,           # date → RegimeState  
+    regime_labels: pd.Series,           # date → RegimeState (monthly cadence)
     rule_set: dict,                     # {RegimeState: RegimeAllocation}
     rebalance_cadence: str = "monthly",
     cost_model=None,
@@ -138,32 +186,38 @@ def run_taa_backtest(
 ) -> TaaBacktestResult:
     """
     Sequence:
-      1. for each rebalance date:
-         a. read regime label at that date
-         b. lookup target allocation per asset class
+      1. for each rebalance date (month-start):
+         a. read regime label at that date (monthly classifier)
+         b. lookup target allocation per asset class from rule_set
          c. equal-weight within asset class (using ASSET_CLASS_BY_CLUSTER)
          d. produce target_wts for that date
       2. fold target_wts time series → BacktestEngine T+1 open exec
-      3. compute NAV + per-regime NAV slice + per-year metrics
+      3. compute NAV + per-regime NAV slice + per-year metrics +
+         per-cadence-variant comparison
     """
 ```
 
 Reuses BacktestEngine; only adds regime-conditional target_wts construction.
 
-### 4.5 TAA acceptance criteria (PRD-E specific)
+### 4.5 TAA acceptance criteria (PRD-E specific) — REVISED I10 + I15
 
 Different from factor mining acceptance (no IC_IR check; no cross-sectional
-rank correlation). New criteria:
+rank correlation). **Risk-adjusted hard gates** (per critique I10 BLOCKER:
+TAA in long BULL years (2019/2021/2023) almost always underperforms SPY
+in raw return; using "vs SPY positive ≥ 3/5" as hard gate is structurally
+~90% likely to fail — wrong metric for the strategy class):
 
 | Criterion | Threshold | Rationale |
 |---|---|---|
-| Full-period CAGR > buy-hold SPY | strict | Must add value over passive |
-| MaxDD ≤ 18% | hard | Diversifier role threshold |
-| Stress slice MaxDD ≤ 25% (covid_flash + rate_hike_2022) | hard | Crisis resilience |
-| Beta to SPY in BULL ≤ 0.85 | hard | Should NOT mimic SPY |
+| **Calmar ≥ buy-hold SPY Calmar** (CAGR / \|MaxDD\|) | hard | I15 fix: primary risk-adjusted metric; TAA's diversifier value is DD control, Calmar directly captures it |
+| MaxDD < SPY MaxDD across full period | hard | Must improve DD over passive (TAA's whole point) |
+| MaxDD ≤ 18% | hard | Diversifier role threshold (CLAUDE.md per-validation-year MaxDD ≤ 20% with -2pp buffer) |
+| Stress slice MaxDD ≤ 25% (covid_flash + rate_hike_2022) | hard | CLAUDE.md crisis resilience gate |
 | **Regime-conditional MaxDD** in CRISIS regime ≤ 10% | hard | Regime detection 价值: 在 CRISIS 期间 DD 应小 |
-| Per-validation-year vs SPY positive in ≥3/5 years | hard | Tracks SPY at minimum |
-| Regime classifier agreement: manual vs auto disagreement < 30 days/year | soft warn | Per M9 |
+| Beta to SPY in BULL ≤ 0.85 | hard | Should NOT mimic SPY (otherwise just leveraged passive) |
+| Per-validation-year vs SPY positive ≥ 2/5 in BEAR/RISK_OFF regime years (2018, 2022 stress) | hard | I10 fix: regime-conditional outperform (TAA expected to outperform in non-bull); BULL years skipped from this gate |
+| **Sharpe ≥ buy-hold SPY Sharpe** | secondary informational | I15 fix: secondary metric — Sharpe rewards low vol but TAA's value is DD-controlled compounding (Calmar more aligned) |
+| Regime classifier agreement: manual vs auto KL divergence < 0.5 OR Hamming distance < 30% across full period | soft warn | I12 fix: distributional similarity + label-day disagreement (instead of arbitrary "≥60% agreement"); high disagreement triggers user-go review, not Phase 2 abort |
 
 ### 4.6 5.4 OOS discipline
 
@@ -191,28 +245,68 @@ rank correlation). New criteria:
 - 不 break 现有 mining infrastructure (cycle #04/#05 archive 仍 readable)
 - 不破坏 invariant (long-only across asset classes; no margin; no short)
 
-### 5.2 New deliverables
+### 5.2 New deliverables — REVISED I10 + I12 + I13 + I15
 
-**Phase 1 (regime label sanity)**:
-- Manual regime labels on SPY 2009-2024-12-31 → 6 regime distribution合理
-  (BULL ≥ 30%; CRISIS ≤ 5%)
-- Auto regime classifier (RegimeDetector) on same panel → agreement ≥ 60%
-  with manual
+**Phase 1 (regime label sanity)** — I12 fix:
+- Manual regime labels on SPY 2009-2024-12-31 → 6 regime distribution
+  reasonable (BULL ≥ 30%; CRISIS ≤ 5%)
+- **I12 fix**: Auto regime classifier (RegimeDetector) vs manual:
+  - KL divergence of regime label distributions < 0.5, OR
+  - Hamming distance (day-by-day disagreement rate) < 30%
+  - High disagreement (failing both metrics) does NOT abort Phase 2;
+    triggers user-go review per M9 disagreement policy
 
-**Phase 2 (TAA backtest)**:
-- Full-period train-only TAA backtest CAGR ≥ buy-hold SPY CAGR
-- MaxDD ≤ 18%
-- Per-regime-conditional NAV slice: CRISIS regime DD ≤ 10%
+**Phase 2 (TAA backtest, train-only)** — I13 + I15 fix:
+- **I13 fix**: Run BOTH `DEFAULT_TAA_RULES_V1` (24 free numbers) AND
+  `DEFAULT_TAA_RULES_V0_MINIMAL` (12 free numbers; sanity baseline).
+  If v0_minimal NAV ≥ v1 NAV (Occam's razor), accept v0_minimal as
+  default; document v1 deprecation in closeout memo
+- Full-period train-only TAA backtest deliverables:
+  - **I15 fix**: Calmar ≥ buy-hold SPY Calmar (primary metric)
+  - MaxDD ≤ 18%
+  - Per-regime-conditional NAV slice: CRISIS regime DD ≤ 10%
+  - Sharpe ≥ buy-hold SPY Sharpe (informational, secondary)
+- Sensitivity check: daily-cadence regime detector variant (I16); compare
+  NAV vs monthly-cadence default; if material difference, document trade-
+  off; default monthly retained
 
-**Phase 3 (validation acceptance)**:
-- Validation years (2018/2019/2021/2023/2025) replay
-- Per-year vs SPY positive ≥ 3/5
-- 2025 vs SPY positive (HARD per CLAUDE.md core role gate)
-- Beta to SPY in BULL ≤ 0.85
+**Phase 3 (validation acceptance, selector role)** — I10 + I17 fix:
+- Validation years (2018/2019/2021/2023/2025) replay via partition_for_role(role="selector")
+- **I17 BLOCKER fix**: validation set regime composition (per `config/temporal_split.yaml`):
+  - 2018: rate_hike_bear (BEAR)
+  - 2019: normal_bull (BULL)
+  - 2021: liquidity_mania (BULL)
+  - 2023: ai_narrow (BULL)
+  - 2025: current_market (mixed/BULL trend at freeze)
+  → validation set has only 1 explicit BEAR/RISK_OFF year (2018) and 0
+  CRISIS years; "≥ 2/5 in BEAR/RISK_OFF" 数学不 well-defined.
 
-If 5.2 全 pass → TAA candidate eligible for forward observation freeze.
-If fail → close PRD-E with closeout memo; not viable; pivot to PRD-AC
-(or other strategic pivot).
+  **Replacement gates** (BEAR/RISK_OFF coverage extended via stress slices):
+  - **2018 vs SPY positive (HARD)** — single BEAR validation year; TAA's
+    primary value is in this regime, must outperform
+  - 2025 vs SPY positive (HARD per CLAUDE.md core role gate)
+  - covid_flash + rate_hike_2022 stress slice MaxDD ≤ 25% (HARD per
+    CLAUDE.md 2008-style scenario gate); both stress slices are BEAR/
+    RISK_OFF analogues borrowed from train years
+  - Per-validation-year MaxDD ≤ 20% (HARD; CLAUDE.md core role gate)
+  - **No** raw "vs SPY positive ≥ N/5 across BULL years" gate (TAA
+    structurally underperforms SPY in BULL; this is acknowledged in §7)
+
+- Beta to SPY in BULL ≤ 0.85 (HARD)
+- **Risk-adjusted gates**: Calmar ≥ SPY Calmar; MaxDD < SPY MaxDD (HARD)
+- **Eligibility verdict** (not freeze):
+  - All hard gates pass → candidate **ELIGIBLE for forward observation
+    freeze** (eligibility ≠ frozen; see I11 fix in §3 + §10 + below)
+  - Fail → close PRD-E with closeout memo; not viable; pivot to PRD-AC
+    (or other strategic pivot)
+
+**I11 fix — eligibility vs freeze**:
+- PRD-E1 (this PRD) deliverable = "candidate ELIGIBLE for forward
+  observation freeze" upon Phase 3 pass
+- Actual freeze (forward observation runner integration) = **PRD-E2**,
+  separate scope, gated on PRD-E1 success + user explicit-go for E2 PRD
+- Phase 3 closeout memo = nominee evidence for PRD-E2 trigger; does NOT
+  itself wire forward runner
 
 ---
 
@@ -220,9 +314,13 @@ If fail → close PRD-E with closeout memo; not viable; pivot to PRD-AC
 
 ### Phase 1: Regime + asset class rules + tests (1 周)
 
-1. `regime_rules.py` data class + DEFAULT_TAA_RULES_V1 + tests
-2. Regime label generator (reuse manual_regime_labels + RegimeDetector)
-3. ASSET_CLASS_BY_CLUSTER → equal-weight target_wts builder + tests
+1. `regime_rules.py` data class + DEFAULT_TAA_RULES_V1 + DEFAULT_TAA_RULES_V0_MINIMAL + tests
+2. **I14 verification task**: hands-on verify `RegimeDetector.classify_series`
+   schema (output type, index alignment, label values vs `manual_regime_labels`).
+   Write thin wrapper module (~30 lines) if schema needs alignment
+3. Regime label generator (manual + auto, monthly cadence per I16) + tests
+4. KL divergence + Hamming distance helper for Phase 1 acceptance §5.2
+5. ASSET_CLASS_BY_CLUSTER → equal-weight target_wts builder + tests
 
 ### Phase 2: TAA harness + train-only backtest (1 周)
 
@@ -243,24 +341,31 @@ If fail → close PRD-E with closeout memo; not viable; pivot to PRD-AC
 
 ---
 
-## 7. Risks + mitigations
+## 7. Risks + mitigations — REVISED I10 + I16
 
 | Risk | Mitigation |
 |---|---|
-| Default rule set v1 over-fit to known regimes (esp. 2008/2020) | Phase 2 backtest验证; 加 v2/v3 rule set 备选; sensitivity analysis |
-| Regime classifier 标错 (e.g. 2020 covid 没及时 detect) | M9 manual + auto disagreement check; 不可调和则 user-go |
-| TAA 在长期 BULL (e.g. 2010-2020) underperform SPY | 这是 TAA 经典局限; CAGR ≥ SPY 是 hard gate, 如 fail 则 PRD-E rejected |
-| Bond + commodity ETF 历史短 (TLT 2002+, GLD 2004+) | Limit panel start to max(panel_start, ETF_min_inception) |
-| Regime label 用 lookahead bias (e.g. 252d max 看未来) | Strict T-day-only computation; no future window in regime label |
-| Cash anchor 30% in CRISIS 太保守 | Phase 2 sensitivity sweep on cash_anchor_pct |
+| Default rule set v1 over-fit to known regimes (esp. 2008/2020) | Phase 2 backtest验证 with V0_MINIMAL fallback (I13); add v2/v3 rule sets; sensitivity analysis |
+| Regime classifier 标错 (e.g. 2020 covid 没及时 detect) | M9 manual + auto disagreement check (I12 KL + Hamming); 不可调和则 user-go review (Phase 2 不 abort) |
+| **I10 fix**: TAA 在长期 BULL (2010-2020) underperform SPY in raw return | TAA 不 claim raw return outperform SPY in BULL; acceptance §5.2 改用 risk-adjusted (Calmar / MaxDD); regime-conditional vs SPY only in BEAR/RISK_OFF years |
+| Bond + commodity ETF 历史短 (TLT 2002+, GLD 2004+) | Limit panel start to max(panel_start, ETF_min_inception); train_years 2009+ all 6 ETFs available (verified cycle04 universe) |
+| Regime label 用 lookahead bias (e.g. 252d max 看未来) | Strict T-day-only computation; no future window in regime label; Phase 1 explicit verification: regime_labels[t] uses ONLY data through t |
+| Cash anchor 30% in CRISIS 太保守 | Phase 2 sensitivity sweep on cash_anchor_pct in {0.20, 0.30, 0.40} |
+| **I16 NEW: Mid-month regime change 不立即响应 (monthly cadence)** | Phase 2 sensitivity check: run TAA with daily-cadence regime detector variant; compare NAV; if material difference (Calmar > 5% Δ), document trade-off; default monthly retained for low turnover; daily variant 留作 Phase 3 follow-up |
+| Regime change 触发 mid-month rebalance → high turnover when regime flips frequently | Monthly cadence (default) bounds turnover to month-start only; cost_model captures realistic transaction cost |
 
 ---
 
-## 8. Out of scope (gated on Phase 3 success)
+## 8. Out of scope (gated on Phase 3 success) — REVISED I11
 
-- Forward observation runner integration
-- TAA + factor sleeve combination
-- Auto rule weight tuning via mining
+- **PRD-E2: Forward observation runner integration** (separate PRD,
+  gated on PRD-E1 success + user explicit-go) — wires TAA candidate
+  output schema to forward runner manifest, attention check report,
+  recovery CLI. Eligibility ≠ frozen; Phase 3 closeout = nominee
+  evidence triggering PRD-E2
+- TAA + factor sleeve combination (Phase C-PRD-3 territory)
+- Auto rule weight tuning via mining (treats rule weights as
+  hyperparameters; large effort, defer)
 - Multi-period dynamic rules (e.g. rebalance freq decisions)
 
 ---

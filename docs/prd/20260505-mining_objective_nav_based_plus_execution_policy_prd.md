@@ -2,6 +2,8 @@
 
 **Lineage tag**: `mining-objective-nav-2026-05-05`  
 **Authored**: 2026-05-05  
+**Revision**: v1.1 — 2026-05-05 (post-critique; 9 issues addressed per
+`docs/memos/20260505-prd_ac_e_critique_log.md`)  
 **Status**: DRAFT — awaiting user signoff before implementation  
 **Authority**: User explicit-go 2026-05-05 ("ACE 都做"); cycle #04 close memo
 strategic pivot path §"Change objective"; cycle #06 stop rule pre-committed
@@ -206,47 +208,105 @@ features + weights. **Add**:
 
 ```python
 # Search dimension 1: SR defer on/off
-enable_sr_defer = trial.suggest_categorical("enable_sr_defer", [False, True])
+# I6 prefilter (revised): only enable SR defer search for specs where
+# train-only NAV trajectory historically triggers ≥ 5% defer activation
+# rate (sample efficiency — TPE 不会浪费 cell on equivalent trials).
+sr_defer_eligible = (
+    spec_baseline_defer_activation_rate(spec, train_only_panel) >= 0.05
+)
+enable_sr_defer_choices = [False, True] if sr_defer_eligible else [False]
+enable_sr_defer = trial.suggest_categorical(
+    "enable_sr_defer", enable_sr_defer_choices,
+)
 
 # Search dimension 2: holding frequency
 holding_freq = trial.suggest_categorical(
     "holding_freq", ["daily", "weekly", "monthly"]
 )
 
-# These get baked into spec as execution_policy + rebalance.cadence
-spec.execution_policy = {"enable_sr_defer": enable_sr_defer, ...}
-spec.rebalance_cadence = holding_freq
+# Schema mapping: search dimension → frozen_spec yaml field
+# (per core/research/frozen_spec.py:118 schema; I8 fix)
+spec.execution_policy = {"enable_sr_defer": enable_sr_defer, "sr_defer": {...}}
+spec.rebalance = {"freq": holding_freq, ...}  # NOT rebalance_cadence
 ```
 
 Effect on search space:
-- 200 trials with 2 SR × 3 holding = 6 hyperparameter combos
-- TPE sampler will distribute 200 trials across 6 cells (sample efficient)
-- 不强制每个 cell 33 trials, TPE 自己 explore
+- 200 trials with 2 SR (filtered) × 3 holding ≤ 6 hyperparameter combos
+- TPE sampler distributes 200 trials across cells; sample efficiency
+  improved by I6 prefilter (skip SR=true on ineligible specs)
+- **Caveat (I2)**: 200 trials may not cover all cells effectively; if
+  Phase 4 smoke shows < 4/6 cells explored, increase to 400 trials and
+  re-run (mining time scales linearly).
 
-### 4.6 Anchor selection (NAV orthogonality)
+**Schema mapping table** (PRD-AC search dim → frozen_spec yaml path):
+
+| Search dim | trial.suggest | frozen_spec yaml field |
+|---|---|---|
+| factors | suggest_categorical | `feature_set[].name` |
+| weights | suggest_float (simplex) | `feature_set[].weight` |
+| enable_sr_defer | suggest_categorical (filtered) | `execution_policy.enable_sr_defer` |
+| holding_freq | suggest_categorical | `rebalance.freq` |
+
+### 4.6 Anchor selection (NAV orthogonality) — REVISED post-critique I1
 
 R2 audit blocker: RCMv1+Cand-2 不能做 anchor (CLAUDE.md "will not
 calibrate new-framework gates").
 
-**Solution**: 用 **synthetic baseline anchor**, 不用 fleet member:
+**Critique finding I1 (round 1)**: universe-equal-weight long-only
+baseline is **structural sibling floor** for any long-only top-N spec
+(raw NAV correlation ~0.85+ trivially). Using it as anchor → almost all
+specs trip penalty → 0 archived OR mining gaming penalty by selecting
+factor-coverage-thin specs.
 
-Option α (default): **universe-equal-weight long-only baseline**
-- Train-only universe (53 stocks + 6 cross-asset ETFs minus drop_symbols)
-- Equal weight, monthly rebalance, top-N=10
-- This IS the "structural sibling space" floor — any spec strongly
-  correlated with this baseline is universe-bound
+**Revised solution** (post-critique):
 
-Option β: **SPY beta-residual NAV space**
-- 算 spec NAV residual after regressing out SPY return
-- Penalize residual NAV correlation with universe-equal-weight baseline residual
-- 跟 Option α 对比: 更严, 因为 SPY beta 已 strip 出, 剩下的 raw correlation
-  全部是 alpha overlap
+**Option β (default)**: **SPY-residual NAV space**
+- 算 spec NAV residual after regressing out SPY return (`r_spec - β × r_SPY`)
+- **I19 fix**: β computation method = **train-only OLS regression**
+  (single β across full train period; not rolling). Rationale: rolling β
+  introduces look-back parameter complexity; full-period OLS is simpler
+  and matches `core/research/harness/composite_evaluator._ols_beta` existing
+  helper. Document β value in archive per trial.
+- Penalize raw correlation between spec residual NAV and a universe-bound
+  reference residual (universe-equal-weight residual NAV). The residual-
+  level correlation isolates **alpha overlap** specifically, which is
+  the problem worth solving (the universe-bound shared SPY beta is
+  invariant given long-only constraint and not informative).
+- More principled than α (universe-equal-weight raw NAV) because it
+  separates structural beta from alpha overlap.
+- **I20 fix — spec-class-conditional anchor**: SPY-residual approach
+  assumes spec-vs-SPY beta is meaningful. For specs with significant
+  cross-asset weight (>30% non-equity per `ASSET_CLASS_BY_CLUSTER`),
+  spec-vs-SPY beta is low (~0.3-0.5) and residual is largely cross-asset
+  alpha unrelated to SPY-bound floor. For these specs:
+  - Either: skip SPY-residual orthogonality (treat as Option γ for that
+    spec, retain other NAV gates)
+  - Or: use cross-asset-equivalent anchor (e.g. universe-equal-weight
+    cross-asset baseline residual)
+  - Phase 4 smoke decides which approach; default = skip orthogonality
+    for cross-asset specs (more permissive)
 
-Option γ: **None** (skip orthogonality, use only NAV-Sharpe + max_dd + qqq excess)
-- Fall back if both α+β anchor 选不出 nominee
+**Option γ (fallback)**: **None** (skip orthogonality, use only NAV-Sharpe
++ max_dd + qqq excess)
+- Fall back if Phase 4 smoke shows β anchor still over-strict (e.g. >70%
+  trials trip penalty even at moderate λ_orthogonality)
 
-**Default**: α (universe-equal-weight baseline). Phase 1 try; if 0 nominee,
-fall back γ.
+**Phase 4 anchor calibration smoke test**:
+- Run 50 trials with β anchor at λ_orthogonality ∈ {0.0, 0.5, 1.0, 2.0}
+- Plot trial count by orthogonality score (residual correlation) at each λ
+- Pick λ where trial distribution shows meaningful frontier (some specs
+  pass, some fail) — not "all pass" (λ=0 effective) and not "all fail"
+  (γ fallback needed)
+- If no λ produces meaningful frontier → fallback to γ; document in
+  closeout memo as "anchor selection found over-strict in train-only
+  universe-bound long-only top-N regime; orthogonality not viable
+  selection mechanism in this framework"
+
+**Risk acknowledged (per critique I1)**: ~50% probability that β anchor
+falls back to γ. In that case, PRD-AC effort 4-5 周 produces
+NAV-Sharpe + qqq excess optimization (similar value to (b) path
+ex-post NAV ranking, but with SR defer / holding_freq in search space —
+which is the user-aligned core requirement, not orthogonality).
 
 ### 4.7 Versioned objective
 
@@ -279,7 +339,8 @@ compat regression test pass. `v2_nav_based` runs 用新 weights.
 - Mining `--temporal-split config/temporal_split.yaml --role core` (与
   cycle #04/#05 一致)
 - `partition_for_role(role="miner")` 返回 train-only ~3346 days
-- Anchor NAV (universe-equal-weight baseline) 也用 train-only 计算
+  (non-contiguous: 2009-2017 + 2020 + 2022 + 2024)
+- Anchor NAV (SPY-residual or fallback) 也用 train-only 计算
 - 2026 sealed: NEVER read in mining or anchor calc
 - Stamp `panel_max_date` + `split_sha256` in archive (与 cycle #04/#05 一致)
 
@@ -287,30 +348,99 @@ compat regression test pass. `v2_nav_based` runs 用新 weights.
 
 ## 5. Acceptance criteria
 
-### 5.1 Backward compat (regression)
+### 5.1 Backward compat (regression) — REVISED I3 + I9
 
-- `objective_version=v1_legacy` 跑 cycle #04/#05 yaml → 原 objective 数值
-  (top-1 trial 跟 archive top-1 一致, IC_IR identical to ≤ 4 decimal places)
-- Old cycle04/05 archive trials remain readable + R41 verdict reproducible
+- `objective_version=v1_legacy` 跑 cycle #04/#05 yaml clone:
+  - **I3 fix**: top-20 trials' IC_IR Spearman rank correlation **> 0.95** vs
+    cycle04/05 archive top-20 (TPE non-deterministic + factor data revision
+    tolerated; rank stability is the testable invariant)
+  - top-1 IC_IR / objective magnitude within ±5% of archive (looser than
+    "4 decimal" original; non-determinism realistic)
+- **I9 fix**: NAV path-dependence reproducibility on train-only non-
+  contiguous panel:
+  - v1_legacy mining cycle04 yaml clone produces NAV trajectory consistent
+    with cycle04 archive trials' NAV (train_year boundary 2017-12-29 →
+    2020-01-02 handle confirmed: BacktestEngine carries forward EOD
+    positions across boundary OR per-segment compounded; whichever cycle04
+    archive uses, v1_legacy reproduces)
+  - explicit verification step in Phase 1: load 1 cycle04 archive top-1
+    trial, replay its target_wts on partition_for_role(miner) panel,
+    compare NAV vs archived NAV (≤ 50bps drift tolerated for floating-
+    point precision; fail-closed if material drift surfaces boundary
+    artifact)
+- Old cycle04/05 archive trials remain readable
 - frozen_spec.execution_policy backward compat (None 仍 means legacy path)
 
-### 5.2 New objective deliverables
+### 5.2 New objective deliverables — REVISED I2 + I4
 
 - v2_nav_based smoke run on cycle #04 yaml clone (200 trials, train-only):
-  - Mining wall-clock < 130 min (R3-AC-1 verified per-trial 22s)
+  - **I4 fix**: Mining wall-clock < **75 min** on train-only panel n≈3345
+    (R3-AC-1 verified per-trial ~15s on train-only, ~22s on full panel;
+    200 × 15s = 50min mining + IC overhead)
   - 全 200 trials archive includes nav_sharpe + nav_max_dd + nav_corr_anchor
-  - TPE sampling explored ≥ 4 of 6 (SR × holding) hyperparameter cells
+    + nav_vs_qqq_excess_full_period
+  - **I2 fix**: TPE sampling explored ≥ 4 of 6 (SR × holding) hyperparameter
+    cells; **if explored < 4/6, increase to 400 trials and re-run mining**
 - v2 objective rank top-10 vs v1 objective rank top-10:
-  - Spearman rank correlation < 0.7 (i.e. selection materially differs)
+  - Spearman rank correlation < 0.7 (selection materially differs)
   - At least 3 trials in v2 top-10 不在 v1 top-10
-  - At least 1 trial in v2 top-10 has nav_corr_anchor < 0.50 (true diversifier)
+  - **I1 fix**: At least 1 trial in v2 top-10 has nav_correlation_vs_anchor
+    (SPY-residual OR fallback baseline) below threshold (0.50 if Option β
+    viable; threshold not enforced if Option γ fallback active)
 
-### 5.3 Cycle #06 dry-run cycle
+### 5.3 Cycle #06 dry-run cycle — REVISED I7 (BLOCKER)
 
-- Use v2 objective + cap_aware_cross_asset construction (cycle #04 config)
-- 200 trials, train-only, R41 v2 verdict
-- Output ≥ 1 Tier 1 (non-sibling) candidate
-- Or output 0 Tier 1 → strategic pivot deeper (PRD-E or beyond)
+**BLOCKER fix**: Cycle #06 dry-run acceptance does NOT use R41 v2.0
+verdict (R41 anchor = RCMv1+Cand-2 violates CLAUDE.md "will not
+calibrate new-framework gates" invariant).
+
+Replacement acceptance criteria:
+
+- Use v2 objective + cap_aware_cross_asset construction (cycle #04 config
+  retained for direct comparison)
+- 200 trials (or 400 per I2 escalation), train-only via partition_for_role(miner)
+- Acceptance gates (in order, all must pass for nominee):
+  1. **Track A acceptance** per `core/research/temporal_split_acceptance.py`:
+     - Per-validation-year vs SPY positive ≥ 4/5 (HARD)
+     - Per-validation-year MaxDD ≤ 20% (HARD)
+     - 2025 vs SPY positive (HARD per CLAUDE.md core role gate)
+     - Stress slice MaxDD ≤ 25% (covid_flash + rate_hike_2022)
+     - Cost robustness 2x multiplier (HARD)
+     - Concentration top1 ≤ 0.40 + top3 ≤ 0.70 (HARD)
+     - Beta to QQQ ≤ 0.85 (HARD)
+  2. **Phase 4 smoke deliverables** (per §5.2):
+     - v2 NAV-Sharpe ≥ v1 top-1 NAV-Sharpe (the spec materially better)
+     - v2 NAV-vs-qqq excess > 0 (full period); validation years vs_qqq
+       window-mean > 0 (per CLAUDE.md QQQ Outperformance Rule diagnostic)
+  3. **Anchor orthogonality** (informational only, NOT a gate):
+     - nav_correlation_vs_anchor recorded (SPY-residual or fallback);
+       if Option β viable, target < 0.50; if γ fallback, skip
+- Output ≥ 1 candidate passing gates 1+2 → cycle #06 nominee
+- Output 0 candidate → strategic pivot deeper (PRD-E or beyond per
+  cycle #04 close memo strategic options)
+
+**Note on R41 sibling filter**: R41 v2.0 (RCMv1+Cand-2 anchor) remains
+INFORMATIONAL diagnostic for cycle #06 output (recorded per cycle04/05
+convention) but does NOT gate nominee status. R41 anchor revision (using
+new-framework-eligible anchor pool) is OUT OF SCOPE for PRD-AC; tracked
+as separate future work if anchor consensus is reached.
+
+**I18 fix — edge case: R41 Tier 2 + Track A pass**:
+- A spec passing all Track A gates + Phase 4 smoke gates BUT with R41
+  v2.0 informational verdict = Tier 2 (sibling-by-NAV vs RCMv1+Cand-2)
+  is structurally possible. Such a spec is "standalone good but
+  NAV-correlated with legacy candidates".
+- **Decision rule**: such a spec **counts as nominee** (passes acceptance)
+  but the closeout memo MUST surface "R41 informational = Tier 2,
+  sibling-by-NAV with RCMv1+Cand-2 raw NAV correlation [value]"
+- **User directional decision** at promotion time: do we accept a Tier 2
+  R41 spec as fleet member when RCMv1+Cand-2 are themselves not fleet
+  members (legacy decay verification)? This is a Track D promotion
+  decision, not a PRD-AC mining decision. PRD-AC delivers the
+  evidence; user decides downstream.
+- This treatment is consistent with PRD-E1 eligibility-not-freeze pattern
+  (I11): mining produces nominee evidence; downstream Track D / forward
+  observation freeze is separate gated decision.
 
 ---
 
@@ -327,38 +457,56 @@ compat regression test pass. `v2_nav_based` runs 用新 weights.
 
 1. Add NAV calc gate in mining-internal `evaluate_composite_spec`
 2. Reuse ex-post `core/research/harness/composite_evaluator.evaluate_composite_spec`
-3. Anchor NAV (universe-equal-weight baseline) builder
-4. Per-trial wall-clock benchmarks (target ≤ 30s/trial avg)
+3. Anchor NAV builder: SPY-residual (Option β default) + fallback γ logic
+4. **I9 verification task**: replay 1 cycle04 archive top-1 trial on
+   partition_for_role(miner) panel via BacktestEngine, compare NAV
+   trajectory vs cycle04 archive (target: ≤ 50bps drift). Verify
+   train_year boundary (2017-12-29 → 2020-01-02 etc.) handle correctly.
+5. Per-trial wall-clock benchmarks on train-only panel (target ≤ 20s/trial
+   avg, R3-AC-1 measured 15s on train-only restricted)
 
 ### Phase 3: Search space extension (1 周)
 
 1. Add `enable_sr_defer` / `holding_freq` to trial.suggest space
-2. Wire `enable_sr_defer=True` to call sr_signal_filter on target_wts pre-NAV
-3. Wire `holding_freq` to rebalance cadence in BacktestEngine
-4. Tests covering 2 × 3 = 6 hyperparameter combos
+2. **I6 fix**: Implement `spec_baseline_defer_activation_rate(spec,
+   train_only_panel)` prefilter — only enable SR=true cell for specs
+   where historical train-only NAV trajectory triggers ≥ 5% defer
+   activation rate (preserves TPE sample efficiency)
+3. Wire `enable_sr_defer=True` to call sr_signal_filter on target_wts pre-NAV
+4. **I8 fix**: Wire `holding_freq` to `rebalance.freq` schema field
+   (NOT `rebalance_cadence`); confirm BacktestEngine accepts
+5. Tests covering 2 × 3 = 6 hyperparameter combos (or fewer post-prefilter)
 
 ### Phase 4: Smoke run + cycle #06 dry-run (1-2 周)
 
-1. v2_nav_based smoke run on cycle #04 yaml clone (200 trials)
-2. Acceptance criteria 5.2 verify
-3. cycle #06 yaml draft (用 v2 objective + cap_aware_cross_asset)
-4. cycle #06 dry-run mining + R41 verdict
-5. Closeout memo + commit
+1. **Anchor calibration smoke** (per §4.6): 50 trials at λ_orthogonality
+   ∈ {0, 0.5, 1, 2}; pick λ producing meaningful frontier OR fall back γ
+2. v2_nav_based smoke run on cycle #04 yaml clone (200 trials)
+3. Acceptance criteria §5.2 verify (escalate to 400 trials if cells under-explored)
+4. cycle #06 yaml draft (v2 objective + cap_aware_cross_asset, NO R41 gate
+   per I7)
+5. cycle #06 dry-run mining + Track A acceptance §5.3 verify
+6. Closeout memo + commit
 
-**Total: 4-5 周 (R3 verified estimate, not optimistic)**
+**Total: 4-5 周 (R3 verified; assumes anchor β viable; +1 周 if γ fallback
+expedited via I1 anchor calibration smoke first)**
 
 ---
 
-## 7. Risks + mitigations
+## 7. Risks + mitigations — REVISED I5 + I6
 
 | Risk | Mitigation |
 |---|---|
-| Mining time 100+ min vs current 30-60 min | (1) only trigger NAV calc when w_nav_* > 0; (2) cache anchor NAV across trials |
-| Anchor selection α/β/γ 都 fail | Phase 4 smoke run revealed; fall back hierarchy α → γ → strategic pivot |
-| Multi-objective trade-off 调参成 art | Smoke run with grid of weight combos; document optimal in closeout |
-| TPE 200 trials 不够 cover 2×3 search dim | Increase to 400 trials if smoke shows 2/6 cells empty |
-| Backward compat regression | Phase 1 acceptance: v1_legacy reproduces cycle #04 top-1 to 4 decimals |
-| Anchor (universe-equal-weight) is itself trivially correlated with mined spec | Phase 4 smoke verify; if true, fallback to γ (skip orthogonality) |
+| Mining time 100+ min vs current 30-60 min (I4 corrected: ~75 min on train-only) | (1) only trigger NAV calc when w_nav_* > 0; (2) cache anchor NAV across trials; (3) per-trial wall-clock benchmark gate |
+| Anchor selection β over-strict (50% fall back γ probability per I1) | Phase 4 smoke calibration on λ_orthogonality grid; fall back hierarchy β → γ → strategic pivot deeper |
+| Multi-objective trade-off 调参成 art | Smoke run with grid of weight combos; document optimal in closeout; v1_legacy weights = 0 baseline preserved |
+| TPE 200 trials 不够 cover 2×3 search dim (I2) | Acceptance §5.2 escalation to 400 trials if smoke shows < 4/6 cells explored |
+| Backward compat regression (I3) | §5.1 fix: Spearman rank correlation > 0.95 over top-20 (not 4-decimal exact) |
+| **I5 NEW: holding_freq=daily 高换手 + 高成本** | (1) cost_model 2x sensitivity test in Phase 4 smoke; (2) if daily cell consistently underperforms weekly/monthly across all specs, deprecate daily from search space in v2.1 follow-up |
+| **I6 NEW: enable_sr_defer 在 NAV 不 enter resistance zone 的 spec 上跟 false 等价 → TPE 区分性损失** | Phase 3 prefilter `spec_baseline_defer_activation_rate ≥ 5%` (only enable SR=true cell for eligible specs) |
+| **I7 NEW: cycle #06 dry-run originally used R41 verdict (anchor invariant violation)** | Acceptance §5.3 redesigned: Track A acceptance + Phase 4 smoke gates only; R41 informational diagnostic only |
+| **I9 NEW: Train-only non-contiguous panel boundary artifact** | Phase 2 explicit verification task (replay cycle04 top-1 archive trial; compare NAV vs archived; ≤50bps drift gate) |
+| **I8 NEW: holding_freq schema mapping ambiguity** | §4.5 schema mapping table; Phase 3 wire to `rebalance.freq` not `rebalance_cadence` |
 
 ---
 
