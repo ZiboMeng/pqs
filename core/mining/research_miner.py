@@ -172,6 +172,18 @@ FAMILY_B_V2 = FamilyConfig(
     title=FAMILY_B.title,
     factors=frozenset(FAMILY_B.factors | {
         "mom_12_1",
+        # S/R Step 2 (commit b51d3f1, 2026-05-05): swing-extrema +
+        # range-compression daily factors. Added to RESEARCH_FACTORS
+        # but originally not added to FAMILIES_V2 (caught by
+        # test_aplusplus_families_v2_union_equals_research_factors).
+        # Family B = "position / breakout / path-shape" is the
+        # natural home: dist_to_swing_high/low track distance to
+        # swing-detected price extrema (path-shape), and
+        # sr_range_compression_20d quantifies range tightness
+        # (breakout precursor).
+        "dist_to_swing_high_20d",
+        "dist_to_swing_low_20d",
+        "sr_range_compression_20d",
     }),
 )
 

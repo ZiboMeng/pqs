@@ -995,7 +995,12 @@ def test_aplusplus_families_v2_union_equals_research_factors():
         f"(would be unimplemented factors): {sorted(extra)}"
     )
     assert reachable == expected
-    assert len(reachable) == 64
+    # Updated 2026-05-06: post-S/R Step 2 (commit b51d3f1) and PRD-AC
+    # v1.1 Phase 4 prep, RESEARCH_FACTORS / FAMILIES_V2 = 67 factors
+    # (64 original + 3 swing/SR daily-resolution factors added to
+    # FAMILY_B_V2: dist_to_swing_high_20d / dist_to_swing_low_20d /
+    # sr_range_compression_20d).
+    assert len(reachable) == 67
 
 
 def test_aplusplus_families_v1_unchanged_at_33():
