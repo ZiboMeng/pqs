@@ -153,8 +153,13 @@ def main() -> int:
     print(f"  trials in v2 top-10 NOT in v1 top-10:       {n_v2_not_in_v1}")
     h1_pass = (spear < 0.7) and (n_v2_not_in_v1 >= 3)
     print(f"  H1 verdict: {'PASS' if h1_pass else 'FAIL'}")
-    v2_top_sharpe = float(top10_v2.iloc[0]["nav_sharpe"]) if len(top10_v2) else float("nan")
-    v1_top_sharpe = float(top10_v1.iloc[0]["nav_sharpe"]) if len(top10_v1) else float("nan")
+    def _safe_float(x):
+        if x is None or pd.isna(x):
+            return float("nan")
+        return float(x)
+
+    v2_top_sharpe = _safe_float(top10_v2.iloc[0]["nav_sharpe"]) if len(top10_v2) else float("nan")
+    v1_top_sharpe = _safe_float(top10_v1.iloc[0]["nav_sharpe"]) if len(top10_v1) else float("nan")
     h3_pass = v2_top_sharpe >= v1_top_sharpe if (
         np.isfinite(v2_top_sharpe) and np.isfinite(v1_top_sharpe)
     ) else False
@@ -196,10 +201,17 @@ def main() -> int:
     print("\n" + "=" * 60)
     print("Top-10 v2 trials")
     print("=" * 60)
+    def _fmt(x, spec=".3f"):
+        if x is None or (isinstance(x, float) and not np.isfinite(x)):
+            return "nan"
+        return format(x, spec)
+
     for _, row in top10_v2.iterrows():
-        print(f"  {row.trial_id} obj={row.objective:.4f} ic_ir={row.ic_ir:.4f} "
-              f"sharpe={row.nav_sharpe:.3f} max_dd={row.nav_max_dd:.2%} "
-              f"vs_qqq={row.nav_vs_qqq_excess_full_period:+.3f} "
+        print(f"  {row.trial_id} obj={_fmt(row.objective,'.4f')} "
+              f"ic_ir={_fmt(row.ic_ir,'.4f')} "
+              f"sharpe={_fmt(row.nav_sharpe)} "
+              f"max_dd={_fmt(row.nav_max_dd,'.2%')} "
+              f"vs_qqq={_fmt(row.nav_vs_qqq_excess_full_period,'+.3f')} "
               f"holding={row.holding_freq} feats={row.features}")
 
     # Output JSON
