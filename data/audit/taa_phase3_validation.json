@@ -1,0 +1,253 @@
+{
+  "lineage": "taa-phase3-validation-2026-05-06",
+  "panel_n_dates": 4876,
+  "panel_n_syms": 79,
+  "regime_distribution": {
+    "BULL": 1391,
+    "RISK_ON": 1218,
+    "CAUTIOUS": 884,
+    "NEUTRAL": 879,
+    "CRISIS": 268,
+    "RISK_OFF": 236
+  },
+  "spy_buy_hold_metrics": {
+    "cum_ret": 2.3194100321280664,
+    "cagr": 0.11529515193817064,
+    "sharpe": 0.7016295768469377,
+    "max_dd": -0.34228962752335385,
+    "calmar": 0.33683507377185784
+  },
+  "taa_metrics_full_period": {
+    "cum_ret": 0.2201694231617839,
+    "cagr": 0.01177834558290547,
+    "sharpe": 0.3094796106691758,
+    "max_dd": -0.1603597362194993,
+    "calmar": 0.07344951956508179
+  },
+  "taa_metrics_per_validation_year": {
+    "2018": {
+      "cum_ret": 0.011354026082491364,
+      "cagr": 0.011424802776676346,
+      "sharpe": 0.5510925657074092,
+      "max_dd": -0.018651066362582264,
+      "calmar": 0.6125549367834948,
+      "vs_spy": 0.08084804960963787
+    },
+    "2019": {
+      "cum_ret": 0.028203487393301696,
+      "cagr": 0.028301697847719076,
+      "sharpe": 0.9386278035464963,
+      "max_dd": -0.019520654220801147,
+      "calmar": 1.4498334701078244,
+      "vs_spy": -0.25801892815000627
+    },
+    "2021": {
+      "cum_ret": -0.027273196969769598,
+      "cagr": -0.027365561593096555,
+      "sharpe": -0.8486688110990706,
+      "max_dd": -0.04417580155816489,
+      "calmar": -0.6194694975045372,
+      "vs_spy": -0.3147342164215089
+    },
+    "2023": {
+      "cum_ret": 0.06220538231290562,
+      "cagr": 0.06296030473673331,
+      "sharpe": 1.2890138620287914,
+      "max_dd": -0.03049231568010847,
+      "calmar": 2.0647925004202023,
+      "vs_spy": -0.18595660349326315
+    },
+    "2025": {
+      "cum_ret": 0.05440750713039999,
+      "cagr": 0.05459935651900594,
+      "sharpe": 1.6957458046376805,
+      "max_dd": -0.01704499889251057,
+      "calmar": 3.203247877182112,
+      "vs_spy": -0.11198833650257889
+    }
+  },
+  "taa_metrics_per_stress_slice": {
+    "covid_flash": {
+      "cum_ret": 0.04276883063302028,
+      "cagr": 0.22624079612442038,
+      "sharpe": 1.6191525606836985,
+      "max_dd": -0.04730565697756089,
+      "calmar": 4.78253153173068
+    },
+    "rate_hike_2022": {
+      "cum_ret": -0.0501172094158826,
+      "cagr": -0.2649876003882884,
+      "sharpe": -4.449034122741099,
+      "max_dd": -0.05038020386876201,
+      "calmar": -5.2597564130262
+    }
+  },
+  "taa_metrics_per_regime": {
+    "BULL": {
+      "n_days": 1391,
+      "cum_ret": 0.015307754620355274,
+      "sharpe": 0.1416112791012223,
+      "max_dd": -0.0489459864077639
+    },
+    "RISK_ON": {
+      "n_days": 1218,
+      "cum_ret": 0.051607652488362854,
+      "sharpe": 0.4502737282611421,
+      "max_dd": -0.031216758838913384
+    },
+    "NEUTRAL": {
+      "n_days": 879,
+      "cum_ret": -0.05370707371351702,
+      "sharpe": -0.519194779232759,
+      "max_dd": -0.10256698958745439
+    },
+    "CAUTIOUS": {
+      "n_days": 884,
+      "cum_ret": 0.2185973541873698,
+      "sharpe": 1.3868921541535757,
+      "max_dd": -0.06066253949759461
+    },
+    "RISK_OFF": {
+      "n_days": 236,
+      "cum_ret": 0.013101329067810363,
+      "sharpe": 0.2598273995160358,
+      "max_dd": -0.03933988895351835
+    },
+    "CRISIS": {
+      "n_days": 268,
+      "cum_ret": -0.021794755318801595,
+      "sharpe": -0.22831700253502196,
+      "max_dd": -0.05105614737943214
+    }
+  },
+  "rule_set": "v1",
+  "cadence": "MS",
+  "n_observed_days": 4876,
+  "acceptance": {
+    "overall_passed": false,
+    "n_passed": 5,
+    "n_total": 7,
+    "failed_gates": [
+      "g2_2025_vs_spy_positive",
+      "g6_calmar_ge_spy"
+    ],
+    "gates": [
+      {
+        "name": "g1_2018_vs_spy_positive",
+        "passed": true,
+        "values": {
+          "validation_2018_vs_spy": 0.08084804960963787
+        },
+        "threshold": {
+          "min": 0.0
+        },
+        "notes": "Single BEAR validation year (2018 rate_hike_bear); TAA's primary value should manifest here. Per PRD I17 fix."
+      },
+      {
+        "name": "g2_2025_vs_spy_positive",
+        "passed": false,
+        "values": {
+          "validation_2025_vs_spy": -0.11198833650257889
+        },
+        "threshold": {
+          "min": 0.0
+        },
+        "notes": "CLAUDE.md core role hard gate (2025 holdout)."
+      },
+      {
+        "name": "g3_stress_slice_maxdd",
+        "passed": true,
+        "values": {
+          "slices": [
+            {
+              "name": "covid_flash",
+              "max_dd": -0.04730565697756089,
+              "passed": true
+            },
+            {
+              "name": "rate_hike_2022",
+              "max_dd": -0.05038020386876201,
+              "passed": true
+            }
+          ]
+        },
+        "threshold": {
+          "max_dd_floor": -0.25
+        },
+        "notes": "CLAUDE.md 2008-style scenario MaxDD \u2264 25% (HARD)."
+      },
+      {
+        "name": "g4_per_year_maxdd",
+        "passed": true,
+        "values": {
+          "years": [
+            {
+              "year": 2018,
+              "max_dd": -0.018651066362582264,
+              "passed": true
+            },
+            {
+              "year": 2019,
+              "max_dd": -0.019520654220801147,
+              "passed": true
+            },
+            {
+              "year": 2021,
+              "max_dd": -0.04417580155816489,
+              "passed": true
+            },
+            {
+              "year": 2023,
+              "max_dd": -0.03049231568010847,
+              "passed": true
+            },
+            {
+              "year": 2025,
+              "max_dd": -0.01704499889251057,
+              "passed": true
+            }
+          ]
+        },
+        "threshold": {
+          "max_dd_floor": -0.2
+        },
+        "notes": "CLAUDE.md core role per-validation-year gate."
+      },
+      {
+        "name": "g5_bull_beta_to_spy",
+        "passed": true,
+        "values": {
+          "beta_in_bull": 0.00756698206787188
+        },
+        "threshold": {
+          "max": 0.85
+        },
+        "notes": "TAA in BULL regime should NOT mimic SPY; beta \u2264 0.85."
+      },
+      {
+        "name": "g6_calmar_ge_spy",
+        "passed": false,
+        "values": {
+          "taa_calmar": 0.07344951956508179,
+          "spy_calmar": 0.33683507377185784
+        },
+        "threshold": {
+          "min": "spy_calmar"
+        },
+        "notes": "PRD I15 primary risk-adjusted metric."
+      },
+      {
+        "name": "g7_full_period_maxdd_better_than_spy",
+        "passed": true,
+        "values": {
+          "taa_max_dd": -0.1603597362194993,
+          "spy_max_dd": -0.34228962752335385
+        },
+        "threshold": {
+          "min": "spy_max_dd"
+        },
+        "notes": "TAA must improve DD over passive SPY."
+      }
+    ]
+  }
+}

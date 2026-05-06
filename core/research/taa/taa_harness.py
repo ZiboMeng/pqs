@@ -270,8 +270,16 @@ def run_taa_backtest(
             slc_ret = slc_nav.pct_change().fillna(0.0)
             year_metrics = _full_period_metrics(slc_nav, slc_ret)
             if spy_series is not None:
-                spy_in_year = spy_series.reindex(slc_nav.index, method="ffill")
-                if len(spy_in_year.dropna()) >= 2:
+                # ffill bridges intra-year gaps but doesn't back-fill into
+                # prior years (so 2019-01-01 holiday → NaN); ALSO doesn't
+                # forward-fill past series end (2023-12-30 weekend after
+                # 2023-12-29 last trade → NaN). Drop NaN BEFORE computing
+                # iloc[0]/iloc[-1] so per-year vs_spy is robust to year-
+                # boundary holidays/weekends in the TAA nav index.
+                spy_in_year = (
+                    spy_series.reindex(slc_nav.index, method="ffill").dropna()
+                )
+                if len(spy_in_year) >= 2:
                     spy_cum = float(spy_in_year.iloc[-1] / spy_in_year.iloc[0] - 1)
                     year_metrics["vs_spy"] = year_metrics["cum_ret"] - spy_cum
             per_year[int(y)] = year_metrics
