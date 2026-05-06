@@ -28,11 +28,11 @@
   "config_snapshot": {
     "schema_version": "1.0",
     "universe_hash": "29eeff23263fd896f21850bc813bce5484150ef88416f24784ab4da2fa6f4d72",
-    "factor_registry_hash": "faf27ce7877939616f18fc0784c0d165c1cdf12bf6ca3f9af7518dfe5f3ff9b0",
+    "factor_registry_hash": "b844d7484d099ae508d178b5945bb6c2c8c791edb82287df983dabf70b328e88",
     "research_mask_hash": "99ef97d08c326ff766a865dd7ddbe5880f5c3b91ae7658f30cae4b7f100de10a",
     "risk_config_hash": "9068b5f72d64208803bd98ac1d092652327cd4c2406bcaed483846c2f2a3dbad",
     "system_config_hash": "b2f96c3b9733d35f15b463339e14bbb55c374d6344d92f463d309e2fa836db82",
-    "snapshot_at_utc": "2026-05-02T04:38:46.086082Z",
+    "snapshot_at_utc": "2026-05-06T03:07:08.367065Z",
     "sources": {
       "universe_hash": "config/universe.yaml",
       "factor_registry_hash": "core/factors/factor_registry.py::PRODUCTION+RESEARCH+MAP",
@@ -40,7 +40,7 @@
       "risk_config_hash": "config/risk.yaml",
       "system_config_hash": "config/system.yaml"
     },
-    "migration_note": null
+    "migration_note": "backfilled_2026-05-05_assumed_unchanged_since_init"
   },
   "candidate_role": "diversifier",
   "soft_warn_flags": [
@@ -803,14 +803,14 @@
         }
       },
       "data_revision_event": {
-        "detected_at_utc": "2026-05-05T21:55:18.658551Z",
+        "detected_at_utc": "2026-05-06T03:07:15.472195Z",
         "revised_symbols": [
           "LRCX",
           "META",
           "SOXL",
           "XLK"
         ],
-        "detected_by_run_label": "observe@2026-05-05T21:55:18+00:00",
+        "detected_by_run_label": "observe@2026-05-06T03:07:15+00:00",
         "delta_summary": "scopes=['execution_nav']; n_revised_cells=4; materiality_class=in_ring; triggers=[]",
         "estimated_nav_impact_bps": 0.0962,
         "estimated_cum_ret_drift_bps": 0.0962,
