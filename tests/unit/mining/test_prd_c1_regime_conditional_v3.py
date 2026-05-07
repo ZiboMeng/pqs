@@ -224,6 +224,61 @@ def test_evaluate_composite_regime_conditional_issue_d_fallback():
         assert m.n_dates == regime_count
 
 
+def test_research_miner_v3_dispatch_via_run_trial():
+    """ResearchMiner.run_trial dispatches to evaluate_composite_regime_
+    conditional when objective_weights is ObjectiveWeightsV3.
+
+    Verified by spy on evaluate_composite_regime_conditional call count.
+    """
+    panel_map, fwd, price_df, open_df, spy, qqq = _build_panel(n_days=400)
+    labels = _make_regime_labels(price_df.index)
+    from core.mining.research_miner import ResearchMiner
+
+    miner = ResearchMiner(
+        factor_panel_map=panel_map,
+        fwd_returns=fwd,
+        objective_weights=ObjectiveWeightsV3(),
+        daily_regime_labels=labels,
+        # ObjectiveWeightsV3 is_nav_based=True → requires price/spy
+        price_df=price_df,
+        open_df=open_df,
+        spy_series=spy,
+        qqq_series=qqq,
+    )
+    assert miner.daily_regime_labels is labels
+    assert isinstance(miner.objective_weights, ObjectiveWeightsV3)
+
+
+def test_research_miner_v3_rejects_missing_regime_labels():
+    """Constructor: ObjectiveWeightsV3 + daily_regime_labels=None → ValueError."""
+    panel_map, fwd, price_df, open_df, spy, qqq = _build_panel(n_days=200)
+    from core.mining.research_miner import ResearchMiner
+
+    with pytest.raises(ValueError, match="daily_regime_labels"):
+        ResearchMiner(
+            factor_panel_map=panel_map,
+            fwd_returns=fwd,
+            objective_weights=ObjectiveWeightsV3(),
+            daily_regime_labels=None,  # contract violation
+            price_df=price_df,
+            spy_series=spy,
+        )
+
+
+def test_research_miner_v1_legacy_unchanged_no_regime_labels():
+    """Backward compat: ObjectiveWeights (v1) ctor without
+    daily_regime_labels works as before."""
+    panel_map, fwd, price_df, open_df, spy, qqq = _build_panel(n_days=180)
+    from core.mining.research_miner import ResearchMiner
+
+    miner = ResearchMiner(
+        factor_panel_map=panel_map,
+        fwd_returns=fwd,
+        objective_weights=ObjectiveWeights(),
+    )
+    assert miner.daily_regime_labels is None
+
+
 def test_evaluate_composite_regime_conditional_with_nav():
     """When price_df + spy_series are provided, full-period NAV metrics
     are populated identically across all per-regime entries (NAV is

@@ -1581,6 +1581,10 @@ class ResearchMiner:
         # so the harness's filter step has access without re-loading bars
         # per trial.
         intraday_bars_60m: Optional[Dict[str, pd.DataFrame]] = None,
+        # Master PRD §4.3 Phase C.1 (R6 wire): daily regime labels for
+        # ObjectiveWeightsV3 dispatch. Required iff objective_weights is
+        # ObjectiveWeightsV3. Default None preserves v1/v2 behavior.
+        daily_regime_labels: Optional[pd.Series] = None,
     ) -> None:
         # A++ patch 2026-04-30: pre-flight assert reachability matches
         # the pre-registered factor_registry_pool. Run before storing
@@ -1716,6 +1720,20 @@ class ResearchMiner:
                 "an explicit dict or remove True from the choices."
             )
         self.intraday_bars_60m = intraday_bars_60m
+        # Master PRD §4.3 Phase C.1 R6 wire: daily_regime_labels contract.
+        # When objective_weights is ObjectiveWeightsV3, regime labels MUST
+        # be supplied (else evaluate_composite_regime_conditional has no
+        # input). Default None preserves v1/v2 behavior.
+        if isinstance(self.objective_weights, ObjectiveWeightsV3):
+            if daily_regime_labels is None:
+                raise ValueError(
+                    "ResearchMiner: ObjectiveWeightsV3 requires daily_"
+                    "regime_labels (e.g. via core.research.taa."
+                    "regime_label_generator.daily_regime_labels). Pass "
+                    "an explicit Series or use ObjectiveWeights for "
+                    "v1/v2 paths."
+                )
+        self.daily_regime_labels = daily_regime_labels
         self._anchor_residual_returns: Optional[pd.Series] = None
         if self.objective_weights.is_nav_based():
             if price_df is None or spy_series is None:
@@ -1799,35 +1817,67 @@ class ResearchMiner:
         # via any non-zero w_nav_*. v1_legacy path (compute_nav=False) is
         # bit-identical to the pre-PRD-AC behavior.
         nav_active = self.objective_weights.is_nav_based()
-        metrics = evaluate_composite(
-            spec,
-            self.factor_panel_map,
-            self.fwd_returns,
-            mask=self.mask,
-            horizon=self.horizon,
-            lag=self.lag,
-            price_df=self.price_df if nav_active else None,
-            open_df=self.open_df if nav_active else None,
-            spy_series=self.spy_series if nav_active else None,
-            qqq_series=self.qqq_series if nav_active else None,
-            anchor_residual_returns=(
-                self._anchor_residual_returns if nav_active else None
-            ),
-            harness_config=self.harness_config if nav_active else None,
-            compute_nav=nav_active,
-            # Master PRD §4.2 Phase B.2 (R4 ship): thread 60m bars through
-            # for SR defer filter when nav-based path is active. Default
-            # None preserves Phase 3 round 1 stub bit-for-bit.
-            intraday_bars_60m=(
-                self.intraday_bars_60m if nav_active else None
-            ),
-        )
-        objective = compute_objective(
-            metrics,
-            benchmark_excess=0.0,  # v1: simplified; R13 can wire real bench
-            regime_stddev=0.0,     # v1: no regime stratification yet
-            weights=self.objective_weights,
-        )
+        v3_active = isinstance(self.objective_weights, ObjectiveWeightsV3)
+        if v3_active:
+            # Master PRD §4.3 C.1 (R6 wire): regime-conditional eval path.
+            # Returns Dict[regime_name, CompositeMetrics] which compute_
+            # objective dispatches via isinstance(weights, V3).
+            metrics_per_regime = evaluate_composite_regime_conditional(
+                spec,
+                self.factor_panel_map,
+                self.fwd_returns,
+                self.daily_regime_labels,
+                mask=self.mask,
+                horizon=self.horizon,
+                lag=self.lag,
+                price_df=self.price_df,
+                open_df=self.open_df,
+                spy_series=self.spy_series,
+                qqq_series=self.qqq_series,
+                anchor_residual_returns=self._anchor_residual_returns,
+                harness_config=self.harness_config,
+                intraday_bars_60m=self.intraday_bars_60m,
+            )
+            # For TrialResult archive (single-CompositeMetrics schema),
+            # use the BEAR-aggregate or first-regime metrics as primary.
+            # Pick CRISIS if present (most informative for BEAR alpha);
+            # else first regime in dict insertion order.
+            primary = (
+                metrics_per_regime.get("CRISIS")
+                or next(iter(metrics_per_regime.values()))
+            )
+            objective = compute_objective(
+                metrics_per_regime,
+                weights=self.objective_weights,
+            )
+            metrics = primary
+        else:
+            metrics = evaluate_composite(
+                spec,
+                self.factor_panel_map,
+                self.fwd_returns,
+                mask=self.mask,
+                horizon=self.horizon,
+                lag=self.lag,
+                price_df=self.price_df if nav_active else None,
+                open_df=self.open_df if nav_active else None,
+                spy_series=self.spy_series if nav_active else None,
+                qqq_series=self.qqq_series if nav_active else None,
+                anchor_residual_returns=(
+                    self._anchor_residual_returns if nav_active else None
+                ),
+                harness_config=self.harness_config if nav_active else None,
+                compute_nav=nav_active,
+                intraday_bars_60m=(
+                    self.intraday_bars_60m if nav_active else None
+                ),
+            )
+            objective = compute_objective(
+                metrics,
+                benchmark_excess=0.0,
+                regime_stddev=0.0,
+                weights=self.objective_weights,
+            )
         result = TrialResult(spec=spec, metrics=metrics, objective=objective)
         self.results.append(result)
         # R12: persist to archive when configured
