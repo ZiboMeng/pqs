@@ -11,9 +11,15 @@
 - `docs/prd/20260501-two_stage_allocation_architecture_prd.md` (Phase C PRD)
 - `docs/prd/20260428-candidate_fleet_allocator_prd.md` (Track B Step 1-5; Step 6+ paused)
 
-**Status**: DRAFT — awaiting user signoff before Phase A starts
+**Status**: v1.1 — second-audit revisions applied 2026-05-06; ready for ralph-loop kickoff
 **Use case**: Ralph-loop baseline. Each phase below is a discrete
 ralph-loop checkpoint with explicit acceptance gates + branch logic.
+
+**Revision history**:
+- v1.0 (2026-05-06): initial draft post-cycle06 closeout
+- v1.1 (2026-05-06): second-audit revisions — applied 11 of 13
+  identified issues (8 first-pass + 4 new second-pass; 1 resolved as
+  non-issue via R3 verification). See §13 audit log.
 
 ---
 
@@ -111,9 +117,15 @@ Mine for specs whose NAV is orthogonal to **existing fleet candidates**
 (RCMv1 + Cand-2 + Trial9), not just universe-equal-weight residual
 (cycle06 anchor was too clean).
 
-Implementation: build composite anchor from (RCMv1 NAV + Cand-2 NAV +
-Trial9 NAV) replayed on train-only panel via existing harness; pass
-to ResearchMiner constructor as `anchor_residual_returns`.
+**Implementation (Issue C — second-audit revised)**: build composite
+anchor from each candidate's frozen spec **REPLAYED via the harness on
+the selector-role panel** (matching `dev/scripts/cycle04/evaluate_cycle04_top_n.py`
+pattern). NOT from forward observation NAV — Trial9's forward NAV is
+N=3 today, ~30-60 by Phase C, too thin for anchor purposes. Replayed
+NAV gives multi-year trajectory at PRD-AC §4.6 I19 train-only OLS β
+treatment, identical methodology to cycle06 universe-equal-weight
+anchor. Pass blended residual returns to ResearchMiner constructor as
+`anchor_residual_returns`.
 
 **Note on CLAUDE.md invariant**: "RCMv1 + Cand-2 will not calibrate
 new-framework gates". This PRD uses RCMv1+Cand-2+Trial9 as **objective
@@ -125,6 +137,11 @@ objective terms. If user disputes this reading, clarify before Phase C.
 **Acceptance**: cycle08 top-3 trials' NAV correlation vs (RCMv1 +
 Cand-2 + Trial9) blend < 0.70 (residual after stripping SPY beta);
 ideally < 0.50 (true diversifier band).
+
+**N-floor (Issue H — second-audit added)**: if joint trading-day
+overlap between spec NAV and anchor NAV < 30 (e.g. Trial9 replayed NAV
+window short on train years prior to its 2026-05-04 freeze date), G3
+**SKIP** with note in closeout — undefined on small N.
 
 ### G4 — Stable profitability (deployable strategy)
 
@@ -163,13 +180,28 @@ selector-panel success.
 
 ## 4. Phase architecture (execution order = 2 → 3 → 4 → 1)
 
-### 4.1 Phase A: cycle07a reweight + RSI/KDJ/MACD IC screening (parallel, ~1-2 days)
+### 4.1 Phase A: cycle07a reweight + RSI/KDJ/MACD IC screening (~1-2 days, serial per Issue K)
+
+**Issue K — second-audit serial revision**: ralph-loop is single-threaded
+so A.2 runs FIRST (interactive ~4 hr; produces IC report); A.1 runs
+SECOND (mining ~65 min in background while ralph-loop writes A.2
+closeout + drafts A.1 yaml). Net wall-clock ~1 day.
 
 #### Phase A.1 — cycle07a reweight mining
 
-**Single-axis diff vs cycle06**: objective_weights ratio. ALL OTHER
-fields identical to cycle06 yaml (universe / construction / holding_freq /
-explicit_exclusions / hard_blockers / R41 anchors).
+**Single-axis diff vs cycle06**: objective_weights ratio (NAV-side
+weights up 4× from 0.20 sum to 0.65 sum). **All other yaml fields
+inherit from cycle06 yaml verbatim** (Issue E — second-audit clarification):
+- `lineage_tag` → `track-c-cycle-2026-05-07-01` (only this changes from cycle06)
+- `drop_symbols` (BRK-B / USO / SLV) ← inherited
+- `universe_extension` (cap_aware_cross_asset, 53 stocks + 6 cross-asset) ← inherited
+- `construction` (cap_aware_cross_asset / monthly default cadence / cluster_cap=0.20 / max_single_weight=0.10 / asset_class_caps) ← inherited
+- `holding_freq_choices: [monthly, weekly, daily]` ← inherited
+- `enable_sr_defer_choices: [false]` ← inherited (Phase B.2 lifts this)
+- `hard_blockers` (per-validation-year MaxDD / stress slice / vs_qqq aggregate / 2025 hard gate) ← inherited
+- `R41 informational anchor pool` (RCMv1 + Cand-2) ← inherited
+- `explicit_exclusions` (3 intraday factors) ← inherited
+- `factor_registry_pool: RESEARCH_FACTORS` ← inherited (Phase B.1 may grow this 67 → 70)
 
 New `mining_config.objective_weights`:
 ```yaml
@@ -180,16 +212,34 @@ objective_weights:
   w_corr_conc:             0.05
   w_bench_excess:          0.0
   w_regime_stddev:         0.0
-  w_nav_sharpe:            0.20   # was 0.15
-  w_nav_max_dd_penalty:    0.10   # was 0.05
-  w_nav_orthogonality:     2.00   # was 0.0
+  w_nav_sharpe:            0.30   # was 0.15
+  w_nav_max_dd_penalty:    0.15   # was 0.05
+  w_nav_orthogonality:     0.00   # was 0.0; Issue A R3-confirmed NOOP
+                                  # at cycle06 anchor distribution
+                                  # (max anchor_corr=0.373 < 0.5 threshold)
   w_vs_qqq_excess:         0.20   # was 0.0
 ```
+
+**Issue A — second-audit drop w_nav_orthogonality**: R3 verified on
+cycle06 archive: 0/66 trials have anchor_corr > 0.5; max=0.3730. With
+penalty `max(0, anchor_corr - 0.5)`, ALL trials get 0 penalty →
+w_nav_orthogonality at any positive value is **literally NOOP** under
+cycle06 anchor distribution. Setting to 0.0 keeps single-axis discipline
+(A.1 only tests weight ratio reform). Threshold lowering OR z-score
+penalty form are Phase C anchor-redesign territory.
 
 **Anchor source**: keep cycle06's universe-equal-weight residual (NOT
 yet RCMv1+Cand-2+Trial9 — that's Phase C). Phase A.1's hypothesis is
 "cycle06 0-nominee was caused by weight ratio, not anchor source";
 test it before incurring Phase C complexity.
+
+**Issue I — smoke abort window extension**: cycle06 yaml smoke_abort_clause
+has `smoke_n_trials: 8` + threshold "0 finite-nav-sharpe → abort".
+Cycle06 actual archive rate 15% (3/20) → 8-trial smoke produces
+expected 1.2 finite, variance high → real abort risk on cycle07a if
+weights perturbation lowers archive rate. Cycle07a yaml inherits but
+**overrides smoke_n_trials: 16 + abort threshold "0 finite in 16"**
+(more samples, lower variance, retains failure protection).
 
 **Yaml**: `data/research_candidates/track-c-cycle-2026-05-07-01_promotion_criteria.yaml`
 - Lineage tag: `track-c-cycle-2026-05-07-01`
@@ -201,8 +251,14 @@ benchmark (no SR defer or new factors yet).
 **Acceptance gates** (PRD-AC §5.2 + cycle06 H1+H3 lessons):
 - H1 v2 vs v1 Spearman < 0.7 (cycle06 was 0.89 — fail; with 4× higher
   NAV weights expect Spearman < 0.6)
-- H2 SAMPLED holding_freq distribution ≥ 50 per cell (corrected from
-  cycle06 yaml's "30 archived" mis-spec)
+- H2 (Issue B — second-audit revised): **holding_freq distribution
+  among Optuna COMPLETE-state trials, ≥ 30 per cell**. R3-verified:
+  pruned trials don't have holding_freq sampled (suggest_composite_spec
+  prunes BEFORE holding_freq sampling). Cycle06 had 1344 COMPLETE /
+  451 PRUNED (~25% prune); cycle07a expected similar. Cell distribution
+  measured via `optuna.load_study(...).trials` filtered to COMPLETE
+  state. "≥ 30 per cell" replaces v1.0's "≥ 50 sampled per cell"
+  (achievable; matches realistic TPE preference for higher-IC cells).
 - H3 v2 top-1 nav_sharpe ≥ v1 top-1 nav_sharpe (Pareto improvement;
   cycle06 was -0.099)
 - Track A acceptance on top-3 trials: at least 1 PASS
@@ -227,7 +283,8 @@ Steps:
    - `rsi_14d(close)`: Wilder's RSI, 14-period
    - `kdj_9d(close, high, low)`: Stochastic %K(9) + %D(3) + J=3K-2D
    - `macd_12_26_9(close)`: EMA(12)-EMA(26), signal line EMA(9)
-2. Compute panel-wide on partition_for_role(role="miner") panel
+2. Compute panel-wide on **partition_for_role(role="miner")** panel
+   (train years only; OOS discipline preserved per §7)
 3. Compute IC time-series vs forward returns (21d horizon, lag=1) per
    each new factor
 4. Compute IC time-series Pearson correlation: 3 new factors × 67
@@ -244,15 +301,17 @@ Steps:
 
 Phase A.2 wall-clock: ~half day eng + 30 sec compute.
 
-#### Phase A parallelism
+#### Phase A serial ordering (Issue K — second-audit revised)
 
-A.1 and A.2 are independent (different infrastructure) and can be
-launched in parallel:
-- A.1: mining run in background (~65 min)
-- A.2: factor screening dev script (interactive, ~half day)
+Ralph-loop is single-threaded. Order: **A.2 first (interactive ~4 hr),
+A.1 second (mining ~65 min in background)**. Net wall-clock:
+- A.2 (writes RSI/KDJ/MACD inline + IC compute + closeout) → ~4 hr
+- A.1 (yaml + mining run kickoff) → ~30 min eng + 65 min mining (bg)
+- Ralph-loop writes A.1 closeout while A.1 mining runs → no idle time
+- Total ~6-8 hr (one working day)
 
-**End of Phase A**: 1-2 days from PRD signoff, both A.1 and A.2 done
-with explicit verdicts.
+**End of Phase A**: ~1 day from ralph-loop kickoff, both A.2 and A.1
+done with explicit verdicts.
 
 ### 4.2 Phase B: factor pool expansion + SR defer mining integration (~1-2 weeks)
 
@@ -262,12 +321,14 @@ with explicit verdicts.
 1. Production-quality factor implementation in
    `core/factors/factor_<name>.py` or appended to existing module
 2. Add to `core/factors/factor_registry.py::RESEARCH_FACTORS`
-3. Categorize into a `FAMILIES_V2` family:
-   - RSI → likely Family C (liquidity/cost-proxy/risk-state) or new
-     Family G (oscillators) if 2+ oscillators land
-   - KDJ → likely Family B (position/breakout/path-shape; KDJ %K is
+3. Categorize into a `FAMILIES_V2` family (Issue J — second-audit
+   hard-decided, no Family-G branching):
+   - RSI → **Family C** (liquidity/cost-proxy/risk-state)
+   - KDJ → **Family B** (position/breakout/path-shape; KDJ %K is
      position-in-range)
-   - MACD → likely Family D (trend-quality)
+   - MACD → **Family D** (trend-quality)
+   (No new Family G even if 2+ oscillators promote; reconsider only at
+   5+ oscillators landing.)
 4. Update `tests/unit/mining/test_research_miner.py
    ::test_aplusplus_families_v2_union_equals_research_factors` count
 5. Tests: per-factor unit test (synthetic input → expected output;
@@ -403,6 +464,36 @@ def evaluate_composite_regime_conditional(
 generator (`core/research/taa/regime_label_generator.py`) — NO new
 regime detection infra needed.
 
+**Issue D — second-audit data sufficiency boundary**: PRD-E TAA Phase 3
+regime distribution on selector panel (per `taa_phase3_validation.json`)
+is BULL 1391 / RISK_ON 1218 / NEUTRAL 879 / CAUTIOUS 884 / RISK_OFF
+236 / CRISIS 268. RISK_OFF + CRISIS combined ≈ 504 days; CRISIS-only
+268 days. The miner panel (`partition_for_role(role="miner")`,
+train years only) drops 5 validation years → expect ~20% reduction
+per regime. Boundary rule:
+- For each regime: if `n_days_in_regime < 200` on miner panel, fall
+  back to all-time IC for that regime's `w_ir_*` term (i.e.,
+  `metrics_per_regime[regime].ic = ic_full_period` rather than
+  regime-stratified IC; flagged in trial metadata as
+  `regime_ic_fallback: ['CRISIS', ...]`)
+- This avoids spurious regime-IC estimates on tiny samples that
+  would dominate the objective via outlier alpha
+- If 3+ regimes hit fallback, log warning + continue (cycle08 yaml
+  closeout flags it; user-go to proceed if fallback affects > half
+  of regimes)
+
+**Issue N — ObjectiveWeightsV3 dispatch**: `compute_objective` (existing
+v1+v2 impl in `core/mining/research_miner.py`) takes `weights:
+ObjectiveWeights` typed-dataclass arg; v3 adds new dataclass
+`ObjectiveWeightsV3` with regime-stratified fields. Dispatch via
+`isinstance(weights, ObjectiveWeightsV3)` in `compute_objective` — if
+True, take the regime-stratified path (consume `metrics_per_regime`
+arg, default to all-time `metrics` if `metrics_per_regime` is None for
+backwards compat); else fall back to v1/v2 path (existing logic
+unchanged). Cycle04/05/06/07a archives use `ObjectiveWeights` (v1/v2);
+cycle08+ uses `ObjectiveWeightsV3`. No archive schema migration; v3
+runs new columns.
+
 #### Phase C.2 — Cycle08 yaml + 200-trial mining
 
 **Cycle08 yaml** (`data/research_candidates/track-c-cycle-2026-05-XX-01_promotion_criteria.yaml`):
@@ -433,6 +524,21 @@ For top-3 cycle08 trials:
    - Acceptance: ≥1 trial with raw < 0.70 AND residual < 0.50 → G3
      PASS
 
+**Issue L — second-audit R41 anchor pool dynamic extension**: Cycle08
+R41 informational anchor pool extends from cycle04/05/06's static
+[RCMv1, Cand-2] → dynamic [RCMv1, Cand-2, Trial9, cycle07a-nominee
+(if Phase A.1 produced one)]. Implementation:
+- The R41 evaluation block in cycle08 yaml uses
+  `r41_anchor_pool: [...]` enumerated explicitly at yaml authoring
+  time (post-Phase A.1 verdict)
+- `dev/scripts/cycle08/cycle08_track_a_eval.py` loads each anchor's
+  replayed NAV via the same harness pattern as G3
+- R41 verdict considers a top-N spec a "Tier 2 sibling-by-NAV" if its
+  raw NAV correlation ≥ 0.85 vs ANY anchor in the pool
+- R41 + G3 are SEPARATE checks (R41 = informational tier; G3 = hard
+  acceptance gate); a Tier 2 trial fails R41 informationally but can
+  still pass G3 if blend correlation < 0.70 (different metric)
+
 #### Phase C.4 — Closeout
 
 `docs/memos/20260520-cycle08_closeout.md` (date TBD). Outcomes:
@@ -457,6 +563,24 @@ Phase D.0 START prerequisite (BOTH must hold):
   passing Track A acceptance
 - (b) Trial9 forward observation has reached TD60 GREEN verdict
   (~2026-07-30 calendar)
+
+**Issue M — second-audit Trial9 TD60 GREEN definition (CLAUDE.md
+quote)**: per CLAUDE.md "Trial 9 (2026-05-01 ✅, A+D Phase C-PRD-1
+SHIPPED commit `7dcdf50`)" §"TD60 decision point pre-committed
+(~2026-07-30)":
+- **GREEN**: residual NAV corr 60d < 0.4 + per-regime BULL vs_qqq 60d
+  > -3% + portfolio combo positive + soft_warn_flag self-cleared (60d
+  rolling max_dd ≤ 15%)
+- **YELLOW**: 0.4-0.6 residual OR BULL vs_qqq 60d in [-10%, -3%] →
+  continue to TD90
+- **RED**: residual > 0.6 OR BULL vs_qqq 60d < -10% OR portfolio combo
+  negative → stop trial 9 forward; do NOT build C architecture for it
+
+Phase D.0 gate (b) requires GREEN (NOT YELLOW). YELLOW → Phase D.0
+gate (b) NOT MET → Phase D.2-D.4 stay blocked; PRD writing (D.1) can
+still proceed since it doesn't deploy code. RED → trial 9 EXITED;
+Phase D.0 gate (b) requires a different forward candidate (cycle07a
+or cycle08 nominee, not trial 9).
 
 If neither (a) nor (b) holds at week 5, Phase D.1 (PRD writing) STILL
 can start (PRD doesn't deploy code; can be ready for when (a)+(b)
@@ -496,7 +620,10 @@ Tests:
 - Single-sleeve degenerate case (fleet = standalone sleeve)
 - 2-sleeve correlation check (fleet NAV vs each sleeve)
 
-**Wall-clock**: ~2-3 weeks.
+**Wall-clock**: ~1-2 weeks (Issue G — second-audit revised down from
+2-3 weeks; reuses TAA harness `run_taa_backtest` + existing acceptance
+infra; new code is sleeve-blending logic + integration glue, not
+greenfield BacktestEngine).
 
 #### Phase D.3 — Tests + integration
 
@@ -529,7 +656,7 @@ See §4.1-§4.4 for per-phase acceptance gates. Summary:
 
 | Phase | Gate | Pass criterion |
 |---|---|---|
-| A.1 | cycle07a mining | H1 Spearman < 0.7 + H2 sampled cells ≥ 50 + H3 Pareto + Track A 1+ PASS + R41 1+ trial < 0.70 |
+| A.1 | cycle07a mining | H1 Spearman < 0.7 + H2 COMPLETE-state cells ≥ 30 each (Issue B) + H3 Pareto + Track A 1+ PASS + R41 1+ trial < 0.70 |
 | A.2 | IC screening | per-factor max-cor < 0.7 verdict |
 | B.1 | factor promotion | 1+ ELIGIBLE factor lands in RESEARCH_FACTORS + tests PASS |
 | B.2 | SR defer round 2 | per-trial wall-clock < 35s + integration test + cycle04/05/06 regression unchanged |
@@ -573,6 +700,11 @@ Phase D.4 selector-panel acceptance.
 | Factor implementation bugs (RSI/KDJ/MACD) | Per-factor unit test against 1 known case (e.g., AAPL 2024-Q1 expected RSI value) |
 | Regime-conditional mining wallclock (~95-130 min) | Acceptable per existing 65 min benchmark; no special mitigation |
 | PRD-D-PRD writing without candidate evidence | Phase D.1 can start at week 5; impl gated on D.0 prereqs to avoid wasted code |
+| (Issue I) cycle07a smoke abort false-trip | smoke_n_trials override 8→16 + threshold "0 finite in 16" reduces variance; cycle07a yaml encodes this explicitly |
+| (Issue K) Phase A.1+A.2 single-thread contention | Serial ordering A.2→A.1 (A.1 mining backgrounded while ralph-loop writes A.2 closeout); no parallel claim in calendar |
+| (Issue L) cycle08 R41 anchor pool drift across cycles | R41 anchor pool enumerated explicitly in cycle08 yaml at authoring time; sha256-immutable; revision requires new yaml |
+| (Issue D) regime-conditional IC on tiny CRISIS sample (~268 days raw, ~215 train-only) | Fallback to all-time IC for any regime with < 200 train days; trial metadata flags `regime_ic_fallback: [...]` |
+| (Issue M) Trial9 TD60 YELLOW partial-pass | Phase D.0 gate (b) requires GREEN strict; YELLOW → D.2-D.4 still blocked; D.1 PRD writing unaffected |
 
 ---
 
@@ -670,7 +802,7 @@ commit + push + 4-layer self-audit (R1+R2+R3+R4) + TODO update.
 ```
 Week 0 (today, 2026-05-06):
   - PRD signoff (this document)
-  - Phase A starts (parallel A.1 + A.2)
+  - Phase A starts (serial per Issue K: A.2 → A.1)
 
 Week 1 (2026-05-07 to 2026-05-13):
   - Phase A.1 cycle07a mining + Track A on top-3 → verdict
@@ -733,6 +865,59 @@ Calendar is **estimated**; actual timing depends on:
 | D.4 fleet smoke | 0.5 | 1 hr smoke | Track A verdict |
 
 Total: ~30-50 eng days across ~14 calendar weeks.
+
+---
+
+## 13. Audit log
+
+Two operator self-audit rounds completed before ralph-loop kickoff.
+Combined: 13 issues identified, 11 applied, 1 resolved as non-issue
+via R3 verification, 1 deferred (out of scope).
+
+### First-pass audit (initial draft → v1.0)
+
+| Issue | Section | Description | Disposition |
+|---|---|---|---|
+| 1 | §2.3 G3 / §4.3 C.3 | Anchor "RCMv1+Cand-2+Trial9 NAV blend" was ambiguous re: forward NAV vs replayed NAV; Trial9 forward N=3 too thin | APPLIED — clarified to REPLAYED NAV via harness pattern (mirror cycle04 evaluator); Issue C |
+| 2 | §4.1 Phase A.1 | Original yaml had `w_nav_orthogonality=2.0` carry-over; cycle06 archive R3 showed 0/66 trials cross 0.5 threshold → NOOP under cycle06 anchor | APPLIED — drop to 0.0; threshold redesign deferred to Phase C anchor swap; Issue A |
+| 3 | §4.1 H2 acceptance | "H2 sampled cells ≥ 50" mis-specified; pruned trials don't sample holding_freq | APPLIED — revised to "COMPLETE-state cells ≥ 30 each"; Issue B |
+| 4 | §4.1 Phase A.1 yaml | "inherit from cycle06" not enumerated; ralph-loop authoring risk | APPLIED — explicit inherit list; Issue E |
+| 5 | §4.1 Phase A | "Parallel A.1 + A.2" but ralph-loop is single-threaded | APPLIED — serial A.2 → A.1; A.1 mining backgrounded; Issue K |
+| 6 | §4.2 Phase B.1 | RSI/KDJ/MACD family classification ambiguous | APPLIED — hard-decided RSI→C, KDJ→B, MACD→D; no Family G; Issue J |
+| 7 | §4.1 cycle07a smoke | smoke_n_trials=8 inherited from cycle06; archive rate variance high → false abort risk | APPLIED — override 8→16 + "0 finite in 16" threshold; Issue I |
+| 8 | §6 Risks | Issues I/K/L not surfaced as risks | APPLIED — added 3 rows |
+
+### Second-pass audit (v1.0 → v1.1)
+
+| Issue | Section | Description | Disposition |
+|---|---|---|---|
+| A | §4.1 A.1 yaml | w_nav_orthogonality=2.0 still NOOP per R3 on cycle06 archive | APPLIED first pass, re-verified second pass; Issue A |
+| B | §4.1 H2 + §5.1 | "≥ 50 sampled cells" not achievable per Optuna prune-before-sample | APPLIED — "≥ 30 COMPLETE-state cells each"; Issue B |
+| C | §2.3 G3 / §4.3 C.3 | Replayed vs forward NAV ambiguity | APPLIED first pass; Issue C |
+| D | §4.3 C.1 | Regime-conditional IC on small samples (CRISIS ~268 days raw) | APPLIED — fallback to all-time IC if regime n_days < 200 on miner panel |
+| E | §4.1 A.1 yaml | inherit list explicit | APPLIED first pass; Issue E |
+| F | (out of scope) | Suggested additional acceptance gate for Phase D.4 | DEFERRED — Phase D PRD writing will scope acceptance specifics; not blocking ralph-loop kickoff |
+| G | §4.4 D.2 | Wall-clock estimate "2-3 weeks" overestimated; reuse TAA harness | APPLIED — revised to 1-2 weeks |
+| H | §2.3 G3 | Need N-floor for replayed NAV joint overlap | APPLIED — joint TDs < 30 → SKIP with closeout note |
+| I | §4.1 A.1 yaml | smoke_n_trials override needed | APPLIED first pass; Issue I |
+| J | §4.2 B.1 | Family classification | APPLIED first pass; Issue J |
+| K | §4.1 Phase A | Single-thread serial ordering | APPLIED first pass; Issue K |
+| L | §4.3 C.3 | R41 anchor pool dynamic per cycle | APPLIED — enumerate explicitly in cycle08 yaml at authoring |
+| M | §4.4 D.0 | Trial9 TD60 GREEN definition needs CLAUDE.md quote | APPLIED — quoted full GREEN/YELLOW/RED criteria; YELLOW does NOT satisfy gate (b) |
+| N | §4.3 C.1 | ObjectiveWeightsV3 dispatch needs explicit isinstance note | APPLIED — `isinstance(weights, ObjectiveWeightsV3)` branch in compute_objective; v1+v2 path unchanged |
+
+### R3 verification artifacts
+
+- Issue A R3 evidence: cycle06 archive `data/ml/research_miner/track-c-cycle-2026-05-06-01.db` SQL on `nav_correlation_vs_anchor_pooled_raw` column → 0/66 finite trials > 0.5; max=0.3730. With penalty `max(0, anchor_corr-0.5)`, all trials get 0 penalty regardless of weight.
+- Issue B R3 evidence: `optuna.load_study(...).trials` filter to PRUNED state; spot-check on 5 PRUNED trials shows holding_freq is NOT in `trial.params` (sampled inside `suggest_composite_spec` which prunes BEFORE that step).
+- Issue I R3 evidence: cycle06 archive rate 15% (3/20 finite-nav-sharpe in first 20 trials per archive query). 8-trial smoke = E[finite] ≈ 1.2; var high → 0-finite-in-8 expected ~30%+ of cycle07a runs by chance even if mining is sound.
+
+### What was NOT changed
+
+- Yaml authoring still happens at Phase A.1 kickoff (NOT pre-committed in PRD); the yaml will reference this PRD in its provenance comment but is its own immutable artifact.
+- Cycle04/05/06 archives untouched (they retain v1/v2 ObjectiveWeights; v3 lands new columns only).
+- CLAUDE.md invariants untouched (long-only / no-margin / no-short / sealed single-shot / fleet 2-candidate gate).
+- PRD-AC v1.1 + PRD-E v1.1 reversibility clauses untouched.
 
 ---
 
