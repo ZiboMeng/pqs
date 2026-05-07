@@ -1,0 +1,126 @@
+[2015-02-19] ghost-position cleanup: liquidating SHY qty=152.6058 @ last_close=69.2128 after 6 stale days
+[2015-03-07] ghost-position cleanup: liquidating SHY qty=160.4945 @ last_close=69.2055 after 6 stale days
+[2015-04-21] ghost-position cleanup: liquidating SHY qty=160.0663 @ last_close=69.4730 after 6 stale days
+[2015-05-23] ghost-position cleanup: liquidating SHY qty=159.9222 @ last_close=69.4607 after 6 stale days
+[2015-06-06] ghost-position cleanup: liquidating SHY qty=158.9024 @ last_close=69.4337 after 6 stale days
+[2017-05-27] ghost-position cleanup: liquidating SHY qty=157.8055 @ last_close=70.1836 after 6 stale days
+[2017-07-27] ghost-position cleanup: liquidating SHY qty=159.7860 @ last_close=70.2925 after 6 stale days
+[2017-09-11] ghost-position cleanup: liquidating SHY qty=159.8550 @ last_close=70.4864 after 6 stale days
+[2017-09-20] ghost-position cleanup: liquidating SHY qty=160.9471 @ last_close=70.3865 after 6 stale days
+[2017-10-18] ghost-position cleanup: liquidating SHY qty=160.5848 @ last_close=70.2807 after 6 stale days
+[2017-12-12] ghost-position cleanup: liquidating SHY qty=160.2072 @ last_close=70.0822 after 6 stale days
+[2018-03-13] ghost-position cleanup: liquidating SHY qty=160.8542 @ last_close=69.8491 after 6 stale days
+[2024-06-18] ghost-position cleanup: liquidating SHY qty=160.7905 @ last_close=75.9382 after 6 stale days
+[2025-05-08] ghost-position cleanup: liquidating SHY qty=162.3198 @ last_close=79.7762 after 6 stale days
+[2025-06-19] ghost-position cleanup: liquidating SHY qty=163.2656 @ last_close=79.9235 after 6 stale days
+[2025-07-22] ghost-position cleanup: liquidating SHY qty=162.4198 @ last_close=80.2472 after 6 stale days
+[2025-08-09] ghost-position cleanup: liquidating SHY qty=162.0244 @ last_close=80.7058 after 6 stale days
+[2025-09-08] ghost-position cleanup: liquidating SHY qty=162.2075 @ last_close=80.9674 after 6 stale days
+[2025-12-08] ghost-position cleanup: liquidating SHY qty=163.9917 @ last_close=81.8449 after 6 stale days
+[2025-12-30] ghost-position cleanup: liquidating SHY qty=165.2031 @ last_close=82.0179 after 6 stale days
+[2015-02-19] ghost-position cleanup: liquidating SHY qty=152.9173 @ last_close=69.2128 after 6 stale days
+[2015-03-07] ghost-position cleanup: liquidating SHY qty=161.3683 @ last_close=69.2055 after 6 stale days
+[2015-04-21] ghost-position cleanup: liquidating SHY qty=0.0322 @ last_close=69.4730 after 6 stale days
+[2015-09-08] ghost-position cleanup: liquidating CMG qty=776.6088 @ last_close=14.1402 after 6 stale days
+[2015-09-17] ghost-position cleanup: liquidating CMG qty=758.8492 @ last_close=14.5754 after 6 stale days
+[2015-10-05] ghost-position cleanup: liquidating CMG qty=760.3712 @ last_close=14.1764 after 6 stale days
+[2018-03-13] ghost-position cleanup: liquidating SHY qty=253.7307 @ last_close=69.8491 after 6 stale days
+[2018-07-11] ghost-position cleanup: liquidating CMG qty=2068.8982 @ last_close=8.9606 after 6 stale days
+[2018-07-14] ghost-position cleanup: liquidating ABT qty=0.0459 @ last_close=62.4500 after 6 stale days
+[2018-07-23] ghost-position cleanup: liquidating CMG qty=2064.7084 @ last_close=9.0508 after 6 stale days
+[2018-08-27] ghost-position cleanup: liquidating ISRG qty=116.0108 @ last_close=176.3500 after 6 stale days
+[2018-10-29] ghost-position cleanup: liquidating CMG qty=6.4443 @ last_close=8.6810 after 6 stale days
+[2019-08-20] ghost-position cleanup: liquidating LLY qty=0.0962 @ last_close=110.3200 after 6 stale days
+[2019-09-21] ghost-position cleanup: liquidating AXP qty=0.1635 @ last_close=117.6200 after 6 stale days
+[2019-11-25] ghost-position cleanup: liquidating MCK qty=0.1167 @ last_close=150.2500 after 6 stale days
+[2019-12-30] ghost-position cleanup: liquidating ISRG qty=0.0001 @ last_close=199.7000 after 6 stale days
+[2021-12-29] ghost-position cleanup: liquidating APD qty=142.6254 @ last_close=297.1900 after 6 stale days
+[2022-11-24] ghost-position cleanup: liquidating TT qty=0.0119 @ last_close=176.2700 after 6 stale days
+[2023-04-18] ghost-position cleanup: liquidating APD qty=181.3562 @ last_close=287.2800 after 6 stale days
+[2023-07-18] ghost-position cleanup: liquidating MCK qty=0.2135 @ last_close=408.6300 after 6 stale days
+[2023-12-26] ghost-position cleanup: liquidating MCK qty=121.6525 @ last_close=448.2100 after 6 stale days
+[2024-01-24] ghost-position cleanup: liquidating MCK qty=120.8090 @ last_close=492.8900 after 6 stale days
+[2024-05-09] ghost-position cleanup: liquidating LRCX qty=0.1591 @ last_close=90.8670 after 6 stale days
+[2024-06-18] ghost-position cleanup: liquidating SHY qty=0.6335 @ last_close=75.9382 after 6 stale days
+[2024-08-27] ghost-position cleanup: liquidating PWR qty=269.0511 @ last_close=269.4000 after 6 stale days
+[2024-10-07] ghost-position cleanup: liquidating KLAC qty=85.5110 @ last_close=753.7200 after 6 stale days
+[2025-05-08] ghost-position cleanup: liquidating SHY qty=903.2089 @ last_close=79.7762 after 6 stale days
+[2025-06-19] ghost-position cleanup: liquidating SHY qty=904.6925 @ last_close=79.9235 after 6 stale days
+[2025-07-22] ghost-position cleanup: liquidating SHY qty=913.4382 @ last_close=80.2472 after 6 stale days
+[2015-02-19] ghost-position cleanup: liquidating SHY qty=152.9173 @ last_close=69.2128 after 6 stale days
+[2015-03-07] ghost-position cleanup: liquidating SHY qty=161.3683 @ last_close=69.2055 after 6 stale days
+[2015-04-21] ghost-position cleanup: liquidating SHY qty=0.0322 @ last_close=69.4730 after 6 stale days
+[2015-09-08] ghost-position cleanup: liquidating CMG qty=776.8807 @ last_close=14.1402 after 6 stale days
+[2015-09-17] ghost-position cleanup: liquidating CMG qty=536.0000 @ last_close=14.5754 after 6 stale days
+[2015-10-05] ghost-position cleanup: liquidating CMG qty=534.0000 @ last_close=14.1764 after 6 stale days
+[2016-06-06] ghost-position cleanup: liquidating A qty=0.3320 @ last_close=45.8800 after 6 stale days
+[2018-03-13] ghost-position cleanup: liquidating SHY qty=255.0199 @ last_close=69.8491 after 6 stale days
+[2018-07-04] ghost-position cleanup: liquidating LLY qty=0.1513 @ last_close=85.4900 after 6 stale days
+[2018-07-11] ghost-position cleanup: liquidating CMG qty=2101.1559 @ last_close=8.9606 after 6 stale days
+[2018-07-23] ghost-position cleanup: liquidating CMG qty=1670.0000 @ last_close=9.0508 after 6 stale days
+[2018-08-27] ghost-position cleanup: liquidating ISRG qty=114.4394 @ last_close=176.3500 after 6 stale days
+[2018-09-17] ghost-position cleanup: liquidating LLY qty=189.6360 @ last_close=105.6500 after 6 stale days
+[2018-10-29] ghost-position cleanup: liquidating CMG qty=5.1365 @ last_close=8.6810 after 6 stale days
+[2019-08-20] ghost-position cleanup: liquidating LLY qty=0.0953 @ last_close=110.3200 after 6 stale days
+[2019-11-25] ghost-position cleanup: liquidating MCK qty=0.1519 @ last_close=150.2500 after 6 stale days
+[2019-12-30] ghost-position cleanup: liquidating ISRG qty=0.0001 @ last_close=199.7000 after 6 stale days
+[2022-11-24] ghost-position cleanup: liquidating TT qty=0.0125 @ last_close=176.2700 after 6 stale days
+[2023-04-18] ghost-position cleanup: liquidating APD qty=191.1196 @ last_close=287.2800 after 6 stale days
+[2023-07-18] ghost-position cleanup: liquidating MCK qty=0.0773 @ last_close=408.6300 after 6 stale days
+[2023-12-26] ghost-position cleanup: liquidating MCK qty=135.3676 @ last_close=448.2100 after 6 stale days
+[2023-12-28] ghost-position cleanup: liquidating KLAC qty=123.0061 @ last_close=580.3000 after 6 stale days
+[2024-01-24] ghost-position cleanup: liquidating MCK qty=136.0909 @ last_close=492.8900 after 6 stale days
+[2024-06-18] ghost-position cleanup: liquidating SHY qty=0.5730 @ last_close=75.9382 after 6 stale days
+[2024-10-07] ghost-position cleanup: liquidating KLAC qty=97.7889 @ last_close=753.7200 after 6 stale days
+[2025-05-08] ghost-position cleanup: liquidating SHY qty=1036.1466 @ last_close=79.7762 after 6 stale days
+[2025-06-16] ghost-position cleanup: liquidating TKO qty=510.4933 @ last_close=164.5800 after 6 stale days
+[2025-06-19] ghost-position cleanup: liquidating SHY qty=1032.8292 @ last_close=79.9235 after 6 stale days
+[2025-07-22] ghost-position cleanup: liquidating SHY qty=1056.3389 @ last_close=80.2472 after 6 stale days
+Loading top-3 archived trials from track-c-cycle-2026-05-07-01...
+Loading panel + factors (selector role)...
+  panel: 4876 dates × 79 symbols (34.4s)
+
+[1/3] trial_id=81cfb5f4c4f5 holding=weekly feats=drawup_from_252d_low,rank_momentum_change,ret_1d
+  Track A verdict: FAIL (25.0s)
+  Failed gates (4):
+    - validation_aggregate_excess_vs_spy
+    - validation_aggregate_excess_vs_qqq
+    - role_core__validation__2025__excess_vs_qqq
+    - beta_to_qqq
+    2018: maxdd=-2.07% vs_spy=+7.20% vs_qqq=+2.91%
+    2019: maxdd=-1.80% vs_spy=-23.74% vs_qqq=-32.36%
+    2021: maxdd=-3.45% vs_spy=-30.10% vs_qqq=-29.92%
+    2023: maxdd=-3.59% vs_spy=-21.83% vs_qqq=-51.84%
+    2025: maxdd=-1.41% vs_spy=-8.46% vs_qqq=-12.22%
+    [stress] covid_flash: maxdd=-3.55%
+    [stress] rate_hike_2022: maxdd=-3.15%
+
+[2/3] trial_id=f133a18d1495 holding=monthly feats=drawup_from_252d_low,rank_momentum_change,ret_1d
+  Track A verdict: FAIL (24.3s)
+  Failed gates (3):
+    - validation_aggregate_excess_vs_spy
+    - validation_aggregate_excess_vs_qqq
+    - beta_to_qqq
+    2018: maxdd=-18.05% vs_spy=+3.24% vs_qqq=-1.05%
+    2019: maxdd=-7.97% vs_spy=-7.73% vs_qqq=-16.36%
+    2021: maxdd=-5.99% vs_spy=-0.84% vs_qqq=-0.66%
+    2023: maxdd=-13.69% vs_spy=+3.62% vs_qqq=-26.39%
+    2025: maxdd=-17.00% vs_spy=+9.90% vs_qqq=+6.13%
+    [stress] covid_flash: maxdd=-29.73%
+    [stress] rate_hike_2022: maxdd=-10.06%
+
+[3/3] trial_id=1e771580f486 holding=monthly feats=drawup_from_252d_low,mom_63d,ret_1d
+  Track A verdict: FAIL (24.4s)
+  Failed gates (2):
+    - validation_aggregate_excess_vs_qqq
+    - beta_to_qqq
+    2018: maxdd=-17.65% vs_spy=+5.94% vs_qqq=+1.65%
+    2019: maxdd=-7.07% vs_spy=+0.98% vs_qqq=-7.65%
+    2021: maxdd=-6.02% vs_spy=-0.67% vs_qqq=-0.49%
+    2023: maxdd=-13.10% vs_spy=+13.89% vs_qqq=-16.12%
+    2025: maxdd=-16.19% vs_spy=+8.44% vs_qqq=+4.67%
+    [stress] covid_flash: maxdd=-20.02%
+    [stress] rate_hike_2022: maxdd=-8.98%
+
+Wrote data/audit/cycle07a_track_a_eval_track-c-cycle-2026-05-07-01.json
+Verdict: 0 of 3 passed Track A acceptance

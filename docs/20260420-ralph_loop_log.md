@@ -17376,3 +17376,89 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
 
 → Tests: `tests/unit/mining/test_prd_c1_regime_conditional_v3.py` (10 tests)
 → Modified: `core/mining/research_miner.py` (ObjectiveWeightsV3 + isinstance dispatch + evaluate_composite_regime_conditional)
+
+
+---
+
+## R-cycle07-to-fleet-2026-05-06-round-02 (Phase A.1 cycle07a 0 nominee)
+
+1. **本轮主题**: Phase A.1 — cycle07a 单轴 NAV-side 重权 (cycle06 v2_nav_based 上的 single-axis diff)。
+2. **本轮目标**: 200-trial mining + Track A on top-3 + H1/H2/H3/H4/H5 verdicts + 分支决策 per PRD §4.2 B.3。
+3. **为什么这轮优先做它**: PRD R2 是 master ralph-loop 的核心实验。轻量验证 cycle06 sibling 问题是不是单 weight 比例问题。
+4. **做了什么**:
+   - 写 cycle07a yaml 继承 cycle06 verbatim except objective_weights + smoke_n_trials override 16 (Issue I)，sha256 `1295911ab894919c...`，commit `2fc5198` 锁定 immutability
+   - 跑 200-trial mining (`scripts/run_research_miner.py --criteria-yaml ...`) 后台 ~80 min，PID 94689
+   - daisy chain bg task 等 mining 完成自动跑 closeout analysis + Track A eval
+   - 写 closeout memo `docs/memos/20260507-cycle07a_closeout.md` (~280 行含 4 层自审)
+5. **修改了哪些文件**:
+   - **新增** `data/research_candidates/track-c-cycle-2026-05-07-01_promotion_criteria.yaml` (sha256 1295911...)
+   - **新增** `dev/scripts/cycle07a/cycle07a_track_a_eval.py` (clone of cycle06 evaluator)
+   - **新增** `dev/scripts/cycle07a/cycle07a_closeout_analysis.py` (clone of cycle06 closeout, w/ cross-archive H3)
+   - **新增** `data/audit/cycle07a_closeout_analysis_track-c-cycle-2026-05-07-01.json`
+   - **新增** `data/audit/cycle07a_track_a_eval_track-c-cycle-2026-05-07-01.json`
+   - **新增** `data/ml/research_miner/track-c-cycle-2026-05-07-01/cycle07a-2026-05-07/*` (mining artifacts)
+   - **新增** `docs/memos/20260507-cycle07a_closeout.md`
+6. **跑了哪些测试/实验**:
+   - 200-trial mining 完成 (56 archived; ~80 min wall-clock)
+   - closeout analysis script 跑通 (3500 字节 stdout + 5205 字节 JSON)
+   - Track A eval on top-3 trials
+   - 没跑 pytest (mining bg run 不需要 pytest)
+7. **结果如何**:
+   - **0 strict nominees** (Track A 0/3 pass)
+   - H1 Spearman v2-vs-v1 top-10 = -0.171 **PASS** (cycle06 was 0.89 fail)
+   - H2 monthly=33 ✓ / daily=16 ✗ / weekly=7 ✗ **FAIL** (TPE 偏好 monthly cadence)
+   - H3 within-archive PASS (v2 0.804 vs v1 0.664) + cross-archive PASS (cycle07a 0.804 vs cycle06 0.565, +42% Pareto improvement)
+   - H4 anchor 100% < 0.50 → "Option β anchor viable" (same as cycle06)
+   - H5 R41 top-10 anchor_corr 10/10 < 0.70 **PASS**
+   - **Best near-miss**: trial `1e771580f486` (drawup_from_252d_low + mom_63d + ret_1d, monthly) — 仅 fail 2 gates (vs_qqq aggregate + beta_to_qqq); 2018+2025 vs_qqq positive
+8. **当前发现的新问题/新机会**:
+   - (a) **Reweight architecture works** — cycle06 H1 0.89 → cycle07a -0.17 (NAV-side weight 4× higher 真正 shift TPE ranking)
+   - (b) **New binding constraint identified**: 不再是 weight ratio (cycle06 fail mode)，而是 **2023 BULL year + beta_to_qqq pattern**——cycle04/05/06 + cycle07a + Trial9 都 fail 在这同一个 pattern；广义 long-only 在 narrow sector rally 下不能 match QQQ
+   - (c) cycle07a 是 first cycle since cycle04 表现 materially different from cycle04/05/06 — drawup-anchor 仍主导 top-10 但 second factor 多样化（rank_momentum_change / mom_63d / mom_252d / mean_rev_sma20/50 等）
+   - (d) **Universe expansion**: PRD §6 risk row 提到 "Phase E options" 含 universe expansion（cross-asset 扩到 currency / commodity sleeve）。0 nominee + Phase C 也 0 nominee 就启动 Phase E 重新评估
+9. **剩余风险**:
+   - (a) cycle08 v3 还没 wire ResearchMiner.run_trial → R6 ship 了 building blocks 但实际 dispatch 没接通；R7 cycle08 mining 启动前必须 wire
+   - (b) cycle07a archive 没单独的 forward init (R5 决定 NO forward init since 0 Track A nominee). 如果 user explicit-go loosen vs_qqq gate 后回头来 promote cycle07a Trial 3，archive 已 immutable preserved
+   - (c) iter budget 紧张 — iter 10/14 used；剩 4 iter for R7+R8+R9+R10+R11+R12+R13 = 7 rounds. 必须 aggressive bundle
+10. **下一轮建议方向**: R5 (this iter quick close) → R7 (cycle08 yaml + ResearchMiner.run_trial v3 wire + 200-trial mining 启动后台). R6 wiring 必须先做才能 R7 mining 接 v3 dispatch。
+11. **TODO checklist（更新后）**:
+    - [x] R1 Phase A.2 IC screening
+    - [x] **R2 Phase A.1 cycle07a — DONE 2026-05-07; 0 nominee, H1+H3+H5 PASS, H2 FAIL, Track A 0/3**
+    - [x] R3 Phase B.1 SKIP
+    - [x] R4 Phase B.2 SR defer mining integration
+    - [⏳] R5 Phase B.3 branch decision (in this iter)
+    - [x] R6 Phase C.1 ObjectiveWeightsV3 + regime-conditional eval (building blocks shipped; ResearchMiner.run_trial wire pending)
+    - [ ] R7 Phase C.2 cycle08 yaml + 200-trial mining
+    - [ ] R8 Phase C.3 cycle08 acceptance
+    - [ ] R9 Phase C.4 closeout
+    - [ ] R10 Phase D.0 + D.1
+    - [ ] R11-R13 audit final 1/2/3
+
+→ Closeout memo: `docs/memos/20260507-cycle07a_closeout.md`
+→ Track A eval JSON: `data/audit/cycle07a_track_a_eval_track-c-cycle-2026-05-07-01.json`
+→ Closeout analysis JSON: `data/audit/cycle07a_closeout_analysis_track-c-cycle-2026-05-07-01.json`
+
+
+---
+
+## R-cycle07-to-fleet-2026-05-06-round-05 (Phase B.3 branch decision NO forward init)
+
+1. **本轮主题**: Phase B.3 — cycle07a 0 nominee → 分支决策按 PRD §4.2 B.3 表。
+2. **本轮目标**: 写 R5 closeout memo 记录 "NO forward init"; 给 R7 cycle08 提供 Phase C urgent 状态；不引入新代码。
+3. **为什么这轮优先做它**: 跟 R2 closeout 同 iter 收掉，节省 1 iter。R5 是 doc-only round，逻辑直接由 R2 evidence 决定 (Track A 0/3 pass → no forward init)。
+4. **做了什么**: 写 `docs/memos/20260507-phase_b3_branch_decision.md` (~150 行含 4 层自审)，记录 R3+R4+R5 三个 sub-round 的 Phase B 总结。
+5. **修改了哪些文件**: 新增 `docs/memos/20260507-phase_b3_branch_decision.md` + 本 log 条目。
+6. **跑了哪些测试/实验**: 没跑 pytest (doc-only round)。Verified R3 commit `5ddc5f4`、R4 commit `7512bae`、cycle07a Track A JSON `n_passed: 0`。
+7. **结果如何**: NO FORWARD INIT for cycle07a. Phase B 整体 disposition: G1 evidence 通道唯一靠 R4 SR defer mining integration（cycle08 yaml 启用 enable_sr_defer_choices=[false, true] 后才能验证）。Phase C URGENT.
+8. **当前发现的新问题/新机会**:
+   - (a) cycle07a Trial 3 (1e771580f486) 是 master ralph-loop 第一个 "near-miss" candidate。如果 user 后续 directional decision loosen vs_qqq 或 raise beta ceiling，可以激活。但目前 archive immutable preserved
+   - (b) cycle04/05/06 + cycle07a + Trial9 都 fail 在 2023 BULL year vs_qqq 上——这是 5+ cycle 跨度的同一 binding constraint，强证据指向 universe + objective 而不是 weight ratio
+   - (c) Trial9 forward 还没 TD60 GREEN (TD003 only)。如果 R7 cycle08 也 0 nominee 而 Trial9 也 RED，fleet (R10 D.2-D.4) 会双 gate fail
+9. **剩余风险**: 1-candidate fleet stays paused per CLAUDE.md "Track B Step 6+ HARD PAUSED until ≥2 candidates"。R5 仅 doc 行为，没改变 fleet gate 状态。
+10. **下一轮建议方向**: R7 (cycle08 yaml + ResearchMiner.run_trial v3 wire + start 200-trial mining bg). R6 v3 dispatch wire 是 R7 的 prerequisite, 在 R7 yaml 之前完成。
+11. **TODO checklist（更新后）**:
+    - [x] R1-R6 全部 DONE (R3 SKIP / R4 R6 substantial / R2 R5 closeouts done)
+    - [ ] (next) **R7 Phase C.2 cycle08 + ResearchMiner.run_trial v3 wire + 200-trial mining**
+    - [ ] R8-R13
+
+→ Closeout memo: `docs/memos/20260507-phase_b3_branch_decision.md`

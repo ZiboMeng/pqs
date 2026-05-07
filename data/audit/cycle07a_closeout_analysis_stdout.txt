@@ -1,0 +1,59 @@
+Loaded 56 archived trials from track-c-cycle-2026-05-07-01
+
+============================================================
+H2 — COMPLETE-state cells per holding_freq (Issue B)
+============================================================
+  holding_freq counts: {'monthly': 33, 'daily': 16, 'weekly': 7}
+  H2 verdict: FAIL (target ≥30 each)
+
+============================================================
+H1 — Spearman rank top-10 v2 vs v1 (within cycle07a archive)
+============================================================
+  Spearman rank top-10 v2 vs v1: -0.171  (master PRD §4.1 expect <0.6)
+  trials in v2 top-10 NOT in v1 top-10: 6
+  H1 verdict: PASS
+
+============================================================
+H3 (within-archive) — v2 top-1 nav_sharpe ≥ v1 top-1 nav_sharpe
+============================================================
+  cycle07a v2 top-1 nav_sharpe: 0.8037
+  cycle07a v1 top-1 nav_sharpe: 0.6640
+  H3 within-archive verdict: PASS
+
+============================================================
+H3 (cross-archive) — cycle07a top-1 nav_sharpe ≥ cycle06 top-1
+============================================================
+  cycle06 top-1 nav_sharpe: 0.5654
+  cycle07a top-1 nav_sharpe: 0.8037
+  H3 cross-archive verdict: PASS
+
+============================================================
+H4 — Anchor orthogonality calibration
+============================================================
+  anchor_corr distribution (n=56):
+    p25=0.228  p50=0.257  p75=0.282  p95=0.341
+  n below 0.50:    56 (100.0%)
+  n in 0.50-0.70:  0
+  n above 0.70:    0
+
+============================================================
+H5 — R41 informational: top-10 anchor_corr < 0.70
+============================================================
+  top-10 trials with anchor_corr < 0.70: 10
+  H5 verdict: PASS
+
+============================================================
+Top-10 v2 trials
+============================================================
+  81cfb5f4c4f5 obj=1.4463 ic_ir=0.5109 sharpe=0.804 max_dd=-26.86% vs_qqq=+5.542 holding=weekly feats=drawup_from_252d_low,rank_momentum_change,ret_1d
+  f133a18d1495 obj=1.4463 ic_ir=0.5109 sharpe=0.804 max_dd=-26.86% vs_qqq=+5.542 holding=monthly feats=drawup_from_252d_low,rank_momentum_change,ret_1d
+  1e771580f486 obj=1.4381 ic_ir=0.5796 sharpe=0.781 max_dd=-25.84% vs_qqq=+5.416 holding=monthly feats=drawup_from_252d_low,mom_63d,ret_1d
+  f314b9d4dddf obj=1.3563 ic_ir=0.6616 sharpe=0.798 max_dd=-26.86% vs_qqq=+4.790 holding=monthly feats=drawup_from_252d_low,trend_tstat_20d,ret_1d
+  c387cbe511b5 obj=1.3527 ic_ir=0.6616 sharpe=0.798 max_dd=-26.86% vs_qqq=+4.790 holding=monthly feats=drawup_from_252d_low,return_per_risk_21d,ret_1d
+  2ab3fcc51940 obj=1.3512 ic_ir=0.6616 sharpe=0.798 max_dd=-26.86% vs_qqq=+4.790 holding=monthly feats=drawup_from_252d_low,risk_adj_mom_63d,ret_1d
+  ff40e8a604d4 obj=1.3492 ic_ir=0.6616 sharpe=0.798 max_dd=-26.86% vs_qqq=+4.790 holding=monthly feats=drawup_from_252d_low,rolling_sharpe_126d,ret_1d
+  80a55a15af8d obj=1.3483 ic_ir=0.6616 sharpe=0.798 max_dd=-26.86% vs_qqq=+4.790 holding=weekly feats=drawup_from_252d_low,mean_rev_sma20,ret_1d
+  5532e58ca0d0 obj=1.3473 ic_ir=0.6616 sharpe=0.798 max_dd=-26.86% vs_qqq=+4.790 holding=weekly feats=drawup_from_252d_low,mean_rev_sma50,ret_1d
+  17b5a7896939 obj=1.2122 ic_ir=0.7284 sharpe=0.757 max_dd=-27.41% vs_qqq=+4.047 holding=monthly feats=drawup_from_252d_low,mom_252d,ret_1d
+
+Wrote data/audit/cycle07a_closeout_analysis_track-c-cycle-2026-05-07-01.json
