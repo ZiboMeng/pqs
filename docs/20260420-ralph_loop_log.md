@@ -17142,3 +17142,59 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
 
 → Audit memo: `docs/audit/20260428-claude_threshold_2round_self_audit.md`（review/claude-collab `0bbaa23`）
 → Audit fix commit: `92987fe` on main
+
+
+---
+
+## R-cycle07-to-fleet-2026-05-06-round-01 (Phase A.2 IC screening — 0 ELIGIBLE)
+
+1. **本轮主题**: cycle07-to-fleet master ralph-loop 第 1 轮 / 13 轮。Phase A.2 — RSI/KDJ/MACD IC screening on `partition_for_role(role='miner')` 面板。
+2. **本轮目标**: 在 cycle06 既有 67 因子池上 screen 3 个 user-stated 候选 oscillator (RSI(14) / KDJ-J(9) / MACD-hist(12,26,9))，按 PRD §4.1 acceptance 给 ELIGIBLE / CONDITIONAL / REJECT verdict，决定 Round 3 (Phase B.1 factor promotion) 是否需要执行。
+3. **为什么这轮优先做它**: 按 PRD §4.1 Issue K serial 顺序 A.2 → A.1，A.2 先跑（IC 计算 ~4 分钟）然后才能给 R3 提供 ELIGIBLE 列表；如果跳过 A.2 直接做 A.1 mining，B.1 没有依据。
+4. **做了什么**:
+   - **Step 1**: `mkdir dev/scripts/factor_screening/` 后写 `run_rsi_kdj_macd_ic_screen.py`，inline 3 因子（RSI Wilder smoothing + KDJ %K/%D/%J + MACD histogram），mirror `dev/scripts/cycle06/cycle06_track_a_eval.py` 的 `_load_panel` 模式
+   - **Step 2**: 第一次跑 KDJ 出问题 — `j.notna().sum().sum() == 8985`，n_obs=0 IC（< 10 valid symbols/date）。R3 audit 找根因
+   - **Step 3**: 根因 = panel index 含 303 个周末日期（来自非股票数据源 bleed-in），pandas `rolling(N, min_periods=N).min()` 在含 NaN 窗口内 fail，整个股票 universe KDJ 输出 0 cells
+   - **Step 4**: 修复 = `_load_panel_miner` 加 `weekday_mask = panel["close"].index.day_of_week < 5` 过滤，3345 → 3042 dates
+   - **Step 5**: 重跑 — KDJ J non-NaN 8985 → 83665 (9.3× 修复)，3 candidates 都给出真实 IC
+   - **Step 6**: 写 closeout memo `docs/memos/20260507-phase_a2_ic_screening_close.md`（含 4 层 self-audit section）
+5. **修改了哪些文件**:
+   - **新增** `dev/scripts/factor_screening/run_rsi_kdj_macd_ic_screen.py` (~270 行)
+   - **新增** `data/audit/phase_a2_ic_screening.json`（输出，sha256 `5d81eabfc13432df...`）
+   - **新增** `docs/memos/20260507-phase_a2_ic_screening_close.md`（~210 行含 R1/R2/R3/R4 自审）
+   - **新增** 本 log 条目
+6. **跑了哪些测试/实验**:
+   - `python dev/scripts/factor_screening/run_rsi_kdj_macd_ic_screen.py` 实跑 2 次（pre-fix + post-fix），wall-clock 总 ~6 分钟
+   - 中间 5 段 R3 debug 命令（panel inspection / single-symbol KDJ trace / pandas rolling reproduction）确认 weekday filter 是必须的
+   - 没跑 pytest（本 round 0 production code 改动，pure dev script）
+7. **结果如何**:
+   | Candidate | mean_IC (21d) | IR | max \|cor\| with existing | Sibling | Verdict |
+   |---|---|---|---|---|---|
+   | rsi_14d | -0.0083 | -0.032 | **0.884** | return_per_risk_21d | **REJECT** |
+   | kdj_j_9d | -0.0036 | -0.015 | **0.812** | reversal_5d (sign -) | **REJECT** |
+   | macd_hist_12_26_9 | -0.0112 | -0.051 | **0.749** | reversal_10d (sign -) | **REJECT** |
+
+   **0/3 ELIGIBLE**。Round 3 (Phase B.1 factor promotion) 按 PRD yaml acceptance "SKIP this round if 0 ELIGIBLE" 跳过。Round 4 (Phase B.2 SR defer mining integration) 不依赖 B.1，正常执行。
+8. **当前发现的新问题/新机会**:
+   - (a) RSI/KDJ/MACD 在 21d horizon 全是 mom/reversal 既有因子的兄弟 — 数学上 KDJ-J(9) 退化成 5d-momentum scaled by range，MACD-hist 是 trend-acceleration ≈ -reversal_10d，RSI 是 smoothed 风险调整动量。"oscillator framing" 在 21d 不引入新经济信息
+   - (b) 这跟 master PRD §1.2 sibling-binding-constraint 假设一致 — long-only top-N 在 53 stocks + 6 cross-asset 上的几何约束就是主要 binding；factor zoo 扩展无法绕过
+   - (c) **未尝试**: 5d horizon screen（KDJ 传统使用场景）；regime-conditional IC（KDJ 在 BEAR 可能 asymmetric）。这两个是未来 Phase C.2 (cycle08 regime-aware mining) 可以 re-screen 的入口
+   - (d) **跨 round 隐含影响**: 因为 G1 (factor pool expansion) 现在只剩 SR-defer-as-mining-search-dim 一条路；Phase B.2 (Round 4) 的重要性提升 — 它现在是 G1 唯一证据来源
+9. **剩余风险**:
+   - (a) 21d horizon 选择是 PRD 锁定的，符合 cycle06 mining horizon — 但这就把 short-horizon oscillators 的 alpha 屏蔽掉了。如果 user 想再战 RSI/KDJ/MACD，Phase A.2 retry 可以加 5d/63d horizon。这是 directional decision，不在本 round 自主权内
+   - (b) Weekday filter 改了 panel 形状（3345 → 3042 dates）— 跟 cycle04/05/06 mining 的 panel 不完全一致（mining 没做这层过滤），但 mining 的 IC 计算用的是 pearson on sym cross-section per date，不依赖 rolling，所以 weekend 对 mining 不致命。本 round 的 weekday filter 是 IC screening 专用的（避免 rolling NaN）；不影响 R2 cycle07a mining
+   - (c) 本 round REJECT verdict 没经过 user explicit confirmation — 但 PRD §4.1 acceptance gate 是 yaml-locked 的（< 0.6 / 0.6-0.7 / > 0.7），verdicts 是 mechanical computation 输出。如果 user 觉得 0.6 阈值太严，可以 revisit
+10. **下一轮建议方向**: R2 = Phase A.1 cycle07a yaml authoring + 200-trial mining + Track A acceptance on top-3。SR defer 不在本 round 范围（R4），所以 cycle07a yaml 继承 cycle06 verbatim except `objective_weights` reweight + `smoke_n_trials: 16` (Issue I) + `lineage_tag: track-c-cycle-2026-05-07-01`。Mining 后台 ~65 min，期间写 closeout 草稿。
+11. **TODO checklist（更新后）**:
+    - [x] R1 Phase A.2 IC screening — DONE 2026-05-07; 0/3 ELIGIBLE
+    - [ ] (next) R2 Phase A.1 cycle07a yaml + mining + Track A
+    - [ ] R3 Phase B.1 factor promotion — **SKIP** per R1 verdict
+    - [ ] R4 Phase B.2 SR defer mining integration（G1 唯一剩余证据通道）
+    - [ ] R5 Phase B.3 branch decision summary
+    - [ ] R6-R9 Phase C
+    - [ ] R10 Phase D.0 + D.1
+    - [ ] R11-R13 audit final 1/2/3
+
+→ Closeout memo: `docs/memos/20260507-phase_a2_ic_screening_close.md`
+→ Output JSON: `data/audit/phase_a2_ic_screening.json`
+→ Script: `dev/scripts/factor_screening/run_rsi_kdj_macd_ic_screen.py`
