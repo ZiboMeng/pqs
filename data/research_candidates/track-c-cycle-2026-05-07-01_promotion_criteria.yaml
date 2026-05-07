@@ -1,0 +1,306 @@
+# Promotion Criteria — Track C Cycle #07a (PRD master cycle07a reweight)
+#
+# Authority:
+#   - docs/prd/20260506-cycle07_to_fleet_master_prd.md v1.1 §4.1 Phase A.1
+#     (master PRD; ralph-loop baseline; sha256 in commit 9c2d24d)
+#   - docs/prd/20260505-mining_objective_nav_based_plus_execution_policy_prd.md
+#     (PRD-AC v1.1; v2_nav_based objective semantics)
+#   - docs/memos/20260506-cycle06_closeout.md (cycle #06 0-nominee +
+#     H1 Spearman 0.89 too-IR-heavy + H3 Pareto regression)
+#   - docs/memos/20260507-phase_a2_ic_screening_close.md (R1 RSI/KDJ/MACD
+#     0/3 ELIGIBLE → factor pool stays 67; no expansion this cycle)
+#   - User explicit-go 2026-05-06 ("/ralph-loop:ralph-loop ...")
+#
+# IMMUTABILITY CONTRACT:
+#   Once this file is committed with sha256 recorded in commit message,
+#   ALL fields below are FROZEN for this lineage. If any threshold turns
+#   out wrong in hindsight, the next research cycle gets new criteria;
+#   this lineage's bar does NOT move.
+#
+# SHA256 verification:
+#   sha256sum data/research_candidates/track-c-cycle-2026-05-07-01_promotion_criteria.yaml
+#
+# Lineage tag:    track-c-cycle-2026-05-07-01
+# Authored:       2026-05-07
+# Authored by:    Claude (operator) under user explicit-go + master PRD §4.1
+# Authoring axis: SINGLE-AXIS reweight of cycle06 v2_nav_based objective.
+#                 ALL OTHER fields inherit cycle06 verbatim per master PRD
+#                 §4.1 Issue E inherit list.
+#                 = same universe + construction + factor pool + holding_freq
+#                   choices + R41 anchor pool as cycle #06, BUT:
+#                   (i)   objective_weights w_ir 0.70 → 0.40 (NAV-side
+#                         total weight up 4× from 0.20 to 0.65)
+#                   (ii)  w_nav_sharpe 0.15 → 0.30 (heavier NAV-Sharpe
+#                         pull)
+#                   (iii) w_nav_max_dd_penalty 0.05 → 0.15 (heavier MaxDD
+#                         penalty)
+#                   (iv)  w_nav_orthogonality 0.0 → 0.00 (Issue A R3-
+#                         confirmed NOOP at cycle06 anchor distribution;
+#                         deferred to Phase C anchor-redesign)
+#                   (v)   w_vs_qqq_excess 0.0 → 0.20 (qqq excess into
+#                         objective; cycle06 0/0 trials passed
+#                         vs_qqq_excess hard blocker)
+#                 PLUS:
+#                   (vi)  smoke_abort_clause.smoke_n_trials 8 → 16 per
+#                         master PRD Issue I (cycle06 archive rate 15%
+#                         → 8-trial smoke variance too high)
+
+
+lineage_tag: track-c-cycle-2026-05-07-01
+panel_max_date_at_freeze: 2024-12-31
+freeze_date: 2026-05-07
+factor_registry_pool: RESEARCH_FACTORS
+data_source_canonical: post_rebuild_2026_05_01_canonical_plus_yfinance_backfill_2009_2014
+end_date: 2025-12-31  # G4 cutoff (validation 2025 visible to selector,
+                       # not to miner; sealed 2026 NEVER read)
+
+drop_symbols:
+  - BRK-B  # round-3 step3b drop, no_1m_data
+  - USO    # cycle #04 preflight §"USO 单独提示" — futures roll yield +
+           # 2 single-day jumps > 50% in 2020 oil collapse; out of scope
+  - SLV    # not cluster-mapped in cycle #04; reserve for future cross-asset
+           # expansion that includes additional commodity sleeves
+
+
+# ── Universe (cycle #04/06 config retained for direct comparison) ────
+
+universe_extension:
+  mode: stocks_plus_cross_asset
+  stocks_count: 53          # 54 base − BRK-B drop
+  cross_asset_count: 6      # TLT, IEF, SHY, GLD, BIL, SHV
+  total_eligible: 59
+  cluster_count_total: 22   # 17 stock + 5 cross-asset
+  cross_asset_cluster_map_module: core.research.risk_cluster_map.CROSS_ASSET_RISK_CLUSTER_MAP
+  unified_cluster_map_helper: core.research.risk_cluster_map.make_unified_cluster_map
+  asset_class_map_module: core.research.risk_cluster_map.ASSET_CLASS_BY_CLUSTER
+
+
+# ── Construction (cycle #04/06 config retained) ─────────────────────
+
+construction:
+  mode: cap_aware_cross_asset
+  rebalance_cadence: monthly  # DEFAULT; overridden per-trial by holding_freq sample
+  top_n: 10
+  cluster_cap: 0.20
+  max_single_weight: 0.10
+  min_holding_days: 1
+  long_only: true
+  no_short: true
+  no_margin: true
+  asset_class_caps:
+    equities_max:    0.70
+    bonds_max:       0.40
+    commodities_max: 0.20
+    cash_anchor_max: 0.30
+  asset_class_min_report_only:
+    non_equity_weight_avg_min_report: 0.15  # NOT enforced; report-only
+    non_equity_weight_p25_min_report: 0.05  # NOT enforced; report-only
+
+
+# ── Mining (PRD-AC v1.1 v2_nav_based; cycle07a single-axis reweight) ──
+
+mining_config:
+  sampler: tpe
+  seed: 42
+  n_trials: 200
+  min_families: 3
+  max_features_per_family: 2
+  composite_cardinality: 3
+  composite_weighting: equal_weight
+  archive_db: data/mining/rcm_archive.db
+  optuna_db: data/mining/rcm_optuna.db
+  out_dir: data/ml/research_miner/track-c-cycle-2026-05-07-01
+  panel_start_date: "2009-01-02"
+  panel_end_date: "2025-12-31"
+  temporal_split_role: core
+  factor_registry_source: core/factors/factor_registry.py
+  factor_registry_pool: RESEARCH_FACTORS
+  explicit_exclusions:
+    - intraday_autocorr_21d
+    - intraday_vol_ratio_21d
+    - realized_vol_60m_21d
+
+  # PRD-AC v1.1 §4.7 v2_nav_based objective + master PRD §4.1 Phase A.1
+  # SINGLE-AXIS REWEIGHT: NAV-side weight up from 0.20 sum to 0.65 sum.
+  objective_version: v2_nav_based
+  objective_weights:
+    # Legacy weighted-sum (IR-side total weight DOWN from 0.80 to 0.50)
+    w_ir:               0.40   # cycle06 was 0.70
+    w_turnover:         0.05
+    w_corr_conc:        0.05
+    w_bench_excess:     0.0
+    w_regime_stddev:    0.0
+    # PRD-AC v1.1 NAV-based extension (NAV-side total weight UP from 0.20 to 0.65)
+    w_nav_sharpe:           0.30   # cycle06 was 0.15
+    w_nav_max_dd_penalty:   0.15   # cycle06 was 0.05
+    # Issue A R3-confirmed NOOP at cycle06 anchor distribution (max
+    # anchor_corr=0.373 < 0.5 threshold). Setting any positive value
+    # here would be literal NOOP; threshold redesign deferred to
+    # Phase C anchor-swap (cycle08).
+    w_nav_orthogonality:    0.00   # cycle06 was 0.0; staying 0
+    # qqq excess into objective: cycle06 had 0/0 trials passing
+    # vs_qqq_excess hard blocker; adding 0.20 weight to push TPE
+    # toward QQQ-aware specs.
+    w_vs_qqq_excess:        0.20   # cycle06 was 0.0
+
+  # PRD-AC v1.1 §4.5 Phase 3 round 1 search-space dims
+  holding_freq_choices: [monthly, weekly, daily]
+  enable_sr_defer_choices: [false]   # round 1 stub; round 2 (master PRD
+                                     # Phase B.2 / R4) will add true branch
+
+
+# ── Hard requirements (Track A acceptance gates per PRD §5.3) ─────────
+
+hard_requirements:
+  composite_ic_ir_full_period_min: 0.30
+  walk_forward_ic_ir_min_per_fold: 0.0
+  composite_cardinality: 3
+  fwd_return_horizon_days: 21
+  ic_evaluation_lag_bars: 1
+
+
+# ── Hard blockers ─────────────────────────────────────────────────────
+
+hard_blockers:
+  - any_validation_year_maxdd_above_0_20
+  - any_stress_slice_maxdd_above_0_25
+  - validation_aggregate_excess_vs_qqq_le_0    # full-period vs QQQ; HARD
+  - validation_2025_role_hard_gate_failure     # 2025 vs QQQ excess > 0; HARD
+
+
+# ── Phase 4 NAV-objective-specific report-only metrics ────────────────
+
+phase_4_nav_specific_report_only:
+  must_report_distribution_across_all_archived_trials:
+    - nav_sharpe                                    # train-only, gap-masked
+    - nav_max_dd                                    # train-only, gap-masked
+    - nav_correlation_vs_anchor_pooled_raw          # SPY-residual anchor (cycle06 anchor)
+    - nav_vs_qqq_excess_full_period                 # train-only, gap-masked
+    - holding_freq_chosen_distribution              # daily/weekly/monthly counts
+    - enable_sr_defer_chosen_distribution           # all false in round 1
+  must_report_top_10_trials:
+    - same as above + factors + weights + objective_version
+  anchor_calibration_diagnostic:
+    must_report:
+      - nav_corr_anchor_distribution_p25_p50_p75_p95
+      - n_trials_below_threshold_0_50
+      - n_trials_in_band_0_50_0_70
+      - n_trials_above_0_70
+    decision_rule_post_mining: |
+      cycle06 already produced: 0/66 trials > 0.5 anchor_corr;
+      max=0.373. cycle07a uses SAME anchor (universe-equal-weight
+      residual; NOT yet RCMv1+Cand-2+Trial9 — that's Phase C cycle08).
+      Anchor distribution expected to be similar to cycle06.
+
+
+# ── R41 informational (PRD I18 fix: Tier 2 still counts as nominee) ───
+# cycle07a inherits cycle06 anchor pool verbatim (RCMv1 + Cand-2). Phase C
+# cycle08 will dynamically extend per master PRD Issue L.
+
+r41_informational:
+  apply_anchors:
+    - rcm_v1_defensive_composite_01
+    - candidate_2_orthogonal_01
+  classification_thresholds:
+    pooled_raw_pearson_lt_0_50:    true_diversifier
+    pooled_raw_pearson_0_50_0_70:  partial_diversifier
+    pooled_raw_pearson_0_70_0_85:  warn_label_void
+    pooled_raw_pearson_gte_0_85:   reject_step5
+  i18_decision_rule: |
+    Per PRD-AC §5.3 I18 fix: a spec passing Track A acceptance + Phase 4
+    smoke deliverables but R41-classified as Tier 2 (sibling-by-NAV vs
+    RCMv1 / Cand-2) STILL counts as a nominee. Closeout memo MUST
+    surface "R41 informational = Tier <N>, sibling-by-NAV with
+    raw NAV correlation [value]" and the user decides downstream
+    promotion at Track D time.
+
+
+# ── Smoke-abort gate (cycle04/06 lineage; master PRD Issue I override) ─
+
+smoke_abort_clause:
+  enabled: true
+  # Master PRD Issue I (second-audit): cycle06 archive rate 15% (3/20 in
+  # first 20 trials per archive query). 8-trial smoke E[finite] ≈ 1.2,
+  # variance high → 0-finite-in-8 expected ~30%+ of cycle07a runs by
+  # chance even if mining is sound. Override 8 → 16 per Issue I.
+  smoke_n_trials: 16
+  decision_metric: any_v2_nav_based_trial_archived_ok_with_finite_nav_sharpe
+  thresholds:
+    abort_if_zero_finite_nav_sharpe_in_16_trials: true
+  abort_action: |
+    do_not_run_full_200_trial_mining; close cycle in smoke-abort state;
+    surface to user — likely indicates NAV gate is broken or panel /
+    anchor / harness_config wiring issue.
+
+
+# ── 2025 QQQ soft-miss trade-off (cycle #04/06 lineage) ──────────────
+
+post_2025_qqq_soft_miss_trade_off_clause:
+  enabled: true
+  trigger_when_all_satisfied:
+    - validation_2025_excess_vs_qqq_lt_0
+    - validation_2025_excess_vs_spy_gt_0
+    - full_period_excess_vs_qqq_gt_0
+    - validation_2025_max_dd_le_qqq_2025_max_dd_minus_5pp
+  action_on_trigger: |
+    Closeout records "soft 2025 QQQ miss with diversifier offset".
+    Surface to user as informed choice on whether to soften the 2025
+    QQQ hard gate to a directional warning.
+
+
+# ── Hypothesis pre-registration (master PRD §4.1 Phase A.1 acceptance) ─
+
+hypotheses:
+  H1_v2_vs_v1_spearman_under_0_70: |
+    Master PRD §4.1 acceptance: with NAV-side weight 4× higher than
+    cycle06 (0.20 → 0.65 sum), expect Spearman rank correlation top-10
+    cycle07a vs cycle06 < 0.7. Cycle06 was 0.89 (FAIL — too IR-heavy).
+    Test: post-mining, recompute cycle06 archive's objective with
+    cycle07a weights, rank top-10; compare to cycle07a actual top-10.
+
+  H2_holding_freq_complete_state_cells_geq_30: |
+    Master PRD §4.1 Issue B (second-audit): "holding_freq distribution
+    among Optuna COMPLETE-state trials, ≥ 30 per cell". Pruned trials
+    don't have holding_freq sampled (suggest_composite_spec prunes
+    BEFORE holding_freq sampling — R3-verified on cycle06). Cycle06
+    had 1344 COMPLETE / 451 PRUNED (~25% prune); cycle07a expected
+    similar. Cell distribution measured via optuna.load_study(
+    ...).trials filtered to COMPLETE state.
+
+  H3_v2_top_1_nav_sharpe_geq_v1_top_1: |
+    Master PRD §4.1: post-mining, the cycle07a top-1 trial's nav_sharpe
+    is ≥ cycle06 top-1 trial's nav_sharpe (Pareto improvement on
+    NAV-Sharpe). Cycle06 top-1 was nav_sharpe -0.099 (negative).
+    cycle07a expected to push positive given 4× higher NAV weight.
+
+  H4_track_a_at_least_one_pass: |
+    Master PRD §4.1 acceptance: at least 1 of cycle07a top-3 trials
+    passes Track A acceptance (per-validation-year vs SPY ≥ 4/5;
+    per-year MaxDD ≤ 20%; 2025 hard gate; stress slices ≤ 25%; cost
+    robustness; concentration; beta to QQQ ≤ 0.85).
+
+  H5_r41_at_least_one_under_0_70: |
+    Master PRD §4.1 acceptance: at least 1 trial in cycle07a top-10
+    with raw NAV correlation < 0.70 vs RCMv1+Cand-2 anchor pool
+    (informational Tier 2 / partial_diversifier). Cycle06 had 0/66
+    trials.
+
+
+# ── Authorization markers ─────────────────────────────────────────────
+
+authorization:
+  master_prd: docs/prd/20260506-cycle07_to_fleet_master_prd.md
+  prd_ac_v1_1: docs/prd/20260505-mining_objective_nav_based_plus_execution_policy_prd.md
+  cycle06_closeout: docs/memos/20260506-cycle06_closeout.md
+  phase_a2_closeout: docs/memos/20260507-phase_a2_ic_screening_close.md
+  user_explicit_go: |
+    zibo 2026-05-06: "/ralph-loop:ralph-loop ..." (master PRD baseline ralph-loop)
+  predecessors:
+    - track-c-cycle-2026-05-01-04 (cap-aware cross-asset; 0 nominee, Tier 2 sibling)
+    - track-c-cycle-2026-05-01-05 (anchor-sensitivity; 7 R41 Tier 1 but invariant fail)
+    - track-c-cycle-2026-05-06-01 (v2_nav_based debut; 0 nominee, H1 Spearman 0.89)
+  cycle07a_compute_estimate: |
+    Per Phase 2 round 2 wall-clock benchmark (median 19.36s/trial,
+    p95 19.86s on partition_for_role(miner) panel + cap_aware_cross_
+    asset construction): 200 trials ≈ 65 minutes mining wall-clock +
+    ~30 sec panel/factor load. Same as cycle06.
