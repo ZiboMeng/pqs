@@ -17630,3 +17630,37 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
 → Final synthesis: `docs/memos/20260506-cycle07_to_fleet_final_synthesis.md`
 → R12 audit: `docs/audit/20260506-cycle07_fleet_audit_final_2.md`
 → Cycle08 closeout: `docs/memos/20260520-cycle08_closeout.md`
+
+# R-cycle07a-trial3-rerun-2026-05-07: P0 wiring bug + cycle07a 0/3 → 1/3 nominee
+
+## 1. 本轮目标
+执行用户拍板的"路线 2": 修 cycle06/07a/08 evaluator 的 `beta_to_qqq` metric path wiring bug + retroactive 重跑历史 cycle Track A 评估，验证是否有 trial 在修复后 flip PASS。同时执行 daily forward observation ritual。
+
+## 2. 做了什么 + 修改了哪些文件
+- 修 `dev/scripts/cycle06/cycle06_track_a_eval.py` + `dev/scripts/cycle07a/cycle07a_track_a_eval.py`: 把 `metrics["beta_to_qqq"]` 改成 nested `metrics["beta"]["beta_to_qqq"]`（mirror yaml schema `acceptance.beta.beta_to_qqq_max`）；加 `--freeze-date` CLI 参数 + 自动从 lineage tag 推 freeze_date；调用 `run_split_acceptance(... , freeze_date=...)` 触发 v3 dispatch (>= 2026-05-02 cutoff)
+- 加 `tests/unit/research/test_beta_metric_path_canonical.py` 6 个 regression test 钉住 canonical schema + v1/v3 dispatch 行为
+- 写 postmortem `docs/audit/20260507-beta_metric_path_bug_postmortem.md`
+- 重跑 cycle07a 评估输出 `data/audit/cycle07a_track_a_eval_track-c-cycle-2026-05-07-01_RERUN_2026-05-07.json`
+- Daily ritual: fetch_data + Trial 9 forward observe + options paper observe + cumulative VRP scan
+
+## 3. 跑了哪些测试 + 当前结果
+- 6 new regression tests PASS (0.21s)
+- 40 related tests in research/ all PASS (no regression)
+- cycle07a re-eval verdict (3 trials):
+  - `81cfb5f4c4f5` FAIL (vs_spy aggregate + 2025 vs_spy)
+  - `f133a18d1495` FAIL (vs_spy aggregate)
+  - **`1e771580f486` PASS (17/17 gates)** ← cycle07a 首个 nominee
+- Trial 3 metrics: 17yr cum_ret +1016%, sharpe 1.08, max_dd -20%, beta 0.534, 2018 BEAR vs_spy +5.9%, 2025 vs_spy +8.4%, covid_flash +3.6% (vs SPY -13.8%), rate_hike_2022 -7.3% (vs SPY -16.6%), top1 14.5%, top3 36.6%
+- Daily ritual: Trial 9 TD004 cum_ret +5.04% (down from TD003 +8.02%) / options paper TD004 NAV $10K flat / VRP scan N=5 COIN+NVDA stable rank, AMD high-noise
+
+## 4. 剩余风险
+- cycle06 + cycle08 re-eval 还在跑（背景），结果未明
+- Trial 3 forward init 需用户拍板（directional 决策）
+- 5-cycle sibling drift 战略检讨 memo 数据要等所有 cycle re-eval 完才能写
+- Multi-TF test failure (task B) 还没动
+
+## 5. 下一步
+- 等 cycle06 + cycle08 re-eval 完成 → 更新 postmortem 表格
+- 根据用户决定是否 forward init Trial 3
+- 之后启动 sibling memo（task 24）+ multi-TF root cause (task 23)
+
