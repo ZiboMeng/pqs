@@ -17198,3 +17198,50 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
 → Closeout memo: `docs/memos/20260507-phase_a2_ic_screening_close.md`
 → Output JSON: `data/audit/phase_a2_ic_screening.json`
 → Script: `dev/scripts/factor_screening/run_rsi_kdj_macd_ic_screen.py`
+
+
+---
+
+## R-cycle07-to-fleet-2026-05-06-round-03 (Phase B.1 SKIP — 0 ELIGIBLE per R1)
+
+1. **本轮主题**: cycle07-to-fleet master ralph-loop 第 3 轮 / 13 轮。Phase B.1 — RSI/KDJ/MACD 因子晋级到 RESEARCH_FACTORS (master PRD §4.2)。
+2. **本轮目标**: 按照 R1 (Phase A.2) verdict 决定是否晋级；如果有 ELIGIBLE 因子，写实现+注册+测试。如果 0 ELIGIBLE，按 yaml acceptance "SKIP this round if 0 ELIGIBLE" 跳过。
+3. **为什么这轮优先做它**: ralph-loop iter budget 紧张 (iter 6/14)。R3 outcome 由 R1 mechanical verdict 决定 (0/3 ELIGIBLE → SKIP)，不依赖 R2 mining 完成，可以现在就 close 掉省 1 个 iter。
+4. **做了什么**:
+   - 确认 R1 closeout (`docs/memos/20260507-phase_a2_ic_screening_close.md`) 中 3 因子全 REJECT verdict
+   - 写 R3 SKIP closeout memo `docs/memos/20260507-phase_b1_factor_promotion_skip.md` 含 4 层自审
+   - 没有任何代码改动（pure SKIP）
+5. **修改了哪些文件**:
+   - **新增** `docs/memos/20260507-phase_b1_factor_promotion_skip.md`（~150 行含 R1/R2/R3/R4 自审）
+   - **新增** 本 log 条目
+   - 没有 `core/` `tests/` `data/` 改动
+6. **跑了哪些测试/实验**:
+   - 没跑 pytest（pure SKIP，0 code change）
+   - 用 `jq` 验证 R1 JSON 输出（sha256 `5d81eabfc13432df...`）confirms 3 个 REJECT verdict
+7. **结果如何**:
+   | Candidate | max \|cor\| | Sibling | Verdict |
+   |---|---|---|---|
+   | rsi_14d | 0.884 | return_per_risk_21d | REJECT |
+   | kdj_j_9d | 0.812 | reversal_5d (sign -) | REJECT |
+   | macd_hist_12_26_9 | 0.749 | reversal_10d (sign -) | REJECT |
+
+   0/3 ELIGIBLE → R3 **SKIP**。RESEARCH_FACTORS 仍是 67 个，FAMILIES_V2 不变。R7 (cycle08 mining) 将用同样 67-factor pool。
+8. **当前发现的新问题/新机会**:
+   - (a) R3 SKIP 并不等于 R1 work 浪费——REJECT verdicts 本身就是证据，confirms master PRD §1.2 sibling-binding-constraint 假设
+   - (b) G1 (factor pool expansion) 现在唯一的证据通道是 R4 Phase B.2 SR defer 进 mining。R4 必须 ship 才能 close G1
+   - (c) iter budget 现在 8 个 iter (6 used / 14 total) 给 R2.5 + R4 + R5 + R6 + R7 + R8 + R9 + R10 + R11 + R12 + R13 = 11 rounds。需要继续 bundle (e.g., R5 closeout + R8/R9 + R11/R12/R13 audit)
+9. **剩余风险**:
+   - (a) R2 mining 还在跑（PID 94689，etime 23+ min, 26 archived），daisy chain bg task `bo15la8z6` 等到 mining 结束自动跑 analysis + Track A eval。后续 iter 取结果写 R2 closeout
+   - (b) R3 SKIP 的 commit 在 R2 closeout commit 之前 ship — git 历史顺序 R3 commit 在前但内容 logical 顺序是 R1→R2→R3。如果有人按 commit log 重放，会看到 R3 SKIP 在 R2 mining 跑完之前就 land。这是 iter budget tradeoff，不影响结果正确性
+10. **下一轮建议方向**: R2.5（等 daisy chain 跑完）→ 写 cycle07a closeout + Chinese log + commit。然后进 R4 (Phase B.2 SR defer mining integration)。R4 substantial code change，~2 iter。
+11. **TODO checklist（更新后）**:
+    - [x] R1 Phase A.2 IC screening — DONE; 0/3 ELIGIBLE
+    - [⏳] R2 Phase A.1 cycle07a mining — running (26/~80 archived; daisy chain armed)
+    - [x] **R3 Phase B.1 — SKIP per R1 verdict (this round)**
+    - [ ] R4 Phase B.2 SR defer mining integration
+    - [ ] R5 Phase B.3 branch decision summary
+    - [ ] R6-R9 Phase C
+    - [ ] R10 Phase D.0 + D.1
+    - [ ] R11-R13 audit final 1/2/3
+
+→ Closeout memo: `docs/memos/20260507-phase_b1_factor_promotion_skip.md`
