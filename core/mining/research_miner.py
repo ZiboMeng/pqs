@@ -1670,10 +1670,24 @@ class ResearchMiner:
             # needed at study level). v1_legacy = all w_nav_* default 0;
             # v2_nav_based opts in via at least one non-zero w_nav_*.
             ow = self.objective_weights
-            archive.record_study(
-                study_id=study_id,
-                lineage_tag=lineage_tag,
-                objective_weights={
+            # Master PRD §4.3 C.1 (R6 wire fix 2026-05-08): v3 record_study
+            # serializes ObjectiveWeightsV3 fields. v1/v2 path unchanged.
+            if isinstance(ow, ObjectiveWeightsV3):
+                ow_dict = {
+                    "objective_version": "v3_regime_conditional",
+                    "w_ir_BULL": ow.w_ir_BULL,
+                    "w_ir_RISK_ON": ow.w_ir_RISK_ON,
+                    "w_ir_NEUTRAL": ow.w_ir_NEUTRAL,
+                    "w_ir_CAUTIOUS": ow.w_ir_CAUTIOUS,
+                    "w_ir_RISK_OFF": ow.w_ir_RISK_OFF,
+                    "w_ir_CRISIS": ow.w_ir_CRISIS,
+                    "w_nav_sharpe_BULL": ow.w_nav_sharpe_BULL,
+                    "w_nav_sharpe_BEAR": ow.w_nav_sharpe_BEAR,
+                    "w_nav_orthogonality": ow.w_nav_orthogonality,
+                    "w_vs_qqq_excess": ow.w_vs_qqq_excess,
+                }
+            else:
+                ow_dict = {
                     "objective_version": (
                         "v2_nav_based" if ow.is_nav_based() else "v1_legacy"
                     ),
@@ -1686,7 +1700,11 @@ class ResearchMiner:
                     "w_nav_max_dd_penalty": ow.w_nav_max_dd_penalty,
                     "w_nav_orthogonality": ow.w_nav_orthogonality,
                     "w_vs_qqq_excess": ow.w_vs_qqq_excess,
-                },
+                }
+            archive.record_study(
+                study_id=study_id,
+                lineage_tag=lineage_tag,
+                objective_weights=ow_dict,
                 split_name=split_name,
                 split_sha256=split_sha256,
                 role=role,
