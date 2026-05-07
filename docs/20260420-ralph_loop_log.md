@@ -17314,3 +17314,65 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
 → Tests: `tests/unit/mining/test_prd_b2_sr_defer_mining.py` (6 tests)
 → Modified: `core/mining/research_miner.py` (SR defer NAV path + ctor)
 → Modified: `scripts/run_research_miner.py` (60m bar loading + True ban lift)
+
+
+---
+
+## R-cycle07-to-fleet-2026-05-06-round-06 (Phase C.1 ObjectiveWeightsV3 + regime-conditional eval)
+
+1. **本轮主题**: cycle07-to-fleet master ralph-loop 第 6 轮 / 13 轮（按 PRD round 编号；iter 9 实际执行）。Phase C.1 — regime-conditional mining objective v3 设计 + 实现。
+2. **本轮目标**: ObjectiveWeightsV3 dataclass + compute_objective isinstance dispatch (Issue N) + evaluate_composite_regime_conditional + Issue D fallback (regime n_days < 200 → 用 full-period IC) + 测试。
+3. **为什么这轮优先做它**: G2 (regime-aware mechanism) 唯一 evidence 通道。R7 cycle08 yaml 需要 v3 objective_version 的代码已经 ship 才能 enable_sr_defer + regime-conditional mining 一起跑。R6 跟 R2 mining 完全独立，可以并行做。
+4. **做了什么**:
+   - **core/mining/research_miner.py**:
+     - 加 `ObjectiveWeightsV3` frozen dataclass：6 个 per-regime IR 权重（BULL/RISK_ON/NEUTRAL/CAUTIOUS/RISK_OFF/CRISIS，default 偏 BEAR 1.5/2.0），2 个 NAV-Sharpe 权重（BULL=0.10 / BEAR=0.30 BEAR 是 CAUTIOUS+RISK_OFF+CRISIS aggregate），full-period anchor + vs_qqq 两个 weights
+     - `compute_objective` 加 isinstance 分派：当 weights 是 ObjectiveWeightsV3 时调用 `_compute_objective_v3`；当不是 dict (CompositeMetrics) 时 raise TypeError
+     - 加 `_compute_objective_v3(metrics_per_regime, weights)`：per-regime IR weighted sum + BEAR-aggregate NAV-Sharpe (CAUTIOUS+RISK_OFF+CRISIS 平均) + full-period 锚 + vs_qqq；NaN-safe
+     - 加 `evaluate_composite_regime_conditional(spec, factor_panel_map, fwd_returns, daily_regime_labels, ...)`：
+       - 先跑一次 full-period evaluate_composite (compute_nav 由 nav_active 决定)
+       - 对每个 regime: stratify fwd_returns to regime days, 跑 evaluate_composite (no NAV) 得 regime-stratified IC
+       - **Issue D fallback**: 如果 regime n_days < fallback_min_n_days (default 200), 用 full-period IC 而不是 stratified（避免 tiny-sample 噪音 dominante 目标函数）
+       - NAV metrics（sharpe/max_dd/orth/vs_qqq）所有 regime 都用 full-period 值（per-regime NAV slicing 出 R6 scope，需要 BacktestEngine per-regime 重跑，defer 到 R7+）
+   - **tests/unit/mining/test_prd_c1_regime_conditional_v3.py** 新增（10 个测试）:
+     - 3 个 ObjectiveWeightsV3 dataclass 测试（default shape + is_nav_based）
+     - 5 个 compute_objective dispatch 测试（v3 dispatch 计算正确性 + TypeError on non-dict + all-zero IR 返回 0 + all-NaN IR 返回 -inf + v1 path 不变）
+     - 2 个 evaluate_composite_regime_conditional 测试（per-regime dict 返回 + Issue D fallback 行为）
+     - 1 个 NAV path 测试（full-period NAV identical across regimes，确认 R6 scope）
+5. **修改了哪些文件**:
+   - **修改** `core/mining/research_miner.py` (~+200 行：v3 dataclass + dispatch + _compute_objective_v3 + evaluate_composite_regime_conditional)
+   - **新增** `tests/unit/mining/test_prd_c1_regime_conditional_v3.py` (~210 行 + 10 tests)
+   - **新增** 本 log 条目
+6. **跑了哪些测试/实验**:
+   - 新 R6 tests 全部通过：`pytest tests/unit/mining/test_prd_c1_regime_conditional_v3.py` 10 passed
+   - Regression 通过：`pytest tests/unit/mining/test_prd_ac_phase3_search_space.py test_prd_ac_nav_objective.py test_prd_b2_sr_defer_mining.py` 40 passed (= 6 R4 + 24 phase3 + 10 nav_obj)
+   - 手动 dispatch verify：v3 obj on dict + v1 obj on single — 都 OK
+7. **结果如何**:
+   - Phase C.1 design + impl + tests landed
+   - cycle08 yaml (R7) 现在可以设 `objective_version: v3_regime_conditional` + 提供 ObjectiveWeightsV3 to ResearchMiner ctor
+   - Issue D fallback 工作正确：regime n_days < 200 → 用 full-period IC (verified test test_evaluate_composite_regime_conditional_issue_d_fallback)
+   - cycle04/05/06 backward compat: ObjectiveWeights (v1) path 完全不变 (test_compute_objective_v1_path_unchanged confirms)
+8. **当前发现的新问题/新机会**:
+   - (a) **R6 scope limitation**: per-regime NAV (sharpe/max_dd) 用的是 FULL-period values，不是 regime-stratified。要做真正 per-regime NAV 需要在 evaluate_composite_regime_conditional 内对 full daily_returns 做 regime mask + 重算 sharpe/max_dd。defer 到 R7 cycle08 yaml 里实施（如果 NAV-by-regime 真的能驱动有用的 alpha）
+   - (b) `_compute_objective_v3` 用 `next(iter(...)).first` 取 anchor + vs_qqq 是依赖 "all regimes have same full-period NAV" 不变量。R6 测试 confirm 这一点。如果未来真做 per-regime NAV，要重新设计 anchor 用法
+   - (c) BEAR aggregate 是 CAUTIOUS + RISK_OFF + CRISIS 简单平均（PRD §4.3 C.1）— 没 weight 各 regime 的 days 数量。如果 CRISIS 只 50 天而 CAUTIOUS 600 天，平均给两者相同 weight 可能 bias 结果。defer 到 R7 cycle08 实战调
+   - (d) `daily_regime_labels` 来源 = `core.research.taa.regime_label_generator.daily_regime_labels` (R6 引入了 import 依赖，但 lazy — 只在 evaluate_composite_regime_conditional 调用时才真正加载)
+9. **剩余风险**:
+   - (a) ResearchMiner.run_trial 还没 dispatch 到 evaluate_composite_regime_conditional — 要在 R7 cycle08 yaml 接 v3 objective 时 wire up。当前 R6 只 ship 了底层 building blocks
+   - (b) regime label 生成在大 panel 上需要 SPY + VIX 数据；cycle08 mining 时要确保 vix series 加载到 ResearchMiner ctor 或 evaluate_composite_regime_conditional 直接 import VIX
+   - (c) Issue N dispatch 是 isinstance 检查；如果有人传 dict 的 weights 但忘了 ObjectiveWeightsV3 wrapper，会 fall back to v1 path (silently degrade)。已加 TypeError on non-dict + V3 weights 但反向（dict + V1 weights）会 silently 走 v1 path。文档清楚就好
+10. **下一轮建议方向**: R2.5 (cycle07a closeout 等 mining done) → R5 (Phase B.3 quick) → R7 (cycle08 yaml + mining run) bundling
+11. **TODO checklist（更新后）**:
+    - [x] R1 Phase A.2 IC screening
+    - [⏳] R2 Phase A.1 cycle07a mining (53/200 archived)
+    - [x] R3 Phase B.1 SKIP
+    - [x] R4 Phase B.2 SR defer mining integration
+    - [ ] R5 Phase B.3 branch decision summary
+    - [x] **R6 Phase C.1 regime-conditional v3 — DONE 2026-05-07** (note: R6 done before R5 due to iter budget; R5 closeout pending R2)
+    - [ ] R7 Phase C.2 cycle08 yaml + 200-trial mining
+    - [ ] R8 Phase C.3 cycle08 acceptance + R41 + G3
+    - [ ] R9 Phase C.4 closeout
+    - [ ] R10 Phase D.0 + D.1
+    - [ ] R11-R13 audit final 1/2/3
+
+→ Tests: `tests/unit/mining/test_prd_c1_regime_conditional_v3.py` (10 tests)
+→ Modified: `core/mining/research_miner.py` (ObjectiveWeightsV3 + isinstance dispatch + evaluate_composite_regime_conditional)

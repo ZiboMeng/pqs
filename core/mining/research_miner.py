@@ -1188,11 +1188,56 @@ class ObjectiveWeights:
         )
 
 
+# Regime classification used by ObjectiveWeightsV3 + regime-conditional
+# objective. "BEAR" is an aggregate of CAUTIOUS / RISK_OFF / CRISIS per
+# master PRD §4.3 C.1; per-regime weights below cover {BULL, RISK_ON,
+# NEUTRAL, CAUTIOUS, RISK_OFF, CRISIS}.
+_REGIME_BEAR_AGGREGATE = ("CAUTIOUS", "RISK_OFF", "CRISIS")
+
+
+@dataclass(frozen=True)
+class ObjectiveWeightsV3:
+    """Master PRD §4.3 C.1 (R6 ship 2026-05-07) regime-conditional weights.
+
+    v3 objective dispatches via ``isinstance(weights, ObjectiveWeightsV3)``
+    in ``compute_objective`` (Issue N). v1/v2 callers see the existing
+    ``ObjectiveWeights``-typed weights argument; v3 callers pass a
+    ``Dict[regime, CompositeMetrics]`` as the first arg instead of a
+    single ``CompositeMetrics``.
+
+    Default favors BEAR-conditional alpha (``w_ir_RISK_OFF``=1.5,
+    ``w_ir_CRISIS``=2.0) per PRD §4.3 C.1 example. Caller can tune.
+
+    The full-period anchor / vs_qqq weights (``w_nav_orthogonality``,
+    ``w_vs_qqq_excess``) operate on the regime-aggregated NAV (not
+    regime-stratified) — they're full-period gates that should not
+    differ across regimes.
+    """
+    # Per-regime IR weights (favor BEAR-conditional alpha)
+    w_ir_BULL: float = 0.5
+    w_ir_RISK_ON: float = 0.5
+    w_ir_NEUTRAL: float = 0.5
+    w_ir_CAUTIOUS: float = 1.0
+    w_ir_RISK_OFF: float = 1.5
+    w_ir_CRISIS: float = 2.0
+    # Per-regime NAV-Sharpe weights (BEAR aggregates CAUTIOUS+RISK_OFF+CRISIS)
+    w_nav_sharpe_BULL: float = 0.10
+    w_nav_sharpe_BEAR: float = 0.30
+    # Full-period (NOT regime-stratified)
+    w_nav_orthogonality: float = 2.0
+    w_vs_qqq_excess: float = 0.20
+
+    def is_nav_based(self) -> bool:
+        """v3 is always NAV-based (NAV-Sharpe + orthogonality + vs_qqq are
+        intrinsic to the objective)."""
+        return True
+
+
 def compute_objective(
-    metrics: CompositeMetrics,
+    metrics: "CompositeMetrics | Dict[str, CompositeMetrics]",
     benchmark_excess: float = 0.0,
     regime_stddev: float = 0.0,
-    weights: Optional[ObjectiveWeights] = None,
+    weights: "Optional[ObjectiveWeights | ObjectiveWeightsV3]" = None,
 ) -> float:
     """PRD §8.6 + PRD-AC v1.1 §4.4 weighted-sum objective.
 
@@ -1215,7 +1260,24 @@ def compute_objective(
     metrics also contribute 0 → if a v2 trial has w_nav_sharpe>0 but the
     NAV gate did not run, that trial silently degrades to v1 ranking
     (caller must ensure NAV gate runs when w_nav_* > 0).
+
+    v3_regime_conditional (master PRD §4.3 C.1, R6 ship 2026-05-07):
+    when ``weights`` is an ``ObjectiveWeightsV3`` instance, dispatch to
+    ``_compute_objective_v3`` (Issue N). The first arg must be a
+    ``Dict[regime_name, CompositeMetrics]``; per-regime IR weights are
+    applied + BEAR aggregate of CAUTIOUS/RISK_OFF/CRISIS NAV-Sharpe is
+    averaged. Full-period anchor + vs_qqq use any regime's metrics
+    (full-period values are the same across regimes by construction).
     """
+    # Issue N: ObjectiveWeightsV3 isinstance dispatch
+    if isinstance(weights, ObjectiveWeightsV3):
+        if not isinstance(metrics, dict):
+            raise TypeError(
+                "compute_objective: ObjectiveWeightsV3 dispatch requires "
+                "metrics_per_regime: Dict[regime_name, CompositeMetrics] "
+                f"as first arg; got {type(metrics).__name__}"
+            )
+        return _compute_objective_v3(metrics, weights)
     w = weights or ObjectiveWeights()
     ir = metrics.ic_ir if np.isfinite(metrics.ic_ir) else float("-inf")
     if ir == float("-inf"):
@@ -1253,6 +1315,193 @@ def compute_objective(
         + w.w_vs_qqq_excess * nav_vs_qqq
     )
     return legacy_terms + nav_terms
+
+
+def _compute_objective_v3(
+    metrics_per_regime: Dict[str, "CompositeMetrics"],
+    weights: ObjectiveWeightsV3,
+) -> float:
+    """Master PRD §4.3 C.1 (R6 ship): regime-conditional objective.
+
+    Per-regime IR weights × per-regime IC_IR + BEAR-aggregate NAV-Sharpe
+    + full-period anchor + vs_qqq. NaN-safe: missing regime → 0
+    contribution; missing nav metrics → 0 contribution.
+
+    Returns -inf only when EVERY regime has NaN ic_ir (no signal anywhere).
+    """
+    if not metrics_per_regime:
+        return float("-inf")
+    # Per-regime IR contributions
+    total = 0.0
+    finite_ir_count = 0
+    for regime, metrics in metrics_per_regime.items():
+        w_attr = f"w_ir_{regime}"
+        w_ir = getattr(weights, w_attr, 0.0)
+        ir = metrics.ic_ir if np.isfinite(metrics.ic_ir) else 0.0
+        if np.isfinite(metrics.ic_ir):
+            finite_ir_count += 1
+        total += w_ir * ir
+    if finite_ir_count == 0:
+        return float("-inf")
+    # BULL NAV-Sharpe
+    bull_metrics = metrics_per_regime.get("BULL")
+    bull_sharpe = (
+        bull_metrics.nav_sharpe
+        if bull_metrics is not None
+        and np.isfinite(bull_metrics.nav_sharpe)
+        else 0.0
+    )
+    total += weights.w_nav_sharpe_BULL * bull_sharpe
+    # BEAR NAV-Sharpe (aggregate across CAUTIOUS / RISK_OFF / CRISIS)
+    bear_sharpes = []
+    for regime in _REGIME_BEAR_AGGREGATE:
+        m = metrics_per_regime.get(regime)
+        if m is not None and np.isfinite(m.nav_sharpe):
+            bear_sharpes.append(m.nav_sharpe)
+    avg_bear_sharpe = (
+        sum(bear_sharpes) / len(bear_sharpes) if bear_sharpes else 0.0
+    )
+    total += weights.w_nav_sharpe_BEAR * avg_bear_sharpe
+    # Full-period anchor + vs_qqq (use any regime's full-period values
+    # since they're identical by construction — full-period NAV is one
+    # series sliced by regime for IC, not re-computed per regime)
+    first = next(iter(metrics_per_regime.values()))
+    nav_corr = (
+        first.nav_correlation_vs_anchor_pooled_raw
+        if np.isfinite(first.nav_correlation_vs_anchor_pooled_raw)
+        else 0.0
+    )
+    nav_vs_qqq = (
+        first.nav_vs_qqq_excess_full_period
+        if np.isfinite(first.nav_vs_qqq_excess_full_period)
+        else 0.0
+    )
+    total -= weights.w_nav_orthogonality * max(0.0, nav_corr - 0.5)
+    total += weights.w_vs_qqq_excess * nav_vs_qqq
+    return total
+
+
+def evaluate_composite_regime_conditional(
+    spec: ResearchCompositeSpec,
+    factor_panel_map: Mapping[str, pd.DataFrame],
+    fwd_returns: pd.DataFrame,
+    daily_regime_labels: pd.Series,
+    mask: Optional[pd.DataFrame] = None,
+    horizon: int = 21,
+    lag: int = 1,
+    *,
+    price_df: Optional[pd.DataFrame] = None,
+    open_df: Optional[pd.DataFrame] = None,
+    spy_series: Optional[pd.Series] = None,
+    qqq_series: Optional[pd.Series] = None,
+    anchor_residual_returns: Optional[pd.Series] = None,
+    harness_config: Optional[Any] = None,
+    intraday_bars_60m: Optional[Dict[str, pd.DataFrame]] = None,
+    fallback_min_n_days: int = 200,
+) -> Dict[str, "CompositeMetrics"]:
+    """Master PRD §4.3 C.1 (R6 ship): regime-conditional composite evaluation.
+
+    For each regime in ``daily_regime_labels.unique()``:
+      1. Mask ``fwd_returns`` to days where ``regime_label == regime``
+      2. Issue D fallback: if regime n_days on miner panel < ``fallback_
+         min_n_days``, use full-period IC_IR for that regime (avoids
+         spurious tiny-sample regime estimates)
+      3. Compute per-regime ``CompositeMetrics`` (regime-stratified IC;
+         full-period NAV — running BacktestEngine per regime is
+         out-of-scope for R6 cardinality)
+
+    The ``daily_regime_labels`` Series is typically produced by
+    ``core.research.taa.regime_label_generator.daily_regime_labels``
+    (same generator used by PRD-E TAA Phase 3).
+
+    Returns
+    -------
+    Dict[regime_name, CompositeMetrics]
+        Per-regime metrics. Each entry's NAV fields are FULL-PERIOD
+        values (BacktestEngine ran once on the contiguous train panel);
+        IC fields are regime-stratified (or full-period when fallback
+        fires). Caller (compute_objective via ObjectiveWeightsV3) reads
+        per-regime IC for IR weighting and aggregate NAV for the
+        BEAR/BULL NAV-Sharpe + full-period anchor / vs_qqq terms.
+    """
+    nav_active = (
+        price_df is not None
+        and spy_series is not None
+    )
+    full = evaluate_composite(
+        spec, factor_panel_map, fwd_returns, mask, horizon, lag,
+        price_df=price_df, open_df=open_df,
+        spy_series=spy_series, qqq_series=qqq_series,
+        anchor_residual_returns=anchor_residual_returns,
+        harness_config=harness_config, compute_nav=nav_active,
+        intraday_bars_60m=intraday_bars_60m,
+    )
+    metrics_per_regime: Dict[str, "CompositeMetrics"] = {}
+    label_index = daily_regime_labels.dropna()
+    regimes_in_labels = sorted(label_index.unique())
+    for regime in regimes_in_labels:
+        regime_dates = label_index.index[label_index == regime]
+        n_days = len(regime_dates)
+        if n_days < fallback_min_n_days:
+            # Issue D fallback: regime has too few days on miner panel
+            # for a stable IC estimate — fall back to full-period IR
+            # but record n_days for the audit trail.
+            metrics_per_regime[regime] = CompositeMetrics(
+                n_features=full.n_features,
+                n_families=full.n_families,
+                n_dates=n_days,
+                ic_mean=full.ic_mean,
+                ic_std=full.ic_std,
+                ic_ir=full.ic_ir,  # FALLBACK: full-period
+                turnover_proxy=full.turnover_proxy,
+                corr_concentration=full.corr_concentration,
+                horizon=full.horizon,
+                nav_sharpe=full.nav_sharpe,
+                nav_max_dd=full.nav_max_dd,
+                nav_correlation_vs_anchor_pooled_raw=(
+                    full.nav_correlation_vs_anchor_pooled_raw
+                ),
+                nav_vs_qqq_excess_full_period=(
+                    full.nav_vs_qqq_excess_full_period
+                ),
+            )
+            continue
+        # Stratified IC: restrict fwd_returns to regime days
+        regime_fwd = fwd_returns.reindex(
+            fwd_returns.index.intersection(regime_dates)
+        )
+        regime_metrics = evaluate_composite(
+            spec, factor_panel_map, regime_fwd,
+            mask=(
+                mask.reindex(mask.index.intersection(regime_dates))
+                if mask is not None else None
+            ),
+            horizon=horizon, lag=lag,
+            # Don't recompute NAV per regime — use full-period values
+            compute_nav=False,
+        )
+        metrics_per_regime[regime] = CompositeMetrics(
+            n_features=regime_metrics.n_features,
+            n_families=regime_metrics.n_families,
+            n_dates=regime_metrics.n_dates,
+            ic_mean=regime_metrics.ic_mean,
+            ic_std=regime_metrics.ic_std,
+            ic_ir=regime_metrics.ic_ir,
+            turnover_proxy=regime_metrics.turnover_proxy,
+            corr_concentration=regime_metrics.corr_concentration,
+            horizon=regime_metrics.horizon,
+            # NAV is full-period (one BacktestEngine run, sliced by
+            # regime is out of R6 scope; defer to R7+ if needed)
+            nav_sharpe=full.nav_sharpe,
+            nav_max_dd=full.nav_max_dd,
+            nav_correlation_vs_anchor_pooled_raw=(
+                full.nav_correlation_vs_anchor_pooled_raw
+            ),
+            nav_vs_qqq_excess_full_period=(
+                full.nav_vs_qqq_excess_full_period
+            ),
+        )
+    return metrics_per_regime
 
 
 @dataclass
