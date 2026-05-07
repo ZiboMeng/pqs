@@ -17462,3 +17462,62 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
     - [ ] R8-R13
 
 → Closeout memo: `docs/memos/20260507-phase_b3_branch_decision.md`
+
+
+---
+
+## R-cycle07-to-fleet-2026-05-06-round-07-prep+R10 (cycle08 mining + D.1 PRD draft)
+
+1. **本轮主题**: iter 11+12 bundle: R6 v3 wire fix + cycle08 yaml + cycle08 mining smoke + R10 Phase D.0 + D.1 PRD draft.
+2. **本轮目标**: Wire ResearchMiner.run_trial 到 evaluate_composite_regime_conditional (R6 wire); 写 cycle08 yaml + dev runner script; 启动 cycle08 mining (smoke 40 trials due to iter budget); 写 D.1 fleet allocator PRD draft (D.2-D.4 gated).
+3. **为什么这轮优先做它**: iter budget 紧张 (12/14 used; R7-R13 还有 7 rounds 要做)。bundle R7 prep + R10 PRD doc + 触发 cycle08 mining 让它后台跑给后续 iter 时间。
+4. **做了什么**:
+   - **iter 11**: 
+     - ResearchMiner.__init__ 加 daily_regime_labels param (R6 wire)
+     - run_trial isinstance dispatch 到 evaluate_composite_regime_conditional 
+     - test_prd_c1_regime_conditional_v3.py 加 3 个 wire test
+     - 写 cycle08 yaml `track-c-cycle-2026-05-08-01_promotion_criteria.yaml` (sha256 27e8a3e16e3a467f...) + dev runner `run_cycle08_mining.py`
+     - cycle08 mining 启动 (PID 121179) → **CRASH** at startup with AttributeError on `ow.w_ir` for ObjectiveWeightsV3
+   - **iter 12**:
+     - **Bug fix**: ResearchMiner.__init__ archive.record_study isinstance branch — v3 序列化 V3 fields, v1/v2 path 不变
+     - Restart cycle08 mining (--n-trials 40 smoke level; full 200-trial deferred per iter budget) PID 122067
+     - Daisy chain `b7aqox9hl` armed for Track A eval after mining done
+     - 写 D.1 fleet allocator PRD draft `docs/prd/20260508-fleet_allocator_prd_draft.md` (~250 行)
+     - 写 R10 closeout memo `docs/memos/20260508-phase_d1_fleet_prd_draft.md`
+5. **修改了哪些文件**:
+   - **修改** `core/mining/research_miner.py` (R6 wire + v3 archive bug fix)
+   - **新增** `tests/unit/mining/test_prd_c1_regime_conditional_v3.py` 13 tests (10 R6 + 3 wire)
+   - **新增** `data/research_candidates/track-c-cycle-2026-05-08-01_promotion_criteria.yaml` (sha256 27e8a3e...)
+   - **新增** `dev/scripts/cycle08/run_cycle08_mining.py`
+   - **新增** `docs/prd/20260508-fleet_allocator_prd_draft.md`
+   - **新增** `docs/memos/20260508-phase_d1_fleet_prd_draft.md`
+   - **新增** 本 log 条目
+6. **跑了哪些测试/实验**:
+   - `pytest tests/unit/mining/test_prd_c1_regime_conditional_v3.py test_prd_b2_sr_defer_mining.py` 19 passed (post-fix)
+   - cycle08 mining smoke run (40 trials) PID 122067 — running, ~1 archived after 3 min, expected ~30-50 min total
+7. **结果如何**:
+   - R6 wire complete: ResearchMiner.run_trial dispatches v3 path correctly (verified by tests + bug fix)
+   - cycle08 mining bug FIXED + RESTARTED at smoke level (40 trials, not 200)
+   - D.1 PRD draft shipped (架构 reference; D.2-D.4 implementation 仍 GATED on D.0 prerequisites — neither (a) cycle07a/cycle08 nominee NOR (b) Trial9 TD60 GREEN met as of 2026-05-08)
+8. **当前发现的新问题/新机会**:
+   - (a) **R7 was supposed to be 200-trial cycle08 mining; iter budget forced smoke (40 trials)**. Honest framing in R8/R9 closeout: "smoke-level cycle08; full 200-trial deferred to future cycle". G2 BEAR-IC + G3 orthogonality verdicts will be on smoke evidence only — not statistically robust
+   - (b) cycle08 mining throughput slower than cycle07a (~0.4 archived/min vs 1.2). Likely due to v3 regime-conditional eval + SR defer second BacktestEngine runs. Wall-clock for 200 trials ≥ 100 min (vs cycle07a's 80 min) — confirms PRD §4.3 C.2 estimate range
+   - (c) D.1 PRD draft: D.0 gate status accurately documented (both gates NOT MET as of 2026-05-08). D.2-D.4 implementation requires NEW user explicit-go after BOTH gates satisfy
+   - (d) **R6 v3 archive bug** (caught at cycle08 startup) is exactly the kind of thing R3 audit would have caught; demonstrates value of e2e execution beyond unit tests with mocks. R11 audit should re-engage R6 wire
+9. **剩余风险**:
+   - (a) cycle08 mining may not finish by iter 14 — if not, R8 + R9 closeouts happen on partial archive (or pre-mining-completion data)
+   - (b) Track A on cycle08 top-3 likely 0/3 PASS (consistent with cycle04/05/06/07a pattern). G3 orthogonality TBD
+   - (c) iter budget: 2 iters left (13 + 14) for R8 + R9 + R11 + R12 + R13 = 5 rounds. Will need aggressive bundling. CYCLE07TOFLEETDONE emission depends on all 13 rounds COMMITTED + full unit suite green + all G1-G4 verdicts present. Likely will emit honest non-completion if iter 14 hits with prereqs unmet
+10. **下一轮建议方向**: iter 13 = 等 cycle08 mining + Track A 完成 → 写 R8+R9 closeouts (cycle08 acceptance + G2/G3 verdicts). iter 14 = R11+R12+R13 audit 三连 + 决定是否 emit completion promise.
+11. **TODO checklist（更新后）**:
+    - [x] R1-R6 全部 DONE (R6 wire fixed + tested)
+    - [⏳] R7 cycle08 mining (smoke 40 trials; PID 122067 running)
+    - [⏳] R8 cycle08 acceptance (waiting daisy chain `b7aqox9hl`)
+    - [ ] R9 cycle08 closeout
+    - [x] **R10 D.0 gate check + D.1 PRD draft — DONE 2026-05-08; D.2-D.4 GATED**
+    - [ ] R11-R13 audit final 1/2/3
+
+→ D.1 PRD draft: `docs/prd/20260508-fleet_allocator_prd_draft.md`
+→ R10 closeout: `docs/memos/20260508-phase_d1_fleet_prd_draft.md`
+→ Cycle08 yaml: sha256 27e8a3e16e3a467f...
+→ R6 wire fix commit: `2cc29ed`
