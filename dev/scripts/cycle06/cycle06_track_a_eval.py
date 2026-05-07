@@ -93,7 +93,8 @@ def _load_panel():
     return panel, factors, mask, split_cfg
 
 
-def _eval_trial(trial_row: Dict[str, Any], panel, factors, mask, split_cfg):
+def _eval_trial(trial_row: Dict[str, Any], panel, factors, mask, split_cfg,
+                freeze_date=None):
     feats = trial_row["features"].split(",")
     raw_w = [float(w) for w in trial_row["weights_csv"].split(",")]
     total = sum(raw_w)
@@ -136,6 +137,11 @@ def _eval_trial(trial_row: Dict[str, Any], panel, factors, mask, split_cfg):
         research_mask=mask,
     )
     # Build metrics dict in run_split_acceptance schema
+    # Metrics dict mirrors temporal_split.yaml acceptance schema. _eval_beta_gate
+    # in temporal_split_acceptance.py resolves "beta.beta_to_qqq" — the gate
+    # fail-closes if beta is at top-level (P0 fix 2026-05-07; pre-fix all
+    # cycle06/07a/08 trials had false-negative beta_to_qqq fail despite actual
+    # values 0.53/0.57/-0.01 well under 0.85 cap).
     metrics: Dict[str, Any] = {
         "validation": {},
         "stress_slice": {},
@@ -144,7 +150,9 @@ def _eval_trial(trial_row: Dict[str, Any], panel, factors, mask, split_cfg):
             "top3_max": float(res.concentration.get("top3_max", 0.0)),
             "leveraged_etf_dependency": False,  # cycle06 universe excludes leveraged
         },
-        "beta_to_qqq": float(res.nav_correlation_vs_benchmark.get("beta_vs_qqq", 0.0)),
+        "beta": {
+            "beta_to_qqq": float(res.nav_correlation_vs_benchmark.get("beta_vs_qqq", 0.0)),
+        },
         "cost": {"multiplier_2x_remains_positive": True},  # report-only
     }
     for y, m in res.metrics_per_validation_year.items():
@@ -155,7 +163,7 @@ def _eval_trial(trial_row: Dict[str, Any], panel, factors, mask, split_cfg):
         }
     for sname, sm in res.metrics_per_stress_slice.items():
         metrics["stress_slice"][sname] = {"maxdd": float(sm.get("max_dd", 0.0))}
-    verdict = run_split_acceptance(metrics, role="core")
+    verdict = run_split_acceptance(metrics, role="core", freeze_date=freeze_date)
     return {
         "metrics_full_period": res.metrics_full_period,
         "metrics_per_year": {int(y): dict(m) for y, m in res.metrics_per_validation_year.items()},
@@ -172,12 +180,25 @@ def _eval_trial(trial_row: Dict[str, Any], panel, factors, mask, split_cfg):
 
 
 def main() -> int:
+    from datetime import date as _date
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--archive-db", default=str(PROJ / "data/mining/rcm_archive.db"))
     ap.add_argument("--lineage", default="track-c-cycle-2026-05-06-01")
     ap.add_argument("--top-n", type=int, default=3)
     ap.add_argument("--out-json", default=None)
+    ap.add_argument("--freeze-date",
+                    help="ISO YYYY-MM-DD; routes to v3 yaml if >=2026-05-02. "
+                         "Default: derive from --lineage.")
     args = ap.parse_args()
+    if args.freeze_date:
+        freeze_date = _date.fromisoformat(args.freeze_date)
+    else:
+        try:
+            parts = args.lineage.split("-")
+            freeze_date = _date(int(parts[-4]), int(parts[-3]), int(parts[-2]))
+        except (ValueError, IndexError):
+            freeze_date = None
+    print(f"freeze_date for split dispatch: {freeze_date}")
 
     print(f"Loading top-{args.top_n} archived trials from {args.lineage}...")
     conn = sqlite3.connect(args.archive_db)
@@ -214,7 +235,8 @@ def main() -> int:
         print(f"\n[{i}/{len(trials)}] trial_id={t['trial_id']} "
               f"holding={t['holding_freq']} feats={t['features']}")
         ts = time.time()
-        ev = _eval_trial(t, panel, factors, mask, split_cfg)
+        ev = _eval_trial(t, panel, factors, mask, split_cfg,
+                         freeze_date=freeze_date)
         if "error" in ev:
             print(f"  ERROR: {ev['error']}")
             continue
