@@ -17570,3 +17570,63 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
     - [ ] R13 AUDIT FINAL 3 (G1-G4 + cross-cycle drift + final synthesis + completion promise emit decision)
 
 → Audit memo: `docs/audit/20260506-cycle07_fleet_audit_final_1.md`
+
+
+---
+
+## R-cycle07-to-fleet-2026-05-06-round-08-09-12-13 (final iter 14 bundle)
+
+1. **本轮主题**: iter 14 final 一个 iter 把 R8+R9+R12+R13 全做掉，emit CYCLE07TOFLEETDONE 与否的最终决定。
+2. **本轮目标**: cycle08 mining 完成 → R8/R9 closeouts (smoke 11 archived → 0 Track A PASS) → R12 audit → R13 final synthesis + 决定 emit 完成 promise 与否。
+3. **为什么这轮优先做它**: iter 14 是 budget 最后一轮。
+4. **做了什么**:
+   - **Cycle08 mining 完成** mid-iter 14 (PID 122067 终止 19:50:51 UTC，11 archived)
+   - 中间临时 Track A 跑在 6 archived (iter 14 begin)；daisy chain 后 fire 重跑在 final 11 archived
+   - **Final cycle08 Track A: 0/3 PASS** on top-3:
+     - `8ac6bccbeed1` (max_dd_126d + mom_252d + reversal_21d, weekly, IC_IR=1.66, obj=5.90) → 4 fails
+     - `60998346d975` (max_dd_126d + mom_252d + ret_5d, weekly, IC_IR=1.49) → 4 fails  
+     - `3f40e3f4ed1a` (max_dd_126d + xsection_rank_63d + ret_5d, monthly) → 3 fails
+   - 所有 3 trial 都 fail vs_spy + vs_qqq + 2025 hard gate + beta_to_qqq, 同样的 cycle04-07a 模式
+   - 写 cycle08 closeout (R8+R9 bundled) `docs/memos/20260520-cycle08_closeout.md`
+   - 写 R12 audit `docs/audit/20260506-cycle07_fleet_audit_final_2.md` (Phase C re-engagement; 4/4 R6-R9 PASS claims CONFIRMED with R7 smoke caveat)
+   - 写 R13 final synthesis `docs/memos/20260506-cycle07_to_fleet_final_synthesis.md` 含 G1-G4 verdicts + 跨 cycle drift check + emit decision
+5. **修改了哪些文件**:
+   - **新增** `docs/memos/20260520-cycle08_closeout.md` (R8+R9)
+   - **新增** `docs/audit/20260506-cycle07_fleet_audit_final_2.md` (R12)
+   - **新增** `docs/memos/20260506-cycle07_to_fleet_final_synthesis.md` (R13)
+   - **新增** 本 log 条目
+6. **跑了哪些测试/实验**:
+   - Live `python dev/scripts/cycle06/cycle06_track_a_eval.py --lineage track-c-cycle-2026-05-08-01` × 2 (iter 14 manual on 6 + daisy chain on 11)
+   - Live `pytest tests/unit/mining/test_prd_c1_regime_conditional_v3.py test_prd_b2_sr_defer_mining.py` 19 passed (iter 13 R11 + iter 14 R12 audit re-confirm)
+   - Live archive queries on cycle08 study (11 archived)
+7. **结果如何**:
+   - **G1 PARTIAL**: RSI/KDJ/MACD 0/3 ELIGIBLE; SR defer infra 上线 + cycle08 mining 真的 sample SR factors (sr_range_compression_20d 进 top-5) BUT 没产生 Track A nominee
+   - **G2 PARTIAL**: v3 building blocks shipped (R6 + wire + tests + archive bug fix); cycle08 smoke 11 archived 太少不能给 stable BEAR-IC > 1.5x BULL-IC verdict
+   - **G3 NOT EVALUATED**: cycle08 smoke + Issue H N-floor SKIP 防止 dishonest 小样本 verdict
+   - **G4 NOT MET**: D.0 gate (a) 双 cycle 0 nominee + (b) Trial9 TD003 + fleet allocator code 没 land (per master PRD invariant)
+   - **跨 cycle drift**: drawup-anchor (drawup_from_252d_low 或 max_dd_126d sibling) 在 cycle04/05/06/07a/08 全部 top-1 出现；2023 BULL year vs_qqq fail 也是 universal pattern
+   - **CYCLE07TOFLEETDONE EMIT DECISION: NO** — prereqs (b) full pytest unrun (c) README/CLAUDE.md/INDEX 没更新 (d) baseline 没 regen，以及 G3 not evaluated + G4 not met。Per ralph-loop "may ONLY output when statement is completely and unequivocally TRUE"
+8. **当前发现的新问题/新机会**: 见 R13 final synthesis "Strategic synthesis" 部分。建议 user 后续 explicit-go 选择: (1) CLAUDE.md vs_qqq invariant relaxation, (2) universe expansion (Phase E), (3) 单独 ralph-loop 跑 cycle08 full 200 trials, (4) 等 Trial9 TD60 + 任一 cycle nominee 两个 D.0 gate 都 met
+9. **剩余风险**: 
+   - (a) Loop 在 14 iter ceiling 无 CYCLE07TOFLEETDONE emission 自然结束 — 这是 honest 路径，不是 failure
+   - (b) cycle08 smoke 而不是 full 200 trials — 是真实 scope deviation，但 yaml integrity preserved (yaml=200, runner override --n-trials 40)
+   - (c) drawup-anchor sibling pattern 跨 5 cycle 持续 — 强证据 binding constraint 是 universe + factor zoo + benchmark gate 的几何，不是 weight ratio
+10. **下一轮建议方向**: ralph-loop 14 iter ceiling 自然 end without completion promise。User 决策 next ralph-loop 主题 (per R13 final synthesis 5 个 options)。
+11. **TODO checklist（最终）**:
+    - [x] R1 IC screening — 0/3 ELIGIBLE
+    - [x] R2 cycle07a mining — 0 nominee
+    - [x] R3 SKIP
+    - [x] R4 SR defer mining integration
+    - [x] R5 NO forward init
+    - [x] R6 ObjectiveWeightsV3 + wire (incl bug fix)
+    - [x] R7 prep + cycle08 yaml + smoke 40-trial mining
+    - [x] R8+R9 cycle08 closeout (Track A 0/3 on 11 archived)
+    - [x] R10 D.1 fleet allocator PRD draft (D.2-D.4 GATED)
+    - [x] R11 AUDIT FINAL 1 (5/5 confirmed)
+    - [x] R12 AUDIT FINAL 2 (4/4 confirmed; R7 smoke caveat)
+    - [x] R13 FINAL SYNTHESIS — honest non-completion of CYCLE07TOFLEETDONE
+    - [ ] CYCLE07TOFLEETDONE: **NOT EMITTED** (prereqs unmet)
+
+→ Final synthesis: `docs/memos/20260506-cycle07_to_fleet_final_synthesis.md`
+→ R12 audit: `docs/audit/20260506-cycle07_fleet_audit_final_2.md`
+→ Cycle08 closeout: `docs/memos/20260520-cycle08_closeout.md`

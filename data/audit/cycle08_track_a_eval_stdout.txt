@@ -1,0 +1,66 @@
+[2015-02-19] ghost-position cleanup: liquidating SHY qty=0.0542 @ last_close=69.2128 after 6 stale days
+[2015-02-19] ghost-position cleanup: liquidating SHY qty=0.0540 @ last_close=69.2128 after 6 stale days
+[2015-02-19] ghost-position cleanup: liquidating SHY qty=152.9173 @ last_close=69.2128 after 6 stale days
+[2016-06-06] ghost-position cleanup: liquidating A qty=0.3312 @ last_close=45.8800 after 6 stale days
+[2017-03-01] ghost-position cleanup: liquidating CMG qty=1594.0040 @ last_close=8.4424 after 6 stale days
+[2018-04-12] ghost-position cleanup: liquidating CMG qty=3.7987 @ last_close=6.3602 after 6 stale days
+[2018-07-04] ghost-position cleanup: liquidating LLY qty=0.1832 @ last_close=85.4900 after 6 stale days
+[2018-07-11] ghost-position cleanup: liquidating CMG qty=1748.8050 @ last_close=8.9606 after 6 stale days
+[2018-08-27] ghost-position cleanup: liquidating ISRG qty=0.5162 @ last_close=176.3500 after 6 stale days
+[2020-12-10] ghost-position cleanup: liquidating ISRG qty=0.0437 @ last_close=260.1133 after 6 stale days
+[2021-12-29] ghost-position cleanup: liquidating APD qty=0.0013 @ last_close=297.1900 after 6 stale days
+[2022-11-24] ghost-position cleanup: liquidating TT qty=174.0000 @ last_close=176.2700 after 6 stale days
+[2023-04-18] ghost-position cleanup: liquidating APD qty=0.0035 @ last_close=287.2800 after 6 stale days
+[2024-06-18] ghost-position cleanup: liquidating SHY qty=0.3248 @ last_close=75.9382 after 6 stale days
+[2025-03-27] ghost-position cleanup: liquidating KLAC qty=0.1146 @ last_close=706.4200 after 6 stale days
+[2025-08-27] ghost-position cleanup: liquidating APD qty=0.0013 @ last_close=293.5200 after 6 stale days
+Loading top-3 archived trials from track-c-cycle-2026-05-08-01...
+Loading panel + factors (selector role)...
+  panel: 4876 dates × 79 symbols (34.1s)
+
+[1/3] trial_id=8ac6bccbeed1 holding=weekly feats=max_dd_126d,mom_252d,reversal_21d
+  Track A verdict: FAIL (25.4s)
+  Failed gates (4):
+    - validation_aggregate_excess_vs_spy
+    - validation_aggregate_excess_vs_qqq
+    - role_core__validation__2025__excess_vs_qqq
+    - beta_to_qqq
+    2018: maxdd=-0.03% vs_spy=+7.30% vs_qqq=+3.01%
+    2019: maxdd=-0.04% vs_spy=-28.17% vs_qqq=-36.79%
+    2021: maxdd=-0.03% vs_spy=-28.77% vs_qqq=-28.58%
+    2023: maxdd=-0.09% vs_spy=-23.77% vs_qqq=-53.78%
+    2025: maxdd=-0.07% vs_spy=-15.67% vs_qqq=-19.43%
+    [stress] covid_flash: maxdd=-0.02%
+    [stress] rate_hike_2022: maxdd=-0.03%
+
+[2/3] trial_id=60998346d975 holding=weekly feats=max_dd_126d,mom_252d,ret_5d
+  Track A verdict: FAIL (25.5s)
+  Failed gates (4):
+    - validation_aggregate_excess_vs_spy
+    - validation_aggregate_excess_vs_qqq
+    - role_core__validation__2025__excess_vs_qqq
+    - beta_to_qqq
+    2018: maxdd=-0.03% vs_spy=+7.30% vs_qqq=+3.01%
+    2019: maxdd=-0.04% vs_spy=-28.17% vs_qqq=-36.79%
+    2021: maxdd=-0.03% vs_spy=-28.77% vs_qqq=-28.58%
+    2023: maxdd=-0.09% vs_spy=-23.77% vs_qqq=-53.78%
+    2025: maxdd=-0.07% vs_spy=-15.67% vs_qqq=-19.43%
+    [stress] covid_flash: maxdd=-0.02%
+    [stress] rate_hike_2022: maxdd=-0.03%
+
+[3/3] trial_id=3f40e3f4ed1a holding=monthly feats=max_dd_126d,xsection_rank_63d,ret_5d
+  Track A verdict: FAIL (24.7s)
+  Failed gates (3):
+    - validation_aggregate_excess_vs_spy
+    - validation_aggregate_excess_vs_qqq
+    - beta_to_qqq
+    2018: maxdd=-14.03% vs_spy=+2.55% vs_qqq=-1.74%
+    2019: maxdd=-6.01% vs_spy=-2.96% vs_qqq=-11.58%
+    2021: maxdd=-7.16% vs_spy=-10.97% vs_qqq=-10.79%
+    2023: maxdd=-9.58% vs_spy=-3.55% vs_qqq=-33.56%
+    2025: maxdd=-10.16% vs_spy=+10.35% vs_qqq=+6.59%
+    [stress] covid_flash: maxdd=-10.69%
+    [stress] rate_hike_2022: maxdd=-13.24%
+
+Wrote data/audit/cycle08_track_a_eval_track-c-cycle-2026-05-08-01.json
+Verdict: 0 of 3 passed Track A acceptance
