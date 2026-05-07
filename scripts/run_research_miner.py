@@ -466,15 +466,15 @@ def main() -> int:
             if (
                 not isinstance(yaml_sr_choices, list)
                 or any(not isinstance(v, bool) for v in yaml_sr_choices)
-                or any(v is True for v in yaml_sr_choices)
             ):
-                # Round 1: True choice not yet supported; surface as
-                # mismatch rather than silently dropping the True choice.
+                # Master PRD §4.2 Phase B.2 (R4 ship 2026-05-07): True is
+                # now a legal choice. ResearchMiner constructor enforces
+                # the contract that intraday_bars_60m must be supplied
+                # when True is sampled. The CLI ban on True (Phase 3
+                # round 1 stub) was lifted with the R4 commit.
                 mismatches.append(
                     "  yaml.mining_config.enable_sr_defer_choices must be a "
-                    "list of bools and currently must NOT contain True "
-                    "(Phase 3 round 1 ships False-only; round 2 will "
-                    f"add True). Got {yaml_sr_choices!r}"
+                    f"list of bools, got {yaml_sr_choices!r}"
                 )
                 yaml_sr_choices = None
         # Stash for later use after mismatches block
@@ -695,6 +695,37 @@ def main() -> int:
     logger.info("Opening archive: %s", args.archive_db)
     archive = RCMArchive(args.archive_db)
 
+    # Master PRD §4.2 Phase B.2 (R4 ship 2026-05-07): SR defer mining
+    # integration. When the yaml's enable_sr_defer_choices contains True,
+    # load 60m bars for the tradable universe via BarStore so the filter
+    # has a per-symbol panel to evaluate. CLI flow only — direct
+    # ResearchMiner construction must supply intraday_bars_60m on its own.
+    intraday_bars_60m: dict[str, "pd.DataFrame"] | None = None
+    sr_defer_choices = getattr(args, "_enable_sr_defer_choices", [False])
+    if True in tuple(sr_defer_choices):
+        logger.info(
+            "Loading 60m bars for SR defer mining (yaml "
+            "enable_sr_defer_choices contains True)..."
+        )
+        from core.data.bar_store import BarStore
+        bar_store = BarStore(root=Path(cfg.system.paths.data_dir))
+        intraday_bars_60m = {}
+        bar_load_syms = list(frames["close"].columns)
+        for sym in bar_load_syms:
+            try:
+                df = bar_store.load(sym, freq="60m")
+            except Exception:  # noqa: BLE001
+                df = None
+            if df is None or len(df) == 0:
+                continue
+            intraday_bars_60m[sym] = df
+        logger.info(
+            "60m bars loaded for %d / %d symbols (missing symbols pass "
+            "through unchanged inside apply_sr_defer_filter as "
+            "n_skipped_no_60m_coverage)",
+            len(intraday_bars_60m), len(bar_load_syms),
+        )
+
     logger.info("Building ResearchMiner with %s...", active_pool_label)
     miner = ResearchMiner(
         factor_panel_map=panel_map,
@@ -730,6 +761,9 @@ def main() -> int:
         enable_sr_defer_choices=tuple(
             getattr(args, "_enable_sr_defer_choices", [False])
         ),
+        # Master PRD §4.2 Phase B.2 (R4 ship 2026-05-07): 60m bar dict
+        # required when SR defer choices contains True.
+        intraday_bars_60m=intraday_bars_60m,
         min_families=args.min_families,
         max_features_per_family=args.max_features_per_family,
         composite_weighting=args.composite_weighting,

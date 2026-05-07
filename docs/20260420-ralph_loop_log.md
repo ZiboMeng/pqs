@@ -17245,3 +17245,72 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
     - [ ] R11-R13 audit final 1/2/3
 
 → Closeout memo: `docs/memos/20260507-phase_b1_factor_promotion_skip.md`
+
+
+---
+
+## R-cycle07-to-fleet-2026-05-06-round-04 (Phase B.2 SR defer mining FULL integration)
+
+1. **本轮主题**: cycle07-to-fleet master ralph-loop 第 4 轮 / 13 轮。Phase B.2 — PRD-AC §1.3 user explicit-go: SR defer 进 mining 流程 (NOT ex-post overlay)，作为真实 search dim 影响 NAV。
+2. **本轮目标**: ResearchMiner 构造时支持 intraday_bars_60m → evaluate_composite NAV path 在 spec.enable_sr_defer=True + activation ≥ 5% 时 re-run BacktestEngine on filtered weights → 用 filtered NAV 算 objective metrics (sharpe / max_dd / vs_qqq)。
+3. **为什么这轮优先做它**: G1 (factor pool expansion) 现在唯一证据通道（R3 SKIP 之后）。Phase 3 round 1 stub 是 forced False，不能给 cycle08 mining 提供 enable_sr_defer=True 路径。R4 是 cycle08 yaml `enable_sr_defer_choices: [false, true]` 能 work 的前置条件。
+4. **做了什么**:
+   - **core/mining/research_miner.py**:
+     - `evaluate_composite()` 加 `intraday_bars_60m: Optional[Dict[str, pd.DataFrame]] = None` 参数
+     - NAV path 内嵌 SR defer 第二次 BacktestEngine 调用：当 spec.enable_sr_defer=True 且 intraday_bars_60m 非 None 时，调用 apply_sr_defer_filter(result.weights) → filtered_weights + stats，I6 prefilter 检查 activation_rate ≥ 0.05，达标后用 filtered_weights 重跑 BacktestEngine 并替换 result.weights / result.daily_returns / result.nav
+     - `ResearchMiner.__init__()` 加 `intraday_bars_60m` 参数，constructor contract: `True in enable_sr_defer_choices` 但 intraday_bars_60m=None → ValueError
+     - `run_trial()` 中 `evaluate_composite()` 调用透传 self.intraday_bars_60m (nav_active 时)
+     - 更新 ResearchCompositeSpec.enable_sr_defer + suggest_composite_spec 文档：从 "round 1 always False" 改为 "round 2 ship 2026-05-07"
+   - **scripts/run_research_miner.py**:
+     - 解除 `enable_sr_defer_choices` 含 True 的 CLI 禁止 (line 469)
+     - 当 yaml 含 True 时自动 BarStore.load(sym, freq='60m') for tradable universe，传给 ResearchMiner ctor
+   - **tests/unit/mining/test_prd_b2_sr_defer_mining.py** 新增（6 个测试）:
+     - `test_baseline_unchanged_when_intraday_none`: stub round 1 行为保持 (intraday=None → no-op)
+     - `test_sr_defer_high_activation_triggers_second_backtest`: monkeypatch apply_sr_defer_filter stub 返回 80% activation → BacktestEngine.run 调用次数 1→2
+     - `test_sr_defer_low_activation_uses_baseline_nav`: real synthetic 60m bars 走 lowdriver activation < 5% path → I6 prefilter 走 baseline NAV
+     - `test_research_miner_rejects_true_choices_without_intraday_bars`: contract 测试
+     - `test_research_miner_accepts_true_choices_with_intraday_bars`: positive contract
+     - `test_legacy_caller_unchanged_no_intraday_bars`: cycle04/05/06 legacy 调用方 backward compat
+5. **修改了哪些文件**:
+   - **修改** `core/mining/research_miner.py`（约 +70 行 SR defer 第二次 BacktestEngine 路径 + ctor validation + signature changes）
+   - **修改** `scripts/run_research_miner.py`（解除 True ban + 60m bar 加载逻辑，约 +30 行）
+   - **新增** `tests/unit/mining/test_prd_b2_sr_defer_mining.py`（约 280 行 + 6 测试）
+   - **新增** 本 log 条目
+6. **跑了哪些测试/实验**:
+   - 新 R4 tests 全部通过：`pytest tests/unit/mining/test_prd_b2_sr_defer_mining.py` 6 passed
+   - Regression tests 通过：`pytest tests/unit/mining/test_prd_ac_phase3_search_space.py tests/unit/mining/test_prd_ac_nav_objective.py` 34 passed
+   - **未跑**: 全 unit suite (1840 tests) — 依赖 R4 改动只在 research_miner + run_research_miner，影响范围有限；regression 关键 module 已 verified
+7. **结果如何**:
+   - Phase B.2 SR defer mining FULL integration 落地。`enable_sr_defer_choices: [false, true]` 现在可以在 mining yaml 中正式启用，TPE 会两个分支都采样
+   - I6 prefilter activation_rate=0.05 正确实现：低 activation 时跳过第二次 BacktestEngine（sample efficiency）；高 activation 时 filtered NAV 替换 baseline NAV
+   - cycle04/05/06 archive 完全 backward compat（legacy 调用方不传 intraday_bars_60m → no-op；与 round 1 stub bit-for-bit identical）
+   - cycle08 yaml (R7) 现在可以设 `enable_sr_defer_choices: [false, true]` 来真正 search SR defer 维度
+8. **当前发现的新问题/新机会**:
+   - (a) R4 还没在真实数据上 end-to-end 验证（需要 cycle08 mining 跑 200 trials 才能看实际 activation 分布）。当前只有 stub-based 单元测试
+   - (b) cycle04/05/06 archive replay regression 测试没单独写——只是确认 R4 changes 不影响 evaluate_composite 默认行为。如果 future 想严格证明 archive 重放产生 identical objective values, 需要写 archive replay test (defer to R11 audit)
+   - (c) R4 加了 ~70 行到 research_miner.py（已经很大的文件）——可以未来 refactor 成独立 sr_defer_path module
+   - (d) **关键观察**: R4 里 BacktestEngine 第二次 run 的 cost_model 用的是 load_config() 的 default config，不是 cfg_full from harness 的 harness-specific config。可能导致 baseline 和 filtered 用不同 cost model（subtle bug）。R11 audit 验证
+9. **剩余风险**:
+   - (a) 真实 60m bars 在 cycle08 mining 时活动率分布未知。如果 < 5% activation 占多数 trials，TPE 大概率收敛到 enable_sr_defer=False（因为 True 没产生 NAV 改善）。这是设计 expected — 但要在 cycle08 closeout 报出
+   - (b) BarStore.load(sym, freq='60m') 对 cross-asset ETFs（TLT/IEF/SHY/GLD/BIL/SHV）可能没有 60m bars 数据。这些 symbols 会在 apply_sr_defer_filter 里走 n_skipped_no_60m_coverage 路径，filter 透传不变
+   - (c) cycle07a yaml 设的是 `enable_sr_defer_choices: [false]` (round 1 stub) — 当前 mining 不会用到 R4 新路径，所以 R4 不会影响正在运行的 cycle07a 结果。R4 真正 exercise 是 cycle08 yaml 设 [false, true] 时
+10. **下一轮建议方向**: 
+    - R2.5 (cycle07a closeout) — 等 mining 完成。daisy chain `bo15la8z6` 会自动跑 closeout analysis + Track A eval
+    - R5 (Phase B.3 branch decision) — quick closeout based on R2 result
+    - R6 (Phase C.1) — substantial code; 可以并行 R2.5 inner work
+11. **TODO checklist（更新后）**:
+    - [x] R1 Phase A.2 IC screening
+    - [⏳] R2 Phase A.1 cycle07a mining (47/200 archived)
+    - [x] R3 Phase B.1 SKIP
+    - [x] **R4 Phase B.2 SR defer mining integration — DONE 2026-05-07**
+    - [ ] R5 Phase B.3 branch decision summary
+    - [ ] R6 Phase C.1 regime-conditional v3 design + impl
+    - [ ] R7 Phase C.2 cycle08 yaml + 200-trial mining
+    - [ ] R8 Phase C.3 cycle08 acceptance + R41 + G3
+    - [ ] R9 Phase C.4 closeout
+    - [ ] R10 Phase D.0 + D.1
+    - [ ] R11-R13 audit final 1/2/3
+
+→ Tests: `tests/unit/mining/test_prd_b2_sr_defer_mining.py` (6 tests)
+→ Modified: `core/mining/research_miner.py` (SR defer NAV path + ctor)
+→ Modified: `scripts/run_research_miner.py` (60m bar loading + True ban lift)

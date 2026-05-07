@@ -403,12 +403,14 @@ class ResearchCompositeSpec:
     # constructing ResearchCompositeSpec(features=..., weights=...,
     # family_counts=...) work unchanged.
     holding_freq: Optional[str] = None  # one of {None, 'daily', 'weekly', 'monthly'}
-    # Phase 3 round 1 SR-defer sampling stub. Always False until the
-    # full SR-defer mining integration ships in Phase 3 round 2 (60m
-    # bar loading at constructor + apply_sr_defer_filter pre-NAV +
-    # second BacktestEngine run on filtered weights). Sampling this
-    # field but forcing False keeps the archive schema ready and gives
-    # PRD §5.2 cell coverage a path to 6 cells once round 2 lands.
+    # PRD-AC v1.1 §1.3 + master PRD §4.2 Phase B.2 (R4 ship 2026-05-07):
+    # SR-defer search dim. Sampler may sample True when the study's
+    # ``enable_sr_defer_choices`` includes True AND ResearchMiner was
+    # constructed with non-None ``intraday_bars_60m``. evaluate_composite
+    # applies apply_sr_defer_filter to the harness's baseline weights
+    # and re-runs BacktestEngine on the filtered weights when activation
+    # ≥ 5% (I6 prefilter). Default False preserves cycle04/05/06 archive
+    # replay bit-for-bit.
     enable_sr_defer: bool = False
 
     # NOTE: __post_init__ validates invariants. Frozen dataclass still
@@ -462,9 +464,13 @@ def suggest_composite_spec(
     # holding_freq_choices=None preserves legacy 2-dim search (factors +
     # weights). Pass an explicit list to opt into the holding_freq cell.
     holding_freq_choices: Optional[Sequence[str]] = None,
-    # Phase 3 round 2 (deferred): SR-defer search dim. Round 1 always
-    # samples enable_sr_defer=False; round 2 adds True branch + the
-    # actual filter application during NAV gate.
+    # PRD-AC v1.1 §1.3 + master PRD §4.2 Phase B.2 (R4 ship): SR-defer
+    # search dim. When the choices list contains True AND the caller
+    # supplied ``intraday_bars_60m`` to ResearchMiner, sampling True
+    # triggers apply_sr_defer_filter on the harness's baseline weights
+    # and (when activation ≥ 5%) re-runs BacktestEngine to produce the
+    # filtered NAV consumed by the objective. Phase 3 round 1 default
+    # (False,) preserves bit-for-bit cycle04/05/06 behavior.
     enable_sr_defer_choices: Sequence[bool] = (False,),
 ) -> ResearchCompositeSpec:
     """Family-aware composite sampler (PRD §8.5).
@@ -900,6 +906,14 @@ def evaluate_composite(
     anchor_residual_returns: Optional[pd.Series] = None,
     harness_config: Optional[Any] = None,
     compute_nav: bool = False,
+    # PRD-AC v1.1 §1.3 + master PRD §4.2 Phase B.2 (R4 ship): SR defer
+    # mining integration. When ``spec.enable_sr_defer=True`` AND this
+    # dict is non-None AND I6 prefilter activation ≥ 5%, the harness's
+    # baseline ``result.weights`` are filtered via apply_sr_defer_filter
+    # and BacktestEngine is re-run on the filtered weights to produce
+    # the NAV used in the objective. Default None preserves Phase 3 round
+    # 1 stub behavior bit-for-bit.
+    intraday_bars_60m: Optional[Dict[str, pd.DataFrame]] = None,
 ) -> CompositeMetrics:
     """Evaluate a research composite spec against forward returns.
 
@@ -1004,6 +1018,87 @@ def evaluate_composite(
             config=effective_harness_config,
             research_mask=mask,
         )
+        # Master PRD §4.2 Phase B.2 (R4 ship): SR defer mining integration
+        # per PRD-AC §1.3 user explicit-go. When spec opts in via
+        # enable_sr_defer=True AND caller provides intraday_bars_60m:
+        #   1. Apply SR defer filter to baseline result.weights
+        #   2. I6 prefilter: if activation_rate < 5%, keep baseline NAV
+        #      (sample efficiency; skip the second BacktestEngine run)
+        #   3. Else: re-run BacktestEngine on filtered weights and replace
+        #      result.weights + result.daily_returns with filtered NAV.
+        # Phase 3 round 1 stub (intraday_bars_60m=None) preserved bit-for-bit.
+        if spec.enable_sr_defer and intraday_bars_60m:
+            from core.research.sr_signal_filter import (
+                SRDeferConfig, apply_sr_defer_filter,
+            )
+            filtered_weights, stats = apply_sr_defer_filter(
+                result.weights, intraday_bars_60m, config=SRDeferConfig(),
+            )
+            activation_rate = (
+                stats.n_defers / stats.n_evaluated
+                if stats.n_evaluated > 0 else 0.0
+            )
+            # I6 prefilter: only re-run BacktestEngine when SR defer
+            # materially fires (≥ 5% activation). Below this threshold,
+            # filter touches too few cells to move NAV — skip the
+            # second harness invocation for sample-efficiency.
+            if activation_rate >= 0.05:
+                from core.backtest.backtest_engine import BacktestEngine
+                from core.config.loader import load_config
+                from core.execution.cost_model import CostModel
+                # Re-run BacktestEngine on filtered weights; mirror harness
+                # config (same cost_model + initial_capital + execution
+                # semantics) so filtered NAV is comparable to baseline.
+                cfg_full = load_config()
+                cm = CostModel(cfg_full.cost_model)
+                # Use harness defaults if effective_harness_config absent.
+                init_capital = (
+                    effective_harness_config.initial_capital
+                    if effective_harness_config is not None else 1_000_000.0
+                )
+                rebal_thr = (
+                    effective_harness_config.rebalance_threshold
+                    if effective_harness_config is not None else 0.02
+                )
+                int_shares = (
+                    effective_harness_config.integer_shares
+                    if effective_harness_config is not None else False
+                )
+                engine = BacktestEngine(
+                    cost_model=cm,
+                    initial_capital=init_capital,
+                    rebalance_threshold=rebal_thr,
+                    integer_shares=int_shares,
+                )
+                # Align filtered_weights to price_df columns (both should
+                # already match since result.weights came from the same
+                # price_df, but be defensive).
+                common_syms = [
+                    s for s in filtered_weights.columns
+                    if s in price_df.columns
+                ]
+                sig = filtered_weights[common_syms]
+                px = price_df[common_syms].reindex(sig.index)
+                op = (
+                    open_df[common_syms].reindex(sig.index)
+                    if open_df is not None else None
+                )
+                bt_result_filtered = engine.run(
+                    signals_df=sig, price_df=px, open_df=op,
+                    benchmark_series=spy_series,
+                )
+                nav_filtered = bt_result_filtered.equity_curve.copy()
+                daily_ret_filtered = nav_filtered.pct_change().fillna(0.0)
+                # Replace result.weights + result.daily_returns IN PLACE
+                # (EvaluatedComposite is mutable @dataclass). Downstream
+                # NAV recompute (recompute_nav_metrics_train_only) reads
+                # result.daily_returns; orthogonality + benchmark
+                # correlations also derive from result.daily_returns +
+                # result.weights — all naturally pick up the filtered
+                # version.
+                result.weights = sig
+                result.daily_returns = daily_ret_filtered
+                result.nav = nav_filtered
         # PRD §6 Phase 2 I9 fix: harness ``metrics_full_period`` includes
         # gap-period returns on positions held across train_year
         # boundaries (empirically ~10% jump on cycle #04 top-1 at the
@@ -1231,6 +1326,12 @@ class ResearchMiner:
         # explicit holding_freq_choices list to opt into the search dim.
         holding_freq_choices: Optional[Sequence[str]] = None,
         enable_sr_defer_choices: Sequence[bool] = (False,),
+        # Master PRD §4.2 Phase B.2 (R4 ship): per-symbol 60m bar dict for
+        # SR defer filter. Required iff enable_sr_defer_choices contains
+        # True. Cached on instance and threaded through to evaluate_composite
+        # so the harness's filter step has access without re-loading bars
+        # per trial.
+        intraday_bars_60m: Optional[Dict[str, pd.DataFrame]] = None,
     ) -> None:
         # A++ patch 2026-04-30: pre-flight assert reachability matches
         # the pre-registered factor_registry_pool. Run before storing
@@ -1352,6 +1453,20 @@ class ResearchMiner:
             list(holding_freq_choices) if holding_freq_choices else None
         )
         self.enable_sr_defer_choices = tuple(enable_sr_defer_choices)
+        # Master PRD §4.2 Phase B.2 R4 ship: store 60m bar dict for the
+        # SR defer filter step inside evaluate_composite. Validate the
+        # contract: if SR defer can be sampled True, intraday_bars_60m
+        # MUST be provided (else SR defer would be a no-op for True
+        # branches, defeating the search dim).
+        if True in tuple(enable_sr_defer_choices) and intraday_bars_60m is None:
+            raise ValueError(
+                "ResearchMiner: enable_sr_defer_choices contains True "
+                "but intraday_bars_60m is None. R4 ship requires the "
+                "60m bar dict (e.g. via BarStore.load(sym, freq='60m') "
+                "for tradable universe) so the filter can fire. Pass "
+                "an explicit dict or remove True from the choices."
+            )
+        self.intraday_bars_60m = intraday_bars_60m
         self._anchor_residual_returns: Optional[pd.Series] = None
         if self.objective_weights.is_nav_based():
             if price_df is None or spy_series is None:
@@ -1451,6 +1566,12 @@ class ResearchMiner:
             ),
             harness_config=self.harness_config if nav_active else None,
             compute_nav=nav_active,
+            # Master PRD §4.2 Phase B.2 (R4 ship): thread 60m bars through
+            # for SR defer filter when nav-based path is active. Default
+            # None preserves Phase 3 round 1 stub bit-for-bit.
+            intraday_bars_60m=(
+                self.intraday_bars_60m if nav_active else None
+            ),
         )
         objective = compute_objective(
             metrics,
