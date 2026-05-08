@@ -17664,3 +17664,49 @@ emit `<promise>OOSMVPDONE</promise>` 在 R7 assistant-turn reply
 - 根据用户决定是否 forward init Trial 3
 - 之后启动 sibling memo（task 24）+ multi-TF root cause (task 23)
 
+# R-cycle07a-trial3-rerun-2026-05-07-followup: NAV correlation Red → evidence-only
+
+## 1. 本轮目标
+执行 x.txt 2026-05-07 拍板规格（A 路线 conditional forward init）：
+(1) cycle06 + cycle08 retroactive re-eval 表格回填 postmortem；
+(2) Trial 3 vs RCMv1 / Cand-2 / Trial 9 三对 NAV correlation；
+(3) 按 Green/Yellow/Red 阈值分流（locked: raw 0.85 + residual 0.50）；
+(4) 写 amendment memo 收口 cycle06/07a/08 closeout + R12 audit；
+(5) 完成 panel_max_date_at_freeze + attention_check.py SPY total-return 两个 sanity check。
+
+## 2. 做了什么 + 修改了哪些文件
+- 回填 postmortem 全部 TBD 单元格：`docs/audit/20260507-beta_metric_path_bug_postmortem.md`（9 trial 完整 actual_beta + post-fix failed_gates 表）
+- 写 amendment memo：`docs/memos/20260507-cycle06_07a_08_track_a_post_fix_amendment.md`（三点：cycle06/08 0-nominee verdict UNCHANGED + failed-gate attribution revision + cycle07a Trial 3 sole post-fix survivor）
+- 写 NAV correlation harness：`dev/scripts/cycle07a/trial3_nav_correlation.py`（256 行，复用 cycle04 cross-cycle 模板 + STOCK_RISK_CLUSTER_MAP cap_aware 配置 + 锁定 Green/Yellow/Red verdict logic）
+- 跑 NAV correlation：output `data/audit/cycle07a_trial3_nav_correlation.json`
+- 写 evidence-only memo（Red verdict）：`docs/memos/20260507-cycle07a_trial3_red_verdict_evidence_only.md`（Findings 1-3 + D.0 gate revision proposal + R1-R4 self-audit）
+- panel_max_date_at_freeze sanity check：cycle07a yaml line 50 = 2024-12-31，已记录，无需 default
+- attention_check.py SPY total-return path 检查：`core/research/forward/attention_report.py:458` 已用 `adjusted=True, adjusted_total_return=True`，无需改 code
+
+## 3. 跑了哪些测试 + 当前结果
+- `python dev/scripts/cycle06/cycle06_track_a_eval.py --lineage track-c-cycle-2026-05-06-01 --output ...RERUN_2026-05-07.json` exit 0
+- `python dev/scripts/cycle07a/cycle07a_track_a_eval.py` exit 0 (Trial 3 17/17 PASS)
+- `python dev/scripts/cycle06/cycle06_track_a_eval.py --lineage track-c-cycle-2026-05-08-01 --output ...RERUN_2026-05-07.json` exit 0
+- `python dev/scripts/cycle07a/trial3_nav_correlation.py` exit 0 (after first attempt errored on missing cluster_map kwarg)
+
+**9-trial post-fix 表**：cycle06 0/3, cycle07a 1/3, cycle08 0/3。Trial 3 唯一 PASS。
+
+**Trial 3 NAV correlation 三对**（n=2164, ~16y 16-symbol 78-stock cap_aware/global_top_n 混合）：
+| Pair | raw | res_vs_spy | res_vs_qqq |
+|---|---|---|---|
+| Trial 3 vs RCMv1 | **0.874** | 0.603 | 0.613 |
+| Trial 3 vs Cand-2 | **0.892** | 0.688 | 0.699 |
+| Trial 3 vs Trial 9 | 0.783 | 0.319 | 0.381 |
+
+**Verdict: RED** — raw ≥ 0.85 in 2/3 pairs + residual ≥ 0.50 in 4/6 measurements。Trial 3 不 forward init。
+
+## 4. 剩余风险
+- D.0 fleet allocator gate (a) 仍未解锁（pre-fix 0/2 → post-fix 1/2 Track A nominee BUT Trial 3 fails additivity，所以 fleet gate 实际 0/2 additive nominees）
+- evidence-only memo §6 列出的 cycle direction 选项（construction DOF 扩展 / 78-stock universe 扩展 / 策略类型 pivot / gate 修订）需要 user explicit-go
+- Trial 9 forward TD060 (~2026-07-30) 仍是 D.0 (b) 的 load-bearing 输入
+
+## 5. 下一步
+- 等 user 拍板下一轮 ralph-loop 主题（cycle direction 选项见 evidence memo §6）
+- Trial 9 daily forward observe 维持 ritual
+- 短期内（TD060 之前）不开新 mining cycle
+

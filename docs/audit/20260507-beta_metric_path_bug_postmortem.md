@@ -37,12 +37,14 @@ follow-up (reading vs_qqq deprecation wiring); confirmed via direct
 | cycle07a | `81cfb5f4c4f5` | drawup + xsec + ret_5d | -0.009 | TRUE (false-neg) |
 | cycle07a | `f133a18d1495` | drawup + mom_252d + ret_2d | +0.566 | TRUE (false-neg) |
 | cycle07a | `1e771580f486` | drawup + mom_63d + ret_1d | +0.534 | TRUE (false-neg) |
-| cycle08 | `8ac6bccbeed1` | max_dd_126d + mom_252d + reversal_21d | (TBD post re-eval) | TRUE (false-neg) |
-| cycle08 | `60998346d975` | max_dd_126d + mom_252d + ret_5d | (TBD) | TRUE (false-neg) |
-| cycle08 | `3f40e3f4ed1a` | max_dd_126d + xsec + ret_5d | (TBD) | TRUE (false-neg) |
-| cycle06 | (top-3) | (drawup-anchor pattern) | (TBD) | TRUE (false-neg) |
+| cycle08 | `8ac6bccbeed1` | max_dd_126d + mom_252d + reversal_21d | -0.00008 | TRUE (false-neg) |
+| cycle08 | `60998346d975` | max_dd_126d + mom_252d + ret_5d | -0.00007 | TRUE (false-neg) |
+| cycle08 | `3f40e3f4ed1a` | max_dd_126d + xsec + ret_5d | +0.368 | TRUE (false-neg) |
+| cycle06 | `bab8cfe88af3` | drawup + trend_tstat_20d + ret_2d | +0.599 | TRUE (false-neg) |
+| cycle06 | `31af04cf2ff9` | drawup + xsec_rank_63d + ret_5d | -0.009 | TRUE (false-neg) |
+| cycle06 | `a9e39c21feed` | drawup + trend_tstat_20d + ret_5d | +0.599 | TRUE (false-neg) |
 
-All 0.85 cap. **No genuine high-beta rejections in cycle06/07a/08 to date.**
+All < 0.85 cap. **No genuine high-beta rejections in cycle06/07a/08 to date.**
 
 ## Root cause
 
@@ -102,21 +104,33 @@ machinery shipped 2026-05-02 unchanged.
 
 | Trial | Pre-fix gates failed | Post-fix gates failed | verdict change |
 |---|---|---|---|
-| `81cfb5f4c4f5` | spy_agg + qqq_agg + role_qqq + beta | (TBD) | (TBD) |
-| `f133a18d1495` | spy_agg + qqq_agg + beta | (TBD) | (TBD) |
-| `1e771580f486` | qqq_agg + beta | (TBD) | (TBD) |
+| `81cfb5f4c4f5` | spy_agg + qqq_agg + role_qqq + beta | spy_agg + role_2025_spy | FAIL → FAIL |
+| `f133a18d1495` | spy_agg + qqq_agg + beta | spy_agg | FAIL → FAIL |
+| `1e771580f486` | qqq_agg + beta | (none, 17/17 PASS) | **FAIL → PASS** |
 
 Trial 3 `1e771580f486` is the focal candidate — pre-fix only failed on
 `validation_aggregate_excess_vs_qqq` (now diagnostic under v3) and
-`beta_to_qqq` (false-neg). Post-fix verdict expected: **PASS**.
+`beta_to_qqq` (false-neg). Post-fix verdict: **PASS** (cycle07a's first
+nominee, beta=0.534).
 
 ### cycle08 (lineage `track-c-cycle-2026-05-08-01`, freeze_date=2026-05-08 → v3)
 
-(Re-eval pending; will update post-run.)
+JSON: `data/audit/cycle08_track_a_eval_track-c-cycle-2026-05-08-01_RERUN_2026-05-07.json`.
+Result: **0/3 PASS**. All three trials fail
+`validation_aggregate_excess_vs_spy` (Trial 1+2 also fail
+`role_core__validation__2025__excess_vs_spy`); beta gate now correctly
+records actual betas (-0.0001 / -0.0001 / +0.368) — none cap-violating.
+Beta bug fix confirmed; cycle08 doesn't flip on the fix (binding gate
+is vs_spy, not beta).
 
 ### cycle06 (lineage `track-c-cycle-2026-05-06-01`, freeze_date=2026-05-06 → v3)
 
-(Re-eval pending; will update post-run.)
+JSON: `data/audit/cycle06_track_a_eval_track-c-cycle-2026-05-06-01_RERUN_2026-05-07.json`.
+Result: **0/3 PASS**. Trial 1+3 fail `validation_aggregate_excess_vs_spy`
+only; Trial 2 also fails `role_core__validation__2025__excess_vs_spy`.
+Actual betas (+0.599 / -0.009 / +0.599) — none cap-violating. Same
+shape as cycle08: beta fix confirmed, but vs_spy aggregate is the
+real binding gate.
 
 ## Blast radius beyond cycle06/07a/08
 

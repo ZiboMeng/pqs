@@ -872,6 +872,114 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   pending forward observation evidence. Research-mining workstream
   auto re-frozen at this boundary.
 
+- **cycle07-to-fleet master ralph-loop + Track C cycle 2026-05-07 (cycle07a)
+  + 2026-05-08 (cycle08) + Trial 3 NAV-correlation Red verdict** (2026-05-06
+  through 2026-05-07 ✅, **0 forward init**, 1 Track A nominee post-P0-fix
+  but Red NAV verdict → evidence-only) — 13-round ralph-loop bundling
+  cycle07a + cycle08 mining + 4 audit memos + retroactive Track A re-eval
+  fix. Master PRD `docs/prd/20260424-cycle07_to_fleet_master_prd.md`.
+
+  **cycle07a (2026-05-07)** — single-axis diff vs cycle06 = factor reweight
+  (drawup_from_252d_low + 短动量 anchor 强化). Yaml sha256
+  `1295911ab8949194c3eebf48...` (commit `2fc5198`). Mining 200 trials /
+  finite ~149 / 30 archived; top-3 Track A original verdict 0/3 PASS.
+
+  **cycle08 (2026-05-08)** — single-axis diff vs cycle07a = ObjectiveWeightsV3
+  regime-conditional weights (BEAR-IC / NEUTRAL-IC / BULL-IC scoped composite
+  evaluator). Yaml sha256 part of cycle07-fleet R7 prep (commit `d0b1c4c`).
+  Mining 40-trial smoke (NOT full 200) / 11 archived. Track A original
+  verdict 0/3 PASS. Smoke caveat preserves yaml integrity (yaml=200, runner
+  override --n-trials 40 per R7 prep).
+
+  **P0 wiring bug discovery + fix (2026-05-07)** — R12 audit reverse-validate
+  caught suspicious "16 of 17 gates correlated FAIL with beta=present" pattern
+  across 9 trials. Root cause: `dev/scripts/cycle{06,07a,08}/cycle*_track_a_eval.py`
+  built `metrics["beta_to_qqq"]` (top-level scalar) but
+  `core/research/temporal_split_acceptance.py:_eval_beta_gate` resolves
+  nested `metrics["beta"]["beta_to_qqq"]` (mirroring yaml schema). Pre-fix
+  gate fail-closed silently → all 9 trials had false-negative beta gate
+  FAIL despite actual betas well below 0.85 cap. Fix shipped commits
+  `5873653` + `9cacab3` (evaluator scripts + 6 regression tests
+  `tests/unit/research/test_beta_metric_path_canonical.py`). Postmortem:
+  `docs/audit/20260507-beta_metric_path_bug_postmortem.md`.
+
+  **Post-fix 9-trial Track A re-eval (2026-05-07)**:
+  - cycle06 (`bab8cfe88af3` / `31af04cf2ff9` / `a9e39c21feed`): 0/3 PASS,
+    all fail `validation_aggregate_excess_vs_spy` (vs_spy aggregate is the
+    real binding gate; not beta).
+  - cycle07a (`81cfb5f4c4f5` / `f133a18d1495` / `1e771580f486`): **1/3 PASS**.
+    Trial 3 `1e771580f486` (drawup_from_252d_low + mom_63d + ret_1d, monthly,
+    cap_aware) is sole survivor — 17/17 gates PASS, 17yr cum_ret +1016.75%
+    vs SPY +231.94% / QQQ +496.38%, sharpe 1.08, full max_dd -20.0%, beta
+    0.534, top1 14.5% / top3 36.6%, 2025 holdout +25.1% (+8.4% vs SPY),
+    covid_flash +3.6% (vs SPY -13.8%), rate_hike_2022 -7.3% (vs SPY -16.6%).
+  - cycle08 (`8ac6bccbeed1` / `60998346d975` / `3f40e3f4ed1a`): 0/3 PASS,
+    same vs_spy aggregate failure shape.
+  Amendment memo: `docs/memos/20260507-cycle06_07a_08_track_a_post_fix_amendment.md`
+  (cycle06+08 verdict UNCHANGED with revised gate-attribution; cycle07a
+  Trial 3 = sole nominee).
+
+  **Trial 3 NAV correlation pre-init gate (x.txt 2026-05-07 locked spec)**
+  — pre-forward-init authorization required raw < 0.85 + residual < 0.50
+  for all 3 pairs vs anchors. Harness:
+  `dev/scripts/cycle07a/trial3_nav_correlation.py` (cycle04 cross-cycle
+  template + cap_aware STOCK_RISK_CLUSTER_MAP). 16-year extended panel
+  (cycle07a selector partition, 2009-2024). Output:
+  `data/audit/cycle07a_trial3_nav_correlation.json`.
+
+  | Pair | raw | residual_vs_spy | residual_vs_qqq |
+  |---|---|---|---|
+  | Trial 3 vs RCMv1 | **0.874** | 0.603 | 0.613 |
+  | Trial 3 vs Cand-2 | **0.892** | 0.688 | 0.699 |
+  | Trial 3 vs Trial 9 | 0.783 | 0.319 | 0.381 |
+
+  **Verdict: RED** (raw ≥ 0.85 in 2 pairs; residual ≥ 0.50 in 4 of 6
+  measurements). **Trial 3 NOT forward-init'd**; evidence-only memo
+  records the structural finding:
+  `docs/memos/20260507-cycle07a_trial3_red_verdict_evidence_only.md`.
+
+  **Three structural findings (sibling-by-NAV root cause)**:
+  - **Finding 1: drawup-anchor + monthly + top-N is the binding sibling
+    geometry**. Trial 3 shares ONLY `drawup_from_252d_low` factor with
+    RCMv1 (1 of 4) yet raw 0.874. Banning the FACTOR (cycle05) doesn't
+    break the sibling pattern; banning the CONSTRUCTION does.
+  - **Finding 2: Cand-2 sibling-by-NAV tighter than RCMv1**. Trial 3
+    shares 0 of 3 factors with Cand-2 yet raw 0.892. Long-only top-10
+    over 78-stock universe = MARKET-COVERAGE binding geometry; disjoint
+    factors with same construction pick ~30-50% identical names monthly.
+  - **Finding 3: Trial 9 (max_dd_126d) is structurally distinct**. Both
+    use cap_aware monthly top-N yet raw 0.783 + residual 0.32-0.38. First
+    cycle04-08 candidate where Family-B anchor swap (drawup → max_dd_126d)
+    produces NAV-distinct behavior. Empirical confirmation that drawup vs
+    max_dd is a real sibling boundary.
+
+  **D.0 fleet allocator gate revision proposal (provisional, NOT
+  ratified)**: D.0 (a) currently requires ≥ 2 Track A acceptance nominees;
+  proposed tightening to ≥ 2 nominees AND pairwise raw NAV Pearson < 0.85
+  across all fleet members on cycle04-canonical 16y extended panel.
+  Under proposed rule, Trial 3 counts toward Track A nominee total (1 of 2)
+  but does NOT count toward "additive fleet member" — D.0 (a) requires a
+  next candidate that is BOTH Track A accept AND raw < 0.85 vs RCMv1 AND
+  Cand-2 AND now Trial 3 (3-way constraint).
+
+  **Cycle direction implication**: cycle04-08 + Trial 3 collectively
+  demonstrate that cap_aware monthly top-10 over 78-stock universe CANNOT
+  break sibling geometry by factor swap alone. Future cycle direction
+  options (NOT pre-registered, awaiting user-go): construction DOF
+  expansion (weekly / cross-asset / multi-horizon ensemble); universe
+  expansion (78 → 200+ stocks OR add bonds/commodities permanently);
+  strategy-type pivot (options sleeve in progress; intraday reversal /
+  event-calendar untested); gate revision (relax 78-stock universe OR
+  long-only invariant — requires user explicit-go).
+
+  **Sealed 2026 panel NEVER read**. Research-mining workstream auto
+  re-frozen. Cycle #09 NOT auto-fired per cycle04 stop rule + post-Trial-3-Red
+  D.0 gate revision proposal. Closeouts:
+  `docs/memos/20260520-cycle08_closeout.md` (cycle08 closeout, pre-fix);
+  `docs/memos/20260506-cycle07_to_fleet_final_synthesis.md` (R13 final
+  synthesis); `docs/audit/20260506-cycle07_fleet_audit_final_2.md` (R12
+  audit, cycle07a R9 line retracted by amendment memo).
+
 - **PRD-E v1.1 implementation (TAA / regime allocation)** (2026-05-06 ✅,
   **5/7 hard gates PASS — defensive sleeve confirmed, standalone alpha
   rejected**) — first non-mining strategy framework in PQS. PRD:

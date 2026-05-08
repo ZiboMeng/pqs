@@ -1,0 +1,99 @@
+{
+  "candidate_id": "trial_3_1e771580f486",
+  "lineage": "track-c-cycle-2026-05-07-01",
+  "spec": {
+    "features": [
+      "drawup_from_252d_low",
+      "mom_63d",
+      "ret_1d"
+    ],
+    "weights": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.3333333333333333
+    ],
+    "construction_mode": "cap_aware",
+    "rebalance_cadence": "monthly",
+    "top_n": 10,
+    "horizon_days": 21,
+    "cluster_cap": 0.2,
+    "max_single_weight": 0.1
+  },
+  "anchors": {
+    "rcm_v1": {
+      "features": [
+        "beta_spy_60d",
+        "drawup_from_252d_low",
+        "days_since_52w_high",
+        "amihud_20d"
+      ],
+      "weights": [
+        0.186,
+        0.302,
+        0.395,
+        0.117
+      ],
+      "mode": "global_top_n"
+    },
+    "cand_2": {
+      "features": [
+        "ret_5d",
+        "rs_vs_spy_126d",
+        "hl_range"
+      ],
+      "weights": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.3333333333333333
+      ],
+      "mode": "global_top_n"
+    },
+    "trial_9": {
+      "features": [
+        "beta_spy_60d",
+        "max_dd_126d",
+        "ret_1d"
+      ],
+      "weights": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.3333333333333333
+      ],
+      "mode": "cap_aware"
+    }
+  },
+  "pair_correlations": [
+    {
+      "anchor": "rcm_v1",
+      "n_overlap_days": 2164,
+      "pooled_pearson_raw": 0.8740603066223027,
+      "pooled_pearson_residual_vs_spy": 0.6026198934615934,
+      "pooled_pearson_residual_vs_qqq": 0.6134761992469779
+    },
+    {
+      "anchor": "cand_2",
+      "n_overlap_days": 2164,
+      "pooled_pearson_raw": 0.8916578165487491,
+      "pooled_pearson_residual_vs_spy": 0.6879878036803061,
+      "pooled_pearson_residual_vs_qqq": 0.6985053132195436
+    },
+    {
+      "anchor": "trial_9",
+      "n_overlap_days": 2164,
+      "pooled_pearson_raw": 0.7828412670873928,
+      "pooled_pearson_residual_vs_spy": 0.3194232734074534,
+      "pooled_pearson_residual_vs_qqq": 0.38147172643391297
+    }
+  ],
+  "verdict": {
+    "tier": "RED",
+    "reason": "raw >= 0.85 violation in pairs: ['rcm_v1', 'cand_2']",
+    "max_raw": 0.8916578165487491,
+    "max_residual": 0.6985053132195436
+  },
+  "thresholds_locked_2026_05_07": {
+    "green": "all raw < 0.80 AND all residuals < 0.45",
+    "yellow": "max raw in [0.80, 0.85) AND max residual < 0.50",
+    "red": "any raw >= 0.85 OR any residual >= 0.50"
+  }
+}
