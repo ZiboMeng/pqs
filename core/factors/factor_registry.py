@@ -158,6 +158,13 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     "bb_squeeze_20d", "range_position_pct_60d", "consolidation_days_count",
     "atr_compression_20d", "adx_low_trend_flag",
     "pre_breakout_volume_decay",
+    # Bucket A T1 batch 3 (higher moments + anchor + BAB + calendar)
+    # PRD 2026-05-12. Higher moments per Harvey-Siddique 2000 +
+    # Bressan 2024; BAB simplified per Frazzini-Pedersen 2014; calendar
+    # per 2024 review (turn-of-month 10bps + sell-in-May persist).
+    "coskew_60d_spy", "cokurt_60d_spy", "idiosyncratic_skew_60d",
+    "nearness_to_52w_high", "weekly_reversal_signal_5d", "bab_score_60d",
+    "turn_of_month_flag", "sell_in_may_seasonal", "month_end_quarter_end",
     # Quality
     "rolling_sharpe_126d", "return_per_risk_21d",
     # Path shape (LLM-Round 10 promotion, 2026-04-21, user-authorized):

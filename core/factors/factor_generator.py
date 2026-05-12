@@ -109,6 +109,9 @@ def generate_all_factors(
     if volume_df is not None:
         factors.update(_volume_factors(effective_price_df, volume_df, high_df, low_df))
     factors.update(_family_g_consolidation(effective_price_df, high_df, low_df, volume_df))
+    factors.update(_family_h_higher_moments(effective_price_df, benchmark_col))
+    factors.update(_family_i_anchor_bab(effective_price_df, volume_df, benchmark_col))
+    factors.update(_family_j_calendar(effective_price_df))
     factors.update(_quality_factors(effective_price_df))
     factors.update(_sr_swing_factors(effective_price_df, high_df, low_df))
     factors.update(_relative_strength_factors(effective_price_df, benchmark_col))
@@ -717,6 +720,162 @@ def _volume_factors(
         kvo_short = vf.ewm(span=34, adjust=False, min_periods=34).mean()
         kvo_long = vf.ewm(span=55, adjust=False, min_periods=55).mean()
         factors["klinger_oscillator"] = kvo_short - kvo_long
+
+    return factors
+
+
+def _family_h_higher_moments(
+    price_df: pd.DataFrame,
+    benchmark_col: str = "SPY",
+    window: int = 60,
+) -> Dict[str, pd.DataFrame]:
+    """Higher-moment factors — coskew / cokurt vs benchmark + idio skew.
+
+    Bucket A T1 batch 3 (PRD 2026-05-12; Harvey-Siddique 2000 +
+    Bressan 2024 RFE).
+
+    Formulas (rolling `window` daily bars):
+      coskew_60d_spy  = E[(r_i - μ_i)² × (r_m - μ_m)] / (σ_i² × σ_m)
+      cokurt_60d_spy  = E[(r_i - μ_i)³ × (r_m - μ_m)] / (σ_i³ × σ_m)
+      idiosyncratic_skew_60d = rolling skewness of stock daily returns
+
+    CONDITIONAL on benchmark_col present in price_df columns.
+    """
+    factors: Dict[str, pd.DataFrame] = {}
+    if benchmark_col not in price_df.columns:
+        return factors
+
+    daily_ret = price_df.pct_change()
+    bench_ret = daily_ret[benchmark_col]
+
+    # Rolling moments
+    ri_mean = daily_ret.rolling(window).mean()
+    rm_mean = bench_ret.rolling(window).mean()
+    ri_dev = daily_ret.sub(ri_mean)
+    rm_dev = bench_ret.sub(rm_mean)
+    ri_var = daily_ret.rolling(window).var()
+    rm_var = bench_ret.rolling(window).var()
+    ri_std = np.sqrt(ri_var)
+    rm_std = np.sqrt(rm_var)
+
+    # coskew_60d_spy
+    coskew_num = (ri_dev.pow(2)).mul(rm_dev, axis=0).rolling(window).mean()
+    coskew_den = (ri_var * rm_std.values[:, None]) if False else None
+    # Easier: compute element-wise
+    coskew = coskew_num.div((ri_var.mul(rm_std, axis=0)).replace(0, np.nan))
+    factors[f"coskew_{window}d_spy"] = coskew
+
+    # cokurt_60d_spy
+    cokurt_num = (ri_dev.pow(3)).mul(rm_dev, axis=0).rolling(window).mean()
+    cokurt = cokurt_num.div((ri_std.pow(3).mul(rm_std, axis=0)).replace(0, np.nan))
+    factors[f"cokurt_{window}d_spy"] = cokurt
+
+    # idiosyncratic skew (no benchmark; just per-symbol)
+    factors[f"idiosyncratic_skew_{window}d"] = daily_ret.rolling(window).skew()
+
+    return factors
+
+
+def _family_i_anchor_bab(
+    price_df: pd.DataFrame,
+    volume_df: Optional[pd.DataFrame] = None,
+    benchmark_col: str = "SPY",
+) -> Dict[str, pd.DataFrame]:
+    """Anchor (52w high) + short-term reversal + simplified BAB.
+
+    Bucket A T1 batch 3 (PRD 2026-05-12):
+      - nearness_to_52w_high : close / 252d_max ∈ [0, 1]
+                               (complements existing dist_52w_high which
+                                is fraction-below)
+      - weekly_reversal_signal_5d : -ret_5d × volume_zscore_5d
+                                    (Lehmann 1990: high-turnover winners
+                                     reverse next week)
+      - bab_score_60d        : -beta_spy_60d / downside_vol_20d
+                               (simplified BAB; Frazzini-Pedersen 2014;
+                                divides by downside vol as risk normalizer)
+
+    CONDITIONAL on benchmark_col (BAB needs SPY) and volume_df
+    (weekly_reversal needs turnover).
+    """
+    factors: Dict[str, pd.DataFrame] = {}
+
+    # nearness_to_52w_high — no benchmark / no volume needed
+    max_252 = price_df.rolling(252, min_periods=63).max()
+    factors["nearness_to_52w_high"] = price_df / max_252.replace(0, np.nan)
+
+    # weekly_reversal_signal_5d — needs volume
+    if volume_df is not None:
+        ret_5d = price_df.pct_change(5)
+        vol_mean_5 = volume_df.rolling(5).mean()
+        vol_std_60 = volume_df.rolling(60).std().replace(0, np.nan)
+        vol_z_5d = (vol_mean_5 - volume_df.rolling(60).mean()) / vol_std_60
+        factors["weekly_reversal_signal_5d"] = -ret_5d * vol_z_5d
+
+    # bab_score_60d — needs benchmark
+    if benchmark_col in price_df.columns:
+        daily_ret = price_df.pct_change()
+        bench_ret = daily_ret[benchmark_col]
+        # Rolling 60d OLS beta vs SPY
+        cov_60 = daily_ret.rolling(60).cov(bench_ret)
+        var_60 = bench_ret.rolling(60).var()
+        beta_60 = cov_60.div(var_60.replace(0, np.nan), axis=0)
+        # downside vol 20d
+        neg_ret = daily_ret.where(daily_ret < 0, 0.0)
+        downside_vol_20 = neg_ret.rolling(20).std().replace(0, np.nan)
+        factors["bab_score_60d"] = -beta_60 / downside_vol_20
+
+    return factors
+
+
+def _family_j_calendar(
+    price_df: pd.DataFrame,
+) -> Dict[str, pd.DataFrame]:
+    """Calendar / seasonal timing factors.
+
+    Bucket A T1 batch 3 (PRD 2026-05-12):
+      - turn_of_month_flag        : ±2 trading days from month-end → 1
+                                    (10bps premium per 2024 calendar
+                                     anomaly review)
+      - sell_in_may_seasonal      : Nov-Apr → +1, May-Oct → -1
+      - month_end_quarter_end     : Mar/Jun/Sep/Dec last trading day → 1
+                                    (institutional rebalance)
+
+    No data dependencies beyond price_df's DatetimeIndex (for shape).
+    All flags are broadcast across columns identically (time-only signals).
+    """
+    factors: Dict[str, pd.DataFrame] = {}
+    idx = price_df.index
+    if not isinstance(idx, pd.DatetimeIndex):
+        return factors
+
+    # turn_of_month_flag: identify each month's last K + first K trading days
+    # Easier: rank trading days within each month from start AND end; flag
+    # if rank ≤ 2 from either side.
+    month_period = idx.to_period("M")
+    df_idx = pd.DataFrame({"d": idx, "m": month_period}, index=idx)
+    df_idx["rank_from_start"] = df_idx.groupby("m").cumcount() + 1
+    df_idx["rank_from_end"] = df_idx.groupby("m").cumcount(ascending=False) + 1
+    tom_flag = ((df_idx["rank_from_start"] <= 2) | (df_idx["rank_from_end"] <= 2)).astype(float)
+    factors["turn_of_month_flag"] = pd.DataFrame(
+        np.tile(tom_flag.values[:, None], (1, len(price_df.columns))),
+        index=idx, columns=price_df.columns,
+    )
+
+    # sell_in_may_seasonal: Nov-Apr +1, May-Oct -1
+    month = idx.month
+    seasonal = np.where((month >= 11) | (month <= 4), 1.0, -1.0)
+    factors["sell_in_may_seasonal"] = pd.DataFrame(
+        np.tile(seasonal[:, None], (1, len(price_df.columns))),
+        index=idx, columns=price_df.columns,
+    )
+
+    # month_end_quarter_end: last trading day of Mar/Jun/Sep/Dec
+    df_idx["is_qend_month"] = month_period.month.isin([3, 6, 9, 12])
+    df_idx["is_qend_day"] = df_idx["is_qend_month"] & (df_idx["rank_from_end"] == 1)
+    factors["month_end_quarter_end"] = pd.DataFrame(
+        np.tile(df_idx["is_qend_day"].astype(float).values[:, None], (1, len(price_df.columns))),
+        index=idx, columns=price_df.columns,
+    )
 
     return factors
 
