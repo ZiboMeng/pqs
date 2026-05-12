@@ -109,15 +109,16 @@ class TestFactorGeneratorAlignsWithRegistry:
 
         produced = set(factors.keys())
         missing_from_registry = produced - RESEARCH_FACTORS
-        missing_from_generator = RESEARCH_FACTORS - produced
         assert not missing_from_registry, (
             f"factor_generator produces {missing_from_registry} but "
             f"they are not in RESEARCH_FACTORS. Update the registry."
         )
-        assert not missing_from_generator, (
-            f"RESEARCH_FACTORS lists {missing_from_generator} but "
-            f"factor_generator does not produce them. Remove stale names."
-        )
+        # Reverse direction (registry name not produced by generator) is
+        # ALLOWED post-2026-05-12: fundamental / sector / macro factors
+        # are registered for mining-search visibility but computed via
+        # separate compute_* functions (different input signatures —
+        # EDGAR / sector_map / FRED). The drift test only enforces
+        # "generator output must be registered" (one-directional).
 
 
 class TestExecutionGate:
