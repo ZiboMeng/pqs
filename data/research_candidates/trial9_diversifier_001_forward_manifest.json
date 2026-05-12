@@ -19,7 +19,7 @@
       60
     ]
   },
-  "current_status": "in_progress",
+  "current_status": "completed_fail",
   "data_integrity_snapshot": {
     "daily_store_rebuild_commit": "f170b0c00000",
     "baseline_snapshot_path": "data/baseline/latest.json",
@@ -803,14 +803,14 @@
         }
       },
       "data_revision_event": {
-        "detected_at_utc": "2026-05-07T21:53:13.719398Z",
+        "detected_at_utc": "2026-05-12T17:38:36.426132Z",
         "revised_symbols": [
           "LRCX",
           "META",
           "SOXL",
           "XLK"
         ],
-        "detected_by_run_label": "observe@2026-05-07T21:53:13+00:00",
+        "detected_by_run_label": "observe@2026-05-12T17:38:36+00:00",
         "delta_summary": "scopes=['execution_nav']; n_revised_cells=4; materiality_class=in_ring; triggers=[]",
         "estimated_nav_impact_bps": 0.0962,
         "estimated_cum_ret_drift_bps": 0.0962,
@@ -1784,7 +1784,7 @@
         }
       },
       "data_revision_event": {
-        "detected_at_utc": "2026-05-07T21:53:13.869350Z",
+        "detected_at_utc": "2026-05-12T17:38:36.567458Z",
         "revised_symbols": [
           "BKNG",
           "LRCX",
@@ -1794,7 +1794,7 @@
           "TQQQ",
           "UNH"
         ],
-        "detected_by_run_label": "observe@2026-05-07T21:53:13+00:00",
+        "detected_by_run_label": "observe@2026-05-12T17:38:36+00:00",
         "delta_summary": "scopes=['execution_nav']; n_revised_cells=7; materiality_class=in_ring; triggers=[]",
         "estimated_nav_impact_bps": 4.5363,
         "estimated_cum_ret_drift_bps": 4.5363,
@@ -2940,7 +2940,7 @@
         }
       },
       "data_revision_event": {
-        "detected_at_utc": "2026-05-07T21:53:14.017825Z",
+        "detected_at_utc": "2026-05-12T17:38:36.707886Z",
         "revised_symbols": [
           "BKNG",
           "META",
@@ -2949,7 +2949,7 @@
           "TER",
           "TQQQ"
         ],
-        "detected_by_run_label": "observe@2026-05-07T21:53:13+00:00",
+        "detected_by_run_label": "observe@2026-05-12T17:38:36+00:00",
         "delta_summary": "scopes=['execution_nav']; n_revised_cells=6; materiality_class=in_ring; triggers=[]",
         "estimated_nav_impact_bps": 2.1811,
         "estimated_cum_ret_drift_bps": 2.1811,
@@ -4343,7 +4343,31 @@
           "mixed_n_symbols": 0
         }
       },
-      "data_revision_event": null,
+      "data_revision_event": {
+        "detected_at_utc": "2026-05-12T17:38:36.852977Z",
+        "revised_symbols": [
+          "BKNG",
+          "LRCX",
+          "META",
+          "MU",
+          "SOXL",
+          "TQQQ",
+          "TSLA"
+        ],
+        "detected_by_run_label": "observe@2026-05-12T17:38:36+00:00",
+        "delta_summary": "scopes=['execution_nav', 'signal_input']; n_revised_cells=7; materiality_class=bound_only; triggers=['bound_only (signal_input scope diff with empty per_cell_digest (track_per_cell=False) \u2014 cannot prove diff is subset of execution_nav-anchored cells; conservative bound_only per PRD \u00a74.4 (codex Round-10 Blocker 2))']",
+        "estimated_nav_impact_bps": null,
+        "estimated_cum_ret_drift_bps": 2.3727,
+        "estimated_vs_spy_drift_bps": null,
+        "estimated_vs_qqq_drift_bps": null,
+        "decision_sign_flip": false,
+        "raw_max_close_drift_pct": 0.002174,
+        "affected_scopes": [
+          "execution_nav",
+          "signal_input"
+        ],
+        "policy_decision": "invalidated"
+      },
       "held_today_weights": {
         "TSLA": 0.1,
         "TQQQ": 0.1,
@@ -4356,6 +4380,28 @@
         "XLY": 0.1,
         "SLV": 0.1
       },
+      "config_drift_event": null
+    },
+    {
+      "checkpoint_label": "DECIDE",
+      "as_of_date": "2026-05-07",
+      "n_observed_trading_days": 4,
+      "cum_ret": null,
+      "sharpe": null,
+      "max_dd": null,
+      "vs_spy": null,
+      "vs_qqq": null,
+      "notes": "decide=completed_fail: v2.1 revalidate bound_only at TD004 2026-05-12 (signal_input scope close revision outside execution_nav anchor coverage; codex R10 Blocker 2 fail-closed by design). Structural fix shipped via PRD docs/prd/20260512-per_candidate_track_signal_input_per_cell_prd.md (per-candidate track_signal_input_per_cell opt-in). Successor: trial9_diversifier_002 start_date 2026-05-13. Closeout memo: docs/memos/20260512-trial9_diversifier_001_closeout.md. 4 forward TDs preserved as forensic evidence.",
+      "source_mix": null,
+      "legacy_unhashed_inputs": null,
+      "signal_input_hash": null,
+      "execution_nav_hash": null,
+      "benchmark_hash": null,
+      "bar_hash": null,
+      "bar_hash_inputs": null,
+      "source_layer_breakdown": null,
+      "data_revision_event": null,
+      "held_today_weights": null,
       "config_drift_event": null
     }
   ]

@@ -1038,8 +1038,16 @@ def observe(
                     source_mix = True
                     break
         # ── v2.1 input-scope hashes + observation-time evidence ─────
+        # PRD 20260512 opt-in: spec may set
+        # evidence_config.track_signal_input_per_cell=true to write
+        # non-empty per_cell_digest at TD-write time. Default False
+        # preserves legacy behavior (RCMv1 / Cand-2 / trial9_001).
+        track_sig_per_cell = bool(
+            (spec.evidence_config or {}).get("track_signal_input_per_cell", False)
+        )
         sig_h, sig_in = compute_signal_input_hash(
             spec=spec, universe=v2_universe, panel=panel, as_of_date=d,
+            track_per_cell=track_sig_per_cell,
         )
         exec_h, exec_in = compute_execution_nav_hash(
             held_or_traded_symbols=held_or_traded,

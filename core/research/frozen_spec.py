@@ -154,6 +154,28 @@ class FrozenStrategySpec:
     # parallel to ``sr_defer``.
     execution_policy: Optional[dict] = None
 
+    # ── Evidence config (PRD 20260512, opt-in) ─────────────────────────
+    # When None or absent → forward runner writes signal_input
+    # per_cell_digest empty (production default; preserves storage budget
+    # and matches all pre-PRD candidates). v2.1 revalidate's bound_only
+    # fail-closed gate fires when signal_input scope diff cannot be
+    # attributed cell-by-cell (codex Round-10 Blocker 2).
+    #
+    # When present and ``track_signal_input_per_cell: true`` → forward
+    # runner passes ``track_per_cell=True`` to compute_signal_input_hash
+    # at TD-write time; revalidate can then do real cell-level diff and
+    # small in-ring revisions stay flagged_only instead of escalating
+    # to invalidated.
+    #
+    # Documented shape (v1.0):
+    #     evidence_config:
+    #       track_signal_input_per_cell: bool   # default False
+    #
+    # Storage cost (typical diversifier candidate, close-only attr):
+    #   81 syms × 252 days × 1 attr × 8-char digest ≈ 163 KB / TD
+    #   60-TD soak: ~10 MB / candidate
+    evidence_config: Optional[dict] = None
+
     # ── Extras (catch-all for future fields) ──────────────────────────
     extras: dict = field(default_factory=dict)
 
@@ -226,7 +248,7 @@ class FrozenStrategySpec:
             "labels", "panel_contract", "rebalance", "weighting_rule",
             "benchmark_definition", "risk_overlay", "cost_model_version",
             "alternative_weighting_variant", "source", "research_evidence",
-            "notes", "execution_policy",
+            "notes", "execution_policy", "evidence_config",
         ):
             v = getattr(self, field_name)
             if v is not None:
@@ -321,7 +343,7 @@ class FrozenStrategySpec:
             "labels", "panel_contract", "rebalance", "weighting_rule",
             "benchmark_definition", "risk_overlay", "cost_model_version",
             "alternative_weighting_variant", "source", "research_evidence",
-            "notes", "execution_policy",
+            "notes", "execution_policy", "evidence_config",
         }
         extras = {k: v for k, v in d.items() if k not in known}
 
@@ -350,6 +372,7 @@ class FrozenStrategySpec:
             research_evidence=d.get("research_evidence"),
             notes=d.get("notes"),
             execution_policy=d.get("execution_policy"),
+            evidence_config=d.get("evidence_config"),
             extras=extras,
         )
 

@@ -1,0 +1,51 @@
+{
+  "schema_version": "1.0",
+  "candidate_id": "trial9_diversifier_002",
+  "evidence_class": "forward_oos",
+  "spec_hash": "44870b91073aa5440dfa5d8ccc07b1f43dcc25235ce9139e2ca0352559e8f985",
+  "start_date": "2026-05-13",
+  "benchmark": "SPY",
+  "secondary_benchmark": "QQQ",
+  "cost_assumptions": {
+    "source": "config/cost_model.yaml",
+    "config_hash": "c1b5fee2ec136db7051a47d5b6364d8b05c623a9b049cdf7f95c1d727a7e1b0d"
+  },
+  "checkpoint_cadence": {
+    "weekly": true,
+    "decision_days": [
+      10,
+      20,
+      40,
+      60
+    ]
+  },
+  "current_status": "not_started",
+  "data_integrity_snapshot": {
+    "daily_store_rebuild_commit": "f170b0c00000",
+    "baseline_snapshot_path": "data/baseline/latest.json",
+    "generated_at_utc": "2026-05-12T18:45:50.714920Z"
+  },
+  "config_snapshot": {
+    "schema_version": "1.0",
+    "universe_hash": "29eeff23263fd896f21850bc813bce5484150ef88416f24784ab4da2fa6f4d72",
+    "factor_registry_hash": "b844d7484d099ae508d178b5945bb6c2c8c791edb82287df983dabf70b328e88",
+    "research_mask_hash": "99ef97d08c326ff766a865dd7ddbe5880f5c3b91ae7658f30cae4b7f100de10a",
+    "risk_config_hash": "9068b5f72d64208803bd98ac1d092652327cd4c2406bcaed483846c2f2a3dbad",
+    "system_config_hash": "b2f96c3b9733d35f15b463339e14bbb55c374d6344d92f463d309e2fa836db82",
+    "snapshot_at_utc": "2026-05-12T18:45:50.734078Z",
+    "sources": {
+      "universe_hash": "config/universe.yaml",
+      "factor_registry_hash": "core/factors/factor_registry.py::PRODUCTION+RESEARCH+MAP",
+      "research_mask_hash": "config/research_mask.yaml",
+      "risk_config_hash": "config/risk.yaml",
+      "system_config_hash": "config/system.yaml"
+    },
+    "migration_note": null
+  },
+  "candidate_role": "diversifier",
+  "soft_warn_flags": [
+    "diversifier_2025_maxdd_18_20pct"
+  ],
+  "policy_recovery_log": [],
+  "runs": []
+}
