@@ -24,8 +24,10 @@ from core.factors.fundamental_factors import (
 
 
 def _make_fixture_cache(tmp_path: Path) -> Path:
-    """Single-ticker fixture with 3 years of complete fundamentals
-    so Piotroski + Magic Formula factors can compute non-trivially."""
+    """LEGACY: kept for compat with code that imports it directly.
+
+    New tests should rely on the shared `fixture_cache` / `store`
+    fixtures in conftest.py."""
     cache_dir = tmp_path / "edgar_cache"
     cache_dir.mkdir()
 

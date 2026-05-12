@@ -189,6 +189,24 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     "magic_earnings_yield_ttm",
     "magic_roic_ttm",
     "magic_formula_rank_composite",
+    # Bucket B T5 batch 2 (Beneish + Altman + capital return + growth)
+    # PRD 2026-05-12. Beneish per 1999 paper + 2025 G7 + Borsa Istanbul
+    # ML validations. Altman manufacturing-5 1968 (still valid 2025
+    # per MDPI review). Capital return per S&P DJI 2024 $942.5B record
+    # buyback annual; FCF profitability Sharpe 0.62 > FCFY 0.50
+    # per LSEG 2025. Asset growth (FF5 CMA) per Robeco 2024 weakening
+    # but still cross-sectional alpha. R&D per Goyal-Wahal April 2024
+    # (note: capitalize-as-asset → alpha → 0; expense treatment matters).
+    "beneish_dsri", "beneish_gmi", "beneish_aqi", "beneish_sgi",
+    "beneish_depi", "beneish_sgai", "beneish_tata", "beneish_lvgi",
+    "beneish_m_score",
+    "altman_wc_to_assets", "altman_re_to_assets", "altman_ebit_to_assets",
+    "altman_mveq_to_liab", "altman_sales_to_assets",
+    "altman_z_score",
+    "buyback_yield_ttm", "dividend_yield_ttm", "shareholder_yield_ttm",
+    "fcf_yield_ttm", "fcf_to_assets_ttm",
+    "revenue_growth_yoy", "gross_profit_growth_yoy", "sales_acceleration",
+    "asset_growth_yoy", "dol_4q_window", "rd_intensity_ttm",
     # Quality
     "rolling_sharpe_126d", "return_per_risk_21d",
     # Path shape (LLM-Round 10 promotion, 2026-04-21, user-authorized):
