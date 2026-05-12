@@ -179,6 +179,15 @@ data_sensitivity:
     - buy_volume_proxy_ratio
     - sell_volume_proxy_ratio
     - block_trade_rate
+    # Bucket A T1 batch 1 (PRD 20260512). 6 new volume-microstructure
+    # factors with direct dependency on volume semantics. Masked for
+    # trades_backfill tickers (ETF 2024+ inputs).
+    - obv_norm_20d
+    - vol_price_corr_20d
+    - volume_surge_when_flat
+    - chaikin_money_flow_20d
+    - accum_dist_line_zscore_60d
+    - klinger_oscillator
   rationale: "volume semantics unverified for trades_backfill tickers"
 
 blacklist:

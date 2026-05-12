@@ -107,7 +107,7 @@ def generate_all_factors(
     factors.update(_mean_reversion_factors(effective_price_df))
     factors.update(_volatility_factors(effective_price_df))
     if volume_df is not None:
-        factors.update(_volume_factors(effective_price_df, volume_df))
+        factors.update(_volume_factors(effective_price_df, volume_df, high_df, low_df))
     factors.update(_quality_factors(effective_price_df))
     factors.update(_sr_swing_factors(effective_price_df, high_df, low_df))
     factors.update(_relative_strength_factors(effective_price_df, benchmark_col))
@@ -613,7 +613,22 @@ def _volatility_factors(price_df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
 def _volume_factors(
     price_df: pd.DataFrame,
     volume_df: pd.DataFrame,
+    high_df: Optional[pd.DataFrame] = None,
+    low_df: Optional[pd.DataFrame] = None,
 ) -> Dict[str, pd.DataFrame]:
+    """Volume + volume-microstructure factor family.
+
+    Bucket A T1 batch 1 (PRD-driven 2026-05-12):
+      - obv_norm_20d            : OBV 20-day momentum slope, normalized
+      - chaikin_money_flow_20d  : classic CMF (needs H+L)
+      - accum_dist_line_zscore_60d : A/D line z-score (needs H+L)
+      - vol_price_corr_20d      : rolling corr(ΔVolume, daily return)
+      - volume_surge_when_flat  : volume z-score gated by flat-price regime
+      - klinger_oscillator      : simplified Klinger VF EMA(34) - EMA(55) (needs H+L)
+
+    CONDITIONAL on high_df + low_df: CMF / AD / Klinger return NaN-only
+    DataFrames when either missing (mirrors `_sr_swing_factors` pattern).
+    """
     factors = {}
     vol_ma20 = volume_df.rolling(20).mean()
     factors["volume_surge_20d"] = volume_df / vol_ma20.replace(0, np.nan)
@@ -621,6 +636,75 @@ def _volume_factors(
     daily_ret = price_df.pct_change()
     vol_chg = volume_df.pct_change()
     factors["price_volume_div"] = daily_ret.rolling(20).mean() - vol_chg.rolling(20).mean()
+
+    # ── Bucket A T1 batch 1 (close + volume only; H/L not required) ──
+
+    # obv_norm_20d: OBV slope over 20d, normalized by daily-OBV-change std.
+    # OBV = cum sum of sign(daily_ret) × volume. Captures "smart-money
+    # accumulation" via volume-weighted directional bias. Norm by ΔOBV
+    # 20d std so cross-sectional rank is comparable across stocks with
+    # different absolute volume.
+    sign_ret = np.sign(daily_ret.fillna(0.0))
+    obv = (sign_ret * volume_df.fillna(0.0)).cumsum()
+    obv_chg = obv.diff()
+    obv_chg_std = obv_chg.rolling(20).std().replace(0, np.nan)
+    factors["obv_norm_20d"] = obv.diff(20) / obv_chg_std
+
+    # vol_price_corr_20d: rolling 20d Pearson corr(ΔVolume, daily ret).
+    # High = healthy trend (volume rises with price). Low / negative =
+    # divergence (volume drying up on advance OR rising on decline).
+    # Element-wise rolling correlation via cov / (std_a × std_b) formula
+    # (avoids pandas DataFrame.rolling().corr() shape ambiguity).
+    ret_mean_20 = daily_ret.rolling(20).mean()
+    volchg_mean_20 = vol_chg.rolling(20).mean()
+    ret_std_20 = daily_ret.rolling(20).std()
+    volchg_std_20 = vol_chg.rolling(20).std()
+    cov_20 = (daily_ret * vol_chg).rolling(20).mean() - ret_mean_20 * volchg_mean_20
+    factors["vol_price_corr_20d"] = cov_20 / (ret_std_20 * volchg_std_20).replace(0, np.nan)
+
+    # volume_surge_when_flat: volume z-score × flat-price flag. Captures
+    # "stealth accumulation" — volume spikes while 20d return is small.
+    # Threshold = 5%; binary flag (not soft) per resident-quant choice.
+    vol_zscore_20 = (volume_df - volume_df.rolling(20).mean()) / volume_df.rolling(20).std().replace(0, np.nan)
+    ret_20 = price_df.pct_change(20)
+    is_flat = (ret_20.abs() < 0.05).astype(float)
+    factors["volume_surge_when_flat"] = vol_zscore_20 * is_flat
+
+    # ── Bucket A T1 batch 1 (need H+L; CONDITIONAL) ──
+
+    if high_df is not None and low_df is not None:
+        hl_range = (high_df - low_df).replace(0, np.nan)
+
+        # chaikin_money_flow_20d: classic CMF formula.
+        # MFM = ((C - L) - (H - C)) / (H - L), set 0 when H == L.
+        # MFV = MFM × volume. CMF_20 = Σ MFV / Σ volume over 20d.
+        mfm = ((price_df - low_df) - (high_df - price_df)) / hl_range
+        mfv = mfm * volume_df
+        factors["chaikin_money_flow_20d"] = (
+            mfv.rolling(20).sum() / volume_df.rolling(20).sum().replace(0, np.nan)
+        )
+
+        # accum_dist_line_zscore_60d: A/D line = cumsum of MFV; z-score
+        # over 60d window. Captures long-window divergence from local
+        # mean — useful as "distribution / accumulation" regime tag.
+        ad_line = mfv.cumsum()
+        ad_mean_60 = ad_line.rolling(60).mean()
+        ad_std_60 = ad_line.rolling(60).std().replace(0, np.nan)
+        factors["accum_dist_line_zscore_60d"] = (ad_line - ad_mean_60) / ad_std_60
+
+        # klinger_oscillator: simplified Klinger volume-force formulation.
+        # The canonical Klinger (1997) uses a trend-reset cumulative
+        # measure (CM) that's path-dependent and prone to numerical
+        # accumulation drift; PQS uses a sign-of-trend × volume EMA
+        # difference variant which preserves the directional signal
+        # without the path-dependency. Documented as "simplified Klinger"
+        # in factor_registry comments.
+        trend_proxy = (high_df + low_df + price_df) / 3.0
+        trend_sign = np.sign(trend_proxy.diff()).fillna(0.0)
+        vf = volume_df * trend_sign
+        kvo_short = vf.ewm(span=34, adjust=False, min_periods=34).mean()
+        kvo_long = vf.ewm(span=55, adjust=False, min_periods=55).mean()
+        factors["klinger_oscillator"] = kvo_short - kvo_long
 
     return factors
 

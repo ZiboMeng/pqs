@@ -132,6 +132,24 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     "drawdown_current", "max_dd_126d",
     # Volume
     "volume_surge_20d", "price_volume_div",
+    # Bucket A T1 batch 1 (Volume microstructure) — PRD-driven 2026-05-12
+    # `docs/memos/20260512-quant_factor_literature_synthesis_v2.md` §2.1 +
+    # `docs/memos/20260512-bucket_abc_macro_mvp_schedule.md` §1 D1.
+    # 6 factor — closes PQS volume-microstructure gap (cycle04-08 unmined).
+    # obv_norm_20d              : OBV 20d slope / 20d ΔOBV std (close+vol)
+    # vol_price_corr_20d        : rolling corr(daily ret, ΔVol) 20d
+    # volume_surge_when_flat    : vol z-score × |ret_20d|<5% flag
+    # chaikin_money_flow_20d    : classic CMF (CONDITIONAL on H+L)
+    # accum_dist_line_zscore_60d: A/D line 60d z-score (CONDITIONAL on H+L)
+    # klinger_oscillator        : simplified Klinger sign-of-trend × volume
+    #                             EMA(34) - EMA(55) (CONDITIONAL on H+L;
+    #                             see _volume_factors() docstring for why
+    #                             simplified-vs-canonical Klinger).
+    # All 6 are research-only; NOT in PRODUCTION_FACTORS. Mining
+    # discovers IC sign + magnitude via run_research_miner.py.
+    "obv_norm_20d", "vol_price_corr_20d", "volume_surge_when_flat",
+    "chaikin_money_flow_20d", "accum_dist_line_zscore_60d",
+    "klinger_oscillator",
     # Quality
     "rolling_sharpe_126d", "return_per_risk_21d",
     # Path shape (LLM-Round 10 promotion, 2026-04-21, user-authorized):
