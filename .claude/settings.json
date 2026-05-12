@@ -20,7 +20,9 @@
         "Bash(git merge *)",                                                                                        
         "Bash(git rebase *)",                                                                                     
         "Bash(git reset *)",                                                                                        
-        "Bash(git clean *)"
+        "Bash(git clean *)",
+        "WebSearch", 
+        "WebFetch"
       ],                                                                                                            
       "defaultMode": "dontAsk"                                                                                    
     },                                                                                                              
