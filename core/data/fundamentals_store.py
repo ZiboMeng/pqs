@@ -115,41 +115,79 @@ class FundamentalsStore:
     def load_ttm(self, ticker: str, concept: str) -> pd.Series:
         """Trailing-12-month flow concept (e.g. revenues, net_income).
 
-        Sums last 4 quarterly 10-Q reports (or uses latest 10-K when
-        available). Indexed by the filed_date of the latest contributing
-        filing.
+        **Critical SEC EDGAR semantics** (audit R2 2026-05-12):
+        companyfacts returns BOTH stand-alone Q values AND YTD-cumulative
+        values for the same tag in the same filing (different `start`
+        dates). E.g. AAPL 10-Q Q3 reports:
+          - 3-mo (Q3 stand-alone): start=2024-09-29, end=2025-06-28
+          - 9-mo (YTD cumulative): start=2024-09-29, end=2025-06-28 …
+          actually both have same end. They differ by `start` date.
+        Rolling 4-Q sum of cumulative values double/triple-counts.
 
-        For instant concepts (balance sheet), TTM is not meaningful —
-        use `load_pit_series` directly.
+        Fix: filter to standalone Q values via duration check
+        (end - start ≈ 90 days, ± tolerance). For Q4 (annual), 10-K
+        gives full TTM directly. We merge:
+          - Standalone Q rolling sum where 4 prior Q's available
+          - 10-K annual TTM (already correct) where 10-K filed
+        Index = filed_date.
         """
         df = self.load_concept_facts(ticker, concept)
         if df.empty:
             return pd.Series(dtype=float, name=f"{concept}_ttm")
 
-        # Only Q reports (10-Q) for TTM rolling sum; annual 10-K already TTM
-        quarterly = df[df["form"].isin({"10-Q", "10-Q/A"})].copy()
-        if quarterly.empty:
-            # Fall back to 10-K annual values (already TTM as-of fiscal year)
-            annual = df[df["form"].isin({"10-K", "10-K/A"})].copy()
-            if annual.empty:
-                return pd.Series(dtype=float, name=f"{concept}_ttm")
-            annual = annual.sort_values(["filed", "end"])
-            annual = annual.groupby("filed", as_index=False).last()
-            return pd.Series(
-                annual["val"].values, index=pd.DatetimeIndex(annual["filed"]),
-                name=f"{concept}_ttm",
-            )
+        # Mark each fact's duration in days
+        df = df.copy()
+        # `start` may be NaT for instant concepts → fail-closed via NaN
+        df["duration_days"] = (df["end"] - df["start"]).dt.days
 
-        # Compute TTM at each quarterly filing: sum the latest 4 quarter-end values
-        # whose end <= current period end.
-        quarterly = quarterly.sort_values("end")
-        # Dedupe by end_date (take latest filed for each end)
-        quarterly = quarterly.sort_values("filed").groupby("end", as_index=False).last()
-        quarterly = quarterly.sort_values("end")
-        # Rolling 4-quarter sum
-        quarterly["ttm"] = quarterly["val"].rolling(4, min_periods=4).sum()
-        out = quarterly.dropna(subset=["ttm"])
-        return pd.Series(out["ttm"].values, index=pd.DatetimeIndex(out["filed"]), name=f"{concept}_ttm")
+        # 1. 10-K annual TTM: full-year value, use directly
+        annual = df[df["form"].isin({"10-K", "10-K/A"})].copy()
+        # Filter to annual-duration rows (300-400 days typical fiscal year)
+        annual = annual[(annual["duration_days"] >= 350) & (annual["duration_days"] <= 380)]
+
+        # 2. 10-Q standalone (≈ 3-month period)
+        quarterly_standalone = df[df["form"].isin({"10-Q", "10-Q/A"})].copy()
+        # Apple-style cumulative filings have duration 90 / 180 / 270 days
+        # for Q1 / Q2 / Q3. Stand-alone Q has duration ~85-100 days.
+        quarterly_standalone = quarterly_standalone[
+            (quarterly_standalone["duration_days"] >= 60)
+            & (quarterly_standalone["duration_days"] <= 100)
+        ]
+
+        # If no standalone Q values and no 10-K → fall back to whatever's available
+        # (most cumulative-only companies have 10-K annual TTM at least)
+        if quarterly_standalone.empty and annual.empty:
+            return pd.Series(dtype=float, name=f"{concept}_ttm")
+
+        # Build standalone-Q rolling-4 TTM series
+        ttm_rows = []
+        if not quarterly_standalone.empty:
+            quarterly_standalone = quarterly_standalone.sort_values(["filed", "end"])
+            # Dedupe by end (take latest filed)
+            quarterly_standalone = quarterly_standalone.groupby("end", as_index=False).last()
+            quarterly_standalone = quarterly_standalone.sort_values("end")
+            quarterly_standalone["ttm"] = quarterly_standalone["val"].rolling(4, min_periods=4).sum()
+            ttm_q = quarterly_standalone.dropna(subset=["ttm"])
+            for _, r in ttm_q.iterrows():
+                ttm_rows.append({"filed": r["filed"], "ttm": r["ttm"]})
+
+        # Add 10-K annual values (filed_date, full-year val)
+        if not annual.empty:
+            annual = annual.sort_values(["filed", "end"]).groupby("end", as_index=False).last()
+            for _, r in annual.iterrows():
+                ttm_rows.append({"filed": r["filed"], "ttm": r["val"]})
+
+        if not ttm_rows:
+            return pd.Series(dtype=float, name=f"{concept}_ttm")
+
+        ttm_df = pd.DataFrame(ttm_rows).sort_values("filed")
+        # Dedupe by filed (take latest if multiple at same filed_date)
+        ttm_df = ttm_df.groupby("filed", as_index=False).last()
+        return pd.Series(
+            ttm_df["ttm"].values,
+            index=pd.DatetimeIndex(ttm_df["filed"]),
+            name=f"{concept}_ttm",
+        )
 
     def load_latest_balance(self, ticker: str, concept: str) -> pd.Series:
         """Balance-sheet (instant) concept: latest filed value indexed by filed_date."""

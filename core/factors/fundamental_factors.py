@@ -135,7 +135,13 @@ def compute_piotroski_factors(
         (at_yoy >= 0).astype(float), at_yoy,
     )
 
-    # Composite + filter / warning derived factors
+    # Composite + filter / warning derived factors.
+    # Audit R2 fix (2026-05-12): retailers (WMT) and financials (GS/JPM)
+    # don't file GrossProfit tag. Strict NaN-propagation was nullifying
+    # entire composite for these companies. Now: missing-component
+    # contributes 0 to composite (conservative: treat absence as
+    # "not passing this test"). Only NaN the composite when CORE data
+    # (ni_ttm AND cfo_ttm AND assets) is all unavailable.
     score_components = [
         factors["piotroski_net_income_positive"],
         factors["piotroski_cfo_positive"],
@@ -147,11 +153,14 @@ def compute_piotroski_factors(
         factors["piotroski_gross_margin_yoy_improving"],
         factors["piotroski_asset_turnover_yoy_improving"],
     ]
-    # Stack and sum across components — but maintain NaN propagation:
-    # a row where any underlying input is NaN should also be NaN.
-    composite = sum(score_components)
-    # Re-introduce NaN where any underlying data is NaN
-    nan_mask = ni_ttm.isna() | cfo_ttm.isna() | assets.isna() | revenues_ttm.isna()
+    composite = sum(c.fillna(0) for c in score_components)
+    # NaN only when all TTM flow inputs (ni, cfo, revenues) are NaN —
+    # this catches the pre-first-TTM-filing window where no flow data
+    # has accumulated yet. Balance-sheet items (assets) become non-NaN
+    # before the rolling-4-Q TTM, so we exclude them from the mask
+    # condition. Audit R3 fix (2026-05-12): preserves WMT/CAT (missing
+    # gross_profit only) while NaN-masking strict pre-filing window.
+    nan_mask = ni_ttm.isna() & cfo_ttm.isna() & revenues_ttm.isna()
     composite = composite.where(~nan_mask)
     factors["piotroski_f_score"] = composite
     factors["piotroski_high_filter"] = (composite >= 7).astype(float).where(~nan_mask)

@@ -251,11 +251,23 @@ class TestBatch1Convenience:
 
 class TestPITSemantics:
     def test_no_factor_value_before_first_filing(self, store):
-        """Piotroski composite should be NaN before earliest filing
-        + 252-day lookback (need YoY)."""
+        """Piotroski composite should be NaN BEFORE earliest filing
+        (no fundamental data → all components NaN → composite NaN per
+        audit R2 fix: NaN only when core inputs ALL missing).
+
+        Audit R2 caveat (2026-05-12): post-fix, composite uses
+        sum(c.fillna(0) ...), so once ANY filing kicks in (~mid-2022
+        for fixture's first 10-Q filed 2022-05-01), composite becomes
+        a partial score with 0 contributions from still-unavailable
+        YoY components. The pre-first-filing window is what's strictly
+        NaN."""
         idx = pd.bdate_range("2022-01-01", "2024-12-31")
         out = compute_piotroski_factors(idx, ["FOO"], store)
-        # First filing is for 2022-Q1 end (filed 2022-05-01).
-        # Plus 252-day lookback → ~2023-04 first valid composite
-        early = out["piotroski_f_score"]["FOO"].iloc[:200]  # well before first filed
-        assert early.isna().all(), "composite should be NaN before first filed"
+        # First fixture filing for Q1 2022 filed 2022-05-01. Before that
+        # date all panels are NaN → composite NaN (core inputs all NaN).
+        before_first_filing = out["piotroski_f_score"]["FOO"].loc[:"2022-04-30"]
+        assert before_first_filing.isna().all(), (
+            "composite should be NaN strictly before first filed_date"
+        )
+        # After first filing: composite may be 0 (partial-data score) — that's
+        # the new semantics, not NaN.
