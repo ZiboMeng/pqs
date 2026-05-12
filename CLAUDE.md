@@ -1020,7 +1020,13 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   (2 dev scripts) + `data/audit/taa_phase{2,3}*.json`.
   Closeout: `docs/memos/20260506-prd_e_phase3_closeout.md`.
 
-**Forward OOS active workstream (observation mode)**:
+**Forward OOS workstream (infrastructure history + active state)**:
+Infrastructure (R-fwd-1 / R-fwd-2 / R-fwd-3 / F) shipped 2026-04-26
+through 2026-04-29 + R8 DST fix; legacy candidates RCMv1 + Cand-2
+forward-observed 2026-04-24 through 2026-04-28 then **aborted
+2026-04-30** under v2.1 fail-closed gate (see "Forward observation
+history" entry below). **Current active candidate = trial9_diversifier_002
+only** (TD001 starts 2026-05-13).
 - **R-fwd-1 done** — forward runner minimum closed loop (init /
   status / observe / decide / readiness) + source-boundary sidecar
   + `source_mix` flag on ForwardRun. PRD:
@@ -1116,25 +1122,37 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   will activate when backfill is run. **Operational rule**: forward
   `fetchdata` must run after NYSE 16:15-16:30 ET (codex R20 operational
   note tightening earlier "post-NYSE-16:00 ET" rule).
-- **Forward observation active**. First real `forward observe` since
-  v2.1.3 + R8 DST fix ran 2026-04-28 (commit `bcfbc0f`):
-  - rcm_v1_defensive_composite_01: TD001 (legacy) + TD002 + TD003
-  - candidate_2_orthogonal_01:     TD001 (legacy) + TD002 + TD003
+- **Forward observation history (RCMv1 + Cand-2, TERMINATED 2026-04-30)**.
+  First real `forward observe` since v2.1.3 + R8 DST fix ran 2026-04-28
+  (commit `bcfbc0f`):
+  - rcm_v1_defensive_composite_01: TD001 (legacy) + TD002 + TD003 (last 2026-04-28)
+  - candidate_2_orthogonal_01:     TD001 (legacy) + TD002 + TD003 (last 2026-04-28)
   TD001 carries `legacy_unhashed_inputs=True` (no retroactive hash
   backfill); TD002 + TD003 carry full v2.1.3 4-scope hashes
   (signal_input + execution_nav + benchmark + bar_hash rollup).
   Cross-candidate benchmark_hash invariant verified live (same SPY+
-  QQQ panel → same hash on same TD). Idempotency confirmed (re-run
-  observe returns empty, n_runs unchanged). Evidence note:
+  QQQ panel → same hash on same TD). Evidence note:
   `docs/memos/20260428-forward_observe_first_real_after_v2_1_3.md`.
-  Next decision pack at TD010; currently at TD003 (~7 TDs out).
-- **Status: observation-mode running**. Daily `forward observe`
-  ritual is live. **NEW (2026-04-29)**: RCMv1 + Cand-2 reclassified
-  as **legacy decay verification** under Track A — they were nominated
-  pre-G2.A 30% concentration ceiling + pre-M12 weighted thin-data fix;
-  not eligible for new-framework promotion unless re-run through current
-  gates. Forward TD60 observation continues to record decay signal but
-  these two will not enter fleet, will not calibrate new-framework gates.
+
+  **Status: BOTH ABORTED 2026-04-30** via `decide --status aborted` —
+  material data revision detected: **108 bps NAV drift + 2.42% raw
+  drift across 13 (RCMv1) / 16 (Cand-2) held-eligible symbols
+  including SPY+QQQ** → F-PRD v2.1 §4.4 fail-closed. The legacy
+  candidates were nominated pre-G2.A 30% concentration ceiling +
+  pre-M12 weighted thin-data fix and were already classified as
+  `legacy_decay_verification` role per 2026-04-29 reclassification;
+  abort closes their forward TD60 observation entirely. They will
+  NOT enter fleet, will NOT calibrate new-framework gates, and the
+  daily ritual no longer touches them (terminal status absorbs further
+  observe() calls).
+
+  **Current PQS active forward state**: as of 2026-05-12, the ONLY
+  active forward candidate is `trial9_diversifier_002` (TD001 starts
+  2026-05-13). RCMv1 + Cand-2 manifests preserved at:
+  - `data/research_candidates/rcm_v1_defensive_composite_01_forward_manifest.json`
+  - `data/research_candidates/candidate_2_orthogonal_01_forward_manifest.json`
+  Both retain 3 TDs + 1 DECIDE entry each as forensic evidence of
+  their April 2026 forward trajectory + the fail-closed abort event.
 
 - **Trial 9 (2026-05-01 ✅, A+D Phase C-PRD-1 SHIPPED commit `7dcdf50`)** —
   first **diversifier-role** forward observation candidate. PRD:
@@ -1221,6 +1239,84 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   exemption + `recover` CLI (see Phase E shipped list). TD001 carries 1
   PolicyRecoveryEvent in `policy_recovery_log` (audit trail; original
   data_revision_event downgraded `invalidated → flagged_only`).
+
+  **Trial 9 forward state at closeout (2026-05-12)**: 4 TDs observed
+  before halt. TD003 (2026-05-06) cum_ret +8.02% / vs_spy +5.82% /
+  vs_qqq +4.62% / max_dd 0.00%. TD004 (2026-05-07) cum_ret +5.04% /
+  vs_spy +3.15% / vs_qqq +1.76% / max_dd -2.75%. 2026-05-12 daily-ritual
+  `observe()` revalidate detected retroactive yfinance refresh on all
+  4 TDs; TD001-TD003 classified `flagged_only`/`in_ring` (sub-bps NAV
+  impact); **TD004 classified `invalidated`/`bound_only`** with trigger
+  `bound_only (signal_input scope diff with empty per_cell_digest
+  (track_per_cell=False) — cannot prove diff is subset of execution_nav-
+  anchored cells; conservative bound_only per PRD §4.4 (codex Round-10
+  Blocker 2))`. Manifest flipped to `requires_data_review`. 4-round
+  self-audit on 2026-05-12 verified: (a) 18 held syms × 10 anchor-ring
+  dates × close anchor values vs current panel = 0 diff revealed, (b)
+  re-hash of signal_input with `track_per_cell=True` against current
+  panel still differs from stored, (c) therefore revised close cell
+  is OUTSIDE execution_nav anchor coverage (i.e., non-held sym OR date
+  older than 4/24 ring start). No retroactive reconstruction path
+  exists (stored signal_input `per_cell_digest` was empty per production
+  `track_per_cell=False` default). `recover` halts because policy
+  re-eval produces same bound_only verdict. **Considered + rejected**:
+  A1 magnitude-bounded exemption (post-hoc TD004 fit, breaks codex R10
+  Blocker 2 intent); A1.c synthetic anchor reconstruction (infeasible —
+  revised cell outside anchor coverage). **Shipped fix**: A4+A2 path
+  per PRD `docs/prd/20260512-per_candidate_track_signal_input_per_cell_prd.md`
+  + closeout memo `docs/memos/20260512-trial9_diversifier_001_closeout.md`
+  + commit `16de8dd`. `trial9_diversifier_001` status =
+  `completed_fail` (DECIDE entry recorded). 4 TDs preserved as forensic
+  evidence in manifest.
+
+- **trial9_diversifier_002 (2026-05-12 ✅, A4+A2 SHIPPED commit `16de8dd`)** —
+  successor to `trial9_diversifier_001` under PRD 20260512 per-candidate
+  `track_signal_input_per_cell` opt-in. Composite + construction +
+  universe IDENTICAL to v1; only material diff = `evidence_config:
+  {track_signal_input_per_cell: true}` in frozen yaml, which causes
+  forward runner (line 1041 of `core/research/forward/runner.py`) to
+  pass `track_per_cell=True` to `compute_signal_input_hash` at TD-write
+  time. Resulting non-empty `per_cell_digest` lets v2.1 revalidate do
+  real cell-level diff (revalidate.py:429-444) so bound_only-with-empty-
+  digest failure mode cannot recur on this candidate.
+  - candidate_id: `trial9_diversifier_002`
+  - candidate_role: `diversifier`
+  - spec_hash: `44870b91073aa5440dfa5d8ccc07b1f43dcc25235ce9139e2ca0352559e8f985`
+  - start_date: 2026-05-13 (Wed, next trading day after closeout)
+  - soft_warn_flags: `['diversifier_2025_maxdd_18_20pct']` (mirrored from v1)
+  - frozen spec: `data/research_candidates/trial9_diversifier_002.yaml`
+  - manifest: `data/research_candidates/trial9_diversifier_002_forward_manifest.json`
+  - init script: `dev/scripts/forward/init_trial9_diversifier_002.py`
+
+  **PRD 20260512 deliverables** (commit `16de8dd`):
+  - `FrozenStrategySpec.evidence_config: Optional[dict] = None` field
+    (mirrors `execution_policy` precedent from PRD 20260505)
+  - `runner.py:1041` reads `spec.evidence_config` to resolve
+    `track_per_cell` kwarg
+  - 9 new tests `tests/unit/research/test_forward_evidence_config.py`
+    (legacy preservation / opt-in PASS / opt-in False explicit /
+    rolling hash invariant across flag / yaml round-trip / from_dict
+    missing field / from_dict explicit field / extras separation)
+  - 893 research-tests-suite passes (no regression on RCMv1 / Cand-2 /
+    trial9_001 legacy paths)
+
+  **Storage cost** (close-only signal_input attr for diversifier with
+  this composite): ~163 KB / TD → ~10 MB / 60-TD soak / candidate.
+  Operator monitoring at TD030 (~2026-06-25) + TD060 to validate
+  estimate (PRD 20260512 §5 / closeout memo §"What the operator owes
+  future-self").
+
+  **TD60 decision point pre-committed**: ~2026-08-06 (1-week slip from
+  v1's ~2026-07-30 baseline; acceptable per resident-quant judgment to
+  preserve diversifier-role evidence chain over restart cleanliness).
+  Same GREEN/YELLOW/RED verdict criteria as v1 (residual NAV corr 60d
+  + per-regime BULL vs_qqq 60d + portfolio combo + soft_warn self-clearing).
+
+  **What the operator owes future-self**: first observe on 2026-05-13
+  EOD (post-NYSE 16:15 ET fetch) will produce TD001 with NON-EMPTY
+  `bar_hash_inputs.signal_input.per_cell_digest` — this is the
+  load-bearing behavior change that prevents v1's failure mode from
+  recurring.
 
 **Track A — Temporal Split & Holdout Discipline (SHIPPED 2026-04-29)**
 
