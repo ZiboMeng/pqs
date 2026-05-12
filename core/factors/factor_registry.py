@@ -165,6 +165,30 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     "coskew_60d_spy", "cokurt_60d_spy", "idiosyncratic_skew_60d",
     "nearness_to_52w_high", "weekly_reversal_signal_5d", "bab_score_60d",
     "turn_of_month_flag", "sell_in_may_seasonal", "month_end_quarter_end",
+    # Bucket B T5 batch 1 (Piotroski + Magic Formula). PRD 2026-05-12.
+    # SEC EDGAR companyfacts cache via core/data/edgar_provider + PIT
+    # store via core/data/fundamentals_store. NOT computed by
+    # generate_all_factors (different code path); must be merged in
+    # via compute_fundamental_factors_batch1() into a separate fundamental-
+    # factor DataFrame dict before mining. Piotroski 9-boolean +
+    # composite + 2 derived per Piotroski 2000; Schwartz-Hanauer Dec
+    # 2024 NBER confirmed 1963-2022 persistent. Magic Formula per
+    # Greenblatt 1999.
+    "piotroski_net_income_positive",
+    "piotroski_cfo_positive",
+    "piotroski_roa_yoy_improving",
+    "piotroski_cfo_greater_than_ni",
+    "piotroski_leverage_yoy_decreasing",
+    "piotroski_current_ratio_yoy_improving",
+    "piotroski_no_dilution",
+    "piotroski_gross_margin_yoy_improving",
+    "piotroski_asset_turnover_yoy_improving",
+    "piotroski_f_score",
+    "piotroski_high_filter",
+    "piotroski_low_warning",
+    "magic_earnings_yield_ttm",
+    "magic_roic_ttm",
+    "magic_formula_rank_composite",
     # Quality
     "rolling_sharpe_126d", "return_per_risk_21d",
     # Path shape (LLM-Round 10 promotion, 2026-04-21, user-authorized):
