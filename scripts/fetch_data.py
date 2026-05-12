@@ -17,10 +17,14 @@ scripts/fetch_data.py — 批量下载/增量更新市场数据。
   日内  : 60m / 30m / 15m，回看 700 天（yfinance 60m 免费上限约 730 天）
   宏观  : ^VIX / ^TNX / DX-Y.NYB（仅日线，用于 regime 计算）
 
-收盘前/后纪律 (2026-04-29 fix)
--------------------------------
+收盘前/后纪律 (2026-04-29 fix + 2026-05-12 强化为 RAISE)
+--------------------------------------------------------
   - 收盘前运行 (NYSE 16:00 ET / 半天 13:00 ET 之前，加 15 分钟缓冲)
-    脚本拒绝写入今日数据；只 fetch 到昨天为止；提示用户收盘后再跑。
+    **CLI 入口直接 raise SystemExit** (2026-05-12 改动)；脚本拒绝运行。
+    提示用户收盘后再跑，OR pass --allow-pre-close-today (紧急覆写)。
+  - 程式化 (import scripts.fetch_data 直接调用 download_daily /
+    download_intraday) 路径保留原 warn+cap 行为作为 defense-in-depth：
+    若未走 main() 也不会写 partial bar。
   - 误用 --allow-pre-close-today 写了 partial bar：下次收盘后再跑会自动
     检测 fetch_session_log 里的 is_pre_close=true 标记，强制重新拉取
     今日数据覆盖。
@@ -419,6 +423,24 @@ def main():
              "强制重拉. 默认行为是收盘前拒绝写入今日数据.",
     )
     args = parser.parse_args()
+
+    # 2026-05-12: pre-close guard tightened from WARN+cap to RAISE+abort
+    # at the CLI entry point. Existing WARN+cap logic in download_daily /
+    # download_intraday is kept as defense-in-depth for programmatic
+    # callers that import the module directly. Operator running the CLI
+    # script during NYSE session must either wait for post-close or pass
+    # --allow-pre-close-today (emergency override only — writes are
+    # marked is_pre_close=true and force-refreshed on next post-close run).
+    today_et, _session_close_utc, session_complete = _today_session_status()
+    if not session_complete and not args.allow_pre_close_today:
+        close_et = get_session_close_et(today_et)
+        raise SystemExit(
+            "fetch_data REFUSED: today=%s, NYSE close=%s ET (with 15min buffer); "
+            "current call is pre-close. Wait until post-NYSE-16:15 ET to run, "
+            "OR pass --allow-pre-close-today as emergency override (will mark "
+            "writes is_pre_close=true; next post-close run will force-refresh)."
+            % (today_et.date(), close_et or "(no session)")
+        )
 
     cfg      = load_config(Path(args.config_dir))
     store    = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))

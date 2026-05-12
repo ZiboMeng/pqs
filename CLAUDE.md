@@ -1113,8 +1113,12 @@ only** (TD001 starts 2026-05-13).
   forward `fetchdata` MUST run post-NYSE-16:00-ET close. Earlier
   intraday fetches put a partial-day "close" on disk; the next
   observe()'s v2.1 revalidate correctly fail-closes (NAV impact
-  exceeds E1=10 bps; raw drift exceeds E5=0.5%). Workflow discipline
-  not a code fix.
+  exceeds E1=10 bps; raw drift exceeds E5=0.5%). **2026-05-12
+  strengthening**: `scripts/fetch_data.py` main() now raises
+  `SystemExit` if called pre-close (was warn-and-cap until 2026-05-12);
+  `--allow-pre-close-today` remains as emergency override. Programmatic
+  callers (importing download_daily / download_intraday) still get
+  the original warn-and-cap as defense-in-depth.
   **Status**: F PRD §6 acceptance 13/13 ✅; codex round 19 + 20 closed;
   F line officially functional (no pending sign-off). RCMv1 + Cand-2
   production manifests still pre-PRD-F (config_snapshot=None); user
