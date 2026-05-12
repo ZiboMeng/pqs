@@ -207,6 +207,14 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     "fcf_yield_ttm", "fcf_to_assets_ttm",
     "revenue_growth_yoy", "gross_profit_growth_yoy", "sales_acceleration",
     "asset_growth_yoy", "dol_4q_window", "rd_intensity_ttm",
+    # Bucket C T3 (sector-relative). PRD 2026-05-12. Manual GICS
+    # mapping at config/sector_map.yaml with PIT reclassification
+    # (META + GOOGL Tech → Communication Services 2018-09-28). 5 sector
+    # factors via core/factors/sector_factors.py; computed separately
+    # from generate_all_factors (callers wire price_df → SectorResolver).
+    "sector_rel_mom_20d", "sector_neutral_drawup_252d",
+    "sector_leader_rank_mom_12_1", "sector_breadth_pct_5d",
+    "sector_dispersion_std_20d",
     # Quality
     "rolling_sharpe_126d", "return_per_risk_21d",
     # Path shape (LLM-Round 10 promotion, 2026-04-21, user-authorized):

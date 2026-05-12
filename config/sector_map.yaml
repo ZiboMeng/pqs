@@ -1,0 +1,110 @@
+# GICS sector / industry classification for PQS universe.
+# PRD 2026-05-12 (Bucket C). Manual curate; PIT-aware via
+# `historical_reclassifications` for known shifts (TSLA 2020-12-21 etc).
+#
+# Source: GICS public classification (S&P / MSCI), cross-checked
+# 2026-05-12. ETFs / leveraged products tagged sector=etf to ease
+# downstream sector-relative computation (excluded from sector
+# medians / breadth).
+
+sector_map:
+  # ETFs and leveraged products
+  SPY:   {sector: etf,                  industry: broad_market_etf}
+  QQQ:   {sector: etf,                  industry: nasdaq_100_etf}
+  GLD:   {sector: etf,                  industry: gold_commodity_etf}
+  TQQQ:  {sector: etf,                  industry: leveraged_nasdaq_etf}
+  SOXL:  {sector: etf,                  industry: leveraged_semis_etf}
+
+  # Technology (mega-cap + semis + software)
+  AAPL:  {sector: technology,           industry: consumer_electronics}
+  MSFT:  {sector: technology,           industry: software_systems}
+  NVDA:  {sector: technology,           industry: semiconductors}
+  AVGO:  {sector: technology,           industry: semiconductors}
+  TXN:   {sector: technology,           industry: semiconductors}
+  MU:    {sector: technology,           industry: semiconductors_memory}
+  LRCX:  {sector: technology,           industry: semiconductor_equipment}
+  KLAC:  {sector: technology,           industry: semiconductor_equipment}
+  TER:   {sector: technology,           industry: semiconductor_equipment}
+  EA:    {sector: communication,        industry: video_games}
+  GOOGL: {sector: communication,        industry: interactive_media}
+  META:  {sector: communication,        industry: interactive_media}
+  VZ:    {sector: communication,        industry: telecom_services}
+  TKO:   {sector: communication,        industry: media_entertainment}
+
+  # Consumer discretionary
+  TSLA:  {sector: consumer_discretionary, industry: automobiles}
+  AMZN:  {sector: consumer_discretionary, industry: internet_retail}
+  BKNG:  {sector: consumer_discretionary, industry: hotels_travel}
+  CMG:   {sector: consumer_discretionary, industry: restaurants}
+  TJX:   {sector: consumer_discretionary, industry: apparel_retail}
+
+  # Consumer staples
+  WMT:   {sector: consumer_staples,     industry: retail_consumer_staples}
+  COST:  {sector: consumer_staples,     industry: retail_consumer_staples}
+  GIS:   {sector: consumer_staples,     industry: packaged_food}
+  DG:    {sector: consumer_staples,     industry: retail_consumer_staples}
+  CLX:   {sector: consumer_staples,     industry: household_products}
+  TSN:   {sector: consumer_staples,     industry: packaged_food}
+
+  # Health care
+  JNJ:   {sector: health_care,          industry: pharmaceuticals}
+  LLY:   {sector: health_care,          industry: pharmaceuticals}
+  GILD:  {sector: health_care,          industry: biotechnology}
+  ABT:   {sector: health_care,          industry: medical_devices}
+  TMO:   {sector: health_care,          industry: life_sciences_tools}
+  A:     {sector: health_care,          industry: life_sciences_tools}
+  ISRG:  {sector: health_care,          industry: medical_devices}
+  MCK:   {sector: health_care,          industry: healthcare_distributors}
+  UNH:   {sector: health_care,          industry: managed_care}
+
+  # Financials
+  GS:    {sector: financials,           industry: investment_banking}
+  MS:    {sector: financials,           industry: investment_banking}
+  C:     {sector: financials,           industry: diversified_banks}
+  BRK-B: {sector: financials,           industry: multi_line_insurance}
+  AXP:   {sector: financials,           industry: consumer_finance}
+  CME:   {sector: financials,           industry: financial_exchanges}
+  ACGL:  {sector: financials,           industry: property_casualty_insurance}
+  TRV:   {sector: financials,           industry: property_casualty_insurance}
+
+  # Industrials
+  CAT:   {sector: industrials,          industry: construction_machinery}
+  UNP:   {sector: industrials,          industry: railroads}
+  PWR:   {sector: industrials,          industry: construction_engineering}
+  TT:    {sector: industrials,          industry: industrial_machinery}
+
+  # Energy
+  COP:   {sector: energy,               industry: oil_gas_exploration}
+  OXY:   {sector: energy,               industry: oil_gas_exploration}
+  TRGP:  {sector: energy,               industry: oil_gas_midstream}
+
+  # Materials
+  APD:   {sector: materials,            industry: industrial_gases}
+
+  # Utilities
+  NEE:   {sector: utilities,            industry: electric_utilities}
+  WEC:   {sector: utilities,            industry: electric_utilities}
+  ED:    {sector: utilities,            industry: electric_utilities}
+
+  # Real estate
+  VICI:  {sector: real_estate,          industry: gaming_reit}
+
+# Known historical reclassifications (effective_date applies forward).
+# As of `effective_date` the sector flips from `from_sector` to
+# `to_sector`. Pre-effective_date, sector_resolver returns the original
+# `from_sector`.
+historical_reclassifications:
+  - {symbol: TSLA,  from_sector: consumer_discretionary, to_sector: consumer_discretionary,
+     from_industry: automobiles, to_industry: automobiles,
+     effective_date: 2020-12-21,
+     note: "GICS classification unchanged; included as PIT pattern reference"}
+  # META was renamed from Facebook but stayed Communication Services through
+  # 2018 reclass (when GICS moved internet platforms from Tech →
+  # Communication Services on 2018-09-28).
+  - {symbol: META,  from_sector: technology,             to_sector: communication,
+     from_industry: software_systems, to_industry: interactive_media,
+     effective_date: 2018-09-28,
+     note: "GICS 2018-09-28 communication services creation"}
+  - {symbol: GOOGL, from_sector: technology,             to_sector: communication,
+     from_industry: software_systems, to_industry: interactive_media,
+     effective_date: 2018-09-28}
