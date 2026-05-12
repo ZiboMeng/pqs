@@ -150,6 +150,14 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     "obv_norm_20d", "vol_price_corr_20d", "volume_surge_when_flat",
     "chaikin_money_flow_20d", "accum_dist_line_zscore_60d",
     "klinger_oscillator",
+    # Bucket A T1 batch 2 part 1 (4-quadrant volume) — PRD 2026-05-12
+    "up_vol_ratio_20d", "down_vol_ratio_20d", "vol_weighted_ret_20d",
+    # Bucket A T1 batch 2 part 2 (consolidation / box-pattern / breakout
+    # precursor; new family _family_g_consolidation). Some CONDITIONAL on
+    # H+L (atr_compression / adx_low_trend) or volume (pre_breakout decay).
+    "bb_squeeze_20d", "range_position_pct_60d", "consolidation_days_count",
+    "atr_compression_20d", "adx_low_trend_flag",
+    "pre_breakout_volume_decay",
     # Quality
     "rolling_sharpe_126d", "return_per_risk_21d",
     # Path shape (LLM-Round 10 promotion, 2026-04-21, user-authorized):

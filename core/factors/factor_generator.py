@@ -108,6 +108,7 @@ def generate_all_factors(
     factors.update(_volatility_factors(effective_price_df))
     if volume_df is not None:
         factors.update(_volume_factors(effective_price_df, volume_df, high_df, low_df))
+    factors.update(_family_g_consolidation(effective_price_df, high_df, low_df, volume_df))
     factors.update(_quality_factors(effective_price_df))
     factors.update(_sr_swing_factors(effective_price_df, high_df, low_df))
     factors.update(_relative_strength_factors(effective_price_df, benchmark_col))
@@ -670,6 +671,17 @@ def _volume_factors(
     is_flat = (ret_20.abs() < 0.05).astype(float)
     factors["volume_surge_when_flat"] = vol_zscore_20 * is_flat
 
+    # ── Bucket A T1 batch 2 (4-quadrant volume) — PRD-driven 2026-05-12 ──
+    # up_vol_ratio_20d / down_vol_ratio_20d / vol_weighted_ret_20d
+    is_up = (daily_ret > 0).astype(float)
+    is_down = (daily_ret < 0).astype(float)
+    vol_total_20 = volume_df.rolling(20).sum().replace(0, np.nan)
+    factors["up_vol_ratio_20d"] = (volume_df * is_up).rolling(20).sum() / vol_total_20
+    factors["down_vol_ratio_20d"] = (volume_df * is_down).rolling(20).sum() / vol_total_20
+    factors["vol_weighted_ret_20d"] = (
+        (daily_ret * volume_df).rolling(20).sum() / vol_total_20
+    )
+
     # ── Bucket A T1 batch 1 (need H+L; CONDITIONAL) ──
 
     if high_df is not None and low_df is not None:
@@ -705,6 +717,88 @@ def _volume_factors(
         kvo_short = vf.ewm(span=34, adjust=False, min_periods=34).mean()
         kvo_long = vf.ewm(span=55, adjust=False, min_periods=55).mean()
         factors["klinger_oscillator"] = kvo_short - kvo_long
+
+    return factors
+
+
+def _family_g_consolidation(
+    price_df: pd.DataFrame,
+    high_df: Optional[pd.DataFrame] = None,
+    low_df: Optional[pd.DataFrame] = None,
+    volume_df: Optional[pd.DataFrame] = None,
+) -> Dict[str, pd.DataFrame]:
+    """Consolidation / box-pattern / breakout precursor family.
+
+    Bucket A T1 batch 2 (PRD-driven 2026-05-12):
+      - bb_squeeze_20d            : (BB_upper - BB_lower)/SMA20 → 20d pct rank
+      - atr_compression_20d       : ATR20 / ATR60 (needs H+L)
+      - range_position_pct_60d    : (close-60d_min)/(60d_max-60d_min)
+      - consolidation_days_count  : 连续 N 天 close 在 ±5% SMA20 范围
+      - adx_low_trend_flag        : ADX14 < 20 持续天数 (needs H+L)
+      - pre_breakout_volume_decay : 整理期内 volume 20d slope < 0 标记
+                                    (needs volume_df)
+    """
+    factors: Dict[str, pd.DataFrame] = {}
+
+    # bb_squeeze_20d: Bollinger band width as fraction of SMA, then 20d pct rank.
+    sma_20 = price_df.rolling(20).mean()
+    std_20 = price_df.rolling(20).std()
+    bb_width_ratio = (4.0 * std_20) / sma_20.replace(0, np.nan)
+    factors["bb_squeeze_20d"] = bb_width_ratio.rolling(20).rank(pct=True)
+
+    # range_position_pct_60d: where in 60d high-low range is close?
+    # 0 = at 60d low, 1 = at 60d high
+    min_60 = price_df.rolling(60).min()
+    max_60 = price_df.rolling(60).max()
+    rng_60 = (max_60 - min_60).replace(0, np.nan)
+    factors["range_position_pct_60d"] = (price_df - min_60) / rng_60
+
+    # consolidation_days_count: run length of consecutive days where
+    # |close - sma20| / sma20 < 5%. Reset to 0 when out of range.
+    within_band = ((price_df - sma_20).abs() / sma_20.replace(0, np.nan) < 0.05).astype(float)
+    # Cumulative run-length: group resets at every 0 in `within_band`
+    # Trick: cumsum of within_band, minus cumsum at last 0 → run length
+    cum_w = within_band.cumsum()
+    reset = cum_w.where(within_band == 0).ffill().fillna(0)
+    factors["consolidation_days_count"] = (cum_w - reset) * within_band
+
+    # CONDITIONAL on H+L
+    if high_df is not None and low_df is not None:
+        prev_close = price_df.shift(1)
+        tr = pd.concat([
+            (high_df - low_df),
+            (high_df - prev_close).abs(),
+            (low_df - prev_close).abs(),
+        ]).groupby(level=0).max()
+        atr_20 = tr.rolling(20).mean()
+        atr_60 = tr.rolling(60).mean()
+        factors["atr_compression_20d"] = atr_20 / atr_60.replace(0, np.nan)
+
+        # adx_low_trend_flag: ADX(14) < 20 → no trend; count run-length.
+        # Wilder ADX classic: smooth +DM / -DM / TR with EMA(14), DI+/DI-,
+        # DX = |DI+ - DI-| / (DI+ + DI-), ADX = EMA(DX, 14).
+        up_move = high_df.diff()
+        down_move = -low_df.diff()
+        plus_dm = up_move.where((up_move > down_move) & (up_move > 0), 0.0)
+        minus_dm = down_move.where((down_move > up_move) & (down_move > 0), 0.0)
+        atr_14 = tr.ewm(span=14, adjust=False, min_periods=14).mean()
+        plus_di = 100.0 * plus_dm.ewm(span=14, adjust=False, min_periods=14).mean() / atr_14.replace(0, np.nan)
+        minus_di = 100.0 * minus_dm.ewm(span=14, adjust=False, min_periods=14).mean() / atr_14.replace(0, np.nan)
+        dx = 100.0 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, np.nan)
+        adx_14 = dx.ewm(span=14, adjust=False, min_periods=14).mean()
+        low_trend = (adx_14 < 20).astype(float)
+        cum_lt = low_trend.cumsum()
+        reset_lt = cum_lt.where(low_trend == 0).ffill().fillna(0)
+        factors["adx_low_trend_flag"] = (cum_lt - reset_lt) * low_trend
+
+    # CONDITIONAL on volume_df
+    if volume_df is not None:
+        # pre_breakout_volume_decay: volume slope down × in-consolidation regime.
+        # Slope proxy: (vol_t - vol_{t-20}) / mean(vol over 20d).
+        vol_slope_20 = (volume_df - volume_df.shift(20)) / volume_df.rolling(20).mean().replace(0, np.nan)
+        in_consol = (within_band > 0).astype(float)
+        # Negative slope inside consolidation → factor < 0 (breakout precursor)
+        factors["pre_breakout_volume_decay"] = vol_slope_20 * in_consol
 
     return factors
 

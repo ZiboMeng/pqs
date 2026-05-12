@@ -188,6 +188,13 @@ data_sensitivity:
     - chaikin_money_flow_20d
     - accum_dist_line_zscore_60d
     - klinger_oscillator
+    # Bucket A T1 batch 2 (4-quadrant volume + breakout-decay).
+    # Pure-OHLCV factors that derive directly from volume; mask under
+    # trades_backfill provenance.
+    - up_vol_ratio_20d
+    - down_vol_ratio_20d
+    - vol_weighted_ret_20d
+    - pre_breakout_volume_decay
   rationale: "volume semantics unverified for trades_backfill tickers"
 
 blacklist:
