@@ -9,8 +9,10 @@
 
 ## TL;DR
 
-1. **Bucket A T1 因子（OHLCV）**: 1-2 天即刻可做。Volume-microstructure / consolidation / 4 象限是 PQS 现存最大 factor library gap（cycle04-08 5 个 cycle 几乎没探索）。
-2. **Bucket B T5 fundamentals 长历史的关键解锁 = SEC EDGAR companyfacts API**（非 WebFetch、非 stockanalysis、非 macrotrends）。free 官方 endpoint，2009+ 全覆盖，503 us-gaap tags 一次拿全，PIT-clean（含 filed_date）。工程 3-5 天写 ingest + store + factor。
+**See §7 for expanded batch 2 + 3 coverage (37 topics total; +15 new directions per user 2026-05-12)**.
+
+1. **Bucket A T1 因子（OHLCV）**: 1-2 天即刻可做。Volume-microstructure / consolidation / 4 象限是 PQS 现存最大 factor library gap（cycle04-08 5 个 cycle 几乎没探索）。Batch 2+3 加 coskew + cokurt + calendar timing + pre-FOMC window → 现 ~28 factor.
+2. **Bucket B T5 fundamentals 长历史的关键解锁 = SEC EDGAR companyfacts API**（非 WebFetch、非 stockanalysis、非 macrotrends）。free 官方 endpoint，2009+ 全覆盖，503 us-gaap tags 一次拿全，PIT-clean（含 filed_date）。**Batch 2+3 加 Piotroski F-score (9 boolean) + Beneish M-score (8 sub-ratios) + Altman Z-score (5) + Magic Formula + buyback/shareholder yield + FCF yield + FCF profitability + revenue momentum + asset growth (FF5 CMA) + operating leverage + R&D intensity → 现 ~43 factor**, 工程量 3-5 天 → 5-8 天.
 3. **macrotrends / 大多数 free fundamentals scraper 都已 paywall**（HTTP 402），是 2024+ 的新现实。SEC EDGAR 是唯一 robust free 长历史源。
 4. **Pairs trading / market-neutral / long-short stat-arb**: 全部违反 long-only invariant → SKIP（无 directional override 时）。
 5. **News sentiment LLM (FinBERT / GPT)**: 学术 Sharpe 高（3.05）但需要 news corpus + LLM API → T6 deferred。
@@ -398,3 +400,281 @@ Day 10+ (Week 3):
 ### SEC EDGAR official docs
 - [SEC EDGAR XBRL companyfacts API](https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany)
 - [SEC EDGAR API user agent rules](https://www.sec.gov/os/accessing-edgar-data)
+
+---
+
+## 7. Batch 2 + 3 expansion — 15 additional topic directions (2026-05-12 same session)
+
+Per user 2026-05-12 12:00 ET 指令"美股量化的 literature 都要读 不要限定方向"，扩展从 22 → 37 主题。Batch 2 (10 topic) + Batch 3 (5 topic) 全部经 WebSearch 实证。
+
+### 7.1 Fundamental composite ranking (T5, EDGAR-implementable)
+
+**Piotroski F-score** (9 boolean accounting tests; Piotroski 2000; Schwartz-Hanauer 2024 ✓)
+
+| 因子名 | 公式 | 数据需求 |
+|---|---|---|
+| piotroski_f_score | 9 个 boolean 之和 (0-9) | EDGAR: NetIncomeLoss / NetCashProvidedByUsedInOperatingActivities / Assets / LongTermDebt / CurrentAssets / CurrentLiabilities / CommonStockSharesIssued / GrossProfit / Revenues |
+| f_score_high_filter | f_score ≥ 7 → 1 else 0 | 同 |
+| f_score_low_warning | f_score ≤ 3 → -1 else 0 | 同 |
+
+2024 Schwartz-Hanauer 综合 4 公式 (F-score / Magic / Acquirer's / Conservative) over 1963-2022 — all generate alpha via 标准 factor exposure，no single dominates；F-score ≥7 filter + Magic Formula 减小 drawdown。
+
+**Greenblatt Magic Formula** (composite: earnings yield × ROIC)
+
+| 因子名 | 公式 |
+|---|---|
+| magic_formula_rank | rank_pct(EarningsYield) + rank_pct(ROIC); 取 sum 后 cross-section rank |
+| earnings_yield_ebit_ev | EBIT_ttm / EnterpriseValue |
+| roic_invested_capital | EBIT_ttm × (1 - tax_rate) / (TotalAssets - CurrentLiabilities) |
+
+**Beneish M-score** (8-ratio earnings manipulation; > -2.22 = likely manipulator; 2024 G7 + 2025 Borsa Istanbul random-forest ✓)
+
+| 因子名 | 公式 | EDGAR tag |
+|---|---|---|
+| beneish_m_score | -4.84 + 0.92×DSRI + 0.528×GMI + 0.404×AQI + 0.892×SGI + 0.115×DEPI - 0.172×SGAI + 4.679×TATA - 0.327×LVGI | 8 ratios below |
+| dsri | (AR_t / Sales_t) / (AR_{t-1} / Sales_{t-1}) | AccountsReceivableNetCurrent / Revenues |
+| gmi | GM_{t-1} / GM_t (gross margin) | GrossProfit / Revenues |
+| aqi | (1 - (CA + PPE) / Assets) ratio | CurrentAssets / PropertyPlantAndEquipmentNet / Assets |
+| sgi | Sales_t / Sales_{t-1} | Revenues |
+| depi | dep_rate_{t-1} / dep_rate_t | DepreciationDepletionAndAmortization / PropertyPlantAndEquipmentNet |
+| sgai | (SGA_t / Sales_t) / (SGA_{t-1} / Sales_{t-1}) | SellingGeneralAndAdministrativeExpense / Revenues |
+| tata | (NI - CFO) / Assets | NetIncomeLoss / NetCashProvidedByUsedInOperatingActivities / Assets |
+| lvgi | (Debt_t / Assets_t) / (Debt_{t-1} / Assets_{t-1}) | TotalDebt / Assets |
+
+**Altman Z-score** (5-ratio credit distress; 2025 仍 valid per recent reviews)
+
+| 因子名 | 公式 | EDGAR tag |
+|---|---|---|
+| altman_z_score | 1.2A + 1.4B + 3.3C + 0.6D + 1.0E | 5 ratios below |
+| z_working_cap_to_assets | (CA - CL) / Assets | CurrentAssets - CurrentLiabilities |
+| z_retained_earn_to_assets | RetainedEarnings / Assets | RetainedEarningsAccumulatedDeficit |
+| z_ebit_to_assets | EBIT_ttm / Assets | OperatingIncomeLoss |
+| z_equity_to_liab | MarketCap / TotalLiabilities | close × shares / Liabilities |
+| z_sales_to_assets | Revenues / Assets | Revenues / Assets |
+
+**Ohlson O-score** (9 variable distress; 含 market cap → 更 dynamic; Z-score + BM 交互在 high-distress 放大 2× spread)
+
+→ implementable via EDGAR + close × shares 但 9 个 component 复杂；建议先 implement Z-score；O-score Phase 2
+
+### 7.2 Capital return factor (T5, EDGAR-implementable)
+
+**Buyback yield / shareholder yield** (Boston Partners 2024 / Morningstar yield risk factor ✓; 2024 S&P 500 buyback $942.5B record)
+
+| 因子名 | 公式 | 备注 |
+|---|---|---|
+| buyback_yield_ttm | (shares_{t-4q} - shares_t) × close / market_cap | Net repurchase yield；CommonStockSharesOutstanding |
+| dividend_yield_ttm | DividendsCommonStockCash_ttm / market_cap | EDGAR DividendsCash 或 DividendsCommonStockCash |
+| shareholder_yield_ttm | buyback_yield_ttm + dividend_yield_ttm | 复合 |
+| conservative_issuer_flag | shares_change_yoy ≤ -1% → 1 (积极回购), shares_change_yoy ≥ +2% → -1 (diluter) | |
+
+### 7.3 Free cash flow factor (T5, EDGAR-implementable)
+
+**FCF yield + FCF profitability** (LSEG / VictoryShares VFLO 2024 +22%; FCF Profitability Sharpe 0.62 > FCFY 0.50 — 又一个 profitability subsume story)
+
+| 因子名 | 公式 | EDGAR tag |
+|---|---|---|
+| fcf_yield_ttm | FCF_ttm / market_cap | NetCashProvidedByUsedInOperatingActivities - PaymentsToAcquirePropertyPlantAndEquipment |
+| fcf_to_assets_ttm | FCF_ttm / Assets | 同上 / Assets (FCF Profitability) |
+| fcf_margin_ttm | FCF_ttm / Revenues | 同上 / Revenues |
+| fcf_growth_3y | 3-yr CAGR of FCF_ttm | 同上，3 年 vs 当前 |
+
+### 7.4 Sales / revenue momentum (T5, EDGAR-implementable)
+
+Russell Q4 2024 Factor Report: Momentum +623bps；3-yr Cash Flow Growth +11.5%；Growth + Momentum 2024 leadership return.
+
+| 因子名 | 公式 | EDGAR tag |
+|---|---|---|
+| revenue_growth_yoy | (Revenues_q - Revenues_{q-4}) / Revenues_{q-4} | Revenues |
+| revenue_growth_qoq | (Revenues_q - Revenues_{q-1}) / Revenues_{q-1} | Revenues |
+| revenue_growth_3y_cagr | 3-yr CAGR | 同 |
+| sales_acceleration | revenue_growth_yoy - revenue_growth_yoy_{q-1} | momentum on momentum |
+| gross_profit_growth_yoy | (GP_q - GP_{q-4}) / GP_{q-4} | GrossProfit |
+
+### 7.5 Investment / asset growth factor (T5, EDGAR-implementable; less robust per Fama-French 2008)
+
+Fama-French CMA — 4%/yr pre-2004, dissipated thereafter. RMW (profitability) consistently outperforms CMA. → implement 但诚实标注 weak.
+
+| 因子名 | 公式 | EDGAR tag |
+|---|---|---|
+| asset_growth_yoy | (Assets_q - Assets_{q-4}) / Assets_{q-4} | Assets — *inverse signal*: low asset growth → higher returns |
+| investment_intensity | (PPE_q - PPE_{q-4} + Δinventory) / Assets_{q-1} | PropertyPlantAndEquipmentNet / InventoryNet |
+
+### 7.6 Operating leverage (T5, EDGAR-implementable)
+
+DOL = %ΔEBIT / %ΔSales; 高 fixed cost ratio → 高 sales sensitivity. 可作 risk indicator + 杠杆 timing 因子.
+
+| 因子名 | 公式 | EDGAR tag |
+|---|---|---|
+| dol_4q_window | (EBIT_q / EBIT_{q-4} - 1) / (Revenues_q / Revenues_{q-4} - 1) | OperatingIncomeLoss / Revenues |
+| fixed_cost_ratio | (OperatingExpenses - COGS) / Revenues | CostOfGoodsSold + OperatingExpenses |
+| dol_zscore_sector | dol 在 sector 内 zscore | requires Bucket C T3 |
+
+### 7.7 R&D / innovation (T5, EDGAR-implementable, 但 alpha 弱)
+
+Goyal-Wahal April 2024: high R&D 大盘 1.63%/yr alpha；high-zero R&D spread 3.86%；**R&D capitalize as asset → alpha → 0** (alpha 来自 accounting expense treatment 不是 innovation real pricing).
+
+| 因子名 | 公式 | EDGAR tag |
+|---|---|---|
+| rd_intensity | ResearchAndDevelopmentExpense / Revenues | ResearchAndDevelopmentExpense (NOT all sym 有) |
+| rd_intensity_yoy_change | rd_intensity_q - rd_intensity_{q-4} | 同 |
+| rd_per_employee | RD / Employees | (Employees 需要 separate filing) |
+
+**注**: 仅在 universe 中 有 R&D 报告的 stocks (e.g., GOOGL/AAPL/MSFT yes; XOM/JPM no); cross-sectional rank 需 handle missing.
+
+### 7.8 Higher moments — co-skewness / co-kurtosis (T1, OHLCV-implementable)
+
+Harvey-Siddique 2000: cross-sectional coskew premium 0.27%/月 (1959-2011, US)；Bressan 2024 RFE: time-varying coskew-return relationship in banking. **可纯 OHLCV 实现**：
+
+| 因子名 | 公式 |
+|---|---|
+| coskew_60d_spy | E[(r_i - μ_i)² (r_m - μ_m)] / (σ_i² × σ_m) 用 SPY 60d window |
+| cokurt_60d_spy | E[(r_i - μ_i)³ (r_m - μ_m)] / (σ_i³ × σ_m) 同 |
+| coskew_60d_qqq | 同 with QQQ |
+| idiosyncratic_skew_60d | skewness(residual_i) 后 60d window |
+
+**注**: 把 coskew 加到 PQS 是补 idiovol 因子族的"二阶矩"维度；与 lottery MAX 不同但相关（MAX 是 right-tail extreme，skew 是 distribution shape）.
+
+### 7.9 Calendar timing (T1, NO OHLCV needed, pure date-based)
+
+Sell-in-May 仍 persist (Nov-Apr SEC filings -17% than May-Oct → fundamental info flow seasonal); turn-of-month +10bps; Jan effect since 1987 declined.
+
+| 因子名 | 公式 |
+|---|---|
+| turn_of_month_flag | 月末 4 个交易日 + 月初 3 个交易日 → 1 else 0 |
+| sell_in_may_seasonal | Nov-Apr → +1, May-Oct → -1 |
+| jan_effect_flag | Jan 第一周 → 1 else 0 (weakened post-1987) |
+| monday_friday_flag | Mon → -1, Fri → +1 (Monday effect) |
+| month_end_quarter_end | Mar/Jun/Sep/Dec 月末 → +1 (institutional rebalance) |
+
+**注**: 这些是 timing / scaling factor 不是 stock-selection factor — 不进入 cross-sectional rank 但可作 regime-conditional modifier.
+
+### 7.10 Macro event drift (T1, requires events.yaml expansion)
+
+Pre-FOMC drift = ~50% of post-1994 excess returns; CPI / NFP attention drift also documented.
+
+| 因子名 | 公式 |
+|---|---|
+| pre_fomc_window_flag | FOMC -2 trading days to FOMC day → 1 |
+| post_fomc_window_flag | FOMC +1 to FOMC +3 → 1 |
+| pre_cpi_window_flag | CPI release -1 day → 1 |
+| pre_nfp_window_flag | NFP release -1 day → 1 |
+| macro_event_density_5d | count(events) in next 5 days |
+
+**数据需求**: 已有 `config/events.yaml` (generic) — 需扩展 FOMC / CPI / NFP 真实日历 (可手动 curate 2009-2026 一次性 + 季度 update)，约 200 events × 16 yr.
+
+### 7.11 Forecast dispersion / analyst disagreement (T6 — paid)
+
+Diether-Malloy-Scherbina 2002: 高 dispersion → 低 future returns；2024 study: institutional trade dispersion 替代后 analyst dispersion → 不显著. → 需要 IBES / institutional flow paid path. **T6 deferred**.
+
+### 7.12 ESG / climate (NOT recommended for current PQS)
+
+主要是 risk management framework；缺乏明确 cross-sectional alpha；80% investors 考虑；但 PQS 78-sym universe 是 大中盘 active strategy，ESG tilt 不是 alpha 来源 — 是 mandate constraint. → **SKIP unless 用户加 mandate**.
+
+### 7.13 Reddit / WSB sentiment (T6 — niche)
+
+WSB attention 高时 8.5% return 反转 (contra signal)；75% retail in meme stocks lose money；某些 papers: WSB returns 部分 outperform bank analysts. → **需要 Reddit API + scraping + NLP pipeline**；T6 deferred (low ROI 直到 PQS universe 含 GME-style names).
+
+---
+
+## 7.X. 推荐扩展 (revised after batch 2+3)
+
+新增 T1 batch:
+- coskew_60d + cokurt_60d + idiosyncratic_skew_60d (3 个)
+- turn_of_month_flag + sell_in_may_seasonal + month_end_quarter_end (3 个)
+- pre_fomc_window_flag (×4 events) (4 个)
+
+**Bucket A T1 总计修正：~18 → ~28 factor**（仍 1-2 天工程）
+
+新增 T5 batch (EDGAR-implementable):
+- Piotroski F-score + 3 derived (4 个)
+- Magic Formula composite + 2 component (3 个)
+- Beneish M-score + 8 sub-ratios (9 个)
+- Altman Z-score + 5 components (6 个)
+- Buyback / dividend / shareholder yield (4 个)
+- FCF yield + FCF profitability + 2 derived (4 个)
+- Revenue growth × 4 horizons (5 个)
+- Asset growth + investment intensity (2 个)
+- Operating leverage (3 个)
+- R&D intensity (3 个)
+
+**Bucket B T5 总计修正：~15 → ~43 factor**（工程量从 3-5 天 → 5-8 天，主要 Beneish 8 ratios + Altman 5 + Piotroski 9 + Magic Formula composite 需个体测试 + leakage 验证）
+
+---
+
+## 8. Sources (batch 2 + 3 addition)
+
+### Fundamental ranking
+- [Schwartz-Hanauer Dec 2024 — 4-formula comparison](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=...)
+- [Piotroski F-Score wikipedia + Old School Value](https://en.wikipedia.org/wiki/Piotroski_F-score)
+- [Alpha Architect — Investment Factor dissection](https://alphaarchitect.com/dissecting-the-investment-factor/)
+- [Quant-investing — F-Score Complete Guide](https://www.quant-investing.com/blog/piotroski-f-score-complete-guide)
+
+### Buyback / shareholder yield
+- [Boston Partners May 2024 — Power of Stock Buybacks](https://www.bostonpartners.com/uploads/2024/05/c4ab9e6f6438ed367f02a81230d3c9fc/may-2024-power-of-stock-buybacks-wp.pdf)
+- [S&P DJ Indices — Examining Share Repurchases](https://www.spglobal.com/spdji/en/documents/research/research-sp-examining-share-repurchases-and-the-sp-buyback-indices.pdf)
+- [WisdomTree — A Force for Returns: Shareholder Yield](https://www.wisdomtree.com/-/media/us-media-files/documents/resource-library/market-insights/weniger-commentary/a_force_for_returns_shareholder_yield.pdf)
+
+### CMA / asset growth
+- [Robeco Oct 2024 — Fama-French 5-factor concerns](https://www.robeco.com/en-int/insights/2024/10/fama-french-5-factor-model-five-major-concerns)
+- [Long Term Trends — Fama-French 5 Factor](https://www.longtermtrends.com/fama-and-french-5-factor-model/)
+- [Alpha Architect — Investment Factor dissection](https://alphaarchitect.com/dissecting-the-investment-factor/)
+
+### Forecast dispersion
+- [Diether-Malloy-Scherbina 2002 — Differences of Opinion](https://www.hbs.edu/faculty/Pages/item.aspx?num=31704)
+- [Johnson 2004 JF — Forecast Dispersion](https://onlinelibrary.wiley.com/doi/abs/10.1111/j.1540-6261.2004.00688.x)
+- [2024 SD ScienceDirect — Institutional Trade Dispersion](https://www.sciencedirect.com/science/article/abs/pii/S0378426624002486)
+
+### Operating leverage
+- [WallStreetPrep — DOL](https://www.wallstreetprep.com/knowledge/operating-leverage/)
+- [Corporate Finance Institute — DOL](https://corporatefinanceinstitute.com/resources/accounting/degree-of-operating-leverage/)
+
+### Calendar anomalies
+- [Springer 2024 — Calendar anomalies + dividend announcements](https://link.springer.com/article/10.1007/s11156-024-01321-0)
+- [MDPI 2025 — Sell in May Regulatory Disclosures puzzle](https://www.mdpi.com/2227-7072/13/4/208)
+- [ScienceDirect 2024 — Sector-specific calendar anomalies US](https://www.sciencedirect.com/science/article/abs/pii/S1057521924002795)
+- [Harbourfront 2024 — Do Calendar Anomalies Still Exist](https://harbourfrontquant.substack.com/p/do-calendar-anomalies-still-exist)
+
+### Co-skewness / higher moments
+- [Bressan 2024 RFE — Time-Varying Coskew Banking](https://onlinelibrary.wiley.com/doi/full/10.1002/rfe.1178)
+- [Harvey-Siddique 2000 — Conditional Skewness](https://people.duke.edu/~charvey/Research/Published_Papers/P56_Conditional_skewness_in.pdf)
+- [ScienceDirect — Comoment Risk and Stock Returns](https://www.sciencedirect.com/science/article/pii/S0927539813000492)
+
+### Beneish M-score
+- [2025 Tandfonline Cogent — M-score G7 Cash Holdings](https://www.tandfonline.com/doi/full/10.1080/23311975.2025.2502542)
+- [Çiğdem Özari et al 2025 — Z + M Random Forest Borsa Istanbul](https://journals.sagepub.com/doi/10.1177/21582440251386174)
+- [Beneish M-score Wikipedia](https://en.wikipedia.org/wiki/Beneish_M-score)
+
+### Pre-FOMC / macro event drift
+- [NY Fed Pre-FOMC Drift sr512](https://www.newyorkfed.org/medialibrary/media/research/staff_reports/sr512.pdf)
+- [NBER w25817 — Explaining Pre-Announcement Returns](https://www.nber.org/system/files/working_papers/w25817/revisions/w25817.rev2.pdf)
+- [Fed 2025-022 — How Markets Process Macro News](https://www.federalreserve.gov/econres/feds/files/2025022pap.pdf)
+- [BIS Working Paper 1079 — Volume dynamics around FOMC](https://www.bis.org/publ/work1079.pdf)
+
+### WSB / Reddit sentiment
+- [ScienceDirect 2024 IPbs — WSB social media attention retail](https://www.sciencedirect.com/science/article/pii/S1057521924006537)
+- [Tandfonline 2024 — Democratisation of Retail WSB vs Analysts](https://www.tandfonline.com/doi/full/10.1080/2573234X.2024.2354191)
+- [ScienceDirect 2025 — Dumb money? Social network attention herding](https://www.sciencedirect.com/science/article/pii/S2405918825000212)
+
+### Sales / revenue momentum
+- [Russell Q4 2024 Equity Factor Report](https://russellinvestments.com/content/ri/us/en/insights/russell-research/2025/01/equity-factor-report---q4-2024-growth-and-momentum-take-back-lea.html)
+- [Confluence Q4 2024 Factor Performance](https://www.confluence.com/q4-2024-factor-performance-analysis/)
+
+### R&D / innovation
+- [Goyal-Wahal April 2024 — Markets Efficiently Value R&D](https://www.wealthmanagement.com/investing-strategies/does-the-market-know-how-to-price-r-d-and-innovation-)
+- [Bloomberg Innovation Factor whitepaper 2024](https://assets.bbhub.io/professional/sites/27/Bloomberg-Indices-The-Innovation-Whitepaper.pdf)
+- [NASDAQ NQIPL International Patent Leaders Index](https://www.nasdaq.com/articles/nasdaq-international-patent-leaders-index-tracking-top-innovators-outside-the-us)
+
+### ESG / climate
+- [Skadden 2025 — ESG Review 2024 + 2025 Trends](https://www.skadden.com/insights/publications/2025/01/esg-a-review-of-2024-and-key-trends-to-look-for-in-2025)
+- [JPMorgan AM 2025 Global Climate Report](https://am.jpmorgan.com/content/dam/jpm-am-aem/global/en/sustainable-investing/tcfd-report.pdf)
+
+### FCF yield
+- [LSEG FTSE Russell — FCF All-Weather Strategy](https://www.lseg.com/en/insights/ftse-russell/free-cash-flow-an-all-weather-equity-strategy)
+- [Abacus FCF July 2025 — Profitability vs Yield](https://abacusfcf.com/wp-content/uploads/2025/09/Revisiting-Free-Cash-Flow-Investing_Investing-Profitability-or-Yield.docx.pdf)
+- [Pace ETF — FCFY & FCFM](https://www.paceretfs.com/media/why_fcfy_fcfm.pdf)
+
+### Altman Z / Ohlson O
+- [MDPI 2025 — Altman Z-Score + ML Corporate Failure](https://www.mdpi.com/1911-8074/18/8/465)
+- [Wikipedia Altman Z-score](https://en.wikipedia.org/wiki/Altman_Z-score)
+- [Wikipedia Ohlson O-score](https://en.wikipedia.org/wiki/Ohlson_O-score)
+- [Nature Humanities 2024 — Quality Portfolios via Score Models](https://www.nature.com/articles/s41599-024-03888-4)
