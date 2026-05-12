@@ -215,6 +215,13 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     "sector_rel_mom_20d", "sector_neutral_drawup_252d",
     "sector_leader_rank_mom_12_1", "sector_breadth_pct_5d",
     "sector_dispersion_std_20d",
+    # Bucket Macro (PRD-E TAA reactivation path). PRD 2026-05-12.
+    # FRED CSV ingest via core/data/fred_provider.py (no API key).
+    # 6 time-series factors broadcast across universe; each cell in
+    # a given date row carries the same macro value. Useful as
+    # regime / risk-conditioning input.
+    "yield_curve_10y_2y", "fed_funds_yoy_change", "dxy_zscore_60d",
+    "wti_yoy_pct", "vix_zscore_60d", "cpi_yoy_pct",
     # Quality
     "rolling_sharpe_126d", "return_per_risk_21d",
     # Path shape (LLM-Round 10 promotion, 2026-04-21, user-authorized):

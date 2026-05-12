@@ -102,3 +102,7 @@ x.txt
 # SEC EDGAR companyfacts cache — bulk data, ~210 MB, rebuilt via
 # dev/scripts/fundamentals/build_edgar_cache.py
 data/fundamentals/edgar_cache/*.json
+
+# FRED macro data cache (CSV), regenerable via
+# dev/scripts/fundamentals/build_macro_cache.py
+data/fundamentals/macro/*.csv
