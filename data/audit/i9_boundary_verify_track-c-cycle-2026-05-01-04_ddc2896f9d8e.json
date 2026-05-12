@@ -1,0 +1,64 @@
+{
+  "lineage": "track-c-cycle-2026-05-01-04",
+  "trial_id": "ddc2896f9d8e",
+  "rank": 1,
+  "spec": {
+    "features": [
+      "spy_trend_200d",
+      "drawup_from_252d_low",
+      "amihud_20d"
+    ],
+    "weights": [
+      0.333333,
+      0.333333,
+      0.333333
+    ]
+  },
+  "panel": {
+    "n_dates": 3346,
+    "n_syms": 81,
+    "split_name": "alternating_regime_holdout_v1"
+  },
+  "metrics": {
+    "ic_ir": 0.9608025979895564,
+    "nav_sharpe": 0.9740430860193614,
+    "nav_max_dd": -0.19353935869295766,
+    "nav_correlation_vs_anchor_pooled_raw": NaN,
+    "nav_vs_qqq_excess_full_period": 4.606083894514472
+  },
+  "anchor": {
+    "n_obs": 1186,
+    "all_nan": false,
+    "std": 0.0023016599670164705
+  },
+  "boundary_check": {
+    "n_boundaries": 3,
+    "boundaries": [
+      {
+        "date": "2020-01-01T00:00:00",
+        "prev_date": "2017-12-30T00:00:00",
+        "gap_days": 732,
+        "ret": -1.7886299574776388e-07
+      },
+      {
+        "date": "2022-01-01T00:00:00",
+        "prev_date": "2020-12-31T00:00:00",
+        "gap_days": 366,
+        "ret": 0.0
+      },
+      {
+        "date": "2024-01-02T00:00:00",
+        "prev_date": "2022-12-31T00:00:00",
+        "gap_days": 367,
+        "ret": 0.10359342086344414
+      }
+    ],
+    "max_boundary_return_abs": 0.10359342086344414
+  },
+  "elapsed_seconds": 18.51468324661255,
+  "verdict": "PASS_WITH_WARNINGS",
+  "fails": [],
+  "warnings": [
+    "raw boundary return abs=10.3593% > warn threshold 5.0000% \u2014 masked in metrics but real positions held across the gap"
+  ]
+}

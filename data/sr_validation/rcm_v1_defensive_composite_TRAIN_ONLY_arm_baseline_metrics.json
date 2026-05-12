@@ -1,0 +1,23 @@
+{
+  "label": "rcm_v1_defensive_composite_TRAIN_ONLY_arm_baseline",
+  "spec_id": "rcm_v1_defensive_composite_01",
+  "execution_mode": "daily",
+  "enable_sr_timing": false,
+  "top_n": 10,
+  "start": "2009-01-02",
+  "end": "2017-12-30",
+  "n_bars": 2426,
+  "initial_capital": 10000.0,
+  "final_nav": 16930.296666537433,
+  "cum_ret": 0.6930296666537434,
+  "cagr": 0.056215317227996664,
+  "sharpe": 0.19173531921559456,
+  "max_drawdown": -0.22121032401451476,
+  "win_rate": 0.5515527950310559,
+  "vs_spy_full": NaN,
+  "vs_qqq_full": NaN,
+  "n_trades": 1889,
+  "n_sr_defers": 0,
+  "n_sr_evaluated": 0,
+  "computed_at_utc": "2026-05-06T04:09:58+00:00"
+}

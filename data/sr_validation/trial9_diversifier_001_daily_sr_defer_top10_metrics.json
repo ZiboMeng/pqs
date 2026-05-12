@@ -1,0 +1,23 @@
+{
+  "label": "trial9_diversifier_001_daily_sr_defer_top10",
+  "spec_id": "trial9_diversifier_001",
+  "execution_mode": "daily",
+  "enable_sr_timing": false,
+  "top_n": 10,
+  "start": "2018-01-02",
+  "end": "2025-12-31",
+  "n_bars": 2451,
+  "initial_capital": 10000.0,
+  "final_nav": 130674.80484865018,
+  "cum_ret": 12.067480484865017,
+  "cagr": 0.30245121197876235,
+  "sharpe": 0.8129194805128751,
+  "max_drawdown": -0.5097394214648886,
+  "win_rate": 0.5808383233532934,
+  "vs_spy_full": 10.530873126904027,
+  "vs_qqq_full": 9.19122621087313,
+  "n_trades": 9902,
+  "n_sr_defers": 1591,
+  "n_sr_evaluated": 19935,
+  "computed_at_utc": "2026-05-06T00:07:09+00:00"
+}

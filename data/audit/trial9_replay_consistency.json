@@ -1,0 +1,24 @@
+{
+  "spec_id": "trial9_diversifier_001",
+  "stored_nav_path": "data/sr_validation/trial9_arm_A_baseline_nav.parquet",
+  "replay_range": [
+    "2018-01-01",
+    "2025-12-31"
+  ],
+  "top_n": 10,
+  "initial_capital": 10000.0,
+  "threshold_bps": 10.0,
+  "verdict": "PASS",
+  "passed": true,
+  "n_bars_overlap": 2451,
+  "first_overlap_date": "2018-01-02",
+  "last_overlap_date": "2025-12-31",
+  "max_abs_drift_bps": 0.0,
+  "max_abs_drift_at": "2018-01-02",
+  "mean_abs_drift_bps": 0.0,
+  "last_bar_drift_bps": 0.0,
+  "replay_total_return_pct": 11.236247667527886,
+  "stored_total_return_pct": 11.236247667527886,
+  "total_return_drift_pp": 0.0,
+  "computed_at_utc": "2026-05-06T03:47:48+00:00"
+}

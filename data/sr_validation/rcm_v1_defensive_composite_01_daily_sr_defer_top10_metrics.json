@@ -1,0 +1,23 @@
+{
+  "label": "rcm_v1_defensive_composite_01_daily_sr_defer_top10",
+  "spec_id": "rcm_v1_defensive_composite_01",
+  "execution_mode": "daily",
+  "enable_sr_timing": false,
+  "top_n": 10,
+  "start": "2018-01-02",
+  "end": "2025-12-31",
+  "n_bars": 2451,
+  "initial_capital": 10000.0,
+  "final_nav": 66621.76010954847,
+  "cum_ret": 5.662176010954847,
+  "cagr": 0.21529087140445946,
+  "sharpe": 0.6591872079202822,
+  "max_drawdown": -0.42637523841201375,
+  "win_rate": 0.5522648083623694,
+  "vs_spy_full": 4.1255686529938576,
+  "vs_qqq_full": 2.7859217369629605,
+  "n_trades": 7038,
+  "n_sr_defers": 1679,
+  "n_sr_evaluated": 19980,
+  "computed_at_utc": "2026-05-06T00:08:22+00:00"
+}

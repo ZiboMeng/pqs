@@ -1,0 +1,21 @@
+{
+  "label": "candidate_2_orthogonal_01_daily_top10",
+  "spec_id": "candidate_2_orthogonal_01",
+  "execution_mode": "daily",
+  "enable_sr_timing": false,
+  "top_n": 10,
+  "start": "2018-01-02",
+  "end": "2025-12-31",
+  "n_bars": 2451,
+  "initial_capital": 10000.0,
+  "final_nav": 137150.78466825592,
+  "cum_ret": 12.715078466825592,
+  "cagr": 0.3089445364443819,
+  "sharpe": 0.98347423487167,
+  "max_drawdown": -0.34641528724073034,
+  "win_rate": 0.5922459893048129,
+  "vs_spy_full": 11.178471108864603,
+  "vs_qqq_full": 9.838824192833705,
+  "n_trades": 15006,
+  "computed_at_utc": "2026-05-05T23:14:21+00:00"
+}

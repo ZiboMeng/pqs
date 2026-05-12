@@ -1,0 +1,23 @@
+{
+  "label": "candidate_2_orthogonal_TRAIN_ONLY_arm_baseline",
+  "spec_id": "candidate_2_orthogonal_01",
+  "execution_mode": "daily",
+  "enable_sr_timing": false,
+  "top_n": 10,
+  "start": "2009-01-02",
+  "end": "2017-12-30",
+  "n_bars": 2426,
+  "initial_capital": 10000.0,
+  "final_nav": 20481.38249979648,
+  "cum_ret": 1.0481382499796479,
+  "cagr": 0.07731410933658012,
+  "sharpe": 0.42408875729581813,
+  "max_drawdown": -0.1946757541641872,
+  "win_rate": 0.5523560209424084,
+  "vs_spy_full": NaN,
+  "vs_qqq_full": NaN,
+  "n_trades": 5284,
+  "n_sr_defers": 0,
+  "n_sr_evaluated": 0,
+  "computed_at_utc": "2026-05-06T04:10:29+00:00"
+}

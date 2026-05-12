@@ -1,0 +1,23 @@
+{
+  "label": "candidate_2_orthogonal_01_daily_sr_defer_top10",
+  "spec_id": "candidate_2_orthogonal_01",
+  "execution_mode": "daily",
+  "enable_sr_timing": false,
+  "top_n": 10,
+  "start": "2018-01-02",
+  "end": "2025-12-31",
+  "n_bars": 2451,
+  "initial_capital": 10000.0,
+  "final_nav": 130291.93495227623,
+  "cum_ret": 12.029193495227624,
+  "cagr": 0.30205834135780774,
+  "sharpe": 0.9778840111815569,
+  "max_drawdown": -0.35164439719922397,
+  "win_rate": 0.5958016971862439,
+  "vs_spy_full": 10.492586137266635,
+  "vs_qqq_full": 9.152939221235737,
+  "n_trades": 14847,
+  "n_sr_defers": 1538,
+  "n_sr_evaluated": 19931,
+  "computed_at_utc": "2026-05-06T00:09:32+00:00"
+}
