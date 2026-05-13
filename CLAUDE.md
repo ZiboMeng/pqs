@@ -1091,6 +1091,61 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   Test surface: 553 unit tests PASS (factors + data + signals +
   mining). Lineage `bucket-abcmacrosig-2026-05-12`.
 
+- **Track C cycle 2026-05-12 #09** (2026-05-12, **INVALID MINING RUN**,
+  sampler-architecture mismatch — NOT 0-nominee verdict) — first
+  cycle on post-PRD-20260512 162-factor RESEARCH_FACTORS pool. Yaml
+  sha256 `351e6e2ce004ef5a96a92ebe85f394ee193467dab78b60e4deb94c14ec0c424f`
+  (commit `46ec4cd`, fix `fb81bbb`, final `3894af0`). Single-axis diff
+  vs cycle08: factor_registry_pool=RESEARCH_FACTORS (162 not 67) +
+  G_new_family_anchor HARD (≥1 anchor from G/I/K/L/M/N/O/P) +
+  G_anti_sibling_nav 3-way (raw NAV Pearson < 0.85 vs RCMv1 / Cand-2 /
+  Trial 9 v2) + drawup_from_252d_low + amihud_20d banned + 7 masked-dup
+  banned per Z1 strict-train cluster r ≥ |0.99| (commit `aa0182e`) +
+  v2_nav_based objective + monthly + cap_aware_cross_asset.
+
+  Mining: 200 trials → **100% PRUNED at sampler stage, 0 backtest
+  evaluations, 2.1 min wall-clock**. Root cause (R4 postmortem):
+  `suggest_composite_spec` independent-family-sampling architecture
+  was designed for cycle04-08's 4-6 families (P(valid spec)=2.74%).
+  Today's 17-family expansion (Bucket A/B/C/Macro added G-Q) drops
+  P(valid spec) to 0.0005% (100k Monte Carlo confirmed 0 hits).
+
+  **NOT 0-nominee verdict** per yaml.stop_rule_post_cycle (which
+  assumes "searched but didn't find alpha"). This is "didn't actually
+  search" — INVALID mining run. yaml + launcher + closeout script
+  preserved as forensic evidence; marker file
+  `data/research_candidates/track-c-cycle-2026-05-12-09_INVALID.md`
+  fail-closes the launcher. Postmortem:
+  `docs/memos/20260512-cycle_09_sampler_architecture_postmortem.md`.
+
+  **Operator R3+R4 audit failure analysis**: preflight R1+R2 missed
+  the combinatorics check; 16-trial smoke ran but 0 archived was
+  rationalized as "smoke too small". R4 should have asked "why did
+  cycle08 work with same yaml params but cycle #09 doesn't?" Lesson
+  added to [[feedback_audit_per_round_methodology]]: cycle-config
+  changes crossing order-of-magnitude (family count / cardinality /
+  universe size) must include numerical combinatorics sanity check.
+
+  User explicit-go 2026-05-12 "同意 A 和 C 同时跑". Both Option A
+  (sampler refactor) + Option C (alt-archetype A intraday reversal)
+  shipped today:
+  - **Option A**: `sampling_mode: family_first` added to
+    `suggest_composite_spec` (commit `f41c7e5`). Default
+    "independent" preserves cycle04-08 bit-for-bit. family_first
+    architecture: pick k families first → pick 1 factor per family.
+    P(valid spec) ≈ 100% by construction. yaml CLI plumbing:
+    `mining_config.sampling_mode: family_first`. 10 new tests + 215
+    regression PASS.
+  - **Option C Phase 1**: `IntradayReversalStrategy` skeleton +
+    config (commit `d7e48ed`). 13 unit tests PASS. Phase 2 (deferred-
+    execution × BacktestEngine integration, ~1 week) + Phase 3
+    (Track A acceptance) DEFERRED. PRD §11 4 directional questions
+    PENDING user explicit-go before Phase 2 implementation.
+
+  **cycle #09 re-fire** authorization: same sha256-locked yaml +
+  Option A sampler refactor + `--bypass-invalid-marker` launcher
+  flag. Decision NOT auto-triggered; user-go required.
+
 **Forward OOS workstream (infrastructure history + active state)**:
 Infrastructure (R-fwd-1 / R-fwd-2 / R-fwd-3 / F) shipped 2026-04-26
 through 2026-04-29 + R8 DST fix; legacy candidates RCMv1 + Cand-2
