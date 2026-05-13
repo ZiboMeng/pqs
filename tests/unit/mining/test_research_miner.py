@@ -1012,7 +1012,9 @@ def test_aplusplus_families_v2_union_equals_research_factors():
     # etc are accounted for in the existing 67).
     # Round D 2026-05-12: +4 event window factors (pre_fomc /
     # post_fomc / pre_cpi / pre_nfp) merged into family J → 147.
-    assert len(reachable) == 147
+    # Round E 2026-05-12: +10 Ohlson O-score factors (9 components +
+    # composite) into family L → 157.
+    assert len(reachable) == 157
 
 
 def test_aplusplus_families_v1_unchanged_at_33():

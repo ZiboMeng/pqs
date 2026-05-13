@@ -203,6 +203,12 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     "altman_wc_to_assets", "altman_re_to_assets", "altman_ebit_to_assets",
     "altman_mveq_to_liab", "altman_sales_to_assets",
     "altman_z_score",
+    # Ohlson O-score (Round E PRD 20260512). Complements Altman Z;
+    # logistic-regression coefficients, handles negative equity (OENEG).
+    "ohlson_size", "ohlson_tl_to_ta", "ohlson_wc_to_ta",
+    "ohlson_cl_to_ca", "ohlson_ni_to_ta", "ohlson_ffo_to_tl",
+    "ohlson_nitwo", "ohlson_oeneg", "ohlson_chni",
+    "ohlson_o_score",
     "buyback_yield_ttm", "dividend_yield_ttm", "shareholder_yield_ttm",
     "fcf_yield_ttm", "fcf_to_assets_ttm",
     "revenue_growth_yoy", "gross_profit_growth_yoy", "sales_acceleration",

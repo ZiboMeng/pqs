@@ -323,7 +323,7 @@ FAMILY_K_FUNDAMENTAL_QUALITY_RANK = FamilyConfig(
 
 FAMILY_L_DISTRESS = FamilyConfig(
     name="L",
-    title="distress detection (Beneish M-score + Altman Z)",
+    title="distress detection (Beneish + Altman + Ohlson)",
     factors=frozenset({
         "beneish_dsri", "beneish_gmi", "beneish_aqi", "beneish_sgi",
         "beneish_depi", "beneish_sgai", "beneish_tata", "beneish_lvgi",
@@ -332,6 +332,14 @@ FAMILY_L_DISTRESS = FamilyConfig(
         "altman_ebit_to_assets", "altman_mveq_to_liab",
         "altman_sales_to_assets",
         "altman_z_score",
+        # Round E (PRD 20260512): Ohlson O-score (1980 logistic regression
+        # bankruptcy predictor). Complements Altman Z with logistic-
+        # regression coefficients + explicit negative-equity (OENEG)
+        # handling.
+        "ohlson_size", "ohlson_tl_to_ta", "ohlson_wc_to_ta",
+        "ohlson_cl_to_ca", "ohlson_ni_to_ta", "ohlson_ffo_to_tl",
+        "ohlson_nitwo", "ohlson_oeneg", "ohlson_chni",
+        "ohlson_o_score",
     }),
 )
 

@@ -358,6 +358,105 @@ def compute_altman_factors(
     return factors
 
 
+def compute_ohlson_factors(
+    daily_idx: pd.DatetimeIndex,
+    tickers: List[str],
+    store: FundamentalsStore,
+) -> Dict[str, pd.DataFrame]:
+    """Ohlson O-score (1980) and 9 components — bankruptcy prediction.
+
+    Formula (Ohlson 1980, logistic-regression coefficients):
+      O = -1.32 - 0.407×SIZE + 6.030×TL_to_TA - 1.430×WC_to_TA
+          + 0.076×CL_to_CA - 2.370×NI_to_TA - 1.830×FFO_to_TL
+          + 0.285×NITWO - 1.720×OENEG - 0.521×CHNI
+
+    Components:
+      SIZE     = ln(TotalAssets) (PQS variant — original uses GNP-
+                 deflated TA, but log-TA is sufficient for cross-
+                 sectional ranking)
+      TL_to_TA = TotalLiabilities / TotalAssets
+      WC_to_TA = (CurrentAssets - CurrentLiabilities) / TotalAssets
+      CL_to_CA = CurrentLiabilities / CurrentAssets
+      NI_to_TA = NetIncome_ttm / TotalAssets
+      FFO_to_TL = CFO_ttm / TotalLiabilities (FFO proxy)
+      NITWO    = 1 if last 2 yrs both negative net income (else 0)
+      OENEG    = 1 if total liabilities > total assets (else 0)
+      CHNI     = (NI_t - NI_{t-1}) / (|NI_t| + |NI_{t-1}|)
+                 (normalized change in net income, bounded [-1, +1])
+
+    Distinct from Altman Z because:
+      - O-score derived from logistic regression (not linear discriminant)
+      - O-score includes market-equity proxy via SIZE (log TA)
+      - O-score handles OENEG (negative equity) explicitly
+    """
+    factors: Dict[str, pd.DataFrame] = {}
+
+    ni_ttm = store.load_panel(tickers, "net_income", daily_idx, ttm=True)
+    cfo_ttm = store.load_panel(tickers, "cfo", daily_idx, ttm=True)
+    assets = store.load_panel(tickers, "total_assets", daily_idx)
+    current_assets = store.load_panel(tickers, "current_assets", daily_idx)
+    current_liab = store.load_panel(tickers, "current_liabilities", daily_idx)
+    total_liab = store.load_panel(tickers, "total_liabilities", daily_idx)
+
+    # SIZE: log of total assets (no GNP deflator; cross-sectional rank
+    # interpretation makes deflator a constant scale shift)
+    size = np.log(assets.replace(0, np.nan))
+    factors["ohlson_size"] = size
+
+    # TL/TA
+    tl_ta = _safe_div(total_liab, assets)
+    factors["ohlson_tl_to_ta"] = tl_ta
+
+    # WC/TA (same as Altman A)
+    wc_ta = _safe_div(current_assets - current_liab, assets)
+    factors["ohlson_wc_to_ta"] = wc_ta
+
+    # CL/CA
+    cl_ca = _safe_div(current_liab, current_assets)
+    factors["ohlson_cl_to_ca"] = cl_ca
+
+    # NI/TA (annualized ROA from TTM net income)
+    ni_ta = _safe_div(ni_ttm, assets)
+    factors["ohlson_ni_to_ta"] = ni_ta
+
+    # FFO/TL (CFO as FFO proxy)
+    ffo_tl = _safe_div(cfo_ttm, total_liab)
+    factors["ohlson_ffo_to_tl"] = ffo_tl
+
+    # NITWO: 1 if net income negative in BOTH last year and current
+    # year. We use TTM NI and lagged 252-BD TTM NI (1 year prior).
+    ni_prior = ni_ttm.shift(252)
+    factors["ohlson_nitwo"] = (
+        (ni_ttm < 0).astype(float) * (ni_prior < 0).astype(float)
+    ).where(~(ni_ttm.isna() | ni_prior.isna()))
+
+    # OENEG: 1 if total liabilities exceed total assets (negative book)
+    factors["ohlson_oeneg"] = (total_liab > assets).astype(float).where(
+        ~(total_liab.isna() | assets.isna())
+    )
+
+    # CHNI: normalized change in NI between current and prior year
+    chni_num = ni_ttm - ni_prior
+    chni_den = ni_ttm.abs() + ni_prior.abs()
+    factors["ohlson_chni"] = _safe_div(chni_num, chni_den)
+
+    # Composite O-score
+    factors["ohlson_o_score"] = (
+        -1.32
+        - 0.407 * factors["ohlson_size"]
+        + 6.030 * factors["ohlson_tl_to_ta"]
+        - 1.430 * factors["ohlson_wc_to_ta"]
+        + 0.076 * factors["ohlson_cl_to_ca"]
+        - 2.370 * factors["ohlson_ni_to_ta"]
+        - 1.830 * factors["ohlson_ffo_to_tl"]
+        + 0.285 * factors["ohlson_nitwo"].fillna(0)
+        - 1.720 * factors["ohlson_oeneg"].fillna(0)
+        - 0.521 * factors["ohlson_chni"]
+    )
+
+    return factors
+
+
 def compute_capital_return_factors(
     daily_idx: pd.DatetimeIndex,
     tickers: List[str],
@@ -454,6 +553,7 @@ def compute_fundamental_factors_full(
     out.update(compute_magic_formula_factors(daily_idx, tickers, store, price_df))
     out.update(compute_beneish_factors(daily_idx, tickers, store))
     out.update(compute_altman_factors(daily_idx, tickers, store, price_df))
+    out.update(compute_ohlson_factors(daily_idx, tickers, store))
     out.update(compute_capital_return_factors(daily_idx, tickers, store, price_df))
     out.update(compute_growth_and_leverage_factors(daily_idx, tickers, store))
     return out
@@ -482,6 +582,11 @@ FUNDAMENTAL_FACTORS_BATCH2_NAMES = [
     "altman_wc_to_assets", "altman_re_to_assets", "altman_ebit_to_assets",
     "altman_mveq_to_liab", "altman_sales_to_assets",
     "altman_z_score",
+    # Ohlson 9 components + composite (Round E)
+    "ohlson_size", "ohlson_tl_to_ta", "ohlson_wc_to_ta",
+    "ohlson_cl_to_ca", "ohlson_ni_to_ta", "ohlson_ffo_to_tl",
+    "ohlson_nitwo", "ohlson_oeneg", "ohlson_chni",
+    "ohlson_o_score",
     # Capital return + FCF
     "buyback_yield_ttm", "dividend_yield_ttm", "shareholder_yield_ttm",
     "fcf_yield_ttm", "fcf_to_assets_ttm",
