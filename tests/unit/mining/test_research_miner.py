@@ -1010,7 +1010,9 @@ def test_aplusplus_families_v2_union_equals_research_factors():
     #   P (macro: FRED): 6
     # = 76 new + 67 existing = 143 (note: macro_drawdown / cross_section_dispersion_21d
     # etc are accounted for in the existing 67).
-    assert len(reachable) == 143
+    # Round D 2026-05-12: +4 event window factors (pre_fomc /
+    # post_fomc / pre_cpi / pre_nfp) merged into family J → 147.
+    assert len(reachable) == 147
 
 
 def test_aplusplus_families_v1_unchanged_at_33():

@@ -222,6 +222,12 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     # regime / risk-conditioning input.
     "yield_curve_10y_2y", "fed_funds_yoy_change", "dxy_zscore_60d",
     "wti_yoy_pct", "vix_zscore_60d", "cpi_yoy_pct",
+    # Bucket A T1 batch 3 — event-window factors (PRD 20260512 Round D).
+    # NFP rule exact (first Friday of month); CPI heuristic (~2nd
+    # Tuesday); FOMC heuristic (~8 meetings/year fixed weeks). User
+    # can override via config/macro_event_calendar.yaml for precision.
+    "pre_fomc_window_flag", "post_fomc_window_flag",
+    "pre_cpi_window_flag", "pre_nfp_window_flag",
     # Quality
     "rolling_sharpe_126d", "return_per_risk_21d",
     # Path shape (LLM-Round 10 promotion, 2026-04-21, user-authorized):

@@ -222,6 +222,21 @@ def _build_factor_panel_map(
     except Exception as e:
         logger.warning("Macro factor compute failed: %s", e)
 
+    # Round D event window factors (pre-FOMC / CPI / NFP)
+    try:
+        from core.factors.event_window_factors import (
+            compute_event_window_factors,
+        )
+        event_factors = compute_event_window_factors(daily_idx, tickers)
+        added = 0
+        for name, edf in event_factors.items():
+            if name in RESEARCH_FACTORS:
+                panel_map[name] = edf
+                added += 1
+        logger.info("Event window factors merged: %d", added)
+    except Exception as e:
+        logger.warning("Event window factor compute failed: %s", e)
+
     # Forward returns: `horizon`-day CC return (default 21d = medium-term)
     fwd_all = compute_forward_returns(close, horizons=[horizon], mode="cc")
     fwd_h = fwd_all[horizon]

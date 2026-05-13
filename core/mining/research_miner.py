@@ -291,10 +291,13 @@ FAMILY_I_HIGHER_MOMENTS_AND_ANCHOR = FamilyConfig(
 
 FAMILY_J_CALENDAR = FamilyConfig(
     name="J",
-    title="calendar / seasonal timing",
+    title="calendar / seasonal timing + macro event windows",
     factors=frozenset({
         "turn_of_month_flag", "sell_in_may_seasonal",
         "month_end_quarter_end",
+        # Round D additions (PRD 20260512)
+        "pre_fomc_window_flag", "post_fomc_window_flag",
+        "pre_cpi_window_flag", "pre_nfp_window_flag",
     }),
 )
 
