@@ -373,7 +373,12 @@ def _residual_pair_corr(a: pd.Series, b: pd.Series, bench: pd.Series) -> float:
 # ── Configuration + Result dataclasses ──────────────────────────────────────
 
 
-_VALID_CONSTRUCTION_MODES = ("global_top_n", "cap_aware", "cap_aware_cross_asset")
+_VALID_CONSTRUCTION_MODES = (
+    "global_top_n",
+    "cap_aware",
+    "cap_aware_cross_asset",
+    "cap_aware_risk_parity",  # C10-2-A: cap_aware selection + inverse-vol weighting
+)
 
 
 @dataclass(frozen=True)
@@ -616,6 +621,29 @@ def evaluate_composite_spec(
             min_holding_days=cfg.min_holding_days,
             asset_class_map=cfg.asset_class_map,
             asset_class_caps=cfg.asset_class_caps,
+        )
+    elif cfg.construction_mode == "cap_aware_risk_parity":
+        # C10-2-A (2026-05-13): same selection as cap_aware (optionally
+        # cross-asset if asset_class_map provided) but replace equal-weight
+        # with inverse-volatility weighting. Tests whether equal-weighting
+        # is part of cycle04-09b sibling-by-construction binding constraint.
+        from core.research.risk_parity_weighting import reweight_inverse_vol
+        signals_topn = topn_signals_with_caps(
+            composite, mask,
+            target_n_picks=cfg.top_n,
+            cluster_map=cfg.cluster_map,
+            cluster_cap=cfg.cluster_cap,
+            max_single_weight=cfg.max_single_weight,
+            min_holding_days=cfg.min_holding_days,
+            asset_class_map=cfg.asset_class_map,
+            asset_class_caps=cfg.asset_class_caps,
+        )
+        signals = reweight_inverse_vol(
+            signals_topn, price_df,
+            lookback=60,
+            max_single_weight=cfg.max_single_weight,
+            cluster_map=cfg.cluster_map,
+            cluster_cap=cfg.cluster_cap,
         )
     else:  # global_top_n (default; cycle #01+#02 path)
         signals = topn_signals_from_composite(
