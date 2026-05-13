@@ -154,8 +154,10 @@ kill switch with auto-recovery, separate slippage/commission cost
 accounting, integer-share mode, regime-aware walk-forward OOS,
 expanding-window validation, 252d forward-block holdout, 4-period
 stress + subperiod + 2x-cost + ±20% param + 6-regime robustness
-gates, OOS/IS Sharpe overfit gate, 5-stage mining pipeline, 64
-research factors (7 production, see factor_registry), XGBoost 3.2.0
+gates, OOS/IS Sharpe overfit gate, 5-stage mining pipeline, **143
+research factors** across **16 mining families A-P** (post-PRD 20260512
+Bucket A/B/C/Macro expansion; +76 factors from 67 baseline), 7
+production, see factor_registry), XGBoost 3.2.0
 feature importance, MultiFactorStrategy (16 tests), left-side trading,
 SPY+QQQ master report, PIT universe rebalance, 4-detector diagnostics,
 target_vol=0.25 constructor. Full feature table moved to
@@ -496,10 +498,17 @@ registries with strict **directional** separation (production drives
 execution; research is read-only at the execution boundary):
 - `PRODUCTION_FACTORS` (7): only these drive execution; changes
   require user authorization
-- `RESEARCH_FACTORS` (64): available for IC / OOS / regime research;
-  may share a NAME with a production factor (e.g.
+- `RESEARCH_FACTORS` (143 as of PRD 20260512 Bucket A/B/C/Macro
+  expansion; up from 64 baseline): available for IC / OOS / regime
+  research; may share a NAME with a production factor (e.g.
   `drawup_from_252d_low`) so long as the two implementations are
-  numerically identical — see `factor_registry.py:213-220`
+  numerically identical — see `factor_registry.py:213-220`.
+  **Source-path split**: OHLCV factors come from
+  `core/factors/factor_generator.generate_all_factors`; fundamental
+  / sector / macro factors come from separate `compute_*` functions
+  (different input signatures — EDGAR cache / sector_map / FRED).
+  `scripts/run_research_miner.py::_build_factor_panel_map` merges
+  all four paths.
 
 `MultiFactorStrategy` gate: unknown names in `factor_weights` are
 logged at WARNING and DROPPED — prevents research names silently
@@ -1019,6 +1028,68 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   `tests/unit/research/taa/` (62 tests) + `dev/scripts/taa/`
   (2 dev scripts) + `data/audit/taa_phase{2,3}*.json`.
   Closeout: `docs/memos/20260506-prd_e_phase3_closeout.md`.
+
+- **Bucket A + B + C + Macro factor library expansion + Signal-conf
+  MVP Phase 1 skeleton** (2026-05-12 ✅, **+76 factors / 16 mining
+  families / mining-search-ready**) — per
+  `docs/memos/20260512-quant_factor_literature_synthesis_v2.md` (37
+  topic literature review) +
+  `docs/memos/20260512-bucket_abc_macro_mvp_schedule.md` (2-week
+  schedule). User explicit-go Q1+Q2+Q3+Q4 = all yes 2026-05-12.
+
+  Shipped across 18 commits in one session:
+  - **Bucket A (24 OHLCV factors, families G/H/I/J)**: 6 volume
+    microstructure + 3 4-quadrant + 6 consolidation + 3 higher
+    moments + 3 anchor/reversal/BAB + 3 calendar timing
+  - **Bucket B (41 fundamental factors, families K/L/M/N)**: SEC
+    EDGAR companyfacts API ingest (210 MB cache, 52/59 stocks
+    downloaded, ETFs skipped) + `core/data/{edgar_provider,
+    fundamentals_store}.py` + 12 Piotroski + 3 Magic Formula +
+    9 Beneish + 6 Altman + 5 capital return + 6 growth/leverage
+  - **Bucket C (5 sector factors, family O)**:
+    `config/sector_map.yaml` (59-sym manual GICS + 3 historical
+    reclassifications incl. META/GOOGL 2018-09-28 Tech →
+    Communication) + `core/data/sector_resolver.py` (PIT-aware)
+  - **Macro (6 FRED factors, family P)**: 8-series FRED CSV cache
+    (no API key needed; CPIAUCNS/FEDFUNDS/DGS10/DGS2/DTWEXBGS/
+    DCOILWTICO/VIXCLS/UNRATE) + `core/data/fred_provider.py`
+  - **Signal-conf MVP Phase 1 kernel**: `core/signals/signal_state.py`
+    state machine (ARMED → CONFIRMED|EXPIRED with TTL); strategy
+    class + multi-bar factors + ConfirmationPatternSpace + deferred-
+    execution backtest deferred (~3-week follow-up scope)
+
+  **Audit findings (R1-R3 live runs)**: 3 critical bugs caught + fixed:
+    1. TTM cumulative double-counting (AAPL CFO TTM 283B vs real 118B,
+       2.4×) — SEC EDGAR reports both standalone-Q and YTD-cumulative
+       under same tag; fixed by duration-filter (60-100 days
+       standalone Q only feed rolling-4 sum)
+    2. Strict NaN propagation killed Piotroski for retailers/
+       financials (WMT/CAT/GS/JNJ all NaN) — fixed via
+       `sum(c.fillna(0))` + nan_mask only when ALL TTM flow inputs NaN
+    3. Mask included balance-sheet (non-NaN earlier than TTM) leak
+       composite=0 into pre-TTM window — fixed by dropping assets
+       from mask logic
+
+  **Post-fix AAPL 2024-12-31 sanity**: piotroski_f_score=8, magic
+  earnings yield=3.08%, magic ROIC=47.2%, beneish M-score=-2.67,
+  altman Z=10.97, buyback yield=2.80%, fcf yield=2.92%, fcf-to-assets=
+  33.6%, revenue YoY=+7.8%, R&D intensity=6.66%. All within 1-6% of
+  authoritative references.
+
+  **Mining wiring (Round A)**: 10 new families G-P added to
+  `core/mining/research_miner.py::FAMILIES_V2`; `scripts/
+  run_research_miner.py::_build_factor_panel_map` extended to merge
+  4 compute paths (OHLCV / fundamental / sector / macro) into single
+  panel_map. Family-union contract enforced (143 reachable).
+
+  **Round B smoke**: end-to-end miner CLI 3-trial random sampler
+  against `--factor-registry-pool RESEARCH_FACTORS` PASS — all 10
+  new families sampled from in trials (e.g. trial #2 drew
+  {G:2,H:2,I:1,K:1,L:2,M:1,N:1,O:2,P:1}). Pipeline ready for cycle
+  #09 when authorized.
+
+  Test surface: 553 unit tests PASS (factors + data + signals +
+  mining). Lineage `bucket-abcmacrosig-2026-05-12`.
 
 **Forward OOS workstream (infrastructure history + active state)**:
 Infrastructure (R-fwd-1 / R-fwd-2 / R-fwd-3 / F) shipped 2026-04-26
