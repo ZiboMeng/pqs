@@ -638,6 +638,15 @@ def suggest_composite_spec(
     # filtered NAV consumed by the objective. Phase 3 round 1 default
     # (False,) preserves bit-for-bit cycle04/05/06 behavior.
     enable_sr_defer_choices: Sequence[bool] = (False,),
+    # 2026-05-12: opt-in masked-duplicate dedup. When True, after the
+    # existing same-name dedup, run a second pass that maps each
+    # picked factor to its `factor_cluster_registry.canonical_of(name)`
+    # and removes duplicates by canonical. Two factors from the same
+    # masked-dup cluster therefore can never coexist in one composite.
+    # Default False preserves cycle04-08 behavior (cycle #09 yaml has
+    # its own static explicit_exclusions; cycle #10+ can enable this
+    # for general-purpose dedup).
+    auto_dedup_masked_factors: bool = False,
 ) -> ResearchCompositeSpec:
     """Family-aware composite sampler (PRD §8.5).
 
@@ -749,6 +758,27 @@ def suggest_composite_spec(
             seen.add(feat)
         else:
             family_counts[fam_name] -= 1
+
+    # 2026-05-12: opt-in masked-dup auto-dedup (second pass). If two
+    # factors map to the same canonical (e.g. mom_21d + reversal_21d
+    # both → mom_21d canonical), drop the later one. Skips cleanly if
+    # registry import fails (defensive — registry is research-side only).
+    if auto_dedup_masked_factors:
+        try:
+            from core.factors.factor_cluster_registry import canonical_of
+        except ImportError:
+            canonical_of = None  # type: ignore[assignment]
+        if canonical_of is not None:
+            seen_canonical: set[str] = set()
+            deduped: List[Tuple[str, str]] = []
+            for fam_name, feat in unique_selected:
+                canon = canonical_of(feat)
+                if canon in seen_canonical:
+                    family_counts[fam_name] -= 1
+                    continue
+                seen_canonical.add(canon)
+                deduped.append((fam_name, feat))
+            unique_selected = deduped
 
     # Check min_families after dedup
     n_active_families = sum(1 for c in family_counts.values() if c > 0)
@@ -1751,6 +1781,10 @@ class ResearchMiner:
         # ObjectiveWeightsV3 dispatch. Required iff objective_weights is
         # ObjectiveWeightsV3. Default None preserves v1/v2 behavior.
         daily_regime_labels: Optional[pd.Series] = None,
+        # 2026-05-12: opt-in masked-dup auto-dedup (cycle #10+ ready,
+        # cycle #09 disabled). Default False preserves cycle04-08
+        # behavior. Plumbed straight to suggest_composite_spec.
+        auto_dedup_masked_factors: bool = False,
     ) -> None:
         # A++ patch 2026-04-30: pre-flight assert reachability matches
         # the pre-registered factor_registry_pool. Run before storing
@@ -1904,6 +1938,8 @@ class ResearchMiner:
                 "an explicit dict or remove True from the choices."
             )
         self.intraday_bars_60m = intraday_bars_60m
+        # 2026-05-12: store auto-dedup flag (cycle #09 OFF; cycle #10+ ON).
+        self.auto_dedup_masked_factors = bool(auto_dedup_masked_factors)
         # Master PRD §4.3 Phase C.1 R6 wire: daily_regime_labels contract.
         # When objective_weights is ObjectiveWeightsV3, regime labels MUST
         # be supplied (else evaluate_composite_regime_conditional has no
@@ -1964,6 +2000,7 @@ class ResearchMiner:
             ),
             holding_freq_choices=self.holding_freq_choices,
             enable_sr_defer_choices=self.enable_sr_defer_choices,
+            auto_dedup_masked_factors=self.auto_dedup_masked_factors,
         )
         # Codex R21 P0.1: enforce M6 C5 role-remint guard BEFORE evaluation.
         # If the same spec was already recorded under a DIFFERENT role within
