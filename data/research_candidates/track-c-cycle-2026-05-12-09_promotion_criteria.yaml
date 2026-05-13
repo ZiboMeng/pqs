@@ -1,0 +1,364 @@
+# Promotion Criteria — Track C Cycle #09 (cycle04-08 sibling escape via
+# 95-factor library expansion + new-family-anchor REQUIREMENT)
+#
+# Authority:
+#   - docs/prd/20260512-cycle_09_diversified_anchor_search_prd.md
+#   - docs/memos/20260512-z1_factor_diagnostics_synthesis_strict.md
+#     (strict train-only IC ranking; informs archetype selection)
+#   - docs/memos/20260512-quant_factor_literature_synthesis_v2.md
+#     (37-topic literature review motivating 95-factor expansion)
+#   - docs/memos/20260512-trial9_diversifier_001_closeout.md
+#     (v1 completed_fail; trial9_diversifier_002 active forward candidate)
+#   - User explicit-go 2026-05-12 "都按照你的推荐走"
+#
+# IMMUTABILITY CONTRACT:
+#   Once committed with sha256 in commit message, ALL fields below
+#   FROZEN for this lineage. Wrong-in-hindsight thresholds → next cycle.
+#
+# Lineage tag:    track-c-cycle-2026-05-12-09
+# Authored:       2026-05-12
+# Authoring axis: Single-axis differential vs cycle08:
+#                   (i)   factor_registry_pool: RESEARCH_FACTORS (162 names
+#                         post Bucket A/B/C/Macro expansion; up from 67)
+#                   (ii)  G_new_family_anchor: REQUIRE ≥1 anchor from new
+#                         families G/I/K/L/M/N/O/P (Z1-strict-train derived)
+#                   (iii) G_anti_sibling_nav 3-way: pairwise raw NAV
+#                         Pearson < 0.85 vs RCMv1 + Cand-2 + trial9_v2
+#                         (cycle04-08 sibling root cause direct attack)
+#                   (iv)  drawup_from_252d_low + amihud_20d BANNED
+#                         (cycle04-08 legacy anchors; family B / C)
+#                   (v)   7 masked-duplicate factors BANNED per Z1
+#                         strict-train cluster_pairs_train_only.csv
+#                         (r ≥ |0.99| pairs — keep one, ban other)
+#                   (vi)  Objective reverts to v2_nav_based (cycle08 v3
+#                         regime-conditional showed Spearman 0.89 vs v1
+#                         on train-only; not enough Pareto-frontier
+#                         differentiation to justify v3 overhead given
+#                         95-factor reachability is the dominant axis)
+
+
+lineage_tag: track-c-cycle-2026-05-12-09
+panel_max_date_at_freeze: 2024-12-31
+freeze_date: 2026-05-12
+factor_registry_pool: RESEARCH_FACTORS
+data_source_canonical: post_rebuild_2026_05_01_canonical_plus_yfinance_backfill_2009_2014
+end_date: 2025-12-31
+
+drop_symbols:
+  - BRK-B
+  - USO
+  - SLV
+
+
+# ── Universe (cycle04/06/07a/08 inherited verbatim) ─────────────────
+
+universe_extension:
+  mode: stocks_plus_cross_asset
+  stocks_count: 53
+  cross_asset_count: 6
+  total_eligible: 59
+  cluster_count_total: 22
+  cross_asset_cluster_map_module: core.research.risk_cluster_map.CROSS_ASSET_RISK_CLUSTER_MAP
+  unified_cluster_map_helper: core.research.risk_cluster_map.make_unified_cluster_map
+  asset_class_map_module: core.research.risk_cluster_map.ASSET_CLASS_BY_CLUSTER
+
+
+# ── Construction (cycle04/06/07a/08 inherited verbatim) ─────────────
+
+construction:
+  mode: cap_aware_cross_asset
+  rebalance_cadence: monthly
+  top_n: 10
+  cluster_cap: 0.20
+  max_single_weight: 0.10
+  min_holding_days: 1
+  long_only: true
+  no_short: true
+  no_margin: true
+  asset_class_caps:
+    equities_max:    0.70
+    bonds_max:       0.40
+    commodities_max: 0.20
+    cash_anchor_max: 0.30
+
+
+# ── Mining: v2_nav_based (revert from cycle08 v3) ───────────────────
+
+mining_config:
+  sampler: tpe
+  seed: 42
+  n_trials: 200
+  min_families: 3
+  max_features_per_family: 2
+  composite_cardinality: 3
+  composite_weighting: equal_weight
+  archive_db: data/mining/rcm_archive.db
+  optuna_db: data/mining/rcm_optuna.db
+  out_dir: data/ml/research_miner/track-c-cycle-2026-05-12-09
+  panel_start_date: "2009-01-02"
+  panel_end_date: "2025-12-31"
+  temporal_split_role: core
+  factor_registry_source: core/factors/factor_registry.py
+  factor_registry_pool: RESEARCH_FACTORS
+
+  # ── explicit_exclusions: 3 categories ──────────────────────────────
+  # (1) intraday data-dependency (cycle04+ inherited; need 60m bars):
+  #       intraday_autocorr_21d, intraday_vol_ratio_21d, realized_vol_60m_21d
+  # (2) cycle04-08 sibling anchors (cycle #09 single-axis diff vs cycle05):
+  #       drawup_from_252d_low (family B), amihud_20d (family C)
+  # (3) masked-dup r ≥ |0.99| Z1-strict-train (keep 1 ban 1):
+  #       Pairs (kept → banned):
+  #         vol_21d         → vol_20d           (DataFrame alias)
+  #         volume_surge_20d→ volume_ratio_20d  (DataFrame alias)
+  #         nearness_to_52w_high → dist_52w_high (formula identical, opposite sign)
+  #         revenue_growth_yoy   → beneish_sgi   (formula identical, family L dup)
+  #         ohlson_wc_to_ta      → altman_wc_to_assets (formula identical, family L dup)
+  #         ret_5d               → reversal_5d  (signed flip r=-1.00)
+  #         mom_21d              → reversal_21d (signed flip r=-1.00)
+  explicit_exclusions:
+    # (1) intraday data-dependency
+    - intraday_autocorr_21d
+    - intraday_vol_ratio_21d
+    - realized_vol_60m_21d
+    # (2) cycle04-08 sibling anchors
+    - drawup_from_252d_low
+    - amihud_20d
+    # (3) masked duplicates (Z1 strict-train r ≥ 0.99)
+    - vol_20d
+    - volume_ratio_20d
+    - dist_52w_high
+    - beneish_sgi
+    - altman_wc_to_assets
+    - reversal_5d
+    - reversal_21d
+
+  objective_version: v2_nav_based
+  objective_weights:
+    w_composite_ic_ir:     0.40
+    w_nav_sharpe:          0.30
+    w_nav_orthogonality:   0.20
+    w_vs_qqq_excess:       0.10
+
+  # SR defer / regime-conditional NOT enabled for cycle #09: keep
+  # mining axis controlled to factor-zoo-only differential vs cycle08.
+  holding_freq_choices: [monthly]
+  enable_sr_defer_choices: [false]
+
+
+# ── Hard requirements ─────────────────────────────────────────────────
+
+hard_requirements:
+  composite_ic_ir_full_period_min: 0.30
+  walk_forward_ic_ir_min_per_fold: 0.0
+  composite_cardinality: 3
+  fwd_return_horizon_days: 21
+  ic_evaluation_lag_bars: 1
+
+
+# ── Hard blockers (Track A acceptance per temporal_split_v2) ──────────
+
+hard_blockers:
+  - any_validation_year_maxdd_above_0_20
+  - any_stress_slice_maxdd_above_0_25
+  - validation_aggregate_excess_vs_spy_le_0   # SPY is the HARD primary gate (CLAUDE.md REVISED 2026-05-02)
+  - validation_2025_role_hard_gate_failure
+  - g_new_family_anchor_absent                # NEW for cycle #09 (see below)
+  - g_anti_sibling_nav_breach                 # NEW for cycle #09 (see below)
+
+
+# ── NEW Gate 1: G_new_family_anchor (cycle #09 SIBLING ESCAPE) ────────
+#
+# composite spec MUST include ≥ 1 factor drawn from new families
+# G/I/K/L/M/N/O/P (Bucket A T1 / fundamental quality / distress / capital
+# return / growth / sector / macro). H (consolidation), J (calendar),
+# Q (signal-conf) NOT counted as "anchor" — they're supplementary.
+#
+# This is the cycle04 stop-rule pivot direction ("strategy type changes"
+# = new factor SOURCES, not new factor names of same construction).
+
+g_new_family_anchor:
+  enabled: true
+  qualifying_families:
+    - G   # volume microstructure + 4-quadrant
+    - I   # higher moments + anchor + BAB
+    - K   # Piotroski + Magic Formula (EDGAR)
+    - L   # distress (Beneish + Altman + Ohlson, EDGAR)
+    - M   # capital return + FCF (EDGAR)
+    - N   # growth + leverage (EDGAR)
+    - O   # sector-relative
+    - P   # macro (FRED)
+  description: |
+    composite_spec.features MUST intersect the union of qualifying-family
+    factor sets non-emptily. Trials lacking any qualifying-family anchor
+    are auto-rejected at acceptance evaluation (informational at mining
+    archive level — mining sampler still archives them so the failure
+    mode is visible in cycle closeout analysis).
+
+
+# ── NEW Gate 2: G_anti_sibling_nav (3-way constraint) ─────────────────
+#
+# Pairwise raw NAV Pearson < 0.85 vs (RCMv1, Cand-2, trial9_v2) on
+# cycle04-canonical 16y panel (2009-2024 train + validation). Trial9_v2
+# substitutes Trial9_v1 (completed_fail 2026-05-12; v2 active forward
+# with track_signal_input_per_cell opt-in).
+
+g_anti_sibling_nav:
+  enabled: true
+  pairwise_raw_pearson_max: 0.85
+  pairs:
+    - rcm_v1_defensive_composite_01
+    - candidate_2_orthogonal_01
+    - trial9_diversifier_002  # v1 completed_fail; v2 = active
+  window_label: cycle04_canonical_16y
+  panel_start_date: "2009-01-02"
+  panel_end_date: "2024-12-31"
+  description: |
+    cycle07a Trial 3 produced 0.874 / 0.892 raw NAV vs RCMv1 / Cand-2
+    despite sharing only 1 factor with RCMv1 and 0 with Cand-2. This
+    proved that long-only top-10 monthly cap_aware over the 78-stock
+    universe IS the sibling-binding constraint. cycle #09 fights this
+    by REQUIRING new-family anchor (G_new_family_anchor) AND verifying
+    the resulting NAV is structurally distinct (this gate).
+
+
+# ── R41 informational dynamic anchor pool (Issue L) ──────────────────
+
+r41_informational:
+  apply_anchors:
+    - rcm_v1_defensive_composite_01
+    - candidate_2_orthogonal_01
+    - trial9_diversifier_002
+  classification_thresholds:
+    pooled_raw_pearson_lt_0_50:    true_diversifier
+    pooled_raw_pearson_0_50_0_70:  partial_diversifier
+    pooled_raw_pearson_0_70_0_85:  warn_label_void
+    pooled_raw_pearson_gte_0_85:   reject_step5
+
+
+# ── G3 orthogonality gate (residual decomposition) ────────────────────
+
+g3_orthogonality_gate:
+  enabled: true
+  blend_anchors:
+    - rcm_v1_defensive_composite_01
+    - candidate_2_orthogonal_01
+    - trial9_diversifier_002
+  raw_threshold: 0.70           # softer than G_anti_sibling_nav hard 0.85
+  residual_threshold: 0.50      # residual vs SPY + QQQ beta
+  n_floor: 30
+  required_top_k_under_threshold: 1
+
+
+# ── Smoke abort (cycle04+ pattern) ────────────────────────────────────
+
+smoke_abort_clause:
+  enabled: true
+  smoke_n_trials: 16
+  decision_metric: any_v2_nav_based_trial_archived_ok_with_finite_objective
+  thresholds:
+    abort_if_zero_finite_objective_in_16_trials: true
+
+
+# ── Hypothesis pre-registration ───────────────────────────────────────
+
+hypotheses:
+  H1_new_family_anchor_breaks_sibling: |
+    cycle04-08 root cause is construction collapse + sibling-by-factor-
+    family. With 95 new factors across 10 new families (genuinely
+    different families G-P, not just renamed family A/B/C), at least
+    1 cycle #09 archived trial will satisfy BOTH G_new_family_anchor
+    AND G_anti_sibling_nav simultaneously. If NO trial passes both,
+    construction collapse is universal across factor sources (not just
+    factor names) and cycle #09 also closes 0 nominee.
+
+  H2_Z1_strict_anchor_pool_outperforms_random: |
+    Trials whose anchor factor is drawn from Z1 strict-train top-15
+    (rd_intensity_ttm, sales_acceleration, beneish_aqi, piotroski_*,
+    sector_dispersion_std_20d, magic_*, ohlson_*) will have higher
+    median IC_IR than trials drawn from outside this set. Tests
+    whether strict-train IR > 3 ranking has predictive validity
+    out of sample (validation years).
+
+  H3_fundamental_anchored_breaks_NAV_correlation: |
+    Trials whose anchor is family K/L/M/N (EDGAR fundamentals) will
+    have lower median raw NAV Pearson vs RCMv1+Cand-2+Trial9 than
+    trials anchored on family G/H/I (OHLCV-derived). Tests whether
+    "different data source" (financial statements vs price/volume)
+    is enough to break NAV correlation, or whether long-only top-N
+    monthly construction dominates regardless of factor source.
+
+  H4_track_a_at_least_one_pass: |
+    Among trials passing G_new_family_anchor AND G_anti_sibling_nav,
+    at least 1 will pass Track A acceptance (per-validation-year vs
+    SPY ≥ 4/5, per-year max_dd ≤ 20%, 2025 holdout hard gate, stress
+    slices ≤ 25%, concentration, beta to QQQ ≤ 0.85 diagnostic).
+
+
+# ── Stop rule (cycle04 inherited stop-rule pivot) ─────────────────────
+
+stop_rule_post_cycle:
+  if_at_least_one_nominee: |
+    Forward init candidate → daily-ritual observe → TD60 verdict per
+    PRD §7.1 (GREEN/YELLOW/RED). Pairs with Trial 9 v2 verdict
+    (~2026-08-06) for fleet composition decision per cycle #09 PRD §4.
+
+  if_zero_nominee: |
+    SECOND consecutive 0-nominee with broad factor library (cycle08 +
+    cycle #09). This is the cycle04 pre-committed stop rule trigger:
+    pivot to alt-archetype (intraday reversal / event-driven /
+    cross-asset systematic — PRDs at docs/prd/20260512-alt_archetype_*.md).
+    Does NOT trigger PQS shutdown; alpha mining base activity continues
+    per [[feedback_parallel_alpha_mining_default]].
+
+
+# ── Evidence pack (auto-generated at closeout) ────────────────────────
+
+evidence_pack:
+  - z1_factor_diagnostics_strict_memo: docs/memos/20260512-z1_factor_diagnostics_synthesis_strict.md
+  - track_a_acceptance_score_per_top_trial: required
+  - anti_sibling_nav_correlation_table: required
+  - factor_overlap_per_role_table: required
+  - g_new_family_anchor_check_per_top_trial: required
+  - hypothesis_test_results_h1_h4: required
+
+
+# ── Authorization markers ─────────────────────────────────────────────
+
+authorization:
+  prd: docs/prd/20260512-cycle_09_diversified_anchor_search_prd.md
+  z1_memo: docs/memos/20260512-z1_factor_diagnostics_synthesis_strict.md
+  cycle08_closeout: docs/memos/20260520-cycle08_closeout.md
+  trial9_v1_closeout: docs/memos/20260512-trial9_diversifier_001_closeout.md
+  user_explicit_go: |
+    zibo 2026-05-12: "都按照你的推荐走 暂时先不需要我做review 你直接走
+    但是之前需要做audit"
+  predecessors:
+    - track-c-cycle-2026-05-01-04 (cycle04 cap-aware cross-asset; 0 nominee)
+    - track-c-cycle-2026-05-01-05 (cycle05 anchor sensitivity; 7 R41 Tier 1 but Trial 3 RED)
+    - track-c-cycle-2026-05-06-01 (cycle06 v2_nav_based debut; 0 nominee)
+    - track-c-cycle-2026-05-07-01 (cycle07a single-axis NAV-side reweight; 1 Tier 1 → Trial 3 RED)
+    - track-c-cycle-2026-05-08-01 (cycle08 v3_regime_conditional 40-trial smoke; 0 nominee)
+
+
+# ── Sealed panel discipline ───────────────────────────────────────────
+
+sealed_panel_one_shot: |
+  This cycle consumes one mining pass on TRAIN + VALIDATION panel via
+  Track A acceptance evaluator. Sealed 2026 panel NEVER read at any
+  point in this cycle. Per [[feedback_temporal_split_discipline]],
+  validation years (2018/2019/2021/2023/2025) consumed once for this
+  cycle's acceptance; sealed (2026) reserved for single-shot OOS
+  test post-forward-soak of any cycle #09 nominee.
+
+
+# ── Immutability contract (sha256 locked at commit time) ──────────────
+
+immutability_contract:
+  # sha256 of yaml CONTENT WITHOUT this hash field (i.e., the pre-lock
+  # canonical sha256 computed at 2026-05-12 commit time).
+  yaml_sha256_locked_at: 1cbea923dceaf3f3395c14f6a15a168c6dce96ed3c61d2bae29c4e3e83eb70d0
+  no_retroactive_softening: true
+  field_freeze: |
+    All fields above frozen at commit-time sha256. Wrong-in-hindsight
+    thresholds OR archetype recommendations → cycle #10 with explicit
+    next-cycle yaml (NOT yaml edit in place).
