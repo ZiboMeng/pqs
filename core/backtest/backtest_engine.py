@@ -103,9 +103,25 @@ class BacktestEngine:
         rebalance_threshold:   float = 0.02,
         integer_shares:        bool  = False,
         stale_days_threshold:  int   = 5,
+        execution_freq:        str   = "interday",
     ):
+        """
+        execution_freq : "interday" (default; cycle04-08 / M11a/M11b
+                        bit-for-bit preserved) OR "intraday" (alt-A
+                        Phase 2; uses slippage_intraday_bps cost-model
+                        tier). Both freqs route through identical
+                        BacktestEngine main-loop code path — the only
+                        difference is the slippage tier looked up by
+                        ExecutionSimulator at fill time.
+        """
+        if execution_freq not in ("interday", "intraday"):
+            raise ValueError(
+                f"execution_freq must be 'interday' or 'intraday', "
+                f"got {execution_freq!r}"
+            )
         self._cost      = cost_model
-        self._sim       = ExecutionSimulator(cost_model, freq="interday", allow_partial=True)
+        self._sim       = ExecutionSimulator(cost_model, freq=execution_freq, allow_partial=True)
+        self._exec_freq = execution_freq
         self._capital   = initial_capital
         self._min_trade = min_trade_usd
         self._rebal_thr = rebalance_threshold

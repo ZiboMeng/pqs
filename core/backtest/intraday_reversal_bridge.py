@@ -38,6 +38,10 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from core.config.schemas.cost_model import (
+    CapacityModelConfig, CostModelConfig, CostTierConfig,
+)
+from core.execution.cost_model import CostModel
 from core.signals.strategies.intraday_reversal import (
     IntradayReversalConfig, IntradayReversalStrategy,
 )
@@ -164,6 +168,59 @@ def build_intraday_reversal_signals(
                 signals.at[today, sym] = w
 
     return signals
+
+
+def build_alt_a_cost_model(
+    universe_symbols: List[str],
+    intraday_slip_bps: float = 2.5,
+    commission_bps: float = 0.5,
+) -> CostModel:
+    """Build CostModel honoring PRD §11 Q4 LOCKED (2.5bp slip per leg).
+
+    NOTE: this is MORE OPTIMISTIC than production cost_model.yaml
+    (which has slippage_intraday_bps=7-20 for the default + tier
+    configs). The 2.5bp lock reflects user decision 2026-05-12
+    for alt-A first-fire; cost sensitivity 2× (= 5bp) is the hard
+    blocker per PRD §9 acceptance.
+
+    interday_slip is set equal to intraday_slip — alt-A runs entirely
+    in intraday-freq mode; interday code path is never invoked under
+    this cost model (defensive; if invoked, behaves identically).
+
+    Parameters
+    ----------
+    universe_symbols : list[str]
+        Tickers in the alt-A universe (PRD §11 Q1 LOCKED = 53-stock).
+    intraday_slip_bps : float
+        Per-leg slippage in bps. Default 2.5 per PRD §11 Q4 LOCKED.
+    commission_bps : float
+        Per-trade commission in bps. 0.5 matches large_cap_equity tier.
+
+    Returns
+    -------
+    CostModel ready to pass to BacktestEngine(execution_freq="intraday").
+    """
+    cfg = CostModelConfig(
+        mode="bps_based",
+        vix_stress_threshold=30.0,
+        stress_slippage_multiplier=2.5,  # PRD-prod default
+        tiers={
+            "alt_a_universe": CostTierConfig(
+                symbols=list(universe_symbols),
+                commission_bps=commission_bps,
+                slippage_interday_bps=intraday_slip_bps,
+                slippage_intraday_bps=intraday_slip_bps,
+            ),
+            "default": CostTierConfig(
+                symbols=[],
+                commission_bps=commission_bps,
+                slippage_interday_bps=intraday_slip_bps,
+                slippage_intraday_bps=intraday_slip_bps,
+            ),
+        },
+        capacity_model=CapacityModelConfig(enabled=False),
+    )
+    return CostModel(cfg)
 
 
 def estimate_alt_a_turnover(signals: pd.DataFrame) -> float:
