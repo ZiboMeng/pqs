@@ -41,10 +41,14 @@ def compute_event_window_factors(
     tickers: List[str],
     yaml_path: str = "config/macro_event_calendar.yaml",
 ) -> Dict[str, pd.DataFrame]:
+    # Audit Ω2 E1 fix: empty daily_idx → return empty panels gracefully
+    if len(daily_idx) == 0:
+        empty = pd.DataFrame(index=daily_idx, columns=tickers, dtype=float)
+        return {n: empty.copy() for n in EVENT_WINDOW_FACTOR_NAMES}
     calendar = load_calendar(
         yaml_path=yaml_path,
-        start_year=daily_idx.min().year - 1,
-        end_year=daily_idx.max().year + 1,
+        start_year=int(daily_idx.min().year) - 1,
+        end_year=int(daily_idx.max().year) + 1,
     )
     factors: Dict[str, pd.DataFrame] = {}
     factors["pre_fomc_window_flag"] = window_flag_panel(
