@@ -1,28 +1,33 @@
 # cycle09b Closeout Amendment — §5.1 / §5.2 / §5.4 audit verdicts
 
-**Date**: 2026-05-13
-**Status**: §5.2 PASS · §5.1 mixed (yaml-strict eligible / cycle07a-locked RED) · §5.4 hypothesis overturned · §5.3 in progress (seed=123 ~37% complete)
+**Date**: 2026-05-13 (REVISED post-self-audit 2026-05-13 per `docs/memos/20260513-cycle09b_audit_amendment_self_audit.md`)
+**Status**: §5.2 PASS · §5.1 REJECT per yaml G3 orthogonality_gate · §5.4 hypothesis overturned · §5.3 in progress (seed=123 ≈ 75% complete, informational only)
 **Parent**: `docs/memos/20260512-cycle09b_closeout.md` §5 (forward-init pre-conditions)
+**Self-audit**: `docs/memos/20260513-cycle09b_audit_amendment_self_audit.md` (4 holes in original interpretation; this revision incorporates fixes)
 **Author**: PQS resident-quant operator
 **Authority**: tactical operator scope per CLAUDE.md "Autonomous Decision Authority"
 
 ---
 
-## §1 TL;DR — 人话版
+## §1 TL;DR — 人话版（REVISED）
 
-cycle09b Trial 1 forward-init 4 道 audit 跑了 3 道，结论混合：
+cycle09b Trial 1 forward-init audit 已经够下 verdict：**REJECT** per cycle09b yaml's OWN G3 orthogonality_gate（yaml-ratified，无需 invoke 外部 provisional standard）。
 
 - **§5.2 PIT audit on `rd_intensity_ttm`: PASS** ✅ —— EDGAR companyfacts 用 `filed_date` 而不是 `fiscal_period_end` 做 PIT (point-in-time = 知道某天能用的数据)；AAPL Q4 FY2024 10-K filing anchor case + 5 个 random sample 全部正确。
-- **§5.1 5-anchor extended NAV correlation: 混合**
-  - yaml-only (raw-only threshold) 判断: Trial 1 = `warn_label_void`（max raw 0.810 < 0.85 阈值），core_alpha eligible 条件成立
-  - cycle07a-locked (raw + residual) 判断: Trial 1 = **RED**（max residual_vs_spy 0.809 ≥ 0.50 在 4/5 anchors）
+- **§5.1 5-anchor extended NAV correlation: REJECT per yaml G3**
+  - yaml G3 orthogonality_gate (line 262-271): raw < 0.70 AND residual < 0.50, required_top_k_under_threshold: 1
+  - Trial 1 vs all 3 yaml-listed anchors (RCMv1 / Cand-2 / Trial9_v2): 0/3 anchors satisfy BOTH sub-gates
+  - vs RCMv1: raw 0.810 / res_spy 0.809 → FAIL both
+  - vs Cand-2: raw 0.781 / res_spy 0.778 → FAIL both
+  - vs Trial9_v2: raw 0.744 / res_spy 0.742 → FAIL both
+  - → **G3 FAIL → REJECT forward-init**
 - **§5.4 NAV vs QQQ deep-dive: 闭包 memo 假设被推翻**
   - 闭包假设: rd_intensity_ttm 选 tech-heavy 大盘股 → 0.851 QQQ overlap
   - 实际: Trial 1 是 **29.2% non-equity defensive overlay**（bonds 14.5% + commodities 5.8% + cash 8.9%）+ 选择性 tech 持仓（28.8% QQQ-sector），不是 tech-heavy 选股
-- **§5.3 seed=123 复现 mining: 后台执行中** (73/93 archived ≈ 37% of 200-trial budget)，预计 ~30min 完成；本备忘录后续追加
+- **§5.3 seed=123 复现 mining: 后台执行中** (~75% complete)；降级为 informational only —— mining stability 信息，不左右已下定的 G3 REJECT verdict
 
-**Operator 战略判断**（tactical scope，未涉及 directional decision）：
-Trial 1 forward-init 决策**应在 §5.3 完成后再定**。当前 §5.1+§5.4 信息表明，Trial 1 在 yaml-only 是 eligible，但在更严格 residual gate 下 RED；同时 §5.4 揭示真正结构是 defensive overlay sibling 而非 tech-heavy sibling —— 这影响后续 cycle10+ 设计 axis（防御构造 DOF 还是真正 cross-asset selector）。
+**Operator 战略判断**（修订后）：
+Trial 1 = **`legacy_decay_verification` only**（不进 fleet，不 forward init）。无 yaml-strict / cycle07a-locked tension —— cycle09b yaml's OWN G3 gate 给出唯一 ratified verdict。Strategic 下一步 deferred 到 ML Phase 1.5 (~1-2 day) OR Trial 9 v2 TD60 evidence (~2026-08-06)，由 whichever 先出 evidence 决定 cycle10 axis。
 
 ---
 
@@ -82,41 +87,51 @@ cycle09b Trial 1 (`5a99868072e6` = `rs_vs_spy_63d + cpi_yoy_pct + rd_intensity_t
 
 n_overlap = 1583 daily bars per pair.
 
-### §3.3 Yaml-strict (raw-only) verdict
+### §3.3 cycle09b yaml 的 3-gate NAV verdict（REVISED post-self-audit）
 
-Closeout memo §5.1 thresholds:
-- raw < 0.50 → true_diversifier
-- 0.50 - 0.70 → partial_diversifier
-- 0.70 - 0.85 → warn_label_void
-- ≥ 0.85 → reject_step5
+cycle09b yaml `data/research_candidates/track-c-cycle-2026-05-12-09b_promotion_criteria.yaml` 自己 ratified 了 **3 个** NAV-related gates。原 amendment 仅引用了其中 1 个（r41_informational raw-only tier）是 R1 fact-checking 漏洞 —— 见 self-audit memo §2。
 
-Trial 1 max raw across 5 anchors = **0.810 < 0.85** → NOT reject_step5。Closeout §6 directive: "If extended NAV < 0.85 raw with at least 1 of (RCMv1, Cand-2, Trial9_v2) → core_alpha eligible" → all 3 satisfy → **`core_alpha eligible`** per yaml-strict reading.
+**完整 yaml gates**:
 
-### §3.4 cycle07a-locked (raw + residual) verdict
+| Gate | Yaml location | Trigger | Threshold |
+|---|---|---|---|
+| G_anti_sibling_nav | line 227-243 | Mining-time gate (cycle09b accepted Trial 1 because anchor_pearson 0.821 < 0.85 on 3-way pool) | raw < 0.85 pairwise |
+| r41_informational | line 248-257 | Informational only (NOT blocking) | raw-only tier: <0.50/0.50-0.70/0.70-0.85/≥0.85 |
+| **G3 orthogonality_gate** | line 262-271 | **Forward-readiness gate** | raw < 0.70 AND residual < 0.50, `required_top_k_under_threshold: 1` |
 
-PQS 2026-05-07 x.txt locked thresholds（Trial 3 forward-init gate 时引入）:
-- GREEN: all raw < 0.80 AND all residuals < 0.45
-- YELLOW: 0.80 ≤ max raw < 0.85 AND max residual < 0.50
-- **RED: any raw ≥ 0.85 OR any residual ≥ 0.50**
+### §3.4 Per-gate verdict on Trial 1
 
-Trial 1: max raw 0.810 (between YELLOW threshold)，max residual_vs_spy 0.809 ≥ 0.50 → **RED**.
+| Gate | Verdict | Detail |
+|---|---|---|
+| G_anti_sibling_nav | **PASS** ✓ | All 5 pairwise raw < 0.85 (max 0.810 vs RCMv1) |
+| r41_informational | warn_label_void | Trial 1 sits in 0.70-0.85 raw band per max raw 0.810; **informational only, not blocking** |
+| **G3 orthogonality_gate** | **FAIL** ✗ | **0/3 yaml-anchored pairs clear BOTH raw<0.70 AND residual<0.50 simultaneously** |
 
-### §3.5 Critical structural finding
+**G3 sub-gate breakdown** (yaml's 3 blend_anchors: RCMv1 / Cand-2 / Trial9_v2):
+
+| Pair | raw | res_spy | G3 raw < 0.70 | G3 res < 0.50 | G3 anchor pass? |
+|---|---|---|---|---|---|
+| vs RCMv1 | 0.810 | 0.809 | FAIL | FAIL | No |
+| vs Cand-2 | 0.781 | 0.778 | FAIL | FAIL | No |
+| vs Trial9_v2 | 0.744 | 0.742 | FAIL | FAIL | No |
+
+`required_top_k_under_threshold: 1` = ≥ 1 of 3 anchors must clear both sub-gates. **0/3 satisfy**.
+
+→ **G3 orthogonality_gate FAIL → cycle09b yaml's OWN forward-init verdict: REJECT**.
+
+### §3.5 Critical structural finding (preserved from original)
 
 residual_vs_spy ≈ raw (0.81 → 0.81，差 ≤ 0.003) 在 4 个 defensive anchors 上 = **共享相关性几乎不被 SPY beta 解释**。residual_vs_qqq 下降到 0.24-0.41 = QQQ beta 解释了约 ~50% 的 raw 相关。
 
-读取: 4 个 defensive anchors（RCMv1 / Cand-2 / Trial 9 / cycle07a Trial 3）作为一个 "defensive equity drift" 共享因子，Trial 1 加入这个簇；剥离 SPY 不破坏簇内相关，剥离 QQQ 部分破坏。
+读取: 4 个 defensive anchors（RCMv1 / Cand-2 / Trial 9 / cycle07a Trial 3）作为一个 "defensive equity drift" 共享因子，Trial 1 加入这个簇；剥离 SPY 不破坏簇内相关，剥离 QQQ 部分破坏。这跟 §5.4 deep-dive 揭示的 29.2% non-equity defensive overlay 是同一 structural finding 的不同角度。
 
-### §3.6 The two-verdict tension
+### §3.6 (DEPRECATED) "Two-verdict tension"
 
-PQS 历史上 cycle04+05 用 yaml-only (raw) 阈值；cycle07a 引入 cycle07a-locked (raw + residual)；cycle08+09b yaml 没明确选定哪套。这是 process gap。
+**原 amendment §3.6 描述的 "yaml-only vs cycle07a-locked tension" 是 strawman**：cycle09b yaml 自己就有 G3 (residual gate)，不需要 invoke cycle07a-locked 外部 provisional standard。Self-audit hole #1 见 `20260513-cycle09b_audit_amendment_self_audit.md` §2.
 
-**Operator strategic implication**: 两个判断都不无道理。yaml-strict 是 cycle04-05 时代的标准；cycle07a-locked 是 Trial 3 (close 时 cycle07a) 时 PQS 升级讨论后的产物。cycle09b yaml 既没 reference 又没 deprecate 后者，所以两套都 applicable。
+cycle07a-locked thresholds 在 `docs/memos/20260507-cycle07a_trial3_red_verdict_evidence_only.md` 自承"D.0 fleet allocator gate revision proposal (**provisional, NOT ratified**)" —— 仅 Trial 3 case-by-case ad-hoc tightening + 后续 fleet allocator proposal but not ratified. 不适用作 cycle09b binding standard.
 
-Operator 推荐: forward-init 决策应 **conservative** —— Trial 1 现在不 forward-init as core_alpha，等 §5.3 完成后再做 final 决策。理由:
-1. 0.810 raw + 0.809 residual_vs_spy 在 YELLOW-RED 边界
-2. cycle04-09 sibling-by-defensive-construction 是 PQS empirically known root cause
-3. cycle10 mining 设计应避开 sibling root cause（construction DOF expansion，不是 factor DOF）
+cycle09b yaml 自己 ratified G3 是 sufficient — verdict 单一 clear：REJECT.
 
 **Forensic artifact**: `data/audit/cycle09b_trial1_extended_nav_correlation.json`
 **Script**: `dev/scripts/cycle09/cycle09b_trial1_extended_nav_correlation.py`
@@ -190,7 +205,7 @@ Closeout 假设 "tech-heavy 选股 → QQQ 重合" **错**。实际:
 
 `rd_intensity_ttm` 选 high-RD-intensity 股票，确实倾向 tech (NVDA/AVGO/KLAC RD/Sales 高)，但 cap_aware_cross_asset 约束 + cluster_cap 0.20 强制 portfolio 不能全压 tech；剩余预算被 bonds + commodities 吸收。
 
-### §4.4 Implication for forward-init
+### §4.4 Implication for forward-init（REVISED）
 
 Trial 1 实际上**符合 diversifier role 的 non-equity utilization 要求** (29.2% >> 15%)。
 
@@ -204,7 +219,9 @@ Trial 1 实际上**符合 diversifier role 的 non-equity utilization 要求** (
 
 → Trial 1 cannot claim diversifier role under current rules.
 
-只能 candidate as `core_alpha` 或 `legacy_decay_verification`。yaml-strict 说 core_alpha eligible；cycle07a-strict 说 reject。两边都对一半。
+同时 yaml G3 (raw < 0.70 AND residual < 0.50) **also FAIL** → cannot claim core_alpha either (§3.4).
+
+**Verdict**: Trial 1 classifies as `legacy_decay_verification` only — neither diversifier nor core_alpha eligible per cycle09b yaml's own ratified gates.
 
 **Forensic artifact**: `data/audit/cycle09b_trial1_qqq_deepdive.json`
 **Script**: `dev/scripts/cycle09/cycle09b_qqq_deepdive.py`
@@ -233,24 +250,46 @@ Same yaml sha256 (`b0b9e181…`), same Optuna TPE sampler, same full 200-trial b
 
 ---
 
-## §6 Pre-final forward-init verdict (subject to §5.3)
+## §6 Final forward-init verdict (REVISED post-self-audit)
 
 | Audit gate | Verdict | Source |
 |---|---|---|
 | §5.2 PIT | PASS ✅ | data/audit/cycle09b_pit_audit_rd_intensity.json |
-| §5.1 yaml-only | core_alpha eligible (warn_label_void) | data/audit/cycle09b_trial1_extended_nav_correlation.json |
-| §5.1 cycle07a-locked | RED (residual_vs_spy ≥ 0.50) | same |
-| §5.4 QQQ deep-dive | hypothesis overturn; cross-asset cand actually | data/audit/cycle09b_trial1_qqq_deepdive.json |
-| §5.3 seed=123 | IN PROGRESS | data/audit/cycle09b_seed123_mining.log |
+| §5.1 G_anti_sibling (mining-time) | PASS ✓ | data/audit/cycle09b_trial1_extended_nav_correlation.json |
+| §5.1 r41_informational tier | warn_label_void (informational, not blocking) | same |
+| **§5.1 G3 orthogonality_gate (forward-readiness)** | **FAIL ✗** | same |
+| §5.4 QQQ deep-dive | hypothesis overturn; defensive cross-asset overlay (not tech-heavy) | data/audit/cycle09b_trial1_qqq_deepdive.json |
+| §5.3 seed=123 stability | IN PROGRESS (informational only, ~75% complete) | data/audit/cycle09b_seed123_mining.log |
 
-**Operator strategic recommendation (NOT pre-locked, awaits §5.3 + user input)**:
+### §6.1 Verdict
 
-1. **§5.3 robust + yaml-strict policy adopted**: forward-init Trial 1 as `core_alpha` + 严密 monitoring; document residual_vs_spy 风险 as known caveat; first 30 TDs 内任何 anchor 相关性飘升 → halt
-2. **§5.3 robust + cycle07a-strict policy adopted**: do not forward-init; classify as `legacy_decay_verification`; pivot to cycle10 designed for break-from-defensive-overlay
-3. **§5.3 unstable**: reject directly, no forward-init regardless of policy choice
-4. **Hybrid (operator preferred)**: defer 决策 until §5.3 verdict in; if stable, then **defer 1 trading week** while we draft cycle10 mining yaml with single-axis diff = ban GLD/IEF/SHV/TLT/SHY/BIL holdings (force NON-bond non-equity); compare cycle10 candidate vs Trial 1 NAV correlation; the lower-correlated of the two is forward-inited
+**REJECT forward-init per cycle09b yaml's OWN G3 orthogonality_gate**.
 
-The hybrid option is operator-favoured because it tests the **construction-driven sibling root cause** hypothesis empirically before committing to forward-init.
+cycle09b yaml ratified G3 (raw < 0.70 AND residual < 0.50, required_top_k_under_threshold: 1) is sufficient — no need to invoke cycle07a-provisional thresholds (self-audit hole #2). 0/3 yaml-anchored pairs satisfy G3.
+
+### §6.2 Classification
+
+Trial 1 → **`legacy_decay_verification`** in candidate_registry. Not forward init; not entering fleet.
+
+### §6.3 §5.3 seed=123 role (REVISED)
+
+§5.3 seed=123 stability test = **informational only**:
+- Regardless of seed=123 outcome (top-1 reproducible vs not), forward-init verdict above does NOT change
+- Stability finding logged for future cycle10 design reference (e.g. "cycle09b mining is/is-not seed-stable on Optuna TPE")
+- §5.3 results will append as §9 when complete
+
+### §6.4 Strategic next-step (REVISED)
+
+Per self-audit memo §6.3:
+
+1. **Trial 1 closes as `legacy_decay_verification`** in candidate_registry (this verdict)
+2. **Trial 9 v2 forward observation continues** (independent workstream; TD60 verdict ~2026-08-06)
+3. **ML Phase 1.5 hyperparameter sweep proceeds in parallel** (user authorized 2026-05-13; closeout `docs/memos/20260513-ml_phase_1_5_design.md`)
+4. **cycle10 design DEFERRED** until either (a) Trial 9 v2 TD60 verdict OR (b) ML Phase 1.5 results land first; pick cycle10 axis informed by that evidence
+5. **cycle10 axis candidates** (revised; old (b)/(c)/(d) deprecated per self-audit §4-5):
+   - (i) factor-pool refinement (mining-time G3-aware objective; minimize NAV residual_vs_spy as part of composite score)
+   - (ii) construction-mode 新维度 (risk-parity or equal-vol weight scheme — distinct from cap_aware_cross_asset)
+   - (iii) universe expansion (78 → 200+ stocks; data + screening pipeline; non-trivial eng)
 
 ---
 
@@ -264,7 +303,7 @@ The hybrid option is operator-favoured because it tests the **construction-drive
 
 **R4 boundary**:
 - §5.1 cycle08 top-1 first run NAV=100000 stuck — root cause: 我误用 STOCK_RISK_CLUSTER_MAP 而 cycle08 yaml 明确 `construction.mode = cap_aware_cross_asset`。Fixed 后 cycle08 NAV = 117354.6（low signal candidate；raw vs Trial 1 = 0.020）。
-- §5.1 verdict 两套阈值不一致 — process gap noted; cycle09b yaml 没明确 which 套；operator 选保守 = conservative interpretation （cycle07a-locked）。
+- §5.1 "verdict 两套阈值不一致" 是 R1 fact-checking 漏洞 — cycle09b yaml 自己有 G3 orthogonality_gate (raw<0.70 AND residual<0.50), 不需要 invoke cycle07a-provisional。Self-audit hole #1 见 `20260513-cycle09b_audit_amendment_self_audit.md` §2。修订后单一 yaml-G3 verdict = REJECT.
 - §5.4 mean asset_class 加和 0.702 ≠ 1.000 — cap_aware 不强制 100% allocation；保留 cash 余地合理。
 
 ---
@@ -289,4 +328,4 @@ data/audit/cycle09b_seed123_mining.log
 dev/scripts/cycle09/run_cycle09b_seed123_replication.py
 ```
 
-§5.3 完成后本 amendment 将追加 §9（seed=123 final results）+ §10（final forward-init verdict + 5 trading-day plan）。
+§5.3 完成后本 amendment 将追加 §9（seed=123 final results, informational only — does not change G3 REJECT verdict above）。
