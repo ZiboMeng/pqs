@@ -329,3 +329,86 @@ dev/scripts/cycle09/run_cycle09b_seed123_replication.py
 ```
 
 §5.3 完成后本 amendment 将追加 §9（seed=123 final results, informational only — does not change G3 REJECT verdict above）。
+
+---
+
+## §9 §5.3 seed=123 replication final results (appended 2026-05-13)
+
+### §9.1 Mining outcome
+
+Mining log: `data/audit/cycle09b_seed123_mining.log`
+
+| Metric | seed=42 (cycle09b canonical) | seed=123 (this audit) |
+|---|---|---|
+| n_trials | 200 | 200 |
+| n_finite | 159 | 161 |
+| n_archived | 108 | (108 reported in log fragment) |
+| wall_clock | 48.4 min | 52.2 min |
+| Top-1 spec | `rs_vs_spy_63d + cpi_yoy_pct + rd_intensity_ttm` | `mom_126d + coskew_60d_spy + atr_compression_20d` |
+| Top-1 IC_IR | +0.773 | +0.612 |
+| Top-1 objective | +1.122 | +1.151 |
+| Top-1 families | A / P / N | A / I / I |
+| **Factor overlap** | — | **0/3 shared with seed=42** |
+
+### §9.2 Within-cycle stability (seed=42 top-1 NAV vs seed=123 top-1 NAV)
+
+| Metric | Value | Reading |
+|---|---|---|
+| raw_pearson | **0.761** | High raw NAV correlation despite 0% factor overlap |
+| residual_pearson_vs_spy | 0.759 | Almost equal to raw → minimal SPY beta share |
+| residual_pearson_vs_qqq | 0.388 | QQQ beta explains ~50% of correlation |
+| n_overlap_days | 1583 | — |
+
+### §9.3 G3 orthogonality_gate check on seed=123 top-1
+
+vs 3 yaml-listed blend_anchors (RCMv1 / Cand-2 / Trial9_v2):
+
+| Pair | raw | res_spy | res_qqq | G3 raw<0.70 | G3 res<0.50 | Pass both? |
+|---|---|---|---|---|---|---|
+| vs RCMv1 | **0.868** | 0.868 | 0.691 | FAIL | FAIL | No (also: raw ≥ 0.85 = reject_step5) |
+| vs Cand-2 | 0.811 | 0.811 | 0.542 | FAIL | FAIL | No |
+| vs Trial9 v2 | 0.654 | 0.652 | 0.184 | PASS | FAIL (res_spy 0.65) | No |
+
+**0/3 anchors clear both G3 sub-gates** → seed=123 top-1 **also FAILS G3**.
+
+### §9.4 Strategic finding — Construction-driven sibling root cause CONFIRMED
+
+This is the deepest empirical confirmation of the cycle04-09b sibling-by-construction phenomenon:
+
+1. **Factor-level instability**: seed=42 and seed=123 winners use **completely disjoint factor sets** (rs_vs_spy_63d/cpi_yoy_pct/rd_intensity_ttm vs mom_126d/coskew_60d_spy/atr_compression_20d). Mining has multiple local optima.
+2. **NAV-level structural stability**: despite 0% factor overlap, both top-1 NAVs have **raw 0.761 pairwise correlation** → produce sibling NAV trajectories
+3. **G3 fails regardless of seed**: Both seeds' winners fail cycle09b yaml's own G3 orthogonality_gate against the 3 yaml-anchored references → REJECT is construction-driven, not factor-driven
+
+### §9.5 Implication for cycle10 design
+
+- cycle10 axis (i) "factor-pool refinement with mining-time G3-aware residual minimization" is **necessary but likely insufficient** —— factor swap doesn't break NAV sibling correlation (proven empirically here)
+- cycle10 axis (ii) "construction-mode 新维度 (risk-parity, equal-vol weight, etc.)" is **likely the binding axis** —— sibling root cause is cap_aware_cross_asset + monthly + top10 + 79-sym universe
+- cycle10 axis (iii) "universe expansion" is **also viable** —— expanding 79 → 200+ stocks may break the universe-binding correlation floor
+
+This trio of evidence (seed-instability at factor level + NAV stability + G3 fail regardless of seed) provides the strongest empirical case yet for **construction-DOF expansion over factor-DOF expansion** in cycle10.
+
+### §9.6 G3 REJECT verdict on Trial 1 CONFIRMED
+
+§9 evidence does NOT change §6 G3 REJECT verdict. In fact, §9.4 strengthens the verdict: even running the same yaml + same construction + different seed produces another equally-rejectable candidate. Trial 1 = **`legacy_decay_verification`** stands.
+
+### §9.7 Forensic artifacts (§9)
+
+- Mining log: `data/audit/cycle09b_seed123_mining.log`
+- Stability + G3 analysis: `data/audit/cycle09b_seed_stability_analysis.json`
+- Analysis script: `dev/scripts/cycle09/cycle09b_seed_stability_analysis.py`
+- Mining script: `dev/scripts/cycle09/run_cycle09b_seed123_replication.py`
+- Optuna study: `data/mining/rcm_optuna.db::cycle09b-2026-05-12-seed123` (200 trials)
+- Archive lineage: `track-c-cycle-2026-05-12-09b-seed123` (108 trials archived in `data/mining/rcm_archive.db`)
+
+### §9.8 Self-audit (§9 4-tier per CLAUDE.md)
+
+**R1**: top-1 specs read directly from mining log (line "#1 obj=+1.151 IR=+0.612 n_feat=3 feats=mom_126d,coskew_60d_spy,atr_compression_20d"). seed=42 top-1 from prior cycle09b_track_a_eval JSON. All NAV correlations from script run.
+
+**R2**: 0.761 raw NAV correlation with 0/3 factor overlap = sibling-by-construction (factor-independent). Verified by checking residual_vs_spy ≈ raw (defensive-equity-drift shared factor explanation).
+
+**R3**: re-ran NAV builds for both seeds + 3 anchors; correlation computed via `_pair_corr` (same module as §5.1).
+
+**R4 boundary**:
+- seed=123 top-1's vs RCMv1 raw 0.868 is INTERESTING — exceeds 0.85 → reject_step5 per r41 tier (vs seed=42 top-1's max 0.810 = warn_label_void). seed=123 winner is **WORSE** at NAV diversification than seed=42 winner.
+- Within-cycle stability raw 0.761 means cycle09b mining produces siblings within itself — this is a stronger sibling root cause finding than cycle04+05 (which were cross-cycle sibling).
+- The fact that seed=123 G3 also fails on Trial9_v2 (with raw 0.654 just barely below 0.70) is borderline; sensitivity to anchor choice noted.

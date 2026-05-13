@@ -1,0 +1,71 @@
+{
+  "cycle": "track-c-cycle-2026-05-12-09b",
+  "audit_section": "\u00a75.3 seed stability + cross-seed NAV + G3 on seed=123",
+  "seed42_top1": {
+    "trial_id": "5a99868072e6",
+    "features": [
+      "rs_vs_spy_63d",
+      "cpi_yoy_pct",
+      "rd_intensity_ttm"
+    ],
+    "ic_ir": 0.773,
+    "objective": 1.1219
+  },
+  "seed123_top1": {
+    "features": [
+      "mom_126d",
+      "coskew_60d_spy",
+      "atr_compression_20d"
+    ],
+    "ic_ir": 0.612,
+    "objective": 1.1512,
+    "from_mining_log": "data/audit/cycle09b_seed123_mining.log line 'Top-5 trials: #1'"
+  },
+  "factor_overlap_seed42_vs_seed123": {
+    "shared_factors": [],
+    "n_shared": 0,
+    "total_factors_per_seed": 3,
+    "overlap_fraction": 0.0
+  },
+  "within_cycle_stability_pair_corr": {
+    "anchor": "seed42_vs_seed123",
+    "n_overlap_days": 1583,
+    "pooled_pearson_raw": 0.7608025752415569,
+    "pooled_pearson_residual_vs_spy": 0.7594842314065251,
+    "pooled_pearson_residual_vs_qqq": 0.3884570491299712
+  },
+  "seed123_top1_g3_check": {
+    "pairs": [
+      {
+        "anchor": "rcm_v1",
+        "n_overlap_days": 1583,
+        "pooled_pearson_raw": 0.868418819574349,
+        "pooled_pearson_residual_vs_spy": 0.8677033348798947,
+        "pooled_pearson_residual_vs_qqq": 0.6910470622792656
+      },
+      {
+        "anchor": "cand_2",
+        "n_overlap_days": 1583,
+        "pooled_pearson_raw": 0.8114956400912792,
+        "pooled_pearson_residual_vs_spy": 0.8105847701310991,
+        "pooled_pearson_residual_vs_qqq": 0.541841655052987
+      },
+      {
+        "anchor": "trial_9_v2",
+        "n_overlap_days": 1583,
+        "pooled_pearson_raw": 0.6536928698296149,
+        "pooled_pearson_residual_vs_spy": 0.6516723101122686,
+        "pooled_pearson_residual_vs_qqq": 0.1838839823001449
+      }
+    ],
+    "anchors_clearing_both_g3": 0,
+    "required_top_k_under_threshold": 1,
+    "verdict": "FAIL"
+  },
+  "strategic_finding": {
+    "seed_stability": "UNSTABLE \u2014 seed=42 and seed=123 produce different top-1 specs with 0/3 factor overlap",
+    "implication": "cycle09b at 162-factor + family_first sampler does not converge on single best spec; multiple equally-strong local optima exist",
+    "g3_outcome": "seed=123 top-1 G3 verdict: FAIL",
+    "g3_seed42_outcome": "seed=42 top-1 (Trial 1) G3 verdict: FAIL (0/3 anchors clear)"
+  }
+}
