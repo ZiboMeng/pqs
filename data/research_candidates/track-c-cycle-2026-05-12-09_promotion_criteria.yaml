@@ -134,10 +134,18 @@ mining_config:
 
   objective_version: v2_nav_based
   objective_weights:
-    w_composite_ic_ir:     0.40
+    # v1 IR-side (cycle04/05 style; ~40% weight on IC-IR ranking)
+    w_ir:                  0.40
+    w_turnover:            0.0
+    w_corr_conc:           0.0     # anti-sibling gate (G_anti_sibling_nav) handles this
+    w_bench_excess:        0.0
+    w_regime_stddev:       0.0
+    # v2 NAV extension
     w_nav_sharpe:          0.30
-    w_nav_orthogonality:   0.20
-    w_vs_qqq_excess:       0.10
+    w_nav_max_dd_penalty:  0.0     # per-year DD hard gate handles this
+    w_nav_orthogonality:   0.20    # 20% objective-side anti-sibling pressure
+    w_vs_qqq_excess:       0.10    # 10% diagnostic (QQQ is diagnostic per CLAUDE.md REVISED 2026-05-02)
+    # Sum: 0.40 + 0.30 + 0.20 + 0.10 = 1.00
 
   # SR defer / regime-conditional NOT enabled for cycle #09: keep
   # mining axis controlled to factor-zoo-only differential vs cycle08.
@@ -356,7 +364,15 @@ sealed_panel_one_shot: |
 immutability_contract:
   # sha256 of yaml CONTENT WITHOUT this hash field (i.e., the pre-lock
   # canonical sha256 computed at 2026-05-12 commit time).
-  yaml_sha256_locked_at: 1cbea923dceaf3f3395c14f6a15a168c6dce96ed3c61d2bae29c4e3e83eb70d0
+  #
+  # Pre-fire R3 audit caught yaml typo `w_composite_ic_ir` (invalid
+  # ObjectiveWeights kwarg) → corrected to `w_ir` + explicit zeroing
+  # of unused v1 weights. New sha256 (this lock) supersedes
+  # 1cbea923dceaf3f3395c14f6a15a168c6dce96ed3c61d2bae29c4e3e83eb70d0
+  # (pre-fix sha256, never fired). Cycle04-08 immutability precedent:
+  # pre-fire yaml-schema bug correction is permitted (cf. cycle
+  # 2026-05-01-01 INVALID → -02 yaml-typo-fix sibling pattern).
+  yaml_sha256_locked_at: 26c4176bc1beb87a4d80a970785e6fc2ef017a6d1db4365bb2f03816125b89ca
   no_retroactive_softening: true
   field_freeze: |
     All fields above frozen at commit-time sha256. Wrong-in-hindsight
