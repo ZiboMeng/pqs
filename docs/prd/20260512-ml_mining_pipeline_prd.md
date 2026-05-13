@@ -421,6 +421,22 @@ Algorithm:
 
 ---
 
+## §6.7 Phase 4 RL reward function (PRD audit pass #3 fix)
+
+§6.2 stated reward = "Sharpe-after-cost over forward 21d window". **Sharpe is
+a non-differentiable ratio** — direct use causes PPO/DDPG gradient issues.
+
+**Revised reward (per RL practice in finance)**:
+```
+r_t = cum_log_return(T, T+21) - lambda × variance_penalty - cost_penalty
+```
+where:
+- `cum_log_return` is additive cumulative log-return (differentiable)
+- `lambda` chosen so reward scale matches stable PPO range (e.g. 0.5-1.0)
+- `cost_penalty` = bps_cost × turnover (penalize churn)
+
+Optional terminal bonus: Sharpe-of-trajectory as MC return — only post-episode.
+
 ## §7 Common Infrastructure
 
 ### 7.1 panel construction
@@ -675,6 +691,21 @@ Each phase reports:
    - (b) Phase 1 ship 完 + verdict → 决定 Phase 2 (~推荐)
 
 ---
+
+## §9b Implementation TBD details (PRD audit pass #3 — added at start of each phase)
+
+These details are deferred to Phase-N implementation (not blocking PRD lock):
+
+| Item | Per-phase decision needed |
+|---|---|
+| **Loss function** | Phase 1: MSE on rank target OR pairwise-rank loss (LambdaRank). Default MSE; switch if rank-IC OOF < 0.05. |
+| **Feature normalization** | Phase 1: cross-sectional **rank** (already in §7.1 panel builder). Phase 2-3: rank for XGB-style, z-score for Transformer. |
+| **NaN model output handling** | Default fallback: score=0 (neutral rank); excluded from top-N if > 30% stocks NaN. Logged. |
+| **Phase 2 multi-horizon → monthly cadence** | Daily horizon score × ensemble weight → monthly cumulative score for rebal selection. Documented at Phase 2 fire. |
+| **Per-phase regularization tuning** | Phase 1-2: Optuna 50-trial inner loop on L2/learning_rate. Phase 3-4: Bayesian opt on dropout + weight_decay. |
+| **Per-phase wall-clock budget** | Phase 1: ≤30 min. Phase 2: ≤2 hr. Phase 3: ≤12 hr per fold (max 4 folds → 2 days). Phase 4: ≤5 days agent ensemble. |
+| **Inference latency budget** | Forward observe: factor panel compute ≤2 min + model inference ≤10 sec per day. Cached panels reused next day. |
+| **Q1 2026 sealed actual days** | Audit fix: ~60 trading days (NYSE holidays MLK/Presidents reduce 63 → 60). Adjust per-phase sealed-window for actual exchange days. |
 
 ## §10 Authorization
 
