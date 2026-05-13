@@ -123,13 +123,21 @@ Output:
   → top-N selection (top 10 stocks per rebalance)
 ```
 
-### 3.3 Training discipline
+### 3.3 Training discipline (PRD audit pass #2 fix — non-contiguous train years)
 
 - **Train**: 2009-2017 + 2020 + 2022 + 2024 (strict, per [[feedback_temporal_split_discipline]])
 - **Validation**: 2018, 2019, 2021, 2023, 2025 (one-shot per fold)
 - **Sealed**: 2026 (one-shot, post-forward-soak only)
-- **Cross-validation**: walk-forward 4-fold on train years (no validation leak)
-- **Early stopping**: on cross-sectional IC on hold-out train slice
+- **Cross-validation (non-contiguous train years)**:
+  - Standard 4-fold split doesn't apply cleanly (2020/22/24 are isolated)
+  - Instead, use **leave-one-train-year-out CV**:
+    - For each train year Y_test in {2009, 2010, ..., 2024}:
+      - Train on remaining 11 train years
+      - Predict on Y_test
+      - Compute out-of-fold IC (cross-sectional rank)
+    - Average IC across 12 folds = robust CV estimate
+  - For early stopping: use a single hold-out 2017 (last contiguous pre-validation year) as in-train validation
+- **Early stopping**: on cross-sectional IC on 2017 held-out train slice (or last-year-of-train-window in walk-forward variant)
 
 ### 3.4 Track A acceptance integration
 
@@ -352,9 +360,13 @@ State (observation):
   - Regime indicators (VIX, SPY trend, sector)
   - Recent NAV trajectory (last 21d returns)
 
-Action space:
-  - Discrete: {hold, rebalance, partial-hedge, full-cash}
-  - Continuous (alternative): per-stock weight adjustment
+Action space (PRD audit pass #2 fix — long-only invariant compliance):
+  - **Discrete**: {hold, full-rebalance, reduce-to-cash-50%, full-cash}
+  - **Continuous** (alternative): per-stock weight scaling factor ∈ [0, 1]
+    (multiply existing target weight; can reduce but never exceed 100%)
+  - **REMOVED**: "partial-hedge" — violates long-only no-margin invariant
+    (PQS doesn't allow short positions per CLAUDE.md). Earlier draft listed
+    this in error; PRD audit pass #2 caught + removed.
 
 Reward:
   Sharpe-after-cost over forward 21d window
@@ -441,6 +453,28 @@ Reuse existing `core/research/temporal_split.py` + `temporal_split.yaml`:
 - Model checkpoints saved with sha256 of training config yaml
 - TensorBoard / Weights & Biases logging optional
 
+### 7.4a Portfolio construction (PRD audit pass #2 fix — invariant compliance gap)
+
+ML score → portfolio MUST go through existing **cap_aware harness**, NOT naive
+top-N. cycle04-08 + alt-A all enforced:
+- `cluster_cap=0.20` (max 20% in any risk cluster)
+- `max_single_weight=0.10` (max 10% per stock)
+- `asset_class_caps` (when cross-asset: equities/bonds/commodities/cash)
+
+**Mandatory ML construction protocol**:
+1. ML model produces per-(date, stock) score
+2. Score → cross-sectional rank per date
+3. Pass rank panel to `core.research.harness.evaluate_composite_spec(...)` with
+   `construction_mode="cap_aware"` (or `"cap_aware_cross_asset"` for Phase 2+ if
+   universe expanded)
+4. Harness handles top-N selection + cap enforcement automatically
+5. NAV emerges from harness → existing Track A 17-gate evaluator consumes
+
+**Implementation**: each ML phase wraps the trained model in a function that
+returns per-day score panel, then feeds that panel to harness as if it were a
+single-factor composite (with weight=1.0 and feature="ml_score"). This makes
+ML candidates structurally compatible with all existing infrastructure.
+
 ### 7.4b Data-leakage prevention protocol (PRD audit 2026-05-12 R4 addition)
 
 **Risk per phase** (R4 audit identified):
@@ -466,16 +500,83 @@ Each ML phase:
 4. Pass NAV to `run_split_acceptance(role="core")` 17-gate
 5. **Sealed 2026 reserve** until forward-soak healthy
 
-### 7.6 Anti-sibling check
+### 7.6 Anti-sibling check (PRD audit pass #2 fix — panel-alignment protocol)
 
 For each ML candidate that passes Track A:
 - Compare NAV vs RCMv1 / Cand-2 / Trial 9 v2 / (cycle #09b nominee if exists)
 - Same threshold: raw < 0.85, residual < 0.50
 - Use `dev/scripts/alt_a/run_alt_a_nav_correlation.py` pattern
 
+**Panel-alignment protocol (mandatory for fair correlation)**:
+- Anchor NAVs MUST be reconstructed on the **same panel period** as the ML
+  candidate (train + validation years, e.g. 2018-2025 for first ML phase)
+- Anchor reconstruction follows `dev/scripts/alt_a/run_alt_a_nav_correlation.py`
+  pattern: load 53-股 (or expanded) universe + compute frozen-spec composite
+  + run via existing harness
+- ALL comparison NAVs must use IDENTICAL universe + cost model + execution_freq
+  as the ML candidate. Don't compare apples to oranges.
+
 ### 7.7 Model versioning
 
 `data/ml_models/<phase>/<version>/model.pkl` + `config.yaml` + `train_metrics.json`. sha256-locked.
+
+### 7.8 Forward observation integration (PRD audit pass #2 fix — manifest schema gap)
+
+Existing `core/research/forward/runner.py` expects `FrozenStrategySpec` yaml
+with composite features + weights. ML candidates aren't composite formulas —
+they're TRAINED MODELS. PRD needs schema extension.
+
+**Proposed extension** (per Phase 1 implementation):
+
+```yaml
+# data/research_candidates/ml_phase1_xgb_<timestamp>.yaml
+candidate_id: ml_phase1_xgb_<timestamp>
+strategy_type: ml_trained_model  # NEW value (vs single_factor_composite)
+strategy_version: ml-phase1-2026-MM-DD
+family: ml_alpha                   # NOT in PRODUCTION_FACTORS
+candidate_role: core               # or diversifier
+
+model_artifact:
+  artifact_type: xgboost_regressor  # or "neural_network" for Phase 3
+  model_path: data/ml_models/phase1_xgb/<version>/model.pkl
+  model_sha256: <hash>
+  config_path: data/ml_models/phase1_xgb/<version>/config.yaml
+  config_sha256: <hash>
+  feature_list:                    # 162 RESEARCH_FACTORS at train time
+    - mom_21d
+    - ...
+  feature_normalization: rank_cs   # cross-sectional rank, or "zscore_cs"
+
+inference_contract:
+  inputs:
+    - feature_panel (date × symbol × 162-factors)
+  outputs:
+    - score (date × symbol → score)
+  determinism:
+    requires_lookback_only: true
+    bar_lag_hours: 24              # ≥1 day lag from any feature to score
+
+# Standard FrozenStrategySpec fields below
+panel_contract:
+  universe: cycle04_plus           # or alt_a_53_stocks
+  date_range: [2009-01-02, 2024-12-31]
+construction_mode: cap_aware
+rebalance_cadence: monthly
+top_n: 10
+horizon_days: 21
+```
+
+**Forward runner extension required**:
+- Detect `strategy_type == "ml_trained_model"` and dispatch to ML-inference path
+- Load model artifact at first-observe time + verify sha256 unchanged
+- Each forward day: compute factor panel for T → model.predict() → harness →
+  positions
+- Engineering: ~3 days (separate sub-PRD if needed)
+
+**Phase 1 fire prerequisite**: forward runner ML extension must ship before
+Phase 1 can produce a forward-init-eligible candidate. Alternative: Phase 1
+produces evidence-only (no forward init), defer ML forward integration to
+Phase 1+α once ML proven.
 
 ---
 
@@ -519,6 +620,13 @@ Each phase reports:
 - **Phase 3 sealed allocation**: Q3 2026 (~63 days)
 - **Phase 4 sealed allocation**: Q4 2026 (~63 days)
 - Each phase's sealed quarter is **single-shot** — once tested, that phase cannot re-test on sealed without new ML lineage
+
+**Statistical power caveat (PRD audit pass #2 note)**:
+- 63-day quarter ≈ 2-3 monthly rebalances
+- Statistically detectable signals: Sharpe ≥ 1.0 (well-detectable), Sharpe 0.5 (borderline)
+- **Implication**: weak ML alpha (Sharpe < 0.7) may not pass sealed verdict
+  due to insufficient statistical power, not due to alpha not existing
+- 接受 this tradeoff: only strong ML signals survive sealed test (conservative)
 
 **Alternative**: rolling 1-year out-of-sample (TBD if 2027 data accumulates by Phase 4 fire time).
 
