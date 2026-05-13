@@ -83,7 +83,9 @@ def _build_metrics(alt_a_nav: pd.Series, spy_nav: pd.Series, qqq_nav: pd.Series,
 
     # Stress slices
     for sname, (start, end) in stress_slices.items():
-        mask = (alt_a_nav.index >= start) & (alt_a_nav.index <= end)
+        start_ts = pd.Timestamp(start)
+        end_ts = pd.Timestamp(end)
+        mask = (alt_a_nav.index >= start_ts) & (alt_a_nav.index <= end_ts)
         nav_slice = alt_a_nav[mask]
         if len(nav_slice) >= 2:
             metrics["stress_slice"][sname] = {"maxdd": _max_dd(nav_slice)}
