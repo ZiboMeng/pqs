@@ -647,6 +647,20 @@ def suggest_composite_spec(
     # its own static explicit_exclusions; cycle #10+ can enable this
     # for general-purpose dedup).
     auto_dedup_masked_factors: bool = False,
+    # 2026-05-12 Option A: sampling architecture for high-family-count
+    # cycles. cycle04-08 worked at 6 families with "independent" mode
+    # (each family suggests n=0..max). At 17 families that gives
+    # P(valid spec) ≈ 0.0005% — sampler-architecture mismatch with
+    # cycle #09's RESEARCH_FACTORS expansion (see postmortem
+    # docs/memos/20260512-cycle_09_sampler_architecture_postmortem.md).
+    # "family_first" mode:
+    #   1. trial.suggest_int(n_active_families, min_families,
+    #      min(min_families+2, len(families)))
+    #   2. trial.suggest_categorical(families_subset_idx, all C(n,k) tuples)
+    #   3. For each chosen family, suggest 1 factor.
+    # P(valid spec) ≈ 100% — every spec is valid by construction.
+    # Default "independent" preserves cycle04-08 bit-for-bit.
+    sampling_mode: str = "independent",
 ) -> ResearchCompositeSpec:
     """Family-aware composite sampler (PRD §8.5).
 
@@ -710,6 +724,11 @@ def suggest_composite_spec(
             f"composite_weighting must be 'tpe_normalized' or 'equal_weight', "
             f"got {composite_weighting!r}"
         )
+    if sampling_mode not in ("independent", "family_first"):
+        raise ValueError(
+            f"sampling_mode must be 'independent' or 'family_first', "
+            f"got {sampling_mode!r}"
+        )
 
     # Import optuna lazily so this module is importable without optuna
     # for pure-dataclass tests.
@@ -729,24 +748,93 @@ def suggest_composite_spec(
     # TPE doesn't see a zero-arity choice).
     excl_set: set[str] = set(excluded_factors or ())
 
-    for fam in families:
-        sorted_factors = sorted(f for f in fam.factors if f not in excl_set)
-        if not sorted_factors:
-            family_counts[fam.name] = 0
-            continue
-        # How many features from this family?
-        count = trial.suggest_int(
-            f"n_features_{fam.name}", 0, max_features_per_family,
-        )
-        family_counts[fam.name] = count
-        if count == 0:
-            continue
-        # Which specific features? Use categorical per slot.
-        for slot in range(count):
-            feat = trial.suggest_categorical(
-                f"family_{fam.name}_slot_{slot}", sorted_factors,
+    if sampling_mode == "family_first":
+        # 2026-05-12 Option A: family-first sampling for high-family-count
+        # cycles. Step 1: choose k = number of active families. Step 2:
+        # choose which k families. Step 3: choose 1 factor per active family.
+        # Net: P(valid spec) ≈ 100% — sampler architecture matches
+        # min_families constraint by construction.
+        non_empty_families = [
+            fam for fam in families
+            if sorted(f for f in fam.factors if f not in excl_set)
+        ]
+        if len(non_empty_families) < min_families:
+            msg = (
+                f"family_first: only {len(non_empty_families)} non-empty "
+                f"families (after exclusions) < min_families={min_families}. "
+                f"Either reduce min_families or expand factor pool."
             )
-            selected.append((fam.name, feat))
+            if optuna is not None:
+                raise optuna.TrialPruned(msg)
+            else:
+                raise ValueError(msg)
+
+        # Step 1: k = active family count. Range
+        # [min_families, min(min_families+2, len(non_empty_families))]
+        # Default upper = min_families+2 keeps search dim small.
+        k_max = min(min_families + 2, len(non_empty_families))
+        if k_max == min_families:
+            k = min_families  # deterministic; suggest_int(a, a) emits no entropy
+        else:
+            k = trial.suggest_int("n_active_families", min_families, k_max)
+
+        # Step 2: which k families? Deterministic sorted family list + use
+        # one suggest_int(0, len-1) per family-slot. To prevent duplicates
+        # within the same trial, we sample without replacement: each slot
+        # picks from the remaining family pool. Indices are NOT family-name
+        # categoricals (those would inflate TPE search space exponentially).
+        # Approach: pick `k` distinct family-name strings via categorical
+        # over the remaining set.
+        sorted_family_names = sorted(f.name for f in non_empty_families)
+        fam_by_name = {f.name: f for f in non_empty_families}
+        chosen_family_names: List[str] = []
+        for slot in range(k):
+            remaining = [
+                n for n in sorted_family_names if n not in chosen_family_names
+            ]
+            if not remaining:
+                break  # safety; should not hit if k ≤ len(non_empty)
+            chosen_fam_name = trial.suggest_categorical(
+                f"family_slot_{slot}", remaining,
+            )
+            chosen_family_names.append(chosen_fam_name)
+
+        # Step 3: 1 factor per chosen family.
+        for fam_name in chosen_family_names:
+            fam = fam_by_name[fam_name]
+            sorted_factors = sorted(
+                f for f in fam.factors if f not in excl_set
+            )
+            feat = trial.suggest_categorical(
+                f"factor_in_family_{fam_name}", sorted_factors,
+            )
+            selected.append((fam_name, feat))
+            family_counts[fam_name] = family_counts.get(fam_name, 0) + 1
+
+        # Initialize family_counts for non-chosen families (0)
+        for fam in families:
+            if fam.name not in family_counts:
+                family_counts[fam.name] = 0
+    else:
+        # ── "independent" mode (cycle04-08 legacy bit-for-bit) ─────
+        for fam in families:
+            sorted_factors = sorted(f for f in fam.factors if f not in excl_set)
+            if not sorted_factors:
+                family_counts[fam.name] = 0
+                continue
+            # How many features from this family?
+            count = trial.suggest_int(
+                f"n_features_{fam.name}", 0, max_features_per_family,
+            )
+            family_counts[fam.name] = count
+            if count == 0:
+                continue
+            # Which specific features? Use categorical per slot.
+            for slot in range(count):
+                feat = trial.suggest_categorical(
+                    f"family_{fam.name}_slot_{slot}", sorted_factors,
+                )
+                selected.append((fam.name, feat))
 
     # Deduplicate (same factor picked in two different slots) while
     # preserving first occurrence.
@@ -1785,6 +1873,10 @@ class ResearchMiner:
         # cycle #09 disabled). Default False preserves cycle04-08
         # behavior. Plumbed straight to suggest_composite_spec.
         auto_dedup_masked_factors: bool = False,
+        # 2026-05-12 Option A: sampler architecture mode. "independent"
+        # = cycle04-08 legacy bit-for-bit. "family_first" = pick k
+        # families then 1 factor each (cycle #09+ at 17 families).
+        sampling_mode: str = "independent",
     ) -> None:
         # A++ patch 2026-04-30: pre-flight assert reachability matches
         # the pre-registered factor_registry_pool. Run before storing
@@ -1940,6 +2032,13 @@ class ResearchMiner:
         self.intraday_bars_60m = intraday_bars_60m
         # 2026-05-12: store auto-dedup flag (cycle #09 OFF; cycle #10+ ON).
         self.auto_dedup_masked_factors = bool(auto_dedup_masked_factors)
+        # 2026-05-12 Option A: store sampler-architecture mode.
+        if sampling_mode not in ("independent", "family_first"):
+            raise ValueError(
+                f"sampling_mode must be 'independent' or 'family_first', "
+                f"got {sampling_mode!r}"
+            )
+        self.sampling_mode = sampling_mode
         # Master PRD §4.3 Phase C.1 R6 wire: daily_regime_labels contract.
         # When objective_weights is ObjectiveWeightsV3, regime labels MUST
         # be supplied (else evaluate_composite_regime_conditional has no
@@ -2001,6 +2100,7 @@ class ResearchMiner:
             holding_freq_choices=self.holding_freq_choices,
             enable_sr_defer_choices=self.enable_sr_defer_choices,
             auto_dedup_masked_factors=self.auto_dedup_masked_factors,
+            sampling_mode=self.sampling_mode,
         )
         # Codex R21 P0.1: enforce M6 C5 role-remint guard BEFORE evaluation.
         # If the same spec was already recorded under a DIFFERENT role within

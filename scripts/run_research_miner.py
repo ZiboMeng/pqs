@@ -580,6 +580,19 @@ def main() -> int:
             yaml_auto_dedup = False
         args._auto_dedup_masked_factors = bool(yaml_auto_dedup) if yaml_auto_dedup is not None else False
 
+        # 2026-05-12 Option A: yaml mining_config.sampling_mode (cycle #10+).
+        # "independent" (default) preserves cycle04-08 bit-for-bit.
+        # "family_first" required for high-family-count cycles (≥10 families)
+        # per docs/memos/20260512-cycle_09_sampler_architecture_postmortem.md.
+        yaml_sampling_mode = mc.get("sampling_mode") or "independent"
+        if yaml_sampling_mode not in ("independent", "family_first"):
+            mismatches.append(
+                f"  yaml.mining_config.sampling_mode must be 'independent' "
+                f"or 'family_first', got {yaml_sampling_mode!r}"
+            )
+            yaml_sampling_mode = "independent"
+        args._sampling_mode = yaml_sampling_mode
+
         # explicit_exclusions: yaml mining_config.explicit_exclusions list.
         # When yaml lists exclusions and CLI ALSO lists exclusions, fail-
         # closed unless they match exactly (yaml is source of truth).
@@ -867,6 +880,8 @@ def main() -> int:
         auto_dedup_masked_factors=getattr(
             args, "_auto_dedup_masked_factors", False,
         ),
+        # 2026-05-12 Option A: sampler architecture (independent | family_first).
+        sampling_mode=getattr(args, "_sampling_mode", "independent"),
         min_families=args.min_families,
         max_features_per_family=args.max_features_per_family,
         composite_weighting=args.composite_weighting,
