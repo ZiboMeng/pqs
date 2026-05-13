@@ -778,28 +778,43 @@ def suggest_composite_spec(
         else:
             k = trial.suggest_int("n_active_families", min_families, k_max)
 
-        # Step 2: which k families? Deterministic sorted family list + use
-        # one suggest_int(0, len-1) per family-slot. To prevent duplicates
-        # within the same trial, we sample without replacement: each slot
-        # picks from the remaining family pool. Indices are NOT family-name
-        # categoricals (those would inflate TPE search space exponentially).
-        # Approach: pick `k` distinct family-name strings via categorical
-        # over the remaining set.
+        # Step 2: which k families? STATIC categorical value space per slot
+        # (Optuna requires this — dynamic value space across trials raises
+        # `CategoricalDistribution does not support dynamic value space`).
+        # Each slot picks from the FULL sorted family list; duplicates are
+        # handled post-hoc by dedup + TrialPruned if distinct < min_families.
+        # Archive rate at N=17/k=3: P(3 distinct) = 17/17 × 16/17 × 15/17
+        # = 83.1% (vs 99.9995% pruning in independent mode).
         sorted_family_names = sorted(f.name for f in non_empty_families)
         fam_by_name = {f.name: f for f in non_empty_families}
-        chosen_family_names: List[str] = []
+        slot_picks: List[str] = []
         for slot in range(k):
-            remaining = [
-                n for n in sorted_family_names if n not in chosen_family_names
-            ]
-            if not remaining:
-                break  # safety; should not hit if k ≤ len(non_empty)
             chosen_fam_name = trial.suggest_categorical(
-                f"family_slot_{slot}", remaining,
+                f"family_slot_{slot}", sorted_family_names,
             )
-            chosen_family_names.append(chosen_fam_name)
+            slot_picks.append(chosen_fam_name)
 
-        # Step 3: 1 factor per chosen family.
+        # Dedup: keep first occurrence of each family name
+        seen_families: set[str] = set()
+        chosen_family_names: List[str] = []
+        for fam_name in slot_picks:
+            if fam_name not in seen_families:
+                seen_families.add(fam_name)
+                chosen_family_names.append(fam_name)
+
+        # If post-dedup distinct count < min_families → prune
+        if len(chosen_family_names) < min_families:
+            msg = (
+                f"family_first: post-dedup {len(chosen_family_names)} distinct "
+                f"families < min_families={min_families} (sampled {slot_picks})"
+            )
+            if optuna is not None:
+                raise optuna.TrialPruned(msg)
+            else:
+                raise ValueError(msg)
+
+        # Step 3: 1 factor per chosen family. Per-family categorical choices
+        # are also STATIC (always sorted_factors_for_<fam>).
         for fam_name in chosen_family_names:
             fam = fam_by_name[fam_name]
             sorted_factors = sorted(

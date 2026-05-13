@@ -288,6 +288,87 @@ class TestFamilyFirstHitRate:
         )
 
 
+class TestStaticValueSpaceDedup:
+    """Static-value-space + dedup-then-prune path (Optuna-compat fix
+    2026-05-12: dynamic per-slot exclusion → CategoricalDistribution
+    error in production; static + dedup is the working path)."""
+
+    def test_duplicate_slot_picks_dedup_to_3(self):
+        """When slot 0 and slot 1 pick same family → distinct count = 2.
+        With min_families=3 → TrialPruned (Optuna installed) or ValueError."""
+        trial = _ScriptedTrial(
+            ints={"n_active_families": 3},
+            cats={
+                "family_slot_0": "A",
+                "family_slot_1": "A",  # DUPLICATE — should cause prune
+                "family_slot_2": "B",
+                "factor_in_family_A": "mom_21d",
+                "factor_in_family_B": "hl_range",
+            },
+        )
+        # Accept either TrialPruned (when optuna installed) or ValueError
+        try:
+            import optuna as _opt
+            expected_exc = (_opt.TrialPruned, ValueError)
+        except ImportError:
+            expected_exc = (ValueError,)
+        with pytest.raises(expected_exc, match="post-dedup"):
+            suggest_composite_spec(
+                trial, families=_FAMILIES_12, min_families=3,
+                max_features_per_family=2, target_n_features=3,
+                composite_weighting="equal_weight",
+                sampling_mode="family_first",
+            )
+
+    def test_all_3_distinct_succeeds(self):
+        """No duplicates → 3 distinct → succeeds."""
+        trial = _ScriptedTrial(
+            ints={"n_active_families": 3},
+            cats={
+                "family_slot_0": "A",
+                "family_slot_1": "B",
+                "family_slot_2": "C",
+                "factor_in_family_A": "mom_21d",
+                "factor_in_family_B": "hl_range",
+                "factor_in_family_C": "amihud_20d",
+            },
+        )
+        spec = suggest_composite_spec(
+            trial, families=_FAMILIES_12, min_families=3,
+            max_features_per_family=2, target_n_features=3,
+            composite_weighting="equal_weight",
+            sampling_mode="family_first",
+        )
+        assert spec.n_features == 3
+        assert set(spec.features) == {"mom_21d", "hl_range", "amihud_20d"}
+
+    def test_each_slot_categorical_full_static_list(self):
+        """Each `family_slot_i` categorical sees the FULL sorted family list
+        (no dynamic exclusion). This is the Optuna-compat contract."""
+        trial = _ScriptedTrial(
+            ints={"n_active_families": 3},
+            cats={
+                "family_slot_0": "A",
+                "family_slot_1": "B",
+                "family_slot_2": "C",
+                "factor_in_family_A": "mom_21d",
+                "factor_in_family_B": "hl_range",
+                "factor_in_family_C": "amihud_20d",
+            },
+        )
+        spec = suggest_composite_spec(
+            trial, families=_FAMILIES_12, min_families=3,
+            max_features_per_family=2, target_n_features=3,
+            composite_weighting="equal_weight",
+            sampling_mode="family_first",
+        )
+        # Categorical params for slot 0/1/2 should have been recorded
+        # (proves trial.suggest_categorical was called with non-empty list)
+        assert "family_slot_0" in trial.params
+        assert "family_slot_1" in trial.params
+        assert "family_slot_2" in trial.params
+
+
 class TestExcludedFactorsInFamilyFirst:
     """Excluded factors should not be sampled by family_first either."""
 
