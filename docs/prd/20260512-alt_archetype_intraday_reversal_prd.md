@@ -259,36 +259,36 @@ activity that doesn't wait for sequential candidate verdicts.
 
 ---
 
-## §11 Open directional questions (need user explicit-go for these)
+## §11 Open directional questions — LOCKED 2026-05-12
 
-1. **Universe scope**: 30-50 most liquid stocks OR full 53-stock cycle04+
-   universe? (Recommendation: full 53-stock for cycle-comparability,
-   even though intraday liquidity favors top 30)
-2. **Holding period upper bound**: 5 days hard cap OR 10-day extended
-   for "slow reversion" thesis? (Recommendation: 5d hard cap — keeps
-   cost-sensitivity binding)
-3. **Entry timing within first 60m**: open-only (T+1 09:30 ET) OR
-   first-60m-bar-close (T+1 10:30 ET, post early-session noise)?
-   (Recommendation: first-60m-bar-close — confirms direction post
-   opening noise; aligns with M11b T+1 open-at-close fill convention)
-4. **Cost model**: M11a/M11b 2bp slip + commission OR higher for
-   intraday-frequency turnover? (Recommendation: 2.5-3bp slip per
-   leg + commission to reflect higher market-impact at intraday)
+User explicit-go 2026-05-12: "53-stock / 5d / first-60m-close / 2.5bp slip 开 Phase 2"
+
+| Q | Lock | Locked value |
+|---|---|---|
+| Q1 Universe scope | LOCKED | **53-stock cycle04+ universe** (full PIT membership, exclude cross-asset ETFs; intraday liquidity adequate at this scope) |
+| Q2 Holding period upper bound | LOCKED | **5 days hard cap** (cost-sensitivity binding; aligns with PRD §3 design intent) |
+| Q3 Entry timing within first 60m | LOCKED | **T+1 first-60m-bar-close (10:30 ET)** (post-opening-noise confirmation; aligns with deferred-execution kernel `execution_delay_bars=1` convention) |
+| Q4 Cost model | LOCKED | **2.5bp slip per leg + commission** (intraday turnover ≈ 5-8× daily-rebalance baseline; market-impact premium captured) |
+
+These 4 values are now **immutable for alt-archetype A first-fire**. Wrong-in-hindsight values → new lineage (alt-archetype-intraday-reversal-2026-05-12b) per cycle04-08 immutability precedent. NOT softened post-fire.
+
+**Phase 2 unblocked** as of 2026-05-12.
 
 ---
 
-## §12 Authorization markers (pending)
+## §12 Authorization markers
 
 - prd: docs/prd/20260512-alt_archetype_intraday_reversal_prd.md (this file)
 - depends_on:
-  - cycle #09 verdict (decides fire timing)
-  - deferred-execution × BacktestEngine integration (~1 week
-    downstream work)
-- user_explicit_go_required: |
-  - §3 design final specifications (universe size + holding period +
-    entry timing + cost model) — see §11
-  - sha256 lock-in immutability contract (§9 yaml at fire time)
-  - first fire authorization
+  - cycle #09 verdict: INVALID per sampler postmortem; alt-A independent
+  - deferred-execution × BacktestEngine integration (~1 week downstream
+    work — IN PROGRESS Phase 2 from 2026-05-12)
+- user_explicit_go RECEIVED 2026-05-12:
+  - §11 4 directional decisions LOCKED (53-stock / 5d / first-60m-close / 2.5bp)
+  - Phase 2 START authorized: "53-stock / 5d / first-60m-close / 2.5bp slip 开 Phase 2"
+- pending user_explicit_go:
+  - sha256 lock-in immutability contract (§9 yaml at fire time, post-Phase-2)
+  - first fire authorization (post-Phase-3 Track A acceptance)
 
 ---
 

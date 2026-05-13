@@ -59,11 +59,12 @@ logger = logging.getLogger(__name__)
 class IntradayReversalConfig:
     """Hyperparameters for intraday reversal strategy.
 
-    All defaults match PRD §3 placeholder values; user explicit-go on §11
-    open directional questions can override.
+    Defaults reflect PRD §11 LOCKED values (user explicit-go 2026-05-12:
+    "53-stock / 5d / first-60m-close / 2.5bp slip"). These are immutable
+    for alt-archetype A first-fire; wrong-in-hindsight → new lineage.
     """
-    # Universe scope (PRD §11 Q1)
-    universe_top_n_dollar_volume: Optional[int] = None  # None = use full universe
+    # Universe scope (PRD §11 Q1 LOCKED: full 53-stock cycle04+ universe)
+    universe_top_n_dollar_volume: Optional[int] = None  # None = full 53-stock
 
     # Setup detection (PRD §3)
     # weekly_reversal_signal_5d ≤ 5th percentile = setup armed
@@ -79,13 +80,14 @@ class IntradayReversalConfig:
     top_n: int = 5
     equal_weight: bool = True
 
-    # Holding (PRD §11 Q2)
+    # Holding (PRD §11 Q2 LOCKED: 5d hard cap)
     holding_period_max_days: int = 5
     stop_loss_sigma: float = 0.5  # opposite-direction move triggers exit
 
-    # Execution (PRD §11 Q3 + Q4)
-    execution_delay_bars: int = 1  # T+1 first-60m-bar-close fill
-    cost_slip_bps_per_leg: float = 2.5
+    # Execution (PRD §11 Q3 LOCKED: T+1 first-60m-bar-close = execution_delay_bars=1
+    # in 60m-bar semantics; Q4 LOCKED: 2.5bp slip + commission)
+    execution_delay_bars: int = 1  # T+1 first-60m-bar-close fill (60m-bar grid)
+    cost_slip_bps_per_leg: float = 2.5  # market-impact premium for intraday turnover
     cost_commission_bps_per_trade: float = 0.5
 
 
