@@ -1,0 +1,187 @@
+{
+  "investigation": "Bug 1 NaN-IC in 6/12 LOTYO folds",
+  "per_year_stats": [
+    {
+      "year": 2009,
+      "n_rows": 1314,
+      "n_dates": 243,
+      "n_stocks_avg": 5.407407407407407,
+      "n_stocks_min": 4,
+      "n_stocks_max": 6,
+      "n_dates_ge_5": 229,
+      "n_dates_ge_3": 243
+    },
+    {
+      "year": 2010,
+      "n_rows": 1439,
+      "n_dates": 252,
+      "n_stocks_avg": 5.7103174603174605,
+      "n_stocks_min": 5,
+      "n_stocks_max": 6,
+      "n_dates_ge_5": 252,
+      "n_dates_ge_3": 252
+    },
+    {
+      "year": 2011,
+      "n_rows": 1427,
+      "n_dates": 252,
+      "n_stocks_avg": 5.662698412698413,
+      "n_stocks_min": 5,
+      "n_stocks_max": 6,
+      "n_dates_ge_5": 252,
+      "n_dates_ge_3": 252
+    },
+    {
+      "year": 2012,
+      "n_rows": 1467,
+      "n_dates": 250,
+      "n_stocks_avg": 5.868,
+      "n_stocks_min": 4,
+      "n_stocks_max": 6,
+      "n_dates_ge_5": 248,
+      "n_dates_ge_3": 250
+    },
+    {
+      "year": 2013,
+      "n_rows": 1439,
+      "n_dates": 252,
+      "n_stocks_avg": 5.7103174603174605,
+      "n_stocks_min": 4,
+      "n_stocks_max": 6,
+      "n_dates_ge_5": 244,
+      "n_dates_ge_3": 252
+    },
+    {
+      "year": 2014,
+      "n_rows": 1358,
+      "n_dates": 251,
+      "n_stocks_avg": 5.410358565737051,
+      "n_stocks_min": 2,
+      "n_stocks_max": 6,
+      "n_dates_ge_5": 224,
+      "n_dates_ge_3": 247
+    },
+    {
+      "year": 2015,
+      "n_rows": 11063,
+      "n_dates": 299,
+      "n_stocks_avg": 37.0,
+      "n_stocks_min": 2,
+      "n_stocks_max": 63,
+      "n_dates_ge_5": 194,
+      "n_dates_ge_3": 290
+    },
+    {
+      "year": 2016,
+      "n_rows": 12167,
+      "n_dates": 302,
+      "n_stocks_avg": 40.288079470198674,
+      "n_stocks_min": 3,
+      "n_stocks_max": 66,
+      "n_dates_ge_5": 200,
+      "n_dates_ge_3": 302
+    },
+    {
+      "year": 2017,
+      "n_rows": 12262,
+      "n_dates": 298,
+      "n_stocks_avg": 41.147651006711406,
+      "n_stocks_min": 2,
+      "n_stocks_max": 66,
+      "n_dates_ge_5": 198,
+      "n_dates_ge_3": 291
+    },
+    {
+      "year": 2018,
+      "n_rows": 13344,
+      "n_dates": 301,
+      "n_stocks_avg": 44.332225913621265,
+      "n_stocks_min": 3,
+      "n_stocks_max": 72,
+      "n_dates_ge_5": 198,
+      "n_dates_ge_3": 301
+    },
+    {
+      "year": 2019,
+      "n_rows": 13632,
+      "n_dates": 304,
+      "n_stocks_avg": 44.8421052631579,
+      "n_stocks_min": 3,
+      "n_stocks_max": 73,
+      "n_dates_ge_5": 199,
+      "n_dates_ge_3": 304
+    },
+    {
+      "year": 2020,
+      "n_rows": 14548,
+      "n_dates": 300,
+      "n_stocks_avg": 48.49333333333333,
+      "n_stocks_min": 3,
+      "n_stocks_max": 77,
+      "n_dates_ge_5": 200,
+      "n_dates_ge_3": 300
+    },
+    {
+      "year": 2021,
+      "n_rows": 14499,
+      "n_dates": 303,
+      "n_stocks_avg": 47.851485148514854,
+      "n_stocks_min": 3,
+      "n_stocks_max": 76,
+      "n_dates_ge_5": 199,
+      "n_dates_ge_3": 303
+    },
+    {
+      "year": 2022,
+      "n_rows": 14722,
+      "n_dates": 298,
+      "n_stocks_avg": 49.40268456375839,
+      "n_stocks_min": 3,
+      "n_stocks_max": 76,
+      "n_dates_ge_5": 199,
+      "n_dates_ge_3": 298
+    },
+    {
+      "year": 2023,
+      "n_rows": 14081,
+      "n_dates": 297,
+      "n_stocks_avg": 47.41077441077441,
+      "n_stocks_min": 3,
+      "n_stocks_max": 74,
+      "n_dates_ge_5": 197,
+      "n_dates_ge_3": 297
+    },
+    {
+      "year": 2024,
+      "n_rows": 13919,
+      "n_dates": 301,
+      "n_stocks_avg": 46.24252491694352,
+      "n_stocks_min": 3,
+      "n_stocks_max": 76,
+      "n_dates_ge_5": 197,
+      "n_dates_ge_3": 301
+    },
+    {
+      "year": 2025,
+      "n_rows": 13301,
+      "n_dates": 282,
+      "n_stocks_avg": 47.166666666666664,
+      "n_stocks_min": 3,
+      "n_stocks_max": 78,
+      "n_dates_ge_5": 183,
+      "n_dates_ge_3": 282
+    }
+  ],
+  "fold_2009_diagnostic": {
+    "n_rows": 1314,
+    "n_dates_total": 243,
+    "skipped_len_lt_5": 14,
+    "skipped_y_true_low_unique": 0,
+    "skipped_y_pred_zero_std": 116,
+    "valid_dates": 113,
+    "ic_mean": 0.3411480150893325,
+    "y_pred_std": 0.0001782997278496623,
+    "y_pred_unique": 2,
+    "best_iter": 0
+  }
+}
