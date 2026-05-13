@@ -124,6 +124,37 @@ class PQSConfig:
         )
 
 
+# ── Multi-universe helper (C10-2-B per research multi-universe architecture) ─
+
+
+def load_alternate_universe(path: Path) -> Dict[str, Any]:
+    """Load a non-default universe yaml file as a dict (for use with
+    ``load_config(overrides={"universe": ...})`` or
+    ``forward.runner.init(universe_yaml_override=...)``).
+
+    Per memory `feedback_multi_universe_research_default`, research-stage
+    multi-universe coexistence is the default architecture: each candidate
+    spec / mining cycle can lock its own universe via path. The main
+    ``config/universe.yaml`` is preserved as the "default / legacy"
+    universe that Trial 9 v2 + RCMv1 + Cand-2 forward manifests lock.
+
+    Args:
+        path: Path to alternate universe yaml file. Must exist.
+
+    Returns:
+        Parsed universe dict (untyped).
+
+    Raises:
+        FileNotFoundError: if path does not exist.
+    """
+    import yaml
+
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"Alternate universe yaml not found: {path}")
+    return yaml.safe_load(path.read_text())
+
+
 # ── Main loader ───────────────────────────────────────────────────────────────
 
 def load_config(

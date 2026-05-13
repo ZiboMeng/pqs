@@ -349,6 +349,7 @@ def _factor_registry_contract_sha() -> str:
 
 def _build_config_snapshot(
     config_dir: Path = _DEFAULT_CONFIG_DIR,
+    universe_yaml_override: Optional[Path] = None,
 ) -> ConfigSnapshot:
     """Build a fresh ``ConfigSnapshot`` from the live config tree.
 
@@ -357,6 +358,14 @@ def _build_config_snapshot(
     function is also used by ``revalidate`` (step 3) and the opt-in
     backfill utility (step 4) to recompute the current snapshot for
     drift comparison.
+
+    ``universe_yaml_override`` (C10-2-B 2026-05-13): per memory
+    `feedback_multi_universe_research_default`, research-stage candidates
+    may lock a non-default universe yaml path. When provided, the
+    ``universe_hash`` is computed from that file + the ``sources`` map
+    records the actual path (so revalidate compares against the SAME
+    file). Default ``None`` preserves legacy ``config/universe.yaml``
+    path → existing Trial 9 v2 / RCMv1 / Cand-2 manifests unaffected.
 
     Raises ``FileNotFoundError`` when ``config_dir`` does not exist or
     when none of the four expected yamls (universe / research_mask /
@@ -377,20 +386,34 @@ def _build_config_snapshot(
         )
     yaml_files = ("universe.yaml", "research_mask.yaml", "risk.yaml", "system.yaml")
     present = [name for name in yaml_files if (config_dir / name).exists()]
-    if not present:
+    if not present and universe_yaml_override is None:
         raise FileNotFoundError(
             f"config_dir {config_dir!s} exists but contains none of "
             f"{list(yaml_files)!r}. The snapshot would be all "
             f"'missing-<hash>' values; refusing to produce it."
         )
+
+    # Resolve universe path: override if provided, else default
+    if universe_yaml_override is not None:
+        universe_path = Path(universe_yaml_override)
+        if not universe_path.exists():
+            raise FileNotFoundError(
+                f"universe_yaml_override path does not exist: {universe_path!s}"
+            )
+        sources = dict(_F_CONFIG_SOURCES)
+        sources["universe_hash"] = str(universe_path)
+    else:
+        universe_path = config_dir / "universe.yaml"
+        sources = dict(_F_CONFIG_SOURCES)
+
     return ConfigSnapshot(
-        universe_hash=_canonical_yaml_sha(config_dir / "universe.yaml"),
+        universe_hash=_canonical_yaml_sha(universe_path),
         factor_registry_hash=_factor_registry_contract_sha(),
         research_mask_hash=_canonical_yaml_sha(config_dir / "research_mask.yaml"),
         risk_config_hash=_canonical_yaml_sha(config_dir / "risk.yaml"),
         system_config_hash=_canonical_yaml_sha(config_dir / "system.yaml"),
         snapshot_at_utc=datetime.now(timezone.utc),
-        sources=dict(_F_CONFIG_SOURCES),
+        sources=sources,
     )
 
 
@@ -572,6 +595,7 @@ def init(
     overwrite: bool = False,
     candidate_role: Optional["CandidateRole"] = None,
     soft_warn_flags: Optional[list] = None,
+    universe_yaml_override: Optional[Path] = None,
 ) -> ForwardRunManifest:
     """Create a forward_run_manifest.json for ``candidate_id``.
 
@@ -637,7 +661,12 @@ def init(
 
     # PRD F: pin a config snapshot at init so revalidate (step 3) can
     # detect mid-run config drift distinctly from data-tier revisions.
-    config_snapshot = _build_config_snapshot(Path(config_dir))
+    # C10-2-B 2026-05-13: if universe_yaml_override provided, the snapshot
+    # pins THAT path's hash (per-candidate multi-universe support); else
+    # falls back to config_dir/universe.yaml (legacy behavior preserved).
+    config_snapshot = _build_config_snapshot(
+        Path(config_dir), universe_yaml_override=universe_yaml_override,
+    )
 
     # Two-Stage Allocation Architecture PRD: candidate_role + soft_warn_flags
     # are optional with safe defaults so legacy init() callers (RCMv1, Cand-2)
@@ -826,7 +855,19 @@ def observe(
     # so a hermetic test or alternative deployment can point at a
     # different config tree than the global default — same contract
     # ``init(config_dir=...)`` already exposed.
-    current_config_snapshot = _build_config_snapshot(Path(config_dir))
+    # C10-2-B 2026-05-13: if manifest's config_snapshot recorded a non-
+    # default universe path (multi-universe candidate), rehash from THAT
+    # path so revalidate compares the same yaml. Legacy candidates with
+    # sources["universe_hash"] = "config/universe.yaml" → no override.
+    _universe_override = None
+    if (manifest.config_snapshot is not None
+            and manifest.config_snapshot.sources is not None):
+        recorded = manifest.config_snapshot.sources.get("universe_hash")
+        if recorded and recorded != "config/universe.yaml":
+            _universe_override = Path(recorded)
+    current_config_snapshot = _build_config_snapshot(
+        Path(config_dir), universe_yaml_override=_universe_override,
+    )
     reval = revalidate_manifest(
         manifest,
         spec=spec,
@@ -1288,7 +1329,16 @@ def recover(
     bench_syms = sorted({manifest.benchmark} | (
         {manifest.secondary_benchmark} if manifest.secondary_benchmark else set()
     ))
-    current_config_snapshot = _build_config_snapshot(Path(config_dir))
+    # C10-2-B 2026-05-13: respect manifest-recorded universe path (multi-universe)
+    _universe_override = None
+    if (manifest.config_snapshot is not None
+            and manifest.config_snapshot.sources is not None):
+        recorded = manifest.config_snapshot.sources.get("universe_hash")
+        if recorded and recorded != "config/universe.yaml":
+            _universe_override = Path(recorded)
+    current_config_snapshot = _build_config_snapshot(
+        Path(config_dir), universe_yaml_override=_universe_override,
+    )
     detected_label = (
         f"recover@{datetime.now(timezone.utc).isoformat(timespec='seconds')}"
     )
