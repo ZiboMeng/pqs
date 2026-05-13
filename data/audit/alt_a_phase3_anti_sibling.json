@@ -1,0 +1,77 @@
+{
+  "lineage": "alt-archetype-intraday-reversal-2026-05-12",
+  "phase": "Phase 3 Step D",
+  "alt_a_nav_window": [
+    "2018-01-02",
+    "2025-12-31"
+  ],
+  "thresholds": {
+    "raw_pearson_max": 0.85,
+    "residual_pearson_max": 0.5
+  },
+  "overall_verdict": "PASS",
+  "results": {
+    "rcm_v1_defensive_composite_01": {
+      "status": "ok",
+      "verdict": "PASS",
+      "raw_pearson": 0.14573009153996067,
+      "residual_pearson_vs_spy": 0.1420851988752114,
+      "n_overlap_days": 1145,
+      "spec": {
+        "features": [
+          "beta_spy_60d",
+          "drawup_from_252d_low",
+          "days_since_52w_high",
+          "amihud_20d"
+        ],
+        "weights": [
+          0.25,
+          0.25,
+          0.25,
+          0.25
+        ],
+        "construction_mode": "global_top_n"
+      }
+    },
+    "candidate_2_orthogonal_01": {
+      "status": "ok",
+      "verdict": "PASS",
+      "raw_pearson": 0.18263173288112977,
+      "residual_pearson_vs_spy": 0.17515314122342365,
+      "n_overlap_days": 1145,
+      "spec": {
+        "features": [
+          "ret_5d",
+          "rs_vs_spy_126d",
+          "hl_range"
+        ],
+        "weights": [
+          0.3333333333333333,
+          0.3333333333333333,
+          0.3333333333333333
+        ],
+        "construction_mode": "global_top_n"
+      }
+    },
+    "trial9_diversifier_002": {
+      "status": "ok",
+      "verdict": "PASS",
+      "raw_pearson": 0.16169723993110538,
+      "residual_pearson_vs_spy": 0.15376493490510357,
+      "n_overlap_days": 1145,
+      "spec": {
+        "features": [
+          "beta_spy_60d",
+          "max_dd_126d",
+          "ret_1d"
+        ],
+        "weights": [
+          0.3333333333333333,
+          0.3333333333333333,
+          0.3333333333333333
+        ],
+        "construction_mode": "cap_aware"
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "lineage": "alt-archetype-intraday-reversal-2026-05-12",
+  "phase": "Phase 3 Step B",
+  "universe_size": 53,
+  "date_range": [
+    "2018-01-02",
+    "2025-12-31"
+  ],
+  "initial_capital": 10000.0,
+  "final_equity": 12530.714941030403,
+  "total_return_pct": 25.307149410304024,
+  "max_dd_pct": -17.984835250499934,
+  "n_trades": 237,
+  "signal_days_with_positions": 316,
+  "total_business_days": 2011,
+  "annualized_turnover": 24.35206364992541,
+  "spy_total_return_pct": "155.78972",
+  "vs_spy_pct": "-130.48257"
+}

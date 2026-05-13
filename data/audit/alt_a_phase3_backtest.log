@@ -1,0 +1,36 @@
+2026-05-12 21:30:39,367 [INFO] Phase 3 Step B: alt-A 8-year backtest
+2026-05-12 21:30:39,367 [INFO]   Universe: 53 stocks
+2026-05-12 21:30:39,367 [INFO]   Range: 2018-01-02 → 2025-12-31 (warmup from 2017-11-03)
+2026-05-12 21:30:39,367 [INFO] Step 1: load daily panels...
+2026-05-12 21:30:57,127 [INFO]   Daily panel: (2050, 53) (17.8s)
+2026-05-12 21:30:57,127 [INFO]   Symbols with data: 53/53
+2026-05-12 21:30:57,127 [INFO] Step 2: compute factors (weekly_reversal_signal_5d + vol_21d)...
+2026-05-12 21:30:59,303 [INFO] FactorGenerator: produced 61 candidate factors
+2026-05-12 21:30:59,303 [INFO]   Factors computed (2.2s)
+2026-05-12 21:30:59,303 [INFO] Step 3: load 60m bars + compute intraday inputs...
+2026-05-12 21:31:23,931 [INFO]   60m bars loaded for 53 symbols
+2026-05-12 21:31:23,932 [INFO]   Daily date grid: 2011 business days
+2026-05-12 21:37:42,547 [INFO]   intraday_volume_60m_zscore: (2011, 53); non-NaN: 102497
+2026-05-12 21:37:42,549 [INFO]   early_session_return_pct: (2011, 53); non-NaN: 103504
+2026-05-12 21:37:42,549 [INFO]   (403.2s)
+2026-05-12 21:37:42,549 [INFO] Step 4: bridge → signals_df...
+2026-05-12 21:37:46,021 [INFO]   Signals: (2011, 53); rows with positions: 316
+2026-05-12 21:37:46,021 [INFO]   Total weight days: 316.0
+2026-05-12 21:37:46,023 [INFO]   Annualized turnover: 24.4x
+2026-05-12 21:37:46,023 [INFO]   (3.5s)
+2026-05-12 21:37:46,023 [INFO] Step 5: BacktestEngine.run(execution_freq='intraday')...
+2026-05-12 21:37:47,784 [WARNING] [2025-08-28] ghost-position cleanup: liquidating APD qty=0.0041 @ last_close=293.5200 after 6 stale days
+2026-05-12 21:37:50,917 [INFO]   Backtest done (4.9s)
+2026-05-12 21:37:50,917 [INFO] Step 6: save NAV + summary...
+2026-05-12 21:37:50,960 [INFO]   Saved NAV: /home/zibo/Documents/projects/pqs/data/audit/alt_a_phase3_nav.parquet
+2026-05-12 21:37:51,591 [INFO]   Saved summary: /home/zibo/Documents/projects/pqs/data/audit/alt_a_phase3_summary.json
+2026-05-12 21:37:51,591 [INFO] ============================================================
+2026-05-12 21:37:51,591 [INFO] alt-A Phase 3 Step B verdict:
+2026-05-12 21:37:51,591 [INFO]   Final equity: $12,530.71
+2026-05-12 21:37:51,591 [INFO]   Total return: +25.31%
+2026-05-12 21:37:51,591 [INFO]   SPY return:   +155.79%
+2026-05-12 21:37:51,592 [INFO]   vs SPY:       -130.48%
+2026-05-12 21:37:51,592 [INFO]   Max DD:       -17.98%
+2026-05-12 21:37:51,592 [INFO]   Trades:       237
+2026-05-12 21:37:51,592 [INFO]   Signal-days:  316/2011
+2026-05-12 21:37:51,593 [INFO]   Turnover:     24.4x annualized

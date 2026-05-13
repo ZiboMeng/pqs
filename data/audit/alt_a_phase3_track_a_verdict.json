@@ -1,0 +1,146 @@
+{
+  "lineage": "alt-archetype-intraday-reversal-2026-05-12",
+  "phase": "Phase 3 Step C",
+  "split_name": "alternating_regime_holdout_v1",
+  "role": "core",
+  "overall_passed": false,
+  "n_gates_total": 17,
+  "n_gates_passed": 14,
+  "gates": [
+    {
+      "name": "role_core_eligibility",
+      "passed": true,
+      "notes": "eligibility passes (no constraints)"
+    },
+    {
+      "name": "validation_year_2018_maxdd",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "validation_year_2019_maxdd",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "validation_year_2021_maxdd",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "validation_year_2023_maxdd",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "validation_year_2025_maxdd",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "validation_aggregate_excess_vs_spy",
+      "passed": false,
+      "notes": ""
+    },
+    {
+      "name": "validation_aggregate_excess_vs_qqq",
+      "passed": false,
+      "notes": ""
+    },
+    {
+      "name": "stress_slice_covid_flash_maxdd",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "stress_slice_rate_hike_2022_maxdd",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "role_core__validation__2025__excess_vs_qqq",
+      "passed": false,
+      "notes": ""
+    },
+    {
+      "name": "role_core__validation__2025__maxdd",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "concentration_top1",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "concentration_top3",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "concentration_no_leveraged_etf",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "beta_to_qqq",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "cost_robustness_2x",
+      "passed": true,
+      "notes": ""
+    }
+  ],
+  "metrics_dict": {
+    "validation": {
+      "2018": {
+        "maxdd": -0.10690334586392782,
+        "excess_vs_spy": 0.0316754308403808,
+        "excess_vs_qqq": -0.020293422420592948
+      },
+      "2019": {
+        "maxdd": -0.06671429385163999,
+        "excess_vs_spy": -0.2906828093828974,
+        "excess_vs_qqq": -0.37680877812636737
+      },
+      "2021": {
+        "maxdd": -0.09697487488370209,
+        "excess_vs_spy": -0.3258749679291721,
+        "excess_vs_qqq": -0.3396516415744715
+      },
+      "2023": {
+        "maxdd": -0.12736734448713885,
+        "excess_vs_spy": -0.13129435987700994,
+        "excess_vs_qqq": -0.43066575103822974
+      },
+      "2025": {
+        "maxdd": -0.10641532488978452,
+        "excess_vs_spy": -0.20227662827443327,
+        "excess_vs_qqq": -0.2343312961340594
+      }
+    },
+    "stress_slice": {
+      "covid_flash": {
+        "maxdd": -0.10044438161778171
+      },
+      "rate_hike_2022": {
+        "maxdd": -0.04704264812041497
+      }
+    },
+    "concentration": {
+      "top1_max": 0.05,
+      "top3_max": 0.6,
+      "leveraged_etf_dependency": false
+    },
+    "beta": {
+      "beta_to_qqq": 0.07464378494586554
+    },
+    "cost": {
+      "multiplier_2x_remains_positive": true
+    },
+    "year_2025_vs_spy": -0.20227662827443327,
+    "year_2025_vs_qqq": -0.2343312961340594
+  }
+}
