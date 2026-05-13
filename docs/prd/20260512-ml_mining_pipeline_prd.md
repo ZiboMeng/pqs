@@ -48,9 +48,9 @@ cycle04-08 全部 sibling，cycle #09 重 fire 中，alt-A Phase 3 REJECT。**�
 | 工具 | 用了吗 | 在哪 |
 |---|---|---|
 | Optuna TPE | ✅ | mining sampler (factor combo + weight search) |
-| XGBoost feature importance | ⚠️ diagnostic only | `scripts/run_xgb_importance.py` |
-| SHAP | ⚠️ diagnostic only | `core/diagnostics/detectors.py` |
-| XGBoost return regression | ❌ | — |
+| XGBoost regression on forward returns | ⚠️ **写了脚本但 NOT 进 mining loop** | `scripts/run_xgb_importance.py` (uses `XGBRegressor` + `compute_forward_returns(21)` — actually train returns prediction, not pure importance; **PRD audit 2026-05-12 R1 fix** — script name misleading) |
+| SHAP feature attribution | ⚠️ diagnostic only | `core/diagnostics/detectors.py` |
+| XGBoost in mining objective | ❌ | — (existing script produces importance ranking + train metrics; no top-N portfolio + no Track A wiring) |
 | Random Forest / GBM | ❌ | — |
 | Neural networks (any) | ❌ | — |
 | LSTM / GRU sequence | ❌ | — |
@@ -73,11 +73,21 @@ cycle04-08 全部 sibling，cycle #09 重 fire 中，alt-A Phase 3 REJECT。**�
 - (c) **Cross-stock attention**: 学 "在 high VIX regime 下 AAPL 跟 NVDA 的 conditional probability"
 - (d) **Adaptive sizing**: 不只是选股, 而是 conditional 加仓 / 减仓 / 等待
 
-### 2.3 ML 不能解决的问题（诚实交代）
+### 2.3 ML 不能解决的问题（诚实交代）+ 实际 sample 规模
 
 - **78-股 universe binding**: ML 也只能在这个 universe 里搜，universe 扩张是独立工程
 - **Long-only no-margin invariant**: 限制 ML 解空间 → Sharpe 理论上限存在
-- **Sample size**: 8 年 × 252 天 × 50-100 股 ≈ 100-200k 样本。**深度模型临界够用，但容易过拟合**
+- **Sample size 实际数 (PRD audit 2026-05-12 R3 fix)**:
+  - Train years = 12 个 (2009-17 + 2020/22/24) per `config/temporal_split.yaml`
+  - Total train trading days ≈ 3024
+  - 21d horizon non-overlapping windows per stock ≈ 144
+  - **Effective independent samples**:
+    - 78-股 cycle04+: ~11,232 (sample:feature 69:1 — OK shallow XGB)
+    - 53-股 alt-A: ~7,632 (sample:feature 47:1 — borderline)
+    - 100-股 expanded: ~14,400 (sample:feature 88:1 — OK)
+  - **Raw samples (overlapping)**: 78 × 3024 = 235,872 (used for batch SGD with care for overlap)
+  - **Phase 3 Transformer rule-of-thumb**: ≥5 samples per model param. Small TabTransformer ~50-200k params → need 250k-1M samples → **PQS at lower limit**. 必须 heavy regularization.
+  - **Phase 4 RL**: 144 unique 21d time-episodes (cross-stock not really independent) vs PPO/DDPG typical 1000+ → **MAJOR RISK** — see §6 caveat.
 - **Track A 17-gate guardrail**: 每个 ML model 都要过这个关，不会因为是 ML 就放松
 
 ---
@@ -213,9 +223,14 @@ Output:
 - Phase 1 XGBoost 显著超过线性 baseline
 - 用户 explicit-go
 
-### 4.7 Abort condition
+### 4.7 Abort condition (PRD audit 2026-05-12 fix — relaxed from "no Phase 3 if Phase 2 fail")
 
-- Multi-horizon ensemble 没有显著超过 single-21d Phase 1 → 时间尺度差异化不存在 → 不推进 Phase 3
+- If multi-horizon ensemble doesn't beat Phase 1 → **multi-horizon axis is not the value-add**
+- BUT this does NOT block Phase 3 — Phase 3's value-add is **cross-stock attention** (different axis than multi-horizon)
+- **Decision logic**:
+  - Phase 2 PASS Phase 1: continue to Phase 3 (compare attention vs multi-horizon)
+  - Phase 2 FAIL: Phase 3 still eligible IF Phase 1 itself > linear baseline (attention may still help cross-stock conditional rank)
+  - Phase 1 AND Phase 2 both FAIL: skip Phase 3, jump to cross-phase stop rule §8.2
 
 ---
 
@@ -257,14 +272,34 @@ Output:
 - XGBoost (Phase 1/2) 是 per-stock independent → 同样限制
 - Transformer 通过 attention 在 date 维度上学 conditional rank
 
-### 5.4 数据规模 sanity check
+### 5.4 数据规模 sanity check (PRD audit 2026-05-12 R3+R4 fix)
 
-- 8-yr train × 252 days = 2016 train dates
+- 12 train years × 252 days = **3024 train dates** (not 2016 — audit fix)
 - 53-100 stocks per date
 - 162-dim features per stock per date
-- ~32k samples (date-level) × 53-100 stock embeddings each
+- Raw samples (overlapping 21d): 78 × 3024 = **235,872**
+- Effective independent: 78 × 144 = **11,232**
 
-**Modest 数据量, 但 Transformer 在 financial setting 已经有实证 ~2010 paper 起**.
+**WARNING — at the lower limit**:
+- TabTransformer small config (embed_dim=32, 3 layers, 4 heads) ≈ **50-200k params**
+- Standard rule-of-thumb: ≥ 5 samples per param → need 250k-1M
+- PQS raw 235k samples (78-股) **just barely meets** lower bound; below this for 53-股 universe
+- **Phase 3 是 deep-model 介入 PQS 的临界点 — heavy regularization mandatory**
+
+**Anti-overfit mandatory measures (not optional)**:
+- Dropout ≥ 0.30 across all attention + MLP layers
+- Weight decay ≥ 1e-4
+- Walk-forward CV (not random split)
+- Early stopping based on out-of-fold rank IC
+- Lottery-ticket pruning if final params > 100k
+- If walk-forward Sharpe std > 30% of mean → reject (unstable training)
+
+**Transformer in finance**:
+- Transformer architecture introduced 2017 (Vaswani et al "Attention is All You Need")
+- Attention mechanism precursor 2014 (Bahdanau et al)
+- Finance applications of attention/Transformer started ~2018+ (Wang et al "HATS",
+  Yang et al "Trade Volume Prediction")
+- **PRD audit 2026-05-12 fix**: earlier draft said "2010 paper" — that was the LSTM era, not Transformer. Corrected.
 
 ### 5.5 Anti-overfit measures
 
@@ -337,6 +372,18 @@ Algorithm:
 - Walk-forward validation: train on past windows, test on next.
 - Ensemble: train 5-10 agents with different seeds, take mean action.
 
+### 6.3b MAJOR RISK: insufficient training data for stable RL policy (PRD audit 2026-05-12 R3 fix)
+
+- PPO/DDPG typically requires **1000+ unique episodes** for stable policy convergence
+- PQS has **144 unique 21d periods** in train years (cross-stock is not really independent — same regime affects all)
+- Naive single-agent training will overfit + produce unstable policies
+- **Mitigation strategies**:
+  - Bootstrapped ensembles (train 50+ agents on resampled episode subsets)
+  - Imitation learning from cycle04-08 archived strategies → use RL only for fine-tuning
+  - Reduce action space to extremely small (e.g. binary: rebalance OR cash-anchor-only)
+  - **If after 4 weeks RL training doesn't show stable Sharpe → abort + report as "PQS data insufficient for RL"**
+- **Pre-commit**: Phase 4 fire is gated on Phase 3 success AND a fresh data-sufficiency assessment AT Phase 4 start (e.g. has another 1-2 years of data accumulated post-2026 that would help?)
+
 ### 6.4 Engineering estimate
 
 | Step | 工时 |
@@ -394,6 +441,22 @@ Reuse existing `core/research/temporal_split.py` + `temporal_split.yaml`:
 - Model checkpoints saved with sha256 of training config yaml
 - TensorBoard / Weights & Biases logging optional
 
+### 7.4b Data-leakage prevention protocol (PRD audit 2026-05-12 R4 addition)
+
+**Risk per phase** (R4 audit identified):
+| Phase | Risk Level | Specific concern |
+|---|---|---|
+| 1 XGBoost | Low | 162-factor are lookback-only (no T-close in features) — safe |
+| 2 Multi-horizon | Low | Same factor inputs as Phase 1 — safe |
+| 3 Transformer | **MEDIUM** | Cross-stock attention may attend to today's other-stock returns if features computed from same-day data |
+| 4 RL | **MEDIUM-HIGH** | State[T] features must not encode reward S[T+1..T+21] — easy to leak via "recent NAV" state component |
+
+**Mandatory leak checks per phase**:
+- Pre-train: verify all features use only T-1-close-and-earlier data (run `validate_lookback_only` helper)
+- Train metrics: cross-sectional IC of model prediction vs `fwd_return[T+21d]` (target). If IC > 0.30 in TRAIN that's normal; if IC > 0.30 in VALIDATION with NO regularization → leak smell.
+- Shuffled-time control: train with shuffled targets, expect Sharpe ~0. If Sharpe > 0.5 on shuffled-time → severe leak.
+- Live-data sanity: for any nominee, paper-trade for 5 days with input panel snapshot frozen at T-1 → predictions should match training-time predictions exactly.
+
 ### 7.5 Track A acceptance integration
 
 Each ML phase:
@@ -422,20 +485,47 @@ For each ML candidate that passes Track A:
 
 Each Phase has its own abort condition (§3.9 / §4.7 / §5.8 / §6.6).
 
-### 8.2 Cross-phase stop rule
+### 8.2 Cross-phase stop rule (PRD audit 2026-05-12 fix — concrete baseline)
 
-**If Phase 1 + Phase 2 both fail to超 cycle04-08 linear baseline by > 30% (Sharpe)**:
-- Conclusion: PQS 数据 / universe 不适合 ML mining
-- Pivot: focus on **universe expansion** (78 → 200+ stocks) OR **alternative alpha sources** (event-driven, news, options surface)
-- 不强推 Phase 3+
+**Linear baseline = cycle07a Trial 3 Sharpe ≈ 1.08** (only cycle04-08 trial that PASSED Track A 17/17, even though later RED on anti-sibling).
 
-### 8.3 Sample size monitor
+**Stop rule criteria**:
+- Phase 1 XGBoost Sharpe > 1.30 (Trial 3 × 1.20 = ambitious but measurable) → CONTINUE to Phase 2
+- Phase 1 Sharpe in [1.08, 1.30] → MARGINAL; user decide whether Phase 2 worth
+- Phase 1 Sharpe < 1.08 → ML NOT producing better-than-linear alpha → **pivot to universe expansion / alt alpha sources**, skip Phase 2-4
 
-Each phase reports actual sample count + per-sample noise level. If model parameters > 5× sample count → flag overfit risk + skip to next phase.
+**Pre-update baseline if cycle #09b succeeds**:
+- If cycle #09b post-fire produces a Track A PASS nominee → use ITS Sharpe as updated baseline
+- ML target: > 1.20× cycle#09b nominee Sharpe
 
-### 8.4 Forward observation gate
+### 8.3 Sample size monitor (PRD audit 2026-05-12 fix — explicit)
 
-Any ML nominee that passes Track A + anti-sibling → must complete TD60 forward-soak before sealed 2026 eval. Sealed is single-shot.
+Each phase reports:
+- Total raw samples
+- Effective independent samples (after horizon overlap dedup)
+- Model parameter count
+- Ratio (samples : params)
+
+**Abort if ratio < 5:1** for that phase (Phase 1 XGB shallow ≥ 50:1 needed; Phase 3 Transformer ≥ 5:1).
+
+### 8.4 Forward observation gate + Sealed 2026 allocation strategy (PRD audit 2026-05-12 fix — partition)
+
+**Old wording (§9.5) suggested "share sealed across phases"** — this was contradictory with TD60 forward-soak gate (§8.4). Audit fix:
+
+**Sealed 2026 partition strategy**:
+- 2026 trading year has ~252 days
+- **Phase 1 sealed allocation**: Q1 2026 only (~63 days, single-shot)
+- **Phase 2 sealed allocation**: Q2 2026 (~63 days)
+- **Phase 3 sealed allocation**: Q3 2026 (~63 days)
+- **Phase 4 sealed allocation**: Q4 2026 (~63 days)
+- Each phase's sealed quarter is **single-shot** — once tested, that phase cannot re-test on sealed without new ML lineage
+
+**Alternative**: rolling 1-year out-of-sample (TBD if 2027 data accumulates by Phase 4 fire time).
+
+**Forward observation gate** (unchanged):
+- ML nominee passing Track A 17-gate → TD60 paper-trade forward soak
+- TD60 healthy → sealed quarter eval
+- Sealed eval = single-shot for that phase
 
 ---
 
@@ -461,10 +551,16 @@ Any ML nominee that passes Track A + anti-sibling → must complete TD60 forward
    - (b) 给 ML 一个 leniency (validation vs SPY 3/5 vs 4/5)
    - 不推荐 (b) — overfit 反过来咬手
 
-5. **Sealed 2026 panel 共享方式**:
-   - (a) Phase 1 用完之后不再给 Phase 2 用 (single-shot per ML phase, conservative)
-   - (b) 全 ML phase 共享 sealed (any ML 用过, 整个 ML 通道 sealed)
-   - 推荐 (b) — sealed 是 PQS 整体一次性资源, 不是 per-experiment
+5. **Sealed 2026 panel 共享方式** (PRD audit 2026-05-12 fix — resolved as partition):
+   - ~~(a) Phase 1 用完之后不再给 Phase 2 用 (single-shot per ML phase, conservative)~~
+   - ~~(b) 全 ML phase 共享 sealed (any ML 用过, 整个 ML 通道 sealed)~~
+   - **DECIDED (c) — partition by quarter** per §8.4:
+     - Phase 1 → 2026 Q1 (~63 days)
+     - Phase 2 → 2026 Q2
+     - Phase 3 → 2026 Q3
+     - Phase 4 → 2026 Q4
+   - Each phase's sealed quarter is **single-shot for that phase**
+   - **Rationale**: 整 2026 单 shot 不够 4 phase 用；single-phase consumes all 是浪费；quarterly partition 是 honest compromise
 
 6. **Engineering 主导 vs 渐进**:
    - (a) 一次性 ship Phase 1 + 2 + 3 共享 infra (~3 周)
