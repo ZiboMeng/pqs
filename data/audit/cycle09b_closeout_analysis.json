@@ -1,0 +1,264 @@
+{
+  "lineage": "track-c-cycle-2026-05-12-09b",
+  "total_archived": 108,
+  "h1_g_new_family_anchor": {
+    "qualifying": 96,
+    "total": 108,
+    "rate": 0.8888888888888888
+  },
+  "g_anti_sibling_nav_screen": {
+    "passing": 29,
+    "total": 108,
+    "rate": 0.26851851851851855
+  },
+  "h1_combined_gates": {
+    "passing": 29,
+    "total": 108,
+    "rate": 0.26851851851851855
+  },
+  "h2_z1_anchored": {
+    "z1_anchored_count": 41,
+    "z1_median_ic_ir": 0.7727176856643025,
+    "nonz1_median_ic_ir": 0.1352931829996467,
+    "h2_supported": true
+  },
+  "h3_anchor_family_class": {
+    "klmn_median_corr": 0.8388538076706293,
+    "ghi_median_corr": 0.7966513392775462,
+    "h3_supported": false
+  },
+  "top10": [
+    {
+      "trial_id": "5a99868072e6",
+      "objective": 1.1218644254538441,
+      "ic_ir": 0.7727176856643025,
+      "nav_sharpe": 0.894009982667648,
+      "nav_correlation_vs_anchor_pooled_raw": null,
+      "features": [
+        "rs_vs_spy_63d",
+        "cpi_yoy_pct",
+        "rd_intensity_ttm"
+      ],
+      "factor_families": {
+        "rs_vs_spy_63d": "A",
+        "cpi_yoy_pct": "P",
+        "rd_intensity_ttm": "N"
+      },
+      "nfa_qualifies": true,
+      "anti_sibling_passes": false,
+      "both_gates": false,
+      "z1_factors": [
+        "rd_intensity_ttm"
+      ]
+    },
+    {
+      "trial_id": "acfae8a1a555",
+      "objective": 1.0803665723424447,
+      "ic_ir": 0.9653127470639189,
+      "nav_sharpe": 0.8507856404716438,
+      "nav_correlation_vs_anchor_pooled_raw": 0.8208293452041221,
+      "features": [
+        "risk_adj_mom_63d",
+        "cpi_yoy_pct",
+        "rd_intensity_ttm"
+      ],
+      "factor_families": {
+        "risk_adj_mom_63d": "D",
+        "cpi_yoy_pct": "P",
+        "rd_intensity_ttm": "N"
+      },
+      "nfa_qualifies": true,
+      "anti_sibling_passes": true,
+      "both_gates": true,
+      "z1_factors": [
+        "rd_intensity_ttm"
+      ]
+    },
+    {
+      "trial_id": "3095c247ab7f",
+      "objective": 1.0788504373665877,
+      "ic_ir": 0.9653127470639189,
+      "nav_sharpe": 0.849850746855906,
+      "nav_correlation_vs_anchor_pooled_raw": 0.8209358974877335,
+      "features": [
+        "month_end_quarter_end",
+        "cpi_yoy_pct",
+        "rd_intensity_ttm"
+      ],
+      "factor_families": {
+        "month_end_quarter_end": "J",
+        "cpi_yoy_pct": "P",
+        "rd_intensity_ttm": "N"
+      },
+      "nfa_qualifies": true,
+      "anti_sibling_passes": true,
+      "both_gates": true,
+      "z1_factors": [
+        "rd_intensity_ttm"
+      ]
+    },
+    {
+      "trial_id": "5e59cb317645",
+      "objective": 1.0788504373665877,
+      "ic_ir": 0.9653127470639189,
+      "nav_sharpe": 0.849850746855906,
+      "nav_correlation_vs_anchor_pooled_raw": 0.8209358974877335,
+      "features": [
+        "sell_in_may_seasonal",
+        "cpi_yoy_pct",
+        "rd_intensity_ttm"
+      ],
+      "factor_families": {
+        "sell_in_may_seasonal": "J",
+        "cpi_yoy_pct": "P",
+        "rd_intensity_ttm": "N"
+      },
+      "nfa_qualifies": true,
+      "anti_sibling_passes": true,
+      "both_gates": true,
+      "z1_factors": [
+        "rd_intensity_ttm"
+      ]
+    },
+    {
+      "trial_id": "8bf44427abca",
+      "objective": 1.0788504373665877,
+      "ic_ir": 0.9653127470639189,
+      "nav_sharpe": 0.849850746855906,
+      "nav_correlation_vs_anchor_pooled_raw": 0.8209358974877335,
+      "features": [
+        "pre_cpi_window_flag",
+        "cpi_yoy_pct",
+        "rd_intensity_ttm"
+      ],
+      "factor_families": {
+        "pre_cpi_window_flag": "J",
+        "cpi_yoy_pct": "P",
+        "rd_intensity_ttm": "N"
+      },
+      "nfa_qualifies": true,
+      "anti_sibling_passes": true,
+      "both_gates": true,
+      "z1_factors": [
+        "rd_intensity_ttm"
+      ]
+    },
+    {
+      "trial_id": "7fe8aa5dbd6f",
+      "objective": 1.0788504373665877,
+      "ic_ir": 0.9653127470639189,
+      "nav_sharpe": 0.849850746855906,
+      "nav_correlation_vs_anchor_pooled_raw": 0.8209358974877335,
+      "features": [
+        "breakout_signal_age_5d",
+        "cpi_yoy_pct",
+        "rd_intensity_ttm"
+      ],
+      "factor_families": {
+        "breakout_signal_age_5d": "Q",
+        "cpi_yoy_pct": "P",
+        "rd_intensity_ttm": "N"
+      },
+      "nfa_qualifies": true,
+      "anti_sibling_passes": true,
+      "both_gates": true,
+      "z1_factors": [
+        "rd_intensity_ttm"
+      ]
+    },
+    {
+      "trial_id": "6ae351b2e266",
+      "objective": 1.072062412268291,
+      "ic_ir": 0.9653127470639189,
+      "nav_sharpe": 0.8462244221079425,
+      "nav_correlation_vs_anchor_pooled_raw": 0.820766627796876,
+      "features": [
+        "return_per_risk_21d",
+        "cpi_yoy_pct",
+        "rd_intensity_ttm"
+      ],
+      "factor_families": {
+        "return_per_risk_21d": "D",
+        "cpi_yoy_pct": "P",
+        "rd_intensity_ttm": "N"
+      },
+      "nfa_qualifies": true,
+      "anti_sibling_passes": true,
+      "both_gates": true,
+      "z1_factors": [
+        "rd_intensity_ttm"
+      ]
+    },
+    {
+      "trial_id": "55854c60367d",
+      "objective": 0.9902680557272259,
+      "ic_ir": 0.8891196225374207,
+      "nav_sharpe": 0.8150113352879804,
+      "nav_correlation_vs_anchor_pooled_raw": 0.853215681611729,
+      "features": [
+        "month_end_quarter_end",
+        "volume_surge_ratio_at_setup",
+        "rd_intensity_ttm"
+      ],
+      "factor_families": {
+        "month_end_quarter_end": "J",
+        "volume_surge_ratio_at_setup": "Q",
+        "rd_intensity_ttm": "N"
+      },
+      "nfa_qualifies": true,
+      "anti_sibling_passes": false,
+      "both_gates": false,
+      "z1_factors": [
+        "rd_intensity_ttm"
+      ]
+    },
+    {
+      "trial_id": "8d0c26ec9c6e",
+      "objective": 0.9902680557272259,
+      "ic_ir": 0.8891196225374207,
+      "nav_sharpe": 0.8150113352879804,
+      "nav_correlation_vs_anchor_pooled_raw": 0.853215681611729,
+      "features": [
+        "coskew_60d_spy",
+        "volume_surge_ratio_at_setup",
+        "rd_intensity_ttm"
+      ],
+      "factor_families": {
+        "coskew_60d_spy": "I",
+        "volume_surge_ratio_at_setup": "Q",
+        "rd_intensity_ttm": "N"
+      },
+      "nfa_qualifies": true,
+      "anti_sibling_passes": false,
+      "both_gates": false,
+      "z1_factors": [
+        "rd_intensity_ttm"
+      ]
+    },
+    {
+      "trial_id": "d559cb380290",
+      "objective": 0.9884120847221771,
+      "ic_ir": 0.8891196225374207,
+      "nav_sharpe": 0.8139745257525697,
+      "nav_correlation_vs_anchor_pooled_raw": 0.8532108612389367,
+      "features": [
+        "post_fomc_window_flag",
+        "vol_regime",
+        "rd_intensity_ttm"
+      ],
+      "factor_families": {
+        "post_fomc_window_flag": "J",
+        "vol_regime": "C",
+        "rd_intensity_ttm": "N"
+      },
+      "nfa_qualifies": true,
+      "anti_sibling_passes": false,
+      "both_gates": false,
+      "z1_factors": [
+        "rd_intensity_ttm"
+      ]
+    }
+  ],
+  "verdict": "candidate_trials_pending_track_a",
+  "verdict_text": "29 candidate trials pass H1 + G_anti_sibling_nav screen. Run Track A acceptance evaluator on these trials to declare final nominee. Until acceptance confirmed, status = 'candidates pending evaluation', NOT 'nominee'."
+}
