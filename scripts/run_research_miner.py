@@ -568,6 +568,18 @@ def main() -> int:
         args._holding_freq_choices = yaml_holding_choices
         args._enable_sr_defer_choices = yaml_sr_choices or [False]
 
+        # 2026-05-12: yaml mining_config.auto_dedup_masked_factors (cycle #10+).
+        # Default False preserves cycle04-09 behavior. Boolean parse
+        # tolerant: accepts True/False/None/missing.
+        yaml_auto_dedup = mc.get("auto_dedup_masked_factors")
+        if yaml_auto_dedup is not None and not isinstance(yaml_auto_dedup, bool):
+            mismatches.append(
+                f"  yaml.mining_config.auto_dedup_masked_factors must be bool, "
+                f"got {type(yaml_auto_dedup).__name__}"
+            )
+            yaml_auto_dedup = False
+        args._auto_dedup_masked_factors = bool(yaml_auto_dedup) if yaml_auto_dedup is not None else False
+
         # explicit_exclusions: yaml mining_config.explicit_exclusions list.
         # When yaml lists exclusions and CLI ALSO lists exclusions, fail-
         # closed unless they match exactly (yaml is source of truth).
@@ -849,6 +861,12 @@ def main() -> int:
         # Master PRD §4.2 Phase B.2 (R4 ship 2026-05-07): 60m bar dict
         # required when SR defer choices contains True.
         intraday_bars_60m=intraday_bars_60m,
+        # 2026-05-12: cycle #10+ opt-in masked-dup sampler-time auto-dedup.
+        # Default False preserves cycle04-09 behavior. Yaml plumbing
+        # below.
+        auto_dedup_masked_factors=getattr(
+            args, "_auto_dedup_masked_factors", False,
+        ),
         min_families=args.min_families,
         max_features_per_family=args.max_features_per_family,
         composite_weighting=args.composite_weighting,
