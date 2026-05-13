@@ -22,7 +22,9 @@
         "Bash(git reset *)",                                                                                        
         "Bash(git clean *)",
         "WebSearch", 
-        "WebFetch"
+        "WebFetch",
+        "AskUserQuestion",
+        "Skill"
       ],                                                                                                            
       "defaultMode": "dontAsk"                                                                                    
     },                                                                                                              
