@@ -1,0 +1,109 @@
+{
+  "snapshot_date": "2026-05-13",
+  "purpose": "pre-flight baseline for ML-1 + C10-2 implementation; compare post-implementation reproduction must match",
+  "git": {
+    "head": "08fc66c2cf095366a97213a66d1d3aec801467ae",
+    "status_clean": false
+  },
+  "critical_file_sha256": {
+    "config/universe.yaml": "6abc8f268d37c4e00444c77bae2c1172371d5f5aed88b78dfe32c41dfc4c0d6d",
+    "config/factor_registry.yaml": "missing:/home/zibo/Documents/projects/pqs/config/factor_registry.yaml",
+    "config/risk.yaml": "a78750b0ddffae81ab07703f56c122f1f40ece5b5a3e36f8480dfb382cb0991c",
+    "config/system.yaml": "d4d6757548e511308ee4a700bb0a337a60c66d240331dea429d1c9d07a67ea97",
+    "config/research_mask.yaml": "3ce962762b82f85eb3b3467935ded73f2f5ee14a0ed02586f2aa1aa7f63ab544",
+    "config/temporal_split.yaml": "602cf826c902f1be01d802d045627420ee60d9957a6f0e50fcd6911d5e3a4f94",
+    "config/cost_model.yaml": "c1b5fee2ec136db7051a47d5b6364d8b05c623a9b049cdf7f95c1d727a7e1b0d",
+    "core/factors/factor_registry.py": "176d7750fc800c79ae58442188eb3c58a0e8727c4c4b94af78b3de542fbdf33b",
+    "core/research/forward/runner.py": "933cdb5ae7b4e480497e8581ed097143bae2f297dea2fc2f15d1958e97de5dbd",
+    "core/research/harness/composite_evaluator.py": "78fbd0858ae526687a0eaf3b25408e19498aa0a06367a9a6d872b7d463b56f6c",
+    "core/research/risk_cluster_map.py": "7f04f245de02a4c68e1061ad11c01919df01f86362b1aac1e9a7df8e04184a7a",
+    "core/ml/xgb_alpha.py": "ef7e5f9d36060dead663c41f333dfa1a13fe52c2d499a043f5867ec7d2bc68f3",
+    "core/ml/feature_panel_builder.py": "838c60814ff5529237eb7444e9fcfe1604467edca8f4da9c4a3cd482dae9e54c",
+    "scripts/run_xgb_alpha_phase_1_5_sweep.py": "c826c317a99dcc185bd409031f9547a619a7928001ddfa5af51e0488ac46e6bb",
+    "scripts/run_xgb_alpha_mining.py": "1ab150d06e5265c7afd9609fd274b8fcc4cf4d39b5f66cbb2bc1b000a6809915"
+  },
+  "trial9_v2_manifest": {
+    "manifest_sha256": "d4ac1b86694a502e4a3b00df7e31cb399e44e1f298eb216d506757db44a3273a",
+    "universe_hash": "29eeff23263fd896f21850bc813bce5484150ef88416f24784ab4da2fa6f4d72",
+    "factor_registry_hash": "b844d7484d099ae508d178b5945bb6c2c8c791edb82287df983dabf70b328e88",
+    "risk_config_hash": "9068b5f72d64208803bd98ac1d092652327cd4c2406bcaed483846c2f2a3dbad",
+    "system_config_hash": "b2f96c3b9733d35f15b463339e14bbb55c374d6344d92f463d309e2fa836db82",
+    "research_mask_hash": "99ef97d08c326ff766a865dd7ddbe5880f5c3b91ae7658f30cae4b7f100de10a",
+    "spec_hash": "44870b91073aa5440dfa5d8ccc07b1f43dcc25235ce9139e2ca0352559e8f985",
+    "current_status": "not_started",
+    "n_runs": 0
+  },
+  "cycle09b_section_5_1_nav_corr": {
+    "file_sha256": "621b8f046de5c27f3325be47342ad5747f0f6ffaf6f80584fde37ec928a6d8cf",
+    "candidate_id": "cycle09b_trial1_5a99868072e6",
+    "pair_correlations": [
+      {
+        "anchor": "rcm_v1",
+        "raw_pearson_3dp": 0.81,
+        "res_spy_3dp": 0.809,
+        "res_qqq_3dp": 0.41
+      },
+      {
+        "anchor": "cand_2",
+        "raw_pearson_3dp": 0.781,
+        "res_spy_3dp": 0.778,
+        "res_qqq_3dp": 0.284
+      },
+      {
+        "anchor": "trial_9",
+        "raw_pearson_3dp": 0.744,
+        "res_spy_3dp": 0.742,
+        "res_qqq_3dp": 0.235
+      },
+      {
+        "anchor": "cycle07a_trial3",
+        "raw_pearson_3dp": 0.788,
+        "res_spy_3dp": 0.788,
+        "res_qqq_3dp": 0.384
+      },
+      {
+        "anchor": "cycle08_top1",
+        "raw_pearson_3dp": 0.02,
+        "res_spy_3dp": 0.019,
+        "res_qqq_3dp": 0.028
+      }
+    ],
+    "verdict_tier": "RED"
+  },
+  "cycle09b_section_5_4_deepdive": {
+    "file_sha256": "3714beaf741569ad7d08984a54b766342ef0f6d1791debb1b985e679f982b0fa",
+    "asset_class_equities_pct_3dp": 0.41,
+    "asset_class_bonds_pct_3dp": 0.145,
+    "asset_class_commodities_pct_3dp": 0.058,
+    "asset_class_cash_anchor_pct_3dp": 0.089,
+    "qqq_overlap_avg_weight_3dp": 0.288,
+    "top1_holding": "GLD",
+    "top3_holdings": [
+      "GLD",
+      "IEF",
+      "SHV"
+    ]
+  },
+  "ml_phase_1_5_sweep": {
+    "file_sha256": "db753f08ca9d7f8d44022ddd8c9819b4262bbc42023e1c5f931ab9d4a9386630",
+    "best_config_avg_per_yr_vs_spy": 0.063575,
+    "best_track_a_pass_configs": 6,
+    "total_configs": 27,
+    "abort_condition_fired": true,
+    "baseline_threshold": 0.1531
+  },
+  "baseline_tests": {
+    "file_sha256": "0f3044a22ac3398628e4b95fcc07726bc8af9897f5a1656509502b62c5f9b52c",
+    "test_count": null,
+    "pass_count": null
+  },
+  "forward_manifests_sha256": {
+    "rcm_v1_defensive_composite_01_forward_manifest.json": "f0451a66bfbfff891f7dcf0b67f06b522fa89dd1fefa5d904ccbdd8f054e60a7",
+    "candidate_2_orthogonal_01_forward_manifest.json": "3f82fdb0249a1f48abacf328ee49b53351e8dd2001d0258a22eff4fcc02b5814",
+    "trial9_diversifier_001_forward_manifest.json": "eac2951ed85fc59a487b1e6bb8473a316a577175b92110d09dadf4ba028eaefe",
+    "trial9_diversifier_002_forward_manifest.json": "d4ac1b86694a502e4a3b00df7e31cb399e44e1f298eb216d506757db44a3273a"
+  },
+  "cycle09b_yaml_sha256": "b0b9e181066152b7eb8195e993d62d14e38b8ef206b256005ff10b5f2b17609a",
+  "cycle09b_yaml_expected_sha": "b0b9e181066152b7eb8195e993d62d14e38b8ef206b256005ff10b5f2b17609a",
+  "cycle09b_yaml_immutable_match": true
+}
