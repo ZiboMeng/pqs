@@ -60,6 +60,7 @@ from core.research.risk_cluster_map import (
     make_unified_cluster_map,
 )
 from core.research.temporal_split import (
+    _expand_year_entries,
     load_temporal_split,
     partition_for_role,
     purge_labels_at_boundary,
@@ -125,9 +126,9 @@ def main() -> int:
     logger.info("  ml_panel: %d rows × %d features (%.1fs)",
                 len(ml_panel), len(feature_cols), time.time() - t3)
 
-    train_years = sorted({y.year for y in split_cfg.partition.train_years})
-    validation_years = sorted({y.year for y in split_cfg.partition.validation_years})
-    sealed_years = sorted({y.year for y in split_cfg.partition.sealed_years})
+    train_years = sorted(set(_expand_year_entries(split_cfg.partition.train_years)))
+    validation_years = sorted({vy.year for vy in split_cfg.partition.validation_years})
+    sealed_years = sorted({sy.year for sy in split_cfg.partition.sealed_test_years})
     logger.info("Train years: %s", train_years)
     logger.info("Validation years: %s", validation_years)
     logger.info("Sealed years: %s (NEVER scored against)", sealed_years)
@@ -312,7 +313,25 @@ def main() -> int:
     }
     out_path = out_dir / "phase_1_summary.json"
     out_path.write_text(json.dumps(result, indent=2, default=str))
-    logger.info("Phase 1 complete: wrote %s", out_path)
+
+    # ── Save NAV + weights + benchmark series for downstream NAV correlation
+    nav_series = res.nav
+    if nav_series is not None and len(nav_series) > 0:
+        nav_df = pd.DataFrame({"date": nav_series.index, "nav": nav_series.values})
+        nav_df.to_csv(out_dir / "nav.csv", index=False)
+    weights_out = res.weights
+    if weights_out is not None and not weights_out.empty:
+        weights_out.to_parquet(out_dir / "weights.parquet")
+    if spy is not None and len(spy) > 0:
+        pd.DataFrame({"date": spy.index, "close": spy.values}).to_csv(
+            out_dir / "benchmark_spy.csv", index=False,
+        )
+    if qqq is not None and len(qqq) > 0:
+        pd.DataFrame({"date": qqq.index, "close": qqq.values}).to_csv(
+            out_dir / "benchmark_qqq.csv", index=False,
+        )
+
+    logger.info("Phase 1 complete: wrote %s + nav.csv/weights.parquet", out_path)
     logger.info("Track A verdict: %s", "PASS" if track_a_passed else "FAIL")
     if not track_a_passed:
         logger.info("  failed gates: %s", failed_gates)
