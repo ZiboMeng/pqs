@@ -1,0 +1,36 @@
+{
+  "candidate": "ML Phase 1.6 rank:ndcg config",
+  "ndcg_avg_per_yr_vs_spy": 0.1445,
+  "cycle09b_linear_baseline": 0.1531,
+  "pct_of_baseline": 0.944,
+  "pair_correlations": [
+    {
+      "anchor": "rcm_v1",
+      "n_overlap_days": 1494,
+      "pooled_pearson_raw": 0.8381158954680886,
+      "pooled_pearson_residual_vs_spy": 0.8371635389073901,
+      "pooled_pearson_residual_vs_qqq": 0.5152477252731885
+    },
+    {
+      "anchor": "cand_2",
+      "n_overlap_days": 1494,
+      "pooled_pearson_raw": 0.8287433346907661,
+      "pooled_pearson_residual_vs_spy": 0.827314985039689,
+      "pooled_pearson_residual_vs_qqq": 0.4645102378483055
+    },
+    {
+      "anchor": "trial_9_v2",
+      "n_overlap_days": 1494,
+      "pooled_pearson_raw": 0.8451456163114058,
+      "pooled_pearson_residual_vs_spy": 0.8440226498616805,
+      "pooled_pearson_residual_vs_qqq": 0.5535127330200735
+    }
+  ],
+  "g3_anchors_passing": 0,
+  "g3_required": 1,
+  "g3_verdict": "FAIL",
+  "comparison_to_trial1": {
+    "trial1_g3_anchors_passing": 0,
+    "trial1_g3_verdict": "FAIL"
+  }
+}

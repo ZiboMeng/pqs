@@ -1,0 +1,112 @@
+2026-05-13 12:06:15,915 [INFO] Phase 1.6 sweep: 5 objectives
+2026-05-13 12:06:15,915 [INFO]   - reg:squarederror
+2026-05-13 12:06:15,915 [INFO]   - rank:pairwise
+2026-05-13 12:06:15,915 [INFO]   - rank:ndcg
+2026-05-13 12:06:15,915 [INFO]   - lambda_rank_ic
+2026-05-13 12:06:15,915 [INFO]   - quintile_classification
+2026-05-13 12:06:15,916 [INFO] Loading panel + factors...
+2026-05-13 12:06:48,545 [INFO] FactorGenerator: produced 88 candidate factors
+2026-05-13 12:06:48,560 [INFO]   panel: (4876, 79), factors: 88 (32.6s)
+2026-05-13 12:06:50,425 [INFO] Building ML panel...
+2026-05-13 12:06:55,938 [INFO] ML panel: 147591 rows × 88 features (masked out: 3377)
+2026-05-13 12:06:55,939 [INFO]   ml_panel: 147591 rows × 88 features
+2026-05-13 12:06:55,939 [INFO] 
+═══ Phase 1.6 objective 1/5: reg:squarederror ═══
+2026-05-13 12:06:55,939 [INFO] ──────────────────────────────────────────────────────────────────────
+2026-05-13 12:06:55,939 [INFO] Objective reg:squarederror
+2026-05-13 12:07:04,304 [INFO]   Predictions: 147591 rows; best_iter {2009: 1, 2010: 0, 2011: 1, 2012: 0, 2013: 0, 2014: 0, 2015: 4, 2020: 0, 2022: 3, 2024: 0, 'full_train': 2} (8.4s)
+2026-05-13 12:07:06,594 [WARNING] [2015-02-19] ghost-position cleanup: liquidating SHY qty=0.0420 @ last_close=84.6500 after 6 stale days
+2026-05-13 12:07:07,060 [WARNING] [2016-06-20] ghost-position cleanup: liquidating CMG qty=2.2175 @ last_close=7.9050 after 6 stale days
+2026-05-13 12:07:07,450 [WARNING] [2017-07-12] ghost-position cleanup: liquidating ACGL qty=99.0000 @ last_close=31.4100 after 6 stale days
+2026-05-13 12:07:07,486 [WARNING] [2017-08-12] ghost-position cleanup: liquidating ACGL qty=445.8728 @ last_close=32.4167 after 6 stale days
+2026-05-13 12:07:07,809 [WARNING] [2018-07-14] ghost-position cleanup: liquidating ABT qty=0.1391 @ last_close=62.4500 after 6 stale days
+2026-05-13 12:07:07,882 [WARNING] [2018-09-17] ghost-position cleanup: liquidating LLY qty=170.9829 @ last_close=105.6500 after 6 stale days
+2026-05-13 12:07:08,252 [WARNING] [2019-08-20] ghost-position cleanup: liquidating LLY qty=0.0889 @ last_close=110.3200 after 6 stale days
+2026-05-13 12:07:08,289 [WARNING] [2019-09-21] ghost-position cleanup: liquidating AXP qty=0.4862 @ last_close=117.6200 after 6 stale days
+2026-05-13 12:07:08,362 [WARNING] [2019-11-25] ghost-position cleanup: liquidating MCK qty=0.0002 @ last_close=150.2500 after 6 stale days
+2026-05-13 12:07:08,450 [WARNING] [2020-03-17] ghost-position cleanup: liquidating MCK qty=129.3088 @ last_close=135.1600 after 6 stale days
+2026-05-13 12:07:09,134 [WARNING] [2022-02-03] ghost-position cleanup: liquidating META qty=1690.5003 @ last_close=12.3000 after 6 stale days
+2026-05-13 12:07:09,656 [WARNING] [2023-07-06] ghost-position cleanup: liquidating DG qty=162.6357 @ last_close=166.8000 after 6 stale days
+2026-05-13 12:07:26,904 [INFO]   Track A: True (n_pass=18/18)
+2026-05-13 12:07:26,904 [INFO]   avg per-yr vs_spy: +6.36% (n_pass=4/5) wall=30.9s
+2026-05-13 12:07:26,904 [INFO] 
+═══ Phase 1.6 objective 2/5: rank:pairwise ═══
+2026-05-13 12:07:26,905 [INFO] ──────────────────────────────────────────────────────────────────────
+2026-05-13 12:07:26,905 [INFO] Objective rank:pairwise
+2026-05-13 12:07:35,180 [INFO]   Predictions: 147591 rows; best_iter {2009: 14, 2010: 1, 2011: 1, 2012: 4, 2013: 3, 2014: 23, 2015: 0, 2020: 9, 2022: 0, 2024: 0, 'full_train': 19} (8.3s)
+2026-05-13 12:07:37,495 [WARNING] [2015-02-19] ghost-position cleanup: liquidating SHY qty=0.0420 @ last_close=84.6500 after 6 stale days
+2026-05-13 12:07:37,654 [WARNING] [2015-08-08] ghost-position cleanup: liquidating ACGL qty=2.0000 @ last_close=24.0200 after 6 stale days
+2026-05-13 12:07:37,965 [WARNING] [2016-06-20] ghost-position cleanup: liquidating CMG qty=2.0821 @ last_close=7.9050 after 6 stale days
+2026-05-13 12:07:38,702 [WARNING] [2018-07-04] ghost-position cleanup: liquidating LLY qty=1.0899 @ last_close=85.4900 after 6 stale days
+2026-05-13 12:07:38,762 [WARNING] [2018-08-27] ghost-position cleanup: liquidating ISRG qty=0.4649 @ last_close=176.3500 after 6 stale days
+2026-05-13 12:07:39,147 [WARNING] [2019-08-20] ghost-position cleanup: liquidating LLY qty=0.0656 @ last_close=110.3200 after 6 stale days
+2026-05-13 12:07:39,254 [WARNING] [2019-11-25] ghost-position cleanup: liquidating MCK qty=0.0020 @ last_close=150.2500 after 6 stale days
+2026-05-13 12:07:40,991 [WARNING] [2024-08-27] ghost-position cleanup: liquidating PWR qty=92.0021 @ last_close=269.4000 after 6 stale days
+2026-05-13 12:07:41,110 [WARNING] [2025-01-11] ghost-position cleanup: liquidating MCK qty=0.0103 @ last_close=580.6900 after 6 stale days
+2026-05-13 12:07:41,242 [WARNING] [2025-05-08] ghost-position cleanup: liquidating SHY qty=341.9695 @ last_close=82.5300 after 6 stale days
+2026-05-13 12:07:41,288 [WARNING] [2025-06-19] ghost-position cleanup: liquidating SHY qty=327.7725 @ last_close=82.4100 after 6 stale days
+2026-05-13 12:07:41,328 [WARNING] [2025-07-22] ghost-position cleanup: liquidating SHY qty=339.6002 @ last_close=82.4800 after 6 stale days
+2026-05-13 12:07:57,782 [INFO]   Track A: False (n_pass=17/18)
+2026-05-13 12:07:57,782 [INFO]   avg per-yr vs_spy: +6.29% (n_pass=3/5) wall=30.9s
+2026-05-13 12:07:57,783 [INFO] 
+═══ Phase 1.6 objective 3/5: rank:ndcg ═══
+2026-05-13 12:07:57,783 [INFO] ──────────────────────────────────────────────────────────────────────
+2026-05-13 12:07:57,783 [INFO] Objective rank:ndcg
+2026-05-13 12:08:12,363 [INFO]   Predictions: 147591 rows; best_iter {2009: 31, 2010: 32, 2011: 24, 2012: 26, 2013: 23, 2014: 31, 2015: 19, 2020: 3, 2022: 90, 2024: 44, 'full_train': 23} (14.6s)
+2026-05-13 12:08:14,694 [WARNING] [2015-02-19] ghost-position cleanup: liquidating SHY qty=0.0420 @ last_close=84.6500 after 6 stale days
+2026-05-13 12:08:15,154 [WARNING] [2016-06-20] ghost-position cleanup: liquidating CMG qty=1410.0888 @ last_close=7.9050 after 6 stale days
+2026-05-13 12:08:16,328 [WARNING] [2019-08-20] ghost-position cleanup: liquidating LLY qty=0.0915 @ last_close=110.3200 after 6 stale days
+2026-05-13 12:08:17,451 [WARNING] [2022-11-25] ghost-position cleanup: liquidating TT qty=0.0003 @ last_close=176.2700 after 6 stale days
+2026-05-13 12:08:17,981 [WARNING] [2024-06-08] ghost-position cleanup: liquidating TKO qty=0.0241 @ last_close=108.2100 after 6 stale days
+2026-05-13 12:08:18,067 [WARNING] [2024-08-27] ghost-position cleanup: liquidating PWR qty=180.8533 @ last_close=269.4000 after 6 stale days
+2026-05-13 12:08:18,299 [WARNING] [2025-05-08] ghost-position cleanup: liquidating SHY qty=712.9837 @ last_close=82.5300 after 6 stale days
+2026-05-13 12:08:18,339 [WARNING] [2025-06-19] ghost-position cleanup: liquidating SHY qty=707.3877 @ last_close=82.4100 after 6 stale days
+2026-05-13 12:08:18,375 [WARNING] [2025-07-22] ghost-position cleanup: liquidating SHY qty=707.0000 @ last_close=82.4800 after 6 stale days
+2026-05-13 12:08:34,753 [INFO]   Track A: True (n_pass=18/18)
+2026-05-13 12:08:34,753 [INFO]   avg per-yr vs_spy: +14.45% (n_pass=4/5) wall=36.9s
+2026-05-13 12:08:34,753 [INFO] 
+═══ Phase 1.6 objective 4/5: lambda_rank_ic ═══
+2026-05-13 12:08:34,754 [INFO] ──────────────────────────────────────────────────────────────────────
+2026-05-13 12:08:34,754 [INFO] Objective lambda_rank_ic
+2026-05-13 13:07:14,219 [INFO]   Predictions: 147591 rows; best_iter {2009: 25, 2010: 0, 2011: 24, 2012: 25, 2013: 70, 2014: 6, 2015: 65, 2020: 0, 2022: 38, 2024: 23, 'full_train': 36} (3519.5s)
+2026-05-13 13:07:16,265 [WARNING] [2015-02-19] ghost-position cleanup: liquidating SHY qty=0.0420 @ last_close=84.6500 after 6 stale days
+2026-05-13 13:07:16,656 [WARNING] [2016-06-06] ghost-position cleanup: liquidating A qty=2.0722 @ last_close=45.8800 after 6 stale days
+2026-05-13 13:07:17,379 [WARNING] [2018-08-27] ghost-position cleanup: liquidating ISRG qty=0.4625 @ last_close=176.3500 after 6 stale days
+2026-05-13 13:07:17,727 [WARNING] [2019-08-20] ghost-position cleanup: liquidating LLY qty=0.0615 @ last_close=110.3200 after 6 stale days
+2026-05-13 13:07:18,020 [WARNING] [2020-07-09] ghost-position cleanup: liquidating ISRG qty=0.4830 @ last_close=193.6200 after 6 stale days
+2026-05-13 13:07:18,927 [WARNING] [2023-04-18] ghost-position cleanup: liquidating APD qty=0.0018 @ last_close=287.2800 after 6 stale days
+2026-05-13 13:07:19,002 [WARNING] [2023-07-06] ghost-position cleanup: liquidating DG qty=0.0173 @ last_close=166.8000 after 6 stale days
+2026-05-13 13:07:19,251 [WARNING] [2024-04-10] ghost-position cleanup: liquidating KLAC qty=0.0070 @ last_close=672.5500 after 6 stale days
+2026-05-13 13:07:19,282 [WARNING] [2024-05-09] ghost-position cleanup: liquidating LRCX qty=0.0733 @ last_close=90.8670 after 6 stale days
+2026-05-13 13:07:19,388 [WARNING] [2024-08-27] ghost-position cleanup: liquidating PWR qty=126.8115 @ last_close=269.4000 after 6 stale days
+2026-05-13 13:07:19,606 [WARNING] [2025-05-08] ghost-position cleanup: liquidating SHY qty=469.5178 @ last_close=82.5300 after 6 stale days
+2026-05-13 13:07:19,647 [WARNING] [2025-06-19] ghost-position cleanup: liquidating SHY qty=450.6395 @ last_close=82.4100 after 6 stale days
+2026-05-13 13:07:19,679 [WARNING] [2025-07-22] ghost-position cleanup: liquidating SHY qty=458.2717 @ last_close=82.4800 after 6 stale days
+2026-05-13 13:07:34,138 [INFO]   Track A: False (n_pass=16/18)
+2026-05-13 13:07:34,138 [INFO]   avg per-yr vs_spy: +1.01% (n_pass=2/5) wall=3539.4s
+2026-05-13 13:07:34,139 [INFO] 
+═══ Phase 1.6 objective 5/5: quintile_classification ═══
+2026-05-13 13:07:34,139 [INFO] ──────────────────────────────────────────────────────────────────────
+2026-05-13 13:07:34,139 [INFO] Objective quintile_classification
+2026-05-13 13:08:33,002 [INFO]   Predictions: 147591 rows; best_iter {2009: 101, 2010: 104, 2011: 107, 2012: 91, 2013: 113, 2014: 87, 2015: 107, 2020: 76, 2022: 89, 2024: 73, 'full_train': 119} (58.9s)
+2026-05-13 13:08:35,221 [WARNING] [2015-02-19] ghost-position cleanup: liquidating SHY qty=0.0420 @ last_close=84.6500 after 6 stale days
+2026-05-13 13:08:35,372 [WARNING] [2015-08-08] ghost-position cleanup: liquidating ACGL qty=52.0000 @ last_close=24.0200 after 6 stale days
+2026-05-13 13:08:35,669 [WARNING] [2016-06-20] ghost-position cleanup: liquidating CMG qty=1168.3085 @ last_close=7.9050 after 6 stale days
+2026-05-13 13:08:36,816 [WARNING] [2019-08-20] ghost-position cleanup: liquidating LLY qty=0.0802 @ last_close=110.3200 after 6 stale days
+2026-05-13 13:08:37,676 [WARNING] [2022-02-03] ghost-position cleanup: liquidating META qty=2010.8230 @ last_close=12.3000 after 6 stale days
+2026-05-13 13:08:38,109 [WARNING] [2023-04-18] ghost-position cleanup: liquidating APD qty=0.2285 @ last_close=287.2800 after 6 stale days
+2026-05-13 13:08:38,190 [WARNING] [2023-07-06] ghost-position cleanup: liquidating DG qty=0.0104 @ last_close=166.8000 after 6 stale days
+2026-05-13 13:08:38,516 [WARNING] [2024-06-18] ghost-position cleanup: liquidating SHY qty=0.3413 @ last_close=81.4700 after 6 stale days
+2026-05-13 13:08:54,081 [INFO]   Track A: True (n_pass=18/18)
+2026-05-13 13:08:54,082 [INFO]   avg per-yr vs_spy: +8.39% (n_pass=4/5) wall=79.9s
+2026-05-13 13:08:54,083 [INFO] 
+Grid saved: /home/zibo/Documents/projects/pqs/data/ml/xgb_alpha_phase_1_6/sweep_grid.csv
+2026-05-13 13:08:54,086 [INFO] Grid:
+                 objective         config_id  avg_per_year_vs_spy  n_pass_vs_spy  track_a_passed  track_a_n_pass                                                                 track_a_failed  wall_clock_s
+0         reg:squarederror  reg_squarederror             0.063575              4            True              18                                                                                    30.938893
+1            rank:pairwise     rank_pairwise             0.062943              3           False              17                                             validation_aggregate_excess_vs_spy     30.851578
+2                rank:ndcg         rank_ndcg             0.144505              4            True              18                                                                                    36.946219
+3           lambda_rank_ic    lambda_rank_ic             0.010144              2           False              16  validation_aggregate_excess_vs_spy,role_core__validation__2025__excess_vs_spy   3539.362531
+4  quintile_classification      quintile_cls             0.083912              4            True              18                                                                                    79.920458
+2026-05-13 13:08:54,086 [INFO] 
+❌ NO objective beats cycle09b baseline +15.31% — §3.9 abort confirmed across objectives
