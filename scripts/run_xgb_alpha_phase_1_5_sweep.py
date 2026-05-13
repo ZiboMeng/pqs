@@ -63,6 +63,7 @@ from core.research.risk_cluster_map import (
     make_unified_cluster_map,
 )
 from core.research.temporal_split import (
+    _expand_year_entries,
     load_temporal_split,
     partition_for_role,
     purge_labels_at_boundary,
@@ -476,20 +477,7 @@ def main() -> int:
     )
     logger.info("  ml_panel: %d rows × %d features", len(ml_panel), len(feature_cols))
 
-    def _expand(years):
-        out = []
-        for y in years:
-            if isinstance(y, int):
-                out.append(y)
-            elif hasattr(y, "year"):
-                out.append(y.year)
-            elif isinstance(y, str):
-                out.append(int(y[:4]))
-            else:
-                out.append(int(y))
-        return sorted(set(out))
-
-    train_years = _expand(split_cfg.partition.train_years)
+    train_years = sorted(set(_expand_year_entries(split_cfg.partition.train_years)))
     validation_years = sorted({vy.year for vy in split_cfg.partition.validation_years})
     stress_slices = {
         ss.name: (ss.start.isoformat(), ss.end.isoformat())

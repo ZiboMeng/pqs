@@ -1,0 +1,131 @@
+2026-05-13 09:50:42,671 [INFO] Phase 1.5 sweep: 3 configs (smoke mode)
+2026-05-13 09:50:42,671 [INFO]   config 1/3: lr0.05_n200_v_single_2017
+2026-05-13 09:50:42,671 [INFO]   config 2/3: lr0.01_n1000_v_single_2017
+2026-05-13 09:50:42,671 [INFO]   config 3/3: lr0.02_n500_v_multi_2016_2017
+2026-05-13 09:50:42,671 [INFO] Loading panel + factors...
+2026-05-13 09:51:14,514 [INFO] FactorGenerator: produced 88 candidate factors
+2026-05-13 09:51:14,526 [INFO]   panel: (4876, 79), factors: 88 (31.9s)
+2026-05-13 09:51:16,226 [INFO] Building ML panel...
+2026-05-13 09:51:20,861 [INFO] ML panel: 147591 rows × 88 features (masked out: 3377)
+2026-05-13 09:51:20,861 [INFO]   ml_panel: 147591 rows × 88 features
+2026-05-13 09:51:20,862 [INFO] Train years: [2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2020, 2022, 2024]
+2026-05-13 09:51:20,862 [INFO] Validation years: [2018, 2019, 2021, 2023, 2025]
+2026-05-13 09:51:20,862 [INFO] Stress slices: ['covid_flash', 'rate_hike_2022']
+2026-05-13 09:51:20,862 [INFO] 
+═══ Sweep config 1/3 ═══
+2026-05-13 09:51:20,862 [INFO] ──────────────────────────────────────────────────────────────────────
+2026-05-13 09:51:20,862 [INFO] Config lr0.05_n200_v_single_2017: {'learning_rate': 0.05, 'n_estimators': 200, 'inner_val_strategy': 'single_2017'}
+2026-05-13 09:51:20,862 [INFO]   Running LOTYO CV...
+2026-05-13 09:51:22,644 [INFO] LOTYO fold y_test=2009 n_train=69929 n_test=1314 ic_mean=0.3411 ic_std=0.5484 best_iter=0
+2026-05-13 09:51:23,309 [INFO] LOTYO fold y_test=2010 n_train=69804 n_test=1439 ic_mean=0.2322 ic_std=0.5426 best_iter=0
+2026-05-13 09:51:23,915 [INFO] LOTYO fold y_test=2011 n_train=69816 n_test=1427 ic_mean=0.0989 ic_std=0.5781 best_iter=0
+2026-05-13 09:51:24,507 [INFO] LOTYO fold y_test=2012 n_train=69776 n_test=1467 ic_mean=-0.1388 ic_std=0.6153 best_iter=0
+2026-05-13 09:51:25,122 [INFO] LOTYO fold y_test=2013 n_train=69804 n_test=1439 ic_mean=-0.1988 ic_std=0.5670 best_iter=0
+2026-05-13 09:51:25,814 [INFO] LOTYO fold y_test=2014 n_train=69885 n_test=1358 ic_mean=0.1873 ic_std=0.5441 best_iter=0
+2026-05-13 09:51:26,344 [INFO] LOTYO fold y_test=2015 n_train=60180 n_test=11063 ic_mean=0.0165 ic_std=0.1918 best_iter=0
+2026-05-13 09:51:26,877 [INFO] LOTYO fold y_test=2016 n_train=59076 n_test=12167 ic_mean=-0.0018 ic_std=0.1661 best_iter=0
+2026-05-13 09:51:28,395 [INFO] LOTYO fold y_test=2017 n_train=71243 n_test=11246 ic_mean=0.0100 ic_std=0.1744 best_iter=None
+2026-05-13 09:51:28,926 [INFO] LOTYO fold y_test=2020 n_train=57926 n_test=13317 ic_mean=-0.0063 ic_std=0.2008 best_iter=0
+2026-05-13 09:51:29,443 [INFO] LOTYO fold y_test=2022 n_train=57761 n_test=13482 ic_mean=0.0003 ic_std=0.1885 best_iter=0
+2026-05-13 09:51:29,974 [INFO] LOTYO fold y_test=2024 n_train=58473 n_test=12770 ic_mean=0.0652 ic_std=0.2307 best_iter=0
+2026-05-13 09:51:29,974 [INFO]   LOTYO CV: mean ic (non-NaN)=0.0505 over 12 folds (9.1s)
+2026-05-13 09:51:29,974 [INFO]   Training final model + OOF predictions...
+2026-05-13 09:51:35,235 [INFO]   Predictions: 147591 rows; best_iter log: {2009: 0, 2010: 0, 2011: 0, 2012: 0, 2013: 0, 2014: 0, 2015: 0, 2016: 0, 2020: 0, 2022: 0, 2024: 0, 'full_train': 0} (5.3s)
+2026-05-13 09:51:35,235 [INFO]   Harness evaluation...
+2026-05-13 09:51:37,428 [WARNING] [2015-02-19] ghost-position cleanup: liquidating SHY qty=0.0423 @ last_close=84.6500 after 6 stale days
+2026-05-13 09:51:37,576 [WARNING] [2015-08-08] ghost-position cleanup: liquidating ACGL qty=204.0000 @ last_close=24.0200 after 6 stale days
+2026-05-13 09:51:37,574 [WARNING] [2017-07-12] ghost-position cleanup: liquidating ACGL qty=107.0000 @ last_close=31.4100 after 6 stale days
+2026-05-13 09:51:37,609 [WARNING] [2017-08-12] ghost-position cleanup: liquidating ACGL qty=407.8973 @ last_close=32.4167 after 6 stale days
+2026-05-13 09:51:38,333 [WARNING] [2019-08-20] ghost-position cleanup: liquidating LLY qty=0.0735 @ last_close=110.3200 after 6 stale days
+2026-05-13 09:51:38,366 [WARNING] [2019-09-21] ghost-position cleanup: liquidating AXP qty=0.4117 @ last_close=117.6200 after 6 stale days
+2026-05-13 09:51:38,518 [WARNING] [2020-03-17] ghost-position cleanup: liquidating MCK qty=121.8760 @ last_close=135.1600 after 6 stale days
+2026-05-13 09:51:39,658 [WARNING] [2023-07-06] ghost-position cleanup: liquidating DG qty=178.8341 @ last_close=166.8000 after 6 stale days
+2026-05-13 09:51:39,903 [WARNING] [2024-04-10] ghost-position cleanup: liquidating KLAC qty=0.0008 @ last_close=672.5500 after 6 stale days
+2026-05-13 09:51:39,973 [WARNING] [2024-06-18] ghost-position cleanup: liquidating SHY qty=0.2864 @ last_close=81.4700 after 6 stale days
+2026-05-13 09:51:40,269 [WARNING] [2025-05-08] ghost-position cleanup: liquidating SHY qty=663.0916 @ last_close=82.5300 after 6 stale days
+2026-05-13 09:51:40,312 [WARNING] [2025-06-19] ghost-position cleanup: liquidating SHY qty=626.7897 @ last_close=82.4100 after 6 stale days
+2026-05-13 09:51:40,344 [WARNING] [2025-07-22] ghost-position cleanup: liquidating SHY qty=637.7300 @ last_close=82.4800 after 6 stale days
+2026-05-13 09:51:54,873 [INFO]   Track A passed: False (n_pass=16/18 failed=['validation_aggregate_excess_vs_spy', 'role_core__validation__2025__excess_vs_spy'])
+2026-05-13 09:51:54,873 [INFO]   avg per-yr vs_spy: +0.29% (n_pass=2/5)
+2026-05-13 09:51:54,873 [INFO]   Wall-clock: 34.0s
+2026-05-13 09:51:54,874 [INFO] 
+═══ Sweep config 2/3 ═══
+2026-05-13 09:51:54,874 [INFO] ──────────────────────────────────────────────────────────────────────
+2026-05-13 09:51:54,874 [INFO] Config lr0.01_n1000_v_single_2017: {'learning_rate': 0.01, 'n_estimators': 1000, 'inner_val_strategy': 'single_2017'}
+2026-05-13 09:51:54,874 [INFO]   Running LOTYO CV...
+2026-05-13 09:51:56,347 [INFO] LOTYO fold y_test=2009 n_train=69929 n_test=1314 ic_mean=0.3411 ic_std=0.5484 best_iter=0
+2026-05-13 09:51:57,626 [INFO] LOTYO fold y_test=2010 n_train=69804 n_test=1439 ic_mean=0.2322 ic_std=0.5426 best_iter=0
+2026-05-13 09:51:58,942 [INFO] LOTYO fold y_test=2011 n_train=69816 n_test=1427 ic_mean=0.0989 ic_std=0.5781 best_iter=0
+2026-05-13 09:52:00,228 [INFO] LOTYO fold y_test=2012 n_train=69776 n_test=1467 ic_mean=-0.1388 ic_std=0.6153 best_iter=0
+2026-05-13 09:52:01,619 [INFO] LOTYO fold y_test=2013 n_train=69804 n_test=1439 ic_mean=-0.1988 ic_std=0.5670 best_iter=0
+2026-05-13 09:52:02,972 [INFO] LOTYO fold y_test=2014 n_train=69885 n_test=1358 ic_mean=0.1873 ic_std=0.5441 best_iter=0
+2026-05-13 09:52:04,159 [INFO] LOTYO fold y_test=2015 n_train=60180 n_test=11063 ic_mean=0.0250 ic_std=0.1963 best_iter=1
+2026-05-13 09:52:05,379 [INFO] LOTYO fold y_test=2016 n_train=59076 n_test=12167 ic_mean=-0.0018 ic_std=0.1661 best_iter=0
+2026-05-13 09:52:10,775 [INFO] LOTYO fold y_test=2017 n_train=71243 n_test=11246 ic_mean=0.0320 ic_std=0.1763 best_iter=None
+2026-05-13 09:52:12,159 [INFO] LOTYO fold y_test=2020 n_train=57926 n_test=13317 ic_mean=0.0057 ic_std=0.2276 best_iter=17
+2026-05-13 09:52:13,393 [INFO] LOTYO fold y_test=2022 n_train=57761 n_test=13482 ic_mean=-0.0375 ic_std=0.2531 best_iter=4
+2026-05-13 09:52:14,746 [INFO] LOTYO fold y_test=2024 n_train=58473 n_test=12770 ic_mean=0.0652 ic_std=0.2307 best_iter=0
+2026-05-13 09:52:14,747 [INFO]   LOTYO CV: mean ic (non-NaN)=0.0509 over 12 folds (19.9s)
+2026-05-13 09:52:14,747 [INFO]   Training final model + OOF predictions...
+2026-05-13 09:52:28,465 [INFO]   Predictions: 147591 rows; best_iter log: {2009: 0, 2010: 0, 2011: 0, 2012: 0, 2013: 0, 2014: 0, 2015: 1, 2016: 0, 2020: 17, 2022: 4, 2024: 0, 'full_train': 0} (13.7s)
+2026-05-13 09:52:28,465 [INFO]   Harness evaluation...
+2026-05-13 09:52:30,667 [WARNING] [2015-02-19] ghost-position cleanup: liquidating SHY qty=0.0423 @ last_close=84.6500 after 6 stale days
+2026-05-13 09:52:30,816 [WARNING] [2015-08-08] ghost-position cleanup: liquidating ACGL qty=204.0000 @ last_close=24.0200 after 6 stale days
+2026-05-13 09:52:31,108 [WARNING] [2016-06-20] ghost-position cleanup: liquidating CMG qty=2.2277 @ last_close=7.9050 after 6 stale days
+2026-05-13 09:52:31,491 [WARNING] [2017-07-12] ghost-position cleanup: liquidating ACGL qty=84.0000 @ last_close=31.4100 after 6 stale days
+2026-05-13 09:52:31,526 [WARNING] [2017-08-12] ghost-position cleanup: liquidating ACGL qty=398.4965 @ last_close=32.4167 after 6 stale days
+2026-05-13 09:52:32,258 [WARNING] [2019-08-20] ghost-position cleanup: liquidating LLY qty=0.0719 @ last_close=110.3200 after 6 stale days
+2026-05-13 09:52:32,292 [WARNING] [2019-09-21] ghost-position cleanup: liquidating AXP qty=0.4029 @ last_close=117.6200 after 6 stale days
+2026-05-13 09:52:33,572 [WARNING] [2023-07-06] ghost-position cleanup: liquidating DG qty=182.5482 @ last_close=166.8000 after 6 stale days
+2026-05-13 09:52:33,881 [WARNING] [2024-06-18] ghost-position cleanup: liquidating SHY qty=0.3068 @ last_close=81.4700 after 6 stale days
+2026-05-13 09:52:34,167 [WARNING] [2025-05-08] ghost-position cleanup: liquidating SHY qty=673.0491 @ last_close=82.5300 after 6 stale days
+2026-05-13 09:52:34,208 [WARNING] [2025-06-19] ghost-position cleanup: liquidating SHY qty=636.2605 @ last_close=82.4100 after 6 stale days
+2026-05-13 09:52:34,240 [WARNING] [2025-07-22] ghost-position cleanup: liquidating SHY qty=647.4424 @ last_close=82.4800 after 6 stale days
+2026-05-13 09:52:48,811 [INFO]   Track A passed: False (n_pass=16/18 failed=['validation_aggregate_excess_vs_spy', 'role_core__validation__2025__excess_vs_spy'])
+2026-05-13 09:52:48,811 [INFO]   avg per-yr vs_spy: +2.17% (n_pass=2/5)
+2026-05-13 09:52:48,811 [INFO]   Wall-clock: 53.9s
+2026-05-13 09:52:48,811 [INFO] 
+═══ Sweep config 3/3 ═══
+2026-05-13 09:52:48,812 [INFO] ──────────────────────────────────────────────────────────────────────
+2026-05-13 09:52:48,812 [INFO] Config lr0.02_n500_v_multi_2016_2017: {'learning_rate': 0.02, 'n_estimators': 500, 'inner_val_strategy': 'multi_2016_2017'}
+2026-05-13 09:52:48,812 [INFO]   Running LOTYO CV...
+2026-05-13 09:52:49,709 [INFO] LOTYO fold y_test=2009 n_train=69008 n_test=1314 ic_mean=0.2728 ic_std=0.5734 best_iter=5
+2026-05-13 09:52:50,705 [INFO] LOTYO fold y_test=2010 n_train=68883 n_test=1439 ic_mean=0.0822 ic_std=0.4739 best_iter=9
+2026-05-13 09:52:51,583 [INFO] LOTYO fold y_test=2011 n_train=68895 n_test=1427 ic_mean=0.0744 ic_std=0.4502 best_iter=1
+2026-05-13 09:52:52,709 [INFO] LOTYO fold y_test=2012 n_train=68855 n_test=1467 ic_mean=-0.0828 ic_std=0.6253 best_iter=19
+2026-05-13 09:52:53,709 [INFO] LOTYO fold y_test=2013 n_train=68883 n_test=1439 ic_mean=-0.2111 ic_std=0.4750 best_iter=12
+2026-05-13 09:52:54,645 [INFO] LOTYO fold y_test=2014 n_train=68964 n_test=1358 ic_mean=0.0918 ic_std=0.5825 best_iter=8
+2026-05-13 09:52:55,963 [INFO] LOTYO fold y_test=2015 n_train=59259 n_test=11063 ic_mean=-0.0046 ic_std=0.1976 best_iter=58
+2026-05-13 09:52:59,051 [INFO] LOTYO fold y_test=2016 n_train=70322 n_test=12167 ic_mean=0.0657 ic_std=0.1885 best_iter=None
+2026-05-13 09:52:59,871 [INFO] LOTYO fold y_test=2017 n_train=59076 n_test=11246 ic_mean=0.0148 ic_std=0.1802 best_iter=5
+2026-05-13 09:53:00,792 [INFO] LOTYO fold y_test=2020 n_train=57005 n_test=13317 ic_mean=0.0141 ic_std=0.1894 best_iter=11
+2026-05-13 09:53:01,595 [INFO] LOTYO fold y_test=2022 n_train=56840 n_test=13482 ic_mean=-0.0139 ic_std=0.2206 best_iter=6
+2026-05-13 09:53:02,363 [INFO] LOTYO fold y_test=2024 n_train=57552 n_test=12770 ic_mean=0.0313 ic_std=0.2049 best_iter=2
+2026-05-13 09:53:02,364 [INFO]   LOTYO CV: mean ic (non-NaN)=0.0279 over 12 folds (13.6s)
+2026-05-13 09:53:02,364 [INFO]   Training final model + OOF predictions...
+2026-05-13 09:53:11,906 [INFO]   Predictions: 147591 rows; best_iter log: {2009: 2, 2010: 0, 2011: 5, 2012: 5, 2013: 0, 2014: 5, 2015: 4, 2020: 0, 2022: 3, 2024: 0, 'full_train': 2} (9.5s)
+2026-05-13 09:53:11,907 [INFO]   Harness evaluation...
+2026-05-13 09:53:13,377 [WARNING] [2015-02-19] ghost-position cleanup: liquidating SHY qty=0.0420 @ last_close=84.6500 after 6 stale days
+2026-05-13 09:53:13,808 [WARNING] [2016-06-20] ghost-position cleanup: liquidating CMG qty=2.2175 @ last_close=7.9050 after 6 stale days
+2026-05-13 09:53:14,174 [WARNING] [2017-07-12] ghost-position cleanup: liquidating ACGL qty=2.0000 @ last_close=31.4100 after 6 stale days
+2026-05-13 09:53:14,210 [WARNING] [2017-08-12] ghost-position cleanup: liquidating ACGL qty=425.0000 @ last_close=32.4167 after 6 stale days
+2026-05-13 09:53:14,569 [WARNING] [2018-07-14] ghost-position cleanup: liquidating ABT qty=0.1387 @ last_close=62.4500 after 6 stale days
+2026-05-13 09:53:14,637 [WARNING] [2018-09-17] ghost-position cleanup: liquidating LLY qty=170.4889 @ last_close=105.6500 after 6 stale days
+2026-05-13 09:53:14,985 [WARNING] [2019-08-20] ghost-position cleanup: liquidating LLY qty=0.0864 @ last_close=110.3200 after 6 stale days
+2026-05-13 09:53:15,019 [WARNING] [2019-09-21] ghost-position cleanup: liquidating AXP qty=0.4832 @ last_close=117.6200 after 6 stale days
+2026-05-13 09:53:15,088 [WARNING] [2019-11-25] ghost-position cleanup: liquidating MCK qty=0.0002 @ last_close=150.2500 after 6 stale days
+2026-05-13 09:53:15,171 [WARNING] [2020-03-17] ghost-position cleanup: liquidating MCK qty=127.8984 @ last_close=135.1600 after 6 stale days
+2026-05-13 09:53:15,838 [WARNING] [2022-02-03] ghost-position cleanup: liquidating META qty=1673.5284 @ last_close=12.3000 after 6 stale days
+2026-05-13 09:53:16,338 [WARNING] [2023-07-06] ghost-position cleanup: liquidating DG qty=160.3855 @ last_close=166.8000 after 6 stale days
+2026-05-13 09:53:32,369 [INFO]   Track A passed: True (n_pass=18/18 failed=[])
+2026-05-13 09:53:32,369 [INFO]   avg per-yr vs_spy: +4.37% (n_pass=4/5)
+2026-05-13 09:53:32,369 [INFO]   Wall-clock: 43.5s
+2026-05-13 09:53:32,372 [INFO] 
+Grid saved: /home/zibo/Documents/projects/pqs/data/ml/xgb_alpha_phase_1_5/smoke_grid.csv
+2026-05-13 09:53:32,375 [INFO] Grid summary:
+                       config_id  learning_rate  n_estimators inner_val_strategy  lotyo_mean_ic  n_non_nan_folds  best_iter_full_train  avg_per_year_vs_spy  n_pass_vs_spy  track_a_passed  track_a_n_pass                                                                 track_a_failed  wall_clock_s
+0      lr0.05_n200_v_single_2017           0.05           200        single_2017       0.050493               12                     0             0.002884              2           False              16  validation_aggregate_excess_vs_spy,role_core__validation__2025__excess_vs_spy     33.987278
+1     lr0.01_n1000_v_single_2017           0.01          1000        single_2017       0.050882               12                     0             0.021654              2           False              16  validation_aggregate_excess_vs_spy,role_core__validation__2025__excess_vs_spy     53.912468
+2  lr0.02_n500_v_multi_2016_2017           0.02           500    multi_2016_2017       0.027895               12                     2             0.043696              4            True              18                                                                                    43.534457
+2026-05-13 09:53:32,376 [INFO] 
+❌ NO config beats cycle09b baseline +15.31% — Phase 1.5 abort condition active
