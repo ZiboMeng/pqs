@@ -383,6 +383,17 @@ FAMILY_P_MACRO = FamilyConfig(
     }),
 )
 
+FAMILY_Q_SIGNAL_CONFIRMATION = FamilyConfig(
+    name="Q",
+    title="signal-confirmation multi-bar (setup-then-trigger)",
+    factors=frozenset({
+        "breakout_signal_age_5d", "retest_proximity_pct",
+        "time_since_arm_bars", "confirmation_strength",
+        "volume_surge_ratio_at_setup",
+    }),
+)
+
+
 FAMILIES_V2_EXTENDED: List[FamilyConfig] = FAMILIES_V2 + [
     FAMILY_G_VOLUME_MICROSTRUCTURE,
     FAMILY_H_CONSOLIDATION,
@@ -394,6 +405,7 @@ FAMILIES_V2_EXTENDED: List[FamilyConfig] = FAMILIES_V2 + [
     FAMILY_N_GROWTH_LEVERAGE,
     FAMILY_O_SECTOR,
     FAMILY_P_MACRO,
+    FAMILY_Q_SIGNAL_CONFIRMATION,
 ]
 # Replace FAMILIES_V2 reference for back-compat: callers that import
 # FAMILIES_V2 directly continue to work; new selector

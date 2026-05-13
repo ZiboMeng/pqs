@@ -234,6 +234,12 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     # can override via config/macro_event_calendar.yaml for precision.
     "pre_fomc_window_flag", "post_fomc_window_flag",
     "pre_cpi_window_flag", "pre_nfp_window_flag",
+    # Signal-conf MVP Phase 1 multi-bar factors (PRD 20260512 Round F).
+    # Companion to ConfirmationPatternStrategy. Captures "armed but not
+    # yet confirmed" state at the daily-bar resolution.
+    "breakout_signal_age_5d", "retest_proximity_pct",
+    "time_since_arm_bars", "confirmation_strength",
+    "volume_surge_ratio_at_setup",
     # Quality
     "rolling_sharpe_126d", "return_per_risk_21d",
     # Path shape (LLM-Round 10 promotion, 2026-04-21, user-authorized):

@@ -237,6 +237,21 @@ def _build_factor_panel_map(
     except Exception as e:
         logger.warning("Event window factor compute failed: %s", e)
 
+    # Round F signal-confirmation multi-bar factors
+    try:
+        from core.factors.signal_confirmation_factors import (
+            compute_signal_confirmation_factors,
+        )
+        sc_factors = compute_signal_confirmation_factors(close, volume)
+        added = 0
+        for name, sdf in sc_factors.items():
+            if name in RESEARCH_FACTORS:
+                panel_map[name] = sdf
+                added += 1
+        logger.info("Signal-confirmation factors merged: %d", added)
+    except Exception as e:
+        logger.warning("Signal-confirmation factor compute failed: %s", e)
+
     # Forward returns: `horizon`-day CC return (default 21d = medium-term)
     fwd_all = compute_forward_returns(close, horizons=[horizon], mode="cc")
     fwd_h = fwd_all[horizon]

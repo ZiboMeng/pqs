@@ -1014,7 +1014,9 @@ def test_aplusplus_families_v2_union_equals_research_factors():
     # post_fomc / pre_cpi / pre_nfp) merged into family J → 147.
     # Round E 2026-05-12: +10 Ohlson O-score factors (9 components +
     # composite) into family L → 157.
-    assert len(reachable) == 157
+    # Round F 2026-05-12: +5 signal-confirmation multi-bar factors
+    # into new family Q → 162.
+    assert len(reachable) == 162
 
 
 def test_aplusplus_families_v1_unchanged_at_33():
@@ -1208,8 +1210,9 @@ def test_aplusplus_research_miner_constructor_passes_with_v2():
     assert miner.factor_registry_pool == "RESEARCH_FACTORS"
     assert miner.explicit_exclusions == ()
     # Pre-2026-05-12: 6 families (A-F). PRD 20260512: +10 families
-    # (G-P) for Bucket A/B/C/Macro factors. Total = 16.
-    assert len(miner.families) == 16
+    # (G-P) for Bucket A/B/C/Macro factors. Round F: +1 family Q
+    # for signal-confirmation multi-bar. Total = 17.
+    assert len(miner.families) == 17
 
 
 def test_aplusplus_research_miner_no_pool_legacy_path():
