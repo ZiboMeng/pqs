@@ -111,6 +111,50 @@ def main() -> int:
     else:
         out["trial9_v2_manifest"] = "MISSING — must be fixed before C10-2-B"
 
+    # ── (3b) Runtime canonical hash drift check (per feedback_pre_post_audit_must_smoke_observe) ──
+    # File raw sha256 stability ≠ forward observation can run. Forward
+    # manifests lock _canonical_yaml_sha + _factor_registry_contract_sha
+    # (computed each observe). If stored != current canonical → observe halts.
+    # This check would have caught the 2026-05-13 Trial 9 v2 halt at audit time.
+    try:
+        sys.path.insert(0, str(PROJ))
+        from core.research.forward.runner import (
+            _canonical_yaml_sha, _factor_registry_contract_sha,
+        )
+        active_manifests = {
+            "trial9_diversifier_002": t9_v2_manifest,
+            "trial9_diversifier_001": PROJ / "data/research_candidates/trial9_diversifier_001_forward_manifest.json",
+            "rcm_v1_defensive_composite_01": PROJ / "data/research_candidates/rcm_v1_defensive_composite_01_forward_manifest.json",
+            "candidate_2_orthogonal_01": PROJ / "data/research_candidates/candidate_2_orthogonal_01_forward_manifest.json",
+        }
+        current_universe_canonical = _canonical_yaml_sha(PROJ / "config/universe.yaml")
+        current_factor_canonical = _factor_registry_contract_sha()
+        runtime_drift = {}
+        for cand_id, mpath in active_manifests.items():
+            if not mpath.exists():
+                continue
+            mm = json.loads(mpath.read_text())
+            cs = mm.get("config_snapshot")
+            if cs is None:
+                runtime_drift[cand_id] = "pre-PRD-F (no config_snapshot)"
+                continue
+            u_drift = cs["universe_hash"] != current_universe_canonical
+            f_drift = cs["factor_registry_hash"] != current_factor_canonical
+            runtime_drift[cand_id] = {
+                "universe_drift": u_drift,
+                "factor_registry_drift": f_drift,
+                "would_halt_on_next_observe": u_drift or f_drift,
+                "current_status": mm.get("current_status"),
+            }
+            status_icon = "⚠ DRIFT" if (u_drift or f_drift) else "✓ stable"
+            print(f"  {cand_id}: {status_icon}"
+                  f" (universe_drift={u_drift}, factor_drift={f_drift})")
+        out["runtime_canonical_drift_check"] = runtime_drift
+        print("[3b] runtime canonical hash drift checked for active candidates")
+    except Exception as e:
+        out["runtime_canonical_drift_check"] = f"FAILED: {e}"
+        print(f"[3b] runtime canonical drift check FAILED: {e}")
+
     # ── (4) cycle09b §5.1 5-anchor NAV correlation numbers ──
     nav_corr_path = PROJ / "data/audit/cycle09b_trial1_extended_nav_correlation.json"
     if nav_corr_path.exists():

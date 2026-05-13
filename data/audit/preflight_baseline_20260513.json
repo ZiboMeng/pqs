@@ -2,7 +2,7 @@
   "snapshot_date": "2026-05-13",
   "purpose": "pre-flight baseline for ML-1 + C10-2 implementation; compare post-implementation reproduction must match",
   "git": {
-    "head": "08fc66c2cf095366a97213a66d1d3aec801467ae",
+    "head": "5526e6f675f3204297986c2c88e36ffbb36ceb71",
     "status_clean": false
   },
   "critical_file_sha256": {
@@ -14,8 +14,8 @@
     "config/temporal_split.yaml": "602cf826c902f1be01d802d045627420ee60d9957a6f0e50fcd6911d5e3a4f94",
     "config/cost_model.yaml": "c1b5fee2ec136db7051a47d5b6364d8b05c623a9b049cdf7f95c1d727a7e1b0d",
     "core/factors/factor_registry.py": "176d7750fc800c79ae58442188eb3c58a0e8727c4c4b94af78b3de542fbdf33b",
-    "core/research/forward/runner.py": "933cdb5ae7b4e480497e8581ed097143bae2f297dea2fc2f15d1958e97de5dbd",
-    "core/research/harness/composite_evaluator.py": "78fbd0858ae526687a0eaf3b25408e19498aa0a06367a9a6d872b7d463b56f6c",
+    "core/research/forward/runner.py": "81536e67006b6734430ef49f6569ce33c2fd45808432ef1a328e2db30462ed04",
+    "core/research/harness/composite_evaluator.py": "911cf5432cfcc9e1ad16e876aa7e528d20d50b457df515649fcb73331c845ea6",
     "core/research/risk_cluster_map.py": "7f04f245de02a4c68e1061ad11c01919df01f86362b1aac1e9a7df8e04184a7a",
     "core/ml/xgb_alpha.py": "ef7e5f9d36060dead663c41f333dfa1a13fe52c2d499a043f5867ec7d2bc68f3",
     "core/ml/feature_panel_builder.py": "838c60814ff5529237eb7444e9fcfe1604467edca8f4da9c4a3cd482dae9e54c",
@@ -32,6 +32,22 @@
     "spec_hash": "44870b91073aa5440dfa5d8ccc07b1f43dcc25235ce9139e2ca0352559e8f985",
     "current_status": "not_started",
     "n_runs": 0
+  },
+  "runtime_canonical_drift_check": {
+    "trial9_diversifier_002": {
+      "universe_drift": true,
+      "factor_registry_drift": true,
+      "would_halt_on_next_observe": true,
+      "current_status": "not_started"
+    },
+    "trial9_diversifier_001": {
+      "universe_drift": true,
+      "factor_registry_drift": true,
+      "would_halt_on_next_observe": true,
+      "current_status": "completed_fail"
+    },
+    "rcm_v1_defensive_composite_01": "pre-PRD-F (no config_snapshot)",
+    "candidate_2_orthogonal_01": "pre-PRD-F (no config_snapshot)"
   },
   "cycle09b_section_5_1_nav_corr": {
     "file_sha256": "621b8f046de5c27f3325be47342ad5747f0f6ffaf6f80584fde37ec928a6d8cf",
