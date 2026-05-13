@@ -247,6 +247,149 @@ FAMILIES_V2: List[FamilyConfig] = [
 ]
 
 
+# ── PRD 20260512 patch: 10 new families covering 76 Bucket A/B/C/Macro
+# factors (24 OHLCV + 41 fundamental + 5 sector + 6 macro). Families
+# named G-P so the union still matches RESEARCH_FACTORS exactly.
+# Fundamental / sector / macro factors don't come from generate_all_factors
+# — see _build_factor_panel_map for the separate compute-then-merge wiring.
+
+FAMILY_G_VOLUME_MICROSTRUCTURE = FamilyConfig(
+    name="G",
+    title="volume microstructure + 4-quadrant",
+    factors=frozenset({
+        # batch 1: volume-price microstructure
+        "obv_norm_20d", "chaikin_money_flow_20d",
+        "accum_dist_line_zscore_60d",
+        "vol_price_corr_20d", "volume_surge_when_flat",
+        "klinger_oscillator",
+        # batch 2 part 1: 4-quadrant volume
+        "up_vol_ratio_20d", "down_vol_ratio_20d",
+        "vol_weighted_ret_20d",
+    }),
+)
+
+FAMILY_H_CONSOLIDATION = FamilyConfig(
+    name="H",
+    title="consolidation / box-pattern / breakout precursor",
+    factors=frozenset({
+        "bb_squeeze_20d", "range_position_pct_60d",
+        "consolidation_days_count",
+        "atr_compression_20d", "adx_low_trend_flag",
+        "pre_breakout_volume_decay",
+    }),
+)
+
+FAMILY_I_HIGHER_MOMENTS_AND_ANCHOR = FamilyConfig(
+    name="I",
+    title="higher moments + anchor + simplified BAB",
+    factors=frozenset({
+        "coskew_60d_spy", "cokurt_60d_spy", "idiosyncratic_skew_60d",
+        "nearness_to_52w_high", "weekly_reversal_signal_5d",
+        "bab_score_60d",
+    }),
+)
+
+FAMILY_J_CALENDAR = FamilyConfig(
+    name="J",
+    title="calendar / seasonal timing",
+    factors=frozenset({
+        "turn_of_month_flag", "sell_in_may_seasonal",
+        "month_end_quarter_end",
+    }),
+)
+
+FAMILY_K_FUNDAMENTAL_QUALITY_RANK = FamilyConfig(
+    name="K",
+    title="Piotroski F-score + Magic Formula (EDGAR)",
+    factors=frozenset({
+        # Piotroski 9 boolean + composite + 2 derived
+        "piotroski_net_income_positive", "piotroski_cfo_positive",
+        "piotroski_roa_yoy_improving", "piotroski_cfo_greater_than_ni",
+        "piotroski_leverage_yoy_decreasing",
+        "piotroski_current_ratio_yoy_improving",
+        "piotroski_no_dilution",
+        "piotroski_gross_margin_yoy_improving",
+        "piotroski_asset_turnover_yoy_improving",
+        "piotroski_f_score", "piotroski_high_filter",
+        "piotroski_low_warning",
+        # Magic Formula
+        "magic_earnings_yield_ttm", "magic_roic_ttm",
+        "magic_formula_rank_composite",
+    }),
+)
+
+FAMILY_L_DISTRESS = FamilyConfig(
+    name="L",
+    title="distress detection (Beneish M-score + Altman Z)",
+    factors=frozenset({
+        "beneish_dsri", "beneish_gmi", "beneish_aqi", "beneish_sgi",
+        "beneish_depi", "beneish_sgai", "beneish_tata", "beneish_lvgi",
+        "beneish_m_score",
+        "altman_wc_to_assets", "altman_re_to_assets",
+        "altman_ebit_to_assets", "altman_mveq_to_liab",
+        "altman_sales_to_assets",
+        "altman_z_score",
+    }),
+)
+
+FAMILY_M_CAPITAL_RETURN = FamilyConfig(
+    name="M",
+    title="capital return + FCF (EDGAR)",
+    factors=frozenset({
+        "buyback_yield_ttm", "dividend_yield_ttm",
+        "shareholder_yield_ttm",
+        "fcf_yield_ttm", "fcf_to_assets_ttm",
+    }),
+)
+
+FAMILY_N_GROWTH_LEVERAGE = FamilyConfig(
+    name="N",
+    title="growth + leverage (EDGAR)",
+    factors=frozenset({
+        "revenue_growth_yoy", "gross_profit_growth_yoy",
+        "sales_acceleration",
+        "asset_growth_yoy", "dol_4q_window", "rd_intensity_ttm",
+    }),
+)
+
+FAMILY_O_SECTOR = FamilyConfig(
+    name="O",
+    title="sector-relative",
+    factors=frozenset({
+        "sector_rel_mom_20d", "sector_neutral_drawup_252d",
+        "sector_leader_rank_mom_12_1", "sector_breadth_pct_5d",
+        "sector_dispersion_std_20d",
+    }),
+)
+
+FAMILY_P_MACRO = FamilyConfig(
+    name="P",
+    title="macro (FRED)",
+    factors=frozenset({
+        "yield_curve_10y_2y", "fed_funds_yoy_change",
+        "dxy_zscore_60d", "wti_yoy_pct", "vix_zscore_60d",
+        "cpi_yoy_pct",
+    }),
+)
+
+FAMILIES_V2_EXTENDED: List[FamilyConfig] = FAMILIES_V2 + [
+    FAMILY_G_VOLUME_MICROSTRUCTURE,
+    FAMILY_H_CONSOLIDATION,
+    FAMILY_I_HIGHER_MOMENTS_AND_ANCHOR,
+    FAMILY_J_CALENDAR,
+    FAMILY_K_FUNDAMENTAL_QUALITY_RANK,
+    FAMILY_L_DISTRESS,
+    FAMILY_M_CAPITAL_RETURN,
+    FAMILY_N_GROWTH_LEVERAGE,
+    FAMILY_O_SECTOR,
+    FAMILY_P_MACRO,
+]
+# Replace FAMILIES_V2 reference for back-compat: callers that import
+# FAMILIES_V2 directly continue to work; new selector
+# `families_for_pool("RESEARCH_FACTORS")` returns the EXTENDED list.
+FAMILIES_V2 = FAMILIES_V2_EXTENDED
+
+
 # ── pool→families selector + reachability preflight (A++ patch) ─────────────
 
 

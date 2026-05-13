@@ -167,6 +167,61 @@ def _build_factor_panel_map(
         if name in RESEARCH_FACTORS
     }
 
+    # PRD 20260512: merge fundamental / sector / macro factor compute
+    # paths. These come from separate compute_* functions because
+    # they have different input signatures (EDGAR cache / sector_map /
+    # FRED CSV) than generate_all_factors. Each is wrapped in try/except
+    # so missing-cache scenarios degrade gracefully (mining proceeds
+    # with OHLCV + whatever non-OHLCV path succeeded). Logs the
+    # outcome for ops audit.
+    tickers = list(close.columns)
+    daily_idx = close.index
+
+    try:
+        from core.factors.fundamental_factors import (
+            compute_fundamental_factors_full,
+        )
+        from core.data.fundamentals_store import FundamentalsStore
+        fstore = FundamentalsStore()
+        fund_factors = compute_fundamental_factors_full(
+            daily_idx, tickers, store=fstore, price_df=close,
+        )
+        added = 0
+        for name, fdf in fund_factors.items():
+            if name in RESEARCH_FACTORS:
+                panel_map[name] = fdf
+                added += 1
+        logger.info("Fundamental factors merged: %d", added)
+    except Exception as e:
+        logger.warning(
+            "Fundamental factor compute failed: %s. Mining will proceed "
+            "without Bucket B factors.", e,
+        )
+
+    try:
+        from core.factors.sector_factors import compute_sector_factors
+        sec_factors = compute_sector_factors(close)
+        added = 0
+        for name, sdf in sec_factors.items():
+            if name in RESEARCH_FACTORS:
+                panel_map[name] = sdf
+                added += 1
+        logger.info("Sector factors merged: %d", added)
+    except Exception as e:
+        logger.warning("Sector factor compute failed: %s", e)
+
+    try:
+        from core.factors.macro_factors import compute_macro_factors
+        macro_factors = compute_macro_factors(daily_idx, tickers)
+        added = 0
+        for name, mdf in macro_factors.items():
+            if name in RESEARCH_FACTORS:
+                panel_map[name] = mdf
+                added += 1
+        logger.info("Macro factors merged: %d", added)
+    except Exception as e:
+        logger.warning("Macro factor compute failed: %s", e)
+
     # Forward returns: `horizon`-day CC return (default 21d = medium-term)
     fwd_all = compute_forward_returns(close, horizons=[horizon], mode="cc")
     fwd_h = fwd_all[horizon]

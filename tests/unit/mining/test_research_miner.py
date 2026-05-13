@@ -995,12 +995,22 @@ def test_aplusplus_families_v2_union_equals_research_factors():
         f"(would be unimplemented factors): {sorted(extra)}"
     )
     assert reachable == expected
-    # Updated 2026-05-06: post-S/R Step 2 (commit b51d3f1) and PRD-AC
-    # v1.1 Phase 4 prep, RESEARCH_FACTORS / FAMILIES_V2 = 67 factors
-    # (64 original + 3 swing/SR daily-resolution factors added to
-    # FAMILY_B_V2: dist_to_swing_high_20d / dist_to_swing_low_20d /
-    # sr_range_compression_20d).
-    assert len(reachable) == 67
+    # Updated 2026-05-12 (PRD 20260512): post Bucket A/B/C/Macro
+    # expansion +76 factors registered across 10 new families G-P:
+    # 67 → 143 reachable factors. Breakdown:
+    #   G (volume microstructure + 4-quadrant): 9
+    #   H (consolidation): 6
+    #   I (higher moments + anchor + BAB): 6
+    #   J (calendar): 3
+    #   K (Piotroski + Magic): 15
+    #   L (distress: Beneish + Altman): 15
+    #   M (capital return): 5
+    #   N (growth + leverage): 6
+    #   O (sector-relative): 5
+    #   P (macro: FRED): 6
+    # = 76 new + 67 existing = 143 (note: macro_drawdown / cross_section_dispersion_21d
+    # etc are accounted for in the existing 67).
+    assert len(reachable) == 143
 
 
 def test_aplusplus_families_v1_unchanged_at_33():
@@ -1193,7 +1203,9 @@ def test_aplusplus_research_miner_constructor_passes_with_v2():
     )
     assert miner.factor_registry_pool == "RESEARCH_FACTORS"
     assert miner.explicit_exclusions == ()
-    assert len(miner.families) == 6
+    # Pre-2026-05-12: 6 families (A-F). PRD 20260512: +10 families
+    # (G-P) for Bucket A/B/C/Macro factors. Total = 16.
+    assert len(miner.families) == 16
 
 
 def test_aplusplus_research_miner_no_pool_legacy_path():
