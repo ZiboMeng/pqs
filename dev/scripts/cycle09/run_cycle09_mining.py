@@ -266,9 +266,28 @@ def main() -> int:
     ap.add_argument("--n-trials", type=int, default=N_TRIALS)
     ap.add_argument("--smoke", action="store_true",
                     help="Run 16-trial smoke instead of full 200")
+    ap.add_argument("--bypass-invalid-marker", action="store_true",
+                    help="Force-fire despite INVALID marker. Only use post-"
+                         "sampler-refactor + regression-check.")
     args = ap.parse_args()
     if args.smoke:
         args.n_trials = 16
+
+    # 2026-05-12 INVALID marker fail-closed (post-sampler-architecture-postmortem):
+    invalid_marker = (
+        PROJ / "data/research_candidates/track-c-cycle-2026-05-12-09_INVALID.md"
+    )
+    if invalid_marker.exists() and not args.bypass_invalid_marker:
+        raise SystemExit(
+            f"ABORT: cycle #09 marked INVALID per\n"
+            f"  {invalid_marker}\n"
+            f"  (sampler-architecture mismatch with 17-family expansion; "
+            f"see docs/memos/20260512-cycle_09_sampler_architecture_postmortem.md)\n"
+            f"Re-fire requires:\n"
+            f"  1. Option A sampler refactor (family_first sampling) shipped\n"
+            f"  2. cycle04-08 regression check pass\n"
+            f"  3. --bypass-invalid-marker flag"
+        )
 
     # Study name: full fire uses canonical (cycle09-2026-05-12); smoke
     # uses timestamped variant to avoid optuna UNIQUE constraint collision
