@@ -1,0 +1,86 @@
+{
+  "cycle": "track-c-cycle-2026-05-12-09b",
+  "audit_section": "\u00a75.1 extended panel NAV correlation vs 5 anchors",
+  "candidate_id": "cycle09b_trial1_5a99868072e6",
+  "candidate_spec": {
+    "features": [
+      "rs_vs_spy_63d",
+      "cpi_yoy_pct",
+      "rd_intensity_ttm"
+    ],
+    "weights": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.3333333333333333
+    ],
+    "construction_mode": "cap_aware_cross_asset",
+    "rebalance_cadence": "monthly",
+    "top_n": 10,
+    "horizon_days": 21
+  },
+  "anchors_count": 5,
+  "panel_dates": [
+    "2009-01-02",
+    "2025-12-31"
+  ],
+  "panel_shape": [
+    4876,
+    79
+  ],
+  "pair_correlations": [
+    {
+      "anchor": "rcm_v1",
+      "n_overlap_days": 1583,
+      "pooled_pearson_raw": 0.8102536033887617,
+      "pooled_pearson_residual_vs_spy": 0.8089855326738323,
+      "pooled_pearson_residual_vs_qqq": 0.4098686732550989
+    },
+    {
+      "anchor": "cand_2",
+      "n_overlap_days": 1583,
+      "pooled_pearson_raw": 0.7809507559905173,
+      "pooled_pearson_residual_vs_spy": 0.7783663549397376,
+      "pooled_pearson_residual_vs_qqq": 0.28387065576631915
+    },
+    {
+      "anchor": "trial_9",
+      "n_overlap_days": 1583,
+      "pooled_pearson_raw": 0.7443042728184576,
+      "pooled_pearson_residual_vs_spy": 0.7421956384817758,
+      "pooled_pearson_residual_vs_qqq": 0.23529707663109875
+    },
+    {
+      "anchor": "cycle07a_trial3",
+      "n_overlap_days": 1583,
+      "pooled_pearson_raw": 0.787953433162209,
+      "pooled_pearson_residual_vs_spy": 0.7876332016159485,
+      "pooled_pearson_residual_vs_qqq": 0.383553366062443
+    },
+    {
+      "anchor": "cycle08_top1",
+      "n_overlap_days": 1583,
+      "pooled_pearson_raw": 0.020132477805526072,
+      "pooled_pearson_residual_vs_spy": 0.01869280607261361,
+      "pooled_pearson_residual_vs_qqq": 0.02773199760849549
+    }
+  ],
+  "verdict": {
+    "tier": "RED",
+    "reason": "residual >= 0.50 violation in pairs: ['rcm_v1', 'cand_2', 'trial_9', 'cycle07a_trial3']",
+    "max_raw": 0.8102536033887617,
+    "max_residual": 0.8089855326738323,
+    "per_anchor_raw_tier": {
+      "rcm_v1": "warn_label_void",
+      "cand_2": "warn_label_void",
+      "trial_9": "warn_label_void",
+      "cycle07a_trial3": "warn_label_void",
+      "cycle08_top1": "true_diversifier"
+    }
+  },
+  "tier_thresholds": {
+    "true_diversifier": "raw < 0.50",
+    "partial_diversifier": "0.50 \u2264 raw < 0.70",
+    "warn_label_void": "0.70 \u2264 raw < 0.85",
+    "reject_step5": "raw \u2265 0.85"
+  }
+}

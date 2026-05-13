@@ -1,0 +1,89 @@
+{
+  "cycle": "track-c-cycle-2026-05-12-09b",
+  "audit_section": "\u00a75.2 PIT audit on rd_intensity_ttm",
+  "evidence_class": "R3 actually-run-code",
+  "anchor_test_aapl": {
+    "anchor": "AAPL Q4 FY2024 10-K",
+    "pre_10k_date": "2024-10-31",
+    "post_10k_date": "2024-11-15",
+    "rd_intensity_pre": 0.07804993284600234,
+    "rd_intensity_post": 0.06657148363798665,
+    "annual_10k_filed_date": "2024-11-01",
+    "filed_between_pre_post": true,
+    "values_differ": true
+  },
+  "random_audit_points": [
+    {
+      "asof": "2023-01-06",
+      "ticker": "META",
+      "pit_filed_date": "2022-10-27",
+      "pit_period_end": "2021-09-30",
+      "pit_form": "10-Q",
+      "pit_val": 6316000000.0,
+      "naive_end_filed_date": "2025-01-30",
+      "naive_end_period_end": "2022-12-31",
+      "pit_filed_before_asof": true,
+      "naive_would_leak": true,
+      "leak_gap_days_observed": 755
+    },
+    {
+      "asof": "2018-03-13",
+      "ticker": "COP",
+      "pit_filed_date": "2018-02-20",
+      "pit_period_end": "2015-12-31",
+      "pit_form": "10-K",
+      "pit_val": 222000000.0,
+      "naive_end_filed_date": "2020-11-16",
+      "naive_end_period_end": "2017-12-31",
+      "pit_filed_before_asof": true,
+      "naive_would_leak": true,
+      "leak_gap_days_observed": 979
+    },
+    {
+      "asof": "2019-10-02",
+      "ticker": "NVDA",
+      "pit_filed_date": "2019-08-15",
+      "pit_period_end": "2018-07-29",
+      "pit_form": "10-Q",
+      "pit_val": 581000000.0,
+      "naive_end_filed_date": "2020-08-19",
+      "naive_end_period_end": "2019-07-28",
+      "pit_filed_before_asof": true,
+      "naive_would_leak": true,
+      "leak_gap_days_observed": 513
+    },
+    {
+      "asof": "2023-04-24",
+      "ticker": "COP",
+      "pit_filed_date": "2023-02-16",
+      "pit_period_end": "2020-12-31",
+      "pit_form": "10-K",
+      "pit_val": 75000000.0,
+      "naive_end_filed_date": "2025-02-18",
+      "naive_end_period_end": "2022-12-31",
+      "pit_filed_before_asof": true,
+      "naive_would_leak": true,
+      "leak_gap_days_observed": 666
+    },
+    {
+      "asof": "2022-04-12",
+      "ticker": "GOOGL",
+      "pit_filed_date": "2022-02-02",
+      "pit_period_end": "2019-12-31",
+      "pit_form": "10-K",
+      "pit_val": 26018000000.0,
+      "naive_end_filed_date": "2023-04-26",
+      "naive_end_period_end": "2022-03-31",
+      "pit_filed_before_asof": true,
+      "naive_would_leak": true,
+      "leak_gap_days_observed": 659
+    }
+  ],
+  "verdict": {
+    "pit_correct_all_5_points": true,
+    "naive_end_date_semantics_would_leak": true,
+    "anchor_filed_between_pre_post": true,
+    "anchor_values_differ": true,
+    "overall_pit_audit_pass": true
+  }
+}

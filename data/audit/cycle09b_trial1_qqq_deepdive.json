@@ -1,0 +1,247 @@
+{
+  "cycle": "track-c-cycle-2026-05-12-09b",
+  "audit_section": "\u00a75.4 NAV vs QQQ 0.851 deep-dive",
+  "candidate_id": "cycle09b_trial1_5a99868072e6",
+  "n_held_dates": 4389,
+  "n_total_dates": 4876,
+  "asset_class_avg_weight": {
+    "equities": 0.4100808210855502,
+    "bonds": 0.14495545932343526,
+    "commodities": 0.0580734671330085,
+    "cash_anchor": 0.08930641739951395,
+    "other": 3.351664405623906e-19
+  },
+  "asset_class_max_weight": {
+    "equities": 0.9059247233129166,
+    "bonds": 0.33229579036643464,
+    "commodities": 0.12167654298039116,
+    "cash_anchor": 0.21632154455107716,
+    "other": 4.440892098500626e-16
+  },
+  "top10_holdings": [
+    {
+      "symbol": "GLD",
+      "weight_days_total": 254.88505206795637,
+      "n_held_days": 3207,
+      "fraction_of_held_dates": 0.7306903622693096,
+      "avg_weight_when_held": 0.07947772125598888
+    },
+    {
+      "symbol": "IEF",
+      "weight_days_total": 243.9696501059699,
+      "n_held_days": 2912,
+      "fraction_of_held_dates": 0.6634768740031898,
+      "avg_weight_when_held": 0.08378078643748967
+    },
+    {
+      "symbol": "SHV",
+      "weight_days_total": 230.30330603254467,
+      "n_held_days": 3466,
+      "fraction_of_held_dates": 0.7897015265436318,
+      "avg_weight_when_held": 0.06644642412941278
+    },
+    {
+      "symbol": "TLT",
+      "weight_days_total": 222.57692434416623,
+      "n_held_days": 2428,
+      "fraction_of_held_dates": 0.5532011847801321,
+      "avg_weight_when_held": 0.09167089141028263
+    },
+    {
+      "symbol": "LLY",
+      "weight_days_total": 172.81248098853877,
+      "n_held_days": 1969,
+      "fraction_of_held_dates": 0.44862155388471175,
+      "avg_weight_when_held": 0.0877666231531431
+    },
+    {
+      "symbol": "SHY",
+      "weight_days_total": 169.66321967348446,
+      "n_held_days": 2111,
+      "fraction_of_held_dates": 0.4809751651856915,
+      "avg_weight_when_held": 0.08037101831998317
+    },
+    {
+      "symbol": "BIL",
+      "weight_days_total": 161.6860692663608,
+      "n_held_days": 2936,
+      "fraction_of_held_dates": 0.6689450899977216,
+      "avg_weight_when_held": 0.055070187079823155
+    },
+    {
+      "symbol": "AVGO",
+      "weight_days_total": 157.25383982981887,
+      "n_held_days": 2242,
+      "fraction_of_held_dates": 0.5108225108225108,
+      "avg_weight_when_held": 0.07013998208288086
+    },
+    {
+      "symbol": "KLAC",
+      "weight_days_total": 154.35850506509365,
+      "n_held_days": 1634,
+      "fraction_of_held_dates": 0.3722943722943723,
+      "avg_weight_when_held": 0.09446664936664238
+    },
+    {
+      "symbol": "NVDA",
+      "weight_days_total": 153.42251121395765,
+      "n_held_days": 1609,
+      "fraction_of_held_dates": 0.36659831396673503,
+      "avg_weight_when_held": 0.095352710512093
+    }
+  ],
+  "top15_holdings": [
+    {
+      "symbol": "GLD",
+      "weight_days_total": 254.88505206795637,
+      "n_held_days": 3207,
+      "fraction_of_held_dates": 0.7306903622693096,
+      "avg_weight_when_held": 0.07947772125598888
+    },
+    {
+      "symbol": "IEF",
+      "weight_days_total": 243.9696501059699,
+      "n_held_days": 2912,
+      "fraction_of_held_dates": 0.6634768740031898,
+      "avg_weight_when_held": 0.08378078643748967
+    },
+    {
+      "symbol": "SHV",
+      "weight_days_total": 230.30330603254467,
+      "n_held_days": 3466,
+      "fraction_of_held_dates": 0.7897015265436318,
+      "avg_weight_when_held": 0.06644642412941278
+    },
+    {
+      "symbol": "TLT",
+      "weight_days_total": 222.57692434416623,
+      "n_held_days": 2428,
+      "fraction_of_held_dates": 0.5532011847801321,
+      "avg_weight_when_held": 0.09167089141028263
+    },
+    {
+      "symbol": "LLY",
+      "weight_days_total": 172.81248098853877,
+      "n_held_days": 1969,
+      "fraction_of_held_dates": 0.44862155388471175,
+      "avg_weight_when_held": 0.0877666231531431
+    },
+    {
+      "symbol": "SHY",
+      "weight_days_total": 169.66321967348446,
+      "n_held_days": 2111,
+      "fraction_of_held_dates": 0.4809751651856915,
+      "avg_weight_when_held": 0.08037101831998317
+    },
+    {
+      "symbol": "BIL",
+      "weight_days_total": 161.6860692663608,
+      "n_held_days": 2936,
+      "fraction_of_held_dates": 0.6689450899977216,
+      "avg_weight_when_held": 0.055070187079823155
+    },
+    {
+      "symbol": "AVGO",
+      "weight_days_total": 157.25383982981887,
+      "n_held_days": 2242,
+      "fraction_of_held_dates": 0.5108225108225108,
+      "avg_weight_when_held": 0.07013998208288086
+    },
+    {
+      "symbol": "KLAC",
+      "weight_days_total": 154.35850506509365,
+      "n_held_days": 1634,
+      "fraction_of_held_dates": 0.3722943722943723,
+      "avg_weight_when_held": 0.09446664936664238
+    },
+    {
+      "symbol": "NVDA",
+      "weight_days_total": 153.42251121395765,
+      "n_held_days": 1609,
+      "fraction_of_held_dates": 0.36659831396673503,
+      "avg_weight_when_held": 0.095352710512093
+    },
+    {
+      "symbol": "GOOGL",
+      "weight_days_total": 152.69100414365133,
+      "n_held_days": 1769,
+      "fraction_of_held_dates": 0.40305308726361355,
+      "avg_weight_when_held": 0.08631486949895496
+    },
+    {
+      "symbol": "TER",
+      "weight_days_total": 150.06728370913302,
+      "n_held_days": 1710,
+      "fraction_of_held_dates": 0.38961038961038963,
+      "avg_weight_when_held": 0.08775864544393744
+    },
+    {
+      "symbol": "GILD",
+      "weight_days_total": 139.87455107970484,
+      "n_held_days": 1867,
+      "fraction_of_held_dates": 0.4253816359079517,
+      "avg_weight_when_held": 0.07491941675399295
+    },
+    {
+      "symbol": "MSFT",
+      "weight_days_total": 132.18239366883694,
+      "n_held_days": 1390,
+      "fraction_of_held_dates": 0.3167008430166325,
+      "avg_weight_when_held": 0.09509524724376758
+    },
+    {
+      "symbol": "TSLA",
+      "weight_days_total": 95.19155071312325,
+      "n_held_days": 1165,
+      "fraction_of_held_dates": 0.265436318067897,
+      "avg_weight_when_held": 0.08170948559066374
+    }
+  ],
+  "sector_avg_weight": {
+    "technology": 0.1962166825734444,
+    "health_care": 0.08599855590576408,
+    "communication": 0.058971131178715094,
+    "etf": 0.0580734671330085,
+    "consumer_discretionary": 0.03302530390148997,
+    "financials": 0.01361296290209166,
+    "energy": 0.009041563589267896,
+    "consumer_staples": 0.006905576755340222,
+    "industrials": 0.0038697716518109565,
+    "utilities": 0.001931154909658883,
+    "real_estate": 0.0005081177179670356
+  },
+  "qqq_overlap_avg_weight": 0.2882131176536495,
+  "qqq_overlap_symbols": [
+    "AAPL",
+    "AMZN",
+    "AVGO",
+    "EA",
+    "GOOGL",
+    "KLAC",
+    "LRCX",
+    "META",
+    "MSFT",
+    "MU",
+    "NVDA",
+    "TER",
+    "TJX",
+    "TSLA",
+    "TXN",
+    "VZ"
+  ],
+  "qqq_sectors_def": [
+    "communication",
+    "consumer_discretionary",
+    "technology"
+  ],
+  "interpretation": {
+    "trial1_is_equity_heavy": false,
+    "trial1_qqq_sector_overlap_pct": 0.2882131176536495,
+    "trial1_top1_holding": "GLD",
+    "trial1_top3_holdings": [
+      "GLD",
+      "IEF",
+      "SHV"
+    ]
+  }
+}
