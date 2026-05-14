@@ -120,8 +120,9 @@
 | 词 | 含义 | 详见 |
 |---|---|---|
 | **PRD** | Product Requirements Document — 一个明确写下需求 + 接受标准的内部规格文档。本项目 `docs/prd/*.md` 是当前主线，按字母编号（M1, M2... 或字母 F, G...） | `docs/INDEX.md` §1 |
-| **mining funnel / 6-stage funnel** | 一个候选策略要过 6 道门: Quick → OOS → Robustness → Diversity → Holdout → QQQ gate（每道一个 `passed_*` flag） | §10.3 |
-| **QQQ gate** | 硬约束: 策略 CAGR 必须 > QQQ CAGR (full-period + holdout + OOS avg 都要过) | §15.2 |
+| **mining funnel / 6-stage funnel** | 一个候选策略要过 6 道门: Quick → OOS → Robustness → Diversity → Holdout → SPY gate（每道一个 `passed_*` flag） | §10.3 |
+| **SPY gate** (HARD) | 硬约束: 策略 CAGR 必须 > SPY CAGR (full-period + 2025 holdout) | §15.2 |
+| **QQQ check** (diagnostic) | QQQ deprecated 2026-05-02 作为 hard gate（per `docs/memos/20260502-qqq_benchmark_deprecation.md`）— 仅作 sector-tilt 参考 informational | §15.2 |
 | **Tier** | 策略评级 S/A/B/C/D。S/A 推荐, B 候选, C watch, D 不 promote | §10.4 |
 | **promote** | 把 mining 出来的候选写进 `config/production_strategy.yaml` 让 paper trading 真正用它。流程: `acceptance_pack.py` → `promote_strategy.py` | §8.9 |
 | **acceptance pack** | promote 前的 10-gate 验收 artifact (`docs/20260421-promotion_flow.md`) | §8.9 |
@@ -130,7 +131,9 @@
 | **forward observe** | "锁定一个 candidate, 从今天起每天观察它真实表现 N 个 trading day, 满 10/20/40/60 TD 后做决策"。模拟"假装上线"但不真实下单 | §0.4 |
 | **TD** / **TD001** | Trading Day。`TD001` = forward observation 的第一个交易日；checkpoint 在 TD10/20/40/60 | §0.4 |
 | **paper trading** | 模拟盘。从 `config/production_strategy.yaml` 读策略，用真实价格模拟下单 + 跟踪 P&L。**不是** forward observe (paper 是"假装在交易"，forward 是"假装提前锁了候选看它过未来 N 天") | §7.3 |
-| **RCMv1** / **Cand-2** | 当前两个 forward-observation 中的候选。RCMv1 = "Research Candidate Memo v1 defensive composite"; Cand-2 = "candidate 2 orthogonal" 由 `{ret_5d, rs_vs_spy_126d, hl_range}` 等权组成 | `CLAUDE.md` |
+| **RCMv1** / **Cand-2** | **Legacy candidates — 2026-04-30 aborted**。前两个 forward-observation 候选。Both forensic-evidence only. 现 active forward 见下文 §1.4 | `CLAUDE.md` "Forward observation history" |
+| **Trial 9 v2** (active) | `trial9_diversifier_002` — diversifier-role forward candidate, source cycle #05 trial `6c745c601a47` `{beta_spy_60d, max_dd_126d, ret_1d}`. start 2026-05-13 | `CLAUDE.md` |
+| **PEAD evidence** (active) | `pead_sue_trial1_evidence_v1` — event-driven SUE signal, evidence-only role. Sharpe 1.055 / MaxDD -7.6% baseline. start 2026-05-15 | `docs/memos/20260514-pead_bundle_phase1_close.md` |
 | **Phase B / C / D / E** | 项目历史阶段。当前活跃在 Phase D + E-post (forward observation)；前期阶段总结在 `docs/INDEX.md` §"Final synthesis docs" | `CLAUDE.md` |
 | **Ralph loop** | 多轮 audit 流程的内部代号。每轮一个 round number 一个 lineage tag。详见 `docs/20260420-ralph_loop_log.md` | — |
 | **ConfigSnapshot / ConfigDriftEvent** | PRD F 引入: forward manifest 在 init 时锁定 5 个 config hash, observe 时检查漂移。Halt-class drift (universe / factor_registry / risk) → manifest 状态翻 `requires_data_review` | §0.4 + `docs/prd/20260428-config_universe_snapshot_hardening_prd.md` |
@@ -204,7 +207,7 @@
 
 - **生产策略**: `config/production_strategy.yaml` 为单一真源（PRD M1）。当前 `status: conservative_default` — post-fix validated best 尚未存在
 - **Universe**: **79 交易标的** = 59 seed_pool + 11 sector ETFs + 5 factor ETFs + 4 cross-asset；另 3 个 macro_reference（^VIX / ^TNX / DX-Y.NYB）只作 features 不交易；`SQQQ` + `SOXS` 在 blacklist
-- **Factor registry**: **7 PRODUCTION + 64 RESEARCH**，单一真源 `core/factors/factor_registry.py`，通过 `test_factor_registry.py` 强一致
+- **Factor registry**: **7 PRODUCTION + 162 RESEARCH**（post-2026-05-12 Bucket A/B/C/Macro 扩展；详 `docs/memos/20260512-quant_factor_literature_synthesis_v2.md`），单一真源 `core/factors/factor_registry.py`，通过 `test_factor_registry.py` 强一致
 - **数据**: 日线 2007-2026 / 60m intraday 2015-2026 / 1m 2015-2026（部分覆盖）
 - **Cross-ticker DSL**: `config/cross_ticker_rules.yaml` 5 条规则，`enabled: true`，启动时默认应用；`--no-cross-ticker-rules` 可关闭
 - **Pricing semantics**: 详见 `CLAUDE.md` §"Pricing and Valuation Semantics"（raw bars + splits.parquet 读时 cascade；T+1 open-fill 执行）
@@ -215,7 +218,11 @@
   - **Track A** ✅ — 时序切分纪律 (`config/temporal_split.yaml` `alternating_regime_holdout_v1` split + 17-gate acceptance evaluator + sealed_eval ledger + C5 role-remint guard)。详 `docs/prd/20260429-temporal_split_holdout_discipline_prd.md` v1.1
   - **Track B** ✅ — Fleet allocator Step 1-5 已 land (`config/fleet.yaml` + `core/fleet/`)。Step 5 = C2 correlation budget (warn 0.70 / reject 0.85, pairwise on realized candidate daily returns)。Steps 6-9 (DD throttle / role caps / fleet observe / shadow-to-live) codex-frozen 等 explicit-go
   - **Track C** ⏸️ — Real controlled mining 等 `docs/templates/track_c_evidence_pack_template.md` codex 签 + 三个 concern guards (A 2026 sealed double-dip / B forward TD60 early-attention / E economic-invariant tests)。Plan 在 `docs/memos/20260430-track_c_dry_run_plan.md`
-- **Forward observation 现状（legacy decay verification）**: `RCMv1` + `Cand-2` 两个 candidate 在 forward observe，但 2026-04-30 NAV-correlation 实验显示 pooled Pearson **0.898** > Step 5 reject 阈值 0.85 — Cand-2 "orthogonal" 标签**作废**，fleet-of-two 等权组合不产生 risk diversification。两 candidate 已 reclassified 为 legacy decay verification（不进 fleet promotion）。证据 + 撤回详见 `docs/memos/20260430-rcmv1_cand2_realized_correlation.md`
+- **Forward observation 现状（2026-05-14 更新）**: 3 个 active forward candidate 并行 soak 中：
+  - `trial9_diversifier_002` (diversifier role, start 2026-05-13, TD60 verdict ~2026-08-06) — main forward runner
+  - `pead_sue_trial1_evidence_v1` (evidence-only role, start 2026-05-15, TD60 ~2026-08-13) — standalone PEAD observation track
+  - `spy_8otm_bull_put_v1` (options sleeve, start 2026-05-04, TD60 ~2026-07-30) — options paper
+  Legacy candidates `RCMv1` + `Cand-2` 已 aborted 2026-04-30（data revision drift fail-closed），manifests 保留作 forensic evidence。Trial 9 v1 completed_fail 2026-05-12 (per-cell-digest empty bound_only, PRD 20260512 fix shipped 为 v2)。详见 `CLAUDE.md` "Forward observation history" + `docs/memos/20260512-trial9_diversifier_001_closeout.md`
 - **Options research track**（独立 sleeve，不进 production candidate registry / fleet allocator，详 `CLAUDE.md` §"Options Research Track"）:
   - **Phase 1** ✅ — free-path D→A→C→B→E sweep done (`pqs-options-v1-2026-05-02` branch, merged 2026-05-03)。honest winner = SPY 8% OTM bull put 在 realistic asymmetric skew (put 1.30 / call 0.75 × VIX) 下 Sharpe **0.62** / CAGR **+0.99%/yr** / MaxDD -2.96%（synthetic 33yr backtest，需 paper-observe 验证）；wheel **REJECTED**（MaxDD -32.72% > 25% ceiling，long-only no-margin 结构性原因）
   - **Path 2** ▶️ — paper-trading layer active (`spy_8otm_bull_put_v1`, first observe 2026-05-04 EOD)；51 unit tests 含 isolation contract HARD merge gate；$10K 起始 NAV 是 mechanism validation 不是 Sharpe estimation（生产 sizing 需 $50-100K+）

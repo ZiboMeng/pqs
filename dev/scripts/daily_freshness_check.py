@@ -22,10 +22,14 @@ from pathlib import Path
 import pandas as pd
 
 PROJ = Path(__file__).resolve().parents[2]
+# Active forward candidates as of 2026-05-14 (post comprehensive audit).
+# Terminal candidates (rcm_v1_defensive_composite_01 aborted 2026-04-30,
+# candidate_2_orthogonal_01 aborted 2026-04-30, trial9_diversifier_001
+# completed_fail 2026-05-12) removed. PEAD evidence-only candidate uses
+# its own observe path (dev/scripts/pead/observe_pead_evidence.py) and
+# is checked separately in _check_pead_evidence below.
 CANDIDATES = (
-    "rcm_v1_defensive_composite_01",
-    "candidate_2_orthogonal_01",
-    "trial9_diversifier_001",
+    "trial9_diversifier_002",
 )
 NYSE_CLOSE_PT_HOUR = 13  # 13:30 PT ≈ 16:30 ET; round down for safety
 
@@ -123,9 +127,44 @@ def _check_forward(target: str) -> str | None:
             + cmds)
 
 
+def _check_pead_evidence(target: str) -> str | None:
+    """PEAD evidence-only candidate uses a standalone observe path."""
+    m = PROJ / "data/research_candidates/pead_sue_trial1_evidence_v1_forward_manifest.json"
+    if not m.exists():
+        return None
+    d = json.loads(m.read_text())
+    status = d.get("current_status")
+    TERMINAL = {"aborted", "decided", "promoted", "rejected", "completed_pass",
+                "completed_fail", "requires_data_review"}
+    if status in TERMINAL:
+        return None
+    tds = d.get("td_observations", [])
+    if not tds:
+        return None
+    # Look for forward_observation phase TDs (skip TD000 initial_baseline)
+    fwd_tds = [t for t in tds if t.get("td_phase") == "forward_observation"]
+    last_obs = fwd_tds[-1].get("observation_date") if fwd_tds else None
+    start_date = d.get("start_date")
+    if last_obs is None and (start_date is None or str(start_date) <= target):
+        return ("🔬 PEAD evidence-only candidate stale (target: " + target + ")\n"
+                f"   pead_sue_trial1_evidence_v1: TD000 baseline only, "
+                f"no forward TDs yet (start={start_date})\n"
+                f"   1) /home/zibo/miniconda3/envs/pqs/bin/python scripts/fetch_data.py\n"
+                f"   2) /home/zibo/miniconda3/envs/pqs/bin/python "
+                f"dev/scripts/pead/observe_pead_evidence.py")
+    if last_obs is not None and str(last_obs) < target:
+        return ("🔬 PEAD evidence-only candidate stale (target: " + target + ")\n"
+                f"   pead_sue_trial1_evidence_v1: last={last_obs}\n"
+                f"   1) /home/zibo/miniconda3/envs/pqs/bin/python scripts/fetch_data.py\n"
+                f"   2) /home/zibo/miniconda3/envs/pqs/bin/python "
+                f"dev/scripts/pead/observe_pead_evidence.py")
+    return None
+
+
 def main() -> int:
     target = _target_date()
-    msgs = [m for m in (_check_options(target), _check_forward(target)) if m]
+    msgs = [m for m in (_check_options(target), _check_forward(target),
+                        _check_pead_evidence(target)) if m]
     if not msgs:
         return 0
     print("=" * 60)
