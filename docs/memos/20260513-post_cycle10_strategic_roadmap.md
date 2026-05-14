@@ -1,13 +1,18 @@
-# Post-cycle10 Strategic Roadmap (DRAFT v1 — discussion)
+# Post-cycle10 Strategic Roadmap (DRAFT v1.1 — discussion)
 
 **Date**: 2026-05-13
-**Status**: DRAFT v1 — pending joint refinement with user
+**Status**: DRAFT v1.1 — adds TC-ceiling unifying frame + D1/D3 re-audit + 6-signal seed library
 **Authors**: operator (zibomeng@) + Claude Code assist
 **Trigger**:
 - cycle10 closed 0-nominee (informative null per `docs/memos/20260513-cycle10_closeout.md`)
 - User raised 4 architectural questions exposing existing 80%-built infra:
   Q1 confirmation-signal entry / Q2 cadence limit lift / Q3 intraday-daily
   coordination / Q4 ML state
+- v1.1: user pushed back on n=1 drops of D1 (universe expansion) + D3 (LLM mining);
+  asked for WebSearch on signal designs. Three audits (2026-05-13) returned:
+  D1 verdict = drop but for NEW reason (TC ceiling, not breadth);
+  D3 verdict = defer (not drop) until K1+T1 produces working construction;
+  Signal library = 6 seed candidates from 8-category literature audit.
 
 ---
 
@@ -48,6 +53,26 @@ This single principle:
 4. **Reframes** ML Phase 2 from "predict 21d forward returns" to "rank signal-trigger setups" (Q4)
 
 **All 4 of the user's questions share ONE technical blocker**: deferred-execution BacktestEngine integration (PRD §4.1 of `docs/prd/20260512-signal_confirmation_strategy_expansion_prd.md`).
+
+### §2.2 The second unifying insight (v1.1 — D1/D3 audit byproduct)
+
+Cycle04-10 sibling-by-NAV-correlation is structural: **long-only Transfer Coefficient (TC) ceiling, not factor zoo, not universe breadth**.
+
+Clarke-de Silva-Thorley 2002 (FAJ): `IR ≈ IC × √BR × TC`. For long-only US large-cap, TC = 0.40-0.55 (vs unconstrained 0.80-0.95). 5 cycles of factor swap (cycle04-08) and 1 cycle of objective swap (cycle10) confirm that within the (long-only × calendar-rebalance × top-N × bounded-universe) bundle, **TC binds before any other axis**.
+
+This reframes the legitimate attacks on bundle binding:
+
+| Attack | Mechanism | Status |
+|---|---|---|
+| Long/short relaxation (130/30) | TC 0.45 → 0.75 directly | ❌ Violates `no-short` invariant (need user explicit-go) |
+| **Horizon change** (intraday reversal, daily-to-intraday) | Different alpha source, different TC ceiling | ✅ K1 + T1a is exactly this |
+| **Cadence change** (signal-driven, not calendar) | Signal-triggered = heterogeneous time-in-market = different geometry | ✅ T1b + T2a is exactly this |
+| **Different asset class** (cross-asset done RIGHT, 20-30 ETFs) | Bond/commodity/FX alpha source independent of equity TC | 🟡 Worth retrying post-T1 (cycle04 with only 6 ETFs was n=1 weak) |
+| Factor zoo expansion | Add more factors to same construction | ❌ Cycle04-08 already established this doesn't work (5x) |
+| Universe expansion (78 → 500) | Add more stocks to same long-only top-N | ❌ TC stays at ceiling; D1 dropped (v1.1) |
+| LLM-generated factors | Same as factor zoo, different generator | ❌ Cheap but same binding (D3 deferred until construction fixed) |
+
+**Why this matters for the plan**: K1 + T1 (intraday reversal + signal-driven cadence) is the **cheapest legitimate attack** on TC. T2c LLM mining becomes legitimate only AFTER a working non-bundle construction exists.
 
 ---
 
@@ -115,15 +140,40 @@ This single principle:
 - **S3** Options paper observe daily
 - **S4** Cumulative VRP single-name scan monthly
 
-### ⏸️ Explicitly DROPPED / DEFERRED (with reason)
+### ⏸️ Explicitly DROPPED / DEFERRED (with reason — v1.1 re-audited)
 
-| ID | Task | Drop reason |
-|---|---|---|
-| **D1** | 200+ stock universe expansion (Task #16, 2-3 weeks data fetch) | cycle04 cross-asset evidence suggests universe-expand still produces sibling within sub-cluster; ROI inferior to K1+T1 |
-| **D2** | Multi-asset permanent universe + cycle11 OLD-game mining | Replaced by T2 signal-driven cycle11 |
-| **D3** | Hubble framework / LLM-driven mining deep dive | cycle10 already proved objective-layer can't escape bundle; speculative |
-| **D4** | XLE / sector tilt added to simple_baseline | Sealed-window leak rollback 2026-05-13; needs train-only sector evidence |
-| **D5** | Weekly cadence on cycle04-08 bundle | cycle08 already FAILED; signal-driven supersedes |
+| ID | Task | Status | Reason |
+|---|---|---|---|
+| **D1** | 200+ stock universe expansion (Task #16, 2-3 weeks data fetch) | ❌ **DROP** (v1.1 re-audited) | Real binding constraint is **long-only TC ceiling 0.45-0.55** (Clarke-de Silva-Thorley 2002 FAJ), NOT breadth. 78 → 500 raises √BR by 2.5× but TC unchanged → ρ=0.40 collapse N_eff to ~12 independent bets. Plus Hou-Xue-Zhang 2017 RFS: 64% of anomalies die when properly weighted; Polygon delisted coverage spotty below large-cap (breaks `bar_provenance` discipline); $10K-$100K is `deep below capacity` (Frazzini-Israel-Moskowitz 2019 FAJ). **Real attacks on TC = horizon change + cadence change + cross-asset done RIGHT**, all covered by K1/T1. |
+| **D2** | Multi-asset permanent universe + cycle11 OLD-game mining | ❌ **DROP** | Replaced by T2 signal-driven cycle11 |
+| **D3** | LLM-driven mining (AlphaAgent / Hubble / QuantaAlpha) | ⏸️ **DEFER** (v1.1 re-audited; was DROP) | Reproducibility good (AlphaAgent + QuantaAlpha open-source, ~1-2 weeks); cost trivial (~$50-100/run @ claude opus 4.7 batch+cache). BUT: (a) HLZ multi-testing unaddressed in all 3 flagship papers (10k candidates → false-discovery factory); (b) arXiv 2602.14233 critical audit: only 26.8% of 2023-25 LLM finance papers acknowledge look-ahead bias, 1.2% acknowledge survivorship; (c) sibling-by-NAV is geometric (long-only top-N over 78 stocks), LLM-generated factors don't change construction. **Trigger condition to reactivate**: K1+T1 produces a Track A nominee with non-bundle construction → then deploy LLM as search-space expansion ON TOP of working construction. Re-evaluate at T2 closeout. |
+| **D4** | XLE / sector tilt added to simple_baseline | ⏸️ DEFER | Sealed-window leak rollback 2026-05-13; needs train-only sector evidence |
+| **D5** | Weekly cadence on cycle04-08 bundle | ❌ DROP | cycle08 already FAILED; signal-driven supersedes |
+
+### 📚 Signal candidate seed library (v1.1 — for T1b ConfirmationPattern + T2a cycle11)
+
+Filtered for STRENGTH OF EVIDENCE from 8-category literature audit (2026-05-13). Used as the seed pool for T1b/T2a mining; selection space at mining time can extend beyond these.
+
+| # | Signal | Role in PQS | Strongest evidence | Free-data |
+|---|---|---|---|---|
+| **1** | **Faber 10-mo / 200-SMA cross** | Risk-off regime gate (fleet-wide) | Faber SSRN 962461 (2007/2013 revisit): vol cut ~30%, MaxDD cut materially; avoided 2008 OOS | yfinance daily |
+| **2** | **Connors RSI(2) < 5 above 200-SMA** | Mean-reversion entry trigger | Connors-Alvarez 2008 + replications: hit rate ~75% / profit factor ~2.0; vendor-evidence not academic-peer-reviewed | yfinance close |
+| **3** | **Donchian 20/55 breakout (Turtle S1/S2)** | Trend-following entry trigger | Faith 2007 (Turtle method); long-only US-equity weaker than original futures but rule is rule-encodable | OHLC rolling max/min |
+| **4** | **HY OAS rolling 60d z-score** (FRED BAMLH0A0HYM2) | Cross-asset risk-off gate | LEADING indicator (credit moves before equity); widely cited (Situ SSRN 5815822, State Street notes) | FRED free |
+| **5** | **Zweig breadth thrust** (10d EMA A/(A+D) 0.40 → 0.615 in ≤10 days) | Bottom-detection trigger | Zweig 1986; reportedly 13/13 hit rate 1944-2014 (small sample but uncommonly strong) | $ADV/$DECL from Stooq or computed from universe |
+| **6** | **Gervais-Kaniel-Mingelgrin abnormal-volume** | Visibility tilt / volume-confirmed factor | Gervais-Kaniel-Mingelgrin J.Finance 2001 + JFE 2020 replication: weekly abnormal-vol top-decile excess 50-100 bps/month, weaker post-2010 but significant | Daily volume + price |
+
+**Three orthogonal archetype combinations to test in T1b/T2a mining** (each has its own state machine + acceptance):
+
+| Archetype | Entry signal | Confirmation | Regime gate | Exit |
+|---|---|---|---|---|
+| **A: Trend-following** | Donchian 55-day high | ADX(14) > 25 at trigger bar | SPY > 200-SMA | Donchian 20-day low OR ATR(14)×2 trailing |
+| **B: Mean-reversion** | Connors RSI(2) < 5 | 5-SMA crossback up next day | SPY > 200-SMA | RSI(2) > 70 OR 10-bar TTL |
+| **C: Cross-asset risk gate** | HY OAS z-score < -0.5 AND VIX/VXV < 0.95 | Zweig breadth thrust optional secondary | (this IS the regime gate) | HY OAS z > +1.5 OR VIX/VXV > 1.05 → cash |
+
+Why three archetypes: signal sources are orthogonal (price/breakout, price/reversion, credit/volatility). If T2a mining produces 3 candidates one per archetype, they SHOULD show low pairwise NAV correlation by construction. This is the structural diversifier we couldn't get from cycle04-10 factor swaps.
+
+**Archived / not-seeded** (per literature audit): pre-FOMC drift (dead post-2015), Hurst exponent (signal-to-noise too close on daily), pure OBV divergence (no peer-reviewed standalone Sharpe), Wyckoff phases (rule-encodable but no academic Sharpe — keep as MINING TARGET not seed).
 
 ---
 
@@ -223,6 +273,13 @@ G1-G2 gated post-T1 (sleeve allocator reactivation)
 - Daily ritual already covers Trial 9 v2 + simple_baseline + options
 - **Question**: same observe-script pattern per sleeve? Or unified observe runner?
 
+### Q8: Signal candidate seed library — accept all 6 or trim? (v1.1)
+- §4 signal library has 6 seeds + 3 archetype combos
+- Each adds 1-2 days implementation if pulled into T1b/T2a
+- 6 seeds × 3 archetypes = wide net but bounded
+- **Question**: accept all 6 as seed pool / accept 3 archetype combos as test set / trim to operator's strongest-evidence subset?
+- **My recommendation**: accept all 6 as seed pool; T2a mining selects which subsets compose archetypes; the 3 archetype table is the smoke-test set for K1+T1b (not the binding scope of T2a)
+
 ---
 
 ## §7 Risks + mitigations
@@ -250,11 +307,19 @@ G1-G2 gated post-T1 (sleeve allocator reactivation)
 
 ---
 
-## §8 What I'm NOT recommending (and why)
+## §8 What I'm NOT recommending (and why — v1.1 refined)
 
-- **Option C (multi-asset permanent universe expansion)**: 3-4 weeks data fetch + cycle04 evidence shows still-sibling within bond-anchor cluster. Replaced by T2 signal-driven cycle11.
-- **Option E (Hubble framework deep dive)**: cycle10 proved objective-layer doesn't escape bundle. Hubble's AST-similarity is at SYNTAX layer, even more removed. Speculative ROI.
+- **D1 universe expansion to 200-500 stocks**: real binding is long-only TC ceiling (0.45-0.55), not breadth. Clarke-de Silva-Thorley 2002 + Hou-Xue-Zhang 2017 + Polygon delisted-coverage gap. Adding stocks raises √BR by 2.5× but TC unchanged → ρ-driven N_eff collapse to ~12. Plus survivorship-bias risk + multiple-testing-surface expansion + smid liquidity drag at $10K-$100K. **The literature is unambiguous: long-only is the binding constraint, not size of universe.**
+- **D3 LLM-driven mining NOW**: deferred not dropped. Cheap to reproduce + open-source available, but: (a) HLZ multi-testing unsolved (false-discovery factory at 10k candidates); (b) arXiv 2602.14233 shows the field is methodologically weak (1.2% acknowledge survivorship bias); (c) LLM-generated novel factors don't fix portfolio GEOMETRY (the binding constraint per cycle04-08 + Trial 3 RED). Reactivate AFTER K1+T1 produces working construction, then deploy LLM as search-space expansion.
 - **More cycle10-style mining on same bundle**: HLZ multiple-testing math + 10-cycle 0-nominee = <5% base rate. Wasteful.
+- **130/30 long-short** (real TC fix): violates `no-short` invariant in CLAUDE.md. Off-table without explicit-go.
+
+**What I AM recommending (TC ceiling–consistent attacks)**:
+- K1 + T1a: horizon change (intraday reversal) — different TC ceiling
+- T1b + T2a: cadence change (signal-driven, heterogeneous time-in-market) — geometry escape
+- (post-T1) cross-asset done RIGHT (20-30 ETFs, not 6) as next-cycle hypothesis
+
+The pattern: attack TC ceiling via construction (horizon / cadence / asset class), not via factor zoo (cycle04-08) or universe size (D1).
 
 ---
 
@@ -274,13 +339,21 @@ Each decision point is a potential pivot. The architecture is built for incremen
 
 ---
 
-## §10 What this memo is asking
+## §10 What this memo is asking (v1.1 refresh)
 
 This is a **DISCUSSION DRAFT**. Specific asks:
 
 1. **Confirm or revise** §9 path
-2. **Answer §6 open questions** Q1-Q7 (each takes <30 seconds to give a directional answer)
-3. **Flag any deferred/dropped items in §4 D1-D5** you want to override
-4. **Add any axis I missed** — especially anything not covered by the 12-axis WebSearch synthesis
+2. **Answer §6 open questions** Q1-Q8 (Q8 is new: signal candidate seed library scope)
+3. **Flag any deferred/dropped items in §4 D1-D5** you want to override (D1 + D3 already re-audited in v1.1; D2/D4/D5 still open to challenge)
+4. **Add any axis I missed** — especially anything not covered by the 12-axis WebSearch synthesis + v1.1 D1/D3 re-audit
 
-After your input, I'll finalize as `20260513-post_cycle10_strategic_roadmap_v2.md` and proceed with K1.
+### v1.1 changes summary (2026-05-13 evening)
+
+- New §2.2 TC ceiling unifying frame (Clarke-de Silva-Thorley 2002): long-only TC 0.45-0.55 is the actual binding constraint, not breadth / not factor zoo
+- D1 (200+ stocks) drop reason updated from weak n=1 to load-bearing literature (TC ceiling + Hou-Xue-Zhang microcap + Polygon coverage + sub-capacity)
+- D3 (LLM mining) **DROP → DEFER**: AlphaAgent + QuantaAlpha + Hubble all reproducible at low cost ($50-100/run) but unsolved HLZ multi-testing + portfolio geometry binding → defer until K1+T1 working construction exists, then deploy as expansion
+- New §4 signal candidate seed library: 6 evidence-strong seeds + 3 orthogonal archetypes (trend / mean-reversion / cross-asset risk gate) for T1b + T2a
+- §8 refined with explicit "TC ceiling–consistent attacks" framing
+
+After your input, v2 finalizes and K1 starts.
