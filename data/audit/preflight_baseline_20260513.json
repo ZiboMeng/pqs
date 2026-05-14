@@ -2,8 +2,8 @@
   "snapshot_date": "2026-05-13",
   "purpose": "pre-flight baseline for ML-1 + C10-2 implementation; compare post-implementation reproduction must match",
   "git": {
-    "head": "5526e6f675f3204297986c2c88e36ffbb36ceb71",
-    "status_clean": false
+    "head": "454460d6903c274abd5aa29c22299f13b242a4d5",
+    "status_clean": true
   },
   "critical_file_sha256": {
     "config/universe.yaml": "6abc8f268d37c4e00444c77bae2c1172371d5f5aed88b78dfe32c41dfc4c0d6d",
@@ -23,22 +23,22 @@
     "scripts/run_xgb_alpha_mining.py": "1ab150d06e5265c7afd9609fd274b8fcc4cf4d39b5f66cbb2bc1b000a6809915"
   },
   "trial9_v2_manifest": {
-    "manifest_sha256": "d4ac1b86694a502e4a3b00df7e31cb399e44e1f298eb216d506757db44a3273a",
-    "universe_hash": "29eeff23263fd896f21850bc813bce5484150ef88416f24784ab4da2fa6f4d72",
-    "factor_registry_hash": "b844d7484d099ae508d178b5945bb6c2c8c791edb82287df983dabf70b328e88",
+    "manifest_sha256": "0d30380b190425b0997609e226df444c948a5aaed0cc8bc711f8c4b7574c1522",
+    "universe_hash": "7a02437a450d8a5bb34195a4c896b4e3a6a314adf612d63bb38be7bd104cba47",
+    "factor_registry_hash": "e9bc4a602821c82ac8a1506a2387a16f42a540f5eba1576fc869683f9b12fab1",
     "risk_config_hash": "9068b5f72d64208803bd98ac1d092652327cd4c2406bcaed483846c2f2a3dbad",
     "system_config_hash": "b2f96c3b9733d35f15b463339e14bbb55c374d6344d92f463d309e2fa836db82",
     "research_mask_hash": "99ef97d08c326ff766a865dd7ddbe5880f5c3b91ae7658f30cae4b7f100de10a",
     "spec_hash": "44870b91073aa5440dfa5d8ccc07b1f43dcc25235ce9139e2ca0352559e8f985",
-    "current_status": "not_started",
-    "n_runs": 0
+    "current_status": "in_progress",
+    "n_runs": 1
   },
   "runtime_canonical_drift_check": {
     "trial9_diversifier_002": {
-      "universe_drift": true,
-      "factor_registry_drift": true,
-      "would_halt_on_next_observe": true,
-      "current_status": "not_started"
+      "universe_drift": false,
+      "factor_registry_drift": false,
+      "would_halt_on_next_observe": false,
+      "current_status": "in_progress"
     },
     "trial9_diversifier_001": {
       "universe_drift": true,
@@ -117,7 +117,7 @@
     "rcm_v1_defensive_composite_01_forward_manifest.json": "f0451a66bfbfff891f7dcf0b67f06b522fa89dd1fefa5d904ccbdd8f054e60a7",
     "candidate_2_orthogonal_01_forward_manifest.json": "3f82fdb0249a1f48abacf328ee49b53351e8dd2001d0258a22eff4fcc02b5814",
     "trial9_diversifier_001_forward_manifest.json": "eac2951ed85fc59a487b1e6bb8473a316a577175b92110d09dadf4ba028eaefe",
-    "trial9_diversifier_002_forward_manifest.json": "d4ac1b86694a502e4a3b00df7e31cb399e44e1f298eb216d506757db44a3273a"
+    "trial9_diversifier_002_forward_manifest.json": "0d30380b190425b0997609e226df444c948a5aaed0cc8bc711f8c4b7574c1522"
   },
   "cycle09b_yaml_sha256": "b0b9e181066152b7eb8195e993d62d14e38b8ef206b256005ff10b5f2b17609a",
   "cycle09b_yaml_expected_sha": "b0b9e181066152b7eb8195e993d62d14e38b8ef206b256005ff10b5f2b17609a",

@@ -1,0 +1,8 @@
+{
+  "cycle_id": "track-c-cycle-2026-05-13-10",
+  "yaml_path": "data/research_candidates/track-c-cycle-2026-05-13-10_promotion_criteria.yaml",
+  "yaml_canonical_sha256": "d9b4bc261b630df6ef8e90a6e7837bfda517b6fc00cae34f680b075ac80c2990",
+  "frozen_at": "2026-05-13",
+  "user_explicit_go": "2026-05-13 Q1-Q4 \u5168 default",
+  "prd": "docs/prd/20260513-nav_residualized_mining_prd.md"
+}

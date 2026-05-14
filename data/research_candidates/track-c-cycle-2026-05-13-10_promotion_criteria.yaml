@@ -1,0 +1,157 @@
+# cycle10 promotion criteria — NAV-residualized mining (PRD 20260513)
+#
+# STATUS: DRAFT — pending B6.5 user explicit-go on 4 PRD §9 questions.
+# DO NOT freeze (commit + lock yaml_sha256) until user confirms operator
+# defaults below OR specifies alternatives.
+#
+# Defaults selected per literature (Blitz 2011, Clarke-Silva-Thorley 2002,
+# Grinold-Kahn ch 16) and audit chain 2026-05-13. User-override only needed
+# if a different design choice is preferred — operator believes defaults
+# are best per evidence.
+
+cycle_id: track-c-cycle-2026-05-13-10
+lineage_tag: nav-residualized-cycle10-2026-05-13
+created_at: 2026-05-13
+status: FROZEN
+frozen_at: 2026-05-13
+yaml_sha256: recorded_externally_see_freeze_json
+user_explicit_go: '2026-05-13 — Q1-Q4 全 default'
+
+# ── PRD references ─────────────────────────────────────────────────────────
+prd: docs/prd/20260513-nav_residualized_mining_prd.md
+prd_audit: docs/audit/20260513-nav_residualized_prd_self_audit.md
+sealed_leak_postmortem: docs/memos/20260513-sealed_window_leak_postmortem_and_amendment.md
+
+# ── Mining target (NEW — vs cycle04-09) ────────────────────────────────────
+mining_target:
+  type: nav_residualized
+  description: |
+    Replace raw forward 21-day returns with residual:
+      residual_fwd[s, t] = fwd_ret[s, t] - Σ_k β[s, k, t-1] × cum_fleet_ret[k, t→t+21]
+    Per Blitz-Huij-Martens 2011 J. Empirical Finance 18(3):506-521 + adapted
+    for fleet (not FF3) regressors per Grinold-Kahn ch 16 framework.
+
+  # PRD §9 Q1 — β method (DEFAULT: Blitz precedent)
+  beta:
+    method: rolling_ols_multi_factor
+    window_months: 36
+    min_periods_fraction: 0.5
+    no_lookahead: true   # β at t uses data strictly before t
+
+  # PRD §9 Q2 — Fleet members (DEFAULT: 3-member maximum defense)
+  fleet_members:
+    - candidate_id: rcm_v1_defensive_composite_01
+      role: legacy_decay_verification_terminal_aborted
+      research_nav_path: data/sr_validation/rcmv1_arm_A_baseline_nav.parquet
+      research_nav_period: '2018-2024 (forward observe period)'
+      backcast_needed_for: '2009-2017 (research period)'
+    - candidate_id: candidate_2_orthogonal_01
+      role: legacy_decay_verification_terminal_aborted
+      research_nav_path: data/sr_validation/candidate_2_orthogonal_TRAIN_ONLY_arm_baseline_nav.parquet
+      research_nav_period: '2009-2017 (research period)'
+      backcast_needed_for: '2018-2024 (validation+train post-fold)'
+    - candidate_id: trial9_diversifier_002
+      role: diversifier_active_forward
+      research_nav_path: data/sr_validation/trial9_arm_A_baseline_nav.parquet
+      research_nav_period: '2018-2024'
+      backcast_needed_for: '2009-2017 (research period)'
+
+  fleet_data_strict_train_end: 2024-12-31   # NO 2025/2026 NAV in β estimation
+
+# ── Cycle parameters (unchanged from cycle09b structure) ──────────────────
+mining_config:
+  n_trials: 200
+  sampler: TPESampler
+  seed: 42
+  ic_horizon_days: 21
+  sampling_mode: family_first  # post-cycle09 sampler fix (commit f41c7e5)
+  cardinality: 3
+  min_families: 3
+  max_per_family: 2
+  factor_registry_pool: RESEARCH_FACTORS  # 162 factors per Bucket A/B/C/Macro
+  family_pool: FAMILIES_V2  # 16 families A-P
+
+# Universe + construction (unchanged from cycle04-08 — bundle preserved)
+panel_contract:
+  universe: config/universe.yaml::seed_pool + sector_etfs + factor_etfs + cross_asset
+  drop_symbols: [BRK-B, USO, SLV]
+  expected_n_symbols: 79
+  start_date: 2009-01-02
+  end_date: 2024-12-31    # STRICT — no validation/sealed contamination
+  mask:
+    type: research_mask
+    min_price: 5.0
+    min_usd_volume: 20000000
+
+construction:
+  mode: cap_aware_cross_asset
+  rebalance_cadence: monthly
+  top_n: 10
+  cluster_cap: 0.20
+  max_single_weight: 0.10
+  asset_class_caps:
+    equities_max: 0.70
+    bonds_max: 0.40
+    commodities_max: 0.20
+    cash_anchor_max: 0.30
+
+# ── Acceptance (PRD §3.4) ──────────────────────────────────────────────────
+acceptance:
+  policy_version: alternating_regime_holdout_v1   # CLAUDE.md unchanged
+  track_a_17gate: same_as_cycle04_08  # see core/research/temporal_split_acceptance.py
+
+  # PRD §9 Q3 — NAV correlation tier (DEFAULT: partial_diversifier raw<0.70)
+  nav_correlation_gate:
+    enabled: true
+    tier_required: partial_diversifier   # raw NAV Pearson < 0.70
+    measure_vs:
+      - rcm_v1_defensive_composite_01
+      - candidate_2_orthogonal_01
+      - trial9_diversifier_002
+    panel: train_years_only_2009_2024
+    note: |
+      Per Clarke-Silva-Thorley TC math (TC≈0.40-0.55 for top-10/79 long-only),
+      raw < 0.50 (true_diversifier tier) is structurally near-unattainable.
+      partial_diversifier (raw < 0.70) is the realistic ship bar.
+
+  tc_reporting:
+    enabled: true
+    warn_threshold: 0.30
+    note: transfer coefficient reported but no gate enforcement v1
+
+# ── Stop rule (PRD §1) ─────────────────────────────────────────────────────
+stop_rule:
+  # PRD §9 Q4 — 0-nominee outcome (DEFAULT: close cycle10 informative null)
+  on_zero_nominees: close_cycle10_informative_null
+  description: |
+    If 0 trials pass Track A + NAV correlation gate, close cycle10 as
+    informative null result — validates that bundle-binding extends past
+    objective-layer fix. Strategic pivot (bundle-break / strategy-type)
+    becomes the next-cycle hypothesis. NO automatic cycle11 re-fire.
+    User explicit-go required to pivot.
+
+# ── Provenance audit (per sealed leak rule 2026-05-13) ─────────────────────
+provenance_audit:
+  all_design_choices_train_only: true
+  no_2025_no_2026_market_data_in_mining: true
+  literature_grounding:
+    - Blitz-Huij-Martens 2011 J. Empirical Finance 18(3):506-521
+    - Clarke-de Silva-Thorley 2002 FAJ 58(5):48-66
+    - Grinold-Kahn 2000 Active Portfolio Management ch 16
+  audit_chain:
+    - docs/audit/20260513-sibling_binding_constraint_audit.md
+    - docs/audit/20260513-sibling_binding_constraint_audit_v2.md
+    - docs/audit/20260513-synthesis_self_audit.md
+    - docs/audit/20260513-websearch_directions_audit.md
+    - docs/audit/20260513-nav_residualized_prd_self_audit.md
+
+# ── Authorization tree ────────────────────────────────────────────────────
+authorization:
+  yaml_frozen_by: operator (zibomeng@) + user explicit-go 2026-05-13
+  yaml_sha256: recorded externally — see track-c-cycle-2026-05-13-10_freeze.json
+  user_explicit_go: '2026-05-13 — Q1-Q4 全 default'
+  b6_5_resolved:
+    q1_beta_method: 36m rolling OLS (Blitz precedent) ✓
+    q2_fleet_inclusion: 3-member RCMv1+Cand-2+Trial9_v2 ✓
+    q3_acceptance_tier: partial_diversifier raw<0.70 ✓
+    q4_stop_rule: 0-nominee = informative null close ✓
