@@ -1253,13 +1253,94 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   covered bar-label correctness; the test that caught it only existed
   AFTER v2.1.3 forward observation rewrite (commits `c3cefc1`..`4abc3c9`).
 
+- **PEAD bundle Phase 1 — dual-track free-path SHIPPED**
+  (2026-05-14 ✅, commits `7c23fc5` + `faae8f1`) — **first event-driven
+  non-parametric signal in PQS history that clears Sharpe > 1.0 + MaxDD
+  < 10%**. PRD `docs/prd/20260514-pead_bundle_phase1_prd.md`; closeout
+  `docs/memos/20260514-pead_bundle_phase1_close.md`. Dual-track A/B
+  hypothesis pre-registered.
+
+  **Modules shipped**: `core/research/pead/{earnings_dates,
+  sue_calculator, price_jump_signal}` + 53 unit tests (100% pass).
+  Earnings-date extractor handles two non-obvious EDGAR PIT artifacts:
+  (a) **comparative-data restatement** — same period_end re-appears
+  under later fy values (filed 1 year later, gap=398d) so MUST groupby
+  period_end + take MIN(filed_date), not just `get_chain_facts` latest;
+  (b) **YTD-cumulative vs standalone-Q** — same (fy, fp, form) reports
+  both YTD-cum EPS and standalone-Q EPS, separated only by `start` →
+  `end` duration (60-100d for Q, 300-380d for FY). FY rows dropped for
+  SUE to prevent lag-4 mismatch (full-year EPS compared against
+  standalone-Q 4 rows back inflates SUE to 11σ false positive).
+
+  **Path 1 SUE (fundamental surprise)** — 8/9 smoke trials beat SPY
+  Sharpe 0.76 at 30bp realistic cost. Top trial 1 (SUE≥1.5σ hold=21
+  top_n=10): Sharpe 1.055, CAGR 5.48%, MaxDD **-7.64%** (best-in-PQS
+  for >1.0 Sharpe). Top trial 6 (hold=60): Sharpe 1.063, CAGR 10.39%,
+  MaxDD -24%. Signal robust across threshold 1.0-2.0σ, hold 21-60d,
+  top_n 5-20 (NOT a knife-edge hyperparameter).
+
+  **Path 2 price-jump (AR proxy)** — 0/9 beat SPY. Top Sharpe 0.717.
+  Confirms pre-registered hypothesis: AR alone too confounded
+  (guidance / sector co-move / macro). Fundamental SUE captures real
+  information-diffusion alpha; price-reaction alone is noise.
+
+  **Track A acceptance 14/17** — all per-year MaxDD < 25%, all stress
+  slices < 10%, 2x cost robust ($13965 final at 60bp), concentration
+  / beta / no-leveraged-ETF all PASS. **NAV daily-return Pearson
+  vs anchors**: alt-A +0.09 (very low), T1b +0.38, cycle11 Donchian
+  +0.37 — all well below 0.85 sibling threshold. **Genuine
+  differentiated alpha source.** Fails 3 gates: `validation_aggregate_
+  excess_vs_spy/qqq` + `2025 vs_qqq`. Failing gates are CAGR-based,
+  NOT signal-quality. PEAD alpha shape = defensive (low DD, lower
+  CAGR than SPY in 2025 BULL year +13%).
+
+  **Forward-init as evidence-only** (user explicit-go 2026-05-14)
+  — candidate `pead_sue_trial1_evidence_v1`, role
+  `evidence_only_observation` (NOT fleet), spec_hash
+  `9a2ef503a241f407d2cf43c6b5a2ab3b12cdc2d16bcd35963e694000a8ca9d30`.
+  start_date 2026-05-15. Standalone observation track (does NOT use
+  main `core/research/forward` runner because event-driven SUE doesn't
+  fit factor-composite schema; precedent = simple_baseline_v1).
+  Init / observe scripts at `dev/scripts/pead/{init,observe}_pead_
+  evidence.py`. TD000 baseline locked: Sharpe 1.056, CAGR 5.51%,
+  MaxDD -7.64% (2017-01 to 2026-05-14, $16522 final equity, 287
+  signals, 477 trades).
+
+  **TD60 decision point ~2026-08-13** (1 week after Trial 9 v2 TD60
+  on ~08-06):
+  - GREEN: realized Sharpe > 0.8, MaxDD < 15%, NAV daily-return
+    Pearson vs T1b < 0.70 → Phase 2 (paid 8-K real-announce-date
+    feed ~$50-100/mo) eligible
+  - YELLOW: Sharpe 0.4-0.8 or MaxDD 15-25% → continue TD90
+  - RED: Sharpe < 0.4 or MaxDD > 25% → close evidence track
+
+  **Known limitations** (PRD §7): filed_date is 10-Q submission date
+  (typically 7-14d AFTER actual 8-K earnings call); 0-10d strongest
+  drift portion partially missed. Phase 2 paid 8-K feed unlocks this.
+  FY rows dropped for SUE → lose Q4 events (25% of earnings
+  opportunities). 54-stock universe restricted to EDGAR cache.
+
+  **Strategic implication**: PEAD is NOT a standalone-alpha winner
+  (CAGR < SPY); it's a **defensive sleeve candidate for fleet
+  allocation** (Phase C-PRD-2, deferred). Forward soak validates
+  whether Bernard-Thomas 1989 signal hold in 2026 real-time data
+  before justifying paid-data Phase 2 OR fleet-architecture build.
+
 **Forward OOS workstream (infrastructure history + active state)**:
 Infrastructure (R-fwd-1 / R-fwd-2 / R-fwd-3 / F) shipped 2026-04-26
 through 2026-04-29 + R8 DST fix; legacy candidates RCMv1 + Cand-2
 forward-observed 2026-04-24 through 2026-04-28 then **aborted
 2026-04-30** under v2.1 fail-closed gate (see "Forward observation
-history" entry below). **Current active candidate = trial9_diversifier_002
-only** (TD001 starts 2026-05-13).
+history" entry below). **Active forward candidates as of 2026-05-14**:
+- `trial9_diversifier_002` (diversifier role, TD001 starts 2026-05-13,
+  TD60 verdict ~ 2026-08-06) — uses main core/research/forward runner
+- `pead_sue_trial1_evidence_v1` (evidence-only role, TD001 starts
+  2026-05-15, TD60 verdict ~ 2026-08-13) — standalone observation
+  track (dev/scripts/pead/observe_pead_evidence.py), does NOT use
+  main runner (event-driven SUE signal doesn't fit factor-composite
+  schema; precedent = simple_baseline_v1)
+- `spy_8otm_bull_put_v1` (options sleeve, TD started 2026-05-04, TD60
+  verdict ~ 2026-07-30) — options paper-trading layer, separate path
 - **R-fwd-1 done** — forward runner minimum closed loop (init /
   status / observe / decide / readiness) + source-boundary sidecar
   + `source_mix` flag on ForwardRun. PRD:
@@ -1383,9 +1464,12 @@ only** (TD001 starts 2026-05-13).
   daily ritual no longer touches them (terminal status absorbs further
   observe() calls).
 
-  **Current PQS active forward state**: as of 2026-05-12, the ONLY
-  active forward candidate is `trial9_diversifier_002` (TD001 starts
-  2026-05-13). RCMv1 + Cand-2 manifests preserved at:
+  **Current PQS active forward state**: as of 2026-05-14, 3 active
+  forward candidates: `trial9_diversifier_002` (TD001 starts 2026-05-13,
+  diversifier role, main runner), `pead_sue_trial1_evidence_v1` (TD001
+  starts 2026-05-15, evidence-only role, standalone PEAD track), and
+  `spy_8otm_bull_put_v1` (options paper, TD started 2026-05-04). RCMv1
+  + Cand-2 manifests preserved at:
   - `data/research_candidates/rcm_v1_defensive_composite_01_forward_manifest.json`
   - `data/research_candidates/candidate_2_orthogonal_01_forward_manifest.json`
   Both retain 3 TDs + 1 DECIDE entry each as forensic evidence of
