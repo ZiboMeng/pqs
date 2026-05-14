@@ -72,13 +72,16 @@ def collect_git() -> dict:
 
 def collect_tests(run_full: bool) -> dict:
     """Fast path: pytest --collect-only for count (~1.5s).
-    Full path (--run-tests): actual pytest -q (~90s) to capture pass/fail."""
+    Full path (--run-tests): actual pytest -q (~10 min on 3000+ tests)
+    to capture pass/fail. Timeout 1200s; if exceeded, `run_error`
+    field is populated (no silent "not run" misleading state)."""
     out: dict = {"collected": None, "passed": None, "failed": None,
-                 "skipped": None, "xfailed": None, "duration_sec": None}
+                 "skipped": None, "xfailed": None, "duration_sec": None,
+                 "run_error": None}
     # Fast collect
     rc, so, _ = _run(
         [sys.executable, "-m", "pytest", "--collect-only", "-q", "--no-header"],
-        timeout=30,
+        timeout=60,
     )
     if rc == 0:
         import re
@@ -90,13 +93,17 @@ def collect_tests(run_full: bool) -> dict:
                 break
 
     if run_full:
-        rc, so, _ = _run([sys.executable, "-m", "pytest", "-q", "--tb=no"], timeout=600)
+        # 1200s timeout: full unit+integration suite at 3167 tests takes
+        # ~640s on dev hardware; 1200s gives comfortable margin for slow
+        # CI nodes without making timeout silent failure too long-lived.
+        rc, so, se = _run([sys.executable, "-m", "pytest", "-q", "--tb=no"],
+                           timeout=1200)
+        import re
+        summary_parsed = False
         # Parse last summary line like "1109 passed, 3 warnings in 97.12s (0:01:37)"
         for line in so.splitlines()[::-1]:
             s = line.strip()
             if " passed" in s or " failed" in s:
-                # Extract counters
-                import re
                 for key in ["passed", "failed", "skipped", "xfailed"]:
                     m = re.search(rf"(\d+) {key}", s)
                     if m:
@@ -104,7 +111,17 @@ def collect_tests(run_full: bool) -> dict:
                 m2 = re.search(r"in ([\d.]+)s", s)
                 if m2:
                     out["duration_sec"] = float(m2.group(1))
+                summary_parsed = True
                 break
+        if not summary_parsed:
+            # Surface explicit error so caller does NOT see misleading
+            # "not run" message. Captures rc + last 200 chars of stderr.
+            tail_err = (se[-200:] if se else "").strip()
+            out["run_error"] = (
+                f"pytest summary not parsed (rc={rc}). "
+                f"Possibly timed out at 1200s or pytest crashed. "
+                f"stderr tail: {tail_err!r}"
+            )
     return out
 
 
@@ -280,6 +297,10 @@ def main() -> int:
             if t["passed"] is not None:
                 print(f"Tests: {t['passed']} passed / {t['failed'] or 0} failed / {t['skipped'] or 0} skipped"
                       f" / {t['xfailed'] or 0} xfailed  (collected={t['collected']}, {t['duration_sec']}s)")
+            elif t.get("run_error"):
+                # --run-tests was attempted but failed/timed out — surface
+                # the error rather than print misleading "not run" message.
+                print(f"Tests: collected={t['collected']}; ERROR running full suite — {t['run_error']}")
             else:
                 print(f"Tests: collected={t['collected']} (not run; use --run-tests to execute)")
         fr = snapshot["factor_registry"]
