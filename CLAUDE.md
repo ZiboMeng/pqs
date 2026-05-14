@@ -1193,6 +1193,66 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   **Status**: T1a (alt-A `IntradayReversalStrategy` Phase 2-3)
   unblocked; estimated 3-5 days as first real consumer.
 
+- **SPY/BIL/SHV off-by-one date label bug + Option A fix** (2026-05-13
+  evening ✅) — surfaced during K1 ship-close broader regression run
+  (3 pre-existing forward bar_hash test failures investigated).
+  Postmortem: `docs/memos/20260513-spy_off_by_one_date_label_postmortem.md`.
+  Closeout: `docs/memos/20260513-option_a_closeout.md`. User explicit-go
+  Option A 2026-05-13.
+
+  **Bug**: `core/data/calendar.py::align_daily_index` did
+  `tz_localize(None)` without `tz_convert(_ET)` first. For yfinance
+  data that occasionally returned UTC-tz-aware index, UTC-midnight bars
+  rolled forward +1 calendar day (Mon trading → Tue label, Fri → Sat
+  label) producing ~569 fake Saturday rows per affected symbol.
+
+  **Affected PQS active universe**: 3/81 symbols — **SPY, BIL, SHV**
+  (yfinance-fetched). Initial scan suggested 10+ but JPM/V/PG/HD/BAC/
+  XOM/CVX are NOT in `config/universe.yaml` (leftover data files only).
+
+  **Fix** (commit `2898be8`): `align_daily_index` now `tz_convert(_ET)`
+  before `tz_localize(None)`. Pure correctness; tz-naive data (common
+  case) bit-for-bit unchanged. Rebuild script
+  `dev/scripts/data_fix/rebuild_off_by_one_symbols.py` re-fetched
+  SPY/BIL/SHV via fixed path; old parquet preserved as
+  `.preFix_2026-05-13` sidecars (gitignored).
+
+  **Validation**: post-fix 81-symbol universe scan = 0 affected;
+  3 previously-failing forward bar_hash tests = 3/3 PASS; backtest
+  unit suite 199/199 PASS.
+
+  **Re-run / deprecation** (Option A.5-A.7, commits `f2997c0` + this):
+  - simple_baseline_v1 backtest: UNAFFECTED (script uses yfinance
+    direct, not BarStore parquet). CAGR +14.90% / Sharpe 0.82 /
+    per-year MaxDD ≤25% confirmed identical. Paper soak continues.
+  - trial9_diversifier_002 forward: TD001 (pre-fix init) dropped via
+    `--overwrite` re-init; status=not_started; first observe will
+    run with clean SPY data on next daily ritual. TD60 ~2026-08-06
+    timeline unchanged.
+  - cycle04-10 mining: **numerical claims DEPRECATED** (vs_spy
+    aggregates, NAV correlation magnitudes, beta_spy_60d factor
+    values, IC numbers). **Qualitative findings PRESERVED**:
+    sibling-by-NAV is REINFORCED not invalidated (1-day phase shift
+    dilutes Pearson, so true correlation > measured 0.85-0.95);
+    TC ceiling argument unaffected (pure theory + literature);
+    bundle-binding-across-cycles n=5 demonstration structural.
+    R7 fail-SPY stop-rule verdicts on cycle10 stand.
+  - RCMv1 + Cand-2 forward manifests: numerically deprecated;
+    preserved as forensic evidence (both already aborted 2026-04-30
+    on unrelated data revision drift).
+  - Trial 9 v1 manifest: numerically deprecated; preserved as forensic.
+  - K1 ship: UNAFFECTED (synthetic test data, no real SPY).
+  - Roadmap v2 strategic decisions (D1 drop / D3 defer / signal seed
+    library / K1+T1 path): UNAFFECTED (literature + theoretical).
+
+  **New audit discipline added** (will commit to
+  `[[feedback_audit_per_round_methodology]]`): bar-level data
+  integrity smoke test (weekend-row scan + cross-symbol date
+  intersection check) before every cycle. The off-by-one bug
+  persisted across 5 cycles + 4 forward candidates because no test
+  covered bar-label correctness; the test that caught it only existed
+  AFTER v2.1.3 forward observation rewrite (commits `c3cefc1`..`4abc3c9`).
+
 **Forward OOS workstream (infrastructure history + active state)**:
 Infrastructure (R-fwd-1 / R-fwd-2 / R-fwd-3 / F) shipped 2026-04-26
 through 2026-04-29 + R8 DST fix; legacy candidates RCMv1 + Cand-2
