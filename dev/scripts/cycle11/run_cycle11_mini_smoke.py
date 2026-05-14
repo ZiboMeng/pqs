@@ -37,17 +37,30 @@ def _load_universe():
 
 
 def _build_panels(symbols, start="2017-01-02", end="2025-12-31"):
+    """Return (close_df, open_df). CRITICAL: passing open_df to
+    SignalDrivenBacktest is mandatory — without it the BacktestEngine
+    falls back to same-day-close as fill price, which is a LOOKAHEAD
+    artifact for breakout strategies (real T+1 open is typically gap-up
+    above same-day close → real fill worse than backtest implies).
+    Fix shipped 2026-05-14 evening; pre-fix v1/v2 smoke numbers were
+    inflated by ~+0.65 Sharpe (see docs/audit/20260514-cycle11_smoke_execution_artifact.md).
+    """
     store = BarStore()
     closes = {}
+    opens = {}
     for sym in symbols:
         try:
             df = store.load(sym, freq="1d", adjusted=True).sort_index()
             df = df[(df.index >= pd.Timestamp(start)) & (df.index <= pd.Timestamp(end))]
             if not df.empty:
                 closes[sym] = df["close"]
+                if "open" in df.columns:
+                    opens[sym] = df["open"]
         except Exception:
             continue
-    return pd.DataFrame(closes).sort_index()
+    close_df = pd.DataFrame(closes).sort_index()
+    open_df = pd.DataFrame(opens).reindex(index=close_df.index, columns=close_df.columns)
+    return close_df, open_df
 
 
 def _entry_signals(close_df, seed: str, lookback: int):
@@ -87,7 +100,7 @@ def _annualized_sharpe(returns: pd.Series) -> float:
 
 
 def _run_trial(seed: str, lookback: int, max_hold: int, top_n: int,
-               close_df, cost) -> dict:
+               close_df, open_df, cost) -> dict:
     """Run one signal-driven backtest, return metrics."""
     entry = _entry_signals(close_df, seed, lookback)
     exit_ = _exit_signals(close_df, entry, max_hold)
@@ -103,6 +116,7 @@ def _run_trial(seed: str, lookback: int, max_hold: int, top_n: int,
             cost_model=cost,
             initial_capital=10_000.0,
             execution_delay_bars=1,
+            open_df=open_df,  # CRITICAL fix 2026-05-14: avoid close-fallback lookahead
         )
         result = bt.run()
     except Exception as e:
@@ -127,8 +141,8 @@ def main():
     print("=== cycle11 mini-mining smoke (20 trials) ===")
     universe = _load_universe()
     print(f"Universe: {len(universe)} stocks")
-    close_df = _build_panels(universe)
-    print(f"Panel: {close_df.shape}, range {close_df.index.min().date()} → {close_df.index.max().date()}")
+    close_df, open_df = _build_panels(universe)
+    print(f"Panel: close={close_df.shape}, open={open_df.shape}, range {close_df.index.min().date()} → {close_df.index.max().date()}")
 
     # COST GATE REVISION 2026-05-14 (per user directive):
     # baseline slip raised 5bp → 30bp (= 6× original) to match realistic
@@ -171,7 +185,7 @@ def main():
     print(f"\nRunning {len(seed_configs)} trials...")
     for i, (seed, cfg) in enumerate(seed_configs):
         result = _run_trial(seed, cfg["lookback"], cfg["max_hold"],
-                            cfg["top_n"], close_df, cost)
+                            cfg["top_n"], close_df, open_df, cost)
         result.update({"trial_id": i, "seed": seed, **cfg})
         trials.append(result)
         err = f" [ERR: {result.get('error', '')}]" if "error" in result else ""
