@@ -1146,6 +1146,53 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   Option A sampler refactor + `--bypass-invalid-marker` launcher
   flag. Decision NOT auto-triggered; user-go required.
 
+- **Post-cycle10 strategic roadmap + K1 deferred-execution wrapper**
+  (2026-05-13 ✅) — cycle10 closed 0-nominee (R7 fail-SPY risk
+  realized per NAV-residualized objective). Roadmap memo v1 → v1.1 →
+  v2 FINAL (commits `10838c5` → `a6aa4f0` → `7b12d85`): TC ceiling
+  (Clarke-de Silva-Thorley 2002 FAJ, long-only TC=0.45-0.55) reframes
+  bundle binding — legitimate attacks = horizon change (intraday) +
+  cadence change (signal-driven) + cross-asset done RIGHT; universe
+  expansion + LLM mining DON'T attack TC. D1 (200+ stocks) dropped
+  with TC-ceiling reason replacing weak cycle04 n=1. D3 (LLM
+  mining) DROP → DEFER until K1+T1 produces working construction.
+  Signal seed library: 6 evidence-strong seeds (Faber 200-SMA /
+  Connors RSI(2) / Donchian 20/55 / HY OAS / Zweig breadth thrust /
+  GKM abnormal volume) + 3 orthogonal archetypes (trend /
+  mean-reversion / cross-asset risk gate) for T1b + T2a. User 8/8
+  explicit-go locked v2: T1a first then T1b∥T1c, PEAD+FOMC bundle,
+  cycle11 3 objectives all-try, ML Phase 2 coupled with T2, F1+F2+F3
+  all-do, K1 strict TDD, unified observe runner, seed library
+  full-collect.
+
+  **K1 ship (2026-05-13 evening)**: `SignalDrivenBacktest` wrapper at
+  `core/backtest/signal_driven_runner.py` (212 lines) + 30-test TDD
+  suite at `tests/unit/backtest/test_signal_driven_runner.py`. K1.1
+  design audit `docs/audit/20260513-k1_deferred_exec_design.md`;
+  K1.4 regression report `docs/audit/20260513-k1_regression_report.md`;
+  K1.5 closeout `docs/memos/20260513-k1_deferred_exec_ship.md`.
+  Commits: `37417ab` design / `7ee24f3` 27-RED+3-GREEN tests stub /
+  `47ca31f` impl 30-GREEN.
+
+  **Architectural choice**: wrapper pattern, NOT `BacktestEngine.run`
+  modification. `core/backtest/backtest_engine.py` byte-identical to
+  pre-K1 `main` — M11a/M11b parity bit-for-bit guaranteed by
+  construction. Wrapper drives existing kernel (`SignalStateMachine`
+  + `DeferredExecutionSchedule`) per bar → builds (date × symbol)
+  weight panel → delegates to `BacktestEngine.run(signals_df=panel)`.
+  T1a/T1b/T1c/T2a/T2c all consume this wrapper identically to a
+  hypothetical engine extension. If T1b reveals need for state-aware
+  cost models (e.g., mid-bar cost change), additive engine
+  extension can land then.
+
+  Test surface delta: +30 tests (1.3% of 2323 baseline). All 30
+  GREEN; full `tests/unit/backtest/` 199/199 PASS (no regression
+  on M11a/M11b parity / NaN-equity / concentration metrics /
+  intraday paths / ghost cleanup / cap_aware).
+
+  **Status**: T1a (alt-A `IntradayReversalStrategy` Phase 2-3)
+  unblocked; estimated 3-5 days as first real consumer.
+
 **Forward OOS workstream (infrastructure history + active state)**:
 Infrastructure (R-fwd-1 / R-fwd-2 / R-fwd-3 / F) shipped 2026-04-26
 through 2026-04-29 + R8 DST fix; legacy candidates RCMv1 + Cand-2
