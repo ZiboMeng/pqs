@@ -1,0 +1,157 @@
+{
+  "lineage": "t1b-confirmation-pattern-2026-05-14",
+  "phase": "T1b Phase 3 Track A",
+  "config": {
+    "arm_type": "breakout_high_n",
+    "setup_lookback_days": 20,
+    "confirmation_ttl_bars": 5,
+    "confirmation_threshold_pct": 1.0,
+    "top_n": 5,
+    "max_holding_days": 21
+  },
+  "universe_size": 54,
+  "n_trades": 2754,
+  "final_equity": 52831.85797751273,
+  "split_name": "alternating_regime_holdout_v1",
+  "role": "core",
+  "overall_passed": false,
+  "n_gates_total": 17,
+  "n_gates_passed": 14,
+  "gates": [
+    {
+      "name": "role_core_eligibility",
+      "passed": true,
+      "notes": "eligibility passes (no constraints)"
+    },
+    {
+      "name": "validation_year_2018_maxdd",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "validation_year_2019_maxdd",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "validation_year_2021_maxdd",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "validation_year_2023_maxdd",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "validation_year_2025_maxdd",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "validation_aggregate_excess_vs_spy",
+      "passed": false,
+      "notes": ""
+    },
+    {
+      "name": "validation_aggregate_excess_vs_qqq",
+      "passed": false,
+      "notes": ""
+    },
+    {
+      "name": "stress_slice_covid_flash_maxdd",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "stress_slice_rate_hike_2022_maxdd",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "role_core__validation__2025__excess_vs_qqq",
+      "passed": false,
+      "notes": ""
+    },
+    {
+      "name": "role_core__validation__2025__maxdd",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "concentration_top1",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "concentration_top3",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "concentration_no_leveraged_etf",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "beta_to_qqq",
+      "passed": true,
+      "notes": ""
+    },
+    {
+      "name": "cost_robustness_2x",
+      "passed": true,
+      "notes": ""
+    }
+  ],
+  "metrics": {
+    "validation": {
+      "2018": {
+        "maxdd": -0.1290196243704163,
+        "excess_vs_spy": 0.10074193878260124,
+        "excess_vs_qqq": 0.05723730788125433
+      },
+      "2019": {
+        "maxdd": -0.14573932268545498,
+        "excess_vs_spy": -0.17434712587948492,
+        "excess_vs_qqq": -0.26029132719799974
+      },
+      "2021": {
+        "maxdd": -0.055506395089112856,
+        "excess_vs_spy": 0.10646820501450804,
+        "excess_vs_qqq": 0.1087521200789644
+      },
+      "2023": {
+        "maxdd": -0.09773033078921772,
+        "excess_vs_spy": 0.031191742945879897,
+        "excess_vs_qqq": -0.26897290817644964
+      },
+      "2025": {
+        "maxdd": -0.11199474307945537,
+        "excess_vs_spy": -0.14597014091185326,
+        "excess_vs_qqq": -0.18362684249698505
+      }
+    },
+    "stress_slice": {
+      "covid_flash": {
+        "maxdd": -0.09476952951651776
+      },
+      "rate_hike_2022": {
+        "maxdd": -0.08375389756008861
+      }
+    },
+    "concentration": {
+      "top1_max": 0.2,
+      "top3_max": 0.6000000000000001,
+      "leveraged_etf_dependency": false
+    },
+    "beta": {
+      "beta_to_qqq": 0.43262189935405426
+    },
+    "cost": {
+      "multiplier_2x_remains_positive": true
+    },
+    "year_2025_vs_spy": -0.14597014091185326,
+    "year_2025_vs_qqq": -0.18362684249698505
+  }
+}
