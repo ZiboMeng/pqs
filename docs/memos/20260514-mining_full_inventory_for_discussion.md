@@ -25,6 +25,15 @@
 > 2. 这里的所有结论 你拿到web上面去搜 不要根据咱们现有的几个trail就给结论
 > 3. TC ceiling是天花板的话 怎么突破呢 给出来可以突破的方法，另外也带着这个问题去做websearch
 > 
+>
+> **Codex audit comment (independent, 2026-05-14)**:
+> - 我做了独立 web search。结论方向基本成立，但这里的表述要更谨慎：外部文献支持“long-only 约束会显著压低信息传递效率 / transfer coefficient”，不等于已经严格证明“PQS 的 0 nominee 全部只由 TC ceiling 单因子解释”。更稳妥的说法应该是：`cycle04-11 的失败模式与 TC bottleneck 高度一致，但还不能排除 construction / universe / data completeness / governance drift 的共同作用。`
+> - 对 PEAD，近期外部文献更像“经典单季 SUE 在部分大盘股环境里变弱，但文本版 / 多季度历史版 / ML 版没有死”而不是“PEAD 彻底失效”。这和你们今天找到的 Path1 结果是相容的。
+> - 我实际查到并建议保留的外部参考：
+>   `https://papers.ssrn.com/sol3/papers.cfm?abstract_id=290916`
+>   `https://www.aqr.com/Insights/Research/White-Papers/Understanding-Relaxed-Constraint`
+>   `https://www.frbsf.org/research-and-insights/publications/system-research-philadelphia-fed/2024/05/pead-txt-post-earnings-announcement-drift-using-text`
+>   `https://www.sciencedirect.com/science/article/pii/S1544612325020057?dgcid=rss_sd_all`
 
 ---
 
@@ -88,6 +97,14 @@ ETF (5 in seed_pool):
 > [universe 现状你有疑问吗？某些个股该考虑剔除？某些个股该考虑加？]
 > long only如果限制了当前的mining 那么把sqqq+soxs等反向hedge的ticker的限制lift掉 也可以考虑一些流动性好的大蓝筹的ticker
 > 
+>
+> **Codex audit comment (independent, 2026-05-14)**:
+> - 我先核了当前配置，而不是只看 memo：`config/universe.yaml` 现在是 `59 seed + 11 sector + 5 factor + 7 cross_asset`，去重且排除黑名单后，**实际 tradeable unique count = 81**，不是 79。
+> - 更关键的是数据完整性。我的本地实查显示，full tradable universe 里有 **14/81** 个 symbol 的日线存在 `>20` 天的严重缺口；PEAD 用的 54 股子集里也有 **7 个严重缺口名字**：`ACGL / BKNG / CMG / ISRG / MCK / TT / META`。其中 `META / BKNG / TT` 部分可由 ticker-history 解释，但 `ACGL / CMG / ISRG / MCK` 这类缺口会直接触发真实运行里的 `ghost-position cleanup`。
+> - 所以我的优先级不是“先加更多票”，而是：
+>   1. 先给 universe / event-driven 候选加一个 **data completeness gate**
+>   2. 再讨论加 `SQQQ/SOXS` 或扩到更多大盘蓝筹
+> - 如果要加票，我更支持“补 sector/behavior 空白”而不是纯粹堆数量；但在数据完整性没补齐前，不建议扩大面板复杂度。
 
 ---
 
@@ -292,6 +309,10 @@ ETF (5 in seed_pool):
 📝 **用户 annotation §3** (pre-Track-A 时代):
 > [对 RCMv1 / Cand-2 / Phase E 的回头看，你觉得哪些 decision 应该重做？哪些是对的？]
 > 不是让你说人话吗 你看看你自己写的这些什么乱七八糟的玩意儿
+>
+> **Codex audit comment (independent, 2026-05-14)**:
+> - 现在回头看，**正确 decision** 是：`4/30` 直接 abort `RCMv1 / Cand-2`，以及把“orthogonal”从 factor overlap 叙事切回 NAV-level correlation 现实。
+> - **该重做的 decision** 是：当时太早把“因子不重合”当成“组合足够分散”的证据。后验看，应该在 promote / forward-init 之前就把 NAV-level sibling check 提到更前面。
 
 ---
 
@@ -679,6 +700,11 @@ ETF (5 in seed_pool):
 
 📝 **用户 annotation §5 (PEAD)**:
 > [PEAD evidence-only forward-init 决定你满意吗？60 天 soak 后如果 Sharpe 还 > 0.8，你倾向 fleet 合成还是 paid 8-K 数据 Phase 2？]
+>
+> **Codex audit comment (independent, 2026-05-14)**:
+> - 我在 `conda activate pqs` 里真跑了 `dev/scripts/pead/run_path1_sue_smoke.py`。结果和 memo 主结论一致：**8/9 trial 的 Sharpe 高于 SPY baseline**，best trial 是 `trial 6`，`Sharpe=1.063 / CAGR=10.39% / MaxDD=-24.01%`；如果更看重回撤，`trial 1` 是 `Sharpe=1.055 / CAGR=5.48% / MaxDD=-7.64%`。
+> - 但我要加一个保留意见：这次真跑过程里出现了很多 `ghost-position cleanup`，根因不是策略逻辑报错，而是若干 symbol 的日线有严重缺口。也就是说，**PEAD 是真的有信号，但当前证据仍然对 data panel quality 敏感。**
+> - 所以如果 TD60 后 Sharpe 还稳在 `>0.8`，我的顺序会是：**先 fleet 合成，再决定是否上 paid 8-K**。原因不是我反对 paid data，而是现在更大的瓶颈先看起来在“组合承载层 + 数据洁净度”，而不只是“信号源再加速”。
 
 ---
 
@@ -733,6 +759,11 @@ ETF (5 in seed_pool):
 📝 **用户 annotation §6**:
 > [3 个 candidate 这种"组合下注"策略你觉得分散得够吗？还有哪类候选应该再 forward-init？]
 > 咱们ML的，factor信号出现 确认这种我觉得还是没有弄好啊，比如五日均线上穿200ma，或者大阳线包大阴线，或者说反弹之后，低点更低之类的，这种都没有去探索啊
+>
+> **Codex audit comment (independent, 2026-05-14)**:
+> - 我认可“现在的 3 个 candidate 是按 archetype 分散了”，因为它们分别落在 `multi-factor diversifier / event-driven equity / options sleeve` 三条不同路径上。
+> - 但我也同意用户这里的核心批评：**还缺一个真正 chart-pattern / signal-confirmation / intraday event-driven 的股票候选**。这不是“再开一个同类 monthly top-N 候选”，而是补一整个未覆盖 family。
+> - 所以我的 stance 是：短期内如果要再 forward-init，新候选应该优先来自 `signal-driven + pattern trigger`，而不是再从老的 monthly ranking geometry 里抽。
 
 ---
 
@@ -778,6 +809,15 @@ ETF (5 in seed_pool):
 📝 **用户 annotation §7**:
 > [哪条 invariant 你愿意 review？哪条 absolute？特别是 long-only / no-short — 这个 boundary 调整对 alpha 空间影响极大]
 > 我觉得有很多都可以loose：1. 上面讲了可以放开long-only，设置成flag进行mining 2. 回撤可以放宽到只要比spy好就可以 即使是在08年 3. 执行可以不需要interday执行，可以intraday，不需要T做决策，T+1做执行。
+>
+> **Codex audit comment (independent, 2026-05-14)**:
+> - 我核过代码，`long_only / allow_short / blacklist` 不是口头纪律，而是已经写死在 `config/risk.yaml` 和 `core/config/schemas/risk.py` 的 hard validation 里；测试里也有显式断言。所以“做成 cycle flag”是可以设计的，但它不是一个轻量开关，而是会波及：
+>   `BacktestEngine / SignalDrivenBacktest / acceptance gates / borrow-cost model / concentration math / paper path`
+> - 我同意可以 review 的有两条：
+>   1. `T+1 open` 不是 absolute，至少在 signal-driven / intraday path 上已经有技术基础
+>   2. `long-only` 不是永恒神圣不可碰，但一旦碰就必须把 short accounting 和 borrow fee 当 first-class contract
+> - 我不建议现在就放宽的一条是“只要比 SPY 好就行，08 回撤可以显著放大”。理由很简单：你现在还有明显的数据缺口问题，**在数据层还不够稳的时候先放松 drawdown guard，很容易把 data artifact 当 alpha。**
+> - 另一个必须写进 memo 的独立发现：**文档说 QQQ 已降级成 diagnostic only，但代码层并没有完全统一。** 当前 `config/backtest.yaml`、`config/temporal_split*.yaml`、`core/mining/evaluator.py`、以及相关测试仍保留了 QQQ gate 的活跃代码路径。这是治理漂移，不是纯文案问题。
 ---
 
 ## §8 已经证明走不通的方向（基于实证 + 学术验证）
@@ -959,6 +999,13 @@ ETF (5 in seed_pool):
 📝 **用户 annotation §10**:
 > [7 个 option 你想动哪个？多个并行 OK 吗？是否要 reorder operator 推荐 sequence？]
 > 要并行，我希望就是挖掘出更多的有用的strategy LM-based的尤其是 我上面也写了很多的内容了 你可以websearch得到更多灵感 然后进行mining
+>
+> **Codex audit comment (independent, 2026-05-14)**:
+> - 我支持并行，但我的独立排序会在最前面插一个 `Priority 0`：
+>   1. **修数据完整性 admission gate / sparse-panel 审计**
+>   2. **统一 QQQ gate 的治理真相（文档 vs config vs evaluator）**
+>   3. 然后再开新的 LLM-based mining / chart-pattern mining / signal-driven mining
+> - 原因是：如果第 1 和第 2 步不先做，后面的新 cycle 很容易继续在不一致的 benchmark 规则和有缺口的数据面板上优化，最后把“新增 strategy 数量”误当成“新增可信证据”。
 ---
 
 ## §11 给用户的 5 个关键问题（请直接 weigh-in）
@@ -1360,6 +1407,170 @@ Pipeline:
 
 ---
 
+## §14.10 Operator 回复 Codex audit comments (2026-05-14 夜, 第二轮)
+
+> Codex 做了独立 audit 留了 6 处 comment 在 §1 / §2 / §3 / §5 / §6 / §7 / §10. 我按 R3 真跑代码原则 verify 关键 claim 后逐条回复.
+
+### §14.10.1 §1 Codex: TC ceiling 表述过强 → 接受
+
+**Codex 原话**: "不等于已经严格证明 PQS 的 0 nominee 全部只由 TC ceiling 单因子解释...更稳妥的说法: cycle04-11 的失败模式与 TC bottleneck 高度一致, 但还不能排除 construction / universe / data completeness / governance drift 的共同作用."
+
+**Operator**: 接受. 真实 statement 应该是:
+> "cycle04-11 的 0 nominee 失败模式与 TC ceiling 高度一致, 但不能排除多因子共同作用 (construction + universe + data completeness + governance drift)."
+
+我 v2 写得过于绝对. 后续版本会改 §1 TL;DR bullet 3 + §3.0.3 措辞.
+
+### §14.10.2 §2 Codex: universe count + 数据完整性 → **BOTH verified TRUE**
+
+**Codex 原话**: "tradeable unique count = 81, 不是 79. 14/81 symbol 日线 >20 天严重缺口; PEAD 用的 54 股里 7 个: ACGL / BKNG / CMG / ISRG / MCK / TT / META."
+
+**Operator R3 verify (真跑代码)**:
+
+我跑了 `BarStore.load(adjusted=True)` 加上 cross-symbol gap analysis (Business Day index difference). 结果:
+
+- **tradeable count 81 confirmed** (我之前 audit memo §2 写 85 算了 macro_reference; 排除 macro + blacklist + 去重 = 81)
+- **数据缺口实际比 Codex 报的更严重**: **81/81 symbol 都有 >20 BD cross-symbol gap**
+
+关键例子 (Codex listed 7, 实际更多):
+- ACGL: 2369 rows, 缺 594 BD, starts 2015-01-06
+- CMG: 1384 rows, 缺 1580 BD, starts 2015-01-05
+- ISRG: 2070 rows, 缺 881 BD, starts 2015-01-22
+- MCK: 2362 rows, 缺 603 BD
+- BKNG: 496 rows, 缺 1647 BD, starts 2018-02-27 (最严重)
+- TT: 1250 rows, 缺 369 BD, starts 2020-03-02 (进 universe 晚)
+- VLUE: 1077 rows, 缺 1682 BD
+- 还有 KLAC, APD, TMO, TRGP, LLY, ABT, SCHD, SHY, SOXL 等
+
+**严重性分析**:
+
+| Gap 类型 | 解释 | 严重 |
+|---|---|---|
+| ticker first_trade_date 之前 | 预期 | 不严重 |
+| ticker 进 universe 之后 6+ 天 stale | **真数据缺口** (ACGL 2017-01-25 ghost cleanup 在 6 stale days 触发, but ACGL data 2015 就有了) | **严重, ghost cleanup 根因** |
+
+具体到 PEAD 用的 stocks: ACGL ghost cleanup at 2017-01-25 (data starts 2015-01-06) → 2017-01 中真有 6 天连续缺数据. **Real data corruption, not first_trade_date.**
+
+**Action**: Codex P0 建议正确. 加 **data completeness admission gate** 在 mining 之前.
+
+### §14.10.3 §3 Codex: RCMv1/Cand-2 retrospective → 接受
+
+**Codex 原话**: "正确 decision: 4/30 abort RCMv1 / Cand-2. 该重做: 太早把因子不重合当组合分散. 后验看, NAV-level sibling check 应该提到 promote 前."
+
+**Operator**: 完全接受. 改进 already 体现在 cycle04+ 的 anti-sibling NAV correlation 闸门 (cycle04 cluster A 0.66-0.70 raw 就是新规则). 但 Codex 提醒: **NAV-level sibling check 应该是 promote 必要前置, 不是 "passed Track A 之后再检查"** —— 这条 governance 加进 §14.10.7 P0 列表.
+
+### §14.10.4 §5 Codex: PEAD smoke 真跑 confirm + data sensitivity → 接受
+
+**Codex 原话**: "我真跑了 run_path1_sue_smoke.py. 8/9 trial 过 SPY confirmed. 但 ghost-position cleanup 频繁. PEAD 信号是真的, 但当前证据对 data panel quality 敏感. TD60 GREEN 后顺序: 先 fleet 合成, 再 paid 8-K."
+
+**Operator**: 接受. fleet 合成顺序我 §14.9 Q4 选 A (PEAD + T1b 50/50) 也是 fleet 优先, 跟 Codex 一致.
+
+**更新 PEAD TD60 GREEN 后 sequence**:
+1. fleet 合成 (PEAD + T1b) 验证
+2. data completeness gate 上线后重跑 PEAD 看 Sharpe 是否变化
+3. 然后才决定 paid 8-K Phase 2
+
+### §14.10.5 §6 Codex: 缺 chart-pattern candidate → 一致
+
+**Codex**: "短期再 forward-init 应优先来自 signal-driven + pattern trigger, 不是老 monthly ranking geometry."
+
+**Operator**: 100% 一致. 我 §14.4 已 propose 30 个 chart pattern factor. cycle12 应该用这些 + signal-driven cadence. **第 4 个 forward-init candidate (跟 trial9_v2 / PEAD / options 并行) 应该是 cycle12 chart-pattern winner**.
+
+### §14.10.6 §7 Codex: 3 个独立 finding
+
+**Finding A — long-only flag 重量级**: Codex 列出代码层影响面 (BacktestEngine / SignalDrivenBacktest / acceptance gates / borrow-cost / concentration math / paper path). 跟我 §14.2 "3-5 天 + 30 unit test" 一致.
+
+**Finding B — MaxDD 放宽建议拒**: "数据层还不够稳的时候先放松 drawdown guard, 很容易把 data artifact 当 alpha."
+
+**Operator**: 接受. **D6 (MaxDD 放宽) push 到 P0.b 数据修好之后再讨论**.
+
+**Finding C — QQQ governance drift (最关键)**:
+
+> "文档说 QQQ deprecated, 但代码层没统一. config/backtest.yaml + config/temporal_split*.yaml + core/mining/evaluator.py 以及相关测试仍保留 QQQ gate 活跃代码路径."
+
+**Operator R3 verify** (grep 跑了):
+
+| File | Line | Status |
+|---|---|---|
+| `config/backtest.yaml:91-93` | `min_*_excess_vs_qqq: 0.0` | ❌ still active |
+| `config/production_strategy.yaml:80` | `passed_qqq_gate: false` | ❌ still active flag |
+| `config/temporal_split.yaml:106` | `validation.2025.excess_vs_qqq > 0 HARD kill_candidate` | ❌ still HARD |
+| `config/temporal_split_v2.yaml:118` | (diversifier role) `excess_vs_qqq > 0 HARD` | ❌ still HARD |
+| `config/temporal_split_v3.yaml:138` | `excess_vs_qqq > 0 diagnostic_only` | ✅ only v3 reflects deprecation |
+
+**严重性**: cycle04-08 全部用 v1 (HARD QQQ). Trial 9 forward init 用 v2 (HARD QQQ). 今天 / 明天再开 new cycle, 默认仍然 v1 → 默认仍然 HARD QQQ gate.
+
+**实证支撑**: cycle07a Trial 3 / cycle06 / cycle10 都 fail 在 `validation_aggregate_excess_vs_qqq`. 那些 fail 的真相是 **QQQ gate 还在 active 杀候选**, 不是 deprecation 已生效.
+
+**Action**: 这是 P0 治理修复. 必须在任何新 cycle 之前 ship.
+
+### §14.10.7 §10 Codex: Priority 0 (data + QQQ) before everything → 接受
+
+**Codex**: "支持并行, 但插一个 Priority 0:
+1. 修数据完整性 admission gate / sparse-panel 审计
+2. 统一 QQQ gate 治理 (文档 vs config vs evaluator)
+3. 然后再开 LLM-based / chart-pattern / signal-driven mining
+
+不先做 → 新 cycle 在不一致 benchmark + 有缺口数据上优化, '新增 strategy 数量' 误当成 '新增可信证据'."
+
+**Operator**: **完全接受**. §14.7 priority 重排, **加 P0.a + P0.b 在最前**.
+
+### §14.10.8 Priority 重排 (取代 §14.7)
+
+| Rank | 方向 | 理由 | 工程量 |
+|---|---|---|---|
+| **P0.a** | **QQQ governance 统一** | Codex P0. 4 个 config + production_strategy + evaluator + 测试都改. **不修 → 所有新 cycle 在错的 benchmark 规则上优化** | 1 天 |
+| **P0.b** | **数据完整性 admission gate** | Codex P0. 81/81 symbol 都有 cross-symbol gap; ACGL/CMG/ISRG/MCK 等 ghost cleanup 是真缺口. **不修 → mining + forward observe 都 sensitive to data artifact** | 1 天 |
+| **1** | **Chart pattern factor 30+ (新 family Q)** | PEAD 一样事件驱动, 最可能 TC ceiling 突破 | 1.5 天 |
+| **2** | **Regime-aware factor 加 ML** | 6 个新 factor + ML conditional rule | 1 天 |
+| **3** | **Intraday execution mining (signal-driven)** | K1 wrapper 已 ready, mining pipeline 接通 | 2 天 |
+| **4** | **130/30 long-short flag (per-cycle)** | 学术最强 unlock; 跟 P0 解耦但工程量大 | 3-5 天 |
+| **5** | **大盘蓝筹 + 反向 ETF universe 扩展** | 标准 expansion; **P0.b 之后做** | 0.5 天 |
+| **6** | **Cycle12 综合 mining** | P0 + priority 1-5 后跑 | 2 天 |
+| **7** | **T1a / T1b 30bp 重 eval** | cheap directional, fleet 合成 prerequisite | 1 天 |
+| **8** | **Cross-asset cycle 重做 (放宽 factor_overlap)** | cycle04 Cluster A 平反 | 1 天 |
+| **9** | **LLM-based mining framework** | WebSearch 灵感 + funnel | 2 天 framework |
+
+**修正后 sequence**:
+
+```
+Day 0 (今天/明天 5/14-5/15) 并行:
+  - P0.a QQQ governance 统一 (1 天)
+  - P0.b 数据完整性 admission gate (1 天)
+  - 这是 critical fix, 必须先做
+
+Week 1 (5/16-5/22) 并行:
+  - Chart pattern factor library (priority 1, 1.5 天)
+  - Regime-aware factor (priority 2, 1 天)
+  - 大盘蓝筹 universe expansion (priority 5, 0.5 天)
+  - T1a/T1b 30bp 重 eval (priority 7, 1 天)
+
+Week 2 (5/23-5/29) 并行:
+  - Intraday execution pipeline (priority 3, 2 天)
+  - Cross-asset cycle 重做 (priority 8, 1 天)
+  - LLM-based mining framework (priority 9, 2 天 framework)
+
+Week 3 (5/30-6/5):
+  - Cycle12 跑 (priority 6): 30 chart + 6 regime + 162 老 = 198 因子 pool;
+                              signal-driven cadence; 新 universe (~70 股 + 反向 ETF);
+                              cap_aware + cross-asset (放宽 factor_overlap)
+
+Week 4 (6/6-6/12):
+  - 130/30 long-short flag implementation (priority 4)
+  - Cycle13 跑 (启用 130/30 flag)
+
+Continuous (后台):
+  - trial9_v2 / PEAD / options 3 个 forward soak (每日 EOD ritual)
+  - 7/30-8/13 TD60 verdict 窗口
+```
+
+### §14.10.9 §11 Q updates 基于 Codex feedback
+
+- **Q1 + Q3 + Q4 + Q5**: 用户答案 + Codex 一致, no change
+- **Q2 (long-only stance)**: Codex 强调 "borrow fee + short accounting must be first-class contract". 加进 D3 yaml 设计要求.
+- **MaxDD 放宽 D6**: Codex 拒绝在数据问题没修时放宽. **D6 push 到 P0.b 之后再讨论, 当前 default 保持 25%**.
+
+---
+
 ## §15 等用户拍的 8 个 decision
 
 | # | Decision | Default | 等你 |
@@ -1369,7 +1580,8 @@ Pipeline:
 | D3 | long-only flag yaml 设计 (§14.2 提案) | 同意提案 | yes/no |
 | D4 | 借券成本 1% annual 起 + sector-specific | **1%** | yes/no/数字 |
 | D5 | 第一个 short-enabled cycle 时机 | **cycle13 (week 4)** | confirm or 提前 |
-| D6 | MaxDD 放宽 = SPY_MaxDD + 5pp 容忍 + 绝对 -40% 上限 | **5pp + -40%** | yes/no/数字 |
+| D6 | MaxDD 放宽 = SPY_MaxDD + 5pp 容忍 + 绝对 -40% 上限 | **PUSH 到 P0.b 之后再决定** (Codex 反对 in data-unstable phase) | yes/no/数字 |
+| **D9** (Codex P0) | QQQ governance 统一 + 数据完整性 admission gate 当 P0 (~2 天) | **YES** (Codex 强烈推荐) | yes/no |
 | D7 | Intraday signal 用 60m / 30m / 15m bar? | **30m** | confirm or 60m/15m |
 | D8 | priority 1-9 sequence 跟 §14.7 一致吗 | 上面排序 | yes/no/reorder |
 
