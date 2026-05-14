@@ -130,10 +130,13 @@ def main():
     close_df = _build_panels(universe)
     print(f"Panel: {close_df.shape}, range {close_df.index.min().date()} → {close_df.index.max().date()}")
 
+    # COST GATE REVISION 2026-05-14 (per user directive):
+    # baseline slip raised 5bp → 30bp (= 6× original) to match realistic
+    # retail at-market execution. Documents: docs/memos/20260514-cost_gate_revision_6x.md
     cost = CostModel(CostModelConfig(
         tiers={"default": CostTierConfig(
-            symbols=[], commission_bps=1.0,
-            slippage_interday_bps=5.0, slippage_intraday_bps=10.0,
+            symbols=[], commission_bps=2.0,
+            slippage_interday_bps=30.0, slippage_intraday_bps=60.0,
         )}
     ))
 
