@@ -450,7 +450,7 @@ class TestCostIntegration:
     def test_19_cost_model_applied_to_signal_driven_fills(self):
         """Test 19: cost_model param applied; transaction cost present."""
         from core.execution.cost_model import CostModel
-        from core.config.schemas.cost_model import CostModelConfig
+        from core.config.schemas.cost_model import CostModelConfig, CostTierConfig
         dates = _mk_dates(60)
         syms = ["AAA"]
         entry = _mk_signals(dates, syms, fire_dates={"AAA": [dates[5]]})
@@ -458,8 +458,14 @@ class TestCostIntegration:
         prices = _mk_prices(dates, syms)
         cost = CostModel(
             CostModelConfig(
-                slippage_bps=10.0,
-                commission_bps=5.0,
+                tiers={
+                    "default": CostTierConfig(
+                        symbols=[],
+                        commission_bps=5.0,
+                        slippage_interday_bps=10.0,
+                        slippage_intraday_bps=15.0,
+                    )
+                }
             )
         )
         runner = SignalDrivenBacktest(
