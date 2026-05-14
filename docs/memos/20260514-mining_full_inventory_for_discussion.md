@@ -204,7 +204,7 @@ ETF (5 in seed_pool):
 
 📝 **用户 annotation §3.0**:
 > [4 个突破方法你想 push 哪个？特别是 A (放开 long-only) 你的 stance？]
-> 
+> 是否放开long-only我觉得可以再mining里面做为一个flag设定 每次开一个新的mining cycle的时候 来确定是否来set这个flag，然后根据结果来决定是否要promote or what，剩下的都可以做
 
 ---
 
@@ -553,7 +553,8 @@ ETF (5 in seed_pool):
 
 📝 **用户 annotation §4 (cycle04-cycle11 全程)**:
 > [这一连串 0 nominee 你怎么看？cycle10 R7 fail-SPY 触发是不是太早？cycle11 信号驱动这个方向应该 push further，还是认输？]
-中文大白话给我重新写
+> regime aware我觉得还是很重要 需要作为一个factor一起放到ML里面来学习
+> 另外 给我再仔细讲一下 你怎么用的training validation和26年的sealed数据
 
 ---
 
@@ -731,6 +732,7 @@ ETF (5 in seed_pool):
 
 📝 **用户 annotation §6**:
 > [3 个 candidate 这种"组合下注"策略你觉得分散得够吗？还有哪类候选应该再 forward-init？]
+> 咱们ML的，factor信号出现 确认这种我觉得还是没有弄好啊，比如五日均线上穿200ma，或者大阳线包大阴线，或者说反弹之后，低点更低之类的，这种都没有去探索啊
 
 ---
 
@@ -775,7 +777,7 @@ ETF (5 in seed_pool):
 
 📝 **用户 annotation §7**:
 > [哪条 invariant 你愿意 review？哪条 absolute？特别是 long-only / no-short — 这个 boundary 调整对 alpha 空间影响极大]
-
+> 我觉得有很多都可以loose：1. 上面讲了可以放开long-only，设置成flag进行mining 2. 回撤可以放宽到只要比spy好就可以 即使是在08年 3. 执行可以不需要interday执行，可以intraday，不需要T做决策，T+1做执行。
 ---
 
 ## §8 已经证明走不通的方向（基于实证 + 学术验证）
@@ -827,7 +829,7 @@ ETF (5 in seed_pool):
 
 📝 **用户 annotation §8**:
 > [这些 ruled-out 你都同意吗？哪条想再开一次？]
-
+> cadence这一条我还是太费解了 不是无数次的说 可以intraday内只要信号出现就可以调仓吗 为啥还是按照什么daily weekly monthly annually走？
 ---
 
 ## §9 还没充分探索的方向（开放空间）
@@ -885,7 +887,7 @@ ETF (5 in seed_pool):
 
 📝 **用户 annotation §9**:
 > [9 个开放方向，按你想 push 的优先级排序。哪几个先做？哪几个等？]
-
+> 按照你觉得的重要程度排 除了付费数据之外的尝试 都需要做
 ---
 
 ## §10 战略选项（不预选，等用户决策）
@@ -956,7 +958,7 @@ ETF (5 in seed_pool):
 
 📝 **用户 annotation §10**:
 > [7 个 option 你想动哪个？多个并行 OK 吗？是否要 reorder operator 推荐 sequence？]
-
+> 要并行，我希望就是挖掘出更多的有用的strategy LM-based的尤其是 我上面也写了很多的内容了 你可以websearch得到更多灵感 然后进行mining
 ---
 
 ## §11 给用户的 5 个关键问题（请直接 weigh-in）
@@ -968,7 +970,7 @@ ETF (5 in seed_pool):
 **背景**：9 号候选来自第 6 次挖掘，是 7 个一类候选里"通过 yaml 硬闸门但 fail CLAUDE.md 项目级不变量（QQQ 5 年累计 vs_qqq mean < 0）"的唯一存活。**回头看，是不是 CLAUDE.md 在 2026-05-02 把 QQQ 降级为参考太便利了 9 号候选？**
 
 📝 **用户 Q1**:
-> [...]
+> [可以低于qqq，但是要超过spy]
 
 ### Q2 — long-only 这条不变量你的 stance？
 
@@ -981,7 +983,7 @@ ETF (5 in seed_pool):
 - D) 等 fleet 合成 evidence 再讨论
 
 📝 **用户 Q2**:
-> [...]
+> [上面说过了]
 
 ### Q3 — 11 次 0 入选 vs Trial 9 60 天数据，哪个 evidence weight 更高？
 
@@ -991,7 +993,7 @@ ETF (5 in seed_pool):
 - C) 两个 evidence 互补 → 同时改
 
 📝 **用户 Q3**:
-> [...]
+> [c]
 
 ### Q4 — PEAD 是 Sharpe 1.06 / 回撤 -7.6% 但年化 5.5% < SPY 13%。三个 fleet 用法选哪个？
 
@@ -1000,7 +1002,7 @@ ETF (5 in seed_pool):
 - C) PEAD + 风险平价多候选（9 号候选 v2 + 未来 winner）
 
 📝 **用户 Q4**:
-> [...]
+> [你决定]
 
 ### Q5 — 2026 封存样本什么时候用？
 
@@ -1010,7 +1012,7 @@ ETF (5 in seed_pool):
 - D) 永不（封存留作最终的最终）
 
 📝 **用户 Q5**:
-> [...]
+> [C]
 
 ---
 
@@ -1021,7 +1023,365 @@ ETF (5 in seed_pool):
 
 ---
 
-## §13 完整 reference 列表
+## §14 Operator 逐条回复用户批注 (2026-05-14 夜)
+
+### §14.1 §2 — universe 调整 (反向 ETF + 大盘蓝筹)
+
+**用户**: long-only 限制 mining 的话，放开 SQQQ + SOXS 反向 hedge；加流动性好的大盘蓝筹。
+
+**operator**: 双管齐下同意，但两动作 implication 不同：
+
+1. **放开 SQQQ / SOXS** = 不变量级别 change。当前 `config/universe.yaml::blacklist` 写死 + CLAUDE.md 顶部 invariant 列表写死。需要：
+   - blacklist 移除 SQQQ + SOXS
+   - CLAUDE.md invariant section 改成"反向 ETF 可作 hedge 使用，单股 ≤ X%"
+   - 仓位上限要定（5-10%？需要你拍 → 见 D1）
+   - high_risk_symbols 加进去 (跟 TQQQ/SOXL 同等级或更严)
+
+2. **加大盘蓝筹** = 普通 universe expansion，跟之前 R28 v2 / R38 v3 一样的流程。候选名单建议（市值 > $200B + 流动性 > $1B/day + 至少 5 年历史）：
+   - **MA** (信用卡支付，跟 V 配对 diversifier)
+   - **JPM** (金融，跟 GS / MS 配对)
+   - **BAC / WFC** (金融多样化)
+   - **CVS / WBA** (drug retail，sector 空缺)
+   - **F / GM** (汽车 sector 空缺)
+   - **DIS** (media，sector 空缺)
+   - **CRM** (大型 SaaS)
+   - **ORCL / IBM** (legacy tech，diversifier)
+   - 共 ~10 只
+
+### §14.2 §3.0 — long-only 当 flag
+
+**用户**: 放开 long-only 做成 mining flag，每次 cycle 决定是否 set，剩下 B/C/D 都做。
+
+**operator**: 最重要的 directional decision，**架构层面 change 是 invariant 重写**。
+
+Implementation 设计提案 (yaml schema):
+
+```yaml
+mining_config:
+  long_only_constraint: false  # default true, can override per cycle
+  short_position_limits:       # only used if long_only_constraint=false
+    max_short_per_symbol: 0.05  # 5% per stock
+    max_total_short: 0.30       # 30% total (130/30 standard)
+    margin_buffer: 0.20         # 20% margin cash buffer
+```
+
+变化范围:
+- `MultiFactorStrategy` 加 short logic
+- `SignalDrivenBacktest` (K1 wrapper) 加 short signal handling
+- `BacktestEngine` 加 short position accounting
+- Track A acceptance 加新 gate: `cost_robustness_2x_with_short_borrow_fee`
+- 借券成本模型 (Reg-T 1-3% annual for 大盘股)
+- ~30 新 unit test
+
+预估工程量: 3-5 天 (含 audit)
+
+### §14.3 §4 全程 — regime-aware + cycle10 + cycle11
+
+**用户**: regime aware 还是很重要 需要作为 factor 一起放到 ML 里学习。另外给我再仔细讲一下你怎么用的 training validation 和 26 年的 sealed 数据。
+
+**operator §14.3a regime-aware factor**: 同意加到 162 因子库. 候选 6 个 factor:
+- VIX 当前 z-score (vs 60 日均值)
+- SPY 200 日均线之上/之下 binary flag
+- 高收益债券 OAS spread z-score
+- 美元指数 z-score
+- BAB factor (beta against beta)
+- 大盘 90 日累计收益分位
+
+这些当 factor 进 ML 模型学习, 让 model 学到"BEAR 年别在 momentum stock 加重仓"这种 conditional rule. 当前 162 因子库里有 `vol_regime` 但没真正的 regime classification factor.
+
+**operator §14.3b training / validation / 2026 sealed 详解**:
+
+PQS 把 2007-2026 数据按时间分成 4 块，**每块访问权限严格不同**：
+
+```
+2007-2008 (危机参考):
+  - 用途: 只能用来跑 stress slice (Lehman 那阵)
+  - 谁能读: 任何人都不读，只在 acceptance 验收时用
+  - 为什么: 数据稀疏 (universe 那时还没成型)、太多 idiosyncratic event
+  - 当前现状: 完全不参与 alpha 选择
+
+2009-2017 + 2020 + 2022 + 2024 (训练年):
+  - 用途: mining 算法 ONLY 能看这些
+  - 谁能读: research_miner.py 在挖掘时
+  - 为什么: 给 mining "学习样本"
+  - 当前现状: cycle04-11 mining 时只读这些日期
+
+2018, 2019, 2021, 2023, 2025 (验证年):
+  - 用途: 挖完之后用来"打分"
+  - 谁能读: selector + acceptance evaluator
+  - 为什么: 防 overfit. Mining 没见过这些数据，
+            所以这些数据上的成绩是 honest "未见过 sample" 成绩
+  - 当前现状: 17 道闸门里 5 道是"per validation year MaxDD ≤ 20%",
+            1 道是 "5 年累计 vs SPY > 0"
+  - 重点: validation 数据**不参与挖掘**，只参与"验收"
+
+2020-02-15 → 04-30 (covid 闪崩 stress slice):
+2022-08-15 → 10-15 (加息 stress slice):
+  - 用途: 压力测试 MaxDD 检查 (≤ 25%)
+  - 谁能读: 只 acceptance evaluator
+
+2026 (封存 single-shot sealed test):
+  - 用途: 整个 project 历史里"开盲盒"只一次
+  - 谁能读: 等所有 forward soak (60 天) 都过了, 一个 candidate 走完所有
+    14 道闸门 + 反兄弟检查通过, 才允许跑 2026 数据上一次, 看 honest 表现
+  - 为什么: 防研究者 "看 2026 表现 → 调参数 → 再看 → 再调" 这种 implicit
+            overfitting. 一旦用过, 永远不能再用 (要再用必须 bump split_name
+            从 v1 → v2 → v3, 重启所有验证)
+  - 当前现状: ZERO 次访问
+
+执行机制 (代码层强制):
+  - config/temporal_split.yaml:
+      access_rules:
+        miner_may_access: ["train"]
+        selector_may_access: ["train", "validation"]
+        sealed_test_access: "final_only_single_shot"
+  - audit:
+        fail_closed_if_2026_row_in_train_panel: true
+  - 实际运行时如果有 2026 数据漏进训练 → runtime 直接 abort
+```
+
+**为什么这么严**: 学术上叫 data snooping bias 或 selection bias. 研究员看到 holdout 表现差，回去微调参数；微调后再看；再调 —— 几轮下来"holdout"已经被研究员的脑子隐性 memorize 了。严格 single-shot 规则是防御这个的唯一办法。
+
+**实操**:
+- 现在 trial9_v2 + PEAD 都在 forward observe 阶段 (拿 2026-05-13 起的真实数据)
+- 60 天后我们看 GREEN/YELLOW/RED verdict
+- **GREEN ≠ 触发 2026 sealed eval** (你 §11 Q5 选 C 已经讲清楚了)
+- 触发 sealed eval 的更高门槛 = fleet 合成框架 ready + multi-candidate aggregate verdict
+
+**operator §14.3c cycle10 R7 是不是触发太早**: 重新想，**触发是对的，但 stop rule 的含义被误读了**。R7 = "5 个验证年累计 vs SPY < 0" 触发，意思是"这条 mining 路径 (78-股 + 月度 + top-N + 因子组合) 在这个数据上 0 nominee"。**不等于"挖掘活动整体停"**，等于"这条路径换一条"。今天 PEAD 就是换的另一条路径，并且 confirm 有 alpha.
+
+**operator §14.3d cycle11 信号驱动 push further 还是认输**: **跑 30bp 真实成本 + 加 chart pattern signals** (你 §6 提到的) 再做一轮. 当前 cycle11 v3 只测了 Donchian / Connors / Faber 三个家族，**没测**:
+- 5 日均线上穿 200 均线 (Golden Cross)
+- 大阳线包大阴线 (Bullish Engulfing)
+- 反弹后低点更低 (Lower Low After Bounce)
+- 双底 / 头肩底
+- 三角整理 breakout
+- Volume + price 联合信号
+
+这些都是经典 chart pattern. 学术上是被半信半疑的 "technical analysis"，但跟 PEAD 一样 trigger 是事件式，可能也突破 TC ceiling. 加这些做一轮 cycle12 是合理的.
+
+### §14.4 §6 — ML 的 chart pattern factor 空白
+
+**用户**: ML 的 factor 信号出现确认这种我觉得还是没有弄好。比如五日均线上穿 200ma、大阳线包大阴线、反弹之后低点更低之类的 — 这种都没去探索.
+
+**operator 回复**: 同意. 这是 PQS 真空白区. 要 ship 的 chart pattern factor 候选清单 (30 个新 factor, 新 family Q):
+
+**1. Moving average crossover** (5 个):
+- `sma_5_cross_above_sma_200_5d` (Golden Cross 7 日新事件)
+- `sma_5_cross_below_sma_200_5d` (Death Cross)
+- `sma_20_cross_above_sma_60_3d`
+- `ema_8_cross_above_ema_20_2d` (短期 swing)
+- `price_cross_above_sma_200_1d` (Faber-style 新触发)
+
+**2. Candle pattern** (8 个):
+- `bullish_engulfing_1d` (大阳线包昨日大阴线)
+- `bearish_engulfing_1d`
+- `hammer_1d` (锤子线 = 长下影 + 小实体 = 下跌反转信号)
+- `shooting_star_1d` (流星线 = 长上影 = 上涨反转)
+- `morning_star_3d` (三日组合早晨之星)
+- `doji_after_3d_decline` (跌 3 日后十字星)
+- `three_white_soldiers` (连续 3 根大阳线)
+- `three_black_crows` (连续 3 根大阴线)
+
+**3. Swing structure** (6 个):
+- `higher_high_higher_low_5d` (上升 swing structure)
+- `lower_high_lower_low_5d` (下降 swing structure)
+- `lower_low_after_bounce_10d` (反弹后再创低，强 bearish)
+- `higher_high_after_pullback_10d` (回调后再创高，强 bullish)
+- `double_bottom_15d` (双底成型)
+- `double_top_15d`
+
+**4. Volume + price** (5 个):
+- `breakout_with_volume_1.5x_20d` (突破 + 1.5x 平均成交量)
+- `accumulation_3d` (3 日内价格不动但成交量放大)
+- `distribution_3d`
+- `volume_climax_top` (顶部成交量异常放大)
+- `volume_dry_up_bottom` (底部成交量缩小到极致)
+
+**5. Price action quality** (6 个):
+- `trend_strength_adx_14d` (ADX 趋势强度)
+- `consolidation_breakout_20d` (盘整 20 日后突破)
+- `gap_up_with_followthrough_3d` (跳空+持续)
+- `gap_down_with_followthrough_3d`
+- `pullback_to_50sma_bounce_1d` (回调到 50 均线企稳)
+- `inside_bar_breakout_3d` (内部 bar 突破)
+
+总计 **~30 个新 factor**. Engineering plan:
+- 加到 `core/factors/factor_generator.py` 一个新 family Q (chart pattern)
+- 添加到 `RESEARCH_FACTORS` set
+- 大约 1.5 天 implementation + 测试
+- 然后开 cycle12 用这些 + 现有 162 = 192 因子 mining
+
+### §14.5 §7 — 3 条 invariant loosen
+
+**用户**: 1. long-only 改 flag (上面讲过)；2. 回撤放宽到只要比 SPY 好（即使 08 年）；3. 执行可以 intraday, T 决策 T+1 执行不必.
+
+**operator §14.5a MaxDD 放宽**:
+
+当前 CLAUDE.md: "2008-style scenario MaxDD ≤ 25%". 改成 "MaxDD ≤ SPY_MaxDD + tolerance":
+
+```yaml
+acceptance:
+  stress_slice_pass:
+    maxdd_per_slice_max: spy_maxdd_in_slice + 0.05  # 5pp tolerance
+    OR_absolute_ceiling: 0.40  # absolute fail-safe (-40% 不能再差)
+```
+
+- 2008 SPY MaxDD ~-56% → 策略允许到 -61% (但 absolute ceiling -40%)
+- 一般年 SPY MaxDD ~-20% → 策略允许到 -25%
+
+等你确认 tolerance 5pp + absolute ceiling -40% → 见 D6.
+
+**operator §14.5b Intraday 执行**:
+
+当前 PQS 默认 "信号在 T close 触发，T+1 open 执行". Intraday 是大 change:
+- BacktestEngine 要支持 intraday bar (60m / 30m / 15m)
+- SignalDrivenBacktest 已经支持 (K1 wrapper)
+- 但 mining pipeline 没用过 intraday
+- T1a alt-A 已经用过 intraday，proves it works
+- 加 intraday signal mining 需要 ~3 天 engineering
+
+用 60m / 30m / 15m bar 做 intraday 信号？→ 见 D7.
+
+### §14.6 §8 — cadence 困惑 (operator 道歉 + 重新解释)
+
+**用户**: cadence 这一条我还是太费解了 不是无数次的说 可以 intraday 内只要信号出现就可以调仓吗 为啥还是按照什么 daily weekly monthly annually 走？
+
+**operator 解释 + 道歉**: 你说的对，我之前 memo 写"cadence ruled out"是 misleading. 真相分两层:
+
+**第一层 (有 ruled out 的)** — **参数化 cadence** = "每周一调仓"、"每月 1 号调仓"、"每季 rebalance" 这种**固定时点 rebalance**. 这种 cadence 在第 2 次挖掘 (月度 vs 周度 single-axis 测试) 实证证明: **换调仓频率不破"兄弟"现象**. 因为还是 fixed cadence + 仍然 top-N + 仍然 long-only top stocks → 同样的几何结构.
+
+**第二层 (没 ruled out, 反而 confirm 有效)** — **事件驱动 cadence** = "信号 fire 才调仓". 这种 cadence:
+- PEAD path 1 (财报日 trigger) 今天 confirm 有 alpha
+- T1a 日内反转 (intraday 信号 trigger) 已 ship 框架
+- K1 wrapper (signal_driven_runner) 是为这种设计的
+- 你 §6 提到的 chart pattern signal trigger 也属于这类
+
+**两层区别**:
+
+| 类型 | 调仓时点 | 是否 ruled out |
+|---|---|---|
+| 固定 cadence (月度/周度/日度) | 不管信号，到日期就调 | **YES**，第 2 次实证 |
+| 事件驱动 cadence (信号 trigger) | 信号 fire 才调，没信号不动 | **NO**，PEAD 已 confirm |
+
+**为什么 cycle04-11 还按月度 / 周度走**: 因为 cycle04-11 都用 `MultiFactorStrategy` 这个 monthly-rebalance 默认 engine，架构上没接 intraday signal. 改成 signal-driven 就用 K1 wrapper (cycle11 + PEAD 用的)，**这才是你说的"intraday 信号 fire 就调仓"**.
+
+实际 PQS 架构上**是支持你说的事件驱动 intraday rebalance 的**，是我 memo §8 的 "cadence ruled out" 写错语义了 — 应该写 "固定 cadence ruled out, 事件驱动 cadence 没被 rule out, 已经在 PEAD / T1a / cycle11 用了".
+
+**Action**: cycle12 + 后续 mining 应该**用 K1 wrapper 走 signal-driven 路线**，不用固定 cadence.
+
+### §14.7 §9 — 9 个开放方向按 operator 重要程度排序
+
+**用户**: 按你觉得重要程度排，除付费数据外全做.
+
+**operator priority** (1-9):
+
+| Rank | 方向 | 理由 | 预估工程量 |
+|---|---|---|---|
+| **1** | **Chart pattern factor 30+ 个 (新 family Q)** | 你 §6 直接指出的空白，跟 PEAD 一样事件驱动 trigger，最可能 TC ceiling 突破 | 1.5 天 |
+| **2** | **Regime-aware factor 加 ML** | 你 §4 提的；VIX / SPY 200ma / OAS spread 等 6 个新 factor + ML 学 conditional rule | 1 天 |
+| **3** | **Intraday execution mining (signal-driven cadence)** | K1 wrapper 已经 ready，只需 mining pipeline 接通；最大 cadence unlock | 2 天 |
+| **4** | **130/30 long-short flag (per-cycle)** | 学术最强 unlock (TC 0.30→0.55)；架构 change 大但 well-trodden ground | 3-5 天 |
+| **5** | **大盘蓝筹 + 反向 ETF universe 扩展** | 跟之前 R28 v2 / R38 v3 同流程；breadth × 1.3-1.5 | 0.5 天 |
+| **6** | **Cycle12 (chart pattern + regime + signal-driven + new universe)** | 上面 1-5 准备好后跑一轮真正综合的 mining | 1 天 mining + 1 天 audit |
+| **7** | **T1a / T1b 30bp 真实成本重 eval** | Cheap directional info, 可能 immediate fleet unlock | 1 天 |
+| **8** | **Cross-asset cycle 重做 (放宽 factor_overlap)** | cycle04 Cluster A 被 over-strict rule 误杀；现在重做 | 1 天 |
+| **9** | **LLM-based 因子 mining (用 LLM 生成 candidate, WebSearch 灵感)** | 你 §10 要的；我搭框架让 LLM 提议候选，operator + audit funnel 筛 | 2 天 framework + 持续 iteration |
+
+**Sequence** (并行 + 串行 mix):
+
+```
+Week 1 (5/15-5/21) 并行:
+  - Chart pattern factor library ship (1.5 天)
+  - Regime-aware factor ship (1 天)
+  - 大盘蓝筹 universe expansion ship (0.5 天)
+  - T1a/T1b 30bp 重 eval (1 天)
+
+Week 2 (5/22-5/28) 并行:
+  - Intraday execution pipeline (2 天)
+  - Cross-asset cycle 重做 (1 天)
+  - LLM-based mining framework (2 天 framework)
+
+Week 3 (5/29-6/4):
+  - Cycle12 跑: 30 chart + 6 regime + 162 老 = 198 factor pool;
+                signal-driven cadence; 新 universe (~70 股 + 反向 ETF);
+                cap_aware + cross-asset (放宽 factor_overlap)
+
+Week 4 (6/5-6/11):
+  - 130/30 long-short flag implementation
+  - Cycle13 跑 (启用 130/30 flag)
+
+Continuous (后台):
+  - trial9_v2 / PEAD / options 3 个 forward soak (每日 EOD ritual)
+  - 7/30-8/13 TD60 verdict 窗口
+```
+
+### §14.8 §10 — LLM-based mining framework
+
+**用户**: 要并行，want LLM-based mining，多挖 strategy. WebSearch 找灵感.
+
+**operator framework design**:
+
+```
+Pipeline:
+1. LLM-driven candidate generation (用 WebSearch 找学术 + 业界 strategy ideas)
+2. 自动过滤 (无效 / 重复 / 违反 invariant 直接 reject)
+3. Quick smoke test (10 trial / spec, ~5 min wall-clock)
+4. Top-K 送 audit funnel (operator 人工 review + sanity check)
+5. Passed audit 进 full cycle mining (200 trial / spec)
+6. Track A 17-gate + 反兄弟检查
+```
+
+**WebSearch 灵感清单 (theory-only, per sealed data 纪律)**:
+- "earnings momentum strategies academic 2024"
+- "volatility risk premium short selling academic"
+- "cross-sectional momentum decay anomaly"
+- "lottery stock anomaly low-priced high-volatility"
+- "industry momentum sector rotation alpha"
+- "earnings revision momentum analyst forecast"
+- "merger arbitrage spread anomaly"
+- "dividend announcement drift"
+- "stock split announcement effect"
+- "secondary offering announcement reaction"
+
+每个 query 找 3-5 个学术 paper → LLM 把 strategy intent 翻成 PQS factor + construction → 走 funnel.
+
+预估 cadence: 一周 5-10 个 LLM candidate 走 funnel，**0 自动 promote** (per LLM 不变量)，operator 审核每个，过 audit 进 full cycle mining.
+
+### §14.9 §11 — Q1-Q5 用户答案 + operator 操作
+
+| Q | 用户答案 | operator action |
+|---|---|---|
+| Q1 9 号候选 forward init 是否太早 | "可以低于 qqq 但要超过 spy" | Trial 9 forward init 决定 **OK**. CLAUDE.md QQQ 降级 正确, SPY HARD gate 保留. 当前 trial9_v2 TD002 vs_spy -0.43% 是 1 天噪声, 60 天看 trend. |
+| Q2 long-only stance | "上面说过了" (per-cycle flag) | 见 §14.2. 等 D3 (yaml 设计) + D4 (借券成本) + D5 (第一 short-enabled cycle 时机) 确认 |
+| Q3 cycle 0-nominee vs Trial 9 evidence | "c" (互补, 同时改) | priority 1-9 都做 + Trial 9 v2 forward 60 天看数据 |
+| Q4 PEAD fleet 用法 | "你决定" | **A (PEAD 50% + T1b 50%)**. 理由: PEAD Sharpe 1.06/MaxDD-7.6% (defensive) + T1b Sharpe 1.18/CAGR 20.3% (aggressive but year-inconsistent). 等权合成预计 Sharpe ~1.1+, CAGR ~12-15%, MaxDD ~-18-22%. PEAD 在 BEAR 跑赢 + T1b 在 BULL 跑赢 → 互补. **前提**: T1b 30bp re-eval 还过得去 (priority 7). 如果 T1b 30bp 跪了 → 退回 C (PEAD + Trial 9 v2 风险平价). |
+| Q5 2026 sealed 何时用 | "C" (fleet 框架 ready + multi-candidate verdict) | 绝对纪律保留. ZERO 触发直到 fleet 合成 + 多 candidate aggregate verdict |
+
+---
+
+## §15 等用户拍的 8 个 decision
+
+| # | Decision | Default | 等你 |
+|---|---|---|---|
+| D1 | 反向 ETF 单股仓位上限 (5%? 10%?) | **5%** | yes/no/数字 |
+| D2 | 大盘蓝筹 ~10 只 universe expansion (上面 9 只清单) | 上面清单 | confirm or modify |
+| D3 | long-only flag yaml 设计 (§14.2 提案) | 同意提案 | yes/no |
+| D4 | 借券成本 1% annual 起 + sector-specific | **1%** | yes/no/数字 |
+| D5 | 第一个 short-enabled cycle 时机 | **cycle13 (week 4)** | confirm or 提前 |
+| D6 | MaxDD 放宽 = SPY_MaxDD + 5pp 容忍 + 绝对 -40% 上限 | **5pp + -40%** | yes/no/数字 |
+| D7 | Intraday signal 用 60m / 30m / 15m bar? | **30m** | confirm or 60m/15m |
+| D8 | priority 1-9 sequence 跟 §14.7 一致吗 | 上面排序 | yes/no/reorder |
+
+---
+
+## §16 整体 1 句话总结
+
+你给的方向我全收到了（放宽 invariant + 并行多 strategy + LLM mining + chart pattern + intraday signal-driven）. 这是 PQS 一个**架构级 pivot**，工程量 ~3-4 周 ship 全部. 等你拍 8 个 decision (§15)，我马上启动 Week 1 并行 4 个 deliverable.
+
+---
+
+## §17 完整 reference 列表
 
 ### Mining 历史 PRDs
 - `docs/prd/20260429-temporal_split_holdout_discipline_prd.md` (时序切分纪律)
