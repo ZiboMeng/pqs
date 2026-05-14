@@ -145,8 +145,12 @@ def _process_symbol(
             "drop_reason": "empty_1m",
         }
     if bars_1m.index.tz is not None:
+        # Defense-in-depth: convert to ET BEFORE stripping tz, so subsequent
+        # aggregation lands on correct NYSE trading dates. Pre-2026-05-13 this
+        # was bare tz_localize(None) — same latent bug pattern as
+        # align_daily_index (postmortem 20260513-spy_off_by_one_date_label).
         bars_1m = bars_1m.copy()
-        bars_1m.index = bars_1m.index.tz_localize(None)
+        bars_1m.index = bars_1m.index.tz_convert("America/New_York").tz_localize(None)
 
     daily_df, audit_df = aggregate_1m_to_daily(bars_1m)
     if daily_df.empty:

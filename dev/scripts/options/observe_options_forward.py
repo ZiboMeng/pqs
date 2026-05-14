@@ -28,11 +28,21 @@ from core.options.paper.runner import observe, PAPER_DIR_DEFAULT  # noqa: E402
 
 
 def _fetch_market_data(underlying: str = "SPY", history_days: int = 60) -> tuple[float, float, pd.Series]:
-    """Return (spot, vix, spy_history_close_series)."""
+    """Return (spot, vix, spy_history_close_series).
+
+    Defense-in-depth: yf.Ticker.history() currently returns
+    America/New_York-tz-aware index, so bare tz_localize(None) happens to
+    give correct ET dates. But if yfinance ever reverts to UTC tz-aware
+    (which is what caused the SPY off-by-one bug postmortem'd
+    2026-05-13), bare tz_localize(None) would produce +1 day labels.
+    Explicit tz_convert(_ET) before tz_localize(None) is safe under both
+    behaviors.
+    """
     spy_hist = yf.Ticker(underlying).history(period=f"{history_days}d")
     if spy_hist.empty:
         raise RuntimeError(f"yfinance returned empty for {underlying}")
-    spy_hist.index = spy_hist.index.tz_localize(None)
+    if spy_hist.index.tz is not None:
+        spy_hist.index = spy_hist.index.tz_convert("America/New_York").tz_localize(None)
     spot = float(spy_hist["Close"].iloc[-1])
     vix_hist = yf.Ticker("^VIX").history(period="5d")
     vix = float(vix_hist["Close"].iloc[-1])

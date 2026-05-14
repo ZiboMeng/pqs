@@ -281,10 +281,17 @@ def _write_parquet(df: pd.DataFrame, path: Path) -> None:
 
 
 def _read_parquet(path: Path) -> pd.DataFrame:
-    """Read parquet file to DataFrame."""
+    """Read parquet file to DataFrame.
+
+    Defense-in-depth: if index is tz-aware, convert to US/Eastern FIRST
+    before stripping tz. Pre-2026-05-13 this did bare `tz_localize(None)`
+    which on UTC-midnight bars produces +1 day labels (same root cause as
+    align_daily_index bug postmortem'd at
+    docs/memos/20260513-spy_off_by_one_date_label_postmortem.md).
+    """
     df = pd.read_parquet(path)
-    # Ensure tz-naive index for consistent comparisons
+    # Ensure tz-naive index AT NYSE-trading-date semantics
     if isinstance(df.index, pd.DatetimeIndex) and df.index.tz is not None:
-        df.index = df.index.tz_localize(None)
+        df.index = df.index.tz_convert("America/New_York").tz_localize(None)
     df.index.name = df.index.name or "datetime"
     return df
