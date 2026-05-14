@@ -1,0 +1,190 @@
+# Frozen strategy spec for PEAD SUE trial 1 — evidence-only observation.
+#
+# Source: smoke v1 trial 1 (lineage pead-bundle-2026-05-14).
+# Closeout memo: docs/memos/20260514-pead_bundle_phase1_close.md §6.3 Option B
+# User explicit-go: 2026-05-14 "forward-init trial 1 as evidence-only"
+#
+# NOTE: This is an EVIDENCE-ONLY observation track. Does NOT enter the
+# fleet. Does NOT go through the main forward runner (which is built
+# for factor-composite candidates). Has its own init/observe scripts.
+#
+# Purpose: validate Bernard-Thomas 1989 PEAD signal in real-time data
+# 2026-05-15 onwards. 60-90 day soak target. Decision criteria (TD060):
+#   GREEN: realized Sharpe > 0.8, MaxDD < 15%, raw NAV daily-return
+#          Pearson < 0.7 vs T1b ConfirmationPattern (preserves
+#          differentiated alpha source) → Phase 2 (paid 8-K data) eligible
+#   YELLOW: Sharpe 0.4-0.8 OR MaxDD 15-25% → continue to TD090
+#   RED: Sharpe < 0.4 OR MaxDD > 25% → close evidence track, document
+#
+# DO NOT MODIFY any field after freeze without a new candidate_id.
+
+candidate_id: pead_sue_trial1_evidence_v1
+strategy_version: pead-sue-2026-05-14
+strategy_type: event_driven_signal      # NEW type — not factor composite
+family: pead_fundamental_surprise
+candidate_role: evidence_only_observation  # NOT fleet member
+
+# Authority
+closeout_memo: docs/memos/20260514-pead_bundle_phase1_close.md
+prd: docs/prd/20260514-pead_bundle_phase1_prd.md
+sue_smoke_result: data/audit/pead_path1_sue_smoke.json
+track_a_verdict: data/audit/pead_path1_track_a_verdict.json
+
+# Source trial reference (immutable archive pointer)
+source:
+  trial_id: 1
+  lineage_tag: pead-bundle-2026-05-14
+  smoke_path: data/audit/pead_path1_sue_smoke.json
+  smoke_index: 1  # 0-indexed trial position
+  source_path: dev/scripts/pead/run_path1_sue_smoke.py
+  selection_rationale: >-
+    Trial 1 (SUE>=1.5sigma hold=21 top_n=10) selected over trial 6
+    (hold=60) despite trial 6's marginally higher Sharpe (1.063 vs 1.055),
+    because trial 1 has dramatically lower MaxDD (-7.64% vs -24.01%).
+    For evidence-only observation, low-DD profile is preferable to test
+    "is the signal real in real-time?" without amplifying drawdown risk
+    during soak.
+
+# ── Signal spec (frozen) ────────────────────────────────────────────────
+signal_spec:
+  type: standardized_unexpected_earnings    # SUE per Foster-Olsen-Shevlin 1984
+  trigger_source: sec_edgar_first_filed_date  # exogenous event, no timing param
+  surprise_estimator:
+    method: naive_same_quarter_last_year      # expected_EPS(Q) = EPS(Q-4)
+    lag_quarters: 4
+    sigma_window_quarters: 8
+    drop_fy_rows: true                        # exclude 10-K FY rows
+    eps_tag: EarningsPerShareDiluted
+    eps_unit: USD/shares
+  signal_threshold:
+    sue_threshold_sigma: 1.5
+  exit_rule:
+    max_hold_business_days: 21
+  entry_mechanics:
+    ttl_bars: 0                               # immediate confirm
+    execution_delay_bars: 1                   # T+1 open fill
+    rank_when_overflow: signal_strength       # rank by SUE magnitude
+  module_implementation:
+    earnings_dates: core/research/pead/earnings_dates.py
+    sue_calculator: core/research/pead/sue_calculator.py
+    backtest_wrapper: core/backtest/signal_driven_runner.py
+
+# ── Construction (long-only, top-N rotation) ────────────────────────────
+construction:
+  mode: signal_driven_top_n
+  top_n: 10
+  initial_capital: 10000.0
+  long_only: true
+  no_short: true
+  no_margin: true
+
+# ── Cost model (30bp baseline per cycle11+ revision) ────────────────────
+cost_model:
+  commission_bps: 2.0
+  slippage_interday_bps: 30.0
+  slippage_intraday_bps: 60.0
+  cost_gate_revision_authority: docs/memos/20260514-cost_gate_revision_6x.md
+
+# ── Universe ────────────────────────────────────────────────────────────
+panel_contract:
+  universe_source: config/universe.yaml::seed_pool
+  exclude_etfs: [SPY, QQQ, GLD, TQQQ, SOXL, SQQQ, SOXS]
+  edgar_intersected: true                  # only stocks with companyfacts cache
+  n_tradable_at_freeze: 54
+  start_date: 2017-01-02
+  end_date_at_freeze: 2026-05-14
+  benchmark_map:
+    SPY: close_series
+    QQQ: close_series
+
+# ── Research evidence (verified vs smoke JSON) ──────────────────────────
+research_evidence:
+  evaluation_window: 2017-01-03 to 2025-12-31  # NOTE: end was 2025-12-31 in smoke
+  full_period:
+    sharpe: 1.055
+    cagr: 0.0548          # +5.48%
+    max_dd: -0.0764       # -7.64% (best-in-PQS for >1.0 Sharpe candidate)
+    final_equity: 16149
+    n_trades: 454
+    n_signals_total: 273
+  per_validation_year:
+    2018: {maxdd: -0.0608, vs_spy:  0.1319, vs_qqq:  0.0883}
+    2019: {maxdd: -0.0435, vs_spy: -0.2569, vs_qqq: -0.3429}
+    2021: {maxdd: -0.0438, vs_spy: -0.2123, vs_qqq: -0.2100}
+    2023: {maxdd: -0.0173, vs_spy: -0.2219, vs_qqq: -0.5220}
+    2025: {maxdd: -0.0227, vs_spy: -0.0684, vs_qqq: -0.1061}
+  per_stress_slice:
+    covid_flash:    {maxdd: -0.0177}
+    rate_hike_2022: {maxdd: -0.0407}
+  concentration:
+    top1_max: 0.10
+    top3_max: 0.30
+  beta_to_qqq: 0.0999
+  cost_robustness_2x:
+    final_equity_60bp: 13965
+    remains_positive: true
+  nav_corr_daily_return_vs_anchors:
+    alt_a_intraday_reversal: 0.0926      # very low — different signal
+    t1b_confirmation:        0.3842      # medium
+    cycle11_donchian_20:     0.3694      # medium
+    max_correlation: 0.3842
+  track_a_acceptance_n_gates_passed: 14  # of 17
+
+# ── Track A acceptance attempted at freeze (informational, NOT a gate) ──
+track_a_acceptance_attempted:
+  role_evaluated: core
+  overall_passed: false
+  n_gates_passed: 14
+  n_gates_total: 17
+  failing_gates:
+    - validation_aggregate_excess_vs_spy   # PEAD CAGR < SPY in BULL years
+    - validation_aggregate_excess_vs_qqq   # same vs QQQ
+    - role_core__validation__2025__excess_vs_qqq
+  note: >-
+    Track A core verdict FAIL — but on alpha-shape grounds (low-DD
+    low-CAGR defensive profile cannot beat SPY +13% in 2025 BULL).
+    Forward-init as evidence-only specifically because the signal
+    is novel (first event-driven non-parametric in PQS) and the
+    failing gates are NOT signal-quality gates (per-year MaxDD,
+    stress, 2x cost, concentration, beta all PASS). Re-evaluate
+    Track A under fleet-allocation framework when Phase C-PRD-2
+    landed (Trial 9 v2 TD60 dependent).
+
+# ── Forward observation contract ────────────────────────────────────────
+forward_contract:
+  start_date: 2026-05-15            # first TD recorded post-freeze
+  freeze_date: 2026-05-14
+  observation_cadence: post_nyse_close
+  observation_script: dev/scripts/pead/observe_pead_evidence.py
+  init_script: dev/scripts/pead/init_pead_evidence.py
+  manifest_path: data/research_candidates/pead_sue_trial1_evidence_v1_forward_manifest.json
+  forward_nav_path: data/research_candidates/pead_sue_trial1_evidence_v1_forward_nav.parquet
+
+# ── Decision point (TD60 ~ 2026-08-13) ──────────────────────────────────
+decision_point:
+  target_td: 60                  # ~60 trading days from start_date
+  expected_calendar_date: 2026-08-13
+  green_criteria:
+    realized_sharpe_min: 0.80
+    realized_max_dd_max: -0.15
+    raw_nav_daily_return_pearson_max_vs_t1b: 0.70
+    next_action: "Phase 2 paid 8-K data eligible (gated on Trial 9 v2 TD60 also GREEN)"
+  yellow_criteria:
+    realized_sharpe_range: [0.40, 0.80]
+    OR_max_dd_range: [-0.25, -0.15]
+    next_action: "Continue to TD090"
+  red_criteria:
+    realized_sharpe_max: 0.40
+    OR_max_dd_min: -0.25
+    next_action: "Close evidence track; document PEAD signal not surviving real-time"
+
+# ── Pre-committed stop rules (immutable) ────────────────────────────────
+stop_rules:
+  - id: R1_data_freshness
+    rule: "Forward observations MUST run with EDGAR cache refreshed within 7 days. Stale EDGAR > 7d → halt observation, log incident."
+  - id: R2_spec_immutability
+    rule: "ANY change to signal_spec / construction / cost_model / panel_contract requires a NEW candidate_id. NO mid-soak parameter tuning."
+  - id: R3_universe_drift
+    rule: "If config/universe.yaml seed_pool changes during soak, manifest records the drift event but observation continues with FROZEN universe from freeze_date. Track drift impact at TD60."
+  - id: R4_no_capital_at_risk
+    rule: "Evidence-only = $0 real capital. Pure paper observation. NOT in fleet allocation."

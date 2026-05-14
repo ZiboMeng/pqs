@@ -1,0 +1,55 @@
+{
+  "candidate_id": "pead_sue_trial1_evidence_v1",
+  "candidate_role": "evidence_only_observation",
+  "strategy_type": "event_driven_signal",
+  "spec_hash_sha256": "9a2ef503a241f407d2cf43c6b5a2ab3b12cdc2d16bcd35963e694000a8ca9d30",
+  "spec_path": "data/research_candidates/pead_sue_trial1_evidence_v1.yaml",
+  "nav_path": "data/research_candidates/pead_sue_trial1_evidence_v1_forward_nav.parquet",
+  "start_date": "2026-05-15",
+  "freeze_date": "2026-05-14",
+  "created_at": "2026-05-14T17:51:37.609966+00:00",
+  "schema_version": "pead_evidence_v1",
+  "current_status": "in_progress",
+  "lifecycle_note": "Evidence-only observation. Does NOT enter fleet allocation. Decision point TD60 ~ 2026-08-13.",
+  "panel_contract": {
+    "universe_source": "config/universe.yaml::seed_pool",
+    "exclude_etfs": [
+      "SPY",
+      "QQQ",
+      "GLD",
+      "TQQQ",
+      "SOXL",
+      "SQQQ",
+      "SOXS"
+    ],
+    "edgar_intersected": true,
+    "n_tradable_at_freeze": 54,
+    "start_date": "2017-01-02",
+    "end_date_at_freeze": "2026-05-14",
+    "benchmark_map": {
+      "SPY": "close_series",
+      "QQQ": "close_series"
+    }
+  },
+  "universe_size_at_freeze": 54,
+  "earnings_events_at_freeze": 3502,
+  "sue_triggers_threshold_at_freeze": 338,
+  "td_observations": [
+    {
+      "td_id": "TD000",
+      "td_phase": "initial_baseline",
+      "observation_date": "2026-05-14",
+      "freeze_date": "2026-05-14",
+      "strat_equity": 16521.904609017834,
+      "strat_cum_ret": 0.6521904609017835,
+      "spy_cum_ret": 2.322988600823137,
+      "qqq_cum_ret": 5.033213685090147,
+      "n_signals_total_lifetime": 287,
+      "n_trades_lifetime": 477,
+      "frozen_baseline_sharpe": 1.0555672473353253,
+      "frozen_baseline_cagr": 0.05512050756455955,
+      "frozen_baseline_max_dd": -0.07639633562133072
+    }
+  ],
+  "td_count": 1
+}
