@@ -347,6 +347,17 @@ def main() -> int:
                         help="Bars to shift composite before IC (R15: "
                              "1 prevents shared-close leakage; 0 allows "
                              "contemporaneous IC for benchmarking)")
+    parser.add_argument(
+        "--residualize-fleet-paths", nargs="+", default=None,
+        help="NEW (cycle10 PRD 20260513): paths to fleet candidate NAV "
+             "parquet files. When set, fwd_returns are residualized "
+             "against fleet returns via core.mining.nav_residualized_"
+             "evaluator (Blitz 2011 method). Each parquet must have a "
+             "single column 'equity' indexed by daily date. Triggers "
+             "36m rolling OLS β estimation + residual forward returns. "
+             "Mining IC is then computed on residualized targets. "
+             "Default None preserves cycle04-09 raw-target mining.",
+    )
     parser.add_argument("--config-dir", default="config")
     parser.add_argument(
         "--end-date", default=None,
@@ -721,6 +732,72 @@ def main() -> int:
             split_cfg.split_name,
             split_cfg.acceptance.purge_rules.label_horizon_days_max,
         )
+
+    # cycle10 PRD 20260513: residualize fwd_returns against fleet NAV.
+    # Single-axis hook: replaces fwd_h IN-PLACE before ResearchMiner is built.
+    # All downstream miner/evaluator code is bit-for-bit unchanged.
+    if args.residualize_fleet_paths:
+        from core.mining.nav_residualized_evaluator import (
+            build_fleet_forward_returns_from_nav,
+            compute_residual_forward_returns,
+            compute_rolling_beta,
+        )
+
+        logger.info(
+            "Residualizing fwd_returns against %d fleet member(s)",
+            len(args.residualize_fleet_paths),
+        )
+        fleet_nav_cols = {}
+        for path in args.residualize_fleet_paths:
+            df = pd.read_parquet(path)
+            if "equity" not in df.columns:
+                raise ValueError(f"Fleet NAV {path} missing 'equity' column")
+            fleet_id = Path(path).stem.replace("_nav", "").replace("_backcast", "")
+            fleet_nav_cols[fleet_id] = df["equity"]
+        fleet_nav_df = pd.DataFrame(fleet_nav_cols).sort_index().dropna()
+        fleet_ret = fleet_nav_df.pct_change().dropna()
+        # Strict train cutoff: fleet data must be ≤ 2024-12-31 per cycle10 yaml
+        train_end = pd.Timestamp("2024-12-31")
+        if fleet_nav_df.index.max() > train_end:
+            logger.warning(
+                "Fleet NAV ends %s > train cutoff %s — truncating",
+                fleet_nav_df.index.max().date(), train_end.date(),
+            )
+            fleet_nav_df = fleet_nav_df.loc[:train_end]
+            fleet_ret = fleet_ret.loc[:train_end]
+
+        # Stock returns from frames["close"] (the panel close)
+        stock_ret = frames["close"].pct_change().dropna(how="all")
+        # Align
+        common = fleet_ret.index.intersection(stock_ret.index)
+        fleet_ret_aligned = fleet_ret.loc[common]
+        stock_ret_aligned = stock_ret.loc[common]
+        logger.info(
+            "  Fleet members=%s; common dates n=%d (%s → %s)",
+            list(fleet_ret_aligned.columns), len(common),
+            common.min().date(), common.max().date(),
+        )
+
+        logger.info("  Computing 36m rolling β (multi-factor OLS)...")
+        beta_by_sym = compute_rolling_beta(
+            stock_ret_aligned, fleet_ret_aligned, window_months=36,
+        )
+
+        logger.info("  Computing fleet forward returns + residual target...")
+        fleet_fwd = build_fleet_forward_returns_from_nav(
+            fleet_nav_df.loc[common], horizon_days=args.horizon,
+        )
+        # Note: fwd_h has horizon-shifted index already (from _build_factor_panel_map)
+        fwd_h_resid = compute_residual_forward_returns(
+            fwd_h, fleet_fwd, beta_by_sym,
+        )
+        n_pre = fwd_h.notna().sum().sum()
+        n_post = fwd_h_resid.notna().sum().sum()
+        logger.info(
+            "  Residualized fwd_returns: pre n=%d non-NaN cells → post n=%d (%.1f%% remain)",
+            n_pre, n_post, 100 * n_post / max(n_pre, 1),
+        )
+        fwd_h = fwd_h_resid
     # A++ patch 2026-04-30: select family list per factor_registry_pool
     # contract. None → FAMILIES_V1 (legacy, 33 factors). Cycle 2026-04-30
     # #01 yaml asserts RESEARCH_FACTORS → FAMILIES_V2 (64 factors).

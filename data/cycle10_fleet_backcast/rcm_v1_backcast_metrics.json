@@ -1,0 +1,23 @@
+{
+  "label": "rcm_v1_backcast",
+  "spec_id": "rcm_v1_defensive_composite_01",
+  "execution_mode": "daily",
+  "enable_sr_timing": false,
+  "top_n": 10,
+  "start": "2009-01-02",
+  "end": "2024-12-31",
+  "n_bars": 4570,
+  "initial_capital": 10000.0,
+  "final_nav": 100428.77100727742,
+  "cum_ret": 9.042877100727742,
+  "cagr": 0.13565049458591383,
+  "sharpe": 0.5472753302783503,
+  "max_drawdown": -0.3516731534999354,
+  "win_rate": 0.5552476619328022,
+  "vs_spy_full": NaN,
+  "vs_qqq_full": NaN,
+  "n_trades": 8964,
+  "n_sr_defers": 0,
+  "n_sr_evaluated": 0,
+  "computed_at_utc": "2026-05-14T01:16:13+00:00"
+}

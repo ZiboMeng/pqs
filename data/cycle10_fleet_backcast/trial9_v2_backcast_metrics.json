@@ -1,0 +1,23 @@
+{
+  "label": "trial9_v2_backcast",
+  "spec_id": "trial9_diversifier_002",
+  "execution_mode": "daily",
+  "enable_sr_timing": false,
+  "top_n": 10,
+  "start": "2009-01-02",
+  "end": "2024-12-31",
+  "n_bars": 4570,
+  "initial_capital": 10000.0,
+  "final_nav": 280302.0032774959,
+  "cum_ret": 27.03020032774959,
+  "cagr": 0.20178101712836471,
+  "sharpe": 0.8092953378924114,
+  "max_drawdown": -0.41897924925307417,
+  "win_rate": 0.557679180887372,
+  "vs_spy_full": NaN,
+  "vs_qqq_full": NaN,
+  "n_trades": 17699,
+  "n_sr_defers": 0,
+  "n_sr_evaluated": 0,
+  "computed_at_utc": "2026-05-14T01:15:38+00:00"
+}

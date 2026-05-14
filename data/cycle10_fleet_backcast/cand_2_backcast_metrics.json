@@ -1,0 +1,23 @@
+{
+  "label": "cand_2_backcast",
+  "spec_id": "candidate_2_orthogonal_01",
+  "execution_mode": "daily",
+  "enable_sr_timing": false,
+  "top_n": 10,
+  "start": "2009-01-02",
+  "end": "2024-12-31",
+  "n_bars": 4570,
+  "initial_capital": 10000.0,
+  "final_nav": 230829.81681570757,
+  "cum_ret": 22.082981681570757,
+  "cagr": 0.1889811202566989,
+  "sharpe": 0.7710539600323456,
+  "max_drawdown": -0.3628132637070716,
+  "win_rate": 0.5696022727272727,
+  "vs_spy_full": NaN,
+  "vs_qqq_full": NaN,
+  "n_trades": 20395,
+  "n_sr_defers": 0,
+  "n_sr_evaluated": 0,
+  "computed_at_utc": "2026-05-14T01:16:49+00:00"
+}
