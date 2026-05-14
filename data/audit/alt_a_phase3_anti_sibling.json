@@ -14,9 +14,9 @@
     "rcm_v1_defensive_composite_01": {
       "status": "ok",
       "verdict": "PASS",
-      "raw_pearson": 0.14573009153996067,
-      "residual_pearson_vs_spy": 0.1420851988752114,
-      "n_overlap_days": 1145,
+      "raw_pearson": 0.14497850844143692,
+      "residual_pearson_vs_spy": -0.007970913996042016,
+      "n_overlap_days": 2010,
       "spec": {
         "features": [
           "beta_spy_60d",
@@ -36,9 +36,9 @@
     "candidate_2_orthogonal_01": {
       "status": "ok",
       "verdict": "PASS",
-      "raw_pearson": 0.18263173288112977,
-      "residual_pearson_vs_spy": 0.17515314122342365,
-      "n_overlap_days": 1145,
+      "raw_pearson": 0.16328769741180643,
+      "residual_pearson_vs_spy": 0.03502292829591842,
+      "n_overlap_days": 2010,
       "spec": {
         "features": [
           "ret_5d",
@@ -56,9 +56,9 @@
     "trial9_diversifier_002": {
       "status": "ok",
       "verdict": "PASS",
-      "raw_pearson": 0.16169723993110538,
-      "residual_pearson_vs_spy": 0.15376493490510357,
-      "n_overlap_days": 1145,
+      "raw_pearson": 0.15320949351853275,
+      "residual_pearson_vs_spy": 0.007155131218860723,
+      "n_overlap_days": 2010,
       "spec": {
         "features": [
           "beta_spy_60d",
