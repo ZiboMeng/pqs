@@ -1,0 +1,48 @@
+# Project-wide evaluation policy overrides.
+#
+# Authority: CLAUDE.md "Benchmark Outperformance Rule" +
+# docs/memos/20260502-qqq_benchmark_deprecation.md
+# Effective: 2026-05-02 (deprecation date); ship 2026-05-14 (P0.a)
+#
+# Purpose: Codex 2026-05-14 audit caught governance drift —
+# CLAUDE.md says QQQ deprecated, but config/backtest.yaml,
+# config/temporal_split.yaml (v1), config/temporal_split_v2.yaml,
+# and config/production_strategy.yaml still apply HARD QQQ gate.
+# Result: cycle04-08 evaluated against v1 split STILL had QQQ HARD gate
+# active; new mining without explicit freeze_date routes to v1 default.
+#
+# This file is a *runtime policy override* layer. v1/v2 yaml content is
+# preserved verbatim (immutability under locked_after_first_use), but
+# evaluation runtime reads this policy file and silently demotes QQQ
+# gates to diagnostic_only when the flag is true.
+#
+# Authority for changes: user explicit-go + CLAUDE.md "Invariant Constraints"
+# table revision. NOT operator-autonomous.
+
+schema_version: "1.0"
+effective_date: "2026-05-02"
+created_at: "2026-05-14"
+
+# ── QQQ benchmark deprecation runtime overrides ─────────────────────────
+qqq_governance:
+  # When true, ALL QQQ-related kill_candidate gates across temporal_split*.yaml
+  # (v1, v2, v3, future) are silently demoted to diagnostic_only at eval time.
+  # Per-yaml `action: kill_candidate` on QQQ-related fields is overridden
+  # to `action: diagnostic_only`.
+  demote_kill_to_diagnostic: true
+
+  # When true, MiningEvaluator (core/mining/evaluator.py) skips QQQ gate
+  # evaluation regardless of min_*_excess_vs_qqq values in backtest.yaml.
+  # Maintains backward-compat: existing thresholds still computed for
+  # diagnostic reporting; just don't block candidate promotion.
+  mining_evaluator_qqq_disabled: true
+
+  # Fields treated as "QQQ-related" for demotion purposes.
+  # Conservative list — covers all observed kill_candidate paths.
+  qqq_field_patterns:
+    - "*.excess_vs_qqq"
+    - "*.beta_to_qqq"
+    - "*_vs_qqq"
+
+# ── Future policy switches go here ──────────────────────────────────────
+# (e.g., MaxDD relaxation tolerance per CLAUDE.md revision, etc.)

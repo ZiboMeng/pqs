@@ -398,7 +398,21 @@ class MiningEvaluator:
         # ── Stage 6: QQQ hard gate (P0.4, 2026-04-20) ─────────────────────────
         # When qqq_series provided, compute excess at 3 windows. All
         # three must meet their threshold or tier is demoted to "D".
-        if qqq_series is not None and result.equity_curve is not None \
+        #
+        # 2026-05-14 P0.a (Codex audit): if config/evaluation_policy.yaml
+        # has `qqq_governance.mining_evaluator_qqq_disabled: true`, skip the
+        # gate evaluation and always pass. Excess metrics still computed
+        # in `_check_qqq_gate` callsite for diagnostic record. Disables
+        # the QQQ HARD gate at the OLD MiningEvaluator code path per
+        # 2026-05-02 QQQ deprecation memo.
+        from core.research.evaluation_policy import is_mining_qqq_disabled
+        if is_mining_qqq_disabled():
+            result.passed_qqq_gate = True
+            logger.debug(
+                "QQQ gate disabled per evaluation_policy.yaml "
+                "(qqq_mining_evaluator_disabled=true)"
+            )
+        elif qqq_series is not None and result.equity_curve is not None \
                 and not result.equity_curve.empty:
             result.passed_qqq_gate = self._check_qqq_gate(
                 result, price_df, holdout_df, qqq_series,

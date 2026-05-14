@@ -74,6 +74,11 @@ from core.research.temporal_split import (
     load_temporal_split,
     validation_year_set,
 )
+from core.research.evaluation_policy import (
+    get_policy,
+    is_qqq_field,
+    should_demote_qqq_gate,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -322,6 +327,14 @@ def _eval_validation_aggregate(
         elif qqq > 0:
             qqq_pos_count += 1
 
+    # QQQ aggregate gate — apply BOTH yaml-level `excess_vs_qqq_diagnostic_only`
+    # AND runtime policy `qqq_demote_kill_to_diagnostic`. Runtime policy
+    # (config/evaluation_policy.yaml) supersedes yaml content for v1/v2
+    # back-compat per P0.a (Codex 2026-05-14 governance drift fix).
+    _yaml_diagnostic = vy_pass.excess_vs_qqq_diagnostic_only
+    _policy_demote = should_demote_qqq_gate("validation_aggregate.excess_vs_qqq")
+    _is_diagnostic_qqq = _yaml_diagnostic or _policy_demote
+
     return [
         SplitGateResult(
             name="validation_aggregate_excess_vs_spy",
@@ -335,11 +348,9 @@ def _eval_validation_aggregate(
         ),
         SplitGateResult(
             name="validation_aggregate_excess_vs_qqq",
-            # Diagnostic mode (v3+, QQQ deprecated): passed=True regardless;
-            # actual count vs threshold recorded in values.diagnostic_actual_passed.
             passed=(
                 True
-                if vy_pass.excess_vs_qqq_diagnostic_only
+                if _is_diagnostic_qqq
                 else (qqq_pos_count >= vy_pass.excess_vs_qqq_positive_min)
             ),
             values={
@@ -347,17 +358,22 @@ def _eval_validation_aggregate(
                 "missing_or_invalid_years": qqq_missing_years,
                 **(
                     {"diagnostic_actual_passed":
-                        qqq_pos_count >= vy_pass.excess_vs_qqq_positive_min}
-                    if vy_pass.excess_vs_qqq_diagnostic_only else {}
+                        qqq_pos_count >= vy_pass.excess_vs_qqq_positive_min,
+                     "diagnostic_source": (
+                         "yaml_v3+policy" if (_yaml_diagnostic and _policy_demote)
+                         else "yaml_v3" if _yaml_diagnostic
+                         else "policy_demote"
+                     )}
+                    if _is_diagnostic_qqq else {}
                 ),
             },
             threshold={"min_positive_years": vy_pass.excess_vs_qqq_positive_min,
                        "total_years": len(val_years),
-                       "diagnostic_only": vy_pass.excess_vs_qqq_diagnostic_only},
+                       "diagnostic_only": _is_diagnostic_qqq},
             notes=(
                 ("diagnostic_only mode (per QQQ deprecation 2026-05-02); "
                  "does not block; ")
-                if vy_pass.excess_vs_qqq_diagnostic_only else ""
+                if _is_diagnostic_qqq else ""
             ) + (
                 "missing/non-numeric: " + ",".join(str(y) for y in qqq_missing_years)
                 if qqq_missing_years else ""
@@ -413,7 +429,13 @@ def _eval_role_gates(
         raw = _resolve_metric(metrics, gate.field)
         value = _as_float_or_none(raw)
         gate_name = f"role_{role}__{gate.field.replace('.', '__')}"
-        is_diagnostic = gate.action == "diagnostic_only"
+        # Apply runtime policy: demote QQQ-related kill_candidate to
+        # diagnostic_only per config/evaluation_policy.yaml. Supersedes
+        # yaml-level action for v1/v2 back-compat (P0.a fix).
+        is_diagnostic = (
+            gate.action == "diagnostic_only"
+            or should_demote_qqq_gate(gate.field)
+        )
         if value is None:
             # Diagnostic-only gates with missing data don't block — they
             # just record "missing". Hard gates (kill_candidate / soft_warn)

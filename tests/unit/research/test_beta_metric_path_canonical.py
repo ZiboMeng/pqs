@@ -144,12 +144,23 @@ def test_v3_makes_vs_qqq_aggregate_diagnostic():
         f"values={agg_gate.values}"
     )
 
-    # Same metrics on v1 dispatch (freeze pre-2026-05-02) → HARD fail
+    # Same metrics on v1 dispatch (freeze pre-2026-05-02):
+    # Pre-P0.a (Codex 2026-05-14): HARD fail since yaml action=kill_candidate.
+    # Post-P0.a: config/evaluation_policy.yaml demotes ALL QQQ gates to
+    # diagnostic_only at runtime, including v1's. So v1 gate ALSO passes
+    # with diagnostic_actual_passed=False. This is the governance fix —
+    # v1 yaml content unchanged (locked_after_first_use), runtime layer
+    # applies deprecation uniformly.
     verdict_v1 = run_split_acceptance(
         metrics, role="core", freeze_date=date(2026, 4, 30)
     )
     agg_gate_v1 = verdict_v1.gate_named("validation_aggregate_excess_vs_qqq")
     assert agg_gate_v1 is not None
-    assert not agg_gate_v1.passed, (
-        "v1 aggregate vs_qqq must HARD fail when only 1 of 5 years positive"
+    assert agg_gate_v1.passed, (
+        "Post-P0.a: v1 aggregate vs_qqq demoted to diagnostic by policy; "
+        "passes regardless. diagnostic_actual_passed records real outcome."
     )
+    assert agg_gate_v1.values.get("diagnostic_actual_passed") is False
+    assert agg_gate_v1.values.get("diagnostic_source") in (
+        "policy_demote", "yaml_v3+policy"
+    ), f"diagnostic source must indicate policy demote; values={agg_gate_v1.values}"

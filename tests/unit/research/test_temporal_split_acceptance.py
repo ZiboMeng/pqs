@@ -84,17 +84,24 @@ def test_passing_core_candidate_summary_format():
 
 
 def test_2025_hard_gate_kills_when_qqq_excess_negative():
-    """Codex R20 + M2: passes 2018/2019/2021/2023 but fails 2025 vs-qqq → kill."""
+    """P0.a 2026-05-14: QQQ 2025 gate demoted to diagnostic per
+    config/evaluation_policy.yaml (Codex audit governance unification).
+    Pre-fix v1 yaml had `action: kill_candidate`; post-fix runtime policy
+    overrides to `diagnostic_only` and the gate passes regardless of value.
+    The underlying value is still computed and reported in
+    `diagnostic_actual_passed` for the audit trail.
+    """
     cfg = load_temporal_split()
     metrics = _passing_core_metrics()
     metrics["validation"][2025]["excess_vs_qqq"] = -0.01
     res = evaluate_candidate(metrics, cfg, "core")
-    assert not res.overall_passed
     role_gate = res.gate_named("role_core__validation__2025__excess_vs_qqq")
     assert role_gate is not None
-    assert not role_gate.passed
-    # Other validation years' MaxDD gates should still pass (only the 2025
-    # role gate failed):
+    # Post-P0.a: QQQ gate now diagnostic, passes regardless
+    assert role_gate.passed
+    # But the underlying metric is still recorded:
+    assert role_gate.values.get("diagnostic_actual_passed") is False
+    # Other validation years' MaxDD gates should still pass:
     for y in (2018, 2019, 2021, 2023):
         gate = res.gate_named(f"validation_year_{y}_maxdd")
         assert gate is not None and gate.passed
@@ -114,18 +121,26 @@ def test_2025_hard_gate_kills_when_maxdd_too_high():
 
 
 def test_2025_hard_gate_active_only_for_core_role_qqq_threshold():
-    """Diversifier role allows excess_vs_qqq down to -0.05."""
+    """Pre-P0.a: diversifier role allowed excess_vs_qqq down to -0.05 (core
+    strict at 0.0). Post-P0.a 2026-05-14: BOTH roles' QQQ gates demoted to
+    diagnostic_only per evaluation_policy.yaml — neither blocks.
+    Diagnostic actual_passed is still computed and recorded per role's
+    yaml threshold for audit trail.
+    """
     cfg = load_temporal_split()
     metrics = _passing_core_metrics()
-    metrics["validation"][2025]["excess_vs_qqq"] = -0.03  # within diversifier band
-    # Core: fails
+    metrics["validation"][2025]["excess_vs_qqq"] = -0.03
+    # Core: post-P0.a passes (diagnostic mode), but actual would fail (-0.03 < 0)
     res_core = evaluate_candidate(metrics, cfg, "core")
     role_gate_core = res_core.gate_named("role_core__validation__2025__excess_vs_qqq")
-    assert not role_gate_core.passed
-    # Diversifier: passes (-0.03 > -0.05)
+    assert role_gate_core.passed
+    assert role_gate_core.values.get("diagnostic_actual_passed") is False
+    # Diversifier: post-P0.a passes; -0.03 > -0.05 so actual_passed True
     res_div = evaluate_candidate(metrics, cfg, "diversifier")
     role_gate_div = res_div.gate_named("role_diversifier__validation__2025__excess_vs_qqq")
     assert role_gate_div.passed
+    # Note: under diagnostic mode the gate passes regardless; we don't assert
+    # diagnostic_actual_passed value here because it depends on role threshold
 
 
 # ---------------------------------------------------------------------------
@@ -207,15 +222,24 @@ def test_aggregate_spy_3_of_5_fails():
 
 
 def test_aggregate_qqq_2_of_5_fails():
+    """Pre-P0.a: aggregate vs_qqq required ≥3 positive years; 2/5 → fail.
+    Post-P0.a 2026-05-14: gate demoted to diagnostic_only per
+    evaluation_policy.yaml — passes regardless. Actual count still recorded
+    in diagnostic_actual_passed for audit.
+    """
     cfg = load_temporal_split()
     metrics = _passing_core_metrics()
-    # Set 3 years to negative QQQ (fails ≥3 requirement)
     metrics["validation"][2018]["excess_vs_qqq"] = -0.01
     metrics["validation"][2019]["excess_vs_qqq"] = -0.02
     metrics["validation"][2021]["excess_vs_qqq"] = -0.03
     res = evaluate_candidate(metrics, cfg, "core")
     gate = res.gate_named("validation_aggregate_excess_vs_qqq")
-    assert gate is not None and not gate.passed
+    assert gate is not None
+    # Post-P0.a: passes in diagnostic mode regardless of count
+    assert gate.passed
+    assert gate.values["positive_count"] == 2
+    # But actual gate verdict (had it been hard) is recorded:
+    assert gate.values.get("diagnostic_actual_passed") is False
     assert gate.values["positive_count"] == 2
 
 
@@ -354,33 +378,40 @@ def test_run_split_acceptance_loads_default_path():
 
 
 def test_yaml_swap_changes_2025_gate_outcome(tmp_path):
-    """Demonstrates value comes from yaml at runtime, not hardcoded.
-
-    Codex R20 B3: the brittle grep-based "no hardcoding" test #7 is
-    replaced with a behavioral swap. We mutate the yaml's 2025 excess
-    threshold and confirm the same candidate flips between pass/fail.
+    """Codex R20 B3 + P0.a 2026-05-14: yaml swap test originally used a
+    QQQ-threshold swap. Post-P0.a, QQQ gate is demoted to diagnostic and
+    won't flip on yaml threshold change. So we use the SPY threshold
+    swap instead (which is the actual hard gate post-deprecation).
     """
     raw = yaml.safe_load(DEFAULT_YAML.read_text())
     yaml_path = tmp_path / "split.yaml"
 
-    # v1: 2025 excess_vs_qqq threshold = 0.0 (default core)
+    # v1: 2025 excess_vs_spy threshold = 0.0 (SPY is the real hard gate)
     yaml_path.write_text(yaml.safe_dump(raw, sort_keys=False))
     metrics = _passing_core_metrics()
-    metrics["validation"][2025]["excess_vs_qqq"] = -0.01
+    # Set 2025 vs_spy negative; vs_qqq stays positive
+    metrics["validation"][2025]["excess_vs_spy"] = -0.01
 
     res_v1 = run_split_acceptance(metrics, role="core", split_path=str(yaml_path))
-    role_gate_v1 = res_v1.gate_named("role_core__validation__2025__excess_vs_qqq")
-    assert not role_gate_v1.passed, "v1 (threshold=0.0) should fail at -0.01"
+    # The aggregate vs_spy gate should fail (3 positive years, threshold ≥4)
+    agg_gate_v1 = res_v1.gate_named("validation_aggregate_excess_vs_spy")
+    assert agg_gate_v1 is not None
+    # Default needs 4 of 5 positive vs SPY; we made 2025 negative so 4 remain → still passes;
+    # let's also flip 2018 negative to drop to 3:
+    metrics["validation"][2018]["excess_vs_spy"] = -0.02
+    res_v1b = run_split_acceptance(metrics, role="core", split_path=str(yaml_path))
+    agg_v1b = res_v1b.gate_named("validation_aggregate_excess_vs_spy")
+    assert not agg_v1b.passed, "v1 with 3/5 positive SPY years (< 4 threshold) should fail aggregate"
 
-    # v2: lower the threshold to -0.05; same candidate now passes
+    # v2: lower the SPY threshold to 2 positive years; same candidate now passes
     raw_v2 = deepcopy(raw)
-    raw_v2["roles"]["core"]["validation_gates"][0]["value"] = -0.05
+    raw_v2["acceptance"]["validation_year_pass"]["excess_vs_spy_positive_min"] = 2
     raw_v2["split_name"] = "alternating_regime_holdout_v2_test_only"
     yaml_path.write_text(yaml.safe_dump(raw_v2, sort_keys=False))
 
     res_v2 = run_split_acceptance(metrics, role="core", split_path=str(yaml_path))
-    role_gate_v2 = res_v2.gate_named("role_core__validation__2025__excess_vs_qqq")
-    assert role_gate_v2.passed, "v2 (threshold=-0.05) should pass at -0.01"
+    agg_v2 = res_v2.gate_named("validation_aggregate_excess_vs_spy")
+    assert agg_v2.passed, "v2 (threshold=2) should pass with 3/5 positive"
 
 
 # ---------------------------------------------------------------------------
