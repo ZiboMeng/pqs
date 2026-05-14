@@ -225,13 +225,25 @@ def filter_to_market_hours(
 def align_daily_index(df: pd.DataFrame) -> pd.DataFrame:
     """
     Normalise a daily OHLCV DataFrame:
+    - If tz-aware: convert to US/Eastern FIRST (so the calendar date reflects
+      the NYSE trading date), then strip timezone
     - Strip time component, keep date only
-    - Remove timezone info
     - Name the index 'date'
+
+    History: pre-2026-05-13 this function did `tz_localize(None)` without
+    a prior tz_convert, which on tz-aware data caused the day to roll
+    forward by +1 calendar day when the UTC time of the bar landed past
+    midnight ET (e.g. yfinance UTC-midnight bars). This produced the
+    off-by-one bug postmortem'd at
+    docs/memos/20260513-spy_off_by_one_date_label_postmortem.md.
     """
     idx = pd.DatetimeIndex(df.index)
     if idx.tz is not None:
-        idx = idx.tz_localize(None)
+        # CRITICAL: convert to ET BEFORE stripping timezone, so the calendar
+        # date matches the NYSE trading day. Pre-fix this was tz_localize(None)
+        # which loses the timezone information and produces off-by-one labels
+        # for UTC-midnight bars.
+        idx = idx.tz_convert(_ET).tz_localize(None)
     idx = idx.normalize()
     idx.name = "date"
     df = df.copy()
