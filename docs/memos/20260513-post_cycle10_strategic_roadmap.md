@@ -1,7 +1,7 @@
-# Post-cycle10 Strategic Roadmap (DRAFT v1.1 — discussion)
+# Post-cycle10 Strategic Roadmap (FINAL v2 — locked)
 
 **Date**: 2026-05-13
-**Status**: DRAFT v1.1 — adds TC-ceiling unifying frame + D1/D3 re-audit + 6-signal seed library
+**Status**: FINAL v2 — all 8 open questions resolved with user explicit-go 2026-05-13. K1 kickoff authorized.
 **Authors**: operator (zibomeng@) + Claude Code assist
 **Trigger**:
 - cycle10 closed 0-nominee (informative null per `docs/memos/20260513-cycle10_closeout.md`)
@@ -339,21 +339,33 @@ Each decision point is a potential pivot. The architecture is built for incremen
 
 ---
 
-## §10 What this memo is asking (v1.1 refresh)
+## §10 v2 lock — all decisions resolved
 
-This is a **DISCUSSION DRAFT**. Specific asks:
+User explicit-go 2026-05-13: §9 path confirmed, Q1-Q8 all answered.
 
-1. **Confirm or revise** §9 path
-2. **Answer §6 open questions** Q1-Q8 (Q8 is new: signal candidate seed library scope)
-3. **Flag any deferred/dropped items in §4 D1-D5** you want to override (D1 + D3 already re-audited in v1.1; D2/D4/D5 still open to challenge)
-4. **Add any axis I missed** — especially anything not covered by the 12-axis WebSearch synthesis + v1.1 D1/D3 re-audit
+### Locked decisions (v2 freeze)
 
-### v1.1 changes summary (2026-05-13 evening)
+| ID | Decision | Rationale |
+|---|---|---|
+| **Q1 (Tier 1 ordering)** | T1a first (1 wk K1 + 5d T1a = full-chain validation), then T1b ∥ T1c parallel | Lowest-risk chain validation before parallel ship |
+| **Q2 (alt-B PEAD scope)** | Bundle: PEAD + FOMC together | One PRD, one ship cycle |
+| **Q3 (cycle11 objective)** | All three: (a) Sharpe-of-trades / (b) NAV Calmar / (c) IR-vs-benchmark | Triple test in T2a; pick winner at closeout |
+| **Q4 (ML Phase 2)** | Couple with T2 (T2a + T2c ship together) | Phase 1.6 sibling-on-same-construction; T2 unlocks differentiated alpha |
+| **Q5 (F1/F2/F3 priority)** | Do all, opportunistic timing | All cheap (1-2 days each); no sequencing constraint |
+| **Q6 (test surface)** | K1 = strict TDD (~25 tests); T1a/b/c = mix unit + integration smoke (~8-15 each); T2a/c = integration-test-only (~5-10 each); total +~84 tests (~3.6% baseline growth) | Operator audit conclusion — proportional to load-bearing risk |
+| **Q7 (forward observation)** | Unified observe runner + per-strategy adapters | Share what can be shared; strategy-specific in adapter |
+| **Q8 (signal seed library)** | Accept all 6 seeds + 3 archetype combos for T1b smoke + T2a mining pool | Maximum search space; cycle11 stop-rule protects against overfitting |
 
-- New §2.2 TC ceiling unifying frame (Clarke-de Silva-Thorley 2002): long-only TC 0.45-0.55 is the actual binding constraint, not breadth / not factor zoo
-- D1 (200+ stocks) drop reason updated from weak n=1 to load-bearing literature (TC ceiling + Hou-Xue-Zhang microcap + Polygon coverage + sub-capacity)
-- D3 (LLM mining) **DROP → DEFER**: AlphaAgent + QuantaAlpha + Hubble all reproducible at low cost ($50-100/run) but unsolved HLZ multi-testing + portfolio geometry binding → defer until K1+T1 working construction exists, then deploy as expansion
-- New §4 signal candidate seed library: 6 evidence-strong seeds + 3 orthogonal archetypes (trend / mean-reversion / cross-asset risk gate) for T1b + T2a
-- §8 refined with explicit "TC ceiling–consistent attacks" framing
+### v1 → v1.1 → v2 changelog
 
-After your input, v2 finalizes and K1 starts.
+- **v1** (commit `10838c5`): initial DRAFT with §1-§10
+- **v1.1** (commit `a6aa4f0`): TC ceiling frame + D1/D3 re-audit + 6-signal seed library
+- **v2** (this commit): all 8 questions locked → K1 kickoff authorized
+
+### What happens next
+
+1. Memo state = **FINAL v2** (no further iteration unless new evidence)
+2. K1 (deferred-execution `BacktestEngine` extension) kicks off immediately
+3. K1 implementation discipline: TDD-grade, test-first, ~25 unit/integration tests written BEFORE code merges
+4. K1 target: 1-2 weeks wall-clock to ship; then T1a starts (5 days) for full-chain validation
+5. Status reporting: per-round closeout + commit+push + 自审 ritual per memory rule
