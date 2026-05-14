@@ -289,4 +289,57 @@ e9a4776 T1a alt-A intraday reversal closeout — informative null
 
 ---
 
-**End of summary**. 本文档应该足够让未来的 you（或者 codex / 其他人）30 分钟内回看到 2026-05-14 PQS 系统状态。
+**End of summary v1**. 本文档应该足够让未来的 you（或者 codex / 其他人）30 分钟内回看到 2026-05-14 PQS 系统状态。
+
+---
+
+## 🚀 2026-05-14 晚上 update — cycle11 re-smoke @ 30bp realistic cost
+
+完整 closeout: `docs/memos/20260514-t2b_cycle11_resmoke_v2_realistic_cost.md`
+
+**结果**: 20 trial mini-mining 在 30bp 现实成本下：
+
+| 数字 | smoke v1 (5bp 太宽松) | smoke v2 (30bp realistic) |
+|---|---|---|
+| 超 SPY Sharpe (0.76) 的 trial 数 | 20/20 | **15/20** |
+| Top winner | Connors RSI(2) hold=3 @ Sharpe 3.54 | **Donchian-20 hold=21 @ Sharpe 1.31** |
+| Top winner CAGR | 56% (cost-fragile) | **21.24%** (robust) |
+| Top winner MaxDD | -13.9% | -17.5% |
+| Top winner n_trades | 7387 (高换手) | 3259 (中等换手) |
+
+**Top-5 排名彻底翻转**:
+- 5bp top-5: 4 个 Connors + 1 个 Donchian（高换手 mean-reversion 胜）
+- 30bp top-5: **4 个 Donchian + 1 个 Connors**（中期 trend-following 胜）
+
+**真相揭露**: smoke v1 的 Connors RSI(2) Sharpe 3.54 是 **cost-fragility 幻觉**。真正稳健的 alpha 来源是 **medium-hold Donchian breakout**。
+
+**核心 verdict**:
+- 🎉 **cycle11 alpha 在 realistic cost 下幸存** —— 这是 PQS 史上**第一次** mining 在现实成本下产出多个 SPY-beating trial
+- 真实 alpha 排序：medium-hold trend > short-hold mean-reversion > Faber long-hold
+- Faber 是最稳的（cost-robust）但 alpha 也最低
+- 高换手 Connors 需要 T2c ML cost-aware filter 才能用
+
+**下一步推荐**:
+1. 快速 Track A spot-check on Donchian-20 hold=21（10 min）
+2. 如果过 → full 200-trial cycle11 mining 授权（~1 天 compute）
+3. T2c ML Phase 2 build 等 cycle11 输出再上
+
+---
+
+**真实 backtest 结果汇总更新版**：
+
+| 策略 | 窗口 | CAGR | vs SPY | Sharpe | MaxDD | 状态 |
+|---|---|---|---|---|---|---|
+| **simple_baseline_v1** | 2016-2024 train | +14.9% | +4.35pp/yr | 0.82 | per年≤25% | ✅ ship paper |
+| **🆕 cycle11 Donchian-20 hold=21 @ 30bp** | 2017-2025 | **+21.24%** | **+8pp/yr** | **+1.31** | **-17.5%** | 🟡 待 Track A spot-check |
+| **SPY 基准** | 2017-2025 | +13% | — | 0.76 | -34% | 基准 |
+| T1b ConfirmationPattern @ 5bp | 2017-2025 | +20.3% | +7pp/yr | (high) | -34% agg | 🟡 关（年度不稳） |
+| cycle11 Donchian-100 hold=60 @ 30bp | 2017-2025 | +17.59% | +4pp/yr | +1.06 | -23% | 🟡 cycle11 alt |
+| cycle11 Connors @ 5bp (illusion) | 2017-2025 | +56% | +43pp/yr | +3.54 | -14% | ⚠️ cost-fragile |
+| cycle11 Connors @ 30bp (real) | 2017-2025 | +8% | -5pp/yr | 0.67 | -19% | ❌ cost-fragile |
+| T1a alt-A intraday | 2018-2025 | +2.9% | -16pp/yr | (low) | -18% | ❌ 关 |
+| T1c FOMC drift | 2017-2025 | +0.6% | -12pp/yr | ~0 | (small) | ❌ 关 |
+
+**最强 candidate（cost-robust + alpha + low MaxDD）**: cycle11 **Donchian-20 hold=21**（Sharpe 1.31 / CAGR 21.24% / MaxDD -17.5%）—— 这是 PQS 史上第一个在 30bp realistic cost 下同时满足 alpha + cost robustness + low MaxDD 的 candidate。Track A 17-gate 是否过待验证。
+
+**End of summary v2**.
