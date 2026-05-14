@@ -1,0 +1,334 @@
+{
+  "lineage": "track-c-cycle-2026-05-13-10",
+  "n_evaluated": 3,
+  "n_passed": 0,
+  "results": [
+    {
+      "trial_id": "8ce619cbe90e",
+      "spec": {
+        "trial_id": "8ce619cbe90e",
+        "ic_ir": 1.252337002132422,
+        "objective": 0.7394440276134399,
+        "nav_sharpe": null,
+        "nav_max_dd": null,
+        "features": "days_since_52w_high,vol_63d,down_vol_ratio_20d,range_position_pct_60d,sell_in_may_seasonal,pre_nfp_window_flag,piotroski_net_income_positive,piotroski_cfo_positive,fcf_yield_ttm,gross_profit_growth_yoy,sector_dispersion_std_20d,sector_breadth_pct_5d,vix_zscore_60d,fed_funds_yoy_change,confirmation_strength,retest_proximity_pct",
+        "weights_csv": "0.039735,0.039735,0.019868,0.052980,0.112583,0.039735,0.072848,0.086093,0.125828,0.066225,0.072848,0.013245,0.079470,0.013245,0.079470,0.086093",
+        "holding_freq": "monthly"
+      },
+      "evaluation": {
+        "metrics_full_period": {
+          "cum_ret": 2.6260042859442043,
+          "sharpe": 0.7498461247277339,
+          "max_dd": -0.21744471291633985,
+          "vs_spy": 0.27429429956299156,
+          "spy_cum_ret": 2.3517099863812128,
+          "vs_qqq": -2.3377823114465723,
+          "qqq_cum_ret": 4.963786597390777
+        },
+        "metrics_per_year": {
+          "2018": {
+            "cum_ret": -0.07783017406395365,
+            "sharpe": -0.5290349433647789,
+            "max_dd": -0.15043221205707027,
+            "vs_spy": 0.0007683306905416076,
+            "spy_cum_ret": -0.07859850475449526,
+            "vs_qqq": -0.05120052057625113,
+            "qqq_cum_ret": -0.02662965348770252
+          },
+          "2019": {
+            "cum_ret": 0.2462987090613653,
+            "sharpe": 1.8892504170916262,
+            "max_dd": -0.06833507215768342,
+            "vs_spy": -0.04003322048943203,
+            "spy_cum_ret": 0.28633192955079734,
+            "vs_qqq": -0.12615918149797678,
+            "qqq_cum_ret": 0.3724578905593421
+          },
+          "2021": {
+            "cum_ret": 0.14523890533739037,
+            "sharpe": 1.2543959046276658,
+            "max_dd": -0.06524754236330792,
+            "vs_spy": -0.12658785611894352,
+            "spy_cum_ret": 0.2718267614563339,
+            "vs_qqq": -0.1403645421898212,
+            "qqq_cum_ret": 0.28560344752721156
+          },
+          "2023": {
+            "cum_ret": 0.3586982161113348,
+            "sharpe": 2.424971904611103,
+            "max_dd": -0.08042633594839531,
+            "vs_spy": 0.10978251457123389,
+            "spy_cum_ret": 0.2489157015401009,
+            "vs_qqq": -0.1895888771544536,
+            "qqq_cum_ret": 0.5482870932657884
+          },
+          "2025": {
+            "cum_ret": 0.029526122636441166,
+            "sharpe": 0.28568920937367154,
+            "max_dd": -0.12646118778490117,
+            "vs_spy": -0.14246884236398105,
+            "spy_cum_ret": 0.17199496500042222,
+            "vs_qqq": -0.17452351447195658,
+            "qqq_cum_ret": 0.20404963710839774
+          }
+        },
+        "metrics_per_stress": {
+          "covid_flash": {
+            "cum_ret": 0.06355468399892872,
+            "sharpe": 1.0873645229869622,
+            "max_dd": -0.09020725015874384,
+            "vs_spy": 0.1940088118541945,
+            "spy_cum_ret": -0.13045412785526578,
+            "vs_qqq": 0.1298834177463264,
+            "qqq_cum_ret": -0.06632873374739767
+          },
+          "rate_hike_2022": {
+            "cum_ret": -0.04710878859657264,
+            "sharpe": -1.2540362532031417,
+            "max_dd": -0.09945203800987656,
+            "vs_spy": 0.1186326845040544,
+            "spy_cum_ret": -0.16574147310062703,
+            "vs_qqq": 0.17042345435559392,
+            "qqq_cum_ret": -0.21753224295216655
+          }
+        },
+        "concentration": {
+          "m12_top1_weight_max": 0.12652763665520453,
+          "m12_top3_weight_max": 0.35126951622168956,
+          "m12_n_dates_with_weights": 4876
+        },
+        "nav_correlation_vs_benchmark": {
+          "raw_pearson_vs_spy": -0.022106401526990626,
+          "beta_vs_spy": -0.013774095074416192,
+          "raw_pearson_vs_qqq": 0.6763162889304181,
+          "beta_vs_qqq": 0.380264908247642
+        },
+        "n_observed_days": 4876,
+        "track_a_overall_passed": false,
+        "track_a_failed_gates": [
+          "validation_aggregate_excess_vs_spy",
+          "role_core__validation__2025__excess_vs_spy"
+        ],
+        "track_a_n_gates": 18
+      }
+    },
+    {
+      "trial_id": "2ab4c70fd64a",
+      "spec": {
+        "trial_id": "2ab4c70fd64a",
+        "ic_ir": 1.1771939922960646,
+        "objective": 0.7298898294031495,
+        "nav_sharpe": null,
+        "nav_max_dd": null,
+        "features": "days_since_52w_high,vol_63d,down_vol_ratio_20d,range_position_pct_60d,pre_cpi_window_flag,pre_nfp_window_flag,piotroski_net_income_positive,piotroski_cfo_positive,fcf_yield_ttm,gross_profit_growth_yoy,sector_dispersion_std_20d,sector_breadth_pct_5d,vix_zscore_60d,wti_yoy_pct,time_since_arm_bars,retest_proximity_pct",
+        "weights_csv": "0.044118,0.051471,0.014706,0.058824,0.022059,0.036765,0.051471,0.095588,0.139706,0.066176,0.080882,0.007353,0.073529,0.044118,0.117647,0.095588",
+        "holding_freq": "monthly"
+      },
+      "evaluation": {
+        "metrics_full_period": {
+          "cum_ret": 2.2624125915336686,
+          "sharpe": 0.7007751798068067,
+          "max_dd": -0.24144963169725478,
+          "vs_spy": -0.08929739484754418,
+          "spy_cum_ret": 2.3517099863812128,
+          "vs_qqq": -2.701374005857108,
+          "qqq_cum_ret": 4.963786597390777
+        },
+        "metrics_per_year": {
+          "2018": {
+            "cum_ret": -0.07086717102582263,
+            "sharpe": -0.47947534804153724,
+            "max_dd": -0.14090703574379657,
+            "vs_spy": 0.007731333728672629,
+            "spy_cum_ret": -0.07859850475449526,
+            "vs_qqq": -0.04423751753812011,
+            "qqq_cum_ret": -0.02662965348770252
+          },
+          "2019": {
+            "cum_ret": 0.2586129299672246,
+            "sharpe": 2.0651634617130328,
+            "max_dd": -0.06418447341019036,
+            "vs_spy": -0.027718999583572712,
+            "spy_cum_ret": 0.28633192955079734,
+            "vs_qqq": -0.11384496059211746,
+            "qqq_cum_ret": 0.3724578905593421
+          },
+          "2021": {
+            "cum_ret": 0.14749103685914444,
+            "sharpe": 1.294617002497406,
+            "max_dd": -0.06325844186638631,
+            "vs_spy": -0.12433572459718945,
+            "spy_cum_ret": 0.2718267614563339,
+            "vs_qqq": -0.13811241066806712,
+            "qqq_cum_ret": 0.28560344752721156
+          },
+          "2023": {
+            "cum_ret": 0.3361480779165471,
+            "sharpe": 2.271577105628403,
+            "max_dd": -0.08577415689392631,
+            "vs_spy": 0.08723237637644621,
+            "spy_cum_ret": 0.2489157015401009,
+            "vs_qqq": -0.2121390153492413,
+            "qqq_cum_ret": 0.5482870932657884
+          },
+          "2025": {
+            "cum_ret": 0.004076894967346423,
+            "sharpe": 0.08348596401437774,
+            "max_dd": -0.12168776652784535,
+            "vs_spy": -0.1679180700330758,
+            "spy_cum_ret": 0.17199496500042222,
+            "vs_qqq": -0.19997274214105132,
+            "qqq_cum_ret": 0.20404963710839774
+          }
+        },
+        "metrics_per_stress": {
+          "covid_flash": {
+            "cum_ret": 0.05709564915906862,
+            "sharpe": 1.012367571657051,
+            "max_dd": -0.08941335596975773,
+            "vs_spy": 0.1875497770143344,
+            "spy_cum_ret": -0.13045412785526578,
+            "vs_qqq": 0.12342438290646629,
+            "qqq_cum_ret": -0.06632873374739767
+          },
+          "rate_hike_2022": {
+            "cum_ret": -0.0489538941627069,
+            "sharpe": -1.3300538004661908,
+            "max_dd": -0.1004389318251316,
+            "vs_spy": 0.11678757893792013,
+            "spy_cum_ret": -0.16574147310062703,
+            "vs_qqq": 0.16857834878945965,
+            "qqq_cum_ret": -0.21753224295216655
+          }
+        },
+        "concentration": {
+          "m12_top1_weight_max": 0.12610786532461274,
+          "m12_top3_weight_max": 0.34822106268006064,
+          "m12_n_dates_with_weights": 4876
+        },
+        "nav_correlation_vs_benchmark": {
+          "raw_pearson_vs_spy": -0.029307677012948827,
+          "beta_vs_spy": -0.0179974720517644,
+          "raw_pearson_vs_qqq": 0.6738843815124769,
+          "beta_vs_qqq": 0.37304201558431477
+        },
+        "n_observed_days": 4876,
+        "track_a_overall_passed": false,
+        "track_a_failed_gates": [
+          "validation_aggregate_excess_vs_spy",
+          "role_core__validation__2025__excess_vs_spy"
+        ],
+        "track_a_n_gates": 18
+      }
+    },
+    {
+      "trial_id": "a9f2a1258dc3",
+      "spec": {
+        "trial_id": "a9f2a1258dc3",
+        "ic_ir": 1.1805418826757255,
+        "objective": 0.7025988349592418,
+        "nav_sharpe": null,
+        "nav_max_dd": null,
+        "features": "days_since_52w_high,vol_63d,down_vol_ratio_20d,range_position_pct_60d,pre_fomc_window_flag,sell_in_may_seasonal,piotroski_roa_yoy_improving,piotroski_current_ratio_yoy_improving,fcf_yield_ttm,sales_acceleration,vix_zscore_60d,fed_funds_yoy_change,time_since_arm_bars,confirmation_strength",
+        "weights_csv": "0.062500,0.085938,0.007812,0.070312,0.132812,0.148438,0.046875,0.000000,0.156250,0.000000,0.046875,0.023438,0.156250,0.062500",
+        "holding_freq": "monthly"
+      },
+      "evaluation": {
+        "metrics_full_period": {
+          "cum_ret": 2.6278625194887724,
+          "sharpe": 0.8339205513057494,
+          "max_dd": -0.21378523896050497,
+          "vs_spy": 0.2761525331075596,
+          "spy_cum_ret": 2.3517099863812128,
+          "vs_qqq": -2.3359240779020043,
+          "qqq_cum_ret": 4.963786597390777
+        },
+        "metrics_per_year": {
+          "2018": {
+            "cum_ret": 5.496849783193092e-05,
+            "sharpe": 0.04839504419212593,
+            "max_dd": -0.08522365492422956,
+            "vs_spy": 0.07865347325232719,
+            "spy_cum_ret": -0.07859850475449526,
+            "vs_qqq": 0.02668462198553445,
+            "qqq_cum_ret": -0.02662965348770252
+          },
+          "2019": {
+            "cum_ret": 0.1925461279605436,
+            "sharpe": 1.959421160397142,
+            "max_dd": -0.047326792856569246,
+            "vs_spy": -0.09378580159025374,
+            "spy_cum_ret": 0.28633192955079734,
+            "vs_qqq": -0.17991176259879849,
+            "qqq_cum_ret": 0.3724578905593421
+          },
+          "2021": {
+            "cum_ret": 0.15475365959284848,
+            "sharpe": 1.623311468024154,
+            "max_dd": -0.058829461548557165,
+            "vs_spy": -0.11707310186348541,
+            "spy_cum_ret": 0.2718267614563339,
+            "vs_qqq": -0.13084978793436308,
+            "qqq_cum_ret": 0.28560344752721156
+          },
+          "2023": {
+            "cum_ret": 0.1804592458242451,
+            "sharpe": 1.894268505947434,
+            "max_dd": -0.08291743887947349,
+            "vs_spy": -0.06845645571585579,
+            "spy_cum_ret": 0.2489157015401009,
+            "vs_qqq": -0.3678278474415433,
+            "qqq_cum_ret": 0.5482870932657884
+          },
+          "2025": {
+            "cum_ret": 0.08874204438413713,
+            "sharpe": 0.7430891775982823,
+            "max_dd": -0.09278127733657364,
+            "vs_spy": -0.08325292061628509,
+            "spy_cum_ret": 0.17199496500042222,
+            "vs_qqq": -0.11530759272426061,
+            "qqq_cum_ret": 0.20404963710839774
+          }
+        },
+        "metrics_per_stress": {
+          "covid_flash": {
+            "cum_ret": 0.04980450814489301,
+            "sharpe": 0.9649538635231844,
+            "max_dd": -0.08693808680621955,
+            "vs_spy": 0.1802586360001588,
+            "spy_cum_ret": -0.13045412785526578,
+            "vs_qqq": 0.11613324189229068,
+            "qqq_cum_ret": -0.06632873374739767
+          },
+          "rate_hike_2022": {
+            "cum_ret": -0.04522957225277657,
+            "sharpe": -1.4937095622322094,
+            "max_dd": -0.08581644705170378,
+            "vs_spy": 0.12051190084785046,
+            "spy_cum_ret": -0.16574147310062703,
+            "vs_qqq": 0.17230267069938998,
+            "qqq_cum_ret": -0.21753224295216655
+          }
+        },
+        "concentration": {
+          "m12_top1_weight_max": 0.17690109152593483,
+          "m12_top3_weight_max": 0.37296642030001037,
+          "m12_n_dates_with_weights": 4876
+        },
+        "nav_correlation_vs_benchmark": {
+          "raw_pearson_vs_spy": -0.02952146256969712,
+          "beta_vs_spy": -0.0166145438141443,
+          "raw_pearson_vs_qqq": 0.6087823986693743,
+          "beta_vs_qqq": 0.3053489405409168
+        },
+        "n_observed_days": 4876,
+        "track_a_overall_passed": false,
+        "track_a_failed_gates": [
+          "validation_aggregate_excess_vs_spy",
+          "role_core__validation__2025__excess_vs_spy"
+        ],
+        "track_a_n_gates": 18
+      }
+    }
+  ]
+}

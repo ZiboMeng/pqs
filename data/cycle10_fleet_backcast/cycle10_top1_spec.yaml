@@ -1,0 +1,101 @@
+# cycle10 top-1 spec — temporary backcast yaml
+candidate_id: cycle10_top1_e362b7e58635
+strategy_type: single_factor_composite
+family: cycle10_top1
+strategy_version: cycle10-top1-2026-05-13
+
+source:
+  trial_id: e362b7e58635
+  lineage_tag: track-c-cycle-2026-05-13-10
+  study: cycle10-2026-05-13-nav-residualized
+
+feature_set:
+  - name: drawdown_current
+    weight: 0.000000
+  - name: vol_63d
+    weight: 0.149254
+  - name: vol_weighted_ret_20d
+    weight: 0.037313
+  - name: consolidation_days_count
+    weight: 0.037313
+  - name: turn_of_month_flag
+    weight: 0.044776
+  - name: post_fomc_window_flag
+    weight: 0.014925
+  - name: piotroski_cfo_positive
+    weight: 0.141791
+  - name: piotroski_cfo_greater_than_ni
+    weight: 0.111940
+  - name: shareholder_yield_ttm
+    weight: 0.097015
+  - name: revenue_growth_yoy
+    weight: 0.134328
+  - name: sector_neutral_drawup_252d
+    weight: 0.089552
+  - name: sector_dispersion_std_20d
+    weight: 0.022388
+  - name: time_since_arm_bars
+    weight: 0.052239
+  - name: volume_surge_ratio_at_setup
+    weight: 0.067164
+
+transforms:
+  standardization: zscore_cross_sectional
+  min_periods: 5
+
+composite_rule:
+  method: weighted_sum
+
+
+benchmark_relative_summary:
+  note: 'backcast-only; cycle10 0-nominee per Track A'
+
+oos_holdout_summary:
+  note: 'backcast-only; cycle10 0-nominee'
+
+robustness_summary:
+  note: 'backcast-only; cycle10 0-nominee'
+
+research_evidence:
+  note: 'backcast-only'
+
+decision_memo: 'cycle10 0-nominee per Track A; backcast-only for NAV correlation diagnostic'
+source_trial_id: e362b7e58635
+
+labels:
+  fwd_return_horizon_days: 21
+  fwd_return_mode: cc
+  ic_evaluation_lag_bars: 1
+
+construction:
+  mode: cap_aware_cross_asset
+  rebalance_cadence: monthly
+  top_n: 10
+  cluster_cap: 0.20
+  max_single_weight: 0.10
+  long_only: true
+  no_short: true
+  no_margin: true
+  asset_class_caps:
+    equities_max: 0.70
+    bonds_max: 0.40
+    commodities_max: 0.20
+    cash_anchor_max: 0.30
+
+panel_contract:
+  universe: "config/universe.yaml::seed_pool"
+  drop_symbols: [BRK-B, USO, SLV]
+  start_date: 2009-01-02
+  end_date: 2024-12-31
+  benchmark_map:
+    SPY: close_series
+    QQQ: close_series
+  mask:
+    type: research_mask
+    min_price: 5.0
+    min_usd_volume: 20000000
+
+risk_overlay:
+  inherits_from: config/risk.yaml
+
+cost_model_version: config/cost_model.yaml
