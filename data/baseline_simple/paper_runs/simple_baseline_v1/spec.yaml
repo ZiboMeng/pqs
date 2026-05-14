@@ -1,0 +1,87 @@
+# Frozen spec for SimpleBaselineStrategy paper-trading v1.
+#
+# DO NOT MODIFY after freeze without a new candidate_id (e.g.
+# simple_baseline_v2). Modifications break provenance audit chain.
+#
+# Strategy: 70% MTUM + 30% TQQQ-or-cash, monthly rebalance, VIX+SMA dual
+# circuit-breaker, Newfound partial-defense (mtum_risk_off_weight=0.25).
+#
+# Design provenance (train-only ≤2024 data + theory papers):
+#   - Antonacci (2012) "Risk Premia Harvesting Through Dual Momentum"
+#     → MTUM single-factor momentum sleeve
+#   - Faber (2007) "A Quantitative Approach to Tactical Asset Allocation"
+#     (SSRN 962461) → 200d SMA filter
+#   - Whaley (2009) "Understanding the VIX" (J. Portfolio Management 35:98-105)
+#     → VIX 30/20 threshold convention
+#   - Macrosynergy / Cipollini-Manzini → asymmetric hysteresis (exit > re-entry)
+#   - Newfound "Protect & Participate" → mtum_risk_off_weight=0.25 partial
+#     defense to balance whipsaw cost vs MaxDD
+#
+# Train backtest (2016/2017/2020/2022/2024 yfinance ≤2024-12-31):
+#   - CAGR +14.90% vs SPY +10.54% (Δ +4.35pp/yr) — beats SPY HARD gate
+#   - Sharpe 0.82, all per-year MaxDD ≤ 25% (2020 worst -24.31%)
+#   - report: data/baseline_simple/report.json
+#
+# Constraints: long-only, no-margin, no-short (CLAUDE.md invariant).
+# TQQQ allowed per "TQQQ/SOXL require stricter risk thresholds" — here
+# capped at 30% with dual circuit-breaker.
+
+candidate_id: simple_baseline_v1
+strategy_type: simple_baseline
+strategy_version: simple_baseline_v1.0
+created_at: '2026-05-13'
+
+# ── Strategy parameters (passed to SimpleBaselineStrategy.__init__) ────────
+strategy_params:
+  mtum_symbol: MTUM
+  leveraged_symbol: TQQQ
+  cash_symbol: BIL
+  trend_signal_symbol: QQQ
+  vix_symbol: VIX
+  mtum_weight: 0.70
+  leveraged_weight: 0.30
+  mtum_risk_off_weight: 0.25
+  sma_window: 200
+  vix_exit: 30.0
+  vix_reentry: 20.0
+  rebalance_monthly: true
+
+# ── Paper trading parameters ────────────────────────────────────────────────
+paper_config:
+  initial_nav_usd: 10000.0
+  data_source: yfinance
+  rebalance_dow: month_end          # last trading day of month
+  execution_lag_days: 1             # T-close signal → T+1-open fill
+  cost_bps_per_trade: 5             # retail broker estimate
+  vix_symbol_yfinance: "^VIX"
+  required_symbols: [MTUM, TQQQ, BIL, QQQ, SPY]  # SPY for benchmark only
+
+# ── Train-period evidence (informational, frozen) ──────────────────────────
+train_evidence:
+  data_window: '2015-01-02 to 2024-12-30'
+  train_years: [2016, 2017, 2020, 2022, 2024]
+  cagr: 0.1490
+  cagr_vs_spy: 0.0435
+  cagr_vs_qqq: 0.0232
+  sharpe: 0.824
+  max_dd_per_year_max: -0.2431   # 2020 (most adverse train year)
+  report_path: data/baseline_simple/report.json
+
+# ── Authority + governance ──────────────────────────────────────────────────
+benchmark_definition:
+  primary: SPY
+  secondary: QQQ
+  display_only: true
+
+design_memo: docs/memos/20260513-sealed_window_leak_postmortem_and_amendment.md
+backtest_script: scripts/run_simple_baseline_backtest.py
+strategy_module: core.signals.strategies.simple_baseline.SimpleBaselineStrategy
+test_file: tests/unit/signals/test_simple_baseline.py
+
+# ── Risk overlay ────────────────────────────────────────────────────────────
+risk_overlay:
+  long_only: true
+  no_short: true
+  no_margin: true
+  max_single_symbol_weight: 0.70  # MTUM cap in risk-on
+  rebalance_cadence: monthly

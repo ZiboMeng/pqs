@@ -1,0 +1,63 @@
+{
+  "candidate_id": "simple_baseline_v1",
+  "strategy_type": "simple_baseline",
+  "spec_hash": "ccd65b8c2bd3b15a445c107aa3268c597849e2c270c5c679739507aafd7c59a2",
+  "spec_path": "data/baseline_simple/paper_runs/simple_baseline_v1/spec.yaml",
+  "created_at": "2026-05-13",
+  "initialized_at_utc": "2026-05-14T00:53:43.942834+00:00",
+  "start_date": "2026-05-14",
+  "current_status": "in_progress",
+  "initial_nav_usd": 10000.0,
+  "current_nav_usd": 10000.0,
+  "high_water_nav_usd": 10000.0,
+  "current_cash_usd": 346.0802,
+  "n_observe_days": 1,
+  "last_observe_date": "2026-05-13",
+  "target_weights": {
+    "MTUM": 0.7,
+    "TQQQ": 0.3,
+    "BIL": 0.0
+  },
+  "current_positions": {
+    "MTUM": 22,
+    "TQQQ": 38,
+    "BIL": 0
+  },
+  "regime": "risk_on",
+  "vix_close": 17.87,
+  "qqq_close": 714.71,
+  "qqq_above_sma200": true,
+  "forward_runs": [
+    {
+      "td_number": 1,
+      "observation_date": "2026-05-13",
+      "observed_at_utc": "2026-05-14T00:54:55.880623+00:00",
+      "nav_usd": 10000.0,
+      "cash_usd": 346.0802,
+      "is_rebalance_day": true,
+      "positions_shares": {
+        "MTUM": 22,
+        "TQQQ": 38,
+        "BIL": 0
+      },
+      "sleeve_values_usd": {
+        "MTUM": 6718.7999,
+        "TQQQ": 2935.1199,
+        "BIL": 0.0
+      },
+      "target_weights": {
+        "MTUM": 0.7,
+        "TQQQ": 0.3,
+        "BIL": 0.0
+      },
+      "regime": "risk_on",
+      "diagnostics": {
+        "vix_close": 17.87,
+        "qqq_close": 714.71,
+        "qqq_sma200": 608.3467,
+        "qqq_above_sma200": true,
+        "spy_close": 742.31
+      }
+    }
+  ]
+}
