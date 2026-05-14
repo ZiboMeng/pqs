@@ -1,0 +1,93 @@
+{
+  "strategy": "SimpleBaselineStrategy",
+  "spec": {
+    "mtum_weight": 0.7,
+    "leveraged_weight": 0.3,
+    "leveraged_symbol": "TQQQ",
+    "cash_symbol": "BIL",
+    "trend_signal_symbol": "QQQ",
+    "sma_window": 200,
+    "rebalance_monthly": true
+  },
+  "data_window": {
+    "start": "2015-01-02",
+    "end": "2024-12-30",
+    "n_days": 2515
+  },
+  "by_train_year": {
+    "2016": {
+      "year": 2016,
+      "n_days": 251,
+      "cum_return": 0.0076,
+      "sharpe": 0.135,
+      "max_dd": -0.1411,
+      "vs_spy": -0.1288,
+      "vs_qqq": -0.0868,
+      "spy_cum_return": 0.1359,
+      "qqq_cum_return": 0.0941
+    },
+    "2017": {
+      "year": 2017,
+      "n_days": 250,
+      "cum_return": 0.5739,
+      "sharpe": 3.243,
+      "max_dd": -0.0544,
+      "vs_spy": 0.3699,
+      "vs_qqq": 0.2618,
+      "spy_cum_return": 0.2078,
+      "qqq_cum_return": 0.3149
+    },
+    "2020": {
+      "year": 2020,
+      "n_days": 252,
+      "cum_return": 0.0141,
+      "sharpe": 0.169,
+      "max_dd": -0.2431,
+      "vs_spy": -0.1582,
+      "vs_qqq": -0.4456,
+      "spy_cum_return": 0.1724,
+      "qqq_cum_return": 0.4597
+    },
+    "2022": {
+      "year": 2022,
+      "n_days": 250,
+      "cum_return": -0.159,
+      "sharpe": -1.192,
+      "max_dd": -0.226,
+      "vs_spy": 0.0277,
+      "vs_qqq": 0.1742,
+      "spy_cum_return": -0.1865,
+      "qqq_cum_return": -0.3322
+    },
+    "2024": {
+      "year": 2024,
+      "n_days": 250,
+      "cum_return": 0.4788,
+      "sharpe": 1.52,
+      "max_dd": -0.2075,
+      "vs_spy": 0.2206,
+      "vs_qqq": 0.1925,
+      "spy_cum_return": 0.2605,
+      "qqq_cum_return": 0.2883
+    }
+  },
+  "train_aggregate": {
+    "train_years": [
+      2016,
+      2017,
+      2020,
+      2022,
+      2024
+    ],
+    "n_train_days": 1258,
+    "train_years_equivalent": 4.99,
+    "cagr": 0.149,
+    "sharpe": 0.824,
+    "max_dd": -0.3172,
+    "spy_cagr": 0.1054,
+    "qqq_cagr": 0.1258,
+    "cagr_vs_spy": 0.0435,
+    "cagr_vs_qqq": 0.0232
+  },
+  "discipline_note": "Train years = 2016/2017/2020/2022/2024 only. Validation years (2018/19/21/23/25) and sealed (2026) skipped per config/temporal_split.yaml holdout discipline."
+}
