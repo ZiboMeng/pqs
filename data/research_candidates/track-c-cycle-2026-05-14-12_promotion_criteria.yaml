@@ -1,0 +1,153 @@
+# Promotion Criteria — Track C Cycle #12 (post-P0 + priority-1+2 expansion)
+#
+# Authority:
+#   - User explicit-go 2026-05-14 ("priority 1-9 按照你的顺序 包括 priority4")
+#   - CLAUDE.md priority 6 (Cycle12 综合 mining)
+#   - Priority 1 (Family R chart patterns) + Priority 2 (Family S regime ML)
+#     ship 2026-05-14 commits — new factor pool first-use cycle.
+#
+# IMMUTABILITY CONTRACT:
+#   Once committed with sha256 in commit message, ALL fields below
+#   FROZEN for this lineage. Wrong-in-hindsight thresholds → next cycle.
+#
+# Lineage tag:    track-c-cycle-2026-05-14-12
+# Authored:       2026-05-14
+# Authoring axis: factor pool expansion (Family R chart + Family S regime ML)
+#                 Single-axis differential vs cycle08:
+#                   (i)  factor_registry_pool size: 162 → 175
+#                        (+10 Family R chart-pattern + 3 Family S regime ML)
+#                   (ii) sampling_mode: family_first (cycle10 ship per A++)
+#                   (iii) NEW data quality baseline: post-P0.a + P0.b.4
+#                        (full universe 81/81 PASS data completeness)
+#                   (iv) D1 anchor pool: cycle08 8ac6bccbeed1 + 3f40e3f4ed1a
+#                        (D1+D2 surfaced 2 fleet-eligible non-sibling candidates;
+#                        cycle12 must NOT produce sibling-by-NAV of these two)
+
+lineage_tag: track-c-cycle-2026-05-14-12
+panel_max_date_at_freeze: 2025-12-31
+freeze_date: 2026-05-14
+factor_registry_pool: RESEARCH_FACTORS
+data_source_canonical: post_P0a_QQQ_demote_plus_P0b4_full_universe_repair_2026_05_14
+end_date: 2025-12-31
+
+drop_symbols:
+  - BRK-B
+  - USO
+  - SLV
+
+
+# ── Universe (cycle04/06/07a/08 inherited verbatim) ─────────────────────
+
+universe_extension:
+  mode: stocks_plus_cross_asset
+  stocks_count: 53
+  cross_asset_count: 6
+  total_eligible: 59
+  cluster_count_total: 22
+  cross_asset_cluster_map_module: core.research.risk_cluster_map.CROSS_ASSET_RISK_CLUSTER_MAP
+  unified_cluster_map_helper: core.research.risk_cluster_map.make_unified_cluster_map
+  asset_class_map_module: core.research.risk_cluster_map.ASSET_CLASS_BY_CLUSTER
+
+
+# ── Construction (cycle08 inherited verbatim) ────────────────
+
+construction:
+  mode: cap_aware_cross_asset
+  rebalance_cadence: monthly
+  top_n: 10
+  cluster_cap: 0.20
+  max_single_weight: 0.10
+  min_holding_days: 1
+  long_only: true
+  no_short: true
+  no_margin: true
+  asset_class_caps:
+    equities_max:    0.70
+    bonds_max:       0.40
+    commodities_max: 0.20
+    cash_anchor_max: 0.30
+
+
+# ── Mining: v3_regime_conditional + family_first sampling ─────────
+
+mining_config:
+  sampler: tpe
+  seed: 42
+  n_trials: 200
+  sampling_mode: family_first  # cycle10 A++ ship; required for high-family-count pool
+  min_families: 3
+  max_features_per_family: 2
+  fwd_return_horizon_days: 21
+  fwd_return_mode: cc
+  composite_lag_bars: 1
+  factor_registry_pool: RESEARCH_FACTORS
+  objective_version: v2_nav_based  # cycle10 ship default
+  holding_freq_sample: [monthly, weekly]
+  explicit_exclusions:
+    - intraday_autocorr_21d
+    - intraday_vol_ratio_21d
+    - realized_vol_60m_21d
+
+
+# ── Anti-sibling (D1 finding-driven) ──────────────────────────────
+
+anti_sibling_thresholds:
+  raw_nav_pearson_reject_threshold: 0.85
+  residual_nav_pearson_reject_threshold: 0.50
+  factor_overlap_with_active_core_max: 2
+  # D1 fleet pair anchor: must be non-sibling vs BOTH cycle08 candidates
+  fleet_anchor_candidates:
+    - {trial_id: 8ac6bccbeed1, lineage: track-c-cycle-2026-05-08-01,
+       features: [max_dd_126d, mom_252d, reversal_21d], cadence: weekly}
+    - {trial_id: 3f40e3f4ed1a, lineage: track-c-cycle-2026-05-08-01,
+       features: [max_dd_126d, xsection_rank_63d, ret_5d], cadence: monthly}
+
+
+# ── Track A acceptance (post-P0.a QQQ-demoted) ────────────────────
+
+acceptance:
+  evaluator: core.research.temporal_split_acceptance.run_split_acceptance
+  yaml_dispatch: by_freeze_date  # 2026-05-14 → v3 yaml dispatch
+  qqq_governance: deprecated_per_evaluation_policy_yaml
+  hard_gates_summary:
+    - 2025_excess_vs_spy_positive: HARD (CLAUDE.md PRIMARY)
+    - 2025_excess_vs_qqq_positive: diagnostic (evaluation_policy.yaml demote)
+    - 2025_maxdd_le_20pct: HARD
+  diagnostic_gates_summary:
+    - validation_aggregate_excess_vs_spy
+    - validation_aggregate_excess_vs_qqq (demoted)
+    - beta_to_qqq
+    - stress_slice_maxdd
+
+
+# ── Stop rule (per cycle04 close memo precedent) ──────────────────
+
+stop_rule_post_cycle:
+  if_zero_nominee: |
+    Cycle12 = third cap_aware_cross_asset cycle on 81+ stock universe.
+    If 0 nominee, strategic pivot triggers (per CLAUDE.md cycle04 stop
+    rule + post-cycle10 roadmap v2):
+      - K1+T1 intraday execution (priorities 3 + 7)
+      - Cross-asset universe expansion permanent
+      - 130/30 short-extension first-cycle (priority 4 ready)
+
+
+# ── Hypotheses (testable, pre-registered) ─────────────────────────
+
+hypotheses:
+  H1:
+    text: "Family R chart-pattern factors produce >= 1 top-50 archived
+           trial featuring a chart-pattern factor as one of 3 anchors"
+    expected: "donchian_break_252d or golden_cross_score likely; failure
+               = chart pattern alpha empirically absent in this universe"
+  H2:
+    text: "Family S regime ML factors produce regime-aware composite
+           with vs_qqq performance >= cycle08 8ac6bccbeed1 (+7.28% aggr)"
+    expected: "regime_score_combined as weight gates other factors;
+               failure = regime gating doesn't add alpha at IC level"
+  H3:
+    text: "Top-3 cycle12 candidates pass v1-strict (QQQ HARD) at lower
+           rate than cycle08 (2/3 PASS)"
+    expected: "expansion of factor pool dilutes vs_qqq signal; failure
+               = expansion produces equally many QQQ-positive trials
+               (would suggest family R + S add structural alpha)"
