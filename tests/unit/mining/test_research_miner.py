@@ -1016,7 +1016,12 @@ def test_aplusplus_families_v2_union_equals_research_factors():
     # composite) into family L → 157.
     # Round F 2026-05-12: +5 signal-confirmation multi-bar factors
     # into new family Q → 162.
-    assert len(reachable) == 162
+    # 2026-05-15 (priority 1+2): +10 Family R chart-pattern factors
+    # (Donchian / MA-cross / streak / ATR breakout) + 3 Family S
+    # regime-ML factors (regime_score_combined / transition_risk /
+    # persistence) → 175. union(FAMILIES_V2) == RESEARCH_FACTORS
+    # contract verified above by `assert reachable == expected`.
+    assert len(reachable) == 175
 
 
 def test_aplusplus_families_v1_unchanged_at_33():
@@ -1211,8 +1216,9 @@ def test_aplusplus_research_miner_constructor_passes_with_v2():
     assert miner.explicit_exclusions == ()
     # Pre-2026-05-12: 6 families (A-F). PRD 20260512: +10 families
     # (G-P) for Bucket A/B/C/Macro factors. Round F: +1 family Q
-    # for signal-confirmation multi-bar. Total = 17.
-    assert len(miner.families) == 17
+    # for signal-confirmation multi-bar → 17. 2026-05-15 (priority
+    # 1+2): +1 family R chart-pattern, +1 family S regime-ML → 19.
+    assert len(miner.families) == 19
 
 
 def test_aplusplus_research_miner_no_pool_legacy_path():
