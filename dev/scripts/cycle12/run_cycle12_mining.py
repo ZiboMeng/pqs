@@ -109,7 +109,7 @@ def main():
         for sym in panel["close"].columns if sym in cluster_map
     }
 
-    fwd_returns = compute_forward_returns(panel["close"], horizon_days=21, mode="cc")
+    fwd_returns = compute_forward_returns(panel["close"], horizons=[21], mode="cc")
 
     spy = panel["close"].get("SPY")
     qqq = panel["close"].get("QQQ")
@@ -127,35 +127,40 @@ def main():
 
     archive = RCMArchive(PROJ / "data/mining/rcm_archive.db")
 
-    weights = ObjectiveWeights(
-        ic_ir=0.5, sortino_weight=0.30, ic_residual_qqq=0.10,
-        turnover_penalty=0.10,
-    )
+    # ObjectiveWeights v1_legacy default (cycle04-08 sibling-compatible).
+    # cycle12 single-axis diff is factor pool, NOT objective change.
+    weights = ObjectiveWeights()
+
+    # fwd_returns is Dict[int, pd.DataFrame] keyed by horizon; pick 21d.
+    fwd_21 = fwd_returns[21] if isinstance(fwd_returns, dict) else fwd_returns
 
     miner = ResearchMiner(
-        factor_registry_pool="RESEARCH_FACTORS",
-        families=FAMILIES_V2,
-        sampler="tpe", seed=42,
-        objective_weights=weights,
-        min_families=3, max_features_per_family=2,
-        n_trials=200,
-        sampling_mode="family_first",  # Required for 19-family pool
-    )
-
-    log.info("Starting 200-trial TPE mining (family_first sampling)...")
-    miner.run(
         factor_panel_map=factors,
-        forward_returns=fwd_returns,
-        price_df=panel["close"], open_df=panel["open"],
-        spy_series=spy, qqq_series=qqq,
-        harness_config=hc, research_mask=mask,
-        archive=archive, lineage_tag=LINEAGE,
-        explicit_exclusions=[
+        fwd_returns=fwd_21,
+        mask=mask,
+        families=FAMILIES_V2,
+        objective_weights=weights,
+        min_families=3,
+        max_features_per_family=2,
+        composite_weighting="equal_weight",
+        target_n_features=3,
+        horizon=21, lag=1,
+        archive=archive,
+        lineage_tag=LINEAGE,
+        study_id="cycle12-2026-05-14",
+        factor_registry_pool="RESEARCH_FACTORS",
+        explicit_exclusions=(
             "intraday_autocorr_21d",
             "intraday_vol_ratio_21d",
             "realized_vol_60m_21d",
-        ],
+        ),
+        price_df=panel["close"], open_df=panel["open"],
+        spy_series=spy, qqq_series=qqq,
+        harness_config=hc,
     )
+
+    log.info("Starting 200-trial TPE mining...")
+    miner.mine(n_trials=200, seed=42, sampler="tpe")
 
     elapsed = time.time() - t0
     log.info("=== Cycle12 mining DONE (%.1f min, lineage=%s) ===",
