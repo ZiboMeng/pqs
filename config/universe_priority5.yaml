@@ -1,0 +1,65 @@
+# Priority-5 extended universe — blue chips + inverse ETF additions.
+#
+# Authority: CLAUDE.md "Current TODO Checklist" priority 5 + user
+# explicit-go 2026-05-14 (D1 inverse-ETF cap grid search + universe
+# expansion). PRD memo: docs/memos/20260514-mining_full_inventory_for_discussion.md
+#
+# Per memory feedback_multi_universe_research_default: research-stage
+# universe additions go in SEPARATE yaml file, NOT into main universe.yaml.
+# This file is consumed by priority-5 grid search + future cycle12
+# mining; active forward candidates (trial9_v2, PEAD, options) remain
+# on main universe.yaml and are NOT affected.
+#
+# Composition:
+#   - inherits ALL active symbols from main universe.yaml
+#   - adds 10 large-cap blue chips not currently in seed_pool
+#   - adds 3 1× inverse ETFs (SH/PSQ/DOG) for cap_aware_cross_asset
+#     defensive-tilt experiments
+#
+# Inverse ETF safety: 1× inverse only (NOT SQQQ — permanently blacklisted
+# per CLAUDE.md Invariant Constraints). Position cap configurable per
+# cycle (grid search range {5%, 7.5%, 10%, 12.5%, 15%}).
+
+schema_version: "1.0"
+universe_id: "universe_priority5_2026-05-14"
+created_at: "2026-05-14"
+extends: "config/universe.yaml"
+
+extensions:
+  blue_chips_added:
+    - {sym: "JPM",  sector: "Financials",     rationale: "money-center bank"}
+    - {sym: "V",    sector: "Financials",     rationale: "payments network"}
+    - {sym: "XOM",  sector: "Energy",         rationale: "supermajor oil"}
+    - {sym: "HD",   sector: "Consumer Disc.", rationale: "home improvement retail"}
+    - {sym: "ABBV", sector: "Healthcare",     rationale: "pharma biologic"}
+    - {sym: "NFLX", sector: "Communication",  rationale: "streaming"}
+    - {sym: "KO",   sector: "Consumer Stap.", rationale: "global beverage"}
+    - {sym: "CRM",  sector: "Tech",           rationale: "cloud software"}
+    - {sym: "ORCL", sector: "Tech",           rationale: "enterprise database"}
+    - {sym: "PEP",  sector: "Consumer Stap.", rationale: "snacks + beverage"}
+
+  inverse_etfs_added:
+    - {sym: "SH",  underlying: "SPY", leverage: -1.0, rationale: "defensive S&P short"}
+    - {sym: "PSQ", underlying: "QQQ", leverage: -1.0, rationale: "defensive Nasdaq short"}
+    - {sym: "DOG", underlying: "DIA", leverage: -1.0, rationale: "defensive DOW short"}
+
+  blacklist_preserved:
+    # CLAUDE.md Invariant: SQQQ permanently blacklisted; TQQQ/SOXL stricter
+    # risk thresholds (TQQQ in current universe; SOXL post-P0.b.4 repair).
+    - {sym: "SQQQ", reason: "permanent blacklist (3× inverse)"}
+
+# Inverse ETF position cap — to be determined by priority-5.2 grid search
+# Grid points (sweep at construction time):
+inverse_etf_cap_grid:
+  candidate_caps_pct: [5.0, 7.5, 10.0, 12.5, 15.0]
+  decision_metrics:
+    - "full_period_sharpe"
+    - "full_period_max_dd"
+    - "2025_vs_spy_excess"
+    - "2008_stress_max_dd"  # crisis behavior
+    - "stress_slice_covid_flash_max_dd"
+    - "stress_slice_rate_hike_2022_max_dd"
+  decision_rule: |
+    Pick cap maximizing Sharpe subject to MaxDD ≤ 20% AND
+    2026-style stress MaxDD ≤ 25% (CLAUDE.md Black Swan Quantification).
+    If multiple caps tie on Sharpe, prefer LOWER cap (conservative).

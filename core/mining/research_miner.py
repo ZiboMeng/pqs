@@ -383,6 +383,19 @@ FAMILY_P_MACRO = FamilyConfig(
     }),
 )
 
+FAMILY_R_CHART_PATTERNS = FamilyConfig(
+    name="R",
+    title="chart pattern library (Donchian / MA-cross / streak / ATR breakout)",
+    factors=frozenset({
+        # Priority 1 (2026-05-14): 10 chart-pattern factors
+        "donchian_break_20d", "donchian_break_55d", "donchian_break_252d",
+        "golden_cross_score", "ma_pullback_20d", "price_above_4ma_count",
+        "consecutive_up_streak", "higher_highs_5d",
+        "atr_breakout_5d", "inside_bar_pct_20d",
+    }),
+)
+
+
 FAMILY_Q_SIGNAL_CONFIRMATION = FamilyConfig(
     name="Q",
     title="signal-confirmation multi-bar (setup-then-trigger)",
@@ -395,6 +408,7 @@ FAMILY_Q_SIGNAL_CONFIRMATION = FamilyConfig(
 
 
 FAMILIES_V2_EXTENDED: List[FamilyConfig] = FAMILIES_V2 + [
+    FAMILY_R_CHART_PATTERNS,
     FAMILY_G_VOLUME_MICROSTRUCTURE,
     FAMILY_H_CONSOLIDATION,
     FAMILY_I_HIGHER_MOMENTS_AND_ANCHOR,

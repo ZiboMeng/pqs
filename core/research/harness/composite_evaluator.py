@@ -480,7 +480,8 @@ class HarnessConfig:
                     f"map={self.asset_class_map is not None} "
                     f"caps={self.asset_class_caps is not None}"
                 )
-            valid_classes = {"equities", "bonds", "commodities", "cash_anchor"}
+            valid_classes = {"equities", "bonds", "commodities", "cash_anchor",
+                             "inverse_equities"}
             unknown = set(self.asset_class_caps.keys()) - valid_classes
             if unknown:
                 raise ValueError(

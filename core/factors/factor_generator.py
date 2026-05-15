@@ -112,6 +112,7 @@ def generate_all_factors(
     factors.update(_family_h_higher_moments(effective_price_df, benchmark_col))
     factors.update(_family_i_anchor_bab(effective_price_df, volume_df, benchmark_col))
     factors.update(_family_j_calendar(effective_price_df))
+    factors.update(_family_r_chart_patterns(effective_price_df, high_df, low_df))
     factors.update(_quality_factors(effective_price_df))
     factors.update(_sr_swing_factors(effective_price_df, high_df, low_df))
     factors.update(_relative_strength_factors(effective_price_df, benchmark_col))
@@ -958,6 +959,98 @@ def _family_g_consolidation(
         in_consol = (within_band > 0).astype(float)
         # Negative slope inside consolidation → factor < 0 (breakout precursor)
         factors["pre_breakout_volume_decay"] = vol_slope_20 * in_consol
+
+    return factors
+
+
+def _family_r_chart_patterns(
+    price_df: pd.DataFrame,
+    high_df: Optional[pd.DataFrame] = None,
+    low_df: Optional[pd.DataFrame] = None,
+) -> Dict[str, pd.DataFrame]:
+    """Family R — chart-pattern factor library (Priority 1, 2026-05-14).
+
+    10 chart-pattern technical factors. Distinct from family G (consolidation/
+    breakout-precursor) and family I (nearness_to_52w_high). Focus:
+    Donchian breakouts (3) + MA-cross/alignment (3) + streak (2) + ATR
+    breakout (1) + inside bar (1).
+
+    All factors compute on (close, high, low) panels.
+    """
+    factors: Dict[str, pd.DataFrame] = {}
+
+    # --- Donchian breakouts (3) — close > rolling max of PRIOR N days ---
+    # Excludes today's close (uses shift(1)) to prevent lookahead.
+    for n in (20, 55, 252):
+        prior_max = price_df.shift(1).rolling(n, min_periods=n).max()
+        # 1.0 = new N-day high today; 0.0 otherwise. Float for grad/IC.
+        factors[f"donchian_break_{n}d"] = (
+            (price_df > prior_max).astype(float).where(prior_max.notna())
+        )
+
+    # --- MA-cross / alignment ---
+    sma_20  = price_df.rolling(20).mean()
+    sma_50  = price_df.rolling(50).mean()
+    sma_100 = price_df.rolling(100).mean()
+    sma_200 = price_df.rolling(200).mean()
+
+    # golden_cross_score: (sma_50 - sma_200) / close — magnitude of cross
+    # Positive when sma_50 > sma_200 (golden cross regime).
+    factors["golden_cross_score"] = (
+        (sma_50 - sma_200) / price_df.replace(0, np.nan)
+    )
+
+    # ma_pullback_20d: close / sma_20 - 1
+    # Negative when price pulled back below sma_20; positive when above.
+    factors["ma_pullback_20d"] = (
+        price_df / sma_20.replace(0, np.nan) - 1.0
+    )
+
+    # price_above_4ma_count: how many of {sma_20, 50, 100, 200} are below
+    # close. Range 0-4. Higher = stronger trend alignment.
+    above_count = (
+        (price_df > sma_20).astype(float)
+        + (price_df > sma_50).astype(float)
+        + (price_df > sma_100).astype(float)
+        + (price_df > sma_200).astype(float)
+    )
+    factors["price_above_4ma_count"] = above_count.where(sma_200.notna())
+
+    # --- Streaks / consecutive patterns ---
+    up_day = (price_df > price_df.shift(1)).astype(float)
+
+    # consecutive_up_streak: run-length of consecutive up days, today inclusive.
+    # Reset to 0 when up_day = 0.
+    cum_up = up_day.cumsum()
+    reset_up = cum_up.where(up_day == 0).ffill().fillna(0)
+    factors["consecutive_up_streak"] = (cum_up - reset_up) * up_day
+
+    # higher_highs_5d: count of higher-than-previous closes in last 5 bars.
+    factors["higher_highs_5d"] = up_day.rolling(5).sum()
+
+    # --- ATR breakout (CONDITIONAL on H+L) ---
+    if high_df is not None and low_df is not None:
+        prev_close = price_df.shift(1)
+        tr = pd.concat([
+            (high_df - low_df),
+            (high_df - prev_close).abs(),
+            (low_df - prev_close).abs(),
+        ]).groupby(level=0).max()
+        atr_14 = tr.rolling(14).mean()
+
+        # atr_breakout_5d: (close - max(close, 5).shift(1)) / atr_14
+        # Magnitude of breakout above 5-day high, scaled by ATR.
+        prior_5d_high = price_df.shift(1).rolling(5, min_periods=5).max()
+        factors["atr_breakout_5d"] = (
+            (price_df - prior_5d_high) / atr_14.replace(0, np.nan)
+        )
+
+        # inside_bar_pct_20d: fraction of last 20 bars that are "inside bars"
+        # (today high < yesterday high AND today low > yesterday low).
+        prev_high = high_df.shift(1)
+        prev_low = low_df.shift(1)
+        inside = ((high_df < prev_high) & (low_df > prev_low)).astype(float)
+        factors["inside_bar_pct_20d"] = inside.rolling(20).mean()
 
     return factors
 

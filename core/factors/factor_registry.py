@@ -74,6 +74,14 @@ PRODUCTION_FACTORS: FrozenSet[str] = frozenset({
 # families are added to factor_generator (test_factor_registry catches it).
 
 RESEARCH_FACTORS: FrozenSet[str] = frozenset({
+    # Family R — chart-pattern library (Priority 1, 2026-05-14):
+    # 10 factors covering Donchian breakouts / MA-cross / streak / ATR /
+    # inside-bar patterns. Distinct from family G (consolidation) + I
+    # (52w-high). Implementation: factor_generator._family_r_chart_patterns.
+    "donchian_break_20d", "donchian_break_55d", "donchian_break_252d",
+    "golden_cross_score", "ma_pullback_20d", "price_above_4ma_count",
+    "consecutive_up_streak", "higher_highs_5d",
+    "atr_breakout_5d", "inside_bar_pct_20d",
     # Baseline returns family (PRD 20260423 Step 1 Round 1)
     # Raw close-to-close short-horizon returns + raw 1-bar gap/intraday.
     # Unsigned siblings of reversal_5d / overnight_gap_5d etc. Research-only.
