@@ -159,6 +159,61 @@ def test_per_year_maxdd_violation_kills_overall():
     assert gate.values["maxdd"] == 0.30
 
 
+def test_negative_maxdd_convention_per_year_gate_fires():
+    """P0 regression (2026-05-15): real eval pipeline stores maxdd NEGATIVE
+    (e.g. -0.30 = 30% drawdown). Pre-fix the gate did `maxdd <= maxdd_max`
+    which is always True for negatives — the MaxDD gate never fired. Gate
+    now compares abs(maxdd). A -0.30 negative-convention value must FAIL.
+    """
+    cfg = load_temporal_split()
+    metrics = _passing_core_metrics()
+    metrics["validation"][2019]["maxdd"] = -0.30  # negative convention, 30% DD
+    res = evaluate_candidate(metrics, cfg, "core")
+    assert not res.overall_passed
+    gate = res.gate_named("validation_year_2019_maxdd")
+    assert gate is not None and not gate.passed
+
+
+def test_negative_maxdd_convention_stress_slice_gate_fires():
+    """P0 regression (2026-05-15): stress slice maxdd stored negative;
+    -0.35 (35% DD) must FAIL the 25% ceiling. Pre-fix sign bug let any
+    catastrophic stress drawdown pass."""
+    cfg = load_temporal_split()
+    metrics = _passing_core_metrics()
+    metrics["stress_slice"]["covid_flash"]["maxdd"] = -0.35  # 35% DD > 25%
+    res = evaluate_candidate(metrics, cfg, "core")
+    assert not res.overall_passed
+    gate = res.gate_named("stress_slice_covid_flash_maxdd")
+    assert gate is not None and not gate.passed
+
+
+def test_negative_maxdd_convention_2025_role_gate_fires():
+    """P0 regression (2026-05-15): role-gate yaml `validation.2025.maxdd
+    op<=0.20` against a negative-convention -0.80 value. Pre-fix
+    _eval_op('<=', -0.80, 0.20) was True. Now abs() applied to maxdd
+    fields → -0.80 correctly fails."""
+    cfg = load_temporal_split()
+    metrics = _passing_core_metrics()
+    metrics["validation"][2025]["maxdd"] = -0.80  # 80% DD
+    res = evaluate_candidate(metrics, cfg, "core")
+    assert not res.overall_passed
+    role_gate = res.gate_named("role_core__validation__2025__maxdd")
+    assert role_gate is not None and not role_gate.passed
+
+
+def test_negative_maxdd_convention_clean_candidate_still_passes():
+    """P0 regression (2026-05-15): a clean candidate with negative-convention
+    maxdd all under threshold must STILL pass (abs() fix must not over-reject)."""
+    cfg = load_temporal_split()
+    metrics = _passing_core_metrics()
+    for y in (2018, 2019, 2021, 2023, 2025):
+        metrics["validation"][y]["maxdd"] = -metrics["validation"][y]["maxdd"]
+    for s in ("covid_flash", "rate_hike_2022"):
+        metrics["stress_slice"][s]["maxdd"] = -metrics["stress_slice"][s]["maxdd"]
+    res = evaluate_candidate(metrics, cfg, "core")
+    assert res.overall_passed
+
+
 def test_missing_validation_year_metric_fails_closed():
     """Missing metric = fail-closed (do not silently pass)."""
     cfg = load_temporal_split()

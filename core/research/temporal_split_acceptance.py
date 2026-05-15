@@ -277,7 +277,11 @@ def _eval_per_year_gates(
                 notes=f"validation year {year_key} maxdd missing or non-numeric; fail-closed",
             ))
             continue
-        passed = bool(maxdd <= maxdd_max)
+        # MaxDD is stored as a NEGATIVE return (e.g. -0.22 = 22% drawdown);
+        # the threshold is a POSITIVE magnitude (0.20). Compare magnitudes —
+        # a bare `maxdd <= maxdd_max` is always True for any negative value
+        # (sign bug fixed 2026-05-15 P0; pre-fix this gate never fired).
+        passed = bool(abs(maxdd) <= maxdd_max)
         out.append(SplitGateResult(
             name=f"validation_year_{year_key}_maxdd",
             passed=passed,
@@ -399,7 +403,9 @@ def _eval_stress_slice_gates(
                 notes=f"stress slice {slc.name} maxdd missing or non-numeric; fail-closed",
             ))
             continue
-        passed = bool(maxdd <= slc.maxdd_threshold)
+        # MaxDD stored negative; threshold positive magnitude. Compare
+        # magnitudes (sign bug fixed 2026-05-15 P0 — see _eval_per_year_gates).
+        passed = bool(abs(maxdd) <= slc.maxdd_threshold)
         out.append(SplitGateResult(
             name=f"stress_slice_{slc.name}_maxdd",
             passed=passed,
@@ -455,7 +461,12 @@ def _eval_role_gates(
                 ),
             ))
             continue
-        actual_passed = _eval_op(gate.op, value, gate.value)
+        # MaxDD-type fields store a NEGATIVE return but the yaml threshold
+        # is a positive magnitude (e.g. validation.2025.maxdd op="<=" 0.20).
+        # Compare magnitude so a -0.80 (80% DD) correctly fails `<= 0.20`
+        # (sign bug fixed 2026-05-15 P0 — see _eval_per_year_gates).
+        cmp_value = abs(value) if gate.field.endswith("maxdd") else value
+        actual_passed = _eval_op(gate.op, cmp_value, gate.value)
         out.append(SplitGateResult(
             name=gate_name,
             # Diagnostic-only: passed=True regardless; record actual outcome
