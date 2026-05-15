@@ -1,0 +1,8 @@
+18:50:07 [INFO] === Cycle12 mining (lineage=track-c-cycle-2026-05-14-12, yaml=4b39b5b3b3ad1b14) ===
+18:50:07 [INFO] Loading 79 symbols...
+18:50:33 [INFO] Miner panel: (3021, 79) (max date 2024-12-31)
+18:50:39 [INFO] FactorGenerator: produced 101 candidate factors
+18:50:39 [INFO] Generated 101 factors
+18:50:39 [INFO] Starting 200-trial TPE mining...
+18:59:24 [INFO] === Cycle12 mining DONE (9.3 min, lineage=track-c-cycle-2026-05-14-12) ===
+18:59:24 [INFO] Track A eval next: python dev/scripts/cycle06/cycle06_track_a_eval.py --lineage track-c-cycle-2026-05-14-12 --top-n 3

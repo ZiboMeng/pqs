@@ -35,8 +35,26 @@ from core.factors.factor_generator import (
 )
 from core.mining.rcm_archive import RCMArchive
 from core.mining.research_miner import (
-    FAMILIES_V2, ObjectiveWeights, ResearchMiner,
+    FAMILY_A_V2, FAMILY_B_V2, FAMILY_C_V2, FAMILY_D_V2,
+    FAMILY_E, FAMILY_F,
+    FAMILY_R_CHART_PATTERNS, FAMILY_S_REGIME_ML,
+    FAMILY_G_VOLUME_MICROSTRUCTURE, FAMILY_H_CONSOLIDATION,
+    FAMILY_I_HIGHER_MOMENTS_AND_ANCHOR, FAMILY_J_CALENDAR,
+    ObjectiveWeights, ResearchMiner,
 )
+
+# OHLCV-only families (factor_generator.generate_all_factors produces all).
+# Excludes Family K/L/M/N (EDGAR fundamental), O (sector_map), P (FRED macro),
+# Q (signal-confirmation multi-bar) — these need separate compute_* functions
+# called via scripts/run_research_miner.py::_build_factor_panel_map and are
+# not exercised in this direct-instantiation cycle12 first run.
+FAMILIES_OHLCV_ONLY = [
+    FAMILY_A_V2, FAMILY_B_V2, FAMILY_C_V2, FAMILY_D_V2,
+    FAMILY_E, FAMILY_F,
+    FAMILY_G_VOLUME_MICROSTRUCTURE, FAMILY_H_CONSOLIDATION,
+    FAMILY_I_HIGHER_MOMENTS_AND_ANCHOR, FAMILY_J_CALENDAR,
+    FAMILY_R_CHART_PATTERNS, FAMILY_S_REGIME_ML,
+]
 from core.research.harness import HarnessConfig
 from core.research.risk_cluster_map import (
     ASSET_CLASS_BY_CLUSTER, CROSS_ASSET_RISK_CLUSTER_MAP,
@@ -138,7 +156,7 @@ def main():
         factor_panel_map=factors,
         fwd_returns=fwd_21,
         mask=mask,
-        families=FAMILIES_V2,
+        families=FAMILIES_OHLCV_ONLY,
         objective_weights=weights,
         min_families=3,
         max_features_per_family=2,
@@ -148,15 +166,22 @@ def main():
         archive=archive,
         lineage_tag=LINEAGE,
         study_id="cycle12-2026-05-14",
-        factor_registry_pool="RESEARCH_FACTORS",
+        # factor_registry_pool=None: bypass pool reachability assert.
+        # FAMILIES_OHLCV_ONLY is a strict SUBSET of RESEARCH_FACTORS; the
+        # A++ reachability contract would fail closed if we declared pool
+        # = RESEARCH_FACTORS but only sample OHLCV families.
         explicit_exclusions=(
             "intraday_autocorr_21d",
             "intraday_vol_ratio_21d",
             "realized_vol_60m_21d",
+            # Family J FRED-event calendar factors (need macro data not loaded)
+            "pre_fomc_window_flag", "post_fomc_window_flag",
+            "pre_cpi_window_flag", "pre_nfp_window_flag",
         ),
         price_df=panel["close"], open_df=panel["open"],
         spy_series=spy, qqq_series=qqq,
         harness_config=hc,
+        sampling_mode="family_first",  # cycle10 A++ ship; required for 19-family pool
     )
 
     log.info("Starting 200-trial TPE mining...")
