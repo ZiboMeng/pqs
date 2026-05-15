@@ -113,6 +113,7 @@ def generate_all_factors(
     factors.update(_family_i_anchor_bab(effective_price_df, volume_df, benchmark_col))
     factors.update(_family_j_calendar(effective_price_df))
     factors.update(_family_r_chart_patterns(effective_price_df, high_df, low_df))
+    factors.update(_family_s_regime_ml(effective_price_df, benchmark_col))
     factors.update(_quality_factors(effective_price_df))
     factors.update(_sr_swing_factors(effective_price_df, high_df, low_df))
     factors.update(_relative_strength_factors(effective_price_df, benchmark_col))
@@ -1051,6 +1052,92 @@ def _family_r_chart_patterns(
         prev_low = low_df.shift(1)
         inside = ((high_df < prev_high) & (low_df > prev_low)).astype(float)
         factors["inside_bar_pct_20d"] = inside.rolling(20).mean()
+
+    return factors
+
+
+def _family_s_regime_ml(
+    price_df: pd.DataFrame,
+    benchmark_col: str = "SPY",
+) -> Dict[str, pd.DataFrame]:
+    """Family S — regime-aware ML-style continuous factors (Priority 2, 2026-05-14).
+
+    3 regime factors aggregating multi-signal evidence into continuous scores
+    (NOT hand-coded thresholds). Each output is broadcast to all symbols (the
+    regime classification is market-level, applied uniformly per date).
+
+    regime_score_combined:
+      Logistic-style aggregation of bull/bear evidence. ∈ approx [0, 1].
+      0 = bear regime (defensive); 1 = bull regime (risk-on).
+      Inputs: SPY position vs 200d MA, 60d realized vol, 21d momentum sign.
+
+    regime_transition_risk:
+      Proxy for regime-change probability. High when signals disagree
+      (mixed evidence) or recent vol has expanded. ∈ approx [0, 1].
+
+    regime_persistence_score:
+      Run-length of regime stability (consecutive days same regime). Higher
+      = more entrenched regime. Useful for "trend exhaustion" gating.
+
+    All factors broadcast to all symbols (column-wise constant per date).
+    """
+    factors: Dict[str, pd.DataFrame] = {}
+
+    if benchmark_col not in price_df.columns:
+        return factors
+
+    spy = price_df[benchmark_col]
+    spy_returns = spy.pct_change()
+
+    # Signal 1: SPY position vs 200d MA (linear bull evidence)
+    sma_200 = spy.rolling(200).mean()
+    spy_ma_pct = (spy / sma_200.replace(0, np.nan) - 1.0)
+    # logistic-style squashing: -10% → ~0.27, 0% → 0.5, +10% → ~0.73
+    spy_ma_score = 1.0 / (1.0 + np.exp(-spy_ma_pct * 10.0))
+
+    # Signal 2: 60d realized vol inverted (low vol = bull-friendly)
+    vol_60 = spy_returns.rolling(60).std() * np.sqrt(252)
+    vol_zscore = (vol_60 - vol_60.rolling(252).mean()) / vol_60.rolling(252).std().replace(0, np.nan)
+    vol_score = 1.0 / (1.0 + np.exp(vol_zscore))  # high vol → low score
+
+    # Signal 3: 21d momentum sign (positive = bull)
+    mom_21 = spy.pct_change(21)
+    mom_score = 1.0 / (1.0 + np.exp(-mom_21 * 20.0))
+
+    # Aggregate: simple average. Range ≈ [0, 1].
+    combined = (spy_ma_score + vol_score + mom_score) / 3.0
+
+    # Broadcast to all symbols (per-date market regime)
+    combined_panel = pd.DataFrame(
+        np.tile(combined.values[:, None], (1, len(price_df.columns))),
+        index=price_df.index, columns=price_df.columns,
+    )
+    factors["regime_score_combined"] = combined_panel
+
+    # Transition risk: signal disagreement + vol expansion
+    # Disagreement: stddev across the 3 signal values per date
+    sig_stack = pd.concat(
+        [spy_ma_score, vol_score, mom_score], axis=1
+    ).std(axis=1)  # 0 = perfect agreement; large = mixed
+    # Vol expansion: vol_60 / vol_60.shift(60)
+    vol_expansion = vol_60 / vol_60.shift(60).replace(0, np.nan) - 1.0
+    transition_risk = (sig_stack + vol_expansion.clip(lower=0)) / 2.0
+    factors["regime_transition_risk"] = pd.DataFrame(
+        np.tile(transition_risk.values[:, None], (1, len(price_df.columns))),
+        index=price_df.index, columns=price_df.columns,
+    )
+
+    # Persistence: run-length of regime > 0.5 (bull) or <= 0.5 (bear).
+    is_bull = (combined > 0.5).astype(int)
+    # Run-length: cumcount of same-state streak
+    # Simple impl: count diff-detection then cumsum within group
+    state_change = (is_bull != is_bull.shift(1)).astype(int)
+    state_group = state_change.cumsum()
+    persist = is_bull.groupby(state_group).cumcount() + 1
+    factors["regime_persistence_score"] = pd.DataFrame(
+        np.tile(persist.values[:, None], (1, len(price_df.columns))),
+        index=price_df.index, columns=price_df.columns,
+    )
 
     return factors
 

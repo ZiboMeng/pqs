@@ -383,6 +383,17 @@ FAMILY_P_MACRO = FamilyConfig(
     }),
 )
 
+FAMILY_S_REGIME_ML = FamilyConfig(
+    name="S",
+    title="regime-aware ML-style continuous market scores",
+    factors=frozenset({
+        # Priority 2 (2026-05-14): 3 regime ML factors
+        "regime_score_combined", "regime_transition_risk",
+        "regime_persistence_score",
+    }),
+)
+
+
 FAMILY_R_CHART_PATTERNS = FamilyConfig(
     name="R",
     title="chart pattern library (Donchian / MA-cross / streak / ATR breakout)",
@@ -409,6 +420,7 @@ FAMILY_Q_SIGNAL_CONFIRMATION = FamilyConfig(
 
 FAMILIES_V2_EXTENDED: List[FamilyConfig] = FAMILIES_V2 + [
     FAMILY_R_CHART_PATTERNS,
+    FAMILY_S_REGIME_ML,
     FAMILY_G_VOLUME_MICROSTRUCTURE,
     FAMILY_H_CONSOLIDATION,
     FAMILY_I_HIGHER_MOMENTS_AND_ANCHOR,

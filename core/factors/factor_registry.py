@@ -74,6 +74,11 @@ PRODUCTION_FACTORS: FrozenSet[str] = frozenset({
 # families are added to factor_generator (test_factor_registry catches it).
 
 RESEARCH_FACTORS: FrozenSet[str] = frozenset({
+    # Family S — regime-aware ML-style continuous factors (Priority 2, 2026-05-14):
+    # 3 market-level regime scores (broadcast to all symbols per date).
+    # NOT hand-coded thresholds — logistic aggregation of multi-signal evidence.
+    # Implementation: factor_generator._family_s_regime_ml.
+    "regime_score_combined", "regime_transition_risk", "regime_persistence_score",
     # Family R — chart-pattern library (Priority 1, 2026-05-14):
     # 10 factors covering Donchian breakouts / MA-cross / streak / ATR /
     # inside-bar patterns. Distinct from family G (consolidation) + I
