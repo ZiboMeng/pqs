@@ -1397,15 +1397,16 @@ history" entry below). **Active forward candidates as of 2026-05-15**:
   + sealed 2026 (2/2). main core/research/forward runner.
 - `cycle06_31af04cf2ff9_evidence_v1` (core_alpha role, evidence stance,
   TD001 @ 2026-05-15, TD60 ~2026-08-14) — same; vs_qqq diagnostic-only.
-- `trial9_diversifier_002` (diversifier role) — **HALTED 2026-05-15,
-  status=requires_data_review**. v2.1 revalidate detected the P0.b/
-  P0.b.4 data repair (revised 2024 bars on ~15 held symbols feed the
-  factor lookback windows); materiality=bound_only (revised cells
-  outside execution_nav anchor ring). Last clean TD = TD002 @
-  2026-05-14. ALSO: trial9_v2 Track A acceptance predates the P0
-  MaxDD-gate fix → its "PASS" standing is unverified under the fixed
-  evaluator. Needs (a) Track A re-eval + (b) re-init on repaired data
-  before forward observation can resume — decision pending.
+- `trial9_diversifier_002` (diversifier role) — **RETIRED 2026-05-15,
+  status=completed_fail**. Halted first on requires_data_review (v2.1
+  revalidate detected the P0.b/P0.b.4 data repair on ~15 held symbols'
+  2024 bars feeding the factor lookback windows). Track A re-eval under
+  the fixed MaxDD gate (source trial 6c745c601a47, repaired data)
+  then FAILED: 2018 MaxDD -24.65%, 2025 -21.33%, covid_flash -35.75%
+  — all over the 20%/25% ceilings. Original cycle05 acceptance used
+  the dead MaxDD gate; vs_spy positive every year (alpha fine) but
+  drawdown discipline fails — same pattern as cycle08_8ac6bcc +
+  cycle12 candidates. The trial9 diversifier line (001 + 002) ends.
 - `pead_sue_trial1_evidence_v1` (evidence-only role, TD001 @ 2026-05-15,
   TD60 ~2026-08-13) — standalone observation track
   (dev/scripts/pead/observe_pead_evidence.py), does NOT use main
