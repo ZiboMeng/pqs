@@ -1,0 +1,1604 @@
+{
+  "lineage_tag": "track-c-cycle-2026-05-01-04",
+  "criteria_yaml_sha256": "b07ece9c9b8c82325d48a0376a871e100f934cab79da98c227dca431fbdd9efc",
+  "evaluation_timestamp": "2026-05-15T00:51:23.872033+00:00",
+  "construction_mode": "cap_aware_cross_asset",
+  "construction_yaml_block": {
+    "mode": "cap_aware_cross_asset",
+    "rebalance_cadence": "monthly",
+    "top_n": 10,
+    "cluster_cap": 0.2,
+    "max_single_weight": 0.1,
+    "min_holding_days": 1,
+    "long_only": true,
+    "no_short": true,
+    "no_margin": true,
+    "asset_class_caps": {
+      "equities_max": 0.7,
+      "bonds_max": 0.4,
+      "commodities_max": 0.2,
+      "cash_anchor_max": 0.3
+    },
+    "asset_class_min_report_only": {
+      "non_equity_weight_avg_min_report": 0.15,
+      "non_equity_weight_p25_min_report": 0.05
+    }
+  },
+  "top_k": 10,
+  "qqq_2025_max_dd_reference": -0.2285566162840431,
+  "evaluations": [
+    {
+      "trial_id": "ddc2896f9d8e",
+      "construction_mode": "cap_aware_cross_asset",
+      "features": [
+        "spy_trend_200d",
+        "drawup_from_252d_low",
+        "amihud_20d"
+      ],
+      "weights": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.3333333333333333
+      ],
+      "ic_ir_mining": 1.1991356429484303,
+      "n_observed_days": 4276,
+      "metrics_full_period": {
+        "cum_ret": 9.314075717261398,
+        "sharpe": 1.030937850235083,
+        "max_dd": -0.362507486070462,
+        "vs_spy": 2.978447601661953,
+        "spy_cum_ret": 6.3356281155994445,
+        "vs_qqq": 4.350289119870621,
+        "qqq_cum_ret": 4.963786597390777
+      },
+      "metrics_per_validation_year": {
+        "2018": {
+          "cum_ret": -0.09830540642733376,
+          "sharpe": -0.5893408111373137,
+          "max_dd": -0.20333659733976092,
+          "vs_spy": -0.028171122038284313,
+          "spy_cum_ret": -0.07013428438904945,
+          "vs_qqq": -0.07167575293963124,
+          "qqq_cum_ret": -0.02662965348770252
+        },
+        "2019": {
+          "cum_ret": 0.3610629057338912,
+          "sharpe": 2.846579539142647,
+          "max_dd": -0.050270494226201244,
+          "vs_spy": 0.0745492164930639,
+          "spy_cum_ret": 0.2865136892408273,
+          "vs_qqq": -0.011394984825450871,
+          "qqq_cum_ret": 0.3724578905593421
+        },
+        "2021": {
+          "cum_ret": 0.24607156870437552,
+          "sharpe": 1.415220533257499,
+          "max_dd": -0.07371208398072729,
+          "vs_spy": -0.04181579388729251,
+          "spy_cum_ret": 0.28788736259166803,
+          "vs_qqq": -0.03953187882283604,
+          "qqq_cum_ret": 0.28560344752721156
+        },
+        "2023": {
+          "cum_ret": 0.27228741719283467,
+          "sharpe": 1.8157926203098864,
+          "max_dd": -0.10915204675907343,
+          "vs_spy": 0.02416497504937598,
+          "spy_cum_ret": 0.2481224421434587,
+          "vs_qqq": -0.2759996760729537,
+          "qqq_cum_ret": 0.5482870932657884
+        },
+        "2025": {
+          "cum_ret": 0.3742499318064758,
+          "sharpe": 1.6846268302833907,
+          "max_dd": -0.1938706842398694,
+          "vs_spy": 0.20785699628320975,
+          "spy_cum_ret": 0.16639293552326606,
+          "vs_qqq": 0.17020029469807807,
+          "qqq_cum_ret": 0.20404963710839774
+        }
+      },
+      "metrics_per_stress_slice": {
+        "covid_flash": {
+          "cum_ret": -0.10953507434035692,
+          "sharpe": -0.6463055062765601,
+          "max_dd": -0.362507486070462,
+          "vs_spy": 0.02781532060818792,
+          "spy_cum_ret": -0.13735039494854484,
+          "vs_qqq": -0.04320634059295925,
+          "qqq_cum_ret": -0.06632873374739767
+        },
+        "rate_hike_2022": {
+          "cum_ret": -0.09202006054652823,
+          "sharpe": -2.673595867503566,
+          "max_dd": -0.1223100597228063,
+          "vs_spy": 0.07407139797543782,
+          "spy_cum_ret": -0.16609145852196605,
+          "vs_qqq": 0.12551218240563833,
+          "qqq_cum_ret": -0.21753224295216655
+        }
+      },
+      "concentration": {
+        "m12_top1_weight_max": 0.13009884882828848,
+        "m12_top3_weight_max": 0.3564954492151386,
+        "m12_n_dates_with_weights": 4276
+      },
+      "nav_correlation_vs_benchmark": {
+        "raw_pearson_vs_spy": 0.6085582395213756,
+        "beta_vs_spy": 0.48649582511132283,
+        "raw_pearson_vs_qqq": 0.7669781242730362,
+        "beta_vs_qqq": 0.6116825756721624
+      },
+      "asset_class_exposure": {
+        "equity_weight_avg": 0.4587449559083887,
+        "bond_weight_avg": 0.2233366823632392,
+        "commodity_weight_avg": 0.09414642225380472,
+        "cash_anchor_weight_avg": 0.04615173974102963,
+        "non_equity_weight_avg": 0.36363484435807353,
+        "non_equity_weight_p25": 0.27691435451185825,
+        "non_equity_weight_p50": 0.28986811042019445,
+        "non_equity_weight_p75": 0.48750927734111327,
+        "non_equity_weight_min": 0.16814219594438265,
+        "non_equity_weight_max": 0.6227987133863983,
+        "days_with_zero_non_equity_pct": 0.0
+      },
+      "cluster_diversity": {
+        "n_unique_clusters_per_rebalance_avg": 11.956531954887218,
+        "cluster_concentration_max": 0.31502490008746226,
+        "n_picks_avg": 8.389567669172932,
+        "implicit_cash_pct_avg": 0.17762019973353776,
+        "top_3_clusters_by_average_weight": [
+          {
+            "cluster": "industrials_infra",
+            "avg_weight": 0.15592932742949445
+          },
+          {
+            "cluster": "energy_oilgas",
+            "avg_weight": 0.09950517448064827
+          },
+          {
+            "cluster": "materials_chemicals",
+            "avg_weight": 0.09879144821844897
+          }
+        ]
+      },
+      "nav_correlation_vs_existing_pair": {},
+      "r41_classification": {
+        "tier": 2,
+        "reason": "factor-overlap max=2 \u2265 2",
+        "factor_overlap_max": 2,
+        "factor_overlaps_per_anchor": {
+          "cycle_01_top": 0,
+          "cycle_02_top": 0,
+          "cycle_03_top": 1,
+          "rcm_v1": 2,
+          "cand_2": 0
+        },
+        "raw_pearson_max": null,
+        "residual_pearson_max": null
+      },
+      "soft_miss_2025_qqq": {
+        "triggered": false
+      }
+    },
+    {
+      "trial_id": "974d68483f30",
+      "construction_mode": "cap_aware_cross_asset",
+      "features": [
+        "rs_vs_spy_126d",
+        "drawup_from_252d_low",
+        "amihud_20d"
+      ],
+      "weights": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.3333333333333333
+      ],
+      "ic_ir_mining": 1.0742048895681744,
+      "n_observed_days": 4276,
+      "metrics_full_period": {
+        "cum_ret": 11.369141032389065,
+        "sharpe": 1.0882125453165834,
+        "max_dd": -0.3748382895099486,
+        "vs_spy": 5.03351291678962,
+        "spy_cum_ret": 6.3356281155994445,
+        "vs_qqq": 6.405354434998288,
+        "qqq_cum_ret": 4.963786597390777
+      },
+      "metrics_per_validation_year": {
+        "2018": {
+          "cum_ret": -0.0735990984300976,
+          "sharpe": -0.40799206928477794,
+          "max_dd": -0.19081495501837778,
+          "vs_spy": -0.0034648140410481476,
+          "spy_cum_ret": -0.07013428438904945,
+          "vs_qqq": -0.04696944494239508,
+          "qqq_cum_ret": -0.02662965348770252
+        },
+        "2019": {
+          "cum_ret": 0.42748598080185674,
+          "sharpe": 3.104070129828977,
+          "max_dd": -0.08180015488525384,
+          "vs_spy": 0.14097229156102942,
+          "spy_cum_ret": 0.2865136892408273,
+          "vs_qqq": 0.05502809024251465,
+          "qqq_cum_ret": 0.3724578905593421
+        },
+        "2021": {
+          "cum_ret": 0.22486988677216746,
+          "sharpe": 1.195974638204794,
+          "max_dd": -0.07934788934653624,
+          "vs_spy": -0.06301747581950057,
+          "spy_cum_ret": 0.28788736259166803,
+          "vs_qqq": -0.0607335607550441,
+          "qqq_cum_ret": 0.28560344752721156
+        },
+        "2023": {
+          "cum_ret": 0.24598443661407488,
+          "sharpe": 1.7094182691725148,
+          "max_dd": -0.09033552047734944,
+          "vs_spy": -0.002138005529383813,
+          "spy_cum_ret": 0.2481224421434587,
+          "vs_qqq": -0.3023026566517135,
+          "qqq_cum_ret": 0.5482870932657884
+        },
+        "2025": {
+          "cum_ret": 0.30535948361605114,
+          "sharpe": 1.4421626318775926,
+          "max_dd": -0.17188194818006994,
+          "vs_spy": 0.13896654809278508,
+          "spy_cum_ret": 0.16639293552326606,
+          "vs_qqq": 0.1013098465076534,
+          "qqq_cum_ret": 0.20404963710839774
+        }
+      },
+      "metrics_per_stress_slice": {
+        "covid_flash": {
+          "cum_ret": -0.1134931981267997,
+          "sharpe": -0.6868414224861206,
+          "max_dd": -0.3748382895099486,
+          "vs_spy": 0.02385719682174514,
+          "spy_cum_ret": -0.13735039494854484,
+          "vs_qqq": -0.04716446437940203,
+          "qqq_cum_ret": -0.06632873374739767
+        },
+        "rate_hike_2022": {
+          "cum_ret": -0.052426389624014136,
+          "sharpe": -1.7504000036943372,
+          "max_dd": -0.09493199138245535,
+          "vs_spy": 0.11366506889795192,
+          "spy_cum_ret": -0.16609145852196605,
+          "vs_qqq": 0.16510585332815242,
+          "qqq_cum_ret": -0.21753224295216655
+        }
+      },
+      "concentration": {
+        "m12_top1_weight_max": 0.13121023532890427,
+        "m12_top3_weight_max": 0.36317975452079393,
+        "m12_n_dates_with_weights": 4276
+      },
+      "nav_correlation_vs_benchmark": {
+        "raw_pearson_vs_spy": 0.5843600533839785,
+        "beta_vs_spy": 0.47574674496359065,
+        "raw_pearson_vs_qqq": 0.7476027740769823,
+        "beta_vs_qqq": 0.6074688917771651
+      },
+      "asset_class_exposure": {
+        "equity_weight_avg": 0.45918244296201893,
+        "bond_weight_avg": 0.20671148680305584,
+        "commodity_weight_avg": 0.0822288677737655,
+        "cash_anchor_weight_avg": 0.07764309443348981,
+        "non_equity_weight_avg": 0.3665834490103111,
+        "non_equity_weight_p25": 0.2799358705349404,
+        "non_equity_weight_p50": 0.2997618841721259,
+        "non_equity_weight_p75": 0.48750927734111327,
+        "non_equity_weight_min": 0.09776283012237727,
+        "non_equity_weight_max": 0.6227987133863983,
+        "days_with_zero_non_equity_pct": 0.0
+      },
+      "cluster_diversity": {
+        "n_unique_clusters_per_rebalance_avg": 11.59938909774436,
+        "cluster_concentration_max": 0.2952170402196542,
+        "n_picks_avg": 8.382518796992482,
+        "implicit_cash_pct_avg": 0.1742341080276699,
+        "top_3_clusters_by_average_weight": [
+          {
+            "cluster": "industrials_infra",
+            "avg_weight": 0.1437940709302647
+          },
+          {
+            "cluster": "cyclical_semi",
+            "avg_weight": 0.10154325885096553
+          },
+          {
+            "cluster": "materials_chemicals",
+            "avg_weight": 0.09496215676010746
+          }
+        ]
+      },
+      "nav_correlation_vs_existing_pair": {},
+      "r41_classification": {
+        "tier": 2,
+        "reason": "factor-overlap max=2 \u2265 2",
+        "factor_overlap_max": 2,
+        "factor_overlaps_per_anchor": {
+          "cycle_01_top": 0,
+          "cycle_02_top": 0,
+          "cycle_03_top": 2,
+          "rcm_v1": 2,
+          "cand_2": 1
+        },
+        "raw_pearson_max": null,
+        "residual_pearson_max": null
+      },
+      "soft_miss_2025_qqq": {
+        "triggered": false
+      }
+    },
+    {
+      "trial_id": "ec0a5b56e7b7",
+      "construction_mode": "cap_aware_cross_asset",
+      "features": [
+        "spy_trend_200d",
+        "drawup_from_252d_low",
+        "vol_21d"
+      ],
+      "weights": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.3333333333333333
+      ],
+      "ic_ir_mining": 1.0303013557931413,
+      "n_observed_days": 4276,
+      "metrics_full_period": {
+        "cum_ret": 8.421801142856053,
+        "sharpe": 1.2241345302763422,
+        "max_dd": -0.18989368912512575,
+        "vs_spy": 2.086173027256608,
+        "spy_cum_ret": 6.3356281155994445,
+        "vs_qqq": 3.458014545465276,
+        "qqq_cum_ret": 4.963786597390777
+      },
+      "metrics_per_validation_year": {
+        "2018": {
+          "cum_ret": -0.03386372388404568,
+          "sharpe": -0.17732826910220825,
+          "max_dd": -0.18989368912512575,
+          "vs_spy": 0.03627056050500377,
+          "spy_cum_ret": -0.07013428438904945,
+          "vs_qqq": -0.007234070396343162,
+          "qqq_cum_ret": -0.02662965348770252
+        },
+        "2019": {
+          "cum_ret": 0.21263303301650271,
+          "sharpe": 1.9447282112768725,
+          "max_dd": -0.06927746700349828,
+          "vs_spy": -0.0738806562243246,
+          "spy_cum_ret": 0.2865136892408273,
+          "vs_qqq": -0.15982485754283937,
+          "qqq_cum_ret": 0.3724578905593421
+        },
+        "2021": {
+          "cum_ret": 0.2249835128323754,
+          "sharpe": 1.5984853044942442,
+          "max_dd": -0.05535022207876711,
+          "vs_spy": -0.06290384975929264,
+          "spy_cum_ret": 0.28788736259166803,
+          "vs_qqq": -0.060619934694836175,
+          "qqq_cum_ret": 0.28560344752721156
+        },
+        "2023": {
+          "cum_ret": 0.343648185847629,
+          "sharpe": 2.376641064735515,
+          "max_dd": -0.057383306104295546,
+          "vs_spy": 0.09552574370417033,
+          "spy_cum_ret": 0.2481224421434587,
+          "vs_qqq": -0.20463890741815938,
+          "qqq_cum_ret": 0.5482870932657884
+        },
+        "2025": {
+          "cum_ret": 0.1467820212969615,
+          "sharpe": 1.0547558176799559,
+          "max_dd": -0.14237576213286582,
+          "vs_spy": -0.019610914226304565,
+          "spy_cum_ret": 0.16639293552326606,
+          "vs_qqq": -0.057267615811436245,
+          "qqq_cum_ret": 0.20404963710839774
+        }
+      },
+      "metrics_per_stress_slice": {
+        "covid_flash": {
+          "cum_ret": -0.015818508027732103,
+          "sharpe": -0.11287394412818129,
+          "max_dd": -0.1878586890360065,
+          "vs_spy": 0.12153188692081274,
+          "spy_cum_ret": -0.13735039494854484,
+          "vs_qqq": 0.05051022571966557,
+          "qqq_cum_ret": -0.06632873374739767
+        },
+        "rate_hike_2022": {
+          "cum_ret": -0.01896998890786261,
+          "sharpe": -0.6774153244494816,
+          "max_dd": -0.07255188038144512,
+          "vs_spy": 0.14712146961410344,
+          "spy_cum_ret": -0.16609145852196605,
+          "vs_qqq": 0.19856225404430394,
+          "qqq_cum_ret": -0.21753224295216655
+        }
+      },
+      "concentration": {
+        "m12_top1_weight_max": 0.1316395355614115,
+        "m12_top3_weight_max": 0.35008816159610223,
+        "m12_n_dates_with_weights": 4276
+      },
+      "nav_correlation_vs_benchmark": {
+        "raw_pearson_vs_spy": 0.5428815641462549,
+        "beta_vs_spy": 0.3426409126576914,
+        "raw_pearson_vs_qqq": 0.721762613674256,
+        "beta_vs_qqq": 0.4503914939802031
+      },
+      "asset_class_exposure": {
+        "equity_weight_avg": 0.4384528881743079,
+        "bond_weight_avg": 0.17872737721063742,
+        "commodity_weight_avg": 0.05169665980479574,
+        "cash_anchor_weight_avg": 0.15727102810631718,
+        "non_equity_weight_avg": 0.3876950651217504,
+        "non_equity_weight_p25": 0.2843698261753146,
+        "non_equity_weight_p50": 0.33698558955532676,
+        "non_equity_weight_p75": 0.49375810894135486,
+        "non_equity_weight_min": 0.16308159912768058,
+        "non_equity_weight_max": 0.6681175740541986,
+        "days_with_zero_non_equity_pct": 0.0
+      },
+      "cluster_diversity": {
+        "n_unique_clusters_per_rebalance_avg": 11.56974274250649,
+        "cluster_concentration_max": 0.30402877026176633,
+        "n_picks_avg": 8.392258673589804,
+        "implicit_cash_pct_avg": 0.17385204670394172,
+        "top_3_clusters_by_average_weight": [
+          {
+            "cluster": "cash_anchor",
+            "avg_weight": 0.16118948865178212
+          },
+          {
+            "cluster": "ev_disruptor",
+            "avg_weight": 0.09675517130145248
+          },
+          {
+            "cluster": "energy_oilgas",
+            "avg_weight": 0.09367865056001327
+          }
+        ]
+      },
+      "nav_correlation_vs_existing_pair": {},
+      "r41_classification": {
+        "tier": 1,
+        "reason": "non-sibling pending Track A acceptance verification",
+        "factor_overlap_max": 1,
+        "factor_overlaps_per_anchor": {
+          "cycle_01_top": 0,
+          "cycle_02_top": 0,
+          "cycle_03_top": 1,
+          "rcm_v1": 1,
+          "cand_2": 0
+        },
+        "raw_pearson_max": null,
+        "residual_pearson_max": null
+      },
+      "soft_miss_2025_qqq": {
+        "triggered": false
+      }
+    },
+    {
+      "trial_id": "5ce4e3fcb90d",
+      "construction_mode": "cap_aware_cross_asset",
+      "features": [
+        "spy_trend_200d",
+        "drawup_from_252d_low",
+        "volume_surge_20d"
+      ],
+      "weights": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.3333333333333333
+      ],
+      "ic_ir_mining": 1.0303013557931413,
+      "n_observed_days": 4276,
+      "metrics_full_period": {
+        "cum_ret": 12.241185753769042,
+        "sharpe": 1.2172843836413314,
+        "max_dd": -0.19565711016596052,
+        "vs_spy": 5.905557638169597,
+        "spy_cum_ret": 6.3356281155994445,
+        "vs_qqq": 7.277399156378265,
+        "qqq_cum_ret": 4.963786597390777
+      },
+      "metrics_per_validation_year": {
+        "2018": {
+          "cum_ret": -0.04611268040771854,
+          "sharpe": -0.2211503845428067,
+          "max_dd": -0.19565711016596052,
+          "vs_spy": 0.024021603981330908,
+          "spy_cum_ret": -0.07013428438904945,
+          "vs_qqq": -0.019483026920016022,
+          "qqq_cum_ret": -0.02662965348770252
+        },
+        "2019": {
+          "cum_ret": 0.2939689400011336,
+          "sharpe": 2.361158018106644,
+          "max_dd": -0.0865792715585404,
+          "vs_spy": 0.007455250760306287,
+          "spy_cum_ret": 0.2865136892408273,
+          "vs_qqq": -0.07848895055820848,
+          "qqq_cum_ret": 0.3724578905593421
+        },
+        "2021": {
+          "cum_ret": 0.3612859362759624,
+          "sharpe": 1.974848697361975,
+          "max_dd": -0.08447207934675596,
+          "vs_spy": 0.07339857368429437,
+          "spy_cum_ret": 0.28788736259166803,
+          "vs_qqq": 0.07568248874875083,
+          "qqq_cum_ret": 0.28560344752721156
+        },
+        "2023": {
+          "cum_ret": 0.385726343381362,
+          "sharpe": 2.4871028303265605,
+          "max_dd": -0.07839069830750561,
+          "vs_spy": 0.13760390123790334,
+          "spy_cum_ret": 0.2481224421434587,
+          "vs_qqq": -0.16256074988442637,
+          "qqq_cum_ret": 0.5482870932657884
+        },
+        "2025": {
+          "cum_ret": 0.23510631441904994,
+          "sharpe": 1.2606883449668387,
+          "max_dd": -0.17754367966149026,
+          "vs_spy": 0.06871337889578388,
+          "spy_cum_ret": 0.16639293552326606,
+          "vs_qqq": 0.031056677310652203,
+          "qqq_cum_ret": 0.20404963710839774
+        }
+      },
+      "metrics_per_stress_slice": {
+        "covid_flash": {
+          "cum_ret": -0.006744606188311186,
+          "sharpe": 0.11558453067693601,
+          "max_dd": -0.19447811769746604,
+          "vs_spy": 0.13060578876023365,
+          "spy_cum_ret": -0.13735039494854484,
+          "vs_qqq": 0.059584127559086486,
+          "qqq_cum_ret": -0.06632873374739767
+        },
+        "rate_hike_2022": {
+          "cum_ret": -0.08487095924369215,
+          "sharpe": -2.5975626176795648,
+          "max_dd": -0.11600861595203539,
+          "vs_spy": 0.0812204992782739,
+          "spy_cum_ret": -0.16609145852196605,
+          "vs_qqq": 0.1326612837084744,
+          "qqq_cum_ret": -0.21753224295216655
+        }
+      },
+      "concentration": {
+        "m12_top1_weight_max": 0.14684991067244704,
+        "m12_top3_weight_max": 0.3602650271783284,
+        "m12_n_dates_with_weights": 4276
+      },
+      "nav_correlation_vs_benchmark": {
+        "raw_pearson_vs_spy": 0.5908519346301004,
+        "beta_vs_spy": 0.43558478903635967,
+        "raw_pearson_vs_qqq": 0.7928053817222396,
+        "beta_vs_qqq": 0.5813079771096032
+      },
+      "asset_class_exposure": {
+        "equity_weight_avg": 0.4579451865992493,
+        "bond_weight_avg": 0.20727140254543425,
+        "commodity_weight_avg": 0.06867338404708159,
+        "cash_anchor_weight_avg": 0.0964345969703641,
+        "non_equity_weight_avg": 0.3723793835628799,
+        "non_equity_weight_p25": 0.2842207218358737,
+        "non_equity_weight_p50": 0.29880078360627044,
+        "non_equity_weight_p75": 0.48807766628400867,
+        "non_equity_weight_min": 0.08024577571836963,
+        "non_equity_weight_max": 0.6227987133863983,
+        "days_with_zero_non_equity_pct": 0.0
+      },
+      "cluster_diversity": {
+        "n_unique_clusters_per_rebalance_avg": 13.319313909774436,
+        "cluster_concentration_max": 0.2655595721461161,
+        "n_picks_avg": 8.419877819548873,
+        "implicit_cash_pct_avg": 0.16967542983787076,
+        "top_3_clusters_by_average_weight": [
+          {
+            "cluster": "cash_anchor",
+            "avg_weight": 0.10037310949030767
+          },
+          {
+            "cluster": "cyclical_semi",
+            "avg_weight": 0.09067103124562399
+          },
+          {
+            "cluster": "mega_cap_internet_consumer",
+            "avg_weight": 0.09001874878515034
+          }
+        ]
+      },
+      "nav_correlation_vs_existing_pair": {},
+      "r41_classification": {
+        "tier": 1,
+        "reason": "non-sibling pending Track A acceptance verification",
+        "factor_overlap_max": 1,
+        "factor_overlaps_per_anchor": {
+          "cycle_01_top": 0,
+          "cycle_02_top": 0,
+          "cycle_03_top": 1,
+          "rcm_v1": 1,
+          "cand_2": 0
+        },
+        "raw_pearson_max": null,
+        "residual_pearson_max": null
+      },
+      "soft_miss_2025_qqq": {
+        "triggered": false
+      }
+    },
+    {
+      "trial_id": "479a890aac0c",
+      "construction_mode": "cap_aware_cross_asset",
+      "features": [
+        "spy_trend_200d",
+        "drawup_from_252d_low",
+        "vol_regime"
+      ],
+      "weights": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.3333333333333333
+      ],
+      "ic_ir_mining": 1.0303013557931413,
+      "n_observed_days": 4276,
+      "metrics_full_period": {
+        "cum_ret": 14.843243571397402,
+        "sharpe": 1.2659590052493992,
+        "max_dd": -0.29505205467108814,
+        "vs_spy": 8.507615455797957,
+        "spy_cum_ret": 6.3356281155994445,
+        "vs_qqq": 9.879456974006626,
+        "qqq_cum_ret": 4.963786597390777
+      },
+      "metrics_per_validation_year": {
+        "2018": {
+          "cum_ret": -0.038891971959156724,
+          "sharpe": -0.17062512642848712,
+          "max_dd": -0.20903394241448206,
+          "vs_spy": 0.031242312429892727,
+          "spy_cum_ret": -0.07013428438904945,
+          "vs_qqq": -0.012262318471454203,
+          "qqq_cum_ret": -0.02662965348770252
+        },
+        "2019": {
+          "cum_ret": 0.27444955317630937,
+          "sharpe": 2.0522085777855334,
+          "max_dd": -0.09266821626413789,
+          "vs_spy": -0.01206413606451795,
+          "spy_cum_ret": 0.2865136892408273,
+          "vs_qqq": -0.09800833738303272,
+          "qqq_cum_ret": 0.3724578905593421
+        },
+        "2021": {
+          "cum_ret": 0.24912349185781313,
+          "sharpe": 1.5418387272919878,
+          "max_dd": -0.06399845603818698,
+          "vs_spy": -0.0387638707338549,
+          "spy_cum_ret": 0.28788736259166803,
+          "vs_qqq": -0.036479955669398434,
+          "qqq_cum_ret": 0.28560344752721156
+        },
+        "2023": {
+          "cum_ret": 0.3025138972246746,
+          "sharpe": 1.9245809286944837,
+          "max_dd": -0.1022455754141748,
+          "vs_spy": 0.0543914550812159,
+          "spy_cum_ret": 0.2481224421434587,
+          "vs_qqq": -0.2457731960411138,
+          "qqq_cum_ret": 0.5482870932657884
+        },
+        "2025": {
+          "cum_ret": 0.3248104117688082,
+          "sharpe": 1.6175047810514904,
+          "max_dd": -0.1715442211299811,
+          "vs_spy": 0.15841747624554214,
+          "spy_cum_ret": 0.16639293552326606,
+          "vs_qqq": 0.12076077466041046,
+          "qqq_cum_ret": 0.20404963710839774
+        }
+      },
+      "metrics_per_stress_slice": {
+        "covid_flash": {
+          "cum_ret": 0.04623233384858261,
+          "sharpe": 0.6722700499484666,
+          "max_dd": -0.29505205467108814,
+          "vs_spy": 0.18358272879712745,
+          "spy_cum_ret": -0.13735039494854484,
+          "vs_qqq": 0.11256106759598028,
+          "qqq_cum_ret": -0.06632873374739767
+        },
+        "rate_hike_2022": {
+          "cum_ret": -0.04127810324192882,
+          "sharpe": -1.4934330973784122,
+          "max_dd": -0.06888883275960755,
+          "vs_spy": 0.12481335528003723,
+          "spy_cum_ret": -0.16609145852196605,
+          "vs_qqq": 0.17625413971023773,
+          "qqq_cum_ret": -0.21753224295216655
+        }
+      },
+      "concentration": {
+        "m12_top1_weight_max": 0.138678242489246,
+        "m12_top3_weight_max": 0.36532031746410504,
+        "m12_n_dates_with_weights": 4276
+      },
+      "nav_correlation_vs_benchmark": {
+        "raw_pearson_vs_spy": 0.6057053503743212,
+        "beta_vs_spy": 0.45892928134008865,
+        "raw_pearson_vs_qqq": 0.7855961473148398,
+        "beta_vs_qqq": 0.5936598563647908
+      },
+      "asset_class_exposure": {
+        "equity_weight_avg": 0.4636154930327812,
+        "bond_weight_avg": 0.1985489838444966,
+        "commodity_weight_avg": 0.08051713676455786,
+        "cash_anchor_weight_avg": 0.09250043253633239,
+        "non_equity_weight_avg": 0.3715665531453869,
+        "non_equity_weight_p25": 0.2857614611999084,
+        "non_equity_weight_p50": 0.2982936309663036,
+        "non_equity_weight_p75": 0.49126208276745653,
+        "non_equity_weight_min": 0.1731446959419671,
+        "non_equity_weight_max": 0.6389373926533374,
+        "days_with_zero_non_equity_pct": 0.0
+      },
+      "cluster_diversity": {
+        "n_unique_clusters_per_rebalance_avg": 11.671912832929783,
+        "cluster_concentration_max": 0.24140809487505155,
+        "n_picks_avg": 8.447941888619855,
+        "implicit_cash_pct_avg": 0.16481795382183187,
+        "top_3_clusters_by_average_weight": [
+          {
+            "cluster": "cash_anchor",
+            "avg_weight": 0.10339019928959478
+          },
+          {
+            "cluster": "energy_oilgas",
+            "avg_weight": 0.09878285350434793
+          },
+          {
+            "cluster": "cyclical_semi",
+            "avg_weight": 0.09775717501935391
+          }
+        ]
+      },
+      "nav_correlation_vs_existing_pair": {},
+      "r41_classification": {
+        "tier": 1,
+        "reason": "non-sibling pending Track A acceptance verification",
+        "factor_overlap_max": 1,
+        "factor_overlaps_per_anchor": {
+          "cycle_01_top": 0,
+          "cycle_02_top": 0,
+          "cycle_03_top": 1,
+          "rcm_v1": 1,
+          "cand_2": 0
+        },
+        "raw_pearson_max": null,
+        "residual_pearson_max": null
+      },
+      "soft_miss_2025_qqq": {
+        "triggered": false
+      }
+    },
+    {
+      "trial_id": "31aec703171e",
+      "construction_mode": "cap_aware_cross_asset",
+      "features": [
+        "spy_trend_200d",
+        "drawup_from_252d_low",
+        "volume_ratio_20d"
+      ],
+      "weights": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.3333333333333333
+      ],
+      "ic_ir_mining": 1.0303013557931413,
+      "n_observed_days": 4276,
+      "metrics_full_period": {
+        "cum_ret": 12.241185753769042,
+        "sharpe": 1.2172843836413314,
+        "max_dd": -0.19565711016596052,
+        "vs_spy": 5.905557638169597,
+        "spy_cum_ret": 6.3356281155994445,
+        "vs_qqq": 7.277399156378265,
+        "qqq_cum_ret": 4.963786597390777
+      },
+      "metrics_per_validation_year": {
+        "2018": {
+          "cum_ret": -0.04611268040771854,
+          "sharpe": -0.2211503845428067,
+          "max_dd": -0.19565711016596052,
+          "vs_spy": 0.024021603981330908,
+          "spy_cum_ret": -0.07013428438904945,
+          "vs_qqq": -0.019483026920016022,
+          "qqq_cum_ret": -0.02662965348770252
+        },
+        "2019": {
+          "cum_ret": 0.2939689400011336,
+          "sharpe": 2.361158018106644,
+          "max_dd": -0.0865792715585404,
+          "vs_spy": 0.007455250760306287,
+          "spy_cum_ret": 0.2865136892408273,
+          "vs_qqq": -0.07848895055820848,
+          "qqq_cum_ret": 0.3724578905593421
+        },
+        "2021": {
+          "cum_ret": 0.3612859362759624,
+          "sharpe": 1.974848697361975,
+          "max_dd": -0.08447207934675596,
+          "vs_spy": 0.07339857368429437,
+          "spy_cum_ret": 0.28788736259166803,
+          "vs_qqq": 0.07568248874875083,
+          "qqq_cum_ret": 0.28560344752721156
+        },
+        "2023": {
+          "cum_ret": 0.385726343381362,
+          "sharpe": 2.4871028303265605,
+          "max_dd": -0.07839069830750561,
+          "vs_spy": 0.13760390123790334,
+          "spy_cum_ret": 0.2481224421434587,
+          "vs_qqq": -0.16256074988442637,
+          "qqq_cum_ret": 0.5482870932657884
+        },
+        "2025": {
+          "cum_ret": 0.23510631441904994,
+          "sharpe": 1.2606883449668387,
+          "max_dd": -0.17754367966149026,
+          "vs_spy": 0.06871337889578388,
+          "spy_cum_ret": 0.16639293552326606,
+          "vs_qqq": 0.031056677310652203,
+          "qqq_cum_ret": 0.20404963710839774
+        }
+      },
+      "metrics_per_stress_slice": {
+        "covid_flash": {
+          "cum_ret": -0.006744606188311186,
+          "sharpe": 0.11558453067693601,
+          "max_dd": -0.19447811769746604,
+          "vs_spy": 0.13060578876023365,
+          "spy_cum_ret": -0.13735039494854484,
+          "vs_qqq": 0.059584127559086486,
+          "qqq_cum_ret": -0.06632873374739767
+        },
+        "rate_hike_2022": {
+          "cum_ret": -0.08487095924369215,
+          "sharpe": -2.5975626176795648,
+          "max_dd": -0.11600861595203539,
+          "vs_spy": 0.0812204992782739,
+          "spy_cum_ret": -0.16609145852196605,
+          "vs_qqq": 0.1326612837084744,
+          "qqq_cum_ret": -0.21753224295216655
+        }
+      },
+      "concentration": {
+        "m12_top1_weight_max": 0.14684991067244704,
+        "m12_top3_weight_max": 0.3602650271783284,
+        "m12_n_dates_with_weights": 4276
+      },
+      "nav_correlation_vs_benchmark": {
+        "raw_pearson_vs_spy": 0.5908519346301004,
+        "beta_vs_spy": 0.43558478903635967,
+        "raw_pearson_vs_qqq": 0.7928053817222396,
+        "beta_vs_qqq": 0.5813079771096032
+      },
+      "asset_class_exposure": {
+        "equity_weight_avg": 0.4579451865992493,
+        "bond_weight_avg": 0.20727140254543425,
+        "commodity_weight_avg": 0.06867338404708159,
+        "cash_anchor_weight_avg": 0.0964345969703641,
+        "non_equity_weight_avg": 0.3723793835628799,
+        "non_equity_weight_p25": 0.2842207218358737,
+        "non_equity_weight_p50": 0.29880078360627044,
+        "non_equity_weight_p75": 0.48807766628400867,
+        "non_equity_weight_min": 0.08024577571836963,
+        "non_equity_weight_max": 0.6227987133863983,
+        "days_with_zero_non_equity_pct": 0.0
+      },
+      "cluster_diversity": {
+        "n_unique_clusters_per_rebalance_avg": 13.319313909774436,
+        "cluster_concentration_max": 0.2655595721461161,
+        "n_picks_avg": 8.419877819548873,
+        "implicit_cash_pct_avg": 0.16967542983787076,
+        "top_3_clusters_by_average_weight": [
+          {
+            "cluster": "cash_anchor",
+            "avg_weight": 0.10037310949030767
+          },
+          {
+            "cluster": "cyclical_semi",
+            "avg_weight": 0.09067103124562399
+          },
+          {
+            "cluster": "mega_cap_internet_consumer",
+            "avg_weight": 0.09001874878515034
+          }
+        ]
+      },
+      "nav_correlation_vs_existing_pair": {},
+      "r41_classification": {
+        "tier": 1,
+        "reason": "non-sibling pending Track A acceptance verification",
+        "factor_overlap_max": 1,
+        "factor_overlaps_per_anchor": {
+          "cycle_01_top": 1,
+          "cycle_02_top": 1,
+          "cycle_03_top": 1,
+          "rcm_v1": 1,
+          "cand_2": 0
+        },
+        "raw_pearson_max": null,
+        "residual_pearson_max": null
+      },
+      "soft_miss_2025_qqq": {
+        "triggered": false
+      }
+    },
+    {
+      "trial_id": "9c0228d1c090",
+      "construction_mode": "cap_aware_cross_asset",
+      "features": [
+        "spy_trend_200d",
+        "drawup_from_252d_low",
+        "market_vol_ratio"
+      ],
+      "weights": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.3333333333333333
+      ],
+      "ic_ir_mining": 1.0303013557931413,
+      "n_observed_days": 4276,
+      "metrics_full_period": {
+        "cum_ret": 16.518210402896834,
+        "sharpe": 1.193540262021168,
+        "max_dd": -0.27725200301644215,
+        "vs_spy": 10.18258228729739,
+        "spy_cum_ret": 6.3356281155994445,
+        "vs_qqq": 11.554423805506058,
+        "qqq_cum_ret": 4.963786597390777
+      },
+      "metrics_per_validation_year": {
+        "2018": {
+          "cum_ret": -0.05079142215811294,
+          "sharpe": -0.20608559370198015,
+          "max_dd": -0.23874131552755454,
+          "vs_spy": 0.01934286223093651,
+          "spy_cum_ret": -0.07013428438904945,
+          "vs_qqq": -0.024161768670410422,
+          "qqq_cum_ret": -0.02662965348770252
+        },
+        "2019": {
+          "cum_ret": 0.3473930522061277,
+          "sharpe": 2.628715094729225,
+          "max_dd": -0.08029498295245203,
+          "vs_spy": 0.06087936296530039,
+          "spy_cum_ret": 0.2865136892408273,
+          "vs_qqq": -0.02506483835321438,
+          "qqq_cum_ret": 0.3724578905593421
+        },
+        "2021": {
+          "cum_ret": 0.3108443703671748,
+          "sharpe": 1.5604458587392918,
+          "max_dd": -0.08073981120147185,
+          "vs_spy": 0.0229570077755068,
+          "spy_cum_ret": 0.28788736259166803,
+          "vs_qqq": 0.025240922839963265,
+          "qqq_cum_ret": 0.28560344752721156
+        },
+        "2023": {
+          "cum_ret": 0.37128794896891004,
+          "sharpe": 1.9643872840790624,
+          "max_dd": -0.11314948873956068,
+          "vs_spy": 0.12316550682545135,
+          "spy_cum_ret": 0.2481224421434587,
+          "vs_qqq": -0.17699914429687835,
+          "qqq_cum_ret": 0.5482870932657884
+        },
+        "2025": {
+          "cum_ret": 0.38096973884590235,
+          "sharpe": 1.6606220503656444,
+          "max_dd": -0.17661177730966865,
+          "vs_spy": 0.2145768033226363,
+          "spy_cum_ret": 0.16639293552326606,
+          "vs_qqq": 0.1769201017375046,
+          "qqq_cum_ret": 0.20404963710839774
+        }
+      },
+      "metrics_per_stress_slice": {
+        "covid_flash": {
+          "cum_ret": 0.060246970187332494,
+          "sharpe": 0.7805344499621185,
+          "max_dd": -0.27725200301644215,
+          "vs_spy": 0.19759736513587733,
+          "spy_cum_ret": -0.13735039494854484,
+          "vs_qqq": 0.12657570393473017,
+          "qqq_cum_ret": -0.06632873374739767
+        },
+        "rate_hike_2022": {
+          "cum_ret": -0.05542584406079665,
+          "sharpe": -1.798677307849499,
+          "max_dd": -0.0974592516094332,
+          "vs_spy": 0.1106656144611694,
+          "spy_cum_ret": -0.16609145852196605,
+          "vs_qqq": 0.1621063988913699,
+          "qqq_cum_ret": -0.21753224295216655
+        }
+      },
+      "concentration": {
+        "m12_top1_weight_max": 0.13614259838947096,
+        "m12_top3_weight_max": 0.35457432064238925,
+        "m12_n_dates_with_weights": 4276
+      },
+      "nav_correlation_vs_benchmark": {
+        "raw_pearson_vs_spy": 0.6073127846922219,
+        "beta_vs_spy": 0.5109514690346487,
+        "raw_pearson_vs_qqq": 0.8059155747963611,
+        "beta_vs_qqq": 0.677878232787243
+      },
+      "asset_class_exposure": {
+        "equity_weight_avg": 0.46655752788298255,
+        "bond_weight_avg": 0.21870855573831663,
+        "commodity_weight_avg": 0.0939809905712988,
+        "cash_anchor_weight_avg": 0.05196081601898832,
+        "non_equity_weight_avg": 0.3646503623286038,
+        "non_equity_weight_p25": 0.27706512128773186,
+        "non_equity_weight_p50": 0.2945263474458335,
+        "non_equity_weight_p75": 0.49201939989859156,
+        "non_equity_weight_min": 0.17388246483468606,
+        "non_equity_weight_max": 0.6280399237916358,
+        "days_with_zero_non_equity_pct": 0.0
+      },
+      "cluster_diversity": {
+        "n_unique_clusters_per_rebalance_avg": 11.609918931807345,
+        "cluster_concentration_max": 0.24204433210788212,
+        "n_picks_avg": 8.43252265140677,
+        "implicit_cash_pct_avg": 0.16879210978841372,
+        "top_3_clusters_by_average_weight": [
+          {
+            "cluster": "cyclical_semi",
+            "avg_weight": 0.11056916140941617
+          },
+          {
+            "cluster": "ev_disruptor",
+            "avg_weight": 0.09917106778518787
+          },
+          {
+            "cluster": "mega_cap_internet_consumer",
+            "avg_weight": 0.0979432839237748
+          }
+        ]
+      },
+      "nav_correlation_vs_existing_pair": {},
+      "r41_classification": {
+        "tier": 2,
+        "reason": "factor-overlap max=2 \u2265 2",
+        "factor_overlap_max": 2,
+        "factor_overlaps_per_anchor": {
+          "cycle_01_top": 0,
+          "cycle_02_top": 0,
+          "cycle_03_top": 2,
+          "rcm_v1": 1,
+          "cand_2": 0
+        },
+        "raw_pearson_max": null,
+        "residual_pearson_max": null
+      },
+      "soft_miss_2025_qqq": {
+        "triggered": false
+      }
+    },
+    {
+      "trial_id": "ae2ee8f10973",
+      "construction_mode": "cap_aware_cross_asset",
+      "features": [
+        "spy_trend_200d",
+        "drawup_from_252d_low",
+        "market_drawdown"
+      ],
+      "weights": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.3333333333333333
+      ],
+      "ic_ir_mining": 1.0181283126836118,
+      "n_observed_days": 4276,
+      "metrics_full_period": {
+        "cum_ret": 17.058756306407073,
+        "sharpe": 1.2065310317663918,
+        "max_dd": -0.27987552654993014,
+        "vs_spy": 10.723128190807628,
+        "spy_cum_ret": 6.3356281155994445,
+        "vs_qqq": 12.094969709016297,
+        "qqq_cum_ret": 4.963786597390777
+      },
+      "metrics_per_validation_year": {
+        "2018": {
+          "cum_ret": -0.039987304750119024,
+          "sharpe": -0.1453678498204069,
+          "max_dd": -0.23050757905243693,
+          "vs_spy": 0.030146979638930427,
+          "spy_cum_ret": -0.07013428438904945,
+          "vs_qqq": -0.013357651262416503,
+          "qqq_cum_ret": -0.02662965348770252
+        },
+        "2019": {
+          "cum_ret": 0.3390256704822623,
+          "sharpe": 2.612633577104914,
+          "max_dd": -0.07915751839278654,
+          "vs_spy": 0.05251198124143497,
+          "spy_cum_ret": 0.2865136892408273,
+          "vs_qqq": -0.0334322200770798,
+          "qqq_cum_ret": 0.3724578905593421
+        },
+        "2021": {
+          "cum_ret": 0.3123917816776485,
+          "sharpe": 1.5707553703563333,
+          "max_dd": -0.08376115496031933,
+          "vs_spy": 0.024504419085980444,
+          "spy_cum_ret": 0.28788736259166803,
+          "vs_qqq": 0.02678833415043691,
+          "qqq_cum_ret": 0.28560344752721156
+        },
+        "2023": {
+          "cum_ret": 0.37195617903735934,
+          "sharpe": 1.9658696921549252,
+          "max_dd": -0.11222849790317421,
+          "vs_spy": 0.12383373689390065,
+          "spy_cum_ret": 0.2481224421434587,
+          "vs_qqq": -0.17633091422842906,
+          "qqq_cum_ret": 0.5482870932657884
+        },
+        "2025": {
+          "cum_ret": 0.3810464349082796,
+          "sharpe": 1.6608035451749197,
+          "max_dd": -0.17661138903015441,
+          "vs_spy": 0.21465349938501355,
+          "spy_cum_ret": 0.16639293552326606,
+          "vs_qqq": 0.17699679779988187,
+          "qqq_cum_ret": 0.20404963710839774
+        }
+      },
+      "metrics_per_stress_slice": {
+        "covid_flash": {
+          "cum_ret": 0.06555046548806898,
+          "sharpe": 0.8240276288432616,
+          "max_dd": -0.27987552654993014,
+          "vs_spy": 0.20290086043661382,
+          "spy_cum_ret": -0.13735039494854484,
+          "vs_qqq": 0.13187919923546665,
+          "qqq_cum_ret": -0.06632873374739767
+        },
+        "rate_hike_2022": {
+          "cum_ret": -0.05576680816424684,
+          "sharpe": -1.8014824690927542,
+          "max_dd": -0.09827035262568495,
+          "vs_spy": 0.11032465035771921,
+          "spy_cum_ret": -0.16609145852196605,
+          "vs_qqq": 0.16176543478791972,
+          "qqq_cum_ret": -0.21753224295216655
+        }
+      },
+      "concentration": {
+        "m12_top1_weight_max": 0.13953410094048227,
+        "m12_top3_weight_max": 0.35652608026155724,
+        "m12_n_dates_with_weights": 4276
+      },
+      "nav_correlation_vs_benchmark": {
+        "raw_pearson_vs_spy": 0.6017349872293059,
+        "beta_vs_spy": 0.5057175308879156,
+        "raw_pearson_vs_qqq": 0.805086333603193,
+        "beta_vs_qqq": 0.6757576673263963
+      },
+      "asset_class_exposure": {
+        "equity_weight_avg": 0.4570269735833585,
+        "bond_weight_avg": 0.21802659455609416,
+        "commodity_weight_avg": 0.09426331812588772,
+        "cash_anchor_weight_avg": 0.056140807954868595,
+        "non_equity_weight_avg": 0.36843072063685045,
+        "non_equity_weight_p25": 0.27689849502619773,
+        "non_equity_weight_p50": 0.2968552217748181,
+        "non_equity_weight_p75": 0.4881122317704456,
+        "non_equity_weight_min": 0.16280010567219275,
+        "non_equity_weight_max": 0.6227615131064116,
+        "days_with_zero_non_equity_pct": 0.0
+      },
+      "cluster_diversity": {
+        "n_unique_clusters_per_rebalance_avg": 11.335996240601503,
+        "cluster_concentration_max": 0.24204506812551013,
+        "n_picks_avg": 8.394266917293233,
+        "implicit_cash_pct_avg": 0.174542305779791,
+        "top_3_clusters_by_average_weight": [
+          {
+            "cluster": "cyclical_semi",
+            "avg_weight": 0.10928009719181879
+          },
+          {
+            "cluster": "ev_disruptor",
+            "avg_weight": 0.0985234641291414
+          },
+          {
+            "cluster": "bond_intermediate_duration",
+            "avg_weight": 0.09698065992741
+          }
+        ]
+      },
+      "nav_correlation_vs_existing_pair": {},
+      "r41_classification": {
+        "tier": 1,
+        "reason": "non-sibling pending Track A acceptance verification",
+        "factor_overlap_max": 1,
+        "factor_overlaps_per_anchor": {
+          "cycle_01_top": 0,
+          "cycle_02_top": 0,
+          "cycle_03_top": 1,
+          "rcm_v1": 1,
+          "cand_2": 0
+        },
+        "raw_pearson_max": null,
+        "residual_pearson_max": null
+      },
+      "soft_miss_2025_qqq": {
+        "triggered": false
+      }
+    },
+    {
+      "trial_id": "d5307529ed10",
+      "construction_mode": "cap_aware_cross_asset",
+      "features": [
+        "spy_trend_gated_mom_63d",
+        "drawup_from_252d_low",
+        "amihud_20d"
+      ],
+      "weights": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.3333333333333333
+      ],
+      "ic_ir_mining": 0.9950782233738301,
+      "n_observed_days": 4276,
+      "metrics_full_period": {
+        "cum_ret": 15.445206477887531,
+        "sharpe": 1.1986811839417681,
+        "max_dd": -0.3622292234126389,
+        "vs_spy": 9.109578362288087,
+        "spy_cum_ret": 6.3356281155994445,
+        "vs_qqq": 10.481419880496755,
+        "qqq_cum_ret": 4.963786597390777
+      },
+      "metrics_per_validation_year": {
+        "2018": {
+          "cum_ret": -0.12301528744055013,
+          "sharpe": -0.7618223745944627,
+          "max_dd": -0.2192554320774241,
+          "vs_spy": -0.052881003051500675,
+          "spy_cum_ret": -0.07013428438904945,
+          "vs_qqq": -0.0963856339528476,
+          "qqq_cum_ret": -0.02662965348770252
+        },
+        "2019": {
+          "cum_ret": 0.42300981462744236,
+          "sharpe": 3.187705129128729,
+          "max_dd": -0.0654640501258462,
+          "vs_spy": 0.13649612538661504,
+          "spy_cum_ret": 0.2865136892408273,
+          "vs_qqq": 0.050551924068100274,
+          "qqq_cum_ret": 0.3724578905593421
+        },
+        "2021": {
+          "cum_ret": 0.30805179326020005,
+          "sharpe": 1.5918199330797145,
+          "max_dd": -0.07489968410572313,
+          "vs_spy": 0.02016443066853202,
+          "spy_cum_ret": 0.28788736259166803,
+          "vs_qqq": 0.022448345732988484,
+          "qqq_cum_ret": 0.28560344752721156
+        },
+        "2023": {
+          "cum_ret": 0.33263326372865487,
+          "sharpe": 2.0663768381908802,
+          "max_dd": -0.0801709396684244,
+          "vs_spy": 0.08451082158519618,
+          "spy_cum_ret": 0.2481224421434587,
+          "vs_qqq": -0.21565382953713352,
+          "qqq_cum_ret": 0.5482870932657884
+        },
+        "2025": {
+          "cum_ret": 0.4097778747252301,
+          "sharpe": 1.8827978884082235,
+          "max_dd": -0.17088014729509252,
+          "vs_spy": 0.24338493920196402,
+          "spy_cum_ret": 0.16639293552326606,
+          "vs_qqq": 0.20572823761683234,
+          "qqq_cum_ret": 0.20404963710839774
+        }
+      },
+      "metrics_per_stress_slice": {
+        "covid_flash": {
+          "cum_ret": -0.09887515000817582,
+          "sharpe": -0.5388972336145538,
+          "max_dd": -0.3622292234126389,
+          "vs_spy": 0.038475244940369024,
+          "spy_cum_ret": -0.13735039494854484,
+          "vs_qqq": -0.032546416260778144,
+          "qqq_cum_ret": -0.06632873374739767
+        },
+        "rate_hike_2022": {
+          "cum_ret": -0.09268069020967717,
+          "sharpe": -2.6480713496231214,
+          "max_dd": -0.12243533553306332,
+          "vs_spy": 0.07341076831228888,
+          "spy_cum_ret": -0.16609145852196605,
+          "vs_qqq": 0.12485155274248938,
+          "qqq_cum_ret": -0.21753224295216655
+        }
+      },
+      "concentration": {
+        "m12_top1_weight_max": 0.13333514481199332,
+        "m12_top3_weight_max": 0.3615578415901053,
+        "m12_n_dates_with_weights": 4276
+      },
+      "nav_correlation_vs_benchmark": {
+        "raw_pearson_vs_spy": 0.5988656196885958,
+        "beta_vs_spy": 0.48964548016311826,
+        "raw_pearson_vs_qqq": 0.7560660476647268,
+        "beta_vs_qqq": 0.6169194312197946
+      },
+      "asset_class_exposure": {
+        "equity_weight_avg": 0.4615623221002074,
+        "bond_weight_avg": 0.2147055036809405,
+        "commodity_weight_avg": 0.08655937034831822,
+        "cash_anchor_weight_avg": 0.06514758027554313,
+        "non_equity_weight_avg": 0.36641245430480185,
+        "non_equity_weight_p25": 0.28097270428512344,
+        "non_equity_weight_p50": 0.2971480145394956,
+        "non_equity_weight_p75": 0.48750927734111327,
+        "non_equity_weight_min": 0.09126535929536063,
+        "non_equity_weight_max": 0.6227987133863983,
+        "days_with_zero_non_equity_pct": 0.0
+      },
+      "cluster_diversity": {
+        "n_unique_clusters_per_rebalance_avg": 12.141682330827068,
+        "cluster_concentration_max": 0.2961402381229618,
+        "n_picks_avg": 8.396146616541353,
+        "implicit_cash_pct_avg": 0.1720252235949907,
+        "top_3_clusters_by_average_weight": [
+          {
+            "cluster": "industrials_infra",
+            "avg_weight": 0.1420354892362866
+          },
+          {
+            "cluster": "cyclical_semi",
+            "avg_weight": 0.11838013150540938
+          },
+          {
+            "cluster": "bond_intermediate_duration",
+            "avg_weight": 0.09671080087412573
+          }
+        ]
+      },
+      "nav_correlation_vs_existing_pair": {},
+      "r41_classification": {
+        "tier": 2,
+        "reason": "factor-overlap max=2 \u2265 2",
+        "factor_overlap_max": 2,
+        "factor_overlaps_per_anchor": {
+          "cycle_01_top": 0,
+          "cycle_02_top": 0,
+          "cycle_03_top": 1,
+          "rcm_v1": 2,
+          "cand_2": 0
+        },
+        "raw_pearson_max": null,
+        "residual_pearson_max": null
+      },
+      "soft_miss_2025_qqq": {
+        "triggered": false
+      }
+    },
+    {
+      "trial_id": "0bc383617be0",
+      "construction_mode": "cap_aware_cross_asset",
+      "features": [
+        "rs_vs_spy_63d",
+        "drawup_from_252d_low",
+        "amihud_20d"
+      ],
+      "weights": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.3333333333333333
+      ],
+      "ic_ir_mining": 0.9525317801072641,
+      "n_observed_days": 4276,
+      "metrics_full_period": {
+        "cum_ret": 13.19192775015899,
+        "sharpe": 1.1503567437828772,
+        "max_dd": -0.37844308169893603,
+        "vs_spy": 6.856299634559546,
+        "spy_cum_ret": 6.3356281155994445,
+        "vs_qqq": 8.228141152768213,
+        "qqq_cum_ret": 4.963786597390777
+      },
+      "metrics_per_validation_year": {
+        "2018": {
+          "cum_ret": -0.11842950627792426,
+          "sharpe": -0.7605665645377813,
+          "max_dd": -0.20581239404476834,
+          "vs_spy": -0.048295221888874806,
+          "spy_cum_ret": -0.07013428438904945,
+          "vs_qqq": -0.09179985279022174,
+          "qqq_cum_ret": -0.02662965348770252
+        },
+        "2019": {
+          "cum_ret": 0.40095472199450355,
+          "sharpe": 3.102218974877528,
+          "max_dd": -0.05876424413999457,
+          "vs_spy": 0.11444103275367623,
+          "spy_cum_ret": 0.2865136892408273,
+          "vs_qqq": 0.028496831435161463,
+          "qqq_cum_ret": 0.3724578905593421
+        },
+        "2021": {
+          "cum_ret": 0.31970363509963184,
+          "sharpe": 1.5986678701888655,
+          "max_dd": -0.07547487721305969,
+          "vs_spy": 0.031816272507963816,
+          "spy_cum_ret": 0.28788736259166803,
+          "vs_qqq": 0.03410018757242028,
+          "qqq_cum_ret": 0.28560344752721156
+        },
+        "2023": {
+          "cum_ret": 0.2976321090283911,
+          "sharpe": 1.8706124483817799,
+          "max_dd": -0.08282594936125845,
+          "vs_spy": 0.04950966688493241,
+          "spy_cum_ret": 0.2481224421434587,
+          "vs_qqq": -0.2506549842373973,
+          "qqq_cum_ret": 0.5482870932657884
+        },
+        "2025": {
+          "cum_ret": 0.33290559466243086,
+          "sharpe": 1.5982999796028237,
+          "max_dd": -0.16060494977479767,
+          "vs_spy": 0.1665126591391648,
+          "spy_cum_ret": 0.16639293552326606,
+          "vs_qqq": 0.12885595755403312,
+          "qqq_cum_ret": 0.20404963710839774
+        }
+      },
+      "metrics_per_stress_slice": {
+        "covid_flash": {
+          "cum_ret": -0.11245957197675804,
+          "sharpe": -0.6655647579804401,
+          "max_dd": -0.37844308169893603,
+          "vs_spy": 0.024890822971786797,
+          "spy_cum_ret": -0.13735039494854484,
+          "vs_qqq": -0.04613083822936037,
+          "qqq_cum_ret": -0.06632873374739767
+        },
+        "rate_hike_2022": {
+          "cum_ret": -0.05533670127029411,
+          "sharpe": -1.644063273416506,
+          "max_dd": -0.10372309806425396,
+          "vs_spy": 0.11075475725167194,
+          "spy_cum_ret": -0.16609145852196605,
+          "vs_qqq": 0.16219554168187245,
+          "qqq_cum_ret": -0.21753224295216655
+        }
+      },
+      "concentration": {
+        "m12_top1_weight_max": 0.14000830283374605,
+        "m12_top3_weight_max": 0.36932334241813436,
+        "m12_n_dates_with_weights": 4276
+      },
+      "nav_correlation_vs_benchmark": {
+        "raw_pearson_vs_spy": 0.5705602562173375,
+        "beta_vs_spy": 0.461433092166613,
+        "raw_pearson_vs_qqq": 0.7252828252921635,
+        "beta_vs_qqq": 0.5852414757535174
+      },
+      "asset_class_exposure": {
+        "equity_weight_avg": 0.4610590493027082,
+        "bond_weight_avg": 0.20803071057262745,
+        "commodity_weight_avg": 0.08239705080612776,
+        "cash_anchor_weight_avg": 0.07629509084176721,
+        "non_equity_weight_avg": 0.3667228522205225,
+        "non_equity_weight_p25": 0.2816297788962472,
+        "non_equity_weight_p50": 0.2967315403711073,
+        "non_equity_weight_p75": 0.48750927734111327,
+        "non_equity_weight_min": 0.09021029323912029,
+        "non_equity_weight_max": 0.6227987133863983,
+        "days_with_zero_non_equity_pct": 0.0
+      },
+      "cluster_diversity": {
+        "n_unique_clusters_per_rebalance_avg": 11.610902255639099,
+        "cluster_concentration_max": 0.3037283574562431,
+        "n_picks_avg": 8.382753759398497,
+        "implicit_cash_pct_avg": 0.17221809847676942,
+        "top_3_clusters_by_average_weight": [
+          {
+            "cluster": "industrials_infra",
+            "avg_weight": 0.13200967881836226
+          },
+          {
+            "cluster": "energy_oilgas",
+            "avg_weight": 0.09699935115733731
+          },
+          {
+            "cluster": "bond_intermediate_duration",
+            "avg_weight": 0.09444039551307205
+          }
+        ]
+      },
+      "nav_correlation_vs_existing_pair": {},
+      "r41_classification": {
+        "tier": 2,
+        "reason": "factor-overlap max=2 \u2265 2",
+        "factor_overlap_max": 2,
+        "factor_overlaps_per_anchor": {
+          "cycle_01_top": 0,
+          "cycle_02_top": 0,
+          "cycle_03_top": 1,
+          "rcm_v1": 2,
+          "cand_2": 0
+        },
+        "raw_pearson_max": null,
+        "residual_pearson_max": null
+      },
+      "soft_miss_2025_qqq": {
+        "triggered": false
+      }
+    }
+  ],
+  "anti_sibling_thresholds": {
+    "factor_overlap_threshold": 2,
+    "pooled_max": 0.85,
+    "residual_max": 0.7
+  },
+  "anchor_features_for_overlap": {
+    "cycle_01_top": [
+      "beta_spy_60d",
+      "mom_12_1",
+      "volume_ratio_20d"
+    ],
+    "cycle_02_top": [
+      "beta_spy_60d",
+      "mom_12_1",
+      "volume_ratio_20d"
+    ],
+    "cycle_03_top": [
+      "rs_vs_spy_126d",
+      "drawup_from_252d_low",
+      "market_vol_ratio"
+    ],
+    "rcm_v1": [
+      "beta_spy_60d",
+      "drawup_from_252d_low",
+      "days_since_52w_high",
+      "amihud_20d"
+    ],
+    "cand_2": [
+      "ret_5d",
+      "rs_vs_spy_126d",
+      "hl_range"
+    ]
+  }
+}
