@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0",
+  "candidate_id": "cycle06_31af04cf2ff9_evidence_v1",
+  "evidence_class": "forward_oos",
+  "spec_hash": "8e26ad3ab10b231a00f409c0d61c3234be20953c1f90ab33cb16b72379f1d28c",
+  "start_date": "2026-05-15",
+  "benchmark": "SPY",
+  "secondary_benchmark": "QQQ",
+  "cost_assumptions": {
+    "source": "config/cost_model.yaml",
+    "config_hash": "c1b5fee2ec136db7051a47d5b6364d8b05c623a9b049cdf7f95c1d727a7e1b0d"
+  },
+  "checkpoint_cadence": {
+    "weekly": true,
+    "decision_days": [
+      10,
+      20,
+      40,
+      60
+    ]
+  },
+  "current_status": "not_started",
+  "data_integrity_snapshot": {
+    "daily_store_rebuild_commit": "f170b0c00000",
+    "baseline_snapshot_path": "data/baseline/latest.json",
+    "generated_at_utc": "2026-05-15T21:46:18.719211Z"
+  },
+  "config_snapshot": {
+    "schema_version": "1.0",
+    "universe_hash": "7a02437a450d8a5bb34195a4c896b4e3a6a314adf612d63bb38be7bd104cba47",
+    "factor_registry_hash": "7cafec1ba5478f014925800671a153b6db8c58670aff7dac11926586cdf3f140",
+    "research_mask_hash": "99ef97d08c326ff766a865dd7ddbe5880f5c3b91ae7658f30cae4b7f100de10a",
+    "risk_config_hash": "9068b5f72d64208803bd98ac1d092652327cd4c2406bcaed483846c2f2a3dbad",
+    "system_config_hash": "b2f96c3b9733d35f15b463339e14bbb55c374d6344d92f463d309e2fa836db82",
+    "snapshot_at_utc": "2026-05-15T21:46:18.737944Z",
+    "sources": {
+      "universe_hash": "config/universe.yaml",
+      "factor_registry_hash": "core/factors/factor_registry.py::PRODUCTION+RESEARCH+MAP",
+      "research_mask_hash": "config/research_mask.yaml",
+      "risk_config_hash": "config/risk.yaml",
+      "system_config_hash": "config/system.yaml"
+    },
+    "migration_note": null
+  },
+  "candidate_role": "core_alpha",
+  "soft_warn_flags": [],
+  "policy_recovery_log": [],
+  "runs": []
+}

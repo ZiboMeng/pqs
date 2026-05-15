@@ -1,0 +1,120 @@
+# Frozen strategy spec — cycle06_31af04cf2ff9_evidence_v1
+#
+# Forward-observation candidate. Source: cycle06 archived trial
+# 31af04cf2ff9 (lineage track-c-cycle-2026-05-06-01). Passed Track A
+# acceptance post-MaxDD-fix (2026-05-15) under official QQQ-diagnostic
+# governance AND the sealed 2026 single-shot test (2/2 PASS — see memo).
+#
+# evidence-only operational stance: candidate_role=core_alpha (the role
+# whose gates it passed); NOT committed to fleet allocation until a
+# healthy 60-day forward soak. See decision memo.
+#
+# DO NOT MODIFY any field after freeze without a new candidate_id.
+
+candidate_id: cycle06_31af04cf2ff9_evidence_v1
+strategy_version: cycle06-31af04cf2ff9-evidence-2026-05-15
+strategy_type: single_factor_composite
+family: research_composite
+source_trial_id: 31af04cf2ff9
+
+decision_memo: docs/memos/20260515-cycle06_cycle08_evidence_forward_init.md
+
+# ── Composite spec (frozen — cycle06 trial 31af04cf2ff9 verbatim) ──────
+feature_set:
+  - name: drawup_from_252d_low
+    family: B
+    weight: 0.333333
+    source: core/factors/factor_generator.py::_quality_factors
+  - name: trend_tstat_20d
+    family: D
+    weight: 0.333333
+    source: core/factors/factor_generator.py::_family_d_trend_quality
+  - name: ret_2d
+    family: baseline
+    weight: 0.333333
+    source: core/factors/factor_generator.py::_baseline_return_factors
+
+transforms:
+  standardization: zscore_cross_sectional
+  min_periods: 5
+  implementation: core/mining/research_miner.py::zscore_cs
+
+composite_rule:
+  method: weighted_sum
+  formula: "sum(weight[i] * zscore_cs(feature[i])) for i in feature_set"
+  implementation: core/mining/research_miner.py::build_composite_series
+
+labels:
+  fwd_return_horizon_days: 21
+  fwd_return_mode: cc
+  ic_evaluation_lag_bars: 1
+
+construction:
+  mode: cap_aware_cross_asset
+  rebalance_cadence: weekly
+  top_n: 10
+  cluster_cap: 0.20
+  max_single_weight: 0.10
+  min_holding_days: 1
+  long_only: true
+  no_short: true
+  no_margin: true
+  asset_class_caps:
+    equities_max:    0.70
+    bonds_max:       0.40
+    commodities_max: 0.20
+    cash_anchor_max: 0.30
+
+panel_contract:
+  universe: "config/executable_universe.yaml (79-symbol executable mining universe)"
+  drop_symbols: [BRK-B, USO, SLV]
+  n_tradable_at_proposal: 79
+  end_date: 2025-12-31
+
+source:
+  lineage_tag: track-c-cycle-2026-05-06-01
+  archived_trial_id: 31af04cf2ff9
+  cycle_yaml: data/research_candidates/track-c-cycle-2026-05-06-01_promotion_criteria.yaml
+
+research_evidence:
+  track_a_acceptance: "PASS post-MaxDD-fix 2026-05-15 (official QQQ-diagnostic governance)"
+  track_a_v1_strict: "FAIL on vs_qqq aggregate — diagnostic only per QQQ deprecation"
+  sealed_2026_test: "PASS — cum_ret +34.06%, vs_spy +24.55%, Sharpe 4.00, MaxDD -6.62%"
+  covid_flash_maxdd: -0.1532
+
+# ── FrozenStrategySpec mandatory summaries ──────────────────────────────
+benchmark_relative_summary:
+  sealed_2026_vs_spy: 0.2455       # +24.55% (sealed single-shot, PASS hard >0)
+  sealed_2026_vs_qqq: 0.1666       # +16.66%
+  validation_2025_vs_spy: 0.2285   # +22.85% (Track A validation year)
+  validation_2025_vs_qqq: 0.1908   # +19.08%
+  validation_years_vs_spy_positive: 4  # 4/5 validation years positive vs SPY
+  note: >-
+    Track A acceptance PASS under official QQQ-diagnostic governance.
+    v1-strict (QQQ HARD) FAILS on vs_qqq aggregate — diagnostic only
+    per CLAUDE.md QQQ deprecation 2026-05-02. Per-year vs_spy: 2018
+    +0.43%, 2019 -3.44%, 2021 +5.87%, 2023 +27.22%, 2025 +22.85%.
+
+oos_holdout_summary:
+  sealed_test_window: "2026-01-01..2026-05-14"
+  sealed_test_verdict: PASS
+  sealed_cum_ret: 0.3406
+  sealed_vs_spy: 0.2455
+  sealed_sharpe: 4.00
+  sealed_max_dd: -0.0662
+  sealed_caveat: >-
+    Sharpe 4.00 is a 4.5-month short-window figure — annualized Sharpe
+    from a partial year is noisy/optimistic; not a steady-state estimate.
+
+robustness_summary:
+  stress_covid_flash_maxdd: -0.1532    # < 25% Black Swan ceiling
+  stress_rate_hike_2022_maxdd: -0.0948 # < 25%
+  per_year_maxdd_max: -0.1960          # worst validation-year MaxDD (2018), < 20%
+  note: >-
+    All stress slices + per-validation-year MaxDD clear the CLAUDE.md
+    Black Swan Quantification (stress ≤ 25%) + per-year (≤ 20%) ceilings.
+
+notes: >-
+  Forward-observation evidence candidate. Sealed gate PASSED before
+  forward-init per corrected pipeline ordering (sealed → forward).
+  vs_qqq is diagnostic-only per CLAUDE.md QQQ deprecation 2026-05-02.

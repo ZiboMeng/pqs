@@ -1,0 +1,117 @@
+# Frozen strategy spec — cycle08_3f40e3f4ed1a_evidence_v1
+#
+# Forward-observation candidate. Source: cycle08 archived trial
+# 3f40e3f4ed1a (lineage track-c-cycle-2026-05-08-01). Passed Track A
+# acceptance post-MaxDD-fix (2026-05-15) AND the sealed 2026 single-shot
+# test (2/2 PASS — see decision memo).
+#
+# evidence-only operational stance: candidate_role=core_alpha (the role
+# whose gates it passed); NOT committed to fleet allocation until a
+# healthy 60-day forward soak. See decision memo.
+#
+# DO NOT MODIFY any field after freeze without a new candidate_id.
+
+candidate_id: cycle08_3f40e3f4ed1a_evidence_v1
+strategy_version: cycle08-3f40e3f4ed1a-evidence-2026-05-15
+strategy_type: single_factor_composite
+family: research_composite
+source_trial_id: 3f40e3f4ed1a
+
+decision_memo: docs/memos/20260515-cycle06_cycle08_evidence_forward_init.md
+
+# ── Composite spec (frozen — cycle08 trial 3f40e3f4ed1a verbatim) ──────
+feature_set:
+  - name: max_dd_126d
+    family: B
+    weight: 0.333333
+    source: core/factors/factor_generator.py::_family_b_position_breakout
+  - name: xsection_rank_63d
+    family: D
+    weight: 0.333333
+    source: core/factors/factor_generator.py
+  - name: ret_5d
+    family: baseline
+    weight: 0.333333
+    source: core/factors/factor_generator.py::_baseline_relative_factors
+
+transforms:
+  standardization: zscore_cross_sectional
+  min_periods: 5
+  implementation: core/mining/research_miner.py::zscore_cs
+
+composite_rule:
+  method: weighted_sum
+  formula: "sum(weight[i] * zscore_cs(feature[i])) for i in feature_set"
+  implementation: core/mining/research_miner.py::build_composite_series
+
+labels:
+  fwd_return_horizon_days: 21
+  fwd_return_mode: cc
+  ic_evaluation_lag_bars: 1
+
+construction:
+  mode: cap_aware_cross_asset
+  rebalance_cadence: monthly
+  top_n: 10
+  cluster_cap: 0.20
+  max_single_weight: 0.10
+  min_holding_days: 1
+  long_only: true
+  no_short: true
+  no_margin: true
+  asset_class_caps:
+    equities_max:    0.70
+    bonds_max:       0.40
+    commodities_max: 0.20
+    cash_anchor_max: 0.30
+
+panel_contract:
+  universe: "config/executable_universe.yaml (79-symbol executable mining universe)"
+  drop_symbols: [BRK-B, USO, SLV]
+  n_tradable_at_proposal: 79
+  end_date: 2025-12-31
+
+source:
+  lineage_tag: track-c-cycle-2026-05-08-01
+  archived_trial_id: 3f40e3f4ed1a
+  cycle_yaml: data/research_candidates/track-c-cycle-2026-05-08-01_promotion_criteria.yaml
+
+research_evidence:
+  track_a_acceptance: "PASS post-MaxDD-fix 2026-05-15 (v1-strict QQQ-HARD + v3)"
+  sealed_2026_test: "PASS — cum_ret +24.35%, vs_spy +14.83%, Sharpe 4.10, MaxDD -7.66%"
+  covid_flash_maxdd: -0.1972
+
+# ── FrozenStrategySpec mandatory summaries ──────────────────────────────
+benchmark_relative_summary:
+  sealed_2026_vs_spy: 0.1483       # +14.83% (sealed single-shot, PASS hard >0)
+  sealed_2026_vs_qqq: 0.0694       # +6.94%
+  validation_2025_vs_spy: 0.2532   # +25.32% (Track A validation year)
+  validation_2025_vs_qqq: 0.2155   # +21.55%
+  validation_years_vs_spy_positive: 5  # 5/5 validation years positive vs SPY
+  note: >-
+    Track A acceptance PASS under v1-strict (QQQ HARD) + v3. Sealed 2026
+    single-shot PASS. Per-validation-year vs_spy: 2018 +1.85%, 2019
+    +9.25%, 2021 +4.63%, 2023 +19.38%, 2025 +25.32%.
+
+oos_holdout_summary:
+  sealed_test_window: "2026-01-01..2026-05-14"
+  sealed_test_verdict: PASS
+  sealed_cum_ret: 0.2435
+  sealed_vs_spy: 0.1483
+  sealed_sharpe: 4.10
+  sealed_max_dd: -0.0766
+  sealed_caveat: >-
+    Sharpe 4.10 is a 4.5-month short-window figure — annualized Sharpe
+    from a partial year is noisy/optimistic; not a steady-state estimate.
+
+robustness_summary:
+  stress_covid_flash_maxdd: -0.1972    # < 25% Black Swan ceiling
+  stress_rate_hike_2022_maxdd: -0.1190 # < 25%
+  per_year_maxdd_max: -0.1810          # worst validation-year MaxDD (2025), < 20%
+  note: >-
+    All stress slices + per-validation-year MaxDD clear the CLAUDE.md
+    Black Swan Quantification (stress ≤ 25%) + per-year (≤ 20%) ceilings.
+
+notes: >-
+  Forward-observation evidence candidate. Sealed gate PASSED before
+  forward-init per corrected pipeline ordering (sealed → forward).
