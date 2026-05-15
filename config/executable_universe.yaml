@@ -1,0 +1,162 @@
+# Executable Mining Universe — Single Source of Truth (SoT)
+#
+# Authority: post-P0 governance cleanup 2026-05-15 (auditor codex review
+# direction #2: separate "data-store completeness" from "executable
+# mining universe").
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# Cycle promotion-criteria yamls (track-c-cycle-*.yaml) each carried a
+# `universe_extension` block copy-pasted from cycle08. That block claimed
+# stocks_count 53 + cross_asset 6 = 59. The ACTUAL mining universe the
+# launcher builds is 79 (81-symbol universe.yaml union minus 2 dropped
+# symbols present in the union). The stale "59" misled the 2026-05-15
+# audit. This file is the canonical executable-universe declaration;
+# cycle yamls + launchers MUST reference it instead of re-deriving or
+# copy-pasting.
+#
+# TWO DISTINCT CONCEPTS — DO NOT CONFLATE
+# ----------------------------------------
+#  1. data-store completeness — "every parquet under data/daily/ has no
+#     severe internal gap". Verified by core.data.data_completeness_gate.
+#     As of 2026-05-15 P0.b.4: 81/81 tradeable symbols PASS.
+#  2. executable mining universe — "which symbols a mining cycle actually
+#     samples + backtests on". This is 79, NOT 81: BRK-B and SLV are
+#     dropped for the documented reasons below. "81/81 data clean" does
+#     NOT mean "mining runs on 81".
+
+schema_version: "1.0"
+universe_id: "executable_mining_universe_2026-05-15"
+created_at: "2026-05-15"
+derived_from: "config/universe.yaml"
+
+# How the executable universe is computed (deterministic):
+#   union(seed_pool + sector_etfs + factor_etfs + cross_asset)   = 81
+#   minus blacklist {SQQQ, SOXS}                                  (no-op: not in union)
+#   minus macro_reference {^VIX, ^TNX, DX-Y.NYB}                  (no-op: not in union)
+#   minus cycle_drop_symbols {BRK-B, SLV}                         = 79
+#   (USO is also in cycle_drop_symbols but is a no-op — never in union)
+derivation:
+  union_size: 81
+  cycle_drop_applied: ["BRK-B", "SLV"]
+  cycle_drop_noop: ["USO"]
+  executable_count: 79
+
+# Dropped symbols — documented reasons (was scattered across memos)
+dropped_symbols:
+  BRK-B:
+    reason: "Data-integrity round-3 (2026-04-25): class-B ticker rebuild
+             excluded BRK-B. data/daily/*.parquet rebuilt for 78 syms
+             without it. Authority: docs/memos/20260425-data_integrity_round3_close.md"
+    in_universe_yaml: true
+  SLV:
+    reason: "Commodity ETF (silver). cycle04 cross-asset preflight excluded
+             alongside USO — physical-commodity ETF behavior structurally
+             different from equity + bond cross-asset sleeve.
+             Authority: docs/memos/20260501-cycle04_cross_asset_preflight.md"
+    in_universe_yaml: true
+  USO:
+    reason: "Oil futures ETF. Excluded at universe-design time (2 single-day
+             jumps >50%, futures roll yield). NOT in universe.yaml union —
+             listing it in cycle drop_symbols is a defensive no-op.
+             Authority: docs/memos/20260501-cycle04_cross_asset_preflight.md"
+    in_universe_yaml: false
+
+# The canonical 79-symbol executable mining universe (sorted).
+# Composition: 53 single-name stocks + 8 sector/factor ETFs that are
+# eligible holdings + 18 cross-asset / index / benchmark symbols.
+executable_universe:
+  - A
+  - AAPL
+  - ABT
+  - ACGL
+  - AMZN
+  - APD
+  - AVGO
+  - AXP
+  - BIL
+  - BKNG
+  - C
+  - CAT
+  - CLX
+  - CME
+  - CMG
+  - COP
+  - COST
+  - DG
+  - EA
+  - ED
+  - GILD
+  - GIS
+  - GLD
+  - GOOGL
+  - GS
+  - IEF
+  - ISRG
+  - JNJ
+  - KLAC
+  - LLY
+  - LRCX
+  - MCK
+  - META
+  - MS
+  - MSFT
+  - MTUM
+  - MU
+  - NEE
+  - NVDA
+  - OXY
+  - PWR
+  - QQQ
+  - QUAL
+  - SCHD
+  - SHV
+  - SHY
+  - SOXL
+  - SPY
+  - TER
+  - TJX
+  - TKO
+  - TLT
+  - TMO
+  - TQQQ
+  - TRGP
+  - TRV
+  - TSLA
+  - TSN
+  - TT
+  - TXN
+  - UNH
+  - UNP
+  - USMV
+  - VICI
+  - VLUE
+  - VZ
+  - WEC
+  - WMT
+  - XLB
+  - XLC
+  - XLE
+  - XLF
+  - XLI
+  - XLK
+  - XLP
+  - XLRE
+  - XLU
+  - XLV
+  - XLY
+
+# Data completeness status of the executable universe (P0.b.4 verified
+# 2026-05-15 via core.data.data_completeness_gate, max_consecutive_missing_bd=5):
+data_completeness:
+  verified_date: "2026-05-15"
+  scan_tool: "core.data.data_completeness_gate.check_panel_completeness"
+  result: "79/79 executable-universe symbols PASS (0 severe internal gap)"
+  note: "Full tradeable scan including BRK-B/SLV was 81/81; executable
+         subset is a strict subset and also 79/79 PASS."
+
+# Cycle-12 priority-5 extension (NOT yet merged into executable universe).
+# universe_priority5.yaml adds 10 blue chips + 3 inverse ETFs as a
+# SEPARATE research yaml; activation into the executable universe
+# requires a dedicated cycle authorization.
+priority5_extension_status: "separate yaml, NOT in executable universe"
