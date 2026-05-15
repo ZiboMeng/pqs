@@ -1326,21 +1326,94 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   whether Bernard-Thomas 1989 signal hold in 2026 real-time data
   before justifying paid-data Phase 2 OR fleet-architecture build.
 
+- **P0 governance + foundation fixes + cycle06/08 sealed-pass + priority
+  1-9 ship** (2026-05-15 ✅) — large multi-part session driven by a
+  codex audit. Key items:
+
+  **P0.a — QQQ governance unification** (commit `966e177`): CLAUDE.md
+  deprecated QQQ 2026-05-02 but config files still applied HARD QQQ
+  gate. New `config/evaluation_policy.yaml` + `core/research/
+  evaluation_policy.py` runtime-override layer demotes all QQQ
+  kill_candidate gates to diagnostic_only (v1/v2/v3 yaml preserved
+  verbatim under immutability). `temporal_split_acceptance` +
+  `mining/evaluator` read the policy.
+
+  **P0.b + P0.b.4 — full-universe data repair**: completeness gate
+  `core/data/data_completeness_gate.py` + `core/data/data_repair.py`
+  (yfinance split-aware reverse-adjust). Repaired 12 priority symbols
+  then 12 more (A/APD/AXP/BKNG/DG/KLAC/LRCX/SCHD/SOXL/TKO/TRGP/USMV);
+  META wrong-ticker purge+refetch (was META Financial Group pre-
+  2022-06-09, not Meta Platforms). Post-repair 81/81 universe
+  completeness PASS. 1675+ rows filled.
+
+  **P0 CRITICAL — MaxDD acceptance gate sign bug** (commit `1e0d81e`):
+  `temporal_split_acceptance` MaxDD gates compared a NEGATIVE-stored
+  maxdd against a POSITIVE threshold with `<=` → always True → the
+  gate (per-year + stress-slice + role) NEVER fired. Every Track A
+  "PASS" 2026-05-14/15 had a dead MaxDD gate. Fixed: `abs(maxdd)`
+  comparison at 3 sites + 4 regression tests. Re-eval ALL candidates:
+  cycle06 1/3, cycle07a 0/3, cycle08 1/3, cycle12 0/3 PASS.
+
+  **executable_universe.yaml SoT** (commit `[B]`): cycle yamls'
+  `universe_extension` blocks were stale-copy from cycle08 (claimed
+  59; actual mining universe = 79). New `config/executable_universe.yaml`
+  is the canonical 79-symbol executable-universe declaration + drop
+  reasons; separates "data-store completeness (81/81)" from
+  "executable mining universe (79)".
+
+  **Sealed 2026 single-shot test — 2/2 PASS** (commit `60de4ee`):
+  per corrected pipeline ordering (sealed gate BEFORE forward
+  observation — a gate must precede what it gates). cycle08_3f40e3f4ed1a
+  (sealed vs_spy +14.83%, Sharpe 4.10, MaxDD -7.66%) + cycle06_31af04cf2ff9
+  (vs_spy +24.55%, Sharpe 4.00, MaxDD -6.62%). Window 2026-01-01..05-14.
+  **The 2026 single-shot holdout for split `alternating_regime_holdout_v1`
+  is now CONSUMED** — re-testing improved candidates needs split_name
+  bump. Sharpe ~4 is a 4.5-month short-window figure (noisy/optimistic
+  — not steady-state). Ledger has cycle08 as the event marker (script
+  looped record_eval; B1 correctly blocked the 2nd; cycle06 result in
+  the memo + sealed_2026_eval.json as part of the same single event).
+
+  **Priority 1-9 shipped**: Family R chart-pattern factors (10, commit
+  `f4a46a1`) + Family S regime-ML factors (3) → RESEARCH_FACTORS
+  162→175; multi-TF cascade decision module (`core/research/
+  multi_tf_cascade.py`); 130/30 long-short config schema
+  (`core/research/long_short_config.py`, schema-only — execution
+  wiring deferred, user explicit-go for the invariant relaxation);
+  universe extension yaml + inverse-ETF cap grid; cycle12 mining
+  (200 trials, 93 archived, Family R golden_cross_score in top-1 —
+  but 0/3 Track A post-MaxDD-fix); PEAD cost sensitivity (Trial 1
+  ROBUST at 60bp); LLM mining framework (`core/research/llm_mining.py`,
+  framework-only). cycle12 used FAMILIES_OHLCV_ONLY (12 families) —
+  fundamental/sector/macro families need separate compute paths.
+
 **Forward OOS workstream (infrastructure history + active state)**:
 Infrastructure (R-fwd-1 / R-fwd-2 / R-fwd-3 / F) shipped 2026-04-26
 through 2026-04-29 + R8 DST fix; legacy candidates RCMv1 + Cand-2
 forward-observed 2026-04-24 through 2026-04-28 then **aborted
 2026-04-30** under v2.1 fail-closed gate (see "Forward observation
-history" entry below). **Active forward candidates as of 2026-05-14**:
-- `trial9_diversifier_002` (diversifier role, TD001 starts 2026-05-13,
-  TD60 verdict ~ 2026-08-06) — uses main core/research/forward runner
-- `pead_sue_trial1_evidence_v1` (evidence-only role, TD001 starts
-  2026-05-15, TD60 verdict ~ 2026-08-13) — standalone observation
-  track (dev/scripts/pead/observe_pead_evidence.py), does NOT use
-  main runner (event-driven SUE signal doesn't fit factor-composite
-  schema; precedent = simple_baseline_v1)
-- `spy_8otm_bull_put_v1` (options sleeve, TD started 2026-05-04, TD60
+history" entry below). **Active forward candidates as of 2026-05-15**:
+- `cycle08_3f40e3f4ed1a_evidence_v1` (core_alpha role, evidence stance,
+  TD001 @ 2026-05-15, TD60 ~2026-08-14) — passed Track A post-MaxDD-fix
+  + sealed 2026 (2/2). main core/research/forward runner.
+- `cycle06_31af04cf2ff9_evidence_v1` (core_alpha role, evidence stance,
+  TD001 @ 2026-05-15, TD60 ~2026-08-14) — same; vs_qqq diagnostic-only.
+- `trial9_diversifier_002` (diversifier role) — **HALTED 2026-05-15,
+  status=requires_data_review**. v2.1 revalidate detected the P0.b/
+  P0.b.4 data repair (revised 2024 bars on ~15 held symbols feed the
+  factor lookback windows); materiality=bound_only (revised cells
+  outside execution_nav anchor ring). Last clean TD = TD002 @
+  2026-05-14. ALSO: trial9_v2 Track A acceptance predates the P0
+  MaxDD-gate fix → its "PASS" standing is unverified under the fixed
+  evaluator. Needs (a) Track A re-eval + (b) re-init on repaired data
+  before forward observation can resume — decision pending.
+- `pead_sue_trial1_evidence_v1` (evidence-only role, TD001 @ 2026-05-15,
+  TD60 ~2026-08-13) — standalone observation track
+  (dev/scripts/pead/observe_pead_evidence.py), does NOT use main
+  runner (event-driven SUE signal doesn't fit factor-composite schema)
+- `spy_8otm_bull_put_v1` (options sleeve, TD007 @ 2026-05-15, TD60
   verdict ~ 2026-07-30) — options paper-trading layer, separate path
+Forward fleet anti-sibling: cycle06/cycle08/trial9 pairwise raw NAV
+0.704-0.825 (all < 0.85). Daily ritual log: docs/forward_observation_log.md.
 - **R-fwd-1 done** — forward runner minimum closed loop (init /
   status / observe / decide / readiness) + source-boundary sidecar
   + `source_mix` flag on ForwardRun. PRD:
