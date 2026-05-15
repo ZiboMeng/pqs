@@ -28,7 +28,54 @@ logger = logging.getLogger(__name__)
 PROJ = Path(__file__).resolve().parent.parent.parent
 DAILY_DIR = PROJ / "data" / "daily"
 PROVENANCE_PATH = PROJ / "data" / "ref" / "bar_provenance.parquet"
+SPLITS_PATH = PROJ / "data" / "ref" / "splits.parquet"
 REPAIR_PROVENANCE_TAG = "yfinance_repair_v1_2026-05-14"
+
+
+def _load_splits_cached() -> pd.DataFrame:
+    """Load splits.parquet for split-aware reverse-adjustment."""
+    if not SPLITS_PATH.exists():
+        return pd.DataFrame(columns=["symbol", "date", "from", "to"])
+    df = pd.read_parquet(SPLITS_PATH)
+    df["date"] = pd.to_datetime(df["date"])
+    return df
+
+
+def _yfinance_to_raw_factor(
+    symbol: str,
+    missing_date: pd.Timestamp,
+    splits_df: pd.DataFrame,
+) -> float:
+    """Return the cumulative split factor to convert yfinance's
+    retroactively-split-adjusted close back to historical-basis raw.
+
+    yfinance with auto_adjust=False STILL applies splits retroactively
+    (verified empirically 2026-05-14: CMG 2020-01-15 yfinance=$17,
+    our parquet 2026-05-14=$32 = current-basis post-50:1-split-2024;
+    pre-split historical raw was 50x larger). To match parquet "true
+    raw" convention, multiply yfinance close by cumulative factor
+    of all splits dated AFTER missing_date.
+
+    For each split with date > missing_date and matching symbol:
+        factor *= (to / from)
+
+    Forward N:1 split (from=1, to=N): pre-split price was N× post-split.
+    Reverse N:1 split (from=N, to=1): pre-split price was 1/N of post-split.
+
+    Returns:
+        1.0 if no relevant splits.
+    """
+    if splits_df.empty:
+        return 1.0
+    rows = splits_df[
+        (splits_df["symbol"] == symbol) & (splits_df["date"] > missing_date)
+    ]
+    if rows.empty:
+        return 1.0
+    factor = 1.0
+    for _, r in rows.iterrows():
+        factor *= float(r["to"]) / float(r["from"])
+    return factor
 
 
 @dataclass
@@ -175,6 +222,7 @@ def repair_symbol_internal_gaps(
     max_consecutive_missing_bd: int = 1,
     suspect_threshold: float = 0.30,
     dry_run: bool = False,
+    apply_split_reverse_adjust: bool = True,
 ) -> SymbolRepairResult:
     """Repair one symbol's daily parquet by filling internal gaps from yfinance.
 
@@ -184,7 +232,13 @@ def repair_symbol_internal_gaps(
         max_consecutive_missing_bd: only fill gaps STRICTLY LONGER than this
             (1 = skip single-day blips; matches BarStore semantics)
         suspect_threshold: skip yfinance bars that differ >X% from neighbor close
+            AFTER applying split reverse-adjustment.
         dry_run: don't write; just report.
+        apply_split_reverse_adjust: if True (default), read splits.parquet and
+            multiply yfinance close by cumulative split factor of all splits
+            dated AFTER the missing_date. This converts yfinance's
+            retroactively-split-adjusted prices back to historical-basis raw
+            prices to match parquet "true raw" convention.
 
     Returns:
         SymbolRepairResult.
@@ -228,6 +282,8 @@ def repair_symbol_internal_gaps(
     logger.info("[%s] %d internal gap days to fill (window %s → %s)",
                 symbol, len(missing), result.valid_start, result.valid_end)
 
+    splits_df = _load_splits_cached() if apply_split_reverse_adjust else pd.DataFrame()
+
     # Fetch yfinance covering the missing window
     try:
         yf_df = _fetch_yfinance_bars(symbol, missing[0], missing[-1])
@@ -243,7 +299,20 @@ def repair_symbol_internal_gaps(
             result.unfillable_dates.append(str(d.date()))
             continue
         bar = yf_df.loc[d]
-        new_close = float(bar["close"])
+        # Apply split reverse-adjustment: yfinance returns retroactively-
+        # split-adjusted prices; multiply by cumulative split factor to
+        # convert back to historical-basis raw matching parquet convention.
+        if apply_split_reverse_adjust:
+            split_factor = _yfinance_to_raw_factor(symbol, d, splits_df)
+        else:
+            split_factor = 1.0
+        adj_bar = {c: float(bar[c]) * split_factor for c in ["open", "high", "low", "close"]
+                   if c in bar.index and c in df.columns}
+        # Volume goes OPPOSITE direction: post-N:1-split volume is N× pre-split.
+        # So we divide volume by split_factor to revert to pre-split basis.
+        if "volume" in bar.index and "volume" in df.columns:
+            adj_bar["volume"] = float(bar["volume"]) / split_factor if split_factor != 0 else float(bar["volume"])
+        new_close = adj_bar.get("close", 0.0)
         # Find nearest neighbor close
         before = df.index[df.index < d]
         after = df.index[df.index > d]
@@ -255,13 +324,11 @@ def repair_symbol_internal_gaps(
         if neighbor_close and _is_suspect_price(new_close, neighbor_close, suspect_threshold):
             result.n_suspect_skipped += 1
             result.suspect_dates.append(str(d.date()))
-            logger.warning("[%s] %s: suspect (new=%.2f vs neighbor=%.2f), skip",
-                           symbol, d.date(), new_close, neighbor_close)
+            logger.warning("[%s] %s: suspect (new=%.2f vs neighbor=%.2f, "
+                           "split_factor=%.3f), skip",
+                           symbol, d.date(), new_close, neighbor_close, split_factor)
             continue
-        new_rows.append(pd.Series(
-            {c: float(bar[c]) for c in bar.index if c in df.columns},
-            name=d,
-        ))
+        new_rows.append(pd.Series(adj_bar, name=d))
         result.n_filled += 1
         result.filled_dates.append(str(d.date()))
 
