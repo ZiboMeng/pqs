@@ -39,3 +39,29 @@ baseline before daily observation begins:
   signaling new data (expected next trading day = Mon 2026-04-27 close)
 
 ---
+
+## 2026-05-15 (UTC) — daily ritual (post-close)
+
+First ritual since the 2026-04-26 baseline. RCMv1 + Cand-2 aborted
+2026-04-30; current forward set is the 4 candidates below.
+
+- data_state: SPY latest 2026-05-15 (close $739.17, −1.2% day); 84
+  syms fetched post-close via `fetch_data.py --daily-only`
+- trial9_diversifier_002: **no-op — status=requires_data_review**
+  (halted at TD002 @ 2026-05-14; pre-existing revalidate halt, needs
+  separate investigation — NOT resolved by today's ritual)
+- cycle08_3f40e3f4ed1a_evidence_v1: appended **TD001 @ 2026-05-15**
+  (forward day 1, cum_ret baseline; core_alpha role, evidence stance)
+- cycle06_31af04cf2ff9_evidence_v1: appended **TD001 @ 2026-05-15**
+  (forward day 1, cum_ret baseline; core_alpha role, evidence stance)
+- pead_sue_trial1_evidence_v1: appended **TD001 @ 2026-05-15**
+  (forward day 1, all metrics 0% baseline; 287 lifetime signals)
+- spy_8otm_bull_put_v1 (options): **TD007** NAV $10,000.00, DD 0.00%,
+  0 open positions, cum_pnl $0.00 (SPY $739.17 / VIX 18.43)
+- VRP scan: NVDA +7.98±1.90 STABLE-RICH candidate; COIN noisy; AAPL/
+  MSFT/GOOG/META/AMD structurally cheap
+- notes: cycle06/08 evidence candidates' first observe required adding
+  FactorInputContract entries for xsection_rank_63d / trend_tstat_20d /
+  ret_2d to bar_hash._FACTOR_REGISTRY (pre-flight gap — should have
+  smoke-tested observe before forward-init). trial9_v2 halt to be
+  investigated next session.

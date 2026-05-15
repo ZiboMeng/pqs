@@ -49,7 +49,26 @@
       "frozen_baseline_sharpe": 1.0555672473353253,
       "frozen_baseline_cagr": 0.05512050756455955,
       "frozen_baseline_max_dd": -0.07639633562133072
+    },
+    {
+      "td_id": "TD001",
+      "td_phase": "forward_observation",
+      "observation_date": "2026-05-15",
+      "strat_equity": 16247.516690847615,
+      "forward_cum_ret": 0.0,
+      "forward_cum_ret_spy": 0.0,
+      "forward_cum_ret_qqq": 0.0,
+      "forward_excess_vs_spy": 0.0,
+      "forward_excess_vs_qqq": 0.0,
+      "forward_sharpe_annualized": 0.0,
+      "forward_max_dd_full": 0.0,
+      "forward_rolling_max_dd_60d": 0.0,
+      "n_forward_trading_days": 1,
+      "n_signals_total_lifetime": 287,
+      "n_trades_lifetime": 507,
+      "sue_triggers_total_lifetime": 338,
+      "observed_at": "2026-05-15T21:58:36.447189+00:00"
     }
   ],
-  "td_count": 1
+  "td_count": 2
 }

@@ -146,6 +146,29 @@ _FACTOR_REGISTRY: dict[str, FactorInputContract] = {
         lookback_days=1,
         cross_sectional=False,
     ),
+    # cycle06 + cycle08 evidence candidate features (2026-05-15 forward-init)
+    "xsection_rank_63d": FactorInputContract(
+        factor_name="xsection_rank_63d",
+        # price_df.pct_change(63).rank(axis=1, pct=True) — cross-sectional
+        # RANK across the universe; ranks only within the panel symbols,
+        # needs NO external benchmark → cross_sectional=False.
+        attributes=("close",),
+        lookback_days=63,
+        cross_sectional=False,
+    ),
+    "trend_tstat_20d": FactorInputContract(
+        factor_name="trend_tstat_20d",
+        # OLS slope t-stat of log(close) on a rolling 20d window.
+        attributes=("close",),
+        lookback_days=20,
+        cross_sectional=False,
+    ),
+    "ret_2d": FactorInputContract(
+        factor_name="ret_2d",
+        attributes=("close",),
+        lookback_days=2,
+        cross_sectional=False,
+    ),
 }
 
 
