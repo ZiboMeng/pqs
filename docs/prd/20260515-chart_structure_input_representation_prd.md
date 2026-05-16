@@ -54,7 +54,8 @@ Phase 1  swing 段结构 family T (12 特征)        ~2-3 天   立即 fire
    │
    ├──> Phase 2A incremental-IC 检验            ~1 周     dep: P1
    │       (复用 Phase 1.6 rank:ndcg)
-   ├──> Phase 2B 自监督 embedding (TS2Vec/GAF)  ~1-2 周   dep: P1
+   ├──> Phase 2B bridge + 自监督表示层           ~1-3 周   dep: P1
+   │       (MiniROCKET/shapelet/dictionary + TS2Vec/GAF/patch)
    │
    ├──> Phase 3  chart-native 模型               ~3-5 周   dep: P2(3A 还需 P4)
    │       3A image-CNN / 3B structure-seq / 3C fusion
@@ -233,9 +234,17 @@ def compute_swing_structure_factors(
 
 - **H2a**:family T 12 特征加进 ML 输入,使 `rank:ndcg` 的 OOS Rank IC
   **配对显著**高于不含结构特征版本(incremental IC > 0)。
-- **H2b**:OHLCV 窗口自监督 embedding(TS2Vec 式)下游 IC ≥ Phase 1.6
-  富特征基线。外部支持:TS2Vec-Ensemble(arXiv 2511)证明 pretrained
-  encoder + 工程特征融合有效。
+- **H2b**:bridge 表示层(MiniROCKET / shapelet / dictionary)能在当前
+  79-universe / 低算力约束下,提供比单个结构特征更丰富、但比深度 CNN 更
+  sample-efficient 的局部形态表示。
+- **H2c**:OHLCV 窗口自监督 embedding(TS2Vec 式 / patch 式)下游 IC ≥
+  Phase 1.6 富特征基线。外部支持:TS2Vec 证明 hierarchical contrastive
+  表示有效;PatchTST 说明 patch token + 自监督预训练可同时保留局部语义并
+  延长有效 lookback。
+- **H2d**:若长期要做 structure-native encoder,则**预训练语料**本身必须
+  被当成一等资产(versioned corpus),不能只写模型不写 corpus。外部支持:
+  MOMENT / TimesFM 的关键价值之一就是把 pretraining corpus 变成显式
+  engineering object。
 
 ### §4.2 Phase 2A spec — incremental-IC 配对检验(复用现成基建)
 
@@ -256,24 +265,56 @@ for fold: fit XGBRankingModel on baseline vs treat → predict → Rank IC
 family T 这 12 列**。度量 = 每 fold 的 `IC_treat − IC_baseline`,对 12
 个差值做 paired t-test + 报 ICIR 提升。不是两次独立跑比 headline。
 
-### §4.3 Phase 2B spec — 自监督 embedding
+### §4.3 Phase 2B spec — bridge + 自监督表示层
 
-- 2B-1:`window_embedding.py` 实现 TS2Vec 式 encoder —— hierarchical
-  contrastive(random cropping + timestamp masking,见 §13 参考),OHLCV
-  窗口 → embedding 向量。
-- 2B-2:GAF 变换 —— GASF(summation field)+ GADF(difference field),
-  极坐标编码,为 Phase 3 图像分支铺路。
-- embedding 列经 `build_multi_path_factors` 输出 dict 注入(§A.2 确认
-  panel builder 接受任意因子),下游仍走 `XGBRankingModel`。
+- **2B-0 bridge baseline(新增,长期 scope 必含)**:
+  `core/ml/subsequence_transforms.py` 实现至少一条 transform-based bridge
+  路线,优先级:
+  1. MiniROCKET / ROCKET-style random convolution transform
+  2. shapelet-distance bank
+  3. dictionary / bag-of-patterns
+  目的不是替代 Phase 3,而是在当前样本规模下建立一个**介于 family T 与
+  deep chart-native 之间**的高表达、低算力中间层。
+- **2B-1 自监督 encoder**:`window_embedding.py` 实现 TS2Vec 式 encoder
+  —— hierarchical contrastive(random cropping + timestamp masking,见
+  §13 参考),OHLCV 窗口 → embedding 向量。
+- **2B-2 多尺度表示**:除原始 OHLCV window 外,显式支持
+  `representation_view ∈ {raw_window, GASF_GADF, patch_tokens}`。
+  `patch_tokens` 用于把长 lookback 切成 patch/subsequence token,给
+  self-supervised encoder 或后续 Phase 3B 复用。
+- **2B-3 预训练语料 manifest(新增,长期 scope 必含)**:
+  `data/manifests/chart_structure_pretrain_corpus_v1.json` 记录:
+  universe、timeframe(daily/weekly/60m 如有)、window_len、step、
+  point-in-time freeze、样本数、symbol coverage、缺失率、标签是否存在。
+  该 manifest 是后续所有 embedding / chart-native attempt 的共同语料账本。
+  **sealed 纪律(operator 补,codex 漏)**:自监督预训练复用**所有**窗口
+  (含无标签窗口)—— 若 corpus 含 validation / sealed 窗口,encoder 会
+  从 holdout 数据学习,任何下游候选的 sealed 评估即被污染。因此 corpus
+  manifest **默认只纳入 train_years 窗口**;纳入 validation/sealed 窗口
+  须走与有标签数据**同一套** split 纪律(§7.3)+ 显式 split_name。
+  manifest 必须有 `train_years_only: bool` 字段并默认 `true`;corpus 也
+  是 universe-scoped(`--universe` flag,D6)—— manifest 记录用的哪个
+  universe,不同 universe 的 corpus 是不同账本。
+- **2B-4 prototype / retrieval library(可选诊断层,memo §3.5 分支 4)**:
+  把历史窗口 embed 后做 nearest-neighbor / cluster / motif library,作为
+  (a) structure embedding 的 linear-probe sanity check;(b) 可解释层 ——
+  判断模型在学什么局部结构。即使不直接产 alpha,也是 Stage B/C 的诊断
+  基础设施。**不在 Phase 2B 关键路径上**,作为 evidence-gated 可选附加
+  项,无 blocking AC。
+- bridge feature / embedding 列经 `build_multi_path_factors` 输出 dict 注入
+  ( §A.2 确认 panel builder 接受任意因子),下游仍走 `XGBRankingModel`。
 
 ### §4.4 Deliverables
 
 | # | 产物 |
 |---|---|
 | P2-d1 | `dev/scripts/chart_structure/phase2a_incremental_ic.py` + 配对检验报告 JSON |
-| P2-d2 | `core/ml/window_embedding.py`(TS2Vec 式 encoder + GASF/GADF 变换)|
-| P2-d3 | embedding → `feature_panel_builder` 注入路径 + 单测 |
-| P2-d4 | Phase 2 closeout memo(每个 attempt 的确切 config 记录,per D2)|
+| P2-d2 | `core/ml/subsequence_transforms.py`(MiniROCKET/shapelet/dictionary 至少一条 bridge baseline)|
+| P2-d3 | `core/ml/window_embedding.py`(TS2Vec 式 encoder + GASF/GADF + patch 视图)|
+| P2-d4 | `data/manifests/chart_structure_pretrain_corpus_v1.json`(预训练语料 manifest,含 `train_years_only` + universe 字段)|
+| P2-d5 | bridge/embedding → `feature_panel_builder` 注入路径 + 单测 |
+| P2-d6 | Phase 2 closeout memo(每个 attempt 的确切 config 记录,per D2)|
+| P2-d7 | (可选)prototype/retrieval library —— embedding nearest-neighbor / motif 诊断层(2B-4,无 blocking AC)|
 
 ### §4.5 Acceptance(audit checklist)
 
@@ -281,13 +322,15 @@ family T 这 12 列**。度量 = 每 fold 的 `IC_treat − IC_baseline`,对 12
 |---|---|
 | P2-A1 | Phase 2A 配对检验报 `mean(ΔIC)` + `std` + paired-t `p` + 95% CI;baseline 与 treatment 仅差 12 列(代码 diff 可验)|
 | P2-A2 | incremental-IC 结论 config-scoped(写「这组 12 特征 + 这个 config」,不写「结构信息不存在」)|
-| P2-A3 | `window_embedding.py` 有单测;GASF/GADF 变换对已知输入有 numerical sanity test |
-| P2-A4 | embedding 注入后 `build_ml_panel` 仍正常产 panel(回归测试)|
-| P2-A5 | Phase 2 closeout 含 per-attempt config 表 |
+| P2-A3 | 至少一条 bridge baseline(MiniROCKET / shapelet / dictionary)有实现、有单测、有下游 IC 报告 |
+| P2-A4 | `window_embedding.py` 有单测;GASF/GADF / patch 视图对已知输入有 numerical sanity test |
+| P2-A5 | `chart_structure_pretrain_corpus_v1.json` 存在且字段完整(含 `train_years_only` + universe);默认 `train_years_only=true`;后续 attempt 可追溯到同一 corpus manifest;corpus 不含 sealed 窗口(单测验证)|
+| P2-A6 | bridge / embedding 注入后 `build_ml_panel` 仍正常产 panel(回归测试)|
+| P2-A7 | Phase 2 closeout 含 per-attempt config 表 + representation_view + corpus manifest id |
 
 ### §4.6 Engineering estimate / Fire trigger / Abort
 
-- 估时:2A ~1 周;2B ~1-2 周。
+- 估时:2A ~1 周;2B ~1-3 周。
 - Fire:Phase 1 family T ship + P1-A1..A6 全过。
 - Abort(config-scoped,per D2):2A 若配对检验 `mean(ΔIC) ≤ 0 且 CI 含
   0` → 记录「这组 12 特征 + rank:ndcg config 未显新增信息」,root-cause
@@ -313,6 +356,12 @@ candlestick pattern 不优于纯图像、且 **XGBoost 在 GAF 图像上反超 C
 **共识:视觉分析是 multi-factor 方法的一环,不是 standalone oracle。**
 → Phase 3 的 chart-native 模型是 **ensemble 候选**,必须在裁判下打败
 tabular baseline 才有资格,不是默认主模型。
+
+同时,时间序列文献里还有一条对 PQS 很重要的补充证据:高质量 time-series
+pipeline 往往不是「只押一种表示」,而是组合 shapelet / dictionary /
+interval / convolution 等**异质表示域**。这意味着长期 scope 不应只写
+「family T → TS2Vec/GAF → CNN」一条线,还应保留 Phase 2B 的 bridge
+表示层作为长期稳定分支。
 
 ### §5.3 spec — 3 个并行分支
 
@@ -457,6 +506,9 @@ chart-structure 衍生候选成为 **fleet nominee** 的充要条件:
   `feedback_temporal_split_discipline`)。
 - 标签区间重叠时下游 IC 走 purged + embargo(对齐
   `temporal_split.purge_labels_at_boundary`)。
+- **自监督预训练语料同样受 split 纪律约束**:`chart_structure_pretrain_corpus_v1`
+  默认只纳 train_years 窗口(`train_years_only=true`)—— 预训练复用所有
+  窗口,corpus 含 holdout 数据会污染 sealed 评估。详 §4.3 2B-3。
 - WebSearch 只查方法/论文,禁查当前年 market behavior 数据(memory
   `feedback_websearch_sealed_data_discipline`)。
 
@@ -489,7 +541,7 @@ chart-structure 衍生候选成为 **fleet nominee** 的充要条件:
 |---|---|---|---|
 | 1 | swing 段结构 family T | 2-3 天 | 无(立即 fire)|
 | 2A | incremental-IC 配对检验 | ~1 周 | P1 |
-| 2B | 自监督 embedding | ~1-2 周 | P1 |
+| 2B | bridge + 自监督表示层 + corpus manifest | ~1-3 周 | P1 |
 | 3 | chart-native 模型(3A/3B/3C)| ~3-5 周 | P2(3A 需 P4)|
 | 4 | universe expansion | ~2-3 周 | P2(与 P3 交错)|
 
@@ -507,11 +559,27 @@ chart-structure 衍生候选成为 **fleet nominee** 的充要条件:
    (operator 倾向先 GAF GASF+GADF,确定性变换、无绘图歧义。)
 4. embedding 维度 / 窗口长度 —— 待 Phase 2B 设计 memo 细化。
 5. `K`(lookback swing 数)默认 8 是否合适 —— Phase 1 可先扫 6/8/12。
+6. bridge baseline 优先级 + 依赖 —— MiniROCKET 先做,还是 shapelet/
+   dictionary 先做?(operator 倾向 MiniROCKET first,因为快、强基线、对
+   当前样本规模更友好。)依赖决策:MiniROCKET 走新依赖(`sktime`/`pyts`)
+   还是 ~200 行 numpy 自实现?(operator 倾向自实现,避免给 PQS 引入重
+   依赖;implement 前确认。)
+7. 预训练语料粒度 —— 只做 daily,还是把 weekly / 60m 一起纳入
+   `chart_structure_pretrain_corpus_v1`?(operator 倾向先 daily freeze schema,
+   预留 multi-timeframe 字段,避免 schema 返工。)
 
 ---
 
-## §11 本 PRD 的 audit trail(无 codex,operator 自审)
+## §11 本 PRD 的 audit trail(operator 自审 + codex v2 复审)
 
+- **codex v2 复审**(2026-05-15):codex 直接改了 PRD 三处 —— (1) Phase 2B
+  补 bridge 表示层(MiniROCKET/shapelet/dictionary);(2) 加预训练语料
+  manifest 层;(3) 修 2B 估时不自洽(统一 ~1-3 周)。operator 独立复核:
+  三处均成立、有文献支撑,**接受**。operator 另补三处 codex 漏掉的:
+  (a) corpus manifest 必须受 sealed split 纪律约束(§4.3 2B-3 + §7.3) ——
+  预训练复用所有窗口,corpus 含 holdout 会污染 sealed,这是真实污染风险;
+  (b) memo §3.5 分支 4(prototype/retrieval library)codex 没进 PRD,
+  补为可选诊断层 2B-4;(c) §11 本节标题更新。
 - **codebase audit**(Explore agent,2026-05-15):核实 9 个 PRD 假设。
   关键发现:`detect_swing_extrema` non-causal(→ §3.4 因果包装硬要求);
   `--universe` flag 不存在(→ §6.2 plumbing spec);无图像/CNN/GAF 代码
@@ -608,6 +676,16 @@ closeout 记于 `docs/memos/`,lineage `chart-structure-input-repr-2026-05-15`。
   https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3756587
 - arXiv `TS2Vec: Towards Universal Representation of Time Series`
   https://arxiv.org/abs/2106.10466
+- arXiv `MINIROCKET: A Very Fast (Almost) Deterministic Transform for Time Series Classification`
+  https://arxiv.org/abs/2012.08791
+- arXiv `HIVE-COTE 2.0: a new meta ensemble for time series classification`
+  https://arxiv.org/abs/2104.07551
+- OpenReview `A Time Series is Worth 64 Words: Long-term Forecasting with Transformers`
+  https://openreview.net/forum?id=Jbdc0vTOcol
+- arXiv `MOMENT: A Family of Open Time-series Foundation Models`
+  https://arxiv.org/abs/2402.03885
+- Google Research `A decoder-only foundation model for time-series forecasting`
+  https://research.google/blog/a-decoder-only-foundation-model-for-time-series-forecasting/
 - arXiv `TS2Vec-Ensemble`(2511.22395,encoder + 工程特征融合)
 - Vantuch-Zelinka-Vasant 2018 `An algorithm for Elliott Waves pattern
   detection`(IDT,确定性波形检测)
