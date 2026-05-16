@@ -673,3 +673,33 @@ underfit-flagged,跨拟合度 verdict 稳定)。chart-native 未打过动量
 expanded_v1 重检现有 flag 可达(evidence-gated)。
 **8/9/10/11**: 见 `docs/memos/20260516-chart_structure_prd_audit.md`
 §4/§8/§9(directional 决策 + 4-tier 自审 + 待办)。
+
+---
+
+## AUDIT-FIX — phase3 temporal_split 违规修复(2026-05-16,用户 audit 触发)
+
+**1. 主题**: 用户追问 mining 是否违反 train/validation/sealed 隔离纪律。
+**2. 真跑核验结论**: phase2a 增量-IC **合规**(`partition_for_role(role=
+"selector")`+`purge_labels_at_boundary`);**phase3 attempt(3A/3B/3C)
+违规** —— panel 实测 2009→2026-05-15 含 1255 validation 行 + 93
+sealed-2026 行,2017/2024 OOS 21d label 溢进 2018/2025 validation。
+模型 fit 本身只在 train(干净),但 panel/eval 违反
+`feedback_temporal_split_discipline` + `fail_closed_if_*_in_train_panel`。
+sealed 2026 未进任何 fitted/selected 标量(未被消耗)。
+**3. 修复**: 3 runner 改走 canonical `partition_for_role(role="miner")`
+(train-only)+ `validate_no_holdout_leakage`(fail-closed)+
+`purge_labels_at_boundary`,取代手搓 `purged_fit_mask`(模块+测试保留
+为 purge 工具单测)。
+**4. 文件**: `phase3_run_{3a,3b,3c}_attempt.py`(canonical 接线)、
+3 attempt JSON(clean 重跑)、Phase 3 closeout §3/§5/§6、audit memo
+§0+§10。
+**5. clean 重跑(panel 4867→3021 = 纯 train)**: 3A IC 0.0560/base
+0.1195/p0.022、3B 0.0341/0.1124/≈0、3C 0.0283/0.1149/p0.001 —— **三个
+全部 `underperforms_tabular_baseline`**。原「3C no_significant / 3C>3A>3B
+单调」是泄漏伪影。**负结论在合规数据上更强更清晰。**
+**6. 已 commit 数字 caveat**: commit 0616114/5c8f833 的非 purged + 手搓
+embargo 两版 deprecated(git history 留作 audit trail),权威值=本 fix
+commit canonical 重跑。
+**7. 自审**: R1 集合/范围/溢出日期全实跑;R2 fit 干净 vs panel 违规
+独立;R3 panel 4867→3021 + verdict 全 underperform 符合预期;R4
+fail-closed 断言挂 panel + phase2a 单独核验未误伤。

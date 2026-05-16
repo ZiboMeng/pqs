@@ -37,13 +37,18 @@ from core.factors.swing_structure import (  # noqa: E402
     detect_raw_swings,
 )
 from core.ml.phase3_attempt import Phase3Attempt  # noqa: E402
-from core.ml.phase3_eval import purged_fit_mask  # noqa: E402
 from core.ml.structure_sequence_encoder import (  # noqa: E402
     MAX_SEGMENTS,
     StructureSequenceEncoder,
     segment_sequence_asof,
 )
-from core.research.temporal_split import load_temporal_split, train_year_set  # noqa: E402
+from core.research.temporal_split import (  # noqa: E402
+    load_temporal_split,
+    partition_for_role,
+    purge_labels_at_boundary,
+    train_year_set,
+    validate_no_holdout_leakage,
+)
 from core.universe.universe_resolver import resolve_universe  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
@@ -97,7 +102,18 @@ def main() -> int:
         close[s] = df["close"]
         bars_by_sym[s] = df
     close_df = pd.DataFrame(close).sort_index()
-    fwd = compute_forward_returns(close_df, horizons=[_HORIZON], mode="cc")[_HORIZON]
+
+    # temporal_split discipline (memory feedback_temporal_split_discipline):
+    # train-only mining panel + fail-closed holdout guard + boundary
+    # label purge; restrict swing bars to the train-only index too.
+    mining_panel = partition_for_role({"close": close_df}, split, role="miner")
+    close_df = mining_panel["close"]
+    validate_no_holdout_leakage(mining_panel, split)
+    bars_by_sym = {s: d[d.index.isin(close_df.index)]
+                   for s, d in bars_by_sym.items()}
+    fwd = purge_labels_at_boundary(
+        compute_forward_returns(close_df, horizons=[_HORIZON],
+                                mode="cc")[_HORIZON], split)
     mom126 = close_df.pct_change(126)  # tabular baseline factor
     log.info("panel %s, %d symbols, build %.1fs",
              close_df.shape, len(close), time.time() - t0)
@@ -142,18 +158,8 @@ def main() -> int:
             yz[sel] = (v - v.mean()) / v.std()
     train_ok = fit_m & np.isfinite(yz)
 
-    # P3-A3 purge: embargo fit samples whose 21d label crosses into an
-    # OOS year (year-block split leaks at the fit→OOS boundary).
-    all_sorted = np.array(sorted(close_df.index))
-    keep_purge = purged_fit_mask(
-        sample_dates=dates, sample_years=years,
-        fit_years=fit_years, oos_years=_OOS_YEARS,
-        horizon=_HORIZON, all_sorted_dates=all_sorted)
-    n_pre = int(train_ok.sum())
-    train_ok = train_ok & keep_purge
-    n_purged = n_pre - int(train_ok.sum())
-    log.info("P3-A3 purge: dropped %d/%d boundary-leaking fit samples",
-             n_purged, n_pre)
+    # boundary purge applied at panel level (train-only partition +
+    # purge_labels_at_boundary → cross-boundary labels NaN, dropped here).
 
     # ---- train 3B -------------------------------------------------------
     torch.manual_seed(_SEED)
@@ -277,9 +283,11 @@ def main() -> int:
             "fit_years": sorted(fit_years),
             "oos_years": sorted(_OOS_YEARS),
             "universe_flag": args.universe,
-            "purge": f"P3-A3 year-boundary embargo: dropped {n_purged} "
-                     f"fit samples whose {_HORIZON}d label crossed into "
-                     f"an OOS year",
+            "purge": "canonical: partition_for_role(role='miner') "
+                     "(train-only panel) + validate_no_holdout_leakage "
+                     "+ purge_labels_at_boundary",
+            "temporal_split_discipline": "train-only mining panel; "
+                     "no validation/sealed rows; cross-boundary labels purged",
             "epochs": _EPOCHS, "batch": _BATCH, "lr": 1e-3, "seed": _SEED,
             "n_train_samples": int(train_ok.sum()),
             "n_oos_samples": int(oos_m.sum()),
