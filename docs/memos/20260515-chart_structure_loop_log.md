@@ -465,3 +465,34 @@ family T / MiniROCKET / TS2Vec)全 ship;后两者下游实验 evidence-gated。
 **11. TODO**:
 - [x] Phase 2B 完成 —— `CHARTSTRUCT-P2B-DONE`
 - [ ] Phase 3 R1-R5
+
+---
+
+## P3·R1 — 3B structure-sequence encoder(2026-05-16)
+
+**1. 主题**: Phase 3 / R1(build round)。
+**2. 目标**: `core/ml/structure_sequence_encoder.py` —— 吃 family T
+swing 段序列的 chart-native 模型。
+**3. 为什么**: Phase 3 第一个 chart-native 模型。3B 的输入不是日线 bar
+序列,而是「swing 段 token 序列」—— 每段 `[len_pct, dur, slope_pct, dir]`。
+**4. 做了什么**:
+(a) `segment_sequence_asof(raw_swings, t_idx)` —— 走 `confirmed_swings_asof`,
+段序列严格因果(段的两端 swing 必须 confirmation_idx ≤ t)。
+(b) `StructureSequenceEncoder` —— **复用 `SmallEncoder`**(1-layer
+transformer,~50k 参数,4GB VRAM 安全),n_features=4、seq_len=max_segments
+=16。execution PRD §7「扩展 SmallEncoder 吃段序列」。
+(c) `build_structure_sequences` —— 一只票多个 bar 索引批量建段序列
+(`detect_raw_swings` 只跑一次,compute-once)。`smoke_train_3b`。
+**5. 文件**: 新增 `core/ml/structure_sequence_encoder.py`、
+`tests/unit/ml/test_structure_sequence_encoder.py`(7 单测)。
+**6. 测试**: 7 单测 green。**P3-A5 `test_phase3b_uses_confirmed_swings`**
+硬验证因果:as-of-t 段序列从「全序列」和「截到 t 的序列」算出来
+**逐元素相等** —— 段序列不读 t 之后任何 bar。smoke 训练 40 步
+loss 下降(target = 末段 slope 的线性函数,模型学得动)。
+**7. 结果**: P3-A5 PASS。3B encoder ready。
+**8. 新问题**: 无。
+**9. 剩余风险**: 真实 attempt(全量训练 + eval)在 R2 跑。
+**10. 下一轮**: P3·R2 —— 3B attempt + eval(experiment round)。
+**11. TODO**:
+- [x] P3·R1 完成
+- [ ] P3·R2 / R3 / R4 / R5
