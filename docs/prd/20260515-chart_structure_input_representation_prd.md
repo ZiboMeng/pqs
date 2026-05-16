@@ -144,27 +144,35 @@ swing_{j+1}:
 `K` 初始占位 8 —— **设计占位值,无证据基础**,Phase 1 必须 sweep 6/8/12
 标定(§10 q5;provenance 见 §C)。
 
-### §3.3 12 个特征(D4 锁定起步集,exact 定义)
+### §3.3 12 个特征(D4 锁定 12 个名额,P1·R2 修正后定义)
 
-设截至 t 已确认最近段序列 `seg[0..m-1]`(m ≤ K−1,seg[m−1] 最新)。
+设截至 t 已确认、严格交替的最近 K-swing 窗口 = `S[0..w-1]`(w ≤ K),
+段序列 `seg[0..m-1]`(m = w−1,seg[m−1] 最新)。
 
-| # | 特征 | 定义(formula) |
+> **P1·R2 修正(2026-05-15,用户批准)**:v2 draft 的特征 1/2/7/8/9 在
+> 严格交替 swing 序列里**退化**(相邻段恒反向 → 同向条件恒假;相邻段恒
+> 共端点 → 重叠恒真;段计数恒近相等)。Elliott 的「递进 vs 重叠」本质是
+> **隔段(隔 2)的同向/同 kind 比较**(浪 3 vs 浪 1)。已修正;1/2 替换为
+> 有信息特征。完整理由见 loop log P1·R2。所有 12 个名额数(D4)不变。
+
+| # | 特征(实现名) | 定义(formula) |
 |---|---|---|
-| 1 | `seg_count_up` | `#{j : dir_j = +1}` |
-| 2 | `seg_count_down` | `#{j : dir_j = −1}` |
-| 3 | `last_seg_len_ratio` | `len[m−1] / len[m−2]`;m<2 → NaN;分母 0 → NaN |
-| 4 | `last_seg_slope_ratio` | `|slope[m−1]| / |slope[m−2]|`;同上边界 |
-| 5 | `fib_retrace_fit_382` | 若 seg[m−1] 与 seg[m−2] 反向:`r = len[m−1]/len[m−2]`,`fit = max(0, 1 − |r − 0.382| / tol)`;否则 NaN。`tol` ∈ config,初始占位 0.15(**无证据基础、无 websearch 锚,Phase 1 必须标定** —— 见 §C)|
-| 6 | `fib_retrace_fit_618` | 同 5,对 0.618 |
-| 7 | `impulse_score` | 最近 K-swing 内「连续同向且递进」段占比:`#{j : dir_j = dir_{j−1} 且 |price 创新极值|} / (m−1)` ∈ [0,1] |
-| 8 | `corrective_score` | 段价格区间与前一段区间重叠的占比:`#{j : overlap(range_j, range_{j−1}) > 0} / (m−1)` ∈ [0,1] |
-| 9 | `trend_maturity_0_1` | 当前同向 leg 计数归一:`min(1, consecutive_same_dir_legs / maturity_cap)`,`maturity_cap` ∈ config,初始占位 5(Elliott 5-浪**弱启发**,非实测;Phase 1 标定 —— 见 §C)|
-| 10 | `swing_high_low_overlap_pct` | 最近上升结构里,相隔一段的两段价格区间重叠幅度 / 后段幅度(浪 4 重叠代理);无上升结构 → NaN |
-| 11 | `seg_len_dispersion` | 最近 K−1 段 `len` 的变异系数 `std/mean`;mean 0 → NaN |
-| 12 | `since_last_swing_bars` | `t − idx[最新已确认 swing]`(整数 bar 数) |
+| 1 | `swing_last_up_seg_len_pct` | 最近 up-segment 长度 / 其 start_price;无 up-seg → NaN。(替换退化的 `seg_count_up`)|
+| 2 | `swing_net_drift_k` | `(S[w−1].price − S[0].price) / S[0].price`,有符号;w<2 → NaN。(替换退化的 `seg_count_down`)|
+| 3 | `swing_last_seg_len_ratio` | `len[m−1] / len[m−2]`;m<2 或 len[m−2]=0 → NaN |
+| 4 | `swing_last_seg_slope_ratio` | `|slope[m−1]| / |slope[m−2]|`;同上边界 |
+| 5 | `swing_fib_retrace_fit_382` | `r = len[m−1]/len[m−2]`(交替序列中末两段恒反向,r 即回撤比);`fit = max(0, 1 − |r−0.382| / tol)` ∈[0,1];m<2 或 len[m−2]=0 → NaN。`tol` 初始占位 0.15(**无证据基础**,Phase 2A 标定,§C)|
+| 6 | `swing_fib_retrace_fit_618` | 同 5,对 0.618 |
+| 7 | `swing_impulse_score` | 同 kind swing 对 `(S[i],S[i−2])` 方向一致度:`|#递进上 − #递进下| / #对` ∈[0,1];无对(w<3)→ NaN。(修正:原「相邻段同向」退化)|
+| 8 | `swing_corrective_score` | 隔一段同向段对 `(seg[j],seg[j−2])` 价格区间重叠占比 ∈[0,1];m<3 → NaN。(修正:原「相邻段重叠」恒真退化)|
+| 9 | `swing_trend_maturity` | 最近连续「同向同 kind swing 对」run 长度 / `maturity_cap`,clip [0,1];无对或末对方向=0 → NaN。`maturity_cap` 初始占位 5(Elliott 5-浪**弱启发**,§C)。(修正:原 `consecutive_same_dir_legs` 在交替序列 ill-defined)|
+| 10 | `swing_high_low_overlap_pct` | `seg[m−1]` 与 `seg[m−3]`(隔 2,同向)价格区间重叠幅度 / `len[m−1]` ∈[0,1];m<3 或 len[m−1]=0 → NaN(浪 4 重叠浪 1 代理)|
+| 11 | `swing_seg_len_dispersion` | window 内段长 `len` 的变异系数 `std/mean`;m<2 或 mean=0 → NaN |
+| 12 | `swing_since_last_swing_bars` | `t − idx[最新已确认 swing]`(整数 bar 数,≥0)|
 
 所有阈值(`K` / `tol` / `maturity_cap` / `SwingConfig.n`)进
 `config/swing_structure.yaml`,**不得 hardcode**(CLAUDE.md 不变量)。
+swing 在 **close 序列**上检测(PRD §3.2)。
 其中 `K` / `tol` / `maturity_cap` 是**设计占位值,非推荐值** —— 无实验 /
 无 websearch 依据,Phase 1 必须 sweep 标定后才能在结论里引用;`SwingConfig.n`
 默认 5 = `detect_swing_extrema` 现有默认(FACT)。全部 provenance 见 §C。

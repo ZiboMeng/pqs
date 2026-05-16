@@ -12,12 +12,28 @@ import pandas as pd
 from core.factors.swing_structure import (
     HIGH,
     LOW,
+    SWING_STRUCTURE_FEATURES,
     SwingPoint,
     SwingStructureConfig,
     _collapse_alternating,
+    compute_swing_structure_factors,
     confirmed_swings_asof,
     detect_raw_swings,
+    load_swing_structure_config,
 )
+
+# domain of each of the 12 family-T features for the P1-A1 ranges test
+_UNIT_INTERVAL = {
+    "swing_fib_retrace_fit_382", "swing_fib_retrace_fit_618",
+    "swing_impulse_score", "swing_corrective_score",
+    "swing_trend_maturity", "swing_high_low_overlap_pct",
+}
+_NON_NEGATIVE = {
+    "swing_last_up_seg_len_pct", "swing_last_seg_len_ratio",
+    "swing_last_seg_slope_ratio", "swing_seg_len_dispersion",
+    "swing_since_last_swing_bars",
+}
+_SIGNED_FINITE = {"swing_net_drift_k"}
 
 
 def _zigzag_bars(n_cycles: int = 6, seg: int = 14,
@@ -104,3 +120,80 @@ def test_detect_raw_swings_zigzag_nonempty():
     assert {s.kind for s in raw} == {HIGH, LOW}
     # confirmation lag is exactly swing_n
     assert all(s.confirmation_idx == s.idx + cfg.swing_n for s in raw)
+
+
+def _drift_zigzag(n_cycles: int = 12, seg: int = 13, base: float = 100.0,
+                  amp: float = 18.0, drift: float = 1.5,
+                  amp_jitter: float = 2.0) -> np.ndarray:
+    """Upward-drifting triangular wave with per-cycle amplitude variation —
+    produces non-degenerate swings (same-kind swings differ in price; segment
+    lengths vary), unlike a perfectly periodic zigzag."""
+    close: list[float] = []
+    for c in range(n_cycles):
+        lo = base + drift * c
+        hi = lo + amp + amp_jitter * (c % 3)
+        close += list(np.linspace(lo, hi, seg, endpoint=False))
+        lo2 = base + drift * (c + 1)
+        close += list(np.linspace(hi, lo2, seg, endpoint=False))
+    return np.asarray(close, dtype=float)
+
+
+def _zigzag_panel(n_symbols: int = 3) -> pd.DataFrame:
+    cols = {}
+    for s in range(n_symbols):
+        cols[f"SYM{s}"] = _drift_zigzag(base=100.0 + 5.0 * s,
+                                        drift=1.5 + 0.3 * s)
+    n = len(next(iter(cols.values())))
+    idx = pd.date_range("2020-01-01", periods=n, freq="D")
+    return pd.DataFrame(cols, index=idx)
+
+
+def test_swing_structure_ranges():
+    """P1-A1: all 12 family-T features are produced, each non-NaN value is
+    inside its declared domain, and the feature set is non-vacuous."""
+    panel = _zigzag_panel()
+    cfg = SwingStructureConfig(swing_n=5, K=8)
+    factors = compute_swing_structure_factors(panel, cfg=cfg)
+
+    assert set(factors.keys()) == set(SWING_STRUCTURE_FEATURES)
+    assert len(SWING_STRUCTURE_FEATURES) == 12
+
+    for name, df in factors.items():
+        assert list(df.index) == list(panel.index)
+        assert list(df.columns) == list(panel.columns)
+        vals = df.to_numpy(dtype=float).ravel()
+        finite = vals[np.isfinite(vals)]
+        assert finite.size > 0, f"{name} produced only NaN — vacuous"
+        if name in _UNIT_INTERVAL:
+            assert (finite >= 0.0).all() and (finite <= 1.0).all(), \
+                f"{name} out of [0,1]"
+        elif name in _NON_NEGATIVE:
+            assert (finite >= 0.0).all(), f"{name} negative"
+        elif name in _SIGNED_FINITE:
+            assert np.isfinite(finite).all(), f"{name} non-finite"
+        else:
+            raise AssertionError(f"{name} not classified in a domain set")
+
+
+def test_swing_structure_config_sourced():
+    """P1-A6: thresholds come from config/swing_structure.yaml (not
+    hardcoded). The yaml loads; and K demonstrably drives behaviour —
+    different K => different feature output."""
+    cfg = load_swing_structure_config()
+    assert (cfg.swing_n, cfg.K, cfg.tol, cfg.maturity_cap) == (5, 8, 0.15, 5)
+
+    panel = _zigzag_panel()
+    f_k8 = compute_swing_structure_factors(
+        panel, cfg=SwingStructureConfig(swing_n=5, K=8))
+    f_k4 = compute_swing_structure_factors(
+        panel, cfg=SwingStructureConfig(swing_n=5, K=4))
+    # at least one feature must differ somewhere — proves K flows from cfg
+    differs = False
+    for name in SWING_STRUCTURE_FEATURES:
+        a = f_k8[name].to_numpy(dtype=float)
+        b = f_k4[name].to_numpy(dtype=float)
+        both = np.isfinite(a) & np.isfinite(b)
+        if both.any() and not np.allclose(a[both], b[both]):
+            differs = True
+            break
+    assert differs, "feature output identical for K=8 vs K=4 — K not config-sourced"

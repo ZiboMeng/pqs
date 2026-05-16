@@ -1,0 +1,16 @@
+# Chart-structure family T — swing-structure feature config.
+# Per docs/prd/20260515-chart_structure_input_representation_prd.md §3.
+#
+# swing_n  = detect_swing_extrema half-window. Default 5 = the existing
+#            core/intraday/sr_swing.detect_swing_extrema default (FACT,
+#            PRD §C).
+# K        = lookback swing count for the segment window. PLACEHOLDER —
+#            NO evidence basis; Phase 2A sweeps {6, 8, 12} (PRD §C / §10 q5).
+# tol      = Fibonacci-retracement fit tolerance band. PLACEHOLDER — no
+#            evidence / no websearch anchor; calibrated in Phase 2A.
+# maturity_cap = trend-maturity normalisation cap. PLACEHOLDER — weak
+#            Elliott 5-wave heuristic; calibrated in Phase 2A.
+swing_n: 5
+K: 8
+tol: 0.15
+maturity_cap: 5
