@@ -1,0 +1,58 @@
+{
+  "schema_version": "1.0",
+  "attempt_id": "3a_001",
+  "model": "3A",
+  "created_at": "2026-05-16T16:38:31.963535+00:00",
+  "representation": "gasf_gadf_chart_image",
+  "status": "experimented",
+  "verdict": "underperforms_tabular_baseline",
+  "verdict_scope": "config_scoped",
+  "config": {
+    "model": "ChartCNN (2 conv blocks, ~30k params)",
+    "image": "GASF+GADF 2-channel, window_len=63",
+    "horizon_days": 21,
+    "universe": "executable (79, ex-SPY/QQQ)",
+    "fit_years": [
+      2009,
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2020,
+      2022
+    ],
+    "oos_years": [
+      2017,
+      2024
+    ],
+    "date_stride": 3,
+    "epochs": 80,
+    "batch": 256,
+    "lr": 0.001,
+    "seed": 42,
+    "n_train_samples": 19961,
+    "n_oos_samples": 8992,
+    "train_loss_first_last": [
+      1.0015,
+      0.3547
+    ]
+  },
+  "eval": {
+    "eval_method": "within-train fit/OOS split; per-OOS-date cross-sectional Spearman rank-IC of CNN score vs 21d close-to-close forward return; paired t-test of per-date IC vs baseline",
+    "cost_model": "30bp_per_side (reported; rank-IC itself is pre-cost)",
+    "turnover_penalty": "monthly top-8 name turnover = 0.648; implied cost drag ~2.33%/yr",
+    "oos_rank_ic": 0.03185,
+    "vs_tabular_baseline": -0.05999,
+    "baseline": "126d trailing return (mom_126d)",
+    "baseline_oos_rank_ic": 0.09183,
+    "paired_diff_mean": -0.05999,
+    "paired_t_stat": -2.52,
+    "paired_p_value": 0.0117,
+    "n_oos_dates": 167
+  },
+  "root_cause": "3A GAF image-CNN OOS rank-IC is significantly BELOW the 126d momentum baseline. The GASF/GADF encoding spreads a 63-bar window into a 63x63 image whose dominant signal (the angular sum field) is a smooth re-encoding of cumulative return; a 2-conv CNN at this config did not extract more cross-sectional rank signal than the momentum factor it is built from.",
+  "notes": "Phase 3 image-CNN attempt. Within-train fit/OOS split — no validation/sealed data read. Date-subsampled (stride 4) for RAM."
+}

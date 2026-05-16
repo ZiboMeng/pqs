@@ -35,6 +35,16 @@ def test_phase3_attempt_3b_001_loads_and_validates():
     assert a.status == "experimented"
 
 
+def test_phase3_attempt_3a_001_loads_and_validates():
+    a = load_phase3_attempt(
+        _PROJ / "data" / "audit" / "chart_structure" / "phase3_attempt_3a_001.json")
+    assert a.attempt_id == "3a_001"
+    assert a.model == "3A"
+    assert a.eval.eval_method and a.eval.cost_model and a.eval.turnover_penalty
+    if a.verdict != "beats_tabular_baseline":
+        assert a.root_cause and a.verdict_scope == "config_scoped"
+
+
 def test_eval_block_declares_required_fields():
     """P3-A3: eval must declare eval_method / cost_model / turnover_penalty."""
     a = load_phase3_attempt(_ATTEMPT)

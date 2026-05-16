@@ -65,21 +65,28 @@ if is_torch_available():
     import torch.nn.functional as F
 
     class ChartCNN(nn.Module):
-        """Small 2-channel CNN over GASF/GADF chart images.
+        """3-block 2-channel CNN over GASF/GADF chart images.
 
         forward: (batch, 2, W, W) → (batch,) forward-return score.
+        ~58k params — properly sized for a 63x63x2 input yet still well
+        inside the 4GB-VRAM budget.
         """
 
         def __init__(self, in_channels: int = 2):
             super().__init__()
-            self.conv1 = nn.Conv2d(in_channels, 16, 3, padding=1)
-            self.conv2 = nn.Conv2d(16, 32, 3, padding=1)
+            self.conv1 = nn.Conv2d(in_channels, 32, 3, padding=1)
+            self.conv2 = nn.Conv2d(32, 64, 3, padding=1)
+            self.conv3 = nn.Conv2d(64, 64, 3, padding=1)
+            self.fc = nn.Linear(64, 32)
+            self.dropout = nn.Dropout(0.1)
             self.head = nn.Linear(32, 1)
 
         def forward(self, x):
             h = F.max_pool2d(F.gelu(self.conv1(x)), 2)
             h = F.max_pool2d(F.gelu(self.conv2(h)), 2)
-            h = F.adaptive_avg_pool2d(h, 1).flatten(1)  # (B, 32)
+            h = F.max_pool2d(F.gelu(self.conv3(h)), 2)
+            h = F.adaptive_avg_pool2d(h, 1).flatten(1)  # (B, 64)
+            h = self.dropout(F.gelu(self.fc(h)))
             return self.head(h).squeeze(-1)
 
     def smoke_train_cnn(model: "ChartCNN", x: np.ndarray, y: np.ndarray,

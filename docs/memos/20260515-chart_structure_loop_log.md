@@ -558,3 +558,41 @@ shape、参数 <100k、smoke 训练 loss 下降。
 **11. TODO**:
 - [x] P3·R3 完成
 - [ ] P3·R4 / R5
+
+---
+
+## P3·R4 — 3A image-CNN attempt + eval(2026-05-16)
+
+**1. 主题**: Phase 3 / R4(**experiment round**)。
+**2. 目标**: 跑 3A GAF image-CNN attempt。
+**3. 为什么**: 3B 段序列丢幅度;3A 用 GAF 图保留完整窗口形状,验是否能补回。
+**4. 做了什么**:
+(a) **第一次跑 attempt 抓到 ChartCNN sizing bug**:R3 版 ChartCNN 只有
+4977 参数(63×63×2 图配 5k 参数是 undersizing,不是合理 config)——
+train loss 仅 0.9997→0.9617,模型几乎没学动(underfit)。**修正**:
+ChartCNN 改 3 conv block(32/64/64)+ FC,~58k 参数(仍 < 100k,4GB
+安全)。runner 用 D2 underfit 诊断(z-score target,train MSE 近 1.0
+= 没拟合)。
+(b) 重跑:executable-79、train partition 内 fit/OOS(fit 含 2015/16/20/22、
+OOS 2017/2024),GAF 图(date stride 3,28953 张 0.92GB),训 80 epoch。
+**5. 文件**: 修改 `core/ml/chart_cnn.py`(ChartCNN 扩容);新增
+`dev/scripts/chart_structure/phase3_run_3a_attempt.py`、
+`data/audit/chart_structure/phase3_attempt_3a_001.json`;扩
+`test_phase3_attempt.py`(+1 单测,共 9)。
+**6. 测试/实验**: 9 schema 单测 green;`test_chart_cnn.py` 6 单测 green
+(扩容后参数仍 < 100k)。实验:扩容 CNN train loss **1.0015→0.3547**
+(真拟合了 train,解释 ~65% 方差)。
+**7. 结果(诚实交代 —— 负结果)**: **3A OOS rank-IC=0.0318,显著低于
+126d 动量基线 0.0918(配对 p=0.012)→ verdict=`underperforms_tabular_
+baseline`**。round **PASS**(D2)。**root_cause**:扩容 CNN 真拟合了
+train(loss 0.35),但 OOS rank-IC(0.032)< 动量(0.092)—— train-OOS
+gap = GAF-CNN 学到的 train-set 形态不能跨截面泛化到打过 plain momentum。
+config-scoped 结论。
+**8. 新问题**: 3B(段序列)和 3A(GAF 图)两个 chart-native 模型都没打过
+最简单的 126d 动量 —— 和 Phase 2A family T 负结果同一根因(结构表征与
+动量/趋势因子高度冗余)。3C fusion 在 R5 验「组合是否 > 单路」。
+**9. 剩余风险**: 3C 待跑;两个负结果指向同一根因。
+**10. 下一轮**: P3·R5 —— 3C fusion + Phase 3 closeout。
+**11. TODO**:
+- [x] P3·R4 完成(负结果,config-scoped,round PASS)
+- [ ] P3·R5
