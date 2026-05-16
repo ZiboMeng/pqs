@@ -191,3 +191,49 @@ fire(incremental-IC 配对检验)。
 - [x] P1·R1 / P1·R2 / P1·R3 —— Phase 1 全部完成
 - [ ] Phase 2A:incremental-IC 配对检验
 - [ ] Phase 2B / Phase 4 / Phase 3
+
+---
+
+## P2A·R1 — incremental-IC harness(2026-05-15)
+
+**1. 主题**: Phase 2A / R1(build round)。
+**2. 目标**: 建 `phase2a_incremental_ic.py` —— 配对检验 harness。
+**3. 为什么**: Phase 1 family T 已 ship,要回答「结构输入有没有新增信息」
+必须有配对检验工具。
+**4. 做了什么**: harness:对照=RESEARCH_FACTORS−12 swing;实验=+family T;
+同 fold/seed/`colsample_bytree=1.0`(B3);per-year Rank IC + 配对 t 检验;
+K∈{6,8,12} 扫。3 个 pure-helper 单测。
+**5. 文件**: 新增 `dev/scripts/chart_structure/phase2a_incremental_ic.py`、
+`tests/unit/chart_structure/{__init__,test_phase2a_helpers}.py`。
+**6. 测试**: 3 helper 单测 green;harness import 校验。
+**7. 结果**: harness ready。commit `ec535dd`。
+**8. 新问题**: 无。
+**9. 剩余风险**: 实验结果未知(R2 跑)。
+**10. 下一轮**: P2A·R2 跑实验。
+**11. TODO**: R2 跑 incremental-IC。
+
+---
+
+## P2A·R2 — run incremental-IC + Phase 2A closeout(2026-05-15)
+
+**1. 主题**: Phase 2A / R2(experiment round)。
+**2. 目标**: 跑 K∈{6,8,12} incremental-IC,出 verdict + Phase 2A closeout。
+**3. 为什么**: 这是 Phase 2A 的核心实验 —— 结构输入到底有没有用。
+**4. 做了什么**: 在真实 79-symbol × 4276-day 面板上跑了配对实验
+(对照 101 因子 / 实验 113 因子,rank:ndcg,17 年 LOTYO)。
+**5. 文件**: 新增报告 `data/audit/chart_structure/phase2a_incremental_ic.json`、
+`tests/unit/chart_structure/test_phase2a_report.py`、Phase 2A closeout memo。
+**6. 测试/实验**: incremental-IC 实验(414s);report schema 单测。
+**7. 结果**: **family T 无显著正增量 IC** —— K=6 平均 ΔIC=+0.0075/p=0.078
+(最接近)、K=8 p=0.54、K=12 p=0.38。三个 K 全 p>0.05。verdict
+config-scoped。这是 experiment round 的负结果 —— **round 仍 PASS**(实验
+跑了、报告产出、verdict 记录),loop 不终止。
+**8. 新问题**: root-cause = family T 与对照组已有的 Family R 图形 + Family D
+趋势 + 动量因子**高度冗余**,在已富的 101-factor baseline 上增量信号弱。
+K=6(短窗口)最接近显著 → 结构信号 faint 存在、偏短周期。
+**9. 剩余风险**: family T alpha 弱(但未废弃,留漏斗);`tol`/`maturity_cap`
+仍 PLACEHOLDER。Phase 2B 是独立表示轴,负结果不预判它。
+**10. 下一轮**: Phase 2B(bridge + embedding)。
+**11. TODO**:
+- [x] Phase 2A 完成(family T 无显著增量,config-scoped)
+- [ ] Phase 2B / Phase 4 / Phase 3
