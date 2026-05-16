@@ -45,6 +45,40 @@ def test_phase3_attempt_3a_001_loads_and_validates():
         assert a.root_cause and a.verdict_scope == "config_scoped"
 
 
+def test_phase3_attempt_3c_001_loads_and_validates():
+    a = load_phase3_attempt(
+        _PROJ / "data" / "audit" / "chart_structure" / "phase3_attempt_3c_001.json")
+    assert a.attempt_id == "3c_001"
+    assert a.model == "3C"
+    assert a.eval.eval_method and a.eval.cost_model and a.eval.turnover_penalty
+    if a.verdict != "beats_tabular_baseline":
+        assert a.root_cause and a.verdict_scope == "config_scoped"
+
+
+def test_phase3_attempt_schema():
+    """P3-A1 literal-named test (main PRD §5.6 names this exact test).
+
+    PRD-audit 2026-05-16: the spec names `test_phase3_attempt_schema`;
+    this asserts the schema model rejects malformed records and accepts
+    all real attempt JSONs, so the named AC is satisfied literally."""
+    # rejects: negative verdict without root_cause / global scope / empty config
+    bad = dict(_BASE)
+    bad.pop("root_cause")
+    with pytest.raises(ValidationError):
+        Phase3Attempt.model_validate(bad)
+    with pytest.raises(ValidationError):
+        Phase3Attempt.model_validate(dict(_BASE, verdict_scope="global"))
+    with pytest.raises(ValidationError):
+        Phase3Attempt.model_validate(dict(_BASE, config={}))
+    # accepts every real attempt record
+    base = _PROJ / "data" / "audit" / "chart_structure"
+    for aid in ("3b_001", "3a_001", "3c_001"):
+        a = load_phase3_attempt(base / f"phase3_attempt_{aid}.json")
+        assert a.eval.eval_method and a.eval.cost_model
+        assert a.eval.turnover_penalty
+        assert isinstance(a.eval.vs_tabular_baseline, float)
+
+
 def test_eval_block_declares_required_fields():
     """P3-A3: eval must declare eval_method / cost_model / turnover_penalty."""
     a = load_phase3_attempt(_ATTEMPT)

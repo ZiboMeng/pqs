@@ -16,6 +16,7 @@ Writes data/audit/chart_structure/phase3_attempt_3b_001.json.
 """
 from __future__ import annotations
 
+import argparse
 import logging
 import sys
 import time
@@ -36,6 +37,7 @@ from core.factors.swing_structure import (  # noqa: E402
     detect_raw_swings,
 )
 from core.ml.phase3_attempt import Phase3Attempt  # noqa: E402
+from core.ml.phase3_eval import purged_fit_mask  # noqa: E402
 from core.ml.structure_sequence_encoder import (  # noqa: E402
     MAX_SEGMENTS,
     StructureSequenceEncoder,
@@ -70,10 +72,18 @@ def _spearman(a: np.ndarray, b: np.ndarray) -> float:
 def main() -> int:
     import torch
 
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--universe", choices=["executable", "expanded_v1"],
+                    default="executable",
+                    help="symbol universe (default executable = 79-symbol; "
+                         "expanded_v1 = Phase-4 expanded). P4-A1 entrypoint flag.")
+    args = ap.parse_args()
+
     t0 = time.time()
     cfg = load_config(_PROJ / "config")
     store = BarStore(root=Path(cfg.system.paths.data_dir))
-    syms = [s for s in resolve_universe("executable") if s not in ("SPY", "QQQ")]
+    syms = [s for s in resolve_universe(args.universe)
+            if s not in ("SPY", "QQQ")]
     split = load_temporal_split(_PROJ / "config" / "temporal_split.yaml")
     train_years = train_year_set(split)
     fit_years = train_years - _OOS_YEARS
@@ -131,6 +141,19 @@ def main() -> int:
         if v.std() > 0:
             yz[sel] = (v - v.mean()) / v.std()
     train_ok = fit_m & np.isfinite(yz)
+
+    # P3-A3 purge: embargo fit samples whose 21d label crosses into an
+    # OOS year (year-block split leaks at the fit→OOS boundary).
+    all_sorted = np.array(sorted(close_df.index))
+    keep_purge = purged_fit_mask(
+        sample_dates=dates, sample_years=years,
+        fit_years=fit_years, oos_years=_OOS_YEARS,
+        horizon=_HORIZON, all_sorted_dates=all_sorted)
+    n_pre = int(train_ok.sum())
+    train_ok = train_ok & keep_purge
+    n_purged = n_pre - int(train_ok.sum())
+    log.info("P3-A3 purge: dropped %d/%d boundary-leaking fit samples",
+             n_purged, n_pre)
 
     # ---- train 3B -------------------------------------------------------
     torch.manual_seed(_SEED)
@@ -253,16 +276,21 @@ def main() -> int:
             "universe": "executable (79, ex-SPY/QQQ)",
             "fit_years": sorted(fit_years),
             "oos_years": sorted(_OOS_YEARS),
+            "universe_flag": args.universe,
+            "purge": f"P3-A3 year-boundary embargo: dropped {n_purged} "
+                     f"fit samples whose {_HORIZON}d label crossed into "
+                     f"an OOS year",
             "epochs": _EPOCHS, "batch": _BATCH, "lr": 1e-3, "seed": _SEED,
             "n_train_samples": int(train_ok.sum()),
             "n_oos_samples": int(oos_m.sum()),
             "train_loss_first_last": [round(losses[0], 4), round(losses[-1], 4)],
         },
         eval={
-            "eval_method": "within-train fit/OOS split; per-OOS-date "
-                           "cross-sectional Spearman rank-IC of model score "
-                           "vs 21d close-to-close forward return; paired "
-                           "t-test of per-date IC vs baseline",
+            "eval_method": "within-train fit/OOS year-block split with "
+                           "P3-A3 fit→OOS year-boundary purge embargo; "
+                           "per-OOS-date cross-sectional Spearman rank-IC "
+                           "of model score vs 21d close-to-close forward "
+                           "return; paired t-test of per-date IC vs baseline",
             "cost_model": f"{_COST_BPS:.0f}bp_per_side (reported; rank-IC "
                           "itself is pre-cost)",
             "turnover_penalty": f"monthly top-{_TOPN} name turnover = "
