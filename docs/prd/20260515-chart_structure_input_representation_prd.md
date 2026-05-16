@@ -171,25 +171,42 @@ swing_{j+1}:
 
 ### §3.4 因果包装(§2.2 的修复,Phase 1 核心正确性要求)
 
-`swing_structure.py` 必须实现并使用:
+**filter-then-collapse,不是 collapse-then-filter**(P1·R1 实现时发现的
+因果 bug —— 见下)。`swing_structure.py` 实现并使用:
 
 ```
-confirmed_swings_asof(bars, swing_cfg, t_idx) -> List[SwingPoint]
-  # 只返回 confirmation_idx = swing_idx + swing_cfg.n <= t_idx 的 swing
+detect_raw_swings(bars, cfg) -> list[SwingPoint]
+  # detect_swing_extrema 跑一次(compute-once,§B-B1),返回 raw(未 collapse)
+  # 极值;每个 swing 带 confirmation_idx = idx + cfg.swing_n
+confirmed_swings_asof(raw_swings, t_idx) -> list[SwingPoint]
+  # 先 filter confirmation_idx <= t_idx,再 _collapse_alternating
 ```
 
-第 t 日的所有 12 特征只能用 `confirmed_swings_asof(..., t)` 的输出。
-严禁用未确认 swing。
+**为什么 filter 必须在 collapse 之前**:§B-B2 的 collapse 规则是「连续同
+kind 取更极端者」。若先 collapse 整条序列再按 t filter,collapse 时会用一个
+**未来的** swing 来决定丢弃哪个过去 swing —— 第 t 日的 swing 读数因此被
+未来数据污染。所以必须 filter-then-collapse:raw 极值本身是因果的(只依赖
+`[i-n,i+n]` 窗口),先按 confirmation 过滤到 t,再 collapse。
+
+第 t 日的所有 12 特征只能用 `confirmed_swings_asof(raw, t)` 的输出。
+严禁用未确认 swing。P1-A2 因果 hard test 正是验此。
 
 ### §3.5 模块 API spec(implement 直接照此)
 
 新文件 `core/factors/swing_structure.py`:
 
 ```python
-SWING_STRUCTURE_FEATURES: tuple[str, ...]   # 12 个特征名,顺序固定
-FEATURE_REGISTRY: dict[str, Callable]        # D4 扩展开口:名 -> 单特征算子
+# P1·R1 已 ship —— causal swing 基建:
+HIGH, LOW                                    # kind 常量
+@dataclass SwingPoint(idx, price, kind, confirmation_idx)
+@dataclass SwingStructureConfig(swing_n=5, K, tol, maturity_cap)
+def detect_raw_swings(bars, cfg) -> list[SwingPoint]      # compute-once
+def confirmed_swings_asof(raw_swings, t_idx) -> list[SwingPoint]  # filter+collapse
+def _collapse_alternating(raw_swings) -> list[SwingPoint]  # §B-B2
 
-def confirmed_swings_asof(bars, swing_cfg, t_idx) -> list[SwingPoint]
+# P1·R2 待加 —— 12 特征:
+SWING_STRUCTURE_FEATURES: tuple[str, ...]    # 12 个特征名,顺序固定
+FEATURE_REGISTRY: dict[str, Callable]        # D4 扩展开口:名 -> 单特征算子
 def compute_swing_structure_factors(
     price_df: pd.DataFrame,         # adjusted close, index=date, col=symbol
     high_df: pd.DataFrame | None,
