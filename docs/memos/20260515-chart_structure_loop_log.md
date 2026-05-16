@@ -331,3 +331,33 @@ execution,rank-IC 研究可接受。
 **11. TODO**:
 - [x] P4·R1 resolver / P4·R2 build+ingest+数据 audit 完成
 - [ ] P4·R3(隔离回归测 + closeout)/ Phase 2B R2-R4 / Phase 3
+
+---
+
+## P4·R3 — universe 隔离回归测 + Phase 4 closeout(2026-05-16)
+
+**1. 主题**: Phase 4 / R3(build round)。
+**2. 目标**: 落实 P4-A3 隔离回归测,出 Phase 4 closeout,emit
+`CHARTSTRUCT-P4-DONE`。
+**3. 为什么**: D6 隔离契约必须有可验收的测试守住 —— 「universe 扩张不
+影响旧结论」不能只靠口头承诺。
+**4. 做了什么**: `test_universe_isolation_p4r3.py`(5 单测):
+(a) `executable` 逐符号 bit-for-bit 复现 Phase-4 前 79 构造;
+(b) `expanded_v1` 严格 additive(executable 是其子集、顺序前置、无删除);
+(c) **P4-A3**:forward `ConfigSnapshot.universe_hash` 按文件名 hash
+`config/universe.yaml`,新增 `universe_expanded_v1.yaml` 在其 hash 输入集
+之外 —— forward manifest diff == empty 结构性成立;
+(d) expanded yaml well-formed(expanded_symbols ≥ 200、与 79 无交集);
+(e) 解析器在 `core/research/forward/` 零引用。
+**5. 文件**: 新增 `tests/unit/universe/test_universe_isolation_p4r3.py`、
+Phase 4 closeout memo。
+**6. 测试**: `tests/unit/universe/` 全量 50 pass / 1 skip(skip = expanded_v1
+yaml 已建,raise 测正确跳过)。
+**7. 结果**: P4-A1/A2/A3/A4 全 PASS。Phase 4 收口。
+**8. 新问题**: 无。
+**9. 剩余风险**: expanded_v1 mixed-source(已 flag);data/daily 广域
+off-by-one 遗留(独立工作,非本 loop scope)。
+**10. 下一轮**: 回 Phase 2B R2-R4(TS2Vec embedding + GAF + 语料 + 注入)。
+**11. TODO**:
+- [x] Phase 4 完成 —— `CHARTSTRUCT-P4-DONE`
+- [ ] Phase 2B R2-R4 / Phase 3 R1-R5
