@@ -361,3 +361,38 @@ off-by-one 遗留(独立工作,非本 loop scope)。
 **11. TODO**:
 - [x] Phase 4 完成 —— `CHARTSTRUCT-P4-DONE`
 - [ ] Phase 2B R2-R4 / Phase 3 R1-R5
+
+---
+
+## P2B·R2 — TS2Vec 自监督 embedding + GASF/GADF + patch(2026-05-16)
+
+**1. 主题**: Phase 2B / R2(build round)。
+**2. 目标**: `core/ml/window_embedding.py` —— 3 种 window 表征视图 +
+TS2Vec 式自监督 encoder。
+**3. 为什么**: Phase 2A 12 手工特征无增量;需要更丰富的「结构表征」轴 ——
+自监督学到的 embedding 不受人工特征公式限制。
+**4. 做了什么**:
+(a) 3 个 `representation_view`:`raw_window`(归一化窗口)、`GASF_GADF`
+(Gramian Angular Field,W×W 确定性图像)、`patch_tokens`(PatchTST 式
+分块)。GASF/GADF/patchify 是 pure-numpy,无 torch 依赖。
+(b) `TS2VecEncoder` —— dilated **causal**-conv 堆(因果卷积:位置 k 的
+表征只依赖 ≤k 的输入 → 配合「窗口结束于 bar t」= leak-free);
+window_len=63 / embedding_dim=64(§3 锁定值,= SmallEncoder 默认)。
+(c) `hierarchical_contrastive_loss` —— TS2Vec instance + temporal
+对比损失 + 层级 max-pool(Yue et al. 2022 忠实移植)。
+(d) `smoke_pretrain` —— 小规模自监督训练 smoke。torch 缺失时 GASF/GADF/
+patch 仍可用,encoder 走 ImportError stub。
+**5. 文件**: 新增 `core/ml/window_embedding.py`、
+`tests/unit/ml/test_window_embedding.py`(18 单测)。
+**6. 测试/实验**: 18 单测全 green(GASF 对称+对角恒等、GADF 反对称、
+constant-series、known-input 手算、patch 重构、encoder 因果硬测、
+确定性、层级损失有限、smoke 训练跑通)。smoke 训练 40 步
+loss 5.89→0.80(encoder 真的在学)。
+**7. 结果**: P2-A4 PASS。embedding_dim=64;3 视图 + encoder ready。
+**8. 新问题**: 无。
+**9. 剩余风险**: 全量预训练(非 smoke)留 evidence-gated;R3 语料
+manifest / R4 注入待跑。
+**10. 下一轮**: P2B·R3 预训练语料 manifest。
+**11. TODO**:
+- [x] P2B·R2 完成
+- [ ] P2B·R3 / R4 / Phase 3 R1-R5
