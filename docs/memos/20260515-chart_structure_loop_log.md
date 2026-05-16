@@ -237,3 +237,97 @@ K=6(短窗口)最接近显著 → 结构信号 faint 存在、偏短周期。
 **11. TODO**:
 - [x] Phase 2A 完成(family T 无显著增量,config-scoped)
 - [ ] Phase 2B / Phase 4 / Phase 3
+
+---
+
+## P2B·R1 — MiniROCKET bridge 表示层(2026-05-15)
+
+**1. 主题**: Phase 2B / R1(build round)。
+**2. 目标**: 建「手工特征 → 深度 CNN」之间的中间表示层。
+**3. 为什么**: Phase 2A 负结果后,需要一个比 12 手工特征更丰富、但比 CNN
+便宜的表示轴去独立检验「结构输入」。MiniROCKET 是文献证据强的随机卷积
+基线(Dempster 2021)。
+**4. 做了什么**: `core/ml/subsequence_transforms.py` —— numpy 自实现的
+MiniROCKET 式变换:84 个固定 length-9 卷积核(权重 {-1,2},每核三个 +2,
+mean-zero)+ dilation + PPV 池化;`rolling_minirocket_ppv_mean` 严格因果。
+**5. 文件**: 新增 `core/ml/subsequence_transforms.py`、
+`tests/unit/ml/test_subsequence_transforms.py`(5 单测)。
+**6. 测试**: 5 单测 green(84 核校验、PPV∈[0,1]、短序列全 NaN、因果硬测)。
+**7. 结果**: bridge 层 ready。commit `a4f1d1a`。
+**8. 新问题**: 无。
+**9. 剩余风险**: TS2Vec / GAF(R2-R4)还没接;注入实验后续。
+**10. 下一轮**: 用户决策 option A —— 先跑 Phase 4 universe 扩张。
+**11. TODO**: Phase 4 → 再回 Phase 2B R2-R4。
+
+---
+
+## P4·R1 — universe resolver + --universe flag(2026-05-15)
+
+**1. 主题**: Phase 4 / R1(build round)。
+**2. 目标**: 建 universe 解析单一入口,落实 D6 隔离契约。
+**3. 为什么**: universe 扩张绝不能回溯影响任何旧结论 —— 必须有 flag 指定
+用哪个 universe,且默认 `executable` 必须 bit-for-bit 复现 Phase-4 之前的
+79-symbol 构造。
+**4. 做了什么**: `core/universe/universe_resolver.py` ——
+`resolve_universe(name="executable"|"expanded_v1")`;`executable` 复现
+`union(seed+sector+factor+cross_asset)` 减 blacklist/macro/cycle-drop 再
+补 SPY/QQQ,**逐符号、顺序一致**;`expanded_v1` 读
+`config/universe_expanded_v1.yaml`(未建时 clean FileNotFoundError)。
+`phase2a_incremental_ic.py` 接 `--universe` flag。
+**5. 文件**: 新增 `core/universe/universe_resolver.py`、
+`tests/unit/universe/test_universe_resolver.py`(6 单测)。
+**6. 测试**: 6 单测(含 bit-for-bit 构造测、unknown-name raise)。
+**7. 结果**: `resolve_universe("executable")` = 79 符号,与
+`config/executable_universe.yaml` 完全一致。commit `c7fe737`。
+**8. 新问题**: 无。
+**9. 剩余风险**: expanded_v1 yaml 还没建(R2)。
+**10. 下一轮**: P4·R2 建 expanded universe + ingest。
+**11. TODO**: P4·R2 / P4·R3。
+
+---
+
+## P4·R2 — expanded universe build + ingest + 数据多轮 audit(2026-05-16)
+
+**1. 主题**: Phase 4 / R2(build round)。
+**2. 目标**: 建 `config/universe_expanded_v1.yaml`、ingest 数据、过 P4-A4。
+**3. 为什么**: Phase 2A 负结果根因之一是「79-universe 太小 + 老因子已饱
+和」;扩 universe 是在更大样本上重检验结构输入的数据前提,也直接攻
+sibling-by-construction 根因。
+**4. 做了什么**:
+(a) 覆盖度 audit(`phase4_universe_audit.py`)扫 25344 个
+`data/daily/*.parquet` —— **发现 store 重大问题:3357 个长覆盖 ticker
+带 weekend-row(off-by-one 日期标签 bug 的规模化版本),只有 82 个干净**。
+(b) 按 252-bar 中位美元成交额排名,选 top 非-79 流动性符号;**240 个 corrupt
+符号经 fixed `YFinanceProvider(auto_adjust=True)` 重新 ingest**(split+div
+调整连续序列,适配 chart-structure 特征研究),11 个本就干净的 polygon
+符号保留;同步写 `bar_provenance.parquet`。
+(c) **应用户「数据一定要干净、多做几轮 audit」要求,跑 4 轮数据 audit**
+(`phase4_data_audit.py`):R1 索引卫生 / R2 OHLC 有效性 / R3 动态(完整度
++ 跳变)/ R4 边界(跨源字节稳定 + D6 隔离)。
+(d) audit 抓到 2 个真问题并修掉:**DOW/SE** —— IPO 晚于 2015(DOW Inc
+2019-03-20、Sea 2017-10-20),yfinance 批量下载把它们 NaN-pad 回 2015 起点;
+parquet 裁到真实首日、从 expanded_v1 剔除。R3 gap 检测把美股假期误算成
+缺口的 false-positive 修掉(改为 defer 到权威
+`data_completeness_gate`)。
+**5. 文件**: 新增 `config/universe_expanded_v1.yaml`(249 expanded_symbols)、
+`dev/scripts/chart_structure/phase4_{universe_audit,ingest_expanded,data_audit}.py`、
+`data/audit/chart_structure/phase4_{universe_audit,data_audit}.json`。
+**6. 测试/实验**: 240 符号重 ingest(0 失败);4 轮数据 audit;resolver 6
+单测(5 pass / 1 skip —— expanded_v1 yaml 已建,raise 测正确 skip)。
+**7. 结果**: **expanded_v1 = 79 base + 249 added = 328 符号**。数据 audit
+**4 轮全 PASS**:R1 索引 328/328;R2 OHLC 0 fail / 1 benign warn(XLI base-79
+末 bar high<open 0.04%);R3 完整度 gate 328/328 + 7 个 added 符号真实事件
+跳变(AMD 2016 财报、INSM/ALNY 生物科技 Phase 3、PG&E 破产、DHR 分拆)
++ 21 个 base-79 raw-store split 跳变(预期 —— raw 存储,read-time 调整);
+R4 跨源字节稳定 + 0 D6 泄漏。**249 个 added 符号:0 weekend、0 缺失
+session、0 OHLC 违规、0 NaN**。P4-A4 PASS。
+**8. 新问题**: data/daily store 里 3357 个 ticker 带 off-by-one weekend-row
+—— 这是已知 bug 的规模化遗留,executable-79 不受影响(早已修),但 store
+广域未重建。本轮只重建了选入 expanded_v1 的部分。
+**9. 剩余风险**: expanded_v1 是 mixed-source(79 polygon raw + 249 yfinance
+auto_adjust),已在 yaml + artifact flag;research-only、D6 隔离、不碰
+execution,rank-IC 研究可接受。
+**10. 下一轮**: P4·R3 —— universe 隔离回归测 + Phase 4 closeout。
+**11. TODO**:
+- [x] P4·R1 resolver / P4·R2 build+ingest+数据 audit 完成
+- [ ] P4·R3(隔离回归测 + closeout)/ Phase 2B R2-R4 / Phase 3

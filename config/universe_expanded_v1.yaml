@@ -1,0 +1,309 @@
+# Expanded Universe v1 — chart-structure Phase 4 (P4-R2)
+#
+# Authority: chart-structure ralph-loop execution PRD section 8 round P4-R2.
+# Lineage: chart-structure-input-repr-2026-05-15.
+#
+# WHAT THIS IS
+# ------------
+# An ADDITIVE, opt-in RESEARCH universe. resolve_universe("expanded_v1")
+# returns: the canonical executable 79 (built from config, bit-for-bit
+# unchanged) PLUS the 249 symbols below, deduped, then SPY/QQQ
+# appended. Total = 328.
+#
+# D6 ISOLATION CONTRACT
+# ---------------------
+# This file changes NOTHING for the default universe. resolve_universe()
+# defaults to "executable" everywhere; "expanded_v1" is reached ONLY when
+# a caller explicitly passes --universe expanded_v1. All prior 79-universe
+# results (cycle04-12, forward candidates, Phase 1.5/1.6, chart-structure
+# Phase 1/2A) are therefore never retroactively affected.
+#
+# SELECTION (deterministic, reproducible)
+# ---------------------------------------
+# Source: dev/scripts/chart_structure/phase4_universe_audit.py over the
+# existing data/daily/*.parquet store. Filters: ticker ^[A-Z]{{1,5}}$;
+# first bar <= 2015-02-01; last bar >= 2026-04-01; >= 2500 rows; 0
+# weekend rows after re-fetch. Ranked by median(close*volume) over the
+# last 252 bars, descending; top symbols not already in the executable 79.
+# Liquidity floor of the selection: ~230M USD median daily dollar volume.
+#
+# DATA SOURCE / SEMANTICS (flagged caveat)
+# ----------------------------------------
+# 240 of these 249 symbols were re-ingested 2026-05-16 via
+# YFinanceProvider(auto_adjust=True) — split + dividend ADJUSTED
+# continuous series — because their pre-existing data/daily parquets
+# carried weekend-row date-label corruption (the SPY off-by-one bug
+# class). 11 (ORCL NFLX JPM V CRM XOM HD ABBV KO PEP SLV) were already
+# clean polygon-derived. The executable 79 base keeps polygon raw bars +
+# splits.parquet read-time cascade. expanded_v1 is therefore a
+# MIXED-SOURCE panel; acceptable because (a) it is research-only, never
+# execution, and (b) chart-structure features are scale-invariant ratios
+# evaluated by rank-IC. See P4-R2 closeout for the provenance detail.
+
+#
+# AUDIT EXCLUSIONS (P4-R2 data audit, 2026-05-16)
+# ----------------------------------------------------
+# DOW + SE were in the top-liquidity selection but DROPPED: both
+# IPO'd after 2015 (DOW Inc 2019-03-20, Sea Ltd 2017-10-20) and the
+# yfinance batch fetch NaN-padded them back to a 2015 index. Their
+# parquets were trimmed to real first-trade date; they do not meet
+# the >=2015 clean-history bar, so they are not in expanded_symbols.
+schema_version: "1.0"
+universe_id: "expanded_v1_2026-05-16"
+created_at: "2026-05-16"
+base_universe: "executable"  # the 79 from config/executable_universe.yaml
+expanded_count: 249
+total_with_base: 328
+
+# The 249 additive research symbols (sorted). resolve_universe merges
+# base(79) + these, deduped, then appends SPY/QQQ.
+expanded_symbols:
+  - AAL
+  - ABBV
+  - ACN
+  - ADBE
+  - ADI
+  - ADP
+  - ADSK
+  - AEM
+  - AEP
+  - AG
+  - AGG
+  - AJG
+  - ALB
+  - ALNY
+  - AMAT
+  - AMD
+  - AMGN
+  - AMT
+  - ANET
+  - AON
+  - APH
+  - APO
+  - ARES
+  - ASML
+  - AZN
+  - AZO
+  - B
+  - BA
+  - BABA
+  - BAC
+  - BDX
+  - BIDU
+  - BK
+  - BLK
+  - BMY
+  - BP
+  - BSX
+  - BTI
+  - BX
+  - CAH
+  - CB
+  - CCJ
+  - CCL
+  - CDNS
+  - CHTR
+  - CI
+  - CIEN
+  - CL
+  - CLS
+  - CMCSA
+  - CMI
+  - CNC
+  - COF
+  - COHR
+  - CPRT
+  - CRH
+  - CRM
+  - CSCO
+  - CSX
+  - CTAS
+  - CTSH
+  - CVS
+  - CVX
+  - D
+  - DAL
+  - DE
+  - DECK
+  - DHI
+  - DHR
+  - DIA
+  - DIS
+  - DLR
+  - DLTR
+  - DPZ
+  - DUK
+  - DVN
+  - DXCM
+  - EBAY
+  - ECL
+  - EEM
+  - EFA
+  - EL
+  - EMB
+  - EMR
+  - EOG
+  - EQIX
+  - EQT
+  - ETN
+  - EW
+  - EWZ
+  - EXPE
+  - F
+  - FANG
+  - FCX
+  - FDX
+  - FICO
+  - FIX
+  - FSLR
+  - FTNT
+  - FXI
+  - GD
+  - GDX
+  - GDXJ
+  - GE
+  - GLW
+  - GM
+  - GOLD
+  - GOOG
+  - HAL
+  - HBAN
+  - HCA
+  - HD
+  - HLT
+  - HON
+  - HPQ
+  - HSY
+  - HUBS
+  - HUM
+  - HYG
+  - IBM
+  - ICE
+  - IEFA
+  - IEMG
+  - INSM
+  - INTC
+  - INTU
+  - IVV
+  - IWM
+  - IYR
+  - JCI
+  - JD
+  - JPM
+  - KEY
+  - KGC
+  - KKR
+  - KMB
+  - KMI
+  - KO
+  - KR
+  - KRE
+  - KWEB
+  - LEN
+  - LMT
+  - LNG
+  - LOW
+  - LQD
+  - LULU
+  - LUV
+  - LYV
+  - MA
+  - MAR
+  - MARA
+  - MCD
+  - MCHP
+  - MCO
+  - MDLZ
+  - MDT
+  - MELI
+  - MMM
+  - MNST
+  - MO
+  - MPC
+  - MPWR
+  - MRK
+  - MRVL
+  - MSCI
+  - MSI
+  - MSTR
+  - NCLH
+  - NEM
+  - NFLX
+  - NKE
+  - NOC
+  - NOW
+  - NRG
+  - NSC
+  - NVO
+  - NXPI
+  - O
+  - ODFL
+  - OKE
+  - ORCL
+  - ORLY
+  - PANW
+  - PAYX
+  - PBR
+  - PCG
+  - PEP
+  - PFE
+  - PG
+  - PGR
+  - PH
+  - PLD
+  - PM
+  - PNC
+  - PSX
+  - QCOM
+  - RCL
+  - REGN
+  - RF
+  - ROP
+  - ROST
+  - RSP
+  - SAP
+  - SBUX
+  - SCHW
+  - SHW
+  - SLB
+  - SLV
+  - SMH
+  - SNPS
+  - SO
+  - SOXS
+  - SOXX
+  - SQQQ
+  - STX
+  - STZ
+  - SYK
+  - T
+  - TDG
+  - TEL
+  - TGT
+  - TMUS
+  - TSCO
+  - TSM
+  - TTWO
+  - UAL
+  - ULTA
+  - UPS
+  - URI
+  - USB
+  - V
+  - VALE
+  - VCIT
+  - VEA
+  - VEEV
+  - VLO
+  - VMC
+  - VOO
+  - VRTX
+  - VTI
+  - WDAY
+  - WDC
+  - WFC
+  - WM
+  - WMB
+  - XBI
+  - XOM
+  - ZTS
