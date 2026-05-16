@@ -496,3 +496,40 @@ loss 下降(target = 末段 slope 的线性函数,模型学得动)。
 **11. TODO**:
 - [x] P3·R1 完成
 - [ ] P3·R2 / R3 / R4 / R5
+
+---
+
+## P3·R2 — 3B attempt + cost-aware eval(2026-05-16)
+
+**1. 主题**: Phase 3 / R2(**experiment round**)。
+**2. 目标**: 跑第一个 chart-native attempt(3B swing-段 encoder),出
+带 root_cause 的 attempt JSON。
+**3. 为什么**: 这是 Phase 3 第一个真实验 —— 结构序列模型到底打不打得过
+tabular 因子。
+**4. 做了什么**: `core/ml/phase3_attempt.py`(schema:负 verdict 必须带
+root_cause + config_scoped;eval 必须声明 eval_method/cost_model/
+turnover_penalty)。runner 在 executable-79(ex SPY/QQQ)上、**严格 train
+partition 内**做 fit/OOS 切分(fit={2015,16,20,22}、OOS={2017,2024},
+validation/sealed 一行没读)。训 `StructureSequenceEncoder` 80 epoch,
+per-OOS-date 横截面 Spearman IC,对 126d 动量基线做配对 t 检验。
+**5. 文件**: 新增 `core/ml/phase3_attempt.py`、
+`dev/scripts/chart_structure/phase3_run_3b_attempt.py`、
+`data/audit/chart_structure/phase3_attempt_3b_001.json`、
+`tests/unit/ml/test_phase3_attempt.py`(8 单测)。
+**6. 测试/实验**: 8 schema 单测 green。实验:115,716 段序列样本,
+训练 loss 0.996→0.645。
+**7. 结果(诚实交代 —— 负结果)**: **3B OOS rank-IC=0.0153,显著低于
+126d 动量基线 0.0847(配对 p=0.000)→ verdict=`underperforms_tabular_
+baseline`**。experiment round 仍 **PASS**(D2:实验跑了、attempt JSON
+产出、root_cause 记录)。**root_cause**:swing-段 tokenization 丢掉了
+动量因子捕捉的 per-bar 幅度信息;≤16 个粗粒度段 token 的 transformer
+信息自由度远少于一个直接的 126d 收益。**这不是「3B/chart-native 不行」
+的 blanket 结论 —— 是「这个 encoder、这个 tokenization、这个 config」
+config-scoped 结论**(verdict_scope=config_scoped)。
+**8. 新问题**: 段序列把价格压成「段方向+时长+斜率」,丢了幅度细节 ——
+3A image-CNN(GAF 保留完整窗口形状)是否能补回,R3/R4 验。
+**9. 剩余风险**: 3A / 3C 待跑。
+**10. 下一轮**: P3·R3 —— 3A image-CNN(GAF→CNN)。
+**11. TODO**:
+- [x] P3·R2 完成(负结果,config-scoped,round PASS)
+- [ ] P3·R3 / R4 / R5
