@@ -533,3 +533,28 @@ config-scoped 结论**(verdict_scope=config_scoped)。
 **11. TODO**:
 - [x] P3·R2 完成(负结果,config-scoped,round PASS)
 - [ ] P3·R3 / R4 / R5
+
+---
+
+## P3·R3 — 3A image-CNN(GAF→CNN)(2026-05-16)
+
+**1. 主题**: Phase 3 / R3(build round)。
+**2. 目标**: `core/ml/chart_cnn.py` —— GAF 图像 → CNN 的 chart-native 模型。
+**3. 为什么**: 3B 段序列丢了 per-bar 幅度;3A 用 GAF 图保留完整窗口形状,
+看 CNN 能否补回。fire gated on `CHARTSTRUCT-P4-DONE`(已发)。
+**4. 做了什么**: `ChartCNN` —— 输入 (B,2,W,W) GASF+GADF 2 通道图,
+2 个 conv block + global pool + fc → 标量;~30k 参数(4GB VRAM 安全)。
+`build_gaf_panel` 为 (symbol, bar) 对建 GAF 图,因果 warmup(不足 63 prior
+bar 跳过)。`gaf_image` 复用 P2B·R2 的 `to_gasf_gadf`。
+**5. 文件**: 新增 `core/ml/chart_cnn.py`、
+`tests/unit/ml/test_chart_cnn.py`(6 单测)。
+**6. 测试**: 6 单测 green —— GAF 图 shape+界限、build_gaf_panel 因果
+warmup、**GAF 图因果硬测**(改 t 之后的 bar,t 的图不变)、CNN forward
+shape、参数 <100k、smoke 训练 loss 下降。
+**7. 结果**: chart_cnn build + smoke 训练通。3A 模块 ready。
+**8. 新问题**: 无。
+**9. 剩余风险**: 3A 真实 attempt 在 R4 跑。
+**10. 下一轮**: P3·R4 —— 3A attempt + eval。
+**11. TODO**:
+- [x] P3·R3 完成
+- [ ] P3·R4 / R5
