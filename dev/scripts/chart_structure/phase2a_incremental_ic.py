@@ -59,6 +59,7 @@ from core.research.temporal_split import (
     partition_for_role,
     purge_labels_at_boundary,
 )
+from core.universe.universe_resolver import resolve_universe
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("phase2a")
@@ -71,22 +72,15 @@ COMMON_KWARGS = dict(
 )
 
 
-def _build_panel():
-    """79-symbol selector-partition panel + non-family-T factors + family-T
-    inputs (close panel reused to recompute family T per K)."""
+def _build_panel(universe: str = "executable"):
+    """Selector-partition panel + non-family-T factors + family-T inputs.
+
+    `universe` is resolved via core.universe.universe_resolver — the
+    default "executable" reproduces the pre-Phase-4 79-symbol set
+    bit-for-bit (D6); "expanded_v1" uses the Phase-4 expanded universe."""
     cfg = load_config(PROJ / "config")
     store = BarStore(root=Path(cfg.system.paths.data_dir))
-    uni = cfg.universe
-    syms = list(dict.fromkeys(
-        list(uni.seed_pool) + list(uni.sector_etfs)
-        + list(uni.factor_etfs) + list(uni.cross_asset)
-    ))
-    drop = {"BRK-B", "USO", "SLV"}
-    syms = [s for s in syms if s not in uni.blacklist
-            and s not in uni.macro_reference and s not in drop]
-    for b in ("SPY", "QQQ"):
-        if b not in syms:
-            syms.append(b)
+    syms = resolve_universe(universe, config_dir=PROJ / "config")
     frames: Dict[str, Dict[str, pd.Series]] = {
         k: {} for k in ("close", "open", "high", "low", "volume")}
     for sym in syms:
@@ -213,12 +207,17 @@ def _paired_t(deltas: List[float]) -> Dict[str, Any]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--k-grid", type=int, nargs="+", default=[6, 8, 12])
+    ap.add_argument("--universe", choices=["executable", "expanded_v1"],
+                    default="executable",
+                    help="symbol universe (default executable = 79-symbol; "
+                         "expanded_v1 = Phase-4 expanded)")
     ap.add_argument("--out", default="data/audit/chart_structure/phase2a_incremental_ic.json")
     args = ap.parse_args()
 
     t0 = time.time()
-    logger.info("Building panel + baseline (non-family-T) factors...")
-    panel, baseline_factors, mask, split_cfg = _build_panel()
+    logger.info("Building panel + baseline (non-family-T) factors [universe=%s]...",
+                args.universe)
+    panel, baseline_factors, mask, split_cfg = _build_panel(args.universe)
     logger.info("  panel %s, baseline factors %d (%.1fs)",
                 panel["close"].shape, len(baseline_factors), time.time() - t0)
 
