@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "updated_at": "2026-05-16",
+  "attempts": [
+    {
+      "attempt_id": "2A-swing-family-t",
+      "phase": "2A",
+      "representation": "swing_structure_family_t",
+      "status": "experimented",
+      "verdict": "no_significant_increment",
+      "verdict_scope": "config_scoped",
+      "artifact": "data/audit/chart_structure/phase2a_incremental_ic.json",
+      "root_cause": "12 swing-segment features are highly redundant with the existing 101-factor baseline (Family R chart-patterns + Family D trend-quality + momentum factors already encode trend/pattern structure); incremental signal on a saturated factor zoo is faint. K=6 closest to significant (p=0.078) so structure signal exists faintly + short-horizon.",
+      "notes": "paired incremental-IC, K in {6,8,12}, rank:ndcg XGBoost, 17-year LOTYO. Not abandoned \u2014 family T stays in the factor registry under the long-horizon funnel."
+    },
+    {
+      "attempt_id": "2B-minirocket-bridge",
+      "phase": "2B",
+      "representation": "minirocket_random_convolution",
+      "status": "built",
+      "verdict": "representation_shipped",
+      "verdict_scope": "config_scoped",
+      "artifact": "core/ml/subsequence_transforms.py",
+      "notes": "84 fixed length-9 MiniROCKET kernels + dilation + PPV pooling, numpy self-impl. Bridge layer between hand features and deep CNN. Downstream incremental-IC experiment evidence-gated."
+    },
+    {
+      "attempt_id": "2B-ts2vec-embedding",
+      "phase": "2B",
+      "representation": "ts2vec_self_supervised_embedding",
+      "status": "built",
+      "verdict": "representation_shipped",
+      "verdict_scope": "config_scoped",
+      "artifact": "core/ml/window_embedding.py",
+      "notes": "TS2Vec-style dilated causal-conv encoder + hierarchical contrastive loss; GASF/GADF + patch views. window_len=63, embedding_dim=64. Pretrain corpus manifest = data/manifests/chart_structure_pretrain_corpus_v1.json. Full pretrain + downstream experiment evidence-gated."
+    }
+  ]
+}

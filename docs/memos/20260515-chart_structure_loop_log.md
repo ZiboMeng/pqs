@@ -429,3 +429,39 @@ no-sealed-window、no-validation-years、eligible==train_set、extra-key
 **11. TODO**:
 - [x] P2B·R3 完成
 - [ ] P2B·R4 / Phase 3 R1-R5
+
+---
+
+## P2B·R4 — 注入路径 + Phase 2B closeout(2026-05-16)
+
+**1. 主题**: Phase 2B / R4(build round + closeout)。
+**2. 目标**: 表征接进 `build_ml_panel` + `phase2_attempts.json` +
+Phase 2B closeout。
+**3. 为什么**: 表征层造完要有路接进 ML panel,且 Phase 2 所有 attempt
+要有机器可校验的结构化记录。
+**4. 做了什么**:
+(a) `core/ml/chart_structure_injection.py` —— 把 MiniROCKET / TS2Vec
+表征转成普通 `{name: date×symbol frame}` factor dict;
+`inject_chart_structure_factors` 带命名冲突 guard;**`build_ml_panel`
+一字未改** —— 注入空 = 默认 panel bit-for-bit 不变(回归 by construction)。
+(b) `core/ml/phase2_attempts.py` + `data/audit/chart_structure/
+phase2_attempts.json` —— Phase 2 三个 attempt 的结构化记录;schema
+**硬约束**:负 verdict 必须带 `root_cause` 且 `config_scoped`(禁
+blanket「结构没用」结论)。
+(c) Phase 2B closeout memo。
+**5. 文件**: 新增 `core/ml/{chart_structure_injection,phase2_attempts}.py`、
+`data/audit/chart_structure/phase2_attempts.json`、
+`tests/unit/ml/test_{chart_structure_injection,phase2_attempts}.py`
+(13 单测)、Phase 2B closeout memo。
+**6. 测试**: 13 新单测 green;`tests/unit/ml/` 全量 83 pass / 1 skip
+(无回归)。P2-A6 注入空 panel 逐 frame 比对 identical;P2-A7 schema
+负-verdict-需-root_cause / config_scoped / 唯一 id / extra-key 拒绝。
+**7. 结果**: P2-A3..A7 全 PASS。Phase 2B 收口。三条表征轴(swing
+family T / MiniROCKET / TS2Vec)全 ship;后两者下游实验 evidence-gated。
+**8. 新问题**: 无。
+**9. 剩余风险**: MiniROCKET / TS2Vec 下游 incremental-IC 实验未跑
+(evidence-gated,算力);TS2Vec 仅 smoke 训练过。
+**10. 下一轮**: Phase 3 —— chart-native 模型(P3·R1 3B encoder)。
+**11. TODO**:
+- [x] Phase 2B 完成 —— `CHARTSTRUCT-P2B-DONE`
+- [ ] Phase 3 R1-R5
