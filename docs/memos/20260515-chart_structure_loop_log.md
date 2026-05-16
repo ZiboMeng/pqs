@@ -396,3 +396,36 @@ manifest / R4 注入待跑。
 **11. TODO**:
 - [x] P2B·R2 完成
 - [ ] P2B·R3 / R4 / Phase 3 R1-R5
+
+---
+
+## P2B·R3 — 预训练语料 manifest(2026-05-16)
+
+**1. 主题**: Phase 2B / R3(build round)。
+**2. 目标**: `data/manifests/chart_structure_pretrain_corpus_v1.json` ——
+冻结 TS2Vec encoder 自监督预训练能用哪些 window。
+**3. 为什么**: 自监督预训练虽不用 label,但若 encoder 见过 validation/
+sealed 年的 window 分布,会泄漏进后续在那些年份评估的模型 —— 必须
+holdout 纪律。
+**4. 做了什么**: `core/ml/corpus_manifest.py`(pydantic schema +
+`load_pretrain_corpus_manifest`):window END bar 落在 `temporal_split.yaml`
+的 train 年才 eligible;validation(2018/19/21/23/25)+ sealed 2026 +
+reference(2007/08)全排除。schema 硬约束 `train_years_only=True` +
+eligible/excluded 不相交 + date_range 在 eligible 年内。v1 daily-only
+freeze,`timeframes_reserved` 预留多时间尺度字段(免日后 schema 返工)。
+builder 脚本扫 expanded_v1 实际数据算真实样本数。
+**5. 文件**: 新增 `core/ml/corpus_manifest.py`、
+`dev/scripts/chart_structure/build_pretrain_corpus_manifest.py`、
+`data/manifests/chart_structure_pretrain_corpus_v1.json`、
+`tests/unit/ml/test_corpus_manifest.py`(9 单测)。
+**6. 测试**: 9 单测 green(schema 校验、train_years_only、
+no-sealed-window、no-validation-years、eligible==train_set、extra-key
+拒绝)。
+**7. 结果**: P2-A5 PASS。语料:expanded_v1 328 符号、12 train 年、
+**494,341 个 63-bar causal window**、date_range 2009-01-02..2024-12-31。
+**8. 新问题**: 无。
+**9. 剩余风险**: 全量预训练(非 smoke)evidence-gated;R4 注入待跑。
+**10. 下一轮**: P2B·R4 注入路径 + Phase 2B closeout。
+**11. TODO**:
+- [x] P2B·R3 完成
+- [ ] P2B·R4 / Phase 3 R1-R5

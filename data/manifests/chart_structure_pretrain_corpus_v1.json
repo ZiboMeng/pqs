@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.0",
+  "corpus_id": "chart_structure_pretrain_corpus_v1",
+  "created_at": "2026-05-16",
+  "split_name": "alternating_regime_holdout_v1",
+  "train_years_only": true,
+  "timeframe": "daily",
+  "timeframes_reserved": [
+    "60m",
+    "30m",
+    "15m"
+  ],
+  "window_len": 63,
+  "universe_name": "expanded_v1",
+  "universe_size": 328,
+  "eligible_years": [
+    2009,
+    2010,
+    2011,
+    2012,
+    2013,
+    2014,
+    2015,
+    2016,
+    2017,
+    2020,
+    2022,
+    2024
+  ],
+  "excluded_years": {
+    "validation": [
+      2018,
+      2019,
+      2021,
+      2023,
+      2025
+    ],
+    "sealed": [
+      2026
+    ],
+    "reference": [
+      2007,
+      2008
+    ]
+  },
+  "date_range": {
+    "start": "2009-01-02",
+    "end": "2024-12-31"
+  },
+  "n_symbols_with_data": 328,
+  "n_windows": 494341,
+  "source": "data/daily/<sym>.parquet (close), window_len=63 causal"
+}
