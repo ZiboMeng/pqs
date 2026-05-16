@@ -407,6 +407,21 @@ FAMILY_R_CHART_PATTERNS = FamilyConfig(
 )
 
 
+FAMILY_T_SWING_STRUCTURE = FamilyConfig(
+    name="T",
+    title="swing-segment structure (Elliott-inspired, causal swing detection)",
+    factors=frozenset({
+        # chart-structure PRD Phase 1 (2026-05-15): 12 swing-segment features
+        "swing_last_up_seg_len_pct", "swing_net_drift_k",
+        "swing_last_seg_len_ratio", "swing_last_seg_slope_ratio",
+        "swing_fib_retrace_fit_382", "swing_fib_retrace_fit_618",
+        "swing_impulse_score", "swing_corrective_score",
+        "swing_trend_maturity", "swing_high_low_overlap_pct",
+        "swing_seg_len_dispersion", "swing_since_last_swing_bars",
+    }),
+)
+
+
 FAMILY_Q_SIGNAL_CONFIRMATION = FamilyConfig(
     name="Q",
     title="signal-confirmation multi-bar (setup-then-trigger)",
@@ -421,6 +436,7 @@ FAMILY_Q_SIGNAL_CONFIRMATION = FamilyConfig(
 FAMILIES_V2_EXTENDED: List[FamilyConfig] = FAMILIES_V2 + [
     FAMILY_R_CHART_PATTERNS,
     FAMILY_S_REGIME_ML,
+    FAMILY_T_SWING_STRUCTURE,
     FAMILY_G_VOLUME_MICROSTRUCTURE,
     FAMILY_H_CONSOLIDATION,
     FAMILY_I_HIGHER_MOMENTS_AND_ANCHOR,

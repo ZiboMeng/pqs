@@ -132,3 +132,62 @@ Phase 1 closeout。
 - [x] P1·R1 causal swing core
 - [x] P1·R2 12 特征 + config
 - [ ] P1·R3 registry 接线 + Phase 1 closeout
+
+---
+
+## P1·R3 — registry wiring + Phase 1 closeout(2026-05-15)
+
+**1. 本轮主题**: Phase 1 / Round 3(build round + Phase 1 closeout)。
+
+**2. 本轮目标**: family T 进 registry —— RESEARCH_FACTORS 175→187、
+FAMILIES_V2 19→20、`factor_generator` 接线、计数 tripwire、P1-A4 采样测试。
+验收门:P1-A3 reachability + P1-A4 + P1-A5 全量 green。
+
+**3. 为什么这轮优先做它**: R1/R2 造好了 module + 特征,但没进 registry
+就不可被 mining 漏斗用。R3 收口 Phase 1。
+
+**4. 做了什么**:
+- `factor_registry.py`:RESEARCH_FACTORS +12 个 `swing_*` 名(Family T 注释块)。
+- `research_miner.py`:`FAMILY_T_SWING_STRUCTURE` FamilyConfig → `FAMILIES_V2_EXTENDED`。
+- `factor_generator.py`:import + `generate_all_factors` 接线
+  `compute_swing_structure_factors`。
+- `test_research_miner.py`:计数 tripwire 175→187 / 19→20;新增
+  `test_family_t_sampled`(P1-A4,seed 13,80 family_first trials)。
+- **性能修复(本轮新发现)**:接进 `generate_all_factors` 后全量 pytest
+  ~11min→~24min —— per-t 重算 `confirmed_swings_asof` 是 O(T·E)。collapse
+  是 left-fold → 增量 fold 等价批量。改 `compute_swing_structure_factors`
+  为单次 detect + 随 confirmation_idx 增量 fold,O(T+E)。
+  `generate_all_factors` 单测 24min 段→0.90s。新增
+  `test_compute_factors_matches_reference` 守增量路径 bit-identical。
+
+**5. 修改了哪些文件**:
+- `core/factors/factor_registry.py`、`core/mining/research_miner.py`、
+  `core/factors/factor_generator.py`、`core/factors/swing_structure.py`
+- `tests/unit/mining/test_research_miner.py`、
+  `tests/unit/factors/test_swing_structure.py`
+- 新增 `docs/memos/20260515-chart_structure_phase1_closeout.md`
+
+**6. 跑了哪些测试**: reachability(P1-A3,187/20)、`test_family_t_sampled`
+(P1-A4)、registry generation、`test_compute_factors_matches_reference`、
+swing 8 测试;全量 `pytest`。
+
+**7. 结果如何**: 全量 `3206 passed, 1 skipped, 1 xfailed`(R3 前 3204 →
++2,无回归)。P1-A3/A4/A5/A6 全过。**残留**:全量 pytest 21.5min vs R2
+基线 ~11min —— 增量优化解决了算法级 O(T·E),残留 ~2× 是 per-(symbol,date)
+Python feature loop 的固有线性成本(12 个结构特征、变长 swing 窗口,难
+向量化)。已更新 §B-B7。
+
+**8. 新问题 / 新机会**: §B-B7 perf 风险在 test 规模就 materialize 了
+(不止 expanded universe)。增量 collapse 已修算法级;feature loop 的
+向量化是后续可选优化(变长窗口难向量化,非阻塞)。
+
+**9. 剩余风险**: 全量 suite ~21min(可接受未阻塞);`tol`/`maturity_cap`/`K`
+仍 PLACEHOLDER。
+
+**10. 下一轮建议方向**: Phase 1 收口 → `CHARTSTRUCT-P1-DONE`。Phase 2A
+fire(incremental-IC 配对检验)。
+
+**11. TODO**:
+- [x] P1·R1 / P1·R2 / P1·R3 —— Phase 1 全部完成
+- [ ] Phase 2A:incremental-IC 配对检验
+- [ ] Phase 2B / Phase 4 / Phase 3

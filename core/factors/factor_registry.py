@@ -87,6 +87,16 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     "golden_cross_score", "ma_pullback_20d", "price_above_4ma_count",
     "consecutive_up_streak", "higher_highs_5d",
     "atr_breakout_5d", "inside_bar_pct_20d",
+    # Family T — swing-segment structure (chart-structure PRD Phase 1,
+    # 2026-05-15): 12 Elliott-inspired swing-segment features on causal
+    # swing detection (filter-then-collapse). Implementation:
+    # core/factors/swing_structure.py::compute_swing_structure_factors.
+    "swing_last_up_seg_len_pct", "swing_net_drift_k",
+    "swing_last_seg_len_ratio", "swing_last_seg_slope_ratio",
+    "swing_fib_retrace_fit_382", "swing_fib_retrace_fit_618",
+    "swing_impulse_score", "swing_corrective_score",
+    "swing_trend_maturity", "swing_high_low_overlap_pct",
+    "swing_seg_len_dispersion", "swing_since_last_swing_bars",
     # Baseline returns family (PRD 20260423 Step 1 Round 1)
     # Raw close-to-close short-horizon returns + raw 1-bar gap/intraday.
     # Unsigned siblings of reversal_5d / overnight_gap_5d etc. Research-only.

@@ -16,6 +16,7 @@ from core.factors.swing_structure import (
     SwingPoint,
     SwingStructureConfig,
     _collapse_alternating,
+    _features_at,
     compute_swing_structure_factors,
     confirmed_swings_asof,
     detect_raw_swings,
@@ -197,3 +198,31 @@ def test_swing_structure_config_sourced():
             differs = True
             break
     assert differs, "feature output identical for K=8 vs K=4 — K not config-sourced"
+
+
+def test_compute_factors_matches_reference():
+    """The incremental-collapse path in compute_swing_structure_factors is
+    bit-identical to the non-incremental reference (_features_at, which
+    recollapses the full confirmed set per date via confirmed_swings_asof)."""
+    panel = _zigzag_panel()
+    cfg = SwingStructureConfig(swing_n=5, K=8)
+    fast = compute_swing_structure_factors(panel, cfg=cfg)
+
+    for sym in panel.columns:
+        close = panel[sym]
+        bars = pd.DataFrame(
+            {"high": close.to_numpy(), "low": close.to_numpy(),
+             "close": close.to_numpy()},
+            index=close.index,
+        )
+        raw = detect_raw_swings(bars, cfg)
+        cj = panel.columns.get_loc(sym)
+        for ti in range(len(panel)):
+            ref = _features_at(raw, ti, cfg)
+            for name, ref_val in ref.items():
+                got = fast[name].iat[ti, cj]
+                if np.isnan(ref_val):
+                    assert np.isnan(got), f"{name}[{sym},{ti}]: ref NaN, got {got}"
+                else:
+                    assert abs(got - ref_val) < 1e-12, \
+                        f"{name}[{sym},{ti}]: ref={ref_val} fast={got}"

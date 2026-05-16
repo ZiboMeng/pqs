@@ -120,25 +120,35 @@ def detect_raw_swings(
     return out
 
 
+def _fold_swing(out: list[SwingPoint], s: SwingPoint) -> None:
+    """One step of the alternating collapse (execution PRD §B-B2): fold
+    swing ``s`` into ``out`` in place. Consecutive same-kind keeps the more
+    extreme (higher for HIGH, lower for LOW); ties keep the earlier point.
+
+    The collapse is a left-fold, so folding swings one-at-a-time as they
+    are confirmed produces the SAME result as batch-collapsing the whole
+    confirmed set — this is what makes the incremental computation in
+    ``compute_swing_structure_factors`` exact."""
+    if not out:
+        out.append(s)
+        return
+    last = out[-1]
+    if s.kind != last.kind:
+        out.append(s)
+        return
+    more_extreme = (
+        s.price > last.price if s.kind == HIGH else s.price < last.price
+    )
+    if more_extreme:
+        out[-1] = s
+
+
 def _collapse_alternating(raw_swings: list[SwingPoint]) -> list[SwingPoint]:
     """Collapse an idx-ordered extrema list into a STRICTLY alternating
-    HIGH/LOW sequence (execution PRD §B-B2). Consecutive same-kind: keep
-    the more extreme (higher for HIGH, lower for LOW); ties keep earlier.
-    """
+    HIGH/LOW sequence (left-fold of ``_fold_swing``)."""
     out: list[SwingPoint] = []
     for s in raw_swings:
-        if not out:
-            out.append(s)
-            continue
-        last = out[-1]
-        if s.kind != last.kind:
-            out.append(s)
-            continue
-        more_extreme = (
-            s.price > last.price if s.kind == HIGH else s.price < last.price
-        )
-        if more_extreme:
-            out[-1] = s
+        _fold_swing(out, s)
     return out
 
 
@@ -398,13 +408,21 @@ def load_swing_structure_config(path: Path | str | None = None) -> SwingStructur
     )
 
 
-def _features_at(raw: list[SwingPoint], t_idx: int,
-                 cfg: SwingStructureConfig) -> dict[str, float]:
-    """Compute all 12 features for one symbol at one date index."""
-    conf = confirmed_swings_asof(raw, t_idx)
-    window = conf[-cfg.K:] if len(conf) > cfg.K else conf
+def _features_from_window(window: list[SwingPoint], t_idx: int,
+                          cfg: SwingStructureConfig) -> dict[str, float]:
+    """Compute all 12 features from an already-windowed swing sequence."""
     ctx = _Ctx(window=window, segs=_segments(window), t_idx=t_idx, cfg=cfg)
     return {name: op(ctx) for name, op in FEATURE_REGISTRY.items()}
+
+
+def _features_at(raw: list[SwingPoint], t_idx: int,
+                 cfg: SwingStructureConfig) -> dict[str, float]:
+    """Reference (non-incremental) per-date feature computation — recollapses
+    the full confirmed set every call. Kept for the equivalence test against
+    the incremental path in ``compute_swing_structure_factors``."""
+    conf = confirmed_swings_asof(raw, t_idx)
+    window = conf[-cfg.K:] if len(conf) > cfg.K else conf
+    return _features_from_window(window, t_idx, cfg)
 
 
 def compute_swing_structure_factors(
@@ -417,9 +435,16 @@ def compute_swing_structure_factors(
 
     Swings are detected on the **close** series (PRD §3.2: "对 adjusted
     close 序列"); ``high_df`` / ``low_df`` are accepted for signature
-    consistency with the factor-generator family contract but unused in
-    R2. Returns a dict ``{factor_name: wide DataFrame}``, each DataFrame
-    sharing ``price_df``'s index and columns.
+    consistency with the factor-generator family contract but unused.
+    Returns ``{factor_name: wide DataFrame}`` sharing ``price_df``'s
+    index / columns.
+
+    Performance (execution PRD §B-B1 / §B-B7): ``detect_swing_extrema``
+    runs once per symbol; the alternating collapse is folded
+    INCREMENTALLY as each swing's ``confirmation_idx`` is reached, so the
+    whole pass is O(T + E) per symbol, not O(T·E). Output is bit-identical
+    to the reference ``_features_at`` path (guarded by an equivalence
+    unit test).
     """
     if cfg is None:
         cfg = load_swing_structure_config()
@@ -429,6 +454,7 @@ def compute_swing_structure_factors(
         name: pd.DataFrame(np.nan, index=price_df.index, columns=price_df.columns)
         for name in SWING_STRUCTURE_FEATURES
     }
+    col_loc = {sym: price_df.columns.get_loc(sym) for sym in price_df.columns}
 
     for sym in price_df.columns:
         close = price_df[sym]
@@ -437,9 +463,17 @@ def compute_swing_structure_factors(
              "close": close.to_numpy()},
             index=close.index,
         )
-        raw = detect_raw_swings(bars, cfg)
+        raw = detect_raw_swings(bars, cfg)  # idx-ascending => conf-idx-ascending
+        collapsed: list[SwingPoint] = []
+        p = 0
+        cj = col_loc[sym]
         for ti in range(n_rows):
-            feats = _features_at(raw, ti, cfg)
+            # fold in every swing confirmed as of bar ti
+            while p < len(raw) and raw[p].confirmation_idx <= ti:
+                _fold_swing(collapsed, raw[p])
+                p += 1
+            window = collapsed[-cfg.K:] if len(collapsed) > cfg.K else collapsed
+            feats = _features_from_window(window, ti, cfg)
             for name, val in feats.items():
-                out[name].iat[ti, out[name].columns.get_loc(sym)] = val
+                out[name].iat[ti, cj] = val
     return out

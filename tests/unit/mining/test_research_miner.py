@@ -765,6 +765,31 @@ def test_research_miner_mine_small(mini_panels):
     assert len(miner.results) >= len(results)
 
 
+def test_family_t_sampled():
+    """P1-A4 (chart-structure PRD Phase 1): family T (swing-segment
+    structure) is reachable by the family_first sampler. Fixed seed; over
+    80 trials a family-T `swing_*` factor must appear in a sampled spec."""
+    optuna = pytest.importorskip("optuna")
+    from core.mining.research_miner import FAMILIES_V2, suggest_composite_spec
+
+    seen: set[str] = set()
+
+    def objective(trial):
+        spec = suggest_composite_spec(
+            trial, families=FAMILIES_V2, min_families=3,
+            sampling_mode="family_first",
+        )
+        seen.update(spec.features)
+        return 0.0
+
+    study = optuna.create_study(sampler=optuna.samplers.TPESampler(seed=13))
+    study.optimize(objective, n_trials=80, catch=(Exception,))
+    assert any(f.startswith("swing_") for f in seen), (
+        f"family T (swing_*) never sampled in 80 family_first trials; "
+        f"saw {sorted(seen)}"
+    )
+
+
 # ── A+ patch 2026-04-30: composite_weighting + target_n_features tests ──
 # Per docs/memos/20260430-priority_realign_alpha_first.md (A+) and the
 # pre-registered cycle 2026-04-30 #01 criteria yaml asserting
@@ -1019,9 +1044,12 @@ def test_aplusplus_families_v2_union_equals_research_factors():
     # 2026-05-15 (priority 1+2): +10 Family R chart-pattern factors
     # (Donchian / MA-cross / streak / ATR breakout) + 3 Family S
     # regime-ML factors (regime_score_combined / transition_risk /
-    # persistence) → 175. union(FAMILIES_V2) == RESEARCH_FACTORS
-    # contract verified above by `assert reachable == expected`.
-    assert len(reachable) == 175
+    # persistence) → 175.
+    # 2026-05-15 (chart-structure PRD Phase 1, P1·R3): +12 Family T
+    # swing-segment structure factors → 187. union(FAMILIES_V2) ==
+    # RESEARCH_FACTORS contract verified above by `assert reachable
+    # == expected`.
+    assert len(reachable) == 187
 
 
 def test_aplusplus_families_v1_unchanged_at_33():
@@ -1218,7 +1246,9 @@ def test_aplusplus_research_miner_constructor_passes_with_v2():
     # (G-P) for Bucket A/B/C/Macro factors. Round F: +1 family Q
     # for signal-confirmation multi-bar → 17. 2026-05-15 (priority
     # 1+2): +1 family R chart-pattern, +1 family S regime-ML → 19.
-    assert len(miner.families) == 19
+    # 2026-05-15 (chart-structure PRD Phase 1, P1·R3): +1 family T
+    # swing-segment structure → 20.
+    assert len(miner.families) == 20
 
 
 def test_aplusplus_research_miner_no_pool_legacy_path():

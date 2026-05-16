@@ -34,6 +34,7 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from core.factors.swing_structure import compute_swing_structure_factors
 from core.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -114,6 +115,10 @@ def generate_all_factors(
     factors.update(_family_j_calendar(effective_price_df))
     factors.update(_family_r_chart_patterns(effective_price_df, high_df, low_df))
     factors.update(_family_s_regime_ml(effective_price_df, benchmark_col))
+    # Family T — swing-segment structure (chart-structure PRD Phase 1).
+    # Per-symbol causal swing detection on the close series; see §B-B7 for
+    # the expanded-universe performance note.
+    factors.update(compute_swing_structure_factors(effective_price_df, high_df, low_df))
     factors.update(_quality_factors(effective_price_df))
     factors.update(_sr_swing_factors(effective_price_df, high_df, low_df))
     factors.update(_relative_strength_factors(effective_price_df, benchmark_col))
