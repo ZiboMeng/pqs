@@ -596,3 +596,80 @@ config-scoped 结论。
 **11. TODO**:
 - [x] P3·R4 完成(负结果,config-scoped,round PASS)
 - [ ] P3·R5
+
+---
+
+## P3·R5 — 3C late-fusion + Phase 3 closeout(2026-05-16)
+
+**1. 主题**: Phase 3 / R5(**build + closeout round**)。
+**2. 目标**: `core/ml/fusion_model.py`(3C late-fusion)+ 跑 3C attempt
++ Phase 3 closeout(P3-d3/d5)。
+**3. 为什么**: 3B 段序列、3A GAF 图单独都没打过动量;3C 验「两路 late
+fusion 组合是否 > 单路 / 能否追上基线」—— Phase 3 收官问。
+**4. 做了什么**:
+(a) `FusionModel` —— 3B `StructureSequenceEncoder` + 3A `ChartCNN`
+两分支各出标量分,2→8→1 fusion MLP late 融合;`freeze_branches`
+可选;因果继承两分支。
+(b) `phase3_run_3c_attempt.py` —— 对同一 (sym,bar) 同时建 seg 序列
++ GAF 图(对齐),within-train fit/OOS,date_stride=3,80 epoch。
+(c) Phase 3 closeout memo + 发 `CHARTSTRUCT-P3-DONE` / `CHARTSTRUCTUREDONE`。
+**5. 文件**: 新增 `core/ml/fusion_model.py`、`tests/unit/ml/test_fusion_model.py`
+(3 单测)、`dev/scripts/chart_structure/phase3_run_3c_attempt.py`、
+`data/audit/chart_structure/phase3_attempt_3c_001.json`;扩
+`test_phase3_attempt.py`(+1,共 10);新增
+`docs/memos/20260516-chart_structure_phase3_closeout.md`。
+**6. 测试/实验**: fusion 3 单测 + phase3_attempt schema 10 单测 green。
+实验:37644 对齐样本,FusionModel 92035 参数 cuda,train loss
+0.9968→0.5029(真拟合,无 underfit confound)。
+**7. 结果(诚实)**: **3C OOS rank-IC=0.0415**,基线 mom_126d 0.0856,
+**verdict=`no_significant_increment`**(paired t=−1.82,p=0.069)。
+3C(0.0415)> 3A(0.0319)> 3B(0.0153)—— 三者里最好,把差距从
+「显著低于」收窄到「与基线无显著差异」,但**无超越动量的正交 alpha**。
+round **PASS**(D2,负结果不终止)。
+**8. 新问题**: chart-native 三层(手工/自监督/端到端)在 79-universe 全
+未对动量产生显著正交增量,根因一致(价格窗口再编码冗余)。唯一未证伪
+开口 = expanded-universe 重检 + ensemble 角色,evidence-gated。
+**9. 剩余风险**: 79-universe scope;非滚动 purged WF(年块切分);
+ensemble 用途未评(主 PRD §5.2 定位,需用户授权)。
+**10. 下一轮**: chart-structure ralph-loop 终止(`CHARTSTRUCTUREDONE`)。
+随后按用户要求做多轮 PRD audit。
+**11. TODO**:
+- [x] P3·R5 完成(负结果,config-scoped,round PASS)
+- [x] Phase 3 closeout + `CHARTSTRUCT-P3-DONE` + `CHARTSTRUCTUREDONE`
+- [ ] PRD audit rounds(用户新要求)
+
+---
+
+## AUDIT — 收口后多轮 PRD audit(2026-05-16,用户要求)
+
+**1. 主题**: 全 loop 跑完后按主 PRD + execution PRD 多轮 audit。
+**2. 目标**: 逐条 AC 真跑核验(非读 closeout 自述),找「没做完/没按 PRD
+走/需重走」并修复。
+**3. 做了什么**: 实跑 89+ 命名单测 + grep 入口接线 + JSON schema +
+§B 风险 + §C provenance。发现 4 缺口并全部修复:
+- **P4-A1(中高)**: `--universe` flag 原仅接 phase2a;主入口+phase3
+  脚本未接;`test_universe_flag_all_entrypoints` 缺失;Phase 4 closeout
+  overclaim。修:phase3_run_{3a,3b,3c} 接 flag;新增 7 单测编码真实
+  契约(研究脚本有 flag / production 入口刻意 resolver-free = 更强 D6
+  隔离,operator directional 决策供用户推翻);amend Phase 4 closeout。
+- **P3-A3(中)**: 「eval 函数有 purge 单测」缺失 + eval 无 fit→OOS
+  年边界 embargo。修:新增 `core/ml/phase3_eval.purged_fit_mask` +
+  3 单测;接进 3 脚本;**3 attempt 全 purged 重跑**。
+- **P3-A1(低,命名)**: 加字面命名 `test_phase3_attempt_schema`。
+- **G5(低,按设计延迟)**: 0 nominee 无 consumer,显式记录替代隐式 ✅。
+**4. 文件**: 新增 `core/ml/phase3_eval.py`、`tests/unit/ml/test_phase3_eval.py`、
+`tests/unit/universe/test_universe_flag_all_entrypoints.py`、
+`docs/memos/20260516-chart_structure_prd_audit.md`;改
+`phase3_run_{3a,3b,3c}_attempt.py`(flag+purge)、`test_phase3_attempt.py`
+(+命名别名)、3 个 phase3_attempt JSON(purged 重跑)、Phase 3/4 closeout。
+**5. 测试/实验**: 定向 sweep 36 green(含新 purge/flag 测 + purged JSON
+schema);全量 G1 重跑确认(见收尾)。
+**6. 结果**: purge 后负结论全 robust —— 3A 0.0319→0.0219、3B
+0.0153→0.0091(更强,印证泄漏抬高输家);3C 0.0415→0.0517 仍
+no_significant_increment(p 0.069→0.177,离基线更远;本次 train
+underfit-flagged,跨拟合度 verdict 稳定)。chart-native 未打过动量
++ 根因(价格窗口再编码冗余)结论不变且被强化。
+**7. 剩余风险**: P4-A1 折中决策待用户认可/推翻;G5 待首个组合候选;
+expanded_v1 重检现有 flag 可达(evidence-gated)。
+**8/9/10/11**: 见 `docs/memos/20260516-chart_structure_prd_audit.md`
+§4/§8/§9(directional 决策 + 4-tier 自审 + 待办)。
