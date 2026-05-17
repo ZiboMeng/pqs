@@ -258,6 +258,27 @@ Each iteration:
 
 Maintain TODO checklist. Update CLAUDE.md when work is actually completed. Small verifiable patches over large rewrites.
 
+### Session-start discipline (read EVERY restart)
+
+**每次新会话/重启,先读 memory 取 context 再动手。** MEMORY.md 一行
+索引会自动进 context,但**完整 context 需要把当前工作相关的 memory
+文件实际读出来**(尤其 feedback 类纪律),不能只看索引就开工。Active
+work 涉及 audit / temporal_split / forward / mining / PRD 时,先 pull
+对应 memory 文件确认纪律,再执行。
+
+### Audit discipline(标准纪律,见 memory `feedback_audit_surfaces_not_thorough`)
+
+做 audit / 收口 / "做完了吗" 自检的**目的 = 暴露"之前做的哪些没做
+彻底"(做出来 ≠ 做彻底),不是确认"它存在就行"**:
+- 必须对比「之前结论/结果 ↔ literature/标准 ↔ 当前 PRD」,产出"没
+  做透"对照表,**全部 fold 进当前 PRD/supplement**(列出来不算)。
+- 必须主动翻查并**纠正自己上一轮的 overclaim**("严谨/不用重做/合规"),
+  诚实留痕不 hand-wave(Phase 2A "不重做" overclaim 是先例)。
+- 非实测的 PLACEHOLDER/judgment 值即便"做出来了"也算没做透。
+- 配合 4-tier 自审(`feedback_self_audit_methodology`)+ per-round
+  4 维(`feedback_audit_per_round_methodology`)+ 禁 blanket verdict
+  (`feedback_no_blanket_failure_verdict`)。
+
 ---
 
 ## Key File Locations
