@@ -21,10 +21,14 @@ Pricing via Machine Learning》(RFS 2020)= 该领域 canonical:trees +
 `rank:ndcg` 已验证(94% linear baseline)。**"因子不适合 ML"不成立。**
 
 **Q2:Phase 3 按 literature 路径了吗?**
-**Phase 2A 是(XGBoost rank:ndcg + LOTYO + 边界 purge = 标准做法,负
-结论可信);Phase 3 否。** Phase 3 的 3A/3B/3C = **从零监督训练的小
-模型**,literature 明确预测这种 regime 会失败。具体偏离见 §2。**结论:
-Phase 3 负结果不是"chart-native 不行"的干净检验,必须 redo。**
+**Phase 2A 部分(比 naive 好但非 literature-grade);Phase 3 否。**
+P2A 用了 rank + LOTYO + 边界 purge,但缺 sample-uniqueness 加权 /
+sector-neutral / winsorize / vol-scale / CPCV / DSR-PBO——"family T
+无增量"是地基结论,**必须 R2.5 复检**(初稿曾误称 P2A"严谨不重做",
+已纠正,见 §2 修正块 + supplementary PRD §13)。Phase 3 的 3A/3B/3C
+= **从零监督训练的小模型**,literature 明确预测这种 regime 会失败。
+**结论:Phase 3 负结果不是"chart-native 不行"的干净检验,必须 redo;
+P2 地基同步复检。**
 
 ---
 
@@ -129,9 +133,21 @@ Phase 3 负结果不是"chart-native 不行"的干净检验,必须 redo。**
 | 增广 | 无 | TS 专属增广(jitter/permutation/mask),禁 CV/NLP 搬运 [S2] | 加 TS 专属增广 |
 | 模型角色 | 单挑动量 | 弱正交信号 → stacking ensemble [S15a] | redo 含 ensemble 评估 |
 
-**已合规、不重做**:Phase 2A(rank:ndcg + LOTYO + 边界 purge);
-temporal_split 纪律(本会话已修 partition_for_role(miner)+purge);
-基础设施(因果 swing / GAF / TS2Vec encoder / fusion / universe flag)。
+**已合规、不重做**:temporal_split 纪律(本会话已修
+partition_for_role(miner)+purge);D6 隔离 + `--universe` 全链路
+(GAP1-4);基础设施**模块代码**(因果 swing / GAF / TS2Vec encoder /
+fusion / universe resolver)。
+
+**修正(2026-05-16,supplementary PRD §13 audit)**:本 memo 初稿曾把
+**Phase 2A 列入"已合规不重做"——overclaim**。P2A 比 naive 好(rank +
+边界 purge)但缺 sample-uniqueness 加权 / sector-neutral / winsorize /
+vol-scale / CPCV / DSR-PBO,**非 literature-grade**;"family T 无增量"
+是地基结论,须经 R2.5 复检(supplementary PRD §5.5)。Phase 2B 的
+MiniROCKET/TS2Vec **下游 IC 从未跑、TS2Vec 仅 40 步 smoke 从未全量
+预训练**——"造好≠做透",补做于 R3(full-pretrain)+ R2.5-b。Phase 4
+expanded_v1=328 规模是主 PRD §C 自承 PLACEHOLDER,literature 需更大
+cross-section → R-P4ext(~1k + survivorship 审计)。详 supplementary
+PRD `docs/prd/20260516-ml_methodology_supplementary_prd.md` §13。
 
 ---
 
