@@ -1,0 +1,25 @@
+{
+  "audit": "d1_data_cleanliness",
+  "created_at": "2026-05-17T05:43:34.530515+00:00",
+  "n_audited": 1015,
+  "universe_sizes": {
+    "executable": 79,
+    "expanded_v1": 328,
+    "expanded_v2": 1006
+  },
+  "by_status": {
+    "clean": 1015
+  },
+  "n_dirty_total": 0,
+  "n_dirty_in_used_universe": 0,
+  "load_exception_symbols": [],
+  "nan_volume_symbols": [],
+  "nan_close_symbols": [],
+  "weekend_symbols": [],
+  "per_universe_clean_pct": {
+    "executable": 100.0,
+    "expanded_v1": 100.0,
+    "expanded_v2": 100.0
+  },
+  "wall_s": 385.0
+}

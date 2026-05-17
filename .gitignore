@@ -107,3 +107,4 @@ data/fundamentals/edgar_cache/*.json
 # dev/scripts/fundamentals/build_macro_cache.py
 data/fundamentals/macro/*.csv
 data/audit/ml_redo/*.pt
+data/daily/*.preD2

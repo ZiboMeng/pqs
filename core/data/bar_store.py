@@ -497,7 +497,15 @@ class BarStore:
             if col in df.columns:
                 df[col] = (df[col].astype("float64") * factors).astype("float32")
         if "volume" in df.columns:
-            df["volume"] = (df["volume"].astype("float64") / factors).round().astype("int64")
+            _vol = (df["volume"].astype("float64") / factors).round()
+            # NaN-safe (D2 fix 2026-05-16): clean volume stays int64
+            # (bit-identical for the 79/328 curated universes — zero
+            # regression); a NaN-volume symbol keeps float64 (NaN
+            # preserved) instead of raising IntCastingNaNError, which
+            # previously hard-crashed any load touching such a symbol
+            # (surfaced by expanded_v2 / TTD).
+            df["volume"] = (_vol.astype("int64") if _vol.notna().all()
+                            else _vol)
         # amount (dollar volume) is invariant to splits
         return df
 
