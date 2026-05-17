@@ -1,0 +1,15 @@
+# R1 labeling layer config (supplementary PRD §4). No hardcoded knobs.
+
+horizon_days: 21            # vertical barrier / control fwd-return horizon
+
+concurrency_weighting:
+  enabled: true             # sample_weight = normalized avg uniqueness [S5]
+
+triple_barrier:
+  enabled: true             # alt label, A/B vs bare 21d fwd return
+  pt_mult: 2.0              # upper barrier = +pt_mult * trailing vol
+  sl_mult: 2.0              # lower barrier = -sl_mult * trailing vol
+  vol_lookback: 21          # trailing realized-vol window (causal)
+
+control_label:
+  bare_fwd_return: true     # retained for A/B (compute_forward_returns)

@@ -68,7 +68,7 @@ def main():
     parser.add_argument("--horizon", type=int, nargs="*", default=[5, 10, 21])
     parser.add_argument("--top", type=int, default=20)
     parser.add_argument("--config-dir", default="config")
-    parser.add_argument("--universe", choices=["executable", "expanded_v1"],
+    parser.add_argument("--universe", choices=["executable", "expanded_v1", "expanded_v2"],
                         default="executable",
                         help="symbol universe (default executable = the "
                              "config/universe.yaml-derived set, byte-for-byte "

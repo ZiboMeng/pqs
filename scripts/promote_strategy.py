@@ -172,7 +172,7 @@ def main() -> int:
                         help="Path to production_strategy.yaml to rewrite")
     parser.add_argument("--rationale", default="",
                         help="Why this spec_id was promoted (stored in source.rationale)")
-    parser.add_argument("--universe", choices=["executable", "expanded_v1"],
+    parser.add_argument("--universe", choices=["executable", "expanded_v1", "expanded_v2"],
                         default="executable",
                         help="universe the candidate was mined on (P4-A1 "
                              "propagation: universe_hash + recorded universe "

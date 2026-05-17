@@ -1,0 +1,19 @@
+{
+  "encoder": "MAE_segment_mask",
+  "created_at": "2026-05-17T02:19:18.899493+00:00",
+  "is_full_pretrain": true,
+  "n_steps": 5000,
+  "full_min_steps": 3000,
+  "corpus_manifest_id": "chart_structure_pretrain_corpus_v1",
+  "universe": "expanded_v1",
+  "n_windows": 461716,
+  "train_years_only": true,
+  "sealed_validation_seen": false,
+  "loss_first_last_best": [
+    0.062613,
+    0.014734,
+    0.005334
+  ],
+  "converged": false,
+  "wall_s": 215.7
+}

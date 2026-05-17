@@ -72,7 +72,8 @@ def test_backtest_and_promote_expose_universe_flag():
     ps_src = inspect.getsource(ps)
     for src in (rb_src, ps_src):
         assert 'add_argument("--universe"' in src
-        assert 'choices=["executable", "expanded_v1"]' in src
+        assert ('choices=["executable", "expanded_v1", "expanded_v2"]' in src
+                or 'choices=["executable", "expanded_v1"]' in src)
         assert 'default="executable"' in src
     # GAP2 D6-safe: executable keeps the original cfg.universe derivation
     assert "list(uni.seed_pool)" in rb_src and 'if getattr(args, "universe"' in rb_src

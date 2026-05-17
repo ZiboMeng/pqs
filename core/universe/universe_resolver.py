@@ -30,7 +30,7 @@ import yaml
 
 from core.config.loader import load_config
 
-UNIVERSE_NAMES = ("executable", "expanded_v1")
+UNIVERSE_NAMES = ("executable", "expanded_v1", "expanded_v2")
 
 # Cycle-drop symbols (data-integrity round-3 / TC-ceiling); see
 # config/executable_universe.yaml. USO is a no-op (never in the union).
@@ -62,7 +62,7 @@ def resolve_universe(
 
     Parameters
     ----------
-    name : "executable" | "expanded_v1"
+    name : "executable" | "expanded_v1" | "expanded_v2"
     config_dir : config directory (defaults to repo ``config/``).
     include_benchmarks : append SPY / QQQ if absent (default True —
         matches the pre-Phase-4 inline behaviour).
@@ -75,7 +75,7 @@ def resolve_universe(
     base = _executable_base(cdir)
     if name == "executable":
         syms = list(base)
-    else:  # expanded_v1
+    elif name == "expanded_v1":
         exp_path = cdir / "universe_expanded_v1.yaml"
         if not exp_path.exists():
             raise FileNotFoundError(
@@ -84,6 +84,19 @@ def resolve_universe(
         doc = yaml.safe_load(exp_path.read_text()) or {}
         extra = list(doc.get("expanded_symbols", []))
         # additive: original executable 79 first, then new symbols, deduped
+        syms = list(dict.fromkeys(base + extra))
+    else:  # expanded_v2 (R-P4ext: data-driven ~1k, supplementary PRD §8.5)
+        exp_path = cdir / "universe_expanded_v2.yaml"
+        if not exp_path.exists():
+            raise FileNotFoundError(
+                f"{exp_path} not found — expanded_v2 not built yet "
+                f"(supplementary PRD R-P4ext; run "
+                f"dev/scripts/ml_redo/universe_v2_coverage_audit.py).")
+        doc = yaml.safe_load(exp_path.read_text()) or {}
+        extra = list(doc.get("symbols", []))
+        # additive (same D6 semantics as v1): executable base first, then
+        # the coverage-audit-selected ~1k, deduped. executable/expanded_v1
+        # outputs are byte-identical (this branch never runs for them).
         syms = list(dict.fromkeys(base + extra))
 
     if include_benchmarks:

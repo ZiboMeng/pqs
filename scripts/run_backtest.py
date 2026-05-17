@@ -227,7 +227,7 @@ def main():
     parser.add_argument("--end",             default=None, help="回测结束日期 YYYY-MM-DD")
     parser.add_argument("--no-walk-forward", action="store_true")
     parser.add_argument("--config-dir",      default="config")
-    parser.add_argument("--universe", choices=["executable", "expanded_v1"],
+    parser.add_argument("--universe", choices=["executable", "expanded_v1", "expanded_v2"],
                         default="executable",
                         help="symbol universe (default executable = the "
                              "config/universe.yaml-derived set, byte-for-byte "

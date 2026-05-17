@@ -207,7 +207,7 @@ def _paired_t(deltas: List[float]) -> Dict[str, Any]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--k-grid", type=int, nargs="+", default=[6, 8, 12])
-    ap.add_argument("--universe", choices=["executable", "expanded_v1"],
+    ap.add_argument("--universe", choices=["executable", "expanded_v1", "expanded_v2"],
                     default="executable",
                     help="symbol universe (default executable = 79-symbol; "
                          "expanded_v1 = Phase-4 expanded)")

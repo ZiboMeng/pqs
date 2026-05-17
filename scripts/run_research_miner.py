@@ -455,7 +455,7 @@ def main() -> int:
              "availability contract (repeatable). Typically declared in "
              "criteria yaml; CLI form is for ad-hoc/testing flows.",
     )
-    parser.add_argument("--universe", choices=["executable", "expanded_v1"],
+    parser.add_argument("--universe", choices=["executable", "expanded_v1", "expanded_v2"],
                         default="executable",
                         help="symbol universe (default executable = the "
                              "config/universe.yaml-derived 81-symbol set, "

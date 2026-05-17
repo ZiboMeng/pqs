@@ -1,0 +1,24 @@
+# R0 data-preparation layer config (supplementary PRD §3).
+# Default = literature baseline (all cross-sectional steps ON,
+# frac-diff OFF). No threshold is hardcoded in code (PRD G7).
+
+rank_norm:
+  enabled: true            # cross-sectional [0,1] percentile per date [S12]
+
+winsorize:
+  enabled: true
+  p_low: 0.01              # 1st percentile hard-cap [S12]
+  p_high: 0.99             # 99th percentile hard-cap
+
+sector_neutralize:
+  enabled: true            # subtract PIT-GICS-sector cross-sectional mean [S12]
+
+vol_scale:
+  enabled: true
+  lookback: 63             # trailing realized-vol window (bars), causal (shift 1)
+
+frac_diff:                 # opt-in; OFF by default → panel bit-identical
+  enabled: false
+  d_grid: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+  adf_crit: -2.86          # ≈ 5% ADF critical value (min-d stationarity) [S9]
+  thres: 0.0001            # FFD weight cutoff

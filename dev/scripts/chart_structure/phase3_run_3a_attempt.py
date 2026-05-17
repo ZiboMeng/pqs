@@ -73,7 +73,7 @@ def main() -> int:
     import torch
 
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--universe", choices=["executable", "expanded_v1"],
+    ap.add_argument("--universe", choices=["executable", "expanded_v1", "expanded_v2"],
                     default="executable",
                     help="symbol universe (default executable = 79-symbol; "
                          "expanded_v1 = Phase-4 expanded). P4-A1 entrypoint flag.")

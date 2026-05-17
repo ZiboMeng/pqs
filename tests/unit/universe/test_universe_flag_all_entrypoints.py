@@ -40,8 +40,9 @@ def test_entrypoint_exposes_universe_flag(rel):
     assert p.exists(), f"{rel} missing"
     src = p.read_text()
     assert 'add_argument("--universe"' in src, f"{rel}: missing --universe flag"
-    assert 'choices=["executable", "expanded_v1"]' in src, \
-        f"{rel}: --universe must restrict to executable|expanded_v1"
+    assert ('choices=["executable", "expanded_v1", "expanded_v2"]' in src
+            or 'choices=["executable", "expanded_v1"]' in src), \
+        f"{rel}: --universe must restrict to executable|expanded_v1[|_v2]"
     assert "default=\"executable\"" in src or "default='executable'" in src, \
         f"{rel}: --universe must default to executable (D6/P4-A2)"
     assert "from core.universe.universe_resolver import resolve_universe" in src, \

@@ -64,4 +64,6 @@ def test_resolve_unknown_name_raises():
 
 
 def test_universe_names_constant():
-    assert UNIVERSE_NAMES == ("executable", "expanded_v1")
+    # expanded_v2 added by supplementary PRD R-P4ext (data-driven ~1k);
+    # executable + expanded_v1 contract unchanged (additive, D6/P4-A2).
+    assert UNIVERSE_NAMES == ("executable", "expanded_v1", "expanded_v2")

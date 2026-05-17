@@ -45,7 +45,7 @@ def main():
     parser = argparse.ArgumentParser(description="XGBoost factor importance")
     parser.add_argument("--horizon", type=int, default=21)
     parser.add_argument("--config-dir", default="config")
-    parser.add_argument("--universe", choices=["executable", "expanded_v1"],
+    parser.add_argument("--universe", choices=["executable", "expanded_v1", "expanded_v2"],
                         default="executable",
                         help="symbol universe (default executable = the "
                              "config/universe.yaml-derived set, byte-for-byte "
