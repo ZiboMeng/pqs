@@ -161,3 +161,41 @@ BarStore NaN bug)均纠正留痕,不 hand-wave。**
 
 **D1-D3 待执行**(用户指令:数据 100% clean 检查 + 补 + 重跑验证)——
 在此之前 §6 数值标 `pending_data_cleanliness_validation`。
+
+---
+
+## §7 D3 —— 干净数据重跑 C3/C4(landmark④ 复检,2026-05-17)
+
+D1+D2 后 expanded_v2 100% 干净,重跑 `run_c3c4_expanded_fromscratch.py`
+(脏数据结果保留为 `c3c4_expanded.dirtydata.json` 做基准)。
+
+| 指标 | 脏数据(pre-D2)| 干净数据(D3)| 定性 |
+|---|---|---|---|
+| n_samples | 5,977 | **116,820** | **干净后样本 ~20×**,脏行(周末/NaN)被过滤掉前样本极薄 → 脏 IC 高方差不可信 |
+| n_skipped (BarStore bug) | 1 | **0** | bug 修复生效,1004/1004 全 load |
+| mae_probe IC | 0.02425 | **0.04782** | **升**;vs_tab +0.061 → **+0.058(稳)** |
+| gaf_tree IC | 0.12806 | **0.04479** | **大幅缩水**;vs_tab +0.165 → **+0.055** |
+| 动量基线 IC | −0.037 | −0.010 | 此票池/stride 动量仍弱负 |
+| C4 from-scratch IC | −0.003 | +0.002 | ≈ 噪声(稳);**确认 from-scratch 输 pretrain-probe** |
+| DSR mae/gaf | 0.97 / 0.99 | **0.9999 / 0.999** | 干净大样本 DSR 更高 |
+| sealed 2026 read | — | **False** | train-only 纪律保持 |
+
+**诚实结论(不 overclaim / 不 blanket)**:
+- **landmark④ 方向成立、量级是脏数据夸大**:gaf_tree 头条 IC
+  +0.128/+0.165 是 5977 薄样本(脏行过滤后)的高方差 artifact,干净
+  116820 样本上缩到 +0.045/+0.055。**但两个 chart-native arm 在干净大
+  票池上 vs 动量基线仍正(mae +0.058 / gaf +0.055,DSR≈1)**——
+  "chart-native 在大 cross-section 上打过动量基线"这个**定性**结论
+  在干净数据上**存活**,只是不再是当初那个夸张幅度。
+- **审计纪律再次被验证 load-bearing**:closeout §6 的 "MUST re-validate"
+  caveat 是对的;复检把信号缩小但没归零——这正是 audit=暴露没做透的
+  价值(脏数据本会让我们 overclaim +0.128)。
+- **其余 3 landmark 不受影响**:R2.5/R4/C2 跑在 100%-clean executable-79
+  票池上,与 expanded_v2 数据问题无关,结论不变。
+- **scope 不变**:config-scoped(此因子集/此 prep/21d/此票池/stride-10
+  /from-scratch fit-once),research 信号质量结论,**非可部署候选**
+  (Track A / sealed / forward 漏斗未走),sealed 2026 全程未读。
+
+§6 数值 `pending_data_cleanliness_validation` 标记 **CLEAR**;landmark④
+数值以本 §7 干净结果为准,脏数值作废(保留 `.dirtydata.json` 做审计
+留痕)。ML-method-redo 线 D1-D3 全部执行完毕。

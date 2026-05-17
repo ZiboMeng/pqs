@@ -1,0 +1,4 @@
+expanded_v2 universe: 1004 symbols
+loaded 1004/1004 (skipped 0 on BarStore NaN-volume split-adjust bug — recorded)
+assembled 116820 samples (img 3.71GB) (627s)
+C3C4 -> c3c4_expanded.json: mae_probe vs_tab=0.05825 gaf vs_tab=0.05522 | from_scratch IC=0.00223 vs mom 0.04195 (4257s)

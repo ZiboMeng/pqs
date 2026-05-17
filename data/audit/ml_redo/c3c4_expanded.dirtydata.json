@@ -1,32 +1,32 @@
 {
   "evaluation": "c3c4_expanded_fromscratch",
-  "created_at": "2026-05-17T20:03:26.128994+00:00",
+  "created_at": "2026-05-17T05:12:38.848884+00:00",
   "universe": "expanded_v2",
   "n_universe": 1004,
-  "n_samples": 116820,
+  "n_samples": 5977,
   "date_stride": 10,
-  "n_universe_loaded": 1004,
-  "n_skipped_barstore_nanvol_bug": 0,
+  "n_universe_loaded": 1003,
+  "n_skipped_barstore_nanvol_bug": 1,
   "barstore_bug_finding": "core/data/bar_store.py:500 _apply_forward_splits volume.astype('int64') raises IntCastingNaNError on NaN-volume symbols. Surfaced by expanded_v2 (1000 data-driven; 79/328 curated never hit it). Pre-existing robustness bug \u2014 SEPARATE fix item (touches a load-bearing core module \u2192 own G1); NOT silently swallowed: skipped symbols counted; C3/C4 run on the loadable subset with this limitation explicitly recorded (audit discipline).",
   "c3_expanded_arms": {
     "mae_probe": {
-      "oos_rank_ic": 0.04782,
-      "mom_ic": -0.01043,
-      "vs_tabular": 0.05825,
+      "oos_rank_ic": 0.02425,
+      "mom_ic": -0.03717,
+      "vs_tabular": 0.06142,
       "n_folds": 15,
-      "dsr": 0.9999999998961451
+      "dsr": 0.9661867142674411
     },
     "gaf_tree": {
-      "oos_rank_ic": 0.04479,
-      "mom_ic": -0.01043,
-      "vs_tabular": 0.05522,
+      "oos_rank_ic": 0.12806,
+      "mom_ic": -0.03717,
+      "vs_tabular": 0.16523,
       "n_folds": 15,
-      "dsr": 0.9993973494418802
+      "dsr": 0.9942337924889677
     }
   },
   "c4_from_scratch": {
-    "oos_rank_ic": 0.00223,
-    "mom_ic": 0.04195,
+    "oos_rank_ic": -0.00341,
+    "mom_ic": -0.04775,
     "trained": "from-scratch ChartCNN, 60ep, fit-block once (NOT per-CPCV-fold \u2014 bounded approximation, recorded)"
   },
   "comparison": "pretrain\u2192probe (mae_probe) vs from-scratch CNN on the SAME literature pipeline + universe",
