@@ -65,6 +65,8 @@ logger = get_logger("research_miner_cli")
 def _load_price_volume(
     cfg, store, end_date: Optional[str] = None,
     drop_symbols: Optional[list] = None,
+    universe_name: str = "executable",
+    config_dir: str = "config",
 ) -> dict[str, pd.DataFrame]:
     """Return {close, open, high, low, volume} DataFrames for the tradable
     universe + SPY/QQQ benchmarks.
@@ -81,10 +83,15 @@ def _load_price_volume(
     unfreeze).
     """
     uni = cfg.universe
-    all_syms = list(dict.fromkeys(
-        list(uni.seed_pool) + list(uni.sector_etfs)
-        + list(uni.factor_etfs) + list(uni.cross_asset)
-    ))
+    if universe_name == "expanded_v1":
+        from core.universe.universe_resolver import resolve_universe
+        all_syms = list(resolve_universe(
+            "expanded_v1", config_dir=Path(config_dir)))
+    else:
+        all_syms = list(dict.fromkeys(
+            list(uni.seed_pool) + list(uni.sector_etfs)
+            + list(uni.factor_etfs) + list(uni.cross_asset)
+        ))
     # Include SPY & QQQ whether or not blacklisted (always needed as benchmarks)
     tradable = [s for s in all_syms
                 if s not in uni.blacklist and s not in uni.macro_reference]
@@ -446,6 +453,13 @@ def main() -> int:
              "availability contract (repeatable). Typically declared in "
              "criteria yaml; CLI form is for ad-hoc/testing flows.",
     )
+    parser.add_argument("--universe", choices=["executable", "expanded_v1"],
+                        default="executable",
+                        help="symbol universe (default executable = the "
+                             "config/universe.yaml-derived 81-symbol set, "
+                             "byte-for-byte unchanged for D6/P4-A2; "
+                             "expanded_v1 = Phase-4 expanded (328) via "
+                             "resolve_universe). P4-A1.")
     args = parser.parse_args()
     # Normalize explicit_exclusions: yaml is source of truth; CLI fills only
     # when yaml absent / silent.
@@ -700,6 +714,8 @@ def main() -> int:
         cfg, store,
         end_date=args.end_date,
         drop_symbols=args.drop_symbols,
+        universe_name=args.universe,
+        config_dir=args.config_dir if hasattr(args, "config_dir") else "config",
     )
 
     # Track A: restrict panel to train years + validate no holdout leakage

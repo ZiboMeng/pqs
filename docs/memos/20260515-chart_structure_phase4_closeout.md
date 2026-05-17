@@ -111,7 +111,7 @@ Phase 1/2A 的结果都**不会**被这次 universe 扩张回溯影响。
 
 | AC | 判据 | 结果 |
 |---|---|---|
-| P4-A1 | resolver + `--universe` flag 全入口 + `test_universe_flag_all_entrypoints` | ⚠️ **AMENDED 2026-05-16 audit**(原「✅ 6 单测」是 overclaim):`resolve_universe` + chart-structure 研究脚本(phase2a + phase3_run_{3a,3b,3c})接 flag ✅;production 主入口(run_research_miner/factor_screen/xgb)**刻意 resolver-free**(更强 D6 隔离,operator 决策);`test_universe_flag_all_entrypoints`(7)钉真实契约。详 `docs/memos/20260516-chart_structure_prd_audit.md` §4/§5.1 |
+| P4-A1 | resolver + `--universe` flag 全入口 + `test_universe_flag_all_entrypoints` | ✅ **RESOLVED 2026-05-16(audit + 用户 override)**:原「✅ 6 单测」overclaim → 现 7 入口全接 `--universe`(研究 phase2a+phase3_run_{3a,3b,3c} + production run_research_miner/factor_screen/xgb_importance)。用户 override 折中决策,production 入口也接;D6/P4-A2 by-construction 保护(executable default = 原 cfg.universe 派生字节不变,仅 expanded_v1 走 resolve_universe;实测 executable 仍 81 / expanded 326)。`test_universe_flag_all_entrypoints`(8 单测,含 D6 守护)。详 `docs/memos/20260516-chart_structure_prd_audit.md` §4+§4.1 |
 | P4-A2 | `executable` bit-for-bit 复现 Phase-4 前 79 构造 | ✅ 逐符号顺序比对单测 PASS |
 | P4-A3 | forward manifest diff == empty(隔离回归) | ✅ `universe_hash` 结构性独立于 expanded yaml;5 隔离单测 PASS |
 | P4-A4 | 过 `data_completeness_gate` + weekend/cross-symbol smoke | ✅ 328/328 完整度;0 weekend;4 轮数据 audit 全 PASS |

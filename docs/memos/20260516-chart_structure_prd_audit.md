@@ -129,8 +129,33 @@ expanded_v1,这比「default 值的 flag」是**更强的 D6 隔离保证**;
 ✅;production 入口刻意 resolver-free,见本 audit §4」)。
 
 **用户若不认同**:可指示「production 主入口也全接 --universe」——
-那是重开 Phase 4 P4·R1 scope(~5-8 入口 argparse + resolver 接线 +
-bit-for-bit 回归扩面),本 audit 已备清单,等 explicit-go。
+那是重开 Phase 4 P4·R1 scope,本 audit 已备清单,等 explicit-go。
+
+### §4.1 用户 directional override（2026-05-16,已执行）
+
+用户明确指示「**P4-A1 production 主入口也全接 --universe**」,override
+上面的折中决策。已执行(commit 见 §11):
+
+- `scripts/run_research_miner.py` / `run_factor_screen.py` /
+  `run_xgb_importance.py` 三个 production 入口加
+  `--universe {executable|expanded_v1}`(default `executable`)。
+- **D6/P4-A2 by-construction 保护**:依赖核查发现
+  `resolve_universe("executable")`=**79 符号**,但这三个脚本现有
+  `cfg.universe` 派生=**81 符号(含 BRK-B+SLV;BRK-B 在 data-integrity
+  round-3 被 drop,resolve 是 post-drop)**——两者**不等**。naive 把
+  executable 路由进 resolve_universe 会静默 81→79 = D6 回归。故设计:
+  **`executable`(default)分支 = 原 `cfg.universe` 派生代码原封不动
+  挪进 `else:`(字节不变)**;仅 `expanded_v1` 分支走
+  `resolve_universe("expanded_v1")`。实测核验:executable 默认仍 81
+  (BRK-B/SLV 在),expanded_v1=326。**默认行为零改动,P4-A2 by
+  construction。**
+- `test_universe_flag_all_entrypoints.py` 重写:7 入口全要 flag(研究
+  4 + production 3)+ 一条 D6 守护测试(钉 production executable 分支
+  必须保留原 `cfg.universe` 派生、expanded 必须是显式分支)。8 单测
+  green。
+- 关键洞察:Phase 4 当初只接 phase2a 而留 production 入口,**根因正是
+  这个 81≠79 不一致**——naive 接线本会回归。本次用 by-construction
+  设计绕开,而非假设两者等价。
 
 ---
 

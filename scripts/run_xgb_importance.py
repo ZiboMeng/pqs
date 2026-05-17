@@ -45,16 +45,27 @@ def main():
     parser = argparse.ArgumentParser(description="XGBoost factor importance")
     parser.add_argument("--horizon", type=int, default=21)
     parser.add_argument("--config-dir", default="config")
+    parser.add_argument("--universe", choices=["executable", "expanded_v1"],
+                        default="executable",
+                        help="symbol universe (default executable = the "
+                             "config/universe.yaml-derived set, byte-for-byte "
+                             "unchanged for D6/P4-A2; expanded_v1 = Phase-4 "
+                             "expanded via resolve_universe). P4-A1.")
     args = parser.parse_args()
 
     cfg = load_config(Path(args.config_dir))
     store = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
 
     uni = cfg.universe
-    all_syms = list(dict.fromkeys(
-        list(uni.seed_pool) + list(uni.sector_etfs) +
-        list(uni.factor_etfs) + list(uni.cross_asset)
-    ))
+    if args.universe == "expanded_v1":
+        from core.universe.universe_resolver import resolve_universe
+        all_syms = list(resolve_universe(
+            "expanded_v1", config_dir=Path(args.config_dir)))
+    else:
+        all_syms = list(dict.fromkeys(
+            list(uni.seed_pool) + list(uni.sector_etfs) +
+            list(uni.factor_etfs) + list(uni.cross_asset)
+        ))
     tradeable = [s for s in all_syms if s not in uni.blacklist and s not in uni.macro_reference]
 
     start = cfg.backtest.start_date or "2007-01-02"

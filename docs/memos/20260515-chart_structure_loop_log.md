@@ -703,3 +703,31 @@ commit canonical 重跑。
 **7. 自审**: R1 集合/范围/溢出日期全实跑;R2 fit 干净 vs panel 违规
 独立;R3 panel 4867→3021 + verdict 全 underperform 符合预期;R4
 fail-closed 断言挂 panel + phase2a 单独核验未误伤。
+
+---
+
+## AUDIT-FIX2 — P4-A1 用户 override:production 入口全接 --universe(2026-05-16)
+
+**1. 主题**: 用户 override 折中决策——production 主入口也接 --universe。
+**2. 依赖核查(make-or-break)**: 实测 `resolve_universe("executable")`=
+79,但 run_research_miner/factor_screen/xgb 现有 `cfg.universe` 派生=
+**81(含 BRK-B+SLV;round-3 drop 后 resolve 是 79)**——**不等**。naive
+路由 executable→resolve 会静默 81→79 = D6 回归(正是 Phase 4 当初只接
+phase2a 的根因)。
+**3. D6-safe 设计**: `executable`(default)= 原 cfg.universe 派生代码
+原封挪进 `else:`(字节不变,P4-A2 by construction);仅 `expanded_v1`
+走 `resolve_universe("expanded_v1")`。
+**4. 文件**: `scripts/run_{research_miner,factor_screen,xgb_importance}.py`
+(+--universe argparse + else 包裹原派生 + expanded 分支);
+`test_universe_flag_all_entrypoints.py` 重写(7 入口全要 flag + D6
+守护测试);audit memo §4.1 + Phase4 closeout P4-A1(✅ RESOLVED)。
+**5. 核验**: 3 compile OK;3×`-h` 含 `--universe {executable,expanded_v1}`;
+实测 executable default tradable=81(BRK-B/SLV 在)/ expanded_v1=326;
+universe 子集 58 passed;G1 全量(收尾确认)。
+**6. 结果**: P4-A1 从 audit overclaim → 真正全入口接,默认行为零改动
+(by construction),expanded reachable。Phase 3 closeout 唯一未证伪
+开口「expanded_v1 重检」现 production+研究入口均可达。
+**7. 自审**: R1 依赖实测(79 vs 81 不等,非假设);R2 by-construction
+论证(else 分支=原码字节不变 ⇒ P4-A2 必然成立);R3 executable=81/
+expanded=326 实跑确认 + flag 在 -h;R4 D6 守护测试钉 production
+executable 分支不得改原派生(契约漂移会 fail)。
