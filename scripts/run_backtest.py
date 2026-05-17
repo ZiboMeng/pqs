@@ -227,6 +227,14 @@ def main():
     parser.add_argument("--end",             default=None, help="回测结束日期 YYYY-MM-DD")
     parser.add_argument("--no-walk-forward", action="store_true")
     parser.add_argument("--config-dir",      default="config")
+    parser.add_argument("--universe", choices=["executable", "expanded_v1"],
+                        default="executable",
+                        help="symbol universe (default executable = the "
+                             "config/universe.yaml-derived set, byte-for-byte "
+                             "unchanged for D6/P4-A2; expanded_v1 = Phase-4 "
+                             "expanded via resolve_universe). P4-A1 "
+                             "propagation: backtest on the same universe a "
+                             "candidate was mined on.")
     parser.add_argument("--output-dir",      default="reports/backtests")
     parser.add_argument("--production-strategy",
                         default=PS_YAML_DEFAULT,
@@ -268,11 +276,16 @@ def main():
 
     # ── 收集所有 symbol ──────────────────────────────────────────────────────
     uni     = cfg.universe
-    seed    = list(uni.seed_pool)
-    sectors = list(uni.sector_etfs)
-    factors = list(uni.factor_etfs)
-    cross   = list(uni.cross_asset)
-    all_tradeable = list(dict.fromkeys(seed + sectors + factors + cross))
+    if getattr(args, "universe", "executable") == "expanded_v1":
+        from core.universe.universe_resolver import resolve_universe
+        all_tradeable = list(resolve_universe(
+            "expanded_v1", config_dir=Path(args.config_dir)))
+    else:
+        seed    = list(uni.seed_pool)
+        sectors = list(uni.sector_etfs)
+        factors = list(uni.factor_etfs)
+        cross   = list(uni.cross_asset)
+        all_tradeable = list(dict.fromkeys(seed + sectors + factors + cross))
     def_syms  = [s for s in ["TLT", "IEF", "GLD", "SHY"] if s in all_tradeable]
     risk_syms = [s for s in all_tradeable if s not in def_syms and s not in ["TQQQ", "SOXL"]]
 

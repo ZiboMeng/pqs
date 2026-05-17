@@ -731,3 +731,44 @@ universe 子集 58 passed;G1 全量(收尾确认)。
 论证(else 分支=原码字节不变 ⇒ P4-A2 必然成立);R3 executable=81/
 expanded=326 实跑确认 + flag 在 -h;R4 D6 守护测试钉 production
 executable 分支不得改原派生(契约漂移会 fail)。
+
+---
+
+## AUDIT-FIX3 — universe 身份全链路传播 GAP1-4(2026-05-16,用户要求)
+
+**1. 主题**: 用户要求不同 universe mining 后 backtest/forward/promote
+用相应 universe + 产物可追溯;executable 默认字节不变。
+**2. 设计**: 传播载体 = `FrozenStrategySpec.universe: Optional[str]=None`
+(None≡executable,同 execution_policy/evidence_config opt-in 模式 →
+所有现存候选 byte-identical)。全链路 default→executable/None =
+byte-identical by construction。
+**3. GAP1-4**:
+- GAP1 `run_research_miner._write_artifacts` run_summary.json 写
+  `"universe": universe_name`。
+- GAP2 `run_backtest.py` 加 `--universe`;executable 分支=原
+  cfg.universe 派生 verbatim 挪进 else,expanded_v1→resolve_universe。
+- GAP3 `forward/runner.init` 从 `spec.universe` 派生
+  `universe_yaml_override`(expanded_v1→universe_expanded_v1.yaml;
+  None/executable→None=legacy config/universe.yaml);revalidate
+  (observe/recover)已有从 manifest 回读 universe_hash 源路径逻辑,
+  自动复用同 universe(无需改)。
+- GAP4 `promote_strategy` 加 `--universe`;`_compute_fingerprints`
+  按 universe 选 yaml 算 universe_hash + promoted yaml 记录
+  `"universe"`;default executable=universe.yaml byte-identical。
+**4. 文件**: `core/research/frozen_spec.py`(+universe 字段+序列化)、
+`core/research/forward/runner.py`(GAP3 派生)、`scripts/run_research_miner.py`
+(GAP1)、`scripts/run_backtest.py`(GAP2)、`scripts/promote_strategy.py`
+(GAP4)、`tests/unit/research/test_universe_propagation.py`(7 新测)。
+**5. 核验**: 5 文件 compile OK;legacy spec(无 universe)→None→to_dict
+省略=byte-identical(实测断言);expanded_v1 round-trips;174 定向测
+(propagation+frozen_spec+forward_runner+promote+universe)全 green,
+load-bearing forward/frozen_spec/promote 无回归;G1 全量收尾确认。
+**6. 结果**: (c) 全链路打通——universe 身份 mining→spec→forward→promote
+端到端传播 + 产物可追溯;executable 默认全链路 byte-identical
+(D6/P4-A2 by construction);"不同 universe mining 后 backtest/forward/
+promote 用相应 universe"满足。
+**7. 自审**: R1 各环节接入点 grep+读源实证;R2 None≡executable opt-in
+模式 ⇒ 现存候选必然 byte-identical(逻辑闭环);R3 legacy round-trip
+byte-identical + expanded round-trip 实跑断言 + 174 测;R4 GAP3 未知
+universe→ValueError、explicit kwarg 仍 win(back-compat)、revalidate
+回读路径复用(无 drift 误报)。

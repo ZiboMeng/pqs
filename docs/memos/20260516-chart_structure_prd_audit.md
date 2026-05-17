@@ -361,3 +361,37 @@ phase2a 增量-IC 数字**不受影响**(本就走 canonical selector+purge)。
 - **R4 边界**:`validate_no_holdout_leakage` fail-closed 断言挂在
   panel 上(未来若 panel 再含 holdout 行会直接 raise);phase2a
   selector 路径单独核验确认合规(未误伤)。
+
+---
+
+## §12 universe 身份全链路传播 GAP1-4 收口（2026-05-16,用户要求）
+
+§4.1 之后用户进一步要求:「不同 universe mining 后 backtest/forward/
+promote 用相应 universe + 产物可追溯;executable 默认字节不变」。
+§(c) 审计发现的 4 个 GAP 全部收口。
+
+**传播载体** = `FrozenStrategySpec.universe: Optional[str] = None`
+(opt-in,同 `execution_policy`/`evidence_config` 既有模式)。
+**核心不变量**:`None ≡ "executable"` → 所有 pre-existing 候选
+(RCMv1/Cand-2/trial9/cycle06/08/pead,frozen spec 无 `universe` key)
+`from_dict` → None → `to_dict` 省略 → **序列化 byte-identical**(实测
+断言)。
+
+| GAP | 位置 | 修复 | D6 保护 |
+|---|---|---|---|
+| GAP1 | `run_research_miner._write_artifacts` | `run_summary.json` 写 `"universe": universe_name` | default "executable",纯增字段 |
+| GAP2 | `scripts/run_backtest.py` | 加 `--universe`;executable=原 cfg.universe 派生 verbatim 挪进 `else:` | by construction(原码不动) |
+| GAP3 | `forward/runner.init` | 从 `spec.universe` 派生 `universe_yaml_override`;revalidate 已自动回读 manifest universe_hash 源路径复用 | None/executable→None→legacy universe.yaml |
+| GAP4 | `promote_strategy` | 加 `--universe`;`_compute_fingerprints(universe_name)` 选对应 yaml + promoted yaml 记 `universe` | default executable→universe.yaml byte-identical |
+
+**端到端链路**:mining `--universe X` → run_summary.json `universe=X`
+→ frozen spec `universe: X` → `forward init` 读 spec.universe 自动 pin
+universe_X.yaml 进 config_snapshot → revalidate 回读同 universe →
+`promote --universe X` universe_hash 用 universe_X.yaml + promoted yaml
+记 `universe: X`。**executable(默认)全链路 byte-identical(D6/P4-A2
+by construction)**;expanded_v1 候选全程用 expanded 而不污染任何
+executable 结论。
+
+测试:`tests/unit/research/test_universe_propagation.py`(7);174 定向
+测(propagation+frozen_spec+forward_runner+promote+universe)green,
+load-bearing forward/frozen_spec/promote 无回归;G1 全量。

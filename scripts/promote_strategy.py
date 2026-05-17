@@ -53,15 +53,24 @@ def _sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _compute_fingerprints() -> dict:
-    """Snapshot current repo state into artifact fingerprints."""
+def _compute_fingerprints(universe_name: str = "executable") -> dict:
+    """Snapshot current repo state into artifact fingerprints.
+
+    GAP4 (P4-A1 propagation): ``universe_name`` selects which universe
+    yaml the ``universe_hash`` is computed from so a candidate mined on
+    expanded_v1 is promoted with the matching universe fingerprint.
+    Default "executable" → config/universe.yaml, byte-for-byte unchanged
+    (D6/P4-A2 — every pre-existing promote produces the identical hash).
+    """
     # factor_registry_hash
     from core.factors.factor_registry import PRODUCTION_FACTORS
     prod = sorted(PRODUCTION_FACTORS)
     factor_hash = _sha256_str("|".join(prod))
 
-    # universe_hash (tradable symbols from universe.yaml)
-    uni_yaml = yaml.safe_load((ROOT / "config" / "universe.yaml").read_text())
+    # universe_hash (tradable symbols from the candidate's universe yaml)
+    _uni_yaml_name = ("universe_expanded_v1.yaml"
+                      if universe_name == "expanded_v1" else "universe.yaml")
+    uni_yaml = yaml.safe_load((ROOT / "config" / _uni_yaml_name).read_text())
     tradable = []
     for key in ["seed_pool", "sector_etfs", "factor_etfs", "cross_asset"]:
         v = uni_yaml.get(key, [])
@@ -77,6 +86,7 @@ def _compute_fingerprints() -> dict:
     config_hash = _sha256_str("|".join(parts))
 
     return {
+        "universe": universe_name,
         "universe_hash": universe_hash,
         "factor_registry_hash": factor_hash,
         "config_hash": config_hash,
@@ -86,6 +96,7 @@ def _compute_fingerprints() -> dict:
 def _build_promoted_yaml(
     pack: AcceptancePackResult,
     rationale: str,
+    universe_name: str = "executable",
 ) -> dict:
     """Produce the dict that will be written to production_strategy.yaml as active."""
     # Separate MFS ctor params from factor_weights in archived params
@@ -110,7 +121,7 @@ def _build_promoted_yaml(
     # Fill defaults for keys not in archive (older mining rows may lack these)
     canonical_params.setdefault("apply_extra_shift", False)
 
-    fingerprints = _compute_fingerprints()
+    fingerprints = _compute_fingerprints(universe_name)
     now = datetime.now(timezone.utc).isoformat()
 
     return {
@@ -161,6 +172,14 @@ def main() -> int:
                         help="Path to production_strategy.yaml to rewrite")
     parser.add_argument("--rationale", default="",
                         help="Why this spec_id was promoted (stored in source.rationale)")
+    parser.add_argument("--universe", choices=["executable", "expanded_v1"],
+                        default="executable",
+                        help="universe the candidate was mined on (P4-A1 "
+                             "propagation: universe_hash + recorded universe "
+                             "field computed from the matching yaml). Default "
+                             "executable = config/universe.yaml byte-for-byte "
+                             "unchanged (D6/P4-A2). Cross-check against the "
+                             "mining run_summary.json 'universe' field.")
     parser.add_argument("--dry-run", action="store_true",
                         help="Show the proposed yaml + diff, do not write")
     parser.add_argument("--promote", action="store_true",
@@ -213,7 +232,7 @@ def main() -> int:
         f"{datetime.now(timezone.utc).isoformat()}."
     )
     try:
-        proposed = _build_promoted_yaml(pack, rationale)
+        proposed = _build_promoted_yaml(pack, rationale, args.universe)
     except AcceptancePackError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2

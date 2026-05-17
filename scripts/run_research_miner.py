@@ -287,6 +287,7 @@ def _write_artifacts(
     archive: RCMArchive,
     config_snapshot: dict,
     temporal_split_metadata: Optional[dict] = None,
+    universe_name: str = "executable",
 ) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(timezone.utc).isoformat()
@@ -308,6 +309,7 @@ def _write_artifacts(
         "config": config_snapshot,
         "archive_n_trials_for_lineage": archive.n_trials(lineage_tag=lineage_tag),
         "miner_in_memory_completed": len(results),
+        "universe": universe_name,
         "top_3_preview": (
             top_df.head(3).to_dict(orient="records") if len(top_df) else []
         ),
@@ -1061,6 +1063,7 @@ def main() -> int:
             "explicit_exclusions": list(args.explicit_exclusions or []),
         },
         temporal_split_metadata=temporal_split_metadata,
+        universe_name=args.universe,
     )
 
     print("=" * 70)

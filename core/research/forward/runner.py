@@ -617,6 +617,26 @@ def init(
     spec = FrozenStrategySpec.from_yaml_file(spec_path)
     spec_hash = _file_sha256_hex(spec_path)
 
+    # GAP3 (P4-A1 end-to-end universe propagation): if the frozen spec
+    # declares a non-default universe and the caller did NOT explicitly
+    # pass universe_yaml_override, pin that universe's yaml into the
+    # config_snapshot so the candidate is observed on the SAME universe
+    # it was mined on (revalidate at observe/recover reads the recorded
+    # sources["universe_hash"] path back automatically). spec.universe
+    # None/"executable" → override stays None → legacy
+    # config/universe.yaml path: ALL pre-existing candidates (RCMv1 /
+    # Cand-2 / trial9 / cycle06 / cycle08 / pead — no `universe` field)
+    # deserialize to None and are byte-identical. Explicit kwarg still wins.
+    if universe_yaml_override is None and getattr(spec, "universe", None) \
+            and spec.universe != "executable":
+        if spec.universe == "expanded_v1":
+            universe_yaml_override = (
+                Path(config_dir) / "universe_expanded_v1.yaml")
+        else:
+            raise ValueError(
+                f"{candidate_id}: frozen spec universe={spec.universe!r} "
+                f"unsupported (expected 'executable' or 'expanded_v1')")
+
     # Resolve start_date — first trading day whose CLOSE is strictly
     # post-freeze. Uses ``promoted_at`` timestamp (not just date) so a
     # mid-day freeze correctly identifies that trading day's close as

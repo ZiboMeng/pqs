@@ -130,6 +130,17 @@ class FrozenStrategySpec:
     cost_model_version: Optional[str] = None
     alternative_weighting_variant: Optional[dict] = None
 
+    # ── Universe identity (P4-A1 propagation, opt-in) ──────────────────
+    # Which symbol universe this candidate was mined on. None/absent ≡
+    # "executable" → ALL pre-existing candidates (RCMv1 / Cand-2 / trial9
+    # / cycle06 / cycle08 / pead) deserialize byte-identically and the
+    # forward runner / promote use the legacy config/universe.yaml path.
+    # "expanded_v1" → downstream (forward init config_snapshot, promote
+    # universe_hash) resolves config/universe_expanded_v1.yaml so a
+    # candidate mined on the expanded universe is observed / promoted on
+    # the SAME universe. Carrier for GAP1-4 end-to-end propagation.
+    universe: Optional[str] = None
+
     # ── Optional provenance ────────────────────────────────────────────
     source: Optional[dict] = None          # rcm_archive back-reference
     research_evidence: Optional[dict] = None
@@ -248,7 +259,7 @@ class FrozenStrategySpec:
             "labels", "panel_contract", "rebalance", "weighting_rule",
             "benchmark_definition", "risk_overlay", "cost_model_version",
             "alternative_weighting_variant", "source", "research_evidence",
-            "notes", "execution_policy", "evidence_config",
+            "notes", "execution_policy", "evidence_config", "universe",
         ):
             v = getattr(self, field_name)
             if v is not None:
@@ -343,7 +354,7 @@ class FrozenStrategySpec:
             "labels", "panel_contract", "rebalance", "weighting_rule",
             "benchmark_definition", "risk_overlay", "cost_model_version",
             "alternative_weighting_variant", "source", "research_evidence",
-            "notes", "execution_policy", "evidence_config",
+            "notes", "execution_policy", "evidence_config", "universe",
         }
         extras = {k: v for k, v in d.items() if k not in known}
 
@@ -373,6 +384,7 @@ class FrozenStrategySpec:
             notes=d.get("notes"),
             execution_policy=d.get("execution_policy"),
             evidence_config=d.get("evidence_config"),
+            universe=d.get("universe"),
             extras=extras,
         )
 
