@@ -1407,6 +1407,61 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
   framework-only). cycle12 used FAMILIES_OHLCV_ONLY (12 families) —
   fundamental/sector/macro families need separate compute paths.
 
+- **ML methodology supplementary-PRD redo + D1-D3 data-cleanliness**
+  (2026-05-16 → 2026-05-17 ✅, **4 landmarks — Phase 2/3 ML negative
+  conclusions were largely methodological false negatives; all
+  config-scoped research signals, NOT deployable**) — lineage
+  `ml-method-redo-2026-05-16`. PRD
+  `docs/prd/20260516-ml_methodology_supplementary_prd.md`; SoT
+  `docs/memos/20260516-ml_methodology_literature_review.md`; closeout
+  `docs/memos/20260516-ml_methodology_redo_closeout.md` (§7 = D3).
+  Driven by user suspicion that prior Phase 2/3 "chart-structure ML
+  is useless" verdicts were methodological false negatives. Rebuilt
+  the full ML pipeline on literature-proven protocol; 8 R-phases +
+  C1-C5 closeout + D1-D3 data fixes. G1 3326/0. Commits `2727da8`
+  (R0-R3+R5 build) → `783a905` (R2.5 landmark) → `1d7ddc0` (R4
+  real-weight + audit-fix) → `e1c820e` (C1-C5 closeout) → `9f2c8d4`
+  (D1+D2 cleanliness + BarStore NaN-vol fix) → `09e1ce6` (D3 clean
+  re-run).
+  - **Landmark① R2.5**: structure-as-factor has positive increment;
+    ΔIC +0.006, anti-autocorrelation clean p=0.0004 (C1) —
+    directionally OVERTURNS P2A "no increment" false negative.
+  - **Landmark② R4**: SSL-pretrain chart representation beats single
+    momentum factor (OOS IC 0.050 > 0.038) — but ONLY with REAL
+    pretrained weights; audit caught a fresh-init "phantom pretrain"
+    that flipped the verdict, fixed by persisting `pretrain_mae.pt`.
+  - **Landmark③ C2**: chart-native members are additive in ensemble
+    (stack IC 0.083 >> single-momentum 0.045).
+  - **Landmark④ C3 (re-validated by D3)**: on ~1000-symbol universe
+    chart-native beats momentum baseline. Dirty-data headline (gaf
+    IC +0.128 / vs_mom +0.165, n=5,977) was a thin-sample artifact;
+    D3 clean re-run (n=116,820, ~20×) corrects to gaf IC 0.045 /
+    vs_mom +0.055, mae IC 0.048 / vs_mom +0.058, DSR≈1. **Direction
+    survives, magnitude was dirty-data inflation — honestly
+    downscaled.**
+  - **BarStore core fix (D2)**: `_apply_forward_splits` volume cast
+    made NaN-safe (clean data bit-identical, zero regression;
+    NaN-vol symbol keeps float64 instead of IntCastingNaNError).
+  - **Data cleanliness (D1+D2)**: expanded_v2 was 32% clean →
+    audited + yfinance-backfilled all 1015 symbols to 100% clean.
+    Honest finding: Stooq free CSV now apikey/captcha-gated; 60
+    delisted names unfillable by survivor-biased free sources
+    (consistent with C5 survivorship).
+  - **Audit discipline validated 4×**: caught + honestly corrected
+    P2A overclaim, R4 fresh-init phantom, R2.5 exact-zero (factor
+    not actually added), BarStore NaN bug. closeout §6
+    `pending_data_cleanliness_validation` marker CLEARed by D3.
+  - **Scope/caveats (no overclaim)**: ALL config-scoped (this factor
+    set / this prep / 21d / this universe / stride-10); research
+    signal-quality conclusions, NOT deployable candidates (Track A /
+    sealed / forward funnel NOT walked); from-scratch CNN loses to
+    pretrain→probe (stable across dirty/clean); gaf_tree standalone
+    still config-scoped. **sealed 2026 NEVER read** throughout.
+    Deferred (need user explicit-go): R5 real-base end-to-end eval,
+    from-scratch full retrain, survivorship as-of reconstruction
+    (structurally infeasible — no delisting/historical-constituent
+    DB; honestly recorded, not faked).
+
 **Forward OOS workstream (infrastructure history + active state)**:
 Infrastructure (R-fwd-1 / R-fwd-2 / R-fwd-3 / F) shipped 2026-04-26
 through 2026-04-29 + R8 DST fix; legacy candidates RCMv1 + Cand-2
