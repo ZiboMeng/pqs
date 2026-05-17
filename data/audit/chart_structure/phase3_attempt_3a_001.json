@@ -44,7 +44,7 @@
     ]
   },
   "eval": {
-    "eval_method": "within-train fit/OOS year-block split with P3-A3 fit→OOS year-boundary purge embargo; per-OOS-date cross-sectional Spearman rank-IC of CNN score vs 21d close-to-close forward return; paired t-test of per-date IC vs baseline",
+    "eval_method": "within-train fit/OOS year-block split with P3-A3 fit\u2192OOS year-boundary purge embargo; per-OOS-date cross-sectional Spearman rank-IC of CNN score vs 21d close-to-close forward return; paired t-test of per-date IC vs baseline",
     "cost_model": "30bp_per_side (reported; rank-IC itself is pre-cost)",
     "turnover_penalty": "monthly top-8 name turnover = 0.636; implied cost drag ~2.29%/yr",
     "oos_rank_ic": 0.05597,
@@ -57,5 +57,6 @@
     "n_oos_dates": 154
   },
   "root_cause": "3A GAF image-CNN OOS rank-IC is significantly BELOW the 126d momentum baseline. The GASF/GADF encoding spreads a 63-bar window into a 63x63 image whose dominant signal (the angular sum field) is a smooth re-encoding of cumulative return; a 2-conv CNN at this config did not extract more cross-sectional rank signal than the momentum factor it is built from.",
-  "notes": "Phase 3 image-CNN attempt. Within-train fit/OOS split — no validation/sealed data read. Date-subsampled (stride 4) for RAM."
+  "notes": "Phase 3 image-CNN attempt. Within-train fit/OOS split \u2014 no validation/sealed data read. Date-subsampled (stride 4) for RAM.",
+  "superseded_by": "ml-method-redo-2026-05-16 (R4 litpath)"
 }

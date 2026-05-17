@@ -1,0 +1,36 @@
+{
+  "schema_version": "2.0",
+  "attempt_id": "r4_litpath",
+  "lineage": "ml-method-redo-2026-05-16",
+  "created_at": "2026-05-17T03:30:45.804510+00:00",
+  "pipeline": "R0 prep + R1(avail) + partition_for_role(miner) train-only + purge_labels_at_boundary + R2 CPCV + DSR/PBO; R3 MAE pretrain\u2192probe with REAL transferred weights (pretrain_mae.pt, G11 gate=full_pretrain)",
+  "arms": {
+    "gaf_tree": {
+      "oos_rank_ic": -0.01841,
+      "baseline_mom_ic": 0.03821,
+      "vs_tabular_baseline": -0.05661,
+      "n_cpcv_folds": 15,
+      "deflated_sharpe": 0.0018406807703590933
+    },
+    "mae_probe": {
+      "oos_rank_ic": 0.05045,
+      "baseline_mom_ic": 0.03821,
+      "vs_tabular_baseline": 0.01225,
+      "n_cpcv_folds": 15,
+      "deflated_sharpe": 0.5575838838920681
+    }
+  },
+  "best_arm": "mae_probe",
+  "vs_tabular_baseline": 0.01225,
+  "pbo": {
+    "pbo": 1.0,
+    "n_combinations": 252,
+    "S": 10,
+    "mean_logit": -0.10964690125368075
+  },
+  "verdict": "beats_tabular_baseline",
+  "verdict_scope": "config_scoped",
+  "root_cause": "config-scoped: GAF\u2192tree + REAL-pretrained-weight MAE probe on executable-79 train-only CPCV vs mom_126d. NOT a blanket 'chart-native fails' \u2014 from-scratch CNN/transformer full retrains + the expanded_v2 ~1k universe are the honest deferred-compute extension (D2; Phase1.5\u21921.6 precedent).",
+  "sealed_2026_read": false,
+  "n_samples": 27383
+}

@@ -106,3 +106,4 @@ data/fundamentals/edgar_cache/*.json
 # FRED macro data cache (CSV), regenerable via
 # dev/scripts/fundamentals/build_macro_cache.py
 data/fundamentals/macro/*.csv
+data/audit/ml_redo/*.pt

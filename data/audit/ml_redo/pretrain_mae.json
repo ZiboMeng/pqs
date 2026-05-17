@@ -1,7 +1,9 @@
 {
   "encoder": "MAE_segment_mask",
-  "created_at": "2026-05-17T02:19:18.899493+00:00",
+  "created_at": "2026-05-17T03:13:14.499585+00:00",
   "is_full_pretrain": true,
+  "checkpoint_path": "/home/zibo/Documents/projects/pqs/data/audit/ml_redo/pretrain_mae.pt",
+  "checkpoint_saved": true,
   "n_steps": 5000,
   "full_min_steps": 3000,
   "corpus_manifest_id": "chart_structure_pretrain_corpus_v1",
@@ -11,9 +13,9 @@
   "sealed_validation_seen": false,
   "loss_first_last_best": [
     0.062613,
-    0.014734,
-    0.005334
+    0.015115,
+    0.004819
   ],
   "converged": false,
-  "wall_s": 215.7
+  "wall_s": 205.6
 }

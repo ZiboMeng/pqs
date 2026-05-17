@@ -49,7 +49,7 @@
     ]
   },
   "eval": {
-    "eval_method": "within-train fit/OOS year-block split with P3-A3 fit→OOS year-boundary purge embargo; per-OOS-date cross-sectional Spearman rank-IC of model score vs 21d close-to-close forward return; paired t-test of per-date IC vs baseline",
+    "eval_method": "within-train fit/OOS year-block split with P3-A3 fit\u2192OOS year-boundary purge embargo; per-OOS-date cross-sectional Spearman rank-IC of model score vs 21d close-to-close forward return; paired t-test of per-date IC vs baseline",
     "cost_model": "30bp_per_side (reported; rank-IC itself is pre-cost)",
     "turnover_penalty": "monthly top-8 name turnover = 0.591; implied cost drag ~2.13%/yr at 30bp/side",
     "oos_rank_ic": 0.03406,
@@ -62,5 +62,6 @@
     "n_oos_dates": 463
   },
   "root_cause": "3B swing-segment encoder OOS rank-IC is significantly BELOW the 126d momentum baseline. The swing-segment tokenization discards the per-bar magnitude information that momentum captures; the transformer over <=16 coarse segment tokens has far fewer informative degrees of freedom than a direct 126d return.",
-  "notes": "Phase 3 first chart-native attempt. Within-train fit/OOS split — no validation/sealed data read."
+  "notes": "Phase 3 first chart-native attempt. Within-train fit/OOS split \u2014 no validation/sealed data read.",
+  "superseded_by": "ml-method-redo-2026-05-16 (R4 litpath)"
 }

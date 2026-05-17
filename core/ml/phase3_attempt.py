@@ -59,6 +59,10 @@ class Phase3Attempt(BaseModel):
     eval: Phase3Eval
     root_cause: Optional[str] = None
     notes: Optional[str] = None
+    # provenance: set when a later lineage supersedes this attempt
+    # (e.g. R4 ml-method-redo marks the naive Phase-3 attempts). Legit
+    # field (not extra) so extra="forbid" still rejects typos.
+    superseded_by: Optional[str] = None
 
     @model_validator(mode="after")
     def _negative_needs_root_cause(self) -> "Phase3Attempt":

@@ -89,6 +89,15 @@ def main() -> int:
     print(f"train-only windows: {W.shape} ({time.time()-t0:.1f}s)")
 
     model, traj = pretrain_mae(W, steps=steps, full=not args.smoke)
+    # persist the trained weights so the downstream pretrain→probe path
+    # (R4) loads REAL pretrained weights — not a fresh-init forward pass
+    # (audit-discipline fix 2026-05-16: 'pretrain artifact = loss-traj
+    # only' was 做出来没做透; the literature path's whole point is the
+    # transferred weights).
+    import torch as _t
+    ckpt = _PROJ / "data" / "audit" / "ml_redo" / "pretrain_mae.pt"
+    if not args.smoke:
+        _t.save(model.state_dict(), ckpt)
     best = float(np.min(traj))
     tail = float(np.mean(traj[-max(1, len(traj) // 10):]))
     converged = abs(tail - best) <= _CONV_TOL * max(abs(best), 1e-6) or \
@@ -99,6 +108,8 @@ def main() -> int:
         "encoder": "MAE_segment_mask",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "is_full_pretrain": bool(is_full),
+        "checkpoint_path": str(ckpt) if not args.smoke else None,
+        "checkpoint_saved": bool(not args.smoke and ckpt.exists()),
         "n_steps": int(steps),
         "full_min_steps": _FULL_MIN_STEPS,
         "corpus_manifest_id": "chart_structure_pretrain_corpus_v1",

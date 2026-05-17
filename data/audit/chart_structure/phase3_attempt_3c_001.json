@@ -47,7 +47,7 @@
     ]
   },
   "eval": {
-    "eval_method": "within-train fit/OOS year-block split with P3-A3 fit→OOS year-boundary purge embargo; per-OOS-date cross-sectional Spearman rank-IC of fused score vs 21d close-to-close forward return; paired t-test of per-date IC vs baseline",
+    "eval_method": "within-train fit/OOS year-block split with P3-A3 fit\u2192OOS year-boundary purge embargo; per-OOS-date cross-sectional Spearman rank-IC of fused score vs 21d close-to-close forward return; paired t-test of per-date IC vs baseline",
     "cost_model": "30bp_per_side (reported; rank-IC itself is pre-cost)",
     "turnover_penalty": "monthly top-8 name turnover = 0.857; implied cost drag ~3.09%/yr at 30bp/side",
     "oos_rank_ic": 0.02827,
@@ -63,6 +63,7 @@
     "paired_p_value": 0.001,
     "n_oos_dates": 154
   },
-  "root_cause": "3C late-fusion OOS rank-IC is significantly BELOW the 126d momentum baseline. Late fusion takes the two branch scores ([3B segment-sequence score, 3A GAF-image score]) and combines them with a small MLP; it cannot recover cross-sectional rank signal that neither branch carries. Both branches (P3·R2 / P3·R4) individually underperformed the same momentum baseline, so their late combination has no orthogonal signal to fuse — the fusion MLP only re-weights two already-dominated scores.",
-  "notes": "Phase 3 chart-native late-fusion attempt. Within-train fit/OOS split — no validation/sealed data read. Date-subsampled (stride 3) for RAM, aligned (seg,img) per sample. ref_3b/3a IC are the recorded P3·R2/P3·R4 single-branch OOS rank-IC on the same protocol."
+  "root_cause": "3C late-fusion OOS rank-IC is significantly BELOW the 126d momentum baseline. Late fusion takes the two branch scores ([3B segment-sequence score, 3A GAF-image score]) and combines them with a small MLP; it cannot recover cross-sectional rank signal that neither branch carries. Both branches (P3\u00b7R2 / P3\u00b7R4) individually underperformed the same momentum baseline, so their late combination has no orthogonal signal to fuse \u2014 the fusion MLP only re-weights two already-dominated scores.",
+  "notes": "Phase 3 chart-native late-fusion attempt. Within-train fit/OOS split \u2014 no validation/sealed data read. Date-subsampled (stride 3) for RAM, aligned (seg,img) per sample. ref_3b/3a IC are the recorded P3\u00b7R2/P3\u00b7R4 single-branch OOS rank-IC on the same protocol.",
+  "superseded_by": "ml-method-redo-2026-05-16 (R4 litpath)"
 }
