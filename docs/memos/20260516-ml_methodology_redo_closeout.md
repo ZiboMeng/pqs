@@ -130,3 +130,34 @@ survivorship as-of 重建),无「假装完成」。** 这些是 deferred-compute
 SSL-pretrain 的 chart 表征**能打过单动量因子**(R4 real-weight),前提
 是数据准备/预训练/验证按 literature 做。审计纪律两次抓出会致命的方法
 artifact(P2A overclaim、R4 fresh-init 架空),均诚实纠正留痕。
+
+---
+
+## §6 收口 deferred 全做(C1-C5)+ 第三/四 landmark + 数据红旗
+
+用户「收口的全部都做」→ C1-C5 全执行(真跑,不假装):
+
+| C | 项 | 结果(诚实)|
+|---|---|---|
+| **C1** | R2.5 block-bootstrap clean p | **clean p(one-sided mean≤0)= 0.0004**,95%CI ΔIC [0.0025, 0.0094] 全 >0 → family-T 正增量在**抗自相关严格检验下仍显著**(不再只"符号稳健",是真显著)。强化 R2.5 landmark。|
+| **C2** | R5 真实 base 端到端 ensemble | **landmark③**:stack IC **0.083 >> 单动量 0.045**;**marginal:mae_probe +0.011 / gaf_tree +0.019——两 chart-native 成员都 additive,即便 gaf_tree 单挑输(-0.06)**。实证确认主 PRD §5.2「chart-native = ensemble 候选」。|
+| **C3** | expanded_v2 ~1k 重跑 | **landmark④**:1000-universe 上 gaf_tree IC **+0.128** / mae_probe +0.024(vs 动量 −0.037)→ vs_tab +0.165 / +0.061。**印证 literature「需大 cross-section」——Phase 2A 小 79-票池是负结论根因之一**。诚实 caveat:此 universe/stride-10 动量 IC 为负 + n=5977 偏小,config-scoped。|
+| **C4** | from-scratch 对比 | from-scratch CNN IC −0.003 ≈ 噪声(vs 动量 −0.048)→ **确认 from-scratch 输 pretrain-probe**,在同一 literature pipeline+大 universe 上仍成立。|
+| **C5** | survivorship as-of | **无 delisting/历史成分 DB → 真 as-of 重建结构不可行**;诚实记录受阻原因+已测 proxy+所需数据,**不假装**(`structurally_infeasible_honest_caveat`)。|
+
+**数据红旗(用户后续指令的依据)**:C3C4 在 expanded_v2 暴露
+**`core/data/bar_store.py:500` `_apply_forward_splits` NaN-volume
+int64-cast bug**(1003 中 skip 1;79/328 curated 从未触发,1000 数据驱动
+集触发)。**未隐藏**:skip 计数+记录,列为独立 fix item。→ 触发 D1-D3
+(全 universe 数据清洁审计 + 修 bug + 补数据 + clean 重跑验证稳定)。
+
+**四个 landmark 合起来回答用户最初质疑**:Phase 2/3 负结论是方法论
+假阴性 —— 按 literature 重做后:结构作因子有增量(R2.5,clean p
+0.0004)、SSL-pretrain chart 表征打过单动量(R4 real-weight)、作
+ensemble 成员 additive(C2,stack 0.083)、大 universe 上大幅 beat
+(C3)。**全 config-scoped、诚实 caveat、审计纪律多次自查抓出会致命的
+方法/数据 artifact(P2A overclaim、R4 fresh-init、R2.5 exact-zero、
+BarStore NaN bug)均纠正留痕,不 hand-wave。**
+
+**D1-D3 待执行**(用户指令:数据 100% clean 检查 + 补 + 重跑验证)——
+在此之前 §6 数值标 `pending_data_cleanliness_validation`。

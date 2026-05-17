@@ -1,6 +1,6 @@
 {
   "evaluation": "p2_recheck_R2.5",
-  "created_at": "2026-05-17T02:47:45.550743+00:00",
+  "created_at": "2026-05-17T04:38:35.770683+00:00",
   "literature_stack": "R0(rank-norm+winsorize+sector-neutral+vol-scale) + R1(concurrency-weight available) + R2(CPCV-ready) + DSR/PBO",
   "n_paired_dates": 1911,
   "mean_delta_ic": 0.005959,
@@ -18,6 +18,16 @@
     "n_trials": 12,
     "T": 1911
   },
+  "block_bootstrap": {
+    "block_len": 21,
+    "n_boot": 5000,
+    "p_one_sided_mean_le_0": 0.0004,
+    "ci95_mean_dIC": [
+      0.002483,
+      0.009385
+    ],
+    "note": "autocorrelation-robust (21d-block resample); this is the CLEAN p \u2014 supersedes the overlap-inflated naive t/DSR for the significance claim"
+  },
   "pbo": {
     "pbo": 1.0,
     "n_combinations": 252,
@@ -33,8 +43,8 @@
     "status": "gate_open_full_pretrain",
     "pretrain_artifact": [
       0.062613,
-      0.014734,
-      0.005334
+      0.015115,
+      0.004819
     ],
     "note": "MAE embedding incremental-IC harness wired; full embed-IC run is the R4-pipeline consumer (reported in R4 ml_redo attempt vs_tabular)."
   },

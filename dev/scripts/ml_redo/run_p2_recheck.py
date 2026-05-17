@@ -107,12 +107,37 @@ def main() -> int:
     ci = [round(mean_d - 1.96 * se, 6), round(mean_d + 1.96 * se, 6)] \
         if n > 1 else [None, None]
     dsr = deflated_sharpe_ratio(d_ic, n_trials=max(2, len(swing)))
+
+    # C1 deferred-closeout: block-bootstrap clean p (autocorrelation-
+    # robust). The 21d-overlap inflates the naive t/DSR; resample
+    # contiguous blocks of length ≈ horizon to preserve serial
+    # dependence, one-sided H0: mean ΔIC <= 0.
+    _rng = np.random.default_rng(42)
+    _bl = 21
+    _nb = 5000
+    _n = len(d_ic)
+    if _n > _bl + 5:
+        _nblk = int(np.ceil(_n / _bl))
+        _means = np.empty(_nb)
+        for _b in range(_nb):
+            _starts = _rng.integers(0, _n - _bl, size=_nblk)
+            _samp = np.concatenate([d_ic[s:s + _bl] for s in _starts])[:_n]
+            _means[_b] = _samp.mean()
+        # bootstrap dist of the mean; one-sided p that true mean <= 0
+        _p_block = float(np.mean(_means <= 0.0))
+        _ci_block = [round(float(np.percentile(_means, 2.5)), 6),
+                     round(float(np.percentile(_means, 97.5)), 6)]
+    else:
+        _p_block, _ci_block = None, [None, None]
     # PBO on per-date IC of the two arms (config matrix = [base, treat])
     pm = np.column_stack([base_ic.loc[common].to_numpy(),
                           treat_ic.loc[common].to_numpy()])
     pbo = probability_backtest_overfitting(pm)
 
-    sig_pos = bool(n > 1 and mean_d > 0 and t > 1.96)
+    # significance decided by the CLEAN block-bootstrap p (not the
+    # autocorrelation-inflated naive t) — C1 deferred-closeout.
+    sig_pos = bool(n > 1 and mean_d > 0
+                   and _p_block is not None and _p_block < 0.05)
     verdict = ("family_T_significant_positive_increment" if sig_pos
                else "no_significant_increment")
 
@@ -141,6 +166,14 @@ def main() -> int:
         "delta_ic_ci95": ci,
         "paired_t": round(float(t), 4),
         "deflated_sharpe": dsr,
+        "block_bootstrap": {
+            "block_len": _bl, "n_boot": _nb,
+            "p_one_sided_mean_le_0": _p_block,
+            "ci95_mean_dIC": _ci_block,
+            "note": "autocorrelation-robust (21d-block resample); this is "
+                    "the CLEAN p — supersedes the overlap-inflated naive "
+                    "t/DSR for the significance claim",
+        },
         "pbo": pbo,
         "verdict": verdict,
         "significance_caveat": "paired-t / DSR computed on per-DATE ΔIC "

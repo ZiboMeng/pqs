@@ -1,0 +1,38 @@
+{
+  "evaluation": "r5_real_ensemble_C2",
+  "created_at": "2026-05-17T05:02:48.087188+00:00",
+  "bases": [
+    "mae_probe(R3 real pretrained\u2192ridge)",
+    "gaf_tree",
+    "mom_126d"
+  ],
+  "pipeline": "train-only partition + purge + CPCV-OOF + Ridge meta",
+  "n": 26190,
+  "scores": {
+    "ic_mae_probe": 0.00585,
+    "ic_gaf_tree": -0.06024,
+    "ic_momentum": 0.04508,
+    "ic_stack": 0.08306,
+    "meta_coef": [
+      0.01333,
+      0.28797,
+      -0.41475,
+      0.0086
+    ]
+  },
+  "marginal_mae_probe": {
+    "score_with": 0.08306437373732721,
+    "score_without": 0.07237405433762714,
+    "marginal": 0.010690319399700068,
+    "member_idx": 0
+  },
+  "marginal_gaf_tree": {
+    "score_with": 0.08306437373732721,
+    "score_without": 0.06416436489018122,
+    "marginal": 0.018900008847145988,
+    "member_idx": 1
+  },
+  "verdict_scope": "config_scoped",
+  "interpretation": "stack IC vs best single base = chart-native's ensemble value; marginal_* >0 \u21d2 that member is additive (weak-orthogonal can add even if it loses standalone \u2014 main PRD \u00a75.2). config-scoped (D2), research-signal not deployable candidate.",
+  "sealed_2026_read": false
+}

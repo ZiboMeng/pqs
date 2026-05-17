@@ -86,6 +86,28 @@ def main() -> int:
                 "bias. R-P4ext expanded_v2 should include historical "
                 "delisted names with alive-windows OR record an explicit "
                 "evidence caveat.",
+        "c5_as_of_rebuild_resolution": {
+            "status": "structurally_infeasible_honest_caveat",
+            "why": "a true as-of-date membership rebuild needs a "
+                   "delisting / historical-index-constituent database "
+                   "(survivors + dead names + each name's alive window). "
+                   "PQS has NO such DB — data/daily is current/surviving "
+                   "tickers only. Fabricating dead-name membership would "
+                   "be inventing data (audit discipline: do NOT fake).",
+            "what_was_measured": "data-span delisting proxy (n_stale) + "
+                                 "the structural fact (current-constituents "
+                                 "+ manual removal). expanded_v2 also "
+                                 "membership-by-data (no external index).",
+            "what_proper_resolution_needs": "ingest a delisting/CRSP-style "
+                                            "historical-constituent feed → "
+                                            "rebuild as-of universe per "
+                                            "date. Paid-data / new ingest "
+                                            "scope; user explicit-go gated.",
+            "decision": "ALL chart-native results are explicitly caveated "
+                        "as survivorship-biased (surviving-name universe); "
+                        "this is a known, recorded limitation NOT a hidden "
+                        "one — honest closure, not a pretended fix.",
+        },
     }
     out = _PROJ / "data" / "audit" / "ml_redo" / "survivorship_audit.json"
     out.write_text(json.dumps(audit, indent=2, default=str))
