@@ -197,8 +197,8 @@ def _eval_trial(trial_row: Dict[str, Any], panel, factors, mask, split_cfg,
             r = fac.rank(axis=1, pct=True)               # (b) xs pct-rank
             comp = r * w if comp is None else comp + r * w
         fwd_ret = px.pct_change(21).shift(-21)
-        al = pd.concat([comp.stack(dropna=False),
-                        fwd_ret.stack(dropna=False)], axis=1).dropna()
+        al = pd.concat([comp.stack(),
+                        fwd_ret.stack()], axis=1).dropna()
         n_al = len(al)
         if n_al >= 200:                                  # (c) cpcv decides
             metrics["cpcv_inputs"] = {
