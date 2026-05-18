@@ -1,0 +1,10 @@
+panel (4276, 79) years=[2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025] (25s)
+157681 GAF windows, extracting frozen features (65s) device=cuda
+features (157681, 512) (302s)
+NEGATIVE CONTROL: train labels SHUFFLED before probe fit
+probe fit on 86785 TRAIN rows; 70679 validation rows are frozen-OOS (309s)
+
+L3 Track-A: FAIL | failed=['validation_aggregate_excess_vs_spy', 'cpcv_distribution_acceptance']
+full: {"cum_ret": 6.141787689027785, "sharpe": 1.0741990498941738, "max_dd": -0.20579354527417199, "vs_spy": -0.19384042657165956, "spy_cum_ret": 6.3356281155994445, "vs_qqq": 1.1780010916370083, "qqq_cum_ret": 4.963786597390777}
+cpcv_gate={'passed': False, 'values': {'insufficient': False, 'ic_sample_weighted': -0.0025091444679222535, 'n_folds': 15, 'dsr': 0.02325545532872475, 'pbo_red_flag': True}} | overfit_dsr=0.9989957017790743
+-> data/audit/chart_native_l3_NEGCONTROL.json (337s)

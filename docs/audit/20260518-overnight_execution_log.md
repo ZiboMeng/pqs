@@ -375,3 +375,18 @@ probe 只 fit train 年行,frozen 应用全行,validation = 真 OOS,sealed
 不读。诚实预期:大概率 FAIL(cycle13b 先例)。compile OK,后台跑。
 #23 over-hasty 结论已撤回(留 forensic,不作判决依据;lit review 排
 L3 后正经多源做)。
+
+### chart-native L3 = SURPRISING PASS → RED-FLAG, skeptical hold (NOT promoted)
+L3 Track-A PASS,17 关全过:cum_ret +2042%(~21%CAGR vs SPY ~12%)/
+Sharpe 1.59/MaxDD -17%,扛过 covid(+2.3% vs SPY -13.7%)+ 2022 加息。
+no-leakage 字段:probe 86785 train 行拟合 / 70679 val frozen-OOS /
+sealed 未读。**但红旗**:(1) W7c-d **PBO RED-FLAG True**(项目自己
+过拟合探测器报警;"PASS"因 PBO 按 G2-A3 诊断不自动 kill,但非干净
+PASS);(2) pooled IC ~0.15 高得不真实(真 0.02-0.05;pooled
+sym×date + CPCV 按行切 purge 不干净,设计时已诚实标);(3) 与项目
+至今全部发现矛盾(cycle04-13b 全 0-nominee/拒;cycle13b IC_IR 1.1→
+0/3)。**按 P0-A/cycle13b 先例(太好看=先假定隐藏 artifact)+
+no-over-claim:绝不 promote forward**。决定性测试①跑中=negative
+control(打乱训练标签同流程):也 20x 全过 → harness/pooling artifact
+非信号;塌成~SPY → 再深挖 probe 泄漏。verdict 待 leak audit;PASS
+未被接受为真。task#26 开。
