@@ -236,3 +236,22 @@ restate.md`;audit memo §1 scope 行已 fold。F1 修复仍必要(根治 +
   b041is3bj 完成会叫我 → 届时 cycle13b Track-A-accept + 启动 S2 GPU
   run,串行)。**不假装 S2 已出数;脚本 reviewable,重 compute 诚实
   排序非 tail-rush。**
+
+### cycle13b mining VALID ✅ + S2 GPU run 启动
+- **cycle13b mining VALID 完成**:200 trials,**162 archived**,best
+  IC_IR **+1.1482**(top1 `8eb5a7ac4d55`,features=`beneish_m_score,
+  amihud_20d,month_end_quarter_end` w=0.17/0.42/0.42,ic_mean 0.0497)。
+  史上第一个 **P0-A-fixed adjusted loader + W7a HAC + sealed-protected
+  (max date 2024-12-31)** 的 Track-C cycle。W7c/d/W7b 的真 consumer
+  已落地(authorization 目的达成)。
+- **诚实定性**:top1 是新 composite(fundamental+microstructure+
+  calendar),非 drawup/动量 sibling;但**按 pre-registered yaml,
+  cycle13b 首要交付 = 方法论验证(W7b/W7c-d consumer),非 new-alpha**;
+  且 **forward-init DEFERRED**(2026 sealed CONSUMED,directional 待
+  用户 split bump)。不 over-claim 为新赢家。
+- **S2 GPU run 启动**(PID 253157,cycle13b 完成→串行约束解除→正确
+  时机后台启,非 tail-rush;监控 bthn7d9k1)。健康(CPU 307%)。
+- **下一聚焦 pass(不 tail-rush)**:cycle13b Track-A-accept eval —
+  replay top trial spec → adjusted backtest → run_split_acceptance
+  带 overfit_inputs(W7b)+ cpcv_inputs(W7c/d)= 两套新机器**首次
+  实战**。这是实质新 eval 脚本,独立专注做,不在 270+ 调用 turn 尾凑。
