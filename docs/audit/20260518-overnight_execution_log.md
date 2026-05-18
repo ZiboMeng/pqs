@@ -66,3 +66,14 @@ control 仍绑定,实跑 4 个)。
   + smoke,不静默改 live soak)/ W6 F5 / W7 P0-B / W8 scaled —— 待续
 - 纲领:深度优先、真跑真比对、不走过场、不假装完成;⚑DISCUSS-1
   (run_paper F1 deferred to F4)留明早确认。
+
+### W4 — F3 root-cause + relaunch(不走过场:真根因非 hand-wave)
+- 首跑 exit 143 = **`timeout 600` 太短**(非 OOM 非 bug)。复现:5 票
+  generate_all_factors 2.8s → 全 76 票 ×2 价基 × IC loop 远超 10min。
+- **诚实范围发现**:generate_all_factors 仅产 **96 个 OHLCV 族因子**
+  (143 需 fundamental/sector/macro 另 compute path)。P0-A 价格 split
+  污染**正命中价格窗口类=这 96 个**;fundamental/sector/macro 来自
+  非价格 path,**不在 P0-A loader scope**。F3 诚实范围 = OHLCV 96 因
+  子 raw vs adjusted,restate 会如实写明此 scope,不谎称"全 143"。
+- 重跑:无 timeout 后台 PID 137366,tracked 监控 b6kw0398e,完成
+  自动续 W4 记真数 → W7。
