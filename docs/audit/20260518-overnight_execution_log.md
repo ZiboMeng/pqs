@@ -460,3 +460,26 @@ artifact,未证伪信号本身);survivorship = **尚未测**的真检验(怀疑
 非证据)。**纠正动作**:(a) 按 path-1 forward-init chart-native
 standalone 观察轨(promote);(b) 并行跑 survivorship 证伪;只有
 证伪拿到证据才 halt。task#26 关、#28/#29 开。
+
+### survivorship 证伪 — n=8 退化版(INCONCLUSIVE,非证伪证据)
+CHART_L3_FULLHIST=1(first-5-rows)→ kept **8** dropped 71。
+结果:cum_ret +32.5% / Sharpe 0.53 / MaxDD -10.4% / vs_spy -6.01;
+FAIL validation_aggregate_excess_vs_spy + 2025 vs_spy。**但
+CPCV ic_sample_weighted=0.219(信号预测力未塌)**。
+**判定 = INCONCLUSIVE,不是 strategy-自身缺陷证伪证据**:
+n=8 横截面 top-N 无选股 breadth,任何横截面策略都塌,非本策略
+特有(confound)。IC 没塌、塌的是 8-name-no-breadth 的 portfolio
+vs SPY。按 [[feedback_promotion_only_falsification_evidence_gated]]
++ [[feedback_no_blanket_failure_verdict]]:confound 测试既不证伪
+也不清白 → 做更强可行实验。
+快照:`data/audit/chart_native_l3_SURVIVORSHIP_n8_degenerate.json`。
+
+### 数据覆盖断崖发现(改变 survivorship 解读)
+first-valid-date 分布:2009-14 仅 7-8 票;**2015-06 跳到 70**;
+2017=74;全 79。→ 90% 票数据 ~2015 起(polygon 1m 覆盖断点,
+**非晚 IPO**)。∴ "2009 起一直在"=n=8 是**数据覆盖**非
+survivorship。**可行最强代理 = cutoff 2015-06(70 票全宽 minus
+真·晚进入者)**,正在跑。**结构性不可测(C5 同类,诚实留痕不假装)**:
+数据本身 90% 从 2015 起 + 无退市库 → 2015 前真 point-in-time
+成分 / 2015 前死掉的票 **无法测**;数据集本身即 2015+ 幸存横截面。
+可测=2015+ 内部晚进入偏差;测不到=2015 前真 survivorship。

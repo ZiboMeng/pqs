@@ -120,6 +120,50 @@ def main() -> int:
                     if fr[c] else None)
     panel = partition_for_role(panel, split, role="selector")  # train+val, sealed excluded
     px = panel["close"]
+    # SURVIVORSHIP FALSIFICATION (CHART_L3_FULLHIST=1): keep ONLY
+    # symbols with a valid close within the first 5 trading rows of
+    # the panel (always-present from panel start) — drop late
+    # entrants. If the edge collapses here it was riding survivor/
+    # late-entrant universe composition → falsification evidence.
+    # Honest caveat: true as-of/delisted-name test infeasible (no
+    # delisting DB — C5 structurally-infeasible precedent); this is
+    # the strongest FEASIBLE survivorship stress.
+    # CHART_L3_FULLHIST_BY=YYYY-MM-DD keeps symbols whose first
+    # valid close is on/before the cutoff (drops genuine late
+    # entrants while preserving a non-degenerate universe). This is
+    # the meaningful survivorship proxy: data starts ~2015 for ~90%
+    # of names (vendor-coverage cliff, NOT IPO), so 2015-06 cutoff
+    # = 70-name full-breadth universe minus post-data-start
+    # entrants. True pre-2015 point-in-time / delisted-name test is
+    # structurally infeasible (no delisting DB; dataset is itself a
+    # 2015+ survivor cross-section) — honestly NOT faked (C5
+    # precedent). CHART_L3_FULLHIST=1 alone = first-5-rows (n=8,
+    # degenerate — confounded by universe collapse, inconclusive).
+    import os as _os2
+    _cut = _os2.environ.get("CHART_L3_FULLHIST_BY")
+    keep = None
+    if _cut:
+        cutoff = pd.Timestamp(_cut, tz=px.index.tz)
+        keep = [c for c in px.columns
+                if c in ("SPY", "QQQ")
+                or (px[c].first_valid_index() is not None
+                    and px[c].first_valid_index() <= cutoff)]
+        _tag = f"cutoff<={_cut}"
+    elif _os2.environ.get("CHART_L3_FULLHIST") == "1":
+        head = px.iloc[:5]
+        keep = [c for c in px.columns
+                if c in ("SPY", "QQQ") or head[c].notna().any()]
+        _tag = "first-5-rows (degenerate n~8)"
+    if keep is not None:
+        dropped = len(px.columns) - len(keep)
+        px = px[keep]
+        for _c in ("open", "high", "low", "volume"):
+            if panel[_c] is not None:
+                panel[_c] = panel[_c][[k for k in keep
+                                       if k in panel[_c].columns]]
+        panel["close"] = px
+        print(f"SURVIVORSHIP FALSIFICATION ({_tag}): "
+              f"kept {len(keep)} dropped {dropped} late-entrants")
     yrs = {ts.year for ts in px.index}
     print(f"panel {px.shape} years={sorted(yrs)} ({time.time()-t0:.0f}s)")
     if any(y not in tyset for y in yrs) is False:
@@ -240,9 +284,13 @@ def main() -> int:
     cg = next(({"passed": g.passed, "values": g.values}
                for g in verdict.gates
                if g.name == "cpcv_distribution_acceptance"), None)
+    _FULLHIST = (_os.environ.get("CHART_L3_FULLHIST") == "1"
+                 or bool(_os.environ.get("CHART_L3_FULLHIST_BY")))
     out = {
-        "experiment": ("chart_native_l3_NOOVERLAP_window_ends_i_minus_H"
-                       if _NOOVL else "chart_native_l3_track_a"),
+        "experiment": (
+            "chart_native_l3_SURVIVORSHIP_fullhist_subset" if _FULLHIST
+            else "chart_native_l3_NOOVERLAP_window_ends_i_minus_H"
+            if _NOOVL else "chart_native_l3_track_a"),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "candidate": "chart_native_s1 (GAF→frozen ResNet18 IMAGENET1K_V1"
                      "→train-only ridge probe)",
@@ -264,7 +312,8 @@ def main() -> int:
                          " fail→definitive retire verdict for chart-native"
                          " line. config-scoped; no over-claim.",
     }
-    p = Path("data/audit/chart_native_l3_NOOVERLAP.json" if _NOOVL
+    p = Path("data/audit/chart_native_l3_SURVIVORSHIP.json" if _FULLHIST
+             else "data/audit/chart_native_l3_NOOVERLAP.json" if _NOOVL
              else "data/audit/chart_native_l3_track_a.json")
     p.write_text(json.dumps(out, indent=2, default=str))
     v = "PASS" if out["track_a_overall_passed"] else "FAIL"
