@@ -87,6 +87,12 @@ P0-A 只命中**挖矿搜索环节**,不命中验收/sealed:
   (raw)算因子 IC → **"143 因子 / 16 mining families" 的研究 IC/IR
   数字也是 raw-suspect**。之前 CLAUDE.md caveat 只覆盖 cycle mining
   数值,**未单独点名因子库本身**——本 audit 补这一项(同 P0-A 类)。
+  **→ F3 实测 de-escalation(2026-05-18,真跑 train-only)**:86 个
+  OHLCV 因子×h raw vs adjusted **Spearman 0.9992、0 符号翻转、最大
+  \|IR\| 差 0.023** → 因子库 IC **原则 in-scope 但实证 immaterial**
+  (与 §1.A.q 同型)。诚实 scope:86 OHLCV 因子非全 143
+  (fundamental/sector/macro 非价格 path,不背书)。详
+  `docs/audit/20260518-factor_ic_library_adjusted_restate.md`。
 - **miner 无内部 backstop 确认**:`run_research_miner` 内 BarStore
   只用于 60m SR-defer filter(line 915),日线 IC_IR raw 一路进
   archive;adjusted **只在独立的 `cycle*_track_a_eval.py`**(手动在

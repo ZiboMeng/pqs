@@ -88,3 +88,14 @@ control 仍绑定,实跑 4 个)。
 - 修:`mean_ic`/`ir` 正确字段 + **去 blanket swallow**:记 n_fail/
   first_err,**全失败 fail-closed raise**(永不静默当干净 0)。
 - v3 重跑 PID 141159(fixed),tracked b0cfm7mu3,完成自动续。
+
+### W4 — P0-A F3 因子库 adjusted 重述 ✅(透做完成)
+v3 成功真跑:86 OHLCV 因子×h,train-only,sealed_read=False,0 failed。
+**Spearman(raw_ir,adj_ir)=0.9992,0 符号翻转,0 material flip,top-20
+重叠 0.95,最大 |IR| 差 0.023**。诚实结论:因子库 IC **原则 P0-A
+in-scope(raw 算)但实证 immaterial**——与 §1.A.q 同型 de-escalation。
+诚实 scope:86 OHLCV 非全 143(fundamental/sector/macro 非价格 path
+不背书)。restate `docs/audit/20260518-factor_ic_library_adjusted_
+restate.md`;audit memo §1 scope 行已 fold。F1 修复仍必要(根治 +
+短窗口因子 + 防未来污染),本结论只说"已跑出的因子库数没被显著污染"。
+**三次失败全真根因(超时/自己错字段名被自己吞),无一 hand-wave。**
