@@ -89,4 +89,25 @@ memo 是该 overclaim 的边界纪录;G1(回测稳健性 PRD)实现后用真实 
 
 - 本 memo = 单一 SoT;3 文档加一行指针(不重写正文,保留审计原貌)。
 - D4 收口报数时引用本 memo §4 口径。
-- G1 实现时本 memo §2/§4 回填真实-N 重算值,标 `recomputed_<date>`。
+
+### §6.1 G1 实现结果(2026-05-18)
+
+G1-A1/A2/A3/A4 已实现(commit 见 lineage `backtest-robustness-
+completion-2026-05-17`):
+- **诚实-N 单一来源** `core/research/dsr_trial_accounting.py`
+  (`ML_REDO_CHART_NATIVE_ARMS=2` / `ML_REDO_P2_RECHECK_K_SWEEP=3`,
+  附 ralph-PRD §3 justification)+ `assert_honest_n` fail-closed 守卫。
+- **§2 的 4 个 ml_redo 脚本不 retro-edit**:它们是已 commit 的
+  forensic 证据,本 memo §2 + G0 commit 已白纸黑字记录其 placeholder
+  N;编辑会使已提交的审计陈述失真(篡改审计痕迹,纪律禁止)。守卫
+  + 诚实-N 来源只约束 **go-forward 生产 DSR 调用**。
+- `effective_n_trials_onc`(ONC,**forward-only**)+ `recompute_dsr`
+  通用工具已交付并单测(7 测 + 4 原 overfit 回归全过)。
+- **§2/§4 精确数值回算 = 不可行(诚实限制,不假装)**:已跑的
+  ml_redo 实验**未持久化 per-fold paired 数组**(JSON 仅标量
+  dsr/ic;c3c4.cleandata 实查 False),re-run=6h+须改 frozen 脚本
+  → 同 rcm_trials 标量-only 根因(PRD §6)。故 §2/§4 **不回填精确
+  重算值**;更正保持**定性**(placeholder-N→偏乐观→非证据锚,稳健
+  =IC 符号),该定性更正已 ship(本 memo + 3 文档 caveat)。
+- **Forward 契约**:未来 ML 实验脚本 **必须持久化 per-period 数组**,
+  使 DSR 可被 `recompute_dsr` 精确重算(防此限制复发)。

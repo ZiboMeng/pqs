@@ -89,6 +89,97 @@ def deflated_sharpe_ratio(
             "n_trials": int(n_trials), "T": int(T)}
 
 
+def recompute_dsr(
+    returns: Sequence[float],
+    honest_n_trials: int,
+    *,
+    prior_n_trials: int | None = None,
+    sr_trials_std: float | None = None,
+) -> dict:
+    """G1-A3 — recompute DSR with an honest trial count.
+
+    General go-forward tool: given the saved per-period ``returns`` and
+    an honest ``honest_n_trials`` (from ``dsr_trial_accounting`` or a
+    runtime ONC), returns the corrected DSR plus, if ``prior_n_trials``
+    is given, the placeholder-N DSR and the delta — so a backfill can
+    show "was X (placeholder N=p), now Y (honest N=h)" auditably.
+
+    NOTE (honest limitation, boundary memo §6): the already-run ML-redo
+    experiments did NOT persist their per-fold paired arrays (JSONs are
+    scalar-only), so this tool CANNOT exactly re-number those past
+    results — their correction stays qualitative (placeholder-N →
+    optimistic → not an evidence anchor; robust = IC-sign). Forward
+    contract: new ML experiment scripts MUST persist the per-period
+    array so DSR is recomputable.
+    """
+    honest = deflated_sharpe_ratio(returns, honest_n_trials, sr_trials_std)
+    out = {"honest_n_trials": int(honest_n_trials),
+           "dsr_honest": honest["deflated_sharpe"],
+           "sharpe": honest.get("sharpe"), "T": honest.get("T")}
+    if prior_n_trials is not None:
+        prior = deflated_sharpe_ratio(returns, prior_n_trials, sr_trials_std)
+        out["prior_n_trials"] = int(prior_n_trials)
+        out["dsr_prior_placeholder"] = prior["deflated_sharpe"]
+        if (np.isfinite(out["dsr_honest"])
+                and np.isfinite(out["dsr_prior_placeholder"])):
+            out["dsr_delta"] = round(
+                out["dsr_honest"] - out["dsr_prior_placeholder"], 6)
+            # honest N >= placeholder ⇒ DSR must not increase
+            out["direction_ok"] = (
+                honest_n_trials < prior_n_trials
+                or out["dsr_honest"] <= out["dsr_prior_placeholder"] + 1e-9)
+    return out
+
+
+def effective_n_trials_onc(returns_matrix: np.ndarray, k_cap: int = 20) -> dict:
+    """Effective # of *independent* trials via ONC (López de Prado).
+
+    PRD §4 G1-A2. ``returns_matrix`` = (n_periods × n_configs) per-period
+    returns of every tried config. Correlated configs are not
+    independent trials; clustering the trial-return correlation matrix
+    and counting clusters gives the effective independent N to feed
+    ``deflated_sharpe_ratio``. **forward-only**: past PQS mining cycles
+    did not persist per-trial return series (rcm_trials = scalar
+    summaries only), so this cannot be applied retroactively — see
+    boundary memo §5. Returns ``{"effective_n": k, "n_configs": C}``.
+
+    Mechanism: distance = sqrt(0.5*(1-corr)); KMeans for k in
+    [2, min(C-1, k_cap)]; pick k with max mean silhouette (the ONC
+    base loop). Degenerate inputs fall back to n_configs (conservative
+    = no independence reduction).
+    """
+    M = np.asarray(returns_matrix, dtype=float)
+    if M.ndim != 2 or M.shape[1] < 2:
+        return {"effective_n": int(M.shape[1]) if M.ndim == 2 else 1,
+                "n_configs": int(M.shape[1]) if M.ndim == 2 else 1}
+    C = M.shape[1]
+    corr = np.corrcoef(M, rowvar=False)
+    corr = np.nan_to_num(corr, nan=0.0)
+    np.fill_diagonal(corr, 1.0)
+    dist = np.sqrt(np.clip(0.5 * (1.0 - corr), 0.0, 1.0))
+    try:
+        from sklearn.cluster import KMeans
+        from sklearn.metrics import silhouette_score
+    except Exception:
+        return {"effective_n": C, "n_configs": C,
+                "note": "sklearn absent — conservative fallback C"}
+    best_k, best_s = C, -1.0
+    for k in range(2, min(C - 1, k_cap) + 1):
+        try:
+            lbl = KMeans(n_clusters=k, n_init=10,
+                         random_state=42).fit_predict(dist)
+            if len(set(lbl)) < 2:
+                continue
+            s = silhouette_score(dist, lbl, metric="precomputed") \
+                if False else silhouette_score(dist, lbl)
+        except Exception:
+            continue
+        if s > best_s:
+            best_s, best_k = s, k
+    return {"effective_n": int(best_k), "n_configs": int(C),
+            "silhouette": round(float(best_s), 4)}
+
+
 def probability_backtest_overfitting(perf_matrix: np.ndarray) -> dict:
     """PBO via combinatorially-symmetric cross-validation (Bailey et al.).
 
