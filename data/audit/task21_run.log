@@ -1,0 +1,11 @@
+panel (3021, 79) train-only (25s)
+85404 windows (42s)
+minirocket REUSED prior ic=0.02343 (43s)
+[12:23:36] INFO     FactorGenerator: produced 113 candidate factors             
+[12:27:05] INFO     Fundamental factors merged: 51                              
+[12:28:08] INFO     Sector factors merged: 5                                    
+[12:28:09] INFO     Macro factors merged: 6                                     
+           INFO     Event window factors merged: 4                              
+[12:28:13] INFO     Signal-confirmation factors merged: 5                       
+factor lib 184 factors (387s)
+task21 -> ref_mom=0.03205 | minirocket_full=0.02343 | tabular_gbdt=0.05755 (429s) -> data/audit/task21_strong_anchor.json
