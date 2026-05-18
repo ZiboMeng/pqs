@@ -79,6 +79,15 @@ mom_126d 为判官):
 | **mae_probe (REAL pretrained)** | **+0.0505** | 0.0382 | **+0.0123** | **0.558** |
 | best = mae_probe → **verdict = `beats_tabular_baseline`** | | | | |
 
+> ⚠️ **claim 更正(2026-05-18,审计 review)**:token
+> `beats_tabular_baseline` 是**误名**——`vs_base` 实际 = `pred_IC −
+> 单动量IC`(非强 tabular/GBDT baseline)。诚实读法 =
+> **`beats_single_momentum_factor under current config`**,**不是**
+> 打过 production-grade baseline。frozen forensic 脚本不 retro-edit
+> (同 DSR placeholder-N 先例),更正以此为准。三层 claim 分类 + 强
+> tabular 锚待建,见
+> `docs/memos/20260518-auditor_claim_discipline_response.md`。
+
 **第二个 landmark**:用**真 R3 预训练权重**(load `pretrain_mae.pt`),
 SSL pretrain→probe 的 chart 表征 **打过单动量因子**(IC 0.050 > 0.038,
 vs_base +0.012,DSR 0.558)。对照 audit-fix 前 fresh-init 版本:
