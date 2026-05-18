@@ -51,20 +51,36 @@ raw。
 MarketDataStore.read=**20.125** vs BarStore.load(adjusted)=**0.503**
 (~40×);AAPL **109.3** vs **27.325**(~4×)。data/daily 确为 raw。
 
-**影响(精确 scope,不夸大)**:
-- 因子/IC/NAV 在 raw 价上算 → 任何 lookback 跨 split 日的窗口被污染
-  (4:1 split = 单日 −75% 假收益)。**直接解释** CLAUDE.md 已记的
-  cycle02 ARCHIVED(LRCX $72/$7 alternating)、cycle04-10 "numerical
-  claims DEPRECATED"、"heterogeneous split-adjustment fix"——这些是
-  **同一 root cause 的症状**,之前被逐个打补丁未根治。
-- **不影响**:在跑的 forward 观察**估值**(cycle06/08/pead)——
-  A3 实证 `attention_report.py:456-459` 用 `BarStore.load(adjusted=
-  True, adjusted_total_return=True)`,估值价基正确。但这些候选当初
-  是被 raw 价挖矿**选出来**的 → 选择可疑、观察估值无误(内部不一致,
-  honest scope)。
-- **不是 blanket "全坏"**:测试面绿、forward 估值对、qualitative
-  findings(sibling geometry / TC ceiling)是理论/构造性的不依赖此
-  数值,CLAUDE.md 已 preserve。
+**影响(精确 scope —— 修正留痕 2026-05-18:初版把 scope 写重了,
+逐个 grep 实证后收窄如下)**:
+
+P0-A 只命中**挖矿搜索环节**,不命中验收/sealed:
+- **受影响 = 挖矿 SEARCH / trial 排名**:`run_research_miner.
+  _load_price_volume:103` 用 raw `store.read` → 200-trial TPE 的
+  IC_IR objective、谁排第一 → **谁被提名**,跑在 raw 价上(跨 split
+  污染)。这影响"选择溯源"(可能漏掉更好 composite / TPE 收敛到
+  同一 sibling 可能是 raw artifact),**不影响被提名 composite 的
+  报告业绩真伪**。
+- **不受影响 = Track A 验收 + sealed**(逐个实证):
+  `dev/scripts/cycle06/cycle06_track_a_eval.py:65` /
+  `dev/scripts/sealed/run_sealed_2026_eval.py:112` /
+  `dev/scripts/cycle06/i9_boundary_verify.py:116` 全用
+  `BarStore.load(adjusted=True, adjusted_total_return)` → **cycle06/08
+  的 PASS verdict + sealed 2/2 在正确除权价上算的,是真的**。
+- **不受影响**:forward 观察估值(`attention_report:456` BarStore
+  adjusted);ML-redo D1-D4(`run_c3c4/d4/r4` BarStore adjusted=True);
+  PEAD(`dev/scripts/pead/*` BarStore adjusted=True)——逐个实证。
+- **已有 caveat**:cycle04-12 mining 数值 CLAUDE.md 早已 DEPRECATED;
+  P0-A 给它 root cause,非新损失。qualitative(sibling geometry /
+  TC ceiling)理论/构造性 + forward 实测(adjusted)独立支持,preserve。
+- **honest 关键判断**:adjusted Track A gate 是 raw-search 的
+  **backstop**——只在 raw 看着好的 composite 会被 adjusted 验收
+  刷掉;cycle06/08 **通过了 adjusted 验收**,所以无论怎么被 surface
+  出来,它们在正确价上是真 good。P0-A 的真问题 = **selection
+  completeness/bias(可能 false negative)+ 所有 IC_IR 数(已弃用)**,
+  **不是** "已通过 adjusted gate 的候选业绩造假"。
+- **不是 blanket "全坏"**:测试绿、验收/sealed/forward 估值对、
+  ML-redo/PEAD/G1-G5 对、qualitative preserve。
 
 **Root cause**:挖矿/ paper 数据 loader 选了 `MarketDataStore`(raw
 parquet 直读)而非 `BarStore`(split cascade)。**从未被命名为"loader
