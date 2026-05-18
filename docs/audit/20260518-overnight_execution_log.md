@@ -25,3 +25,21 @@ GPU 存在(GTX 1650Ti 4GB)→ conditional pass,VRAM-bounded。memo
 - rewire:`run_research_miner._load_price_volume`(Track-C 真路径)✅ / `run_factor_screen.load_price_volume`(143 因子库)✅ / `run_mining` 3 daily 点(legacy)✅。
 - ⚑DISCUSS-1:**run_paper 的 loader swap 故意 NOT 在 F1 做**——裸 swap 会静默改 cycle06/08 live soak 价基(PRD F4-A2 禁)。留到 W5/F4 当 data-revision-event + smoke 处理。这是 deliberate sequencing,非遗漏。
 - 验证:compile OK;NVDA 2015-01-02 经 price_access = 0.503(正确除权,原 raw 20.125)✅。
+
+---
+## ⚑ 用户纲领(2026-05-18 夜,最高优先)
+**"最重要的做好 audit 不要走过场"** → 隔夜执行**深度优先于广度**:
+每个 W 必须真跑 + 对比期望数字 + edge case + ROOT CAUSE,不 hand-wave、
+不假装完成、不为赶进度糊弄。做不完的诚实记录留明天讨论,绝不走过场。
+W3+ 全部按此标准;F2 测试必须含 negative-control(证测试真能抓 bug)。
+
+### W3 — P0-A F2 价基回归测试 ✅(透做)
+`tests/unit/data/test_price_semantics_regression.py` 14 passed。**非走
+过场**:4 个真实 split 锚点(NVDA 2021 1:4 / AAPL 2020 1:4 / TSLA
+2022 1:3 / AMZN 2022 1:20)逐个:(a) adjusted 无 spurious split 跳
+(<30%);(b) **NEGATIVE CONTROL**:raw(MarketDataStore)确实跳
+(<-40%,证测试真能抓 P0-A,否则判 BROKEN 非 green);(c) price_access
+与 BarStore.load(adjusted) bit 对齐 rtol1e-9;(d) NVDA 2015 具体签名
+<5(原 raw 20.1)。AAPL 2014 锚点诚实排除(daily 数据 ~2015 起,
+split 在数据窗外,非掩盖回归;≥2-anchor guard + 每例 negative
+control 仍绑定,实跑 4 个)。
