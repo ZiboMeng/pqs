@@ -11,9 +11,11 @@ If you want chronological order, sort by filename — the
 
 ---
 
-## 1. PRDs (specs, mandates, governing docs) — 29
+## 1. PRDs (specs, mandates, governing docs) — 30
 
 Prescriptive documents that define what to build / what to constrain.
+
+- [prd/20260518-p0a_loader_barstore_fix_prd.md](prd/20260518-p0a_loader_barstore_fix_prd.md) — **NEW 2026-05-18 DRAFT** P0-A 修复 PRD。触发:大清盘 audit P0-A —— 挖矿**搜索**入口(`run_research_miner._load_price_volume:103`)+ paper(`run_paper:332`)+ 因子筛选(`run_factor_screen:80`)用 `MarketDataStore.read()` 读 raw 未复权价,绕过 `BarStore.load(adjusted=True)` split cascade(NVDA 2015 raw 20.125 vs adj 0.503)。修法:F1 价格消费层 loader 统一新建 `core/data/price_access.load_adjusted_panel` 走 BarStore adjusted(不删 MarketDataStore=raw 存储合法保留;不重写 data/daily=按设计 raw)/ F2 loader 层价基回归测试(CLAUDE.md 早要求从未覆盖 loader)/ F3 143 因子库 IC adjusted recompute+诚实重述(recompute 非重挖)/ F4 M11a/b parity 重验 bit-for-bit + **live 候选(cycle06/08/options paper)价基变更当 data-revision-event 处理+smoke 硬前置不静默改 live 序列** / F5 standing 结论诚实重述。**严重性诚实框定**(backstop 量化 §1.A.q:主轴动量/vol/drawup raw≈adjusted Spearman 0.964→主力 nominee 选择本就稳;残余真风险仅短周期因子合成候选)。非目标:不重写 raw store、不删 MarketDataStore、不全量回挖 cycle04-12。cycle06/08 Track A PASS+sealed 2/2 不变(本就 adjusted)。DRAFT,实现需 explicit-go。Lineage `p0a-loader-barstore-fix-2026-05-18`。
 
 - [prd/20260517-scaled_pretrained_checkpoint_ml_prd.md](prd/20260517-scaled_pretrained_checkpoint_ml_prd.md) — **NEW 2026-05-17 DRAFT** Scaled/External Pretrained Checkpoint ML 架构研究 PRD。触发:用户问 CNN/transformer 有没有用 pretrained、大模型从 reasonable checkpoint 开始更好。实查:MAE encoder 用了 in-domain SSL 预训练(landmark②/④ + D4 证实 pretrain→probe >> from-scratch 4-5×,用户直觉成立);**两处未测 lever**:GAF/CNN 路径从未吃 checkpoint、MAE 是小模型(d_model=64)没试更大/外部 checkpoint。Roadmap S1(GAF 接 ImageNet 视觉 backbone)/S2(放大 in-domain MAE)/S3(外部时序基础模型,先 survey,无可信则诚实停)/S4(scaled ensemble vs 现小 MAE)全 committed。**§3 P0 硬前置 = GPU 可用性评估**(现 CPU torch 不可行,D4 一个小 CNN 跑 6h;P0 不过整 PRD 挂起,诚实不假装)。所有 DSR 用 G1 honest-N + G2 PBO(回测稳健性 PRD 让本 PRD 数字一开始可信)。独立于 G1-G5 与已 CLOSED 的 ML supplementary PRD,不互相阻塞(算力串行)。config-scoped/非可部署/sealed 不读/禁 blanket verdict。DRAFT,实现需 explicit-go + P0 GPU 门。Lineage `scaled-pretrain-checkpoint-2026-05-17`。
 
