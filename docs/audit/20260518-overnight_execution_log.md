@@ -77,3 +77,14 @@ control 仍绑定,实跑 4 个)。
   子 raw vs adjusted,restate 会如实写明此 scope,不谎称"全 143"。
 - 重跑:无 timeout 后台 PID 137366,tracked 监控 b6kw0398e,完成
   自动续 W4 记真数 → W7。
+
+### W4 — F3 v2 0-stats root-cause(现场抓出自己的反面教材)
+- v2 跑通 sealed-safe(train-only/81 票/sealed_read=False)但 **0 stats**。
+- **真根因(非 hand-wave)**:复现单因子不吞异常 → `compute_rank_ic`/
+  `compute_factor_stats` **正常**;bug 在我脚本 `st.ic_mean`(FactorStats
+  真字段是 `mean_ic`/`ir`)→ 每因子 AttributeError 被我 `except
+  Exception: continue` **静默吞掉** → 假装 0 stats。**"不走过场"的
+  直接教训:自己的吞异常掩盖自己的错——已现场抓出**。
+- 修:`mean_ic`/`ir` 正确字段 + **去 blanket swallow**:记 n_fail/
+  first_err,**全失败 fail-closed raise**(永不静默当干净 0)。
+- v3 重跑 PID 141159(fixed),tracked b0cfm7mu3,完成自动续。

@@ -73,16 +73,28 @@ def _ic_table(price_df, vol_df, label):
     fwd = compute_forward_returns(price_df, [_H])
     eng = FactorEngine()
     stats = {}
+    n_fail = 0
+    first_err = None
     for fn, fdf in fac.items():
         for h, rdf in fwd.items():
             try:
                 ic = eng.compute_rank_ic(fdf, rdf)
                 st = eng.compute_factor_stats(ic, factor_name=fn, horizon=h)
-                stats[(fn, h)] = (round(float(st.ic_mean), 5),
-                                  round(float(st.ir), 4))
-            except Exception:
-                continue
-    print(f"  [{label}] {len(fac)} factors, {len(stats)} (factor,h) stats")
+                mi, ir = st.mean_ic, st.ir
+                if mi is None or (isinstance(mi, float) and np.isnan(mi)):
+                    continue  # genuinely undefined IC (constant factor)
+                stats[(fn, h)] = (round(float(mi), 5), round(float(ir), 4))
+            except Exception as e:  # do NOT silently zero — record it
+                n_fail += 1
+                if first_err is None:
+                    first_err = f"{type(e).__name__}: {e}"
+    print(f"  [{label}] {len(fac)} factors, {len(stats)} stats, "
+          f"{n_fail} failed (first_err={first_err})")
+    # fail-closed: a near-total failure must NOT pass as a clean 0
+    if len(stats) == 0:
+        raise SystemExit(
+            f"[{label}] 0 stats from {len(fac)} factors — systematic "
+            f"failure, NOT a clean result. first_err={first_err}")
     return stats
 
 
