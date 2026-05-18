@@ -364,3 +364,14 @@ bps 无 size/ADV/√、VIX binary 粗、Capacity dead 且 linear<√。处置:
 Capacity+升 √-law+VIX 连续+激活测试。memo `docs/memos/20260518-
 task24_execution_assumptions_audit.md`。**夜间队列 #21-#24 全收尾;
 #22(README 小白重写)按用户"统一修订"保持 deferred。**
+
+### chart-native L3 (task#25) — 用户 explicit-go "先推 L3"
+建 `dev/scripts/chart_native_l3/run_chart_native_l3_track_a.py`:S1
+信号(GAF→frozen ResNet18 IMAGENET1K_V1→**train-only ridge probe**)
+→ 单 synthetic factor → cap_aware harness → run_split_acceptance
+(role=core)+ W7b overfit_inputs(honest_n_trials=6=chart-native
+program arm 数,非 magic literal)+ W7c-d cpcv_inputs。**无泄漏纪律**:
+probe 只 fit train 年行,frozen 应用全行,validation = 真 OOS,sealed
+不读。诚实预期:大概率 FAIL(cycle13b 先例)。compile OK,后台跑。
+#23 over-hasty 结论已撤回(留 forensic,不作判决依据;lit review 排
+L3 后正经多源做)。
