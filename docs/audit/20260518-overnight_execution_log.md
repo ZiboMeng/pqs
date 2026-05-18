@@ -351,3 +351,16 @@ finetune_research.md`。**诚实优先级 LOW**:task#21 已证 S1>强 tabular
 锚(L2 达),binding 是 L3(vs-SPY/成本/压力/forward);换 backbone
 只提 L2 不解 L3 → 实验 deferred 待"是否推 chart-native 到 L3"
 directional 决策。下:自主续 #24 执行层 audit(websearch,同纪律)。
+
+### #24 done(执行层 audit,fuzzy→primary;队列收尾)
+接 A4 不重做。primary:√-law 冲击(Tóth 2011 arXiv 1105.1694)+
+linear→√ crossover(小 order 是 linear)。R3 实查我们=T+1-open ±
+常数 tier bps + VIX≥30 ×2.5 binary + CapacityModelConfig dead。
+**verdict(no-blanket,按不变量)**:当前 $10K-100K = **合理且保守**
+(participation≈0→linear 微区间→固定 bps ≥ 真实冲击;T+1-open 保守;
+2x/3x stress 是文献认可的小 AUM 替代)。软点全 **scale-gated**:固定
+bps 无 size/ADV/√、VIX binary 粗、Capacity dead 且 linear<√。处置:
+**现在不改**(invariant-justified),推 $100K+/非大盘前触发=接
+Capacity+升 √-law+VIX 连续+激活测试。memo `docs/memos/20260518-
+task24_execution_assumptions_audit.md`。**夜间队列 #21-#24 全收尾;
+#22(README 小白重写)按用户"统一修订"保持 deferred。**
