@@ -315,3 +315,19 @@ restate.md`;audit memo §1 scope 行已 fold。F1 修复仍必要(根治 +
   **不 over-claim 表征强**。强化审计建议 4(别加码模型规模当主线)。
 - S2 完 → GPU 串行槽空 → 启 **S1**(torchvision frozen ResNet18
   ImageNet,用户授权装库、用现成不自造)。
+
+### W8 S1 结果(严格三层 claim,刚被审计 review 过这点)
+- 干净:85404 train-only GAF 窗,sealed_read=False,frozen torchvision
+  ResNet18 IMAGENET1K_V1,15 CPCV 折。
+- imagenet_probe_ic **0.1217** / 单动量 0.0321 / **vs_mom +0.0897** /
+  DSR(honest N=2)≈1.0。
+- **L1** 表征有结构信息 ✅ **L2** 打过单一动量因子(this config)✅
+  且 S1(外部 checkpoint)> S2(放大自家 MAE,null)这个 lever。
+  **L3** ❌ 不可答:无强 tabular 锚(task#21)/ DSR-N=2 非证据锚 /
+  JKX 规模论 0.12 不可外推 / train-only 未走漏斗 / 机制不透明 +
+  pooled 膨胀可能。**不 over-claim 成 "checkpoint 解锁一切"。**
+- **W8 收口**:S1(frozen ImageNet)+ S2(放大 MAE,null)done;S3
+  (外部时序基础模型)按可行性 memo = survey-first / 4GB 多半
+  infeasible,记 honest-caveat 不硬上;S4(scaled ensemble)依赖有
+  已验证 arm,deferred。**W8 真正高杠杆后继 = task#21 建强 tabular 锚**
+  (在它之前 S1/S2 都只能 L2-vs-弱对照,不能升 L3)。
