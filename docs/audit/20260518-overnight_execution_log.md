@@ -274,3 +274,33 @@ restate.md`;audit memo §1 scope 行已 fold。F1 修复仍必要(根治 +
 - **S1 GPU run 串行排 S2 后**(单 4GB 卡;S2 1830s 仍跑)。监控
   bthn7d9k1(S2)完成→启 S1 GPU run;bnz0y7yb9(cycle13b re-run2)
   完成→报 W7c/d 修后首战结果。两监控自动续。
+
+### cycle13b Track-A re-run-2 结果 + W7c/d 喂数二次修(pandas 3.0)
+- **Track A:0/3 FAIL**(同上轮:跑不赢 SPY + covid 回撤 -34%)——
+  3 个 top composite 干净判不合格,**无可 promote**(与用户 sealed-2026
+  讨论直接相关:cycle13b 没东西值得上 forward,2026 问题对它 moot)。
+- **W7b ✅ 真验证**:DSR(honest N=200)0.80/0.83,MinBTL gate=True,
+  全算对绑对。第一次真实战成功。
+- **W7c/d 仍没触发,但"永不静默"奏效**:精确报出原因 =
+  `ValueError: stack(dropna=False)` —— torchvision 装机连带把
+  **pandas 2.x→3.0.2**,该参数新版移除。不是哑 None,定位到具体一行
+  (这正是不走过场的价值:上次哑 None,这次精确根因)。
+- 修:`.stack(dropna=False)`→`.stack()`(新 pandas 正解,concat
+  后 `.dropna()` 仍对齐)。compile OK。
+- **诚实环境 surface**:torchvision 装机连带 torch 2.11→2.12 **且
+  pandas 2.x→3.0.2**(大 bump)。60 个核心回归测试是在此环境跑的、
+  全绿,核心 P0-A/P0-B 面已覆盖;但 pandas 2→3 是大版本,完整测试
+  套件的更广回归建议后续补(诚实标,未全验)。
+
+### cycle13b re-run-3:W7c/d 真触发 ✅ + 路 1 落实
+- W7c/d 第三次成(前两次"永不静默"精确根因+修):cpcv_inputs_n
+  ~3.7-3.8万,**cpcv_gate=FAIL 绑进 overall**(ic_sw≈-0.002/DSR≈
+  0.001/PBO 0.74-0.76 红旗)。**P0-B 全套机器真实 cycle 端到端验证
+  完成、正确拦过拟合候选**——cycle13b 预登记方法论验证目的达成。
+- cycle13b 3 composite 三独立证据(Track-A vs-SPY/covid + W7c/d
+  CPCV + PBO)一致 = 过拟合垃圾,**干净淘汰,不 over-claim**。
+- **路 1 落实**(用户 explicit-go):Track-A 过→直接 promote forward,
+  取消 sealed 历史单发 gate;sealed-split-bump 问题 dissolve。memo
+  `docs/memos/20260518-path1_forward_replaces_sealed_singleshot.md`。
+- 待:cycle pre-reg 模板去 sealed 步(下个 cycle 时改);S1 GPU 排
+  S2 后;pandas2→3 全套件更广回归待补(诚实标)。
