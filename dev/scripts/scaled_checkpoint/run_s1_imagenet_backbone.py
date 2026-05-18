@@ -65,13 +65,11 @@ def _ridge(Xtr, ytr, Xte, lam=10.0):
     return Xte @ np.linalg.solve(A, Xtr.T @ ytr)
 
 
-def _frozen_imagenet_features(imgs, device, batch=64):
-    """GAF (N,2,W,W) → frozen ImageNet ResNet18 512-d features.
-    GAF 2ch → 3ch [gasf, gadf, mean]; resize W→224; ImageNet-norm;
-    backbone frozen (no grad, eval) — a STANDARD pretrained encoder,
-    not a trained-here model."""
+def _build_frozen_net(device):
+    """STANDARD torchvision ResNet18 IMAGENET1K_V1, fc=Identity,
+    frozen + eval. Built ONCE (was rebuilt per call pre-2026-05-18
+    streaming refactor)."""
     import torch
-    import torch.nn.functional as F
     from torchvision.models import ResNet18_Weights, resnet18
 
     net = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
@@ -79,19 +77,28 @@ def _frozen_imagenet_features(imgs, device, batch=64):
     net = net.to(device).eval()
     for p in net.parameters():
         p.requires_grad_(False)
-    feats = []
+    return net
+
+
+def _encode_batch(net, imgs_np, device):
+    """One batch (b,2,W,W) float32 → (b,512) frozen features.
+    eval-mode ResNet18 is per-sample (BN uses running stats; bilinear
+    interpolate is per-sample) so the value of each row is INDEPENDENT
+    of batch size / batch boundaries → streaming is numerically
+    bit-identical to the pre-refactor whole-array path."""
+    import torch
+    import torch.nn.functional as F
+
     with torch.no_grad():
-        for i in range(0, len(imgs), batch):
-            x = torch.tensor(imgs[i:i + batch], device=device)  # (b,2,W,W)
-            third = x.mean(dim=1, keepdim=True)
-            x = torch.cat([x, third], dim=1)                    # (b,3,W,W)
-            x = F.interpolate(x, size=(224, 224), mode="bilinear",
-                              align_corners=False)
-            mean = torch.tensor(_IMN_MEAN, device=device).view(1, 3, 1, 1)
-            std = torch.tensor(_IMN_STD, device=device).view(1, 3, 1, 1)
-            x = (x - mean) / std
-            feats.append(net(x).cpu().numpy())
-    return np.concatenate(feats, 0)
+        x = torch.tensor(np.asarray(imgs_np), device=device)  # (b,2,W,W)
+        third = x.mean(dim=1, keepdim=True)
+        x = torch.cat([x, third], dim=1)                       # (b,3,W,W)
+        x = F.interpolate(x, size=(224, 224), mode="bilinear",
+                          align_corners=False)
+        mean = torch.tensor(_IMN_MEAN, device=device).view(1, 3, 1, 1)
+        std = torch.tensor(_IMN_STD, device=device).view(1, 3, 1, 1)
+        x = (x - mean) / std
+        return net(x).cpu().numpy()
 
 
 def main() -> int:
@@ -128,7 +135,23 @@ def main() -> int:
         raise SystemExit("SEALED GUARD: non-train years present")
     fwd = compute_forward_returns(cdf, [_H])[_H]
 
-    imgs, yv, momv = [], [], []
+    # STREAMING (2026-05-18): the pre-refactor path materialized ALL
+    # GAF images in host RAM (imgs list → np.stack → I). At ~158k
+    # windows (executable-79) that is a ~5 GB array / ~10 GB peak —
+    # fine. At ~2.0M windows (expanded_v2 ~1006 syms) it is a ~64 GB
+    # array / ~128 GB peak → OOM-killed before the first print (the
+    # 0-byte s1_scale_falsification_expanded.log). We now generate
+    # each GAF window, encode it through the frozen backbone in a
+    # bounded batch buffer, and keep ONLY the 512-d features
+    # (~4 GB at 2.0M windows). Per-sample eval-mode ResNet18 makes
+    # this numerically bit-identical to the whole-array path
+    # (executable default unchanged); peak host RAM is now O(batch).
+    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    net = _build_frozen_net(dev)
+    _BATCH = 64
+
+    feats, yv, momv = [], [], []
+    buf = []
     for s in cdf.columns:
         v = cdf[s].to_numpy(float)
         idx = cdf.index
@@ -140,17 +163,22 @@ def main() -> int:
             w = v[i - WINDOW_LEN + 1:i + 1]
             if not (np.isfinite(y) and np.isfinite(w).all() and w[0] > 0):
                 continue
-            imgs.append(gaf_image(w))
+            buf.append(gaf_image(w))
             yv.append(float(y))
             momv.append(v[i] / v[i - 126] - 1.0 if i >= 126 else np.nan)
-    I = np.stack(imgs).astype(np.float32)
+            if len(buf) == _BATCH:
+                feats.append(_encode_batch(net, buf, dev))
+                buf = []
+    if buf:
+        feats.append(_encode_batch(net, buf, dev))
     yv = np.array(yv, np.float32)
     momv = np.array(momv, np.float32)
-    dev = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"assembled {len(I)} GAF windows train-only "
+    n_win = len(yv)
+    print(f"assembled+encoded {n_win} GAF windows train-only "
           f"({time.time()-t0:.0f}s) device={dev}")
 
-    E = _frozen_imagenet_features(I, dev)
+    E = (np.concatenate(feats, 0) if feats
+         else np.empty((0, 512), np.float32))
     print(f"frozen ImageNet features {E.shape} ({time.time()-t0:.0f}s)")
 
     ic_probe, ic_mom = [], []
@@ -176,7 +204,7 @@ def main() -> int:
         "torch_version": torch.__version__,
         "backbone": "torchvision resnet18 IMAGENET1K_V1 (frozen, fc=Identity)",
         "train_years_only": sorted(ty), "sealed_2026_read": False,
-        "n_windows": int(len(I)), "n_folds": len(ic_probe),
+        "n_windows": int(n_win), "n_folds": len(ic_probe),
         "imagenet_probe_ic": round(probe_ic, 5)
         if np.isfinite(probe_ic) else None,
         "momentum_baseline_ic": round(mom_ic, 5)
