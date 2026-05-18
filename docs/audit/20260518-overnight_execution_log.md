@@ -390,3 +390,15 @@ no-over-claim:绝不 promote forward**。决定性测试①跑中=negative
 control(打乱训练标签同流程):也 20x 全过 → harness/pooling artifact
 非信号;塌成~SPY → 再深挖 probe 泄漏。verdict 待 leak audit;PASS
 未被接受为真。task#26 开。
+
+### L3 neg-control 结果 + 下一刀(no-overlap)
+neg-control(打乱训练标签)= **FAIL**:cum_ret 6x / vs_spy **−19%** /
+cpcv IC **−0.003**(真 probe +0.147)→ **清掉 harness/pooling
+label-independent artifact 一类**(若是该类,打乱也会 20x;它没)。
+**未清掉**:feature 侧前视/重叠泄漏(打乱下也会塌,neg-control 区分
+不了真信号 vs feature 前视);PBO 真跑仍 RED;pooled IC 幅度可能
+膨胀。**重要 caveat**:neg-control W7b DSR 仍≈0.999(打乱噪声 6x 也
+拿满)→ **W7b DSR-on-NAV 此规模不判别**,真正判别的是 cpcv-IC +
+vs-SPY(都正确判了,机器 work)。verdict 仍未接受为真。下一决定性
+=NO-OVERLAP(GAF 窗结束在 i−21,与标签 [i,i+21] 零重叠+21d gap):
+IC 还在=强指向真;塌=重叠/前视假象。跑中。

@@ -128,13 +128,26 @@ def main() -> int:
     fwd21 = px.pct_change(_H).shift(-_H)
 
     # Build GAF windows for ALL (sym,date) in train+val.
+    # NO-OVERLAP control (CHART_L3_NOOVERLAP=1): GAF window ENDS at
+    # bar i-_H → zero overlap + _H-bar gap vs label [i, i+_H].
+    # Decisive feature-side lookahead/overlap-leak test (env-flag, NOT
+    # fragile sed — prior sed attempt produced an empty script; that
+    # run did NOT happen and was honestly retracted).
+    import os as _os
+    _NOOVL = _os.environ.get("CHART_L3_NOOVERLAP") == "1"
+    if _NOOVL:
+        print("NO-OVERLAP control: GAF window ends at i-_H "
+              "(zero overlap + gap vs label)")
     imgs, keys = [], []   # keys = (sym, date)
     for s in [c for c in px.columns if c not in ("SPY", "QQQ")]:
         v = px[s].to_numpy(float)
         idx = px.index
         for i in range(WINDOW_LEN - 1, len(v)):
             dt = idx[i]
-            w = v[i - WINDOW_LEN + 1:i + 1]
+            j = (i - _H) if _NOOVL else i
+            if j - WINDOW_LEN + 1 < 0:
+                continue
+            w = v[j - WINDOW_LEN + 1:j + 1]
             if not (np.isfinite(w).all() and w[0] > 0):
                 continue
             imgs.append(gaf_image(w))
@@ -228,7 +241,8 @@ def main() -> int:
                for g in verdict.gates
                if g.name == "cpcv_distribution_acceptance"), None)
     out = {
-        "experiment": "chart_native_l3_track_a",
+        "experiment": ("chart_native_l3_NOOVERLAP_window_ends_i_minus_H"
+                       if _NOOVL else "chart_native_l3_track_a"),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "candidate": "chart_native_s1 (GAF→frozen ResNet18 IMAGENET1K_V1"
                      "→train-only ridge probe)",
@@ -250,7 +264,8 @@ def main() -> int:
                          " fail→definitive retire verdict for chart-native"
                          " line. config-scoped; no over-claim.",
     }
-    p = Path("data/audit/chart_native_l3_track_a.json")
+    p = Path("data/audit/chart_native_l3_NOOVERLAP.json" if _NOOVL
+             else "data/audit/chart_native_l3_track_a.json")
     p.write_text(json.dumps(out, indent=2, default=str))
     v = "PASS" if out["track_a_overall_passed"] else "FAIL"
     print(f"\nL3 Track-A: {v} | failed={out['track_a_failed_gates']}")
