@@ -206,3 +206,39 @@ D1+D2 后 expanded_v2 100% 干净,重跑 `run_c3c4_expanded_fromscratch.py`
 §6 数值 `pending_data_cleanliness_validation` 标记 **CLEAR**;landmark④
 数值以本 §7 干净结果为准,脏数值作废(保留 `.dirtydata.json` 做审计
 留痕)。ML-method-redo 线 D1-D3 全部执行完毕。
+
+---
+
+## §8 D4 —— from-scratch per-CPCV-fold 严格重训(C4 caveat 闭合,2026-05-18)
+
+C4 是 from-scratch fit-once(固定块训一次,bounded approximation)。
+D4 升级成 **15 折逐折从零重训**(同数据/票池/prep/temporal-split),
+关掉 closeout §4 最后一个 "bounded approximation" caveat。真跑
+21908s(6.1h;fold 7/14 因系统争用各有一次大耗时跳变,15 折全完成,
+结果为 15 折均值)。
+
+| 指标 | D3 clean fit-once (C4) | D4 per-fold | pretrain→probe (D3 clean) |
+|---|---|---|---|
+| from-scratch OOS IC | 0.0022 | **0.0102** | —— |
+| vs 动量基线 | —— | **+0.0206**(动量本身 −0.010,低栏) | mae +0.058 / gaf +0.055 |
+| pretrain→probe IC | —— | —— | **mae 0.048 / gaf 0.045** |
+| DSR | —— | 0.938 ⚠️ | —— |
+
+**判定:CONFIRM,不反转(预期内)**。严格 per-fold 后 from-scratch IC
+从 fit-once 的 0.002 升到 0.010(略好但绝对值仍弱),**远低于
+pretrain→probe 的 0.045-0.048(差 4-5 倍)**。"from-scratch 输
+pretrain→probe" 在**最严格 per-CPCV-fold 协议下成立**——C4 的
+fit-once 近似**确认没有藏一个反转**,这正是"做透 ≠ 做出来"的价值
+(与 D4 启动前预先写死的预期一致,正反都不 over-claim)。from-scratch
+名义上"打过动量"仅因本票池/stride 动量为负(低栏),非强信号。
+
+**DSR 0.938 边界**:`run_d4.py:196` 的 `n_trials` 硬编码 3(placeholder)
+→ **DSR 偏乐观,不得当"已排除运气"引用**;稳健依据是上表 IC 对比
+(from-scratch << pretrain→probe)。单一 SoT + 真实-N 重算计划见
+`docs/memos/20260517-dsr_placeholder_n_boundary_memo.md`(§2 表已含
+run_d4 行;G1 实现时回填重算值)。
+
+**scope 不变**:config-scoped(此 prep/21d/expanded_v2/stride-10/此
+ChartCNN config),research 信号质量结论,非可部署;sealed 2026 全程
+未读。closeout §4 "R4 from-scratch 全重训" deferred 项 **CLOSED**;
+ML-method-redo 线 D1-D4 全部执行完毕。
