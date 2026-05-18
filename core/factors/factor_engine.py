@@ -30,6 +30,41 @@ from core.logging_setup import get_logger
 logger = get_logger(__name__)
 
 
+def _hac_ttest_mean0(x: np.ndarray, lag: int) -> tuple[float, float]:
+    """Newey-West (Bartlett) HAC t-test of H0: mean(x)=0.
+
+    P0-B / audit P1-2. Serially-autocorrelated IC (overlapping
+    horizon-day labels) → iid t overstates significance. Bartlett-
+    weighted long-run variance of the sample mean:
+        S = γ0 + 2 Σ_{k=1}^{L} (1 - k/(L+1)) γk ,  γk = autocov at lag k
+        Var(mean) = S / n ;  t = mean / sqrt(Var(mean))
+    statsmodels intentionally NOT used (no heavy dep — project stance).
+    Degenerate S≤0 (strong negative autocorr) → fall back to iid var.
+    Two-sided p from the t-distribution with n-1 df.
+    """
+    x = np.asarray(x, dtype=float)
+    x = x[np.isfinite(x)]
+    n = x.size
+    if n < 2:
+        return float("nan"), float("nan")
+    mu = x.mean()
+    e = x - mu
+    g0 = float(e @ e) / n
+    L = max(1, min(int(lag), n // 4))
+    s = g0
+    for k in range(1, L + 1):
+        gk = float(e[k:] @ e[:-k]) / n
+        s += 2.0 * (1.0 - k / (L + 1.0)) * gk
+    if not np.isfinite(s) or s <= 0.0:          # degenerate → iid
+        s = float(x.var(ddof=1))
+    var_mean = s / n
+    if var_mean <= 0.0:
+        return float("nan"), float("nan")
+    t = mu / np.sqrt(var_mean)
+    p = 2.0 * scipy_stats.t.sf(abs(t), df=n - 1)
+    return float(t), float(p)
+
+
 # ── 汇总统计结果 ──────────────────────────────────────────────────────────────
 
 @dataclass
@@ -137,7 +172,9 @@ class FactorEngine:
         ----------
         ic_series  : compute_ic / compute_rank_ic 的输出
         factor_name: 因子标识字符串（用于报告展示）
-        horizon    : 预测期天数（仅用于标记，不影响计算）
+        horizon    : 预测期天数。**P0-B 后影响计算**：HAC t 检验的
+                     Bartlett lag = max(1, horizon-1)（重叠 label 的
+                     自相关长度），其余统计不依赖 horizon。
         """
         valid = ic_series.dropna()
         n     = len(valid)
@@ -154,8 +191,14 @@ class FactorEngine:
         ic_std  = float(valid.std(ddof=1))
         ir      = mean_ic / ic_std if ic_std > 0 else np.nan
 
-        # t 检验：H0: mean_ic = 0
-        t_stat, p_value = scipy_stats.ttest_1samp(valid.values, 0.0)
+        # P0-B / audit P1-2: HAC (Newey-West, Bartlett) t-test, NOT
+        # plain ttest_1samp. Overlapping ``horizon``-day forward-return
+        # labels make the per-date IC series serially autocorrelated →
+        # iid t overstates significance (Harvey-Liu-Zhu). Bartlett lag
+        # tied to label overlap = max(1, horizon-1), capped n//4 for NW
+        # stability; degenerate NW var (≤0) falls back to iid variance.
+        t_stat, p_value = _hac_ttest_mean0(valid.values,
+                                           max(1, int(horizon) - 1))
 
         ic_positive_ratio = float((valid > 0).mean())
         ic_gt_02_ratio    = float((valid.abs() > 0.02).mean())

@@ -131,3 +131,22 @@ restate.md`;audit memo §1 scope 行已 fold。F1 修复仍必要(根治 +
    gate + forward 在跑,回溯低值)。
 
 无后台任务在跑;不自启 loop;明早从本日志可完整复盘。
+
+---
+## 2026-05-18 白天续(用户"按建议走接着做" → W7 P0-B 优先,new-cycle-only)
+
+### W7a — 因子 IC t-stat 加 HAC(Newey-West)✅(P1-2,透做)
+- `core/factors/factor_engine.py`:加 `_hac_ttest_mean0`(Bartlett,手写,
+  statsmodels 不可用→不加重依赖,合项目惯例);compute_factor_stats
+  的裸 `ttest_1samp` 换 HAC,Bartlett lag=max(1,horizon-1)(重叠 label
+  自相关长度),degenerate≤0 fallback iid。
+- docstring 改:原"horizon 不影响计算"是错的(现影响 HAC lag)——顺带
+  审计诚实纠正。
+- 影响面:`is_significant`(=|ir|>0.3 且 p<0.05)→ HAC 让 p 更诚实变大
+  → 显著门正确变严(P1-2 本意);new-cycle-forward,不回溯改存量。
+- 测试 4/4 + factor_engine 31 回归 0 破坏。**不走过场**:含决策意义
+  flip 测(iid 假阳性 p<0.05 → HAC 正确 p>0.05);首版我加的
+  `p_hac>1e-6` 是不合理断言(signal 太强),改成测真 HAC 属性(flip+
+  deflation ordering)而非删断言凑绿。
+- 仍属 W7 内:W7b DSR/PBO/MinBTL 接 cycle-eval 输出(new-cycle-only)、
+  W7c CPCV 分布 acceptance、W7d purged/embargo fold —— 待续,逐增量。
