@@ -83,9 +83,35 @@ clean 重跑 gaf +0.128→+0.045 = 惊艳 beat 系脏数据虚高",定性从
 ### §2.2 下个高杠杆研究项(记录,非现在 tail-rush;S2 GPU 在跑)
 
 **建缺失的锚**:MiniROCKET **完整特征向量** + 线性/树头 + 一个强
-tabular baseline(工程特征 GBDT)作为正式比较锚。**在这之前 L2 的
-"打过 baseline" 不可严格回答。** 排在 S2/S1 之后(算力串行),作为
-ML 研究线下一个 high-leverage to-do。
+tabular baseline(工程特征 GBDT)作为正式比较锚。**~~在这之前 L2 的
+"打过 baseline" 不可严格回答~~ → 见 §2.3,已建已答。**
+
+### §2.3 task#21 ANCHOR 结果(2026-05-18,真跑,fold-in,L2 闭环)
+
+强对照锚已建并跑(同 S1/S2 协议:executable-79 / 除权价 / train-only
++ sealed-guard / 15 CPCV / honest-N DSR)。CPCV IC:
+
+| 臂 | IC |
+|---|---|
+| 单动量(旧弱对照) | 0.032 |
+| 完整 MiniROCKET 1008维→ridge | **0.023** |
+| **强 tabular GBDT(184 因子库 XGB)= 真锚** | **0.058** |
+| S1 frozen-ImageNet probe | 0.122 |
+| S2 放大 MAE d128/d64 | 0.087 / 0.090 |
+
+**L2 现可回答(审计 finding 1 闭环)**:S1/S2 **均 > 强 tabular 锚
+0.058**(不只 > 弱动量)→ chart-native claim 从"打过弱对照"**升级为
+"train-only CPCV 上打过强 tabular 锚"**,扛过审计核心批评。完整
+MiniROCKET(0.023)**两个 baseline 都没打过**(no-blanket:此 config
+弱,非"MiniROCKET 无用";empirically 证伪审计 finding 3"低估"假设)。
+
+**钉死 caveat(不 over-claim)**:仍严格 **L2**,非 L3——vs-SPY 硬门/
+成本/压力/forward 一关没走;cycle13b 已证 IC_IR 1.1 也被 vs-SPY/covid
+拦掉,**"打过强 tabular IC 锚 ≠ 跑赢 SPY ≠ 可部署"**。可信的是
+**排序**(S1>S2>强tabular>动量>MiniROCKET),非绝对数(pooled
+8.5-11.7 万行 IC 有膨胀可能);DSR-N=2 非锚;JKX 规模论(exec-79
+train-only 不可外推强度)仍在。artifact
+`data/audit/task21_strong_anchor.json`。
 
 ## §3 关联
 [[project-backtest-robustness-ml-redo-2026-05]]
