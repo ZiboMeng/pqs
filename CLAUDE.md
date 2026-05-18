@@ -1436,8 +1436,10 @@ expansion (`${PQS_WECOM_WEBHOOK_URL}`).
     chart-native beats momentum baseline. Dirty-data headline (gaf
     IC +0.128 / vs_mom +0.165, n=5,977) was a thin-sample artifact;
     D3 clean re-run (n=116,820, ~20×) corrects to gaf IC 0.045 /
-    vs_mom +0.055, mae IC 0.048 / vs_mom +0.058, DSR≈1. **Direction
-    survives, magnitude was dirty-data inflation — honestly
+    vs_mom +0.055, mae IC 0.048 / vs_mom +0.058 (DSR placeholder-N →
+    optimistic, NOT an evidence anchor; robust = vs-momentum IC
+    positive — see docs/memos/20260517-dsr_placeholder_n_boundary_memo.md).
+    **Direction survives, magnitude was dirty-data inflation — honestly
     downscaled.**
   - **BarStore core fix (D2)**: `_apply_forward_splits` volume cast
     made NaN-safe (clean data bit-identical, zero regression;

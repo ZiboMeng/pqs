@@ -146,7 +146,7 @@ benefit / HIGH risk。**真正值得接外部库的不是替换引擎**,而是(a
 
 | 对象 | 影响 |
 |---|---|
-| cycle06 / cycle08 / pead forward 观察 | **G1-G4:零行为影响**(forward 链实测不消费 DSR/PBO/CPCV/MinBTL;spec_hash/manifest immutable),仅 G1/G3 诚实回溯重报验收期证据质量。**G5:设计上喂 TD verdict → 已锁增量+只作用新TD+smoke门** |
+| cycle06 / cycle08 / pead forward 观察 | **G1-G4:零行为影响**(forward 链实测不消费 DSR/PBO/CPCV/MinBTL;spec_hash/manifest immutable)。**re-audit 2026-05-17 收紧**:cycle06/08 验收走 `temporal_split_acceptance`(per-validation-year + stress-slice + role-gate)**而非弱单路径 walk_forward**——故 **G4 对它们回溯影响≈0**(不存在"被弱方法误判"的待修弱点,不夸大);G1 对该线**无 DSR overclaim 待修**(grep 实证 cycle/Track-A 不产 DSR/PBO);仅 **G3** 实现后产"accepted pre-MinBTL-guard"诚实注脚(只读 retro-eval,不撤观察)。**G5:设计上喂 TD verdict → 已锁增量+只作用新TD+smoke门** |
 | trial9_001/002(completed_fail)、rcm_v1/cand_2(aborted) | 终态吸收,不受影响 |
 | pead 独立 track / options sleeve | 独立路径;G5 仅在选择接入时影响,默认不接 |
 | **D4(现在在跑)** | 起草/实现都不影响 D4(D4 远早于任何实现完成)。D4 自身用 N=3 placeholder DSR=G1 要修的同一处;D4 结论(from-scratch 输,IC 比较)不依赖 DSR,稳;报数时明确加 N=3 caveat |
@@ -202,10 +202,22 @@ benefit / HIGH risk。**真正值得接外部库的不是替换引擎**,而是(a
 
 - 全 5 项 machine-checkable AC(§4)+ §5 影响矩阵兑现 + §6 限制如实
   落 artifact + G5 smoke-observe 契约测试通过 = PRD 完成门。
-- operator 自我 overclaim 修正(§1 DSR-N)在 G1 完成时同步回填
-  ML-redo closeout / plain-summary / CLAUDE.md 对应行,诚实留痕。
 - 4-tier 自审(R1 事实/R2 逻辑/R3 真跑对比期望/R4 边界)+ 禁 blanket
   verdict。
+
+### §9.1 边界 memo 交付物(re-audit 2026-05-17 产出)
+
+| memo | 性质 | 状态 |
+|---|---|---|
+| `docs/memos/20260517-dsr_placeholder_n_boundary_memo.md` | **桶 A —— LIVE,与实现无关**:ML-redo DSR placeholder-N overclaim 已在 3 个已 commit 文档中,**已现在补**(不 defer);含 operator 元诚实(上轮"仅 N=3"纠正本身不彻底,R4/R2.5 也 placeholder) | **DONE 2026-05-17**(本 commit);G1 实现时回填真实-N 重算值 |
+| G3 "accepted pre-MinBTL-guard" 注脚 memo | **桶 B —— 依赖实现**:G3 落地后只读 retro-eval cycle06/08(及历史候选)产诚实注脚,不撤 forward 观察、不动 manifest | 待 G3 实现时产出 |
+| G4 回溯说明 | **桶 B —— 已澄清无需独立 memo**:re-audit 证 cycle06/08 走 per-year temporal-split 非弱单路径 walk_forward,G4 回溯影响≈0,§5 矩阵已收紧记录,**不另开 memo 避免过度纠正** | 已并入 §5 |
+| G2 PBO / G1 effective-N / G5 检测器 | **无 overclaim 待修**:从未报出/从未存在 → 仅 forward-only / new-TD-only 注记(§6 已记) | 无需边界 memo |
+
+口径:**桶 A 是现在就错必须现在修(已修)**;**桶 B 依赖实现按上表
+在对应 G 落地时产出**;明确"不需要"的项如实写出,避免过度纠正
+(`feedback_audit_surfaces_not_thorough` 的反面 = 不为了显得彻底而
+给没问题的东西硬加 memo)。
 
 ---
 

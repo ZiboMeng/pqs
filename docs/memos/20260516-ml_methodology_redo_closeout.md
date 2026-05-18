@@ -14,6 +14,13 @@ overclaim)、`feedback_temporal_split_discipline`、
 
 ## §0 一句话结论(大白话)
 
+> ⚠️ **边界更正(2026-05-17,LIVE)**:本 memo 全文出现的 DSR
+> (0.999 / 0.558 / 0.9999 等)`n_trials` 均为 placeholder(非真实
+> 试验数)→ **DSR 系统性偏乐观,不得当"已排除运气/选择偏差"引用**。
+> 各 landmark 的稳健依据是 **IC 符号+幅度 / R2.5 的 C1 block-bootstrap
+> clean p=0.0004**,均不依赖 DSR,结论不变。单一 SoT + 真实-N 重算
+> 计划见 `docs/memos/20260517-dsr_placeholder_n_boundary_memo.md`。
+
 **方法论确实是关键。** 按 literature-proven 路径重做后:
 - **地基问题(结构信息有没有用)→ YES**:R2.5 在 literature-grade 预处理
   下 family-T **显著正增量(ΔIC +0.006)**,**directionally 推翻 P2A
