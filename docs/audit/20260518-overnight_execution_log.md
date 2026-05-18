@@ -331,3 +331,23 @@ restate.md`;audit memo §1 scope 行已 fold。F1 修复仍必要(根治 +
   infeasible,记 honest-caveat 不硬上;S4(scaled ensemble)依赖有
   已验证 arm,deferred。**W8 真正高杠杆后继 = task#21 建强 tabular 锚**
   (在它之前 S1/S2 都只能 L2-vs-弱对照,不能升 L3)。
+
+### task#21 ANCHOR 完成(审计最高杠杆缺口闭环)
+强 tabular GBDT 锚 IC **0.058**(184 因子库 XGB)/ 完整 MiniROCKET
+**0.023** / 单动量 0.032。**L2 可答**:S1(0.122)/S2(0.087-0.090)
+均 > 强 tabular 锚 → claim 升级"打过强 tabular 锚"(扛过审计批评);
+MiniROCKET 完整版连弱动量都没打过(no-blanket 此 config)。**仍严格
+L2**(cycle13b 证 IC 高也被 vs-SPY/covid 拦;排序可信非绝对数;
+DSR-N=2/pooled/JKX caveat 全在)。OHLCV-panel-fix + minirocket
+cache-reuse(34min 确定性结果不重算)。fold 进 auditor-response §2.3。
+下:自主续 #23(现代 backbone websearch,走 fuzzy→primary 纪律)。
+
+### #23 done(research deliverable,fuzzy→primary 纪律)
+答用户"放开微调更好吗":**primary(Kumar ICLR2022 arXiv 2202.10054
+LP-FT)证伪 naive full/last-block FT 对 GAF 大分布迁移会扭曲 OOD 退化**;
+正解 = frozen DINOv2 ViT-S(现代小强 frozen 特征器,4GB 可行)或
+LP-FT,非全/末层微调。memo `docs/memos/20260518-task23_backbone_
+finetune_research.md`。**诚实优先级 LOW**:task#21 已证 S1>强 tabular
+锚(L2 达),binding 是 L3(vs-SPY/成本/压力/forward);换 backbone
+只提 L2 不解 L3 → 实验 deferred 待"是否推 chart-native 到 L3"
+directional 决策。下:自主续 #24 执行层 audit(websearch,同纪律)。
