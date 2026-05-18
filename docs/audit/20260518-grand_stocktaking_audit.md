@@ -82,6 +82,22 @@ P0-A 只命中**挖矿搜索环节**,不命中验收/sealed:
 - **不是 blanket "全坏"**:测试绿、验收/sealed/forward 估值对、
   ML-redo/PEAD/G1-G5 对、qualitative preserve。
 
+**Scope-completion(2026-05-18 续追,逐个 grep 实证)**:
+- **新点名**:`scripts/run_factor_screen.py:80` 用 `MarketDataStore`
+  (raw)算因子 IC → **"143 因子 / 16 mining families" 的研究 IC/IR
+  数字也是 raw-suspect**。之前 CLAUDE.md caveat 只覆盖 cycle mining
+  数值,**未单独点名因子库本身**——本 audit 补这一项(同 P0-A 类)。
+- **miner 无内部 backstop 确认**:`run_research_miner` 内 BarStore
+  只用于 60m SR-defer filter(line 915),日线 IC_IR raw 一路进
+  archive;adjusted **只在独立的 `cycle*_track_a_eval.py`**(手动在
+  top 候选上跑)。两段式:archive=raw,per-cycle PASS verdict=adjusted。
+- sibling-by-NAV 数值证据(0.898 等)来自 paper-artifact
+  `benchmark_relative_paper.csv`(`run_pair_nav_correlation:73`),
+  paper run 经 raw → 这些**数值**raw-suspect(已在 CLAUDE.md NAV-
+  magnitude DEPRECATED 内);**qualitative sibling 由 adjusted forward
+  realized NAV 独立支持**,保留。
+- backstop 强度 = 待量化(见 §1.A.q)。
+
 **Root cause**:挖矿/ paper 数据 loader 选了 `MarketDataStore`(raw
 parquet 直读)而非 `BarStore`(split cascade)。**从未被命名为"loader
 绕过 cascade",只在候选层打补丁**。
