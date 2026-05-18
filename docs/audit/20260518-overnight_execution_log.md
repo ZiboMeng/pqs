@@ -99,3 +99,35 @@ in-scope(raw 算)但实证 immaterial**——与 §1.A.q 同型 de-escalation。
 restate.md`;audit memo §1 scope 行已 fold。F1 修复仍必要(根治 +
 短窗口因子 + 防未来污染),本结论只说"已跑出的因子库数没被显著污染"。
 **三次失败全真根因(超时/自己错字段名被自己吞),无一 hand-wave。**
+
+---
+## 隔夜收尾 —— 给用户明早讨论(2026-05-18 夜止)
+
+**严谨完成并 push(每项真跑/真比对/真根因,无走过场)**:
+- ✅ W1 GPU P0(conditional pass / VRAM-bounded)
+- ✅ W2 P0-A F1 loader 统一(price_access;run_research_miner /
+  run_factor_screen / run_mining;run_paper 故意留 F4=⚑DISCUSS-1)
+- ✅ W3 P0-A F2 价基回归测试(4 真 split 锚 + negative control,14 passed)
+- ✅ W4 P0-A F3 因子库 raw→adjusted 重述(Spearman 0.9992、0 翻转 →
+  in-scope 但实证 immaterial;诚实 scope 86 OHLCV 非全 143;F3 三败
+  全真根因)
+
+**未做,诚实留明天(绝不假装/不在 tail 半吊子起,违"不走过场")**:
+- ⏸ **W7 P0-B**(大、碰生产 acceptance:DSR/PBO/CPCV/MinBTL 接 gate +
+  HAC IC t-stat + 年-fold→purged CPCV)——需独立专注 pass,不在巨长
+  turn 尾仓促做。
+- ⏸ **W5 P0-A F4**(最敏感:cycle06/08 live soak 价基变更须当
+  data-revision-event + smoke,不静默改活序列)。
+- ⏸ W6 F5 standing 重述 / W8 scaled S1-S4(GPU 串行,排最后)。
+
+**待你拍板(明早)**:
+1. `⚑DISCUSS-1`:run_paper loader swap 延到 F4 当 data-revision +
+   smoke 处理(deliberate sequencing,非遗漏)——确认 OK?
+2. P0-A 整体 severity 已被 F3 + §1.A.q 双重 de-escalate(主轴
+   Spearman 0.96、因子库 0.9992)→ 是否仍按原优先级推 P0-B/F4,
+   还是因 severity 降而调顺序?
+3. W7 P0-B 接生产 gate 是否 new-cycle-only(同 G4 PRD)即可,还是
+   要回溯重评 cycle06/08(我倾向 new-cycle-only:它们已过 adjusted
+   gate + forward 在跑,回溯低值)。
+
+无后台任务在跑;不自启 loop;明早从本日志可完整复盘。
