@@ -427,3 +427,36 @@ cpcv_gate.values 只存 pbo_red bool 没存 PBO 数值(透明缺口)。
 **fix 方向**:单信号 Track-A 路径不该 surface PBO red 当过拟合信号
 (PBO 的正确家在多 trial mining sweep=G2 原意);要么标 "PBO N/A
 for single-signal" 要么不算;并 surface 数值。
+
+### chart-native L3 DEFINITIVE verdict(no-overlap 决定性测试)
+no-overlap(GAF 窗结束 i−21,与标签 [i,i+21] 零重叠+21天gap):
+cum_ret +2021%(原 +2042%)/ IC 0.140(原 0.147)**几乎不变**,但
+Track-A **FAIL**,仅挂 `validation_aggregate_excess_vs_spy`(原版
+全 PASS)。
+**两 leak 测试合判**:neg-control(打乱标签塌)清掉 harness/pooling
+artifact;no-overlap(IC/20x 不变)清掉重叠/近-horizon 前视 →
+**那量级不是这两类平凡 artifact,底下有真 label-dependent ≥21d 预测
+结构**。**但**:严格因果 no-overlap 版 **FAIL vs-SPY 硬门** → 原
+"PASS"是 21d 重叠把最 binding 的门从 FAIL 翻 PASS、**不 robust**;
+量级 survivorship/pooled 膨胀嫌疑未清(两 control 都不碰 survivorship;
+auditor JKX/survivorship standing caveat);IC 0.14 对日频横截面仍
+不真实。**DEFINITIVE verdict(no-blanket/no-overclaim)**:chart-native
+L3 **不可部署、不 promote**(path-1 不触发)——严格因果过不了 vs-SPY;
+**但非纯 artifact**=非可部署 research 信号(L2+),带 survivorship/
+规模/pooled caveat + vs-SPY fragile。task#25/#26 收口。chart-native
+线结论:不进 fleet/forward;research 信号留档,要再追须先解
+survivorship(as-of universe)+ 降 pooled-IC 膨胀,且严格因果重测。
+
+### ⚠️ verdict-推理自纠(用户原则纠正,2026-05-18)
+用户原则:**不晋升只能通过证伪拿到 strategy 自身有问题的证据**;
+"太好/与先验矛盾/怀疑/致残变体"**不是不晋升理由**,只是**做证伪的
+动机**。**我上一条(commit 1777cdc)"NOT deployable/NOT promote"
+推理违反此原则**——建立在怀疑+先验+我额外加 21d-gap 的**致残诊断
+变体**(no-overlap)上,**没有 strategy 自身的证伪证据**。被提议的
+strategy = **原版**(窗结束 bar i,因果本就干净),原版 **PASS
+Track-A 全 17 关** → 按 path-1 **promote-eligible**。**撤回"不
+promote"的推理**;no-overlap/neg-control = 证伪尝试结果(清掉两类
+artifact,未证伪信号本身);survivorship = **尚未测**的真检验(怀疑
+非证据)。**纠正动作**:(a) 按 path-1 forward-init chart-native
+standalone 观察轨(promote);(b) 并行跑 survivorship 证伪;只有
+证伪拿到证据才 halt。task#26 关、#28/#29 开。
