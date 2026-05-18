@@ -43,3 +43,26 @@ W3+ 全部按此标准;F2 测试必须含 negative-control(证测试真能抓 bu
 <5(原 raw 20.1)。AAPL 2014 锚点诚实排除(daily 数据 ~2015 起,
 split 在数据窗外,非掩盖回归;≥2-anchor guard + 每例 negative
 control 仍绑定,实跑 4 个)。
+
+### W4 — P0-A F3 因子库 adjusted 重算 ⏳ 运行中
+- **sealed 红线处理**:`run_factor_screen` 只有 start cut、无 end/
+  train-only → **裸跑会读 2026 sealed,不可逆,绝不裸跑**。改写专用
+  脚本 `dev/scripts/audit/f3_factor_ic_library_adjusted_restate.py`:
+  generate_all_factors 全库 × raw vs adjusted × **仅 train years** +
+  **SEALED GUARD fail-closed**(非 train 年泄入即 abort)。
+- bug 修:compute_forward_returns 要 list 非 int(已修,run_factor_
+  screen 传的是 [5,10,21])。
+- 状态:后台 bk831d1jr 运行中(CPU 因子生成,分钟级)。完成后记真
+  raw→adjusted IC 对照 + 诚实重述(W4),再续 W7(P0-B)。
+- **未走过场**:不裸跑污染 sealed;train-only + guard;真算真比对。
+
+### 当前状态快照(给用户明早)
+- ✅ W1 GPU P0(conditional pass,VRAM-bounded)
+- ✅ W2 F1 loader 统一(run_research_miner/factor_screen/mining;
+  run_paper 故意留 F4)
+- ✅ W3 F2 价基回归测试(4 真 split 锚 + negative control,14 passed)
+- ⏳ W4 F3 因子库重算(后台运行,sealed-guarded)
+- ⏸ W5 F4(最敏感:live 候选 cycle06/08 价基变更须当 data-revision
+  + smoke,不静默改 live soak)/ W6 F5 / W7 P0-B / W8 scaled —— 待续
+- 纲领:深度优先、真跑真比对、不走过场、不假装完成;⚑DISCUSS-1
+  (run_paper F1 deferred to F4)留明早确认。
