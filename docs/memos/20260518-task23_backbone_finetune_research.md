@@ -16,7 +16,19 @@ fine-tune,放开最后一层吗?…你肯定要去做 search 的"。
 - **S1 实情**:resnet18 **完全冻结**(`fc=Identity`,全参 `requires_
   grad_(False)`,`eval()`),**零 fine-tune,连末层都没放开**;只有
   网络外的 ridge probe 在拟合。是最保守用法。
-- **"放开微调会更好吗" —— primary 文献给出诚实 pushback:对 GAF
+> ⚠️ **RETRACTION(2026-05-18,用户批评 + operator 自纠)**:下面
+> 单凭 **一篇** Kumar(LP-FT)就近-blanket 判"微调对 GAF 很可能更糟"
+> **是过急的**——违反我自己刚立的 `[[feedback_websearch_fuzzy_to_
+> primary_depth]]`"挖透"纪律 + `[[feedback_no_blanket_failure_verdict]]`。
+> 真实现状 = **没定论、强 condition-dependent**:反方有 Surgical-FT
+> (Lee ICLR2023,该调哪层取决于迁移类型)、远域迁移常规经验(目标
+> 域远时 frozen ImageNet 特征常本就弱、需微调/域内 SSL,医学/卫星
+> 等非自然图主流微调)、且 Kumar 否定的是 naive full-FT **不是**
+> 微调本身。**正确口径 = literature mixed;一篇定论已撤;裁决靠
+> 多源 lit review(排 L3 之后正经做)+ 我们 pipeline 内实测 A/B。**
+> 下文保留作 forensic,不作判决依据。
+
+- **"放开微调会更好吗" —— ~~primary 文献给出诚实 pushback:对 GAF
   这种大分布迁移,很可能更糟**:
   - **canonical primary**:Kumar, Raghunathan, Jones, Ma, Liang,
     *"Fine-Tuning can Distort Pretrained Features and Underperform
