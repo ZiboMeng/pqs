@@ -213,3 +213,26 @@ restate.md`;audit memo §1 scope 行已 fold。F1 修复仍必要(根治 +
   CONSUMED → 新 cycle scope = adjusted mining SEARCH + Track-A-accept
   (train/val),**sealed 步骤 pre-register DEFERRED**(合纪律,非
   静默跳)。下:pre-reg criteria yaml + 后台 mining + W8 GPU。
+
+### W8 — scaled-checkpoint S1/S2(用户"W8 实现 接着做")
+- **S1(外部 ImageNet backbone)= dependency-blocked,诚实记录不
+  silent install**:torchvision 未装;项目 no-heavy-dep 立场
+  (MiniROCKET/statsmodels 自实现/避开);加依赖是 directional。
+  标 `s1_dependency_blocked_honest_caveat`(镜像 PRD S3 no-credible-
+  checkpoint 模式),**不擅自 pip install**,留用户决策。
+- **S2(放大 in-domain MAE)= 实现完成(最 feasible、无新依赖、直接
+  打"大模型从 reasonable checkpoint"原意)**:
+  `dev/scripts/scaled_checkpoint/run_s2_scaled_mae.py` —— 自包含
+  scaled MAEEncoder(embedding_dim/encoder_hidden 64→128)+ segment-
+  mask pretrain loop + frozen-embed ridge probe + CPCV + honest-N
+  DSR(G1 dsr_trial_accounting,非 magic literal)+ vs d=64 baseline。
+  **P0-A-correct**:BarStore.load adjusted=True(非 buggy raw 路径)。
+  train-only + SEALED fail-closed guard(非 train 年 abort)。
+  compile OK + micro-smoke 端到端路径跑通(MAEEncoder(scaled)→mask→
+  pretrain→embed→ridge→cpcv 无异常)。
+- **GPU 训练 run 未跑 = 故意串行**:cycle13b mining 在跑(CPU+RAM),
+  S2 GPU 训练(2× 5000-step)与之 RAM 争用 → 按
+  `feedback_heavy_training_serial_wsl` **排 cycle13b 完成后**(监控
+  b041is3bj 完成会叫我 → 届时 cycle13b Track-A-accept + 启动 S2 GPU
+  run,串行)。**不假装 S2 已出数;脚本 reviewable,重 compute 诚实
+  排序非 tail-rush。**
