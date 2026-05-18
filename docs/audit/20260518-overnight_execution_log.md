@@ -304,3 +304,14 @@ restate.md`;audit memo §1 scope 行已 fold。F1 修复仍必要(根治 +
   `docs/memos/20260518-path1_forward_replaces_sealed_singleshot.md`。
 - 待:cycle pre-reg 模板去 sealed 步(下个 cycle 时改);S1 GPU 排
   S2 后;pandas2→3 全套件更广回归待补(诚实标)。
+
+### W8 S2 结果(诚实,no-blanket)+ S1 启动
+- S2 干净跑(85404 train-only 窗,sealed_read=False,5000 步,GPU):
+  base d64 probe IC **0.0902** vs scaled d128 **0.0874**,**delta
+  −0.0029**(略差≈持平)。
+- **结论(no-blanket)**:"in-domain MAE 64→128 这个适度放大尝试,
+  此 config 下无增量"——**非**"放大/大模型不行"。S2 **无 baseline
+  锚**(只 d64 vs d128),0.09 本身不可判好坏(同 task#21 缺锚洞);
+  **不 over-claim 表征强**。强化审计建议 4(别加码模型规模当主线)。
+- S2 完 → GPU 串行槽空 → 启 **S1**(torchvision frozen ResNet18
+  ImageNet,用户授权装库、用现成不自造)。

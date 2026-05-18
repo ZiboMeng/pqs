@@ -1,0 +1,33 @@
+{
+  "experiment": "w8_s2_scaled_mae",
+  "created_at": "2026-05-18T18:29:47.683808+00:00",
+  "train_years_only": [
+    2009,
+    2010,
+    2011,
+    2012,
+    2013,
+    2014,
+    2015,
+    2016,
+    2017,
+    2020,
+    2022,
+    2024
+  ],
+  "sealed_2026_read": false,
+  "n_windows": 85404,
+  "pretrain_steps": 5000,
+  "baseline_d64": {
+    "probe_ic": 0.09024,
+    "n_folds": 15
+  },
+  "scaled_d128": {
+    "probe_ic": 0.08737,
+    "n_folds": 15
+  },
+  "delta_scaled_minus_base": -0.00287,
+  "dsr_n_trials_honest": 2,
+  "s1_status": "s1_dependency_blocked_honest_caveat: torchvision absent; no silent heavy-dep install (project stance); see scaled-checkpoint PRD \u00a7S3 pattern",
+  "verdict_scope": "config_scoped; research signal; NOT deployable; GPU 4GB-bounded; train-only; sealed never read"
+}

@@ -1,0 +1,2 @@
+assembled 85404 windows train-only (42s) device=cuda
+S2: base_d64 ic=0.09024 scaled_d128 ic=0.08737 delta=-0.00287 -> data/audit/w8_s2_scaled_mae.json
