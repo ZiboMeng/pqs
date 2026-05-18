@@ -210,14 +210,15 @@
 - **Factor registry**: **7 PRODUCTION + 175 RESEARCH**（post-2026-05-15 +Family R 图形因子 10 +Family S regime-ML 因子 3；families A-S）；单一真源 `core/factors/factor_registry.py`，通过 `test_factor_registry.py` 强一致
 - **数据**: 日线 2007-2026 / 60m intraday 2015-2026 / 1m 2015-2026（部分覆盖）
 - **Cross-ticker DSL**: `config/cross_ticker_rules.yaml` 5 条规则，`enabled: true`，启动时默认应用；`--no-cross-ticker-rules` 可关闭
-- **Pricing semantics**: 详见 `CLAUDE.md` §"Pricing and Valuation Semantics"（raw bars + splits.parquet 读时 cascade；T+1 open-fill 执行）
+- **Pricing semantics**: 详见 `CLAUDE.md` §"Pricing and Valuation Semantics"（raw bars + splits.parquet 读时 cascade；T+1 open-fill 执行）。**2026-05-18 P0-A 根因修复**：价格**消费层** loader（mining 搜索 / factor screen / paper）统一经 `core/data/price_access` 走 BarStore **除权价**（此前误用 `MarketDataStore` 读未除权 raw，污染搜索层数值）；loader 层价基回归测试上锁。审计 + 修复 + 影响 scope 详 `docs/audit/20260518-grand_stocktaking_audit.md`
 - **测试**: 当前计数 / git head 见 `data/baseline/latest.json`；刷新用 `dev/scripts/baseline/build_research_baseline_snapshot.py --run-tests`
 - **Framework**: M0-M8 + M10-M16 已交付（M11a / M11b / M12 / M14 在 2026-04-24 → 2026-04-27 ship；详见 `CLAUDE.md` §"Framework Completion PRD"）。开放项 M17（live-feed infra）+ M18（DSL func expansion）
 - **Forward OOS evidence guard**: forward 运行的 manifest 现在在 `init` 时锁定一份 `ConfigSnapshot`（universe / factor_registry / research_mask / risk / system 5 个 hash），`observe` 每次跑 revalidate 时检查 config 漂移。Halt-class（universe / factor_registry / risk）会把 `current_status` 翻成 `requires_data_review`；warn-class（research_mask / system）只记录。Pre-PRD-F manifest 走 lazy-migration（不强制 halt），可用 `dev/scripts/forward/backfill_config_snapshot.py --dry-run` opt-in 接管。详细契约：`docs/prd/20260428-config_universe_snapshot_hardening_prd.md`
 - **Track 三件套**（2026-04-29+ 主线）:
-  - **Track A** ✅ — 时序切分纪律 (`config/temporal_split.yaml` `alternating_regime_holdout_v1` split + 17-gate acceptance evaluator + sealed_eval ledger + C5 role-remint guard)。详 `docs/prd/20260429-temporal_split_holdout_discipline_prd.md` v1.1
+  - **Track A** ✅ — 时序切分纪律 (`config/temporal_split.yaml` `alternating_regime_holdout_v1` split + 17-gate acceptance evaluator + sealed_eval ledger + C5 role-remint guard)。详 `docs/prd/20260429-temporal_split_holdout_discipline_prd.md` v1.1。**2026-05-18 P0-B**：SOTA 防过拟合机器接入 acceptance evaluator —— 因子 IC t-stat 改 Newey-West HAC；`run_split_acceptance` 增量携带 DSR(honest trial-N)/ MinBTL fail-closed gate /(矩阵在时)PBO + CPCV purged+embargo 分布 binding gate。**new-cycle-only、增量、legacy 候选字节不变**(cycle06/08 零回溯)。详 `docs/prd/20260518-p0a_loader_barstore_fix_prd.md` + `docs/audit/20260518-grand_stocktaking_audit.md`
+  - **晋升纪律(2026-05-18 路 1,用户 explicit-go)** — **Track-A 通过 → 直接 promote 进 forward 实时观察**;**取消"sealed 历史单发"作为晋升前置 gate**(2026 单发已被 cycle06/08 消耗;forward 观察取之不尽 + 防偷看,取代之)。`sealed_ledger` + sealed eval 脚本保留作 forensic + B1 fail-closed,但不再是晋升必经。决策 memo `docs/memos/20260518-path1_forward_replaces_sealed_singleshot.md`
   - **Track B** ✅ — Fleet allocator Step 1-5 已 land (`config/fleet.yaml` + `core/fleet/`)。Step 5 = C2 correlation budget (warn 0.70 / reject 0.85, pairwise on realized candidate daily returns)。Steps 6-9 (DD throttle / role caps / fleet observe / shadow-to-live) codex-frozen 等 explicit-go
-  - **Track C** ⏸️ — Real controlled mining 等 `docs/templates/track_c_evidence_pack_template.md` codex 签 + 三个 concern guards (A 2026 sealed double-dip / B forward TD60 early-attention / E economic-invariant tests)。Plan 在 `docs/memos/20260430-track_c_dry_run_plan.md`
+  - **Track C** ▶️ **active** — controlled mining 按 cycle 运行(每 cycle 一份 sha256-locked 不可改 pre-registration yaml + 单轴对照 + train-only/sealed-guard 搜索 + 独立 Track-A 验收带 P0-B 机器 + 路 1 promote)。逐 cycle 结果 / 编号 / nominee 状态在 `CLAUDE.md`(README 不放 round 细节)。Plan 沿革 `docs/memos/20260430-track_c_dry_run_plan.md`
 - **Forward observation 现状（2026-05-15 更新）**: 4 个 active forward candidate 并行 soak 中：
   - `cycle08_3f40e3f4ed1a_evidence_v1` (core_alpha role, evidence stance, TD001 2026-05-15, TD60 ~2026-08-14) — 过 Track A post-MaxDD-fix + sealed 2026 (2/2)；main forward runner
   - `cycle06_31af04cf2ff9_evidence_v1` (core_alpha role, evidence stance, TD001 2026-05-15, TD60 ~2026-08-14) — 同上；vs_qqq diagnostic-only
@@ -526,8 +527,15 @@ pip install -r requirements.txt
 # 可选：研究 / 开发依赖
 pip install -e ".[dev,research]"       # pytest + ruff + mypy + sklearn + lightgbm + jupyter
 
-# 可选：GPU / Transformer 研究（M8 research-only，默认不装）
+# 可选：GPU / Transformer 研究（M8 + scaled-checkpoint research-only，默认不装）
 pip install -r requirements-gpu.txt    # torch
+# 注（2026-05-18）：scaled-checkpoint S1（GAF→frozen ImageNet ResNet18）
+# 需 torchvision；安装 torchvision 会**连带强升** torch 2.11→2.12 +
+# pandas 2.x→3.0.2（torchvision 0.27 依赖）。已在该新环境跑 60 个核心
+# 回归(G1-G5/W7b-c-d/HAC/价基)全绿；pandas 2→3 大版本的**完整测试
+# 套件更广回归尚未全验**(诚实标,见 overnight 日志)。GPU 现实 = 单
+# GTX 1650 Ti 4GB：frozen-probe / 适度放大可行，大型 foundation model
+# 全量 fine-tune infeasible(`docs/memos/20260518-scaled_pretrain_compute_feasibility.md`)
 
 conda install -c conda-forge libomp    # XGBoost 需要
 ```
