@@ -1,0 +1,119 @@
+{
+  "experiment": "chart_native_l3_SURVIVORSHIP_fullhist_subset",
+  "created_at": "2026-05-18T22:00:10.240586+00:00",
+  "candidate": "chart_native_s1 (GAF\u2192frozen ResNet18 IMAGENET1K_V1\u2192train-only ridge probe)",
+  "no_leakage": {
+    "probe_fit_train_rows": 81763,
+    "validation_rows_frozen_oos": 65328,
+    "sealed_2026_read": false
+  },
+  "track_a_overall_passed": true,
+  "track_a_failed_gates": [],
+  "metrics_full_period": {
+    "cum_ret": 21.628984246188946,
+    "sharpe": 1.6207981907142326,
+    "max_dd": -0.1753607288849868,
+    "vs_spy": 15.293356130589501,
+    "spy_cum_ret": 6.3356281155994445,
+    "vs_qqq": 16.66519764879817,
+    "qqq_cum_ret": 4.963786597390777
+  },
+  "metrics_per_year": {
+    "2018": {
+      "cum_ret": 0.003689902652933119,
+      "sharpe": 0.09516982261209103,
+      "max_dd": -0.14433718551287816,
+      "vs_spy": 0.07382418704198257,
+      "spy_cum_ret": -0.07013428438904945,
+      "vs_qqq": 0.03031955614063564,
+      "qqq_cum_ret": -0.02662965348770252
+    },
+    "2019": {
+      "cum_ret": 0.35129450423303643,
+      "sharpe": 2.5927136390215395,
+      "max_dd": -0.0859324471320276,
+      "vs_spy": 0.06478081499220911,
+      "spy_cum_ret": 0.2865136892408273,
+      "vs_qqq": -0.021163386326305655,
+      "qqq_cum_ret": 0.3724578905593421
+    },
+    "2021": {
+      "cum_ret": 0.26278564808039606,
+      "sharpe": 1.9207796385513276,
+      "max_dd": -0.07975250461089292,
+      "vs_spy": -0.025101714511271966,
+      "spy_cum_ret": 0.28788736259166803,
+      "vs_qqq": -0.0228177994468155,
+      "qqq_cum_ret": 0.28560344752721156
+    },
+    "2023": {
+      "cum_ret": 0.28911967735015764,
+      "sharpe": 2.250961918267005,
+      "max_dd": -0.0849659333796817,
+      "vs_spy": 0.040997235206698956,
+      "spy_cum_ret": 0.2481224421434587,
+      "vs_qqq": -0.25916741591563075,
+      "qqq_cum_ret": 0.5482870932657884
+    },
+    "2025": {
+      "cum_ret": 0.25389897167135733,
+      "sharpe": 1.4872605424597893,
+      "max_dd": -0.12615892845025098,
+      "vs_spy": 0.08750603614809127,
+      "spy_cum_ret": 0.16639293552326606,
+      "vs_qqq": 0.04984933456295959,
+      "qqq_cum_ret": 0.20404963710839774
+    }
+  },
+  "metrics_per_stress": {
+    "covid_flash": {
+      "cum_ret": 0.019757381418535447,
+      "sharpe": 0.4362121922528413,
+      "max_dd": -0.1753607288849868,
+      "vs_spy": 0.1571077763670803,
+      "spy_cum_ret": -0.13735039494854484,
+      "vs_qqq": 0.08608611516593312,
+      "qqq_cum_ret": -0.06632873374739767
+    },
+    "rate_hike_2022": {
+      "cum_ret": -0.11078207648698268,
+      "sharpe": -3.8503177936275046,
+      "max_dd": -0.1136228231524984,
+      "vs_spy": 0.05530938203498337,
+      "spy_cum_ret": -0.16609145852196605,
+      "vs_qqq": 0.10675016646518387,
+      "qqq_cum_ret": -0.21753224295216655
+    }
+  },
+  "overfit_diagnostics": {
+    "dsr": 0.9999999703463107,
+    "dsr_n_trials": 6,
+    "sharpe": 0.10210068900126898,
+    "min_btl_gate": {
+      "passed": true,
+      "reason": "ok",
+      "actual_years": 16.968,
+      "min_btl_years": 1.3641176166276576,
+      "expected_max_sr_annual": 1.8930184728248454,
+      "n_trials": 6,
+      "safety_multiple": 1.0
+    },
+    "scope": "new_cycle_only; additive; cycle06/08 NOT retro-eval",
+    "pbo": {
+      "pbo": null,
+      "note": "forward-only: per-trial matrix not supplied (rcm_trials scalar-only, audit \u00a76) \u2014 NOT a pass"
+    }
+  },
+  "cpcv_gate": {
+    "passed": true,
+    "values": {
+      "insufficient": false,
+      "ic_sample_weighted": 0.1435323306500541,
+      "n_folds": 15,
+      "dsr": 0.9999999979603729,
+      "pbo_red_flag": true
+    }
+  },
+  "honest_n_trials": 6,
+  "verdict_scope": "L3 production-acceptance; pass\u2192path-1 forward; fail\u2192definitive retire verdict for chart-native line. config-scoped; no over-claim."
+}

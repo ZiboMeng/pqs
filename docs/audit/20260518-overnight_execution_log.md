@@ -483,3 +483,33 @@ survivorship。**可行最强代理 = cutoff 2015-06(70 票全宽 minus
 数据本身 90% 从 2015 起 + 无退市库 → 2015 前真 point-in-time
 成分 / 2015 前死掉的票 **无法测**;数据集本身即 2015+ 幸存横截面。
 可测=2015+ 内部晚进入偏差;测不到=2015 前真 survivorship。
+
+### survivorship 证伪 — 70 票真代理(DECISIVE,PASS,未证伪)
+CHART_L3_FULLHIST_BY=2015-06-30 → kept **70** dropped 9 真·晚进入者
+(2015-06 数据起点全宽 universe minus 后进入者)。
+**Track-A PASS 全 17 关**;cum_ret +2163% / Sharpe 1.62 /
+MaxDD -17.5% / vs_spy +1529%(SPY +634%)/ CPCV IC 0.144 /15 folds。
+**≈ 原版(+2042/1.59/-17%/IC0.140)** —— 踢晚进入者 edge 基本不变。
+**判定:这是可行的最强 survivorship 测试,信号干净存活,NOT
+survivorship/late-entrant 驱动 → 非证伪证据(反向)。**
+快照:`data/audit/chart_native_l3_SURVIVORSHIP_70name_meaningful.json`。
+
+### chart-native L3 forward-init —— evidence-gated DECISION(非反应式)
+按 [[feedback_promotion_only_falsification_evidence_gated]] harness:
+- 原版(因果干净)PASS Track-A 全 17 关(adjusted / train-only
+  probe / validation OOS / sealed 未读)。
+- 4 证伪尝试:neg-control(清 harness/pooling artifact)、no-overlap
+  (清 overlap/lookahead,致残变体 IC/20x 仍保住)、survivorship
+  n=8(confound,inconclusive,不作证据)、**survivorship 70 票真
+  代理(干净存活)** —— **无一拿到"strategy 自身缺陷"证据**。
+- 结构残留(2015 前真 PIT / 退市票)= C5 同类结构不可离线测,
+  诚实留痕;**测不到≠拒**(harness 规则);且 **forward soak 本
+  就是测它的机制**(真实时 OOS、无 survivorship)= path-1 目的。
+- PBO red_flag:已 audit 证 single-signal 下 folds-as-configs
+  误用 = N/A 非有效证据;"太好"/pooled-IC 膨胀疑虑 = 证伪动机
+  (已做),按 harness 明确**不是拒绝理由**。
+**∴ 证据充分。按 path-1 forward-init = evidence-grounded 正确决定
+(不是为守规则赌气 promote;是 4 证伪清场后唯一残留正是 forward
+要测的东西)。** 下一步:建 chart_native_s1_evidence_v1 standalone
+观察轨(learned-probe,mirror pead/simple_baseline 模式;非 main
+composite runner)。
