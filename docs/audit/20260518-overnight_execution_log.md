@@ -402,3 +402,28 @@ label-independent artifact 一类**(若是该类,打乱也会 20x;它没)。
 vs-SPY(都正确判了,机器 work)。verdict 仍未接受为真。下一决定性
 =NO-OVERLAP(GAF 窗结束在 i−21,与标签 [i,i+21] 零重叠+21d gap):
 IC 还在=强指向真;塌=重叠/前视假象。跑中。
+
+### ⚠️ 走过场自纠:no-overlap 首次"启动"是假的
+上一条 commit(ac271db)说 no-overlap "Running" —— **错**:那个
+sed 因正则特殊字符失败,生成 **0 行空脚本**,compile OK(空文件能
+编译)、PID 秒退,**测试根本没跑**。按 surface-not-silent 纪律诚实
+纠错:删空脚本;改用 **robust env-flag**(`CHART_L3_NOOVERLAP=1`
+加进原 L3 脚本,env 未设时 j=i → 原 L3 字节不变)重做。现真跑中。
+（不脆弱 sed、不假装跑过。）
+
+### PBO audit(task#27,用户要求)——算法对、cpcv 路径误用、自纠
+**算法本身正确**(canonical CSCV;判别测试:robust-among-noise PBO
+0.000 / all-noise 0.345-0.472,正确;无 bug)。**但 cpcv_acceptance.py:86
+把 PBO 喂错**:perf_matrix = (period × **fold**),"configs"轴是同一
+信号的 CPCV 折,不是多个策略配置 → **概念误用**(PBO/CSCV 测的是
+"多配置选最好"的选择偏差;L3 单信号无 config 选择)。**实证坐实**:
+chart-native L3 真(ic 0.147)与 neg-control(打乱噪声 ic -0.003)
+**pbo_red 同为 True,零判别信息**;真正判别的是 cpcv-IC + vs-SPY。
+**自纠**:撤回"PBO red"作为 chart-native L3 过拟合证据(单信号路径
+PBO 误用、非信息)——我之前没先验证就拿来当怀疑理由之一,纪律上错,
+诚实撤。**L3 verdict 不变**(仍不接受为真;另两理由在:与全项目
+矛盾 + pooled IC 幅度疑膨胀 + no-overlap 决定性测试仍在跑)。次要:
+cpcv_gate.values 只存 pbo_red bool 没存 PBO 数值(透明缺口)。
+**fix 方向**:单信号 Track-A 路径不该 surface PBO red 当过拟合信号
+(PBO 的正确家在多 trial mining sweep=G2 原意);要么标 "PBO N/A
+for single-signal" 要么不算;并 surface 数值。
