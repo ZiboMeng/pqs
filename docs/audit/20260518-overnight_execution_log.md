@@ -150,3 +150,24 @@ restate.md`;audit memo §1 scope 行已 fold。F1 修复仍必要(根治 +
   deflation ordering)而非删断言凑绿。
 - 仍属 W7 内:W7b DSR/PBO/MinBTL 接 cycle-eval 输出(new-cycle-only)、
   W7c CPCV 分布 acceptance、W7d purged/embargo fold —— 待续,逐增量。
+
+### W7b — DSR/PBO/MinBTL 接进生产 acceptance evaluator ✅(new-cycle-only,真接)
+- `temporal_split_acceptance.py`:SplitAcceptanceResult 加 optional
+  `overfit_diagnostics`(lazy-migration,legacy 无→None→as_dict 字节
+  不变,**cycle06/08 零回溯**);`build_overfit_diagnostics`(G1 honest-N
+  DSR + G3 MinBTL fail-closed gate + G2 PBO[matrix 有则算,无则
+  forward-only note]);`run_split_acceptance` 读 `metrics["overfit_
+  inputs"]` —— **仅新 cycle caller 传此键才 attach**,legacy/cycle06-08
+  metrics 无此键 → 完全不变。这是在 canonical 生产 evaluator 真接,
+  非 dead helper。
+- honest-N guard:honest_n_trials=1(magic literal)→ raise,不静默 pass。
+- 测试 6/6 + G1/G3 13 回归 + temporal_split/acceptance **211 passed 0
+  回归**。**不走过场**:测了 legacy 字节不变 / 新 cycle attach / MinBTL
+  fail-closed / guard 拒 magic literal / PBO forward-only。
+- **P0-B 范围诚实**:W7a(HAC)+ W7b(DSR/PBO/MinBTL 接 evaluator)=
+  关掉"SOTA kernel available-not-wired"最高价值部分,真接已 ship。
+  **W7c/W7d(年-fold→purged/embargo CPCV 分布替换)= 更 invasive 的
+  fold 结构改,new-cycle-only,cpcv_acceptance 模块已建已测但 swap
+  生产 fold 结构无现 consumer**——按项目"无 consumer 不 dead-wire +
+  new-cycle-only"纪律 + 不在 turn 尾仓促做 invasive swap,**诚实留作
+  W7 剩余,待新 cycle 授权时落**,不假装 W7 全done。

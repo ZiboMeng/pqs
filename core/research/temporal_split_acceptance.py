@@ -110,9 +110,15 @@ class SplitAcceptanceResult:
     overall_passed: bool
     evaluated_at: str
     notes: str = ""
+    # P0-B W7b: SOTA overfit diagnostics (G1 honest-N DSR / G2 PBO /
+    # G3 MinBTL). Optional + lazy-migration: None on every legacy /
+    # pre-W7b caller (their metrics dict has no "overfit_inputs" key)
+    # → as_dict byte-identical, NO retro mutation of cycle06/08.
+    # Populated ONLY for new-cycle callers that supply overfit_inputs.
+    overfit_diagnostics: Optional[Dict[str, Any]] = None
 
     def as_dict(self) -> Dict[str, Any]:
-        return {
+        d = {
             "role": self.role,
             "split_name": self.split_name,
             "gates": [g.as_dict() for g in self.gates],
@@ -120,6 +126,9 @@ class SplitAcceptanceResult:
             "evaluated_at": self.evaluated_at,
             "notes": self.notes,
         }
+        if self.overfit_diagnostics is not None:
+            d["overfit_diagnostics"] = self.overfit_diagnostics
+        return d
 
     def gate_named(self, name: str) -> Optional[SplitGateResult]:
         """Lookup a gate by name; returns None if absent."""
@@ -684,6 +693,56 @@ def evaluate_candidate(
     )
 
 
+def build_overfit_diagnostics(
+    strat_ret_d: Any,
+    honest_n_trials: int,
+    actual_years: float,
+    per_trial_period_perf: Any = None,
+    minbtl_safety_multiple: float = 1.0,
+) -> Dict[str, Any]:
+    """P0-B W7b — SOTA overfit panel for a NEW-cycle nominee.
+
+    G1 honest-N DSR + G3 MinBTL fail-closed gate (both from the
+    candidate's own adjusted-price daily returns) + G2 PBO when a
+    per-trial × per-period matrix is supplied (else forward-only note —
+    rcm_trials is scalar-only, audit §6). ``honest_n_trials`` MUST be
+    a real config count (dsr_trial_accounting / runtime), NOT a magic
+    literal — enforced by assert_honest_n.
+    """
+    import numpy as _np
+
+    from core.research.dsr_trial_accounting import assert_honest_n
+    from core.research.mining_pbo import compute_mining_pbo
+    from core.research.overfit_metrics import (
+        check_min_backtest_length,
+        deflated_sharpe_ratio,
+    )
+
+    n = assert_honest_n(int(honest_n_trials),
+                        source="temporal_split_acceptance.build_overfit_diagnostics")
+    r = _np.asarray(list(strat_ret_d), dtype=float)
+    dsr = deflated_sharpe_ratio(r, n)
+    sr_annual = (float(dsr.get("sharpe", float("nan"))) * (252.0 ** 0.5)
+                 if dsr.get("sharpe") is not None else float("nan"))
+    minbtl = check_min_backtest_length(sr_annual, n, float(actual_years),
+                                       minbtl_safety_multiple)
+    out: Dict[str, Any] = {
+        "dsr": dsr.get("deflated_sharpe"),
+        "dsr_n_trials": n,
+        "sharpe": dsr.get("sharpe"),
+        "min_btl_gate": minbtl,           # passed=False fail-closed
+        "scope": "new_cycle_only; additive; cycle06/08 NOT retro-eval",
+    }
+    if per_trial_period_perf is not None:
+        out["pbo"] = compute_mining_pbo(_np.asarray(per_trial_period_perf,
+                                                    dtype=float))
+    else:
+        out["pbo"] = {"pbo": None, "note": "forward-only: per-trial "
+                      "matrix not supplied (rcm_trials scalar-only, "
+                      "audit §6) — NOT a pass"}
+    return out
+
+
 def run_split_acceptance(
     metrics: Dict[str, Any],
     role: str,
@@ -707,4 +766,23 @@ def run_split_acceptance(
     else:
         path = resolve_split_path(role=role, freeze_date=freeze_date)
     cfg = load_temporal_split(path)
-    return evaluate_candidate(metrics, cfg, role)
+    res = evaluate_candidate(metrics, cfg, role)
+    # P0-B W7b wiring at the canonical production evaluator. ONLY new-
+    # cycle callers put "overfit_inputs" in metrics → diagnostics
+    # attached. Absent (every legacy/cycle06-08 metrics dict) → res
+    # unchanged, byte-identical as_dict (no retro mutation).
+    oi = metrics.get("overfit_inputs")
+    if isinstance(oi, dict) and oi.get("strat_ret_d") is not None:
+        try:
+            res.overfit_diagnostics = build_overfit_diagnostics(
+                oi["strat_ret_d"],
+                oi["honest_n_trials"],
+                oi["actual_years"],
+                oi.get("per_trial_period_perf"),
+                oi.get("minbtl_safety_multiple", 1.0),
+            )
+        except Exception as e:  # never break acceptance; record fail
+            res.overfit_diagnostics = {
+                "error": f"{type(e).__name__}: {e}",
+                "note": "overfit panel failed — NOT a silent pass"}
+    return res
