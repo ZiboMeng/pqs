@@ -89,6 +89,63 @@ def deflated_sharpe_ratio(
             "n_trials": int(n_trials), "T": int(T)}
 
 
+def minimum_backtest_length(
+    observed_sr_annual: float,
+    n_trials: int,
+    safety_multiple: float = 1.0,
+) -> dict:
+    """Minimum Backtest Length in years (Bailey, Borwein, LdP, Zhu 2014).
+
+    PRD §4 G3-A1. With ``n_trials`` configs tried, the expected max
+    annualized Sharpe of zero-skill strategies is ~sqrt(2 ln N); a
+    real result needs enough years that its observed annualized Sharpe
+    clears that bar. Closed form:
+
+        MinBTL (years) ≈ (2 · ln N) / SR_annual²
+
+    ``safety_multiple`` (config) scales the requirement (e.g. 1.5 =
+    demand 50% more history than the bare bound). Returns
+    ``{min_btl_years, expected_max_sr_annual, ...}``. NaN-safe.
+    """
+    if (n_trials is None or n_trials < 2 or observed_sr_annual is None
+            or not np.isfinite(observed_sr_annual)
+            or abs(observed_sr_annual) < 1e-9):
+        return {"min_btl_years": float("nan"), "n_trials": n_trials,
+                "note": "undefined (need n_trials>=2 and SR!=0)"}
+    emax = math.sqrt(2.0 * math.log(n_trials))
+    min_btl = safety_multiple * (2.0 * math.log(n_trials)
+                                 / (observed_sr_annual ** 2))
+    return {"min_btl_years": float(min_btl),
+            "expected_max_sr_annual": float(emax),
+            "n_trials": int(n_trials),
+            "safety_multiple": float(safety_multiple)}
+
+
+def check_min_backtest_length(
+    observed_sr_annual: float,
+    n_trials: int,
+    actual_years: float,
+    safety_multiple: float = 1.0,
+) -> dict:
+    """Track A fail-closed gate (PRD §4 G3-A1).
+
+    ``passed=False`` (fail-closed) when actual history is shorter than
+    the Bailey MinBTL OR inputs are undefined. Diagnostic; the caller
+    decides enforcement (no silent pass on missing inputs).
+    """
+    mb = minimum_backtest_length(observed_sr_annual, n_trials,
+                                 safety_multiple)
+    req = mb.get("min_btl_years", float("nan"))
+    if not np.isfinite(req) or actual_years is None \
+            or not np.isfinite(actual_years):
+        return {"passed": False, "reason": "undefined_inputs_fail_closed",
+                **mb, "actual_years": actual_years}
+    ok = float(actual_years) >= req
+    return {"passed": bool(ok),
+            "reason": "ok" if ok else "backtest_shorter_than_min_btl",
+            "actual_years": float(actual_years), **mb}
+
+
 def recompute_dsr(
     returns: Sequence[float],
     honest_n_trials: int,
