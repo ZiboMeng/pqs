@@ -31,5 +31,36 @@
       "sealed_2026_read": false
     }
   ],
-  "td_count": 1
+  "td_count": 1,
+  "post_promote_audit": {
+    "date": "2026-05-18",
+    "trigger": "user-requested falsification-motivated 6-dim audit post-promote",
+    "dims_clean": [
+      "data",
+      "label",
+      "data_processing",
+      "data_prep_code",
+      "model_training_code_and_model",
+      "validation"
+    ],
+    "verdict": "NO strategy-self leak or flaw found across 6 dims (R3 actually-run); NOT a halt per feedback_promotion_only_falsification_evidence_gated; forward-init stands",
+    "key_checks": {
+      "gaf_rescale_per_window_only": true,
+      "composite_zscore_cs_per_date_cross_sectional": true,
+      "train_year_set_intersect_validation_empty": true,
+      "forward_label_direction_verified": true,
+      "frozen_pretrained_backbone_cannot_leak_labels": true,
+      "tplus1_open_execution_parity_kernel": true,
+      "bar_integrity_0_weekend_0_dup_0_midnan": true,
+      "frozen_probe_sha256_verified_never_refit": true
+    },
+    "claim_caveats_not_leaks": {
+      "E1_is_oos_blend": "full-period headline blends IS(train,probe-fit)+OOS(val); pure-OOS evidence = per-validation-year gates",
+      "E2_benchmark_tr_asymmetry": "strategy holds cross-asset ETFs adjusted_total_return=True vs SPY/QQQ adjusted-only; small non-zero, partially offset by SPY own div also excluded; stated honestly"
+    },
+    "structural_residual": "pre-2015 true-PIT/delisted survivorship infeasible offline (C5); forward soak is its OOS test (not a rejection ground per harness)",
+    "no_blanket": "asserts only this audit found no strategy-self flaw; future forward data exposing a defect halts per harness (only valid halt)",
+    "memo": "docs/audit/20260518-chart_native_post_promote_audit.md",
+    "spec_hash_unchanged": "d035c1840dd0bccb96638fdd82d642b7d92323b64cabf0aff5598f5701a52361"
+  }
 }
