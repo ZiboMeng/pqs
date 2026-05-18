@@ -11,9 +11,11 @@ If you want chronological order, sort by filename — the
 
 ---
 
-## 1. PRDs (specs, mandates, governing docs) — 28
+## 1. PRDs (specs, mandates, governing docs) — 29
 
 Prescriptive documents that define what to build / what to constrain.
+
+- [prd/20260517-scaled_pretrained_checkpoint_ml_prd.md](prd/20260517-scaled_pretrained_checkpoint_ml_prd.md) — **NEW 2026-05-17 DRAFT** Scaled/External Pretrained Checkpoint ML 架构研究 PRD。触发:用户问 CNN/transformer 有没有用 pretrained、大模型从 reasonable checkpoint 开始更好。实查:MAE encoder 用了 in-domain SSL 预训练(landmark②/④ + D4 证实 pretrain→probe >> from-scratch 4-5×,用户直觉成立);**两处未测 lever**:GAF/CNN 路径从未吃 checkpoint、MAE 是小模型(d_model=64)没试更大/外部 checkpoint。Roadmap S1(GAF 接 ImageNet 视觉 backbone)/S2(放大 in-domain MAE)/S3(外部时序基础模型,先 survey,无可信则诚实停)/S4(scaled ensemble vs 现小 MAE)全 committed。**§3 P0 硬前置 = GPU 可用性评估**(现 CPU torch 不可行,D4 一个小 CNN 跑 6h;P0 不过整 PRD 挂起,诚实不假装)。所有 DSR 用 G1 honest-N + G2 PBO(回测稳健性 PRD 让本 PRD 数字一开始可信)。独立于 G1-G5 与已 CLOSED 的 ML supplementary PRD,不互相阻塞(算力串行)。config-scoped/非可部署/sealed 不读/禁 blanket verdict。DRAFT,实现需 explicit-go + P0 GPU 门。Lineage `scaled-pretrain-checkpoint-2026-05-17`。
 
 - [prd/20260517-backtest_robustness_completion_prd.md](prd/20260517-backtest_robustness_completion_prd.md) — **NEW 2026-05-17 DRAFT** 回测稳健性补全 PRD。触发:用户问 backtest 是否换框架/怎么避免过拟合假阳性/window weighting/失效判定。结论:**不换框架**(自研引擎窄而专,换=推倒重挣一致性不变量信任),改为补 5 处文献标准没做透:**G1** DSR 真实 trial 数 + ONC 有效独立 N(operator 自纠 overclaim:ML-redo DSR 用 N=3 placeholder 偏乐观)/ **G2** PBO 接入 mining sweep / **G3** Minimum Backtest Length 守卫 / **G4** 验收链单路径 walk_forward → CPCV 分布(new-cycle-only)/ **G5** 失效早警检测器(backward-CUSUM/Page-Hinkley/rolling-PSR/IC 自相关,增量+只作用新TD+smoke-observe 门)。**§3 明确否决** window weighting(加权=新研究者自由度加重过拟合;正解=CPCV 分布+per-regime 分报)。关键:**几乎全是用已存档数据重算+诚实重述,不是重跑**;cycle06/08 forward 观察零行为影响(G1-G4),G5 锁增量;D4 不受影响。**§6 诚实限制**:rcm_trials 仅存标量无 per-trial 收益/per-split 矩阵 → PBO/effective-N 过去 cycle forward-only,不为补它重跑历史 mining。5 项全进 scope(排序≠砍 scope)。待用户 explicit-go 后实现。Lineage `backtest-robustness-completion-2026-05-17`。
 
