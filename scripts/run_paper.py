@@ -385,11 +385,19 @@ def main():
     ))
     def_syms = [s for s in ["TLT", "IEF", "GLD", "SHY"] if s in all_syms]
 
+    # P0-A F4: paper-sim daily prices MUST be split-adjusted (was
+    # store.read = MarketDataStore raw → grand-audit P0-A). R3-verified
+    # NOT on the live forward-evidence path (that runs via
+    # forward.observe → attention_report BarStore-adjusted; run_paper
+    # writes no forward/evidence manifest) → correctness fix for the
+    # run_all.sh daily/replay paper loop, not a live-soak mutation.
+    # 60m reads below stay raw (intraday, separate — like run_mining).
+    from core.data.price_access import load_adjusted
     frames = {}
     open_frames = {}
     for sym in all_syms:
         try:
-            df = store.read(sym, "1d")
+            df = load_adjusted(sym, store.data_dir, "1d")
             if df is not None and not df.empty:
                 if "close" in df.columns:
                     frames[sym] = df["close"]

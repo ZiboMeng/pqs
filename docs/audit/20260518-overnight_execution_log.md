@@ -171,3 +171,25 @@ restate.md`;audit memo §1 scope 行已 fold。F1 修复仍必要(根治 +
   生产 fold 结构无现 consumer**——按项目"无 consumer 不 dead-wire +
   new-cycle-only"纪律 + 不在 turn 尾仓促做 invasive swap,**诚实留作
   W7 剩余,待新 cycle 授权时落**,不假装 W7 全done。
+
+### W5 — P0-A F4 ✅(R3 实证 de-escalate「最敏感」误判,透做)
+- **F4-A2 前提被 R3 证伪**:run_paper 不写 forward/evidence manifest
+  (grep 空);live cycle06/08/pead observe 走 `run_forward_observe →
+  core.research.forward.observe`,daily 估值 `attention_report` BarStore
+  -adjusted(复核 line456)。**改 run_paper loader ≠ 静默改 live soak**
+  ——PRD F4-A2 的保守假设不成立,诚实 de-escalation(同 F3/§1.A.q 型)。
+- **F4-A1 shipped**:run_paper.py:392 daily `store.read`→`load_adjusted`
+  (60m reads 留 raw,intraday 独立,同 run_mining)。compile OK。
+- **smoke 守纪律(虽风险低仍做)**:cycle06/08 `observe --dry-run`
+  **改前/改后字节相同**("no new bars idempotent no-op")→ 经验证明
+  forward-evidence 路径与 run_paper loader **隔离**。
+- **M11a/b parity 119 passed 0 回归**(全 paper_trading 套件)。诚实:
+  parity 测合成数据,验引擎一致性非价基变更本身;价基正确性由 F2
+  回归测试覆盖。
+- **残余诚实 flag(不隐瞒)**:`forward/runner.py:527` 60m 经
+  MarketDataStore raw,**仅 `enable_sr_defer` 候选才跑**(否则
+  early-return identical NAV)、且是 60m swing filter 非 daily 证据
+  NAV → 独立小项,记录待后续(非 F4 live 风险)。
+- **结论**:W5/F4 "最敏感"是基于保守假设;R3 实证后 = F4-A1 真修
+  +parity 保持+隔离经验证明,F4-A2 重机制**不需要**(风险在此路径
+  不存在)。不假装做了不需要的机制,也不隐瞒 60m 残余。
