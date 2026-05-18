@@ -102,7 +102,16 @@ def main() -> int:
     split = load_temporal_split(Path("config/temporal_split.yaml"))
     ty = train_year_set(split)
     store = BarStore(root=Path(cfg.system.paths.data_dir))
-    syms = [s for s in resolve_universe("executable")
+    # S1_UNIVERSE env-flag (scale falsification, 2026-05-18): default
+    # "executable" (79) preserves the canonical run bit-for-bit;
+    # "expanded_v2" (~1000) tests whether the S1 frozen-probe edge is
+    # the documented pretrain-rescue mechanism (holds/strengthens at
+    # large cross-section) or an executable-79 small-universe artifact
+    # (C3 landmark④: small 79 pool was a root cause of earlier
+    # NEGATIVE chart-native; JKX 'needs large cross-section').
+    import os as _os
+    _uni = _os.environ.get("S1_UNIVERSE", "executable")
+    syms = [s for s in resolve_universe(_uni)
             if s not in ("SPY", "QQQ")]
 
     close = {}
@@ -161,7 +170,8 @@ def main() -> int:
            if len(ic_probe) >= 8 else {"deflated_sharpe": None})
 
     out = {
-        "experiment": "w8_s1_imagenet_frozen_backbone",
+        "experiment": f"w8_s1_imagenet_frozen_backbone[{_uni}]",
+        "universe": _uni,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "torch_version": torch.__version__,
         "backbone": "torchvision resnet18 IMAGENET1K_V1 (frozen, fc=Identity)",
@@ -181,7 +191,8 @@ def main() -> int:
                          "(standard torchvision pretrained backbone).",
         "verdict_scope": "config_scoped; train-only; sealed never read",
     }
-    p = Path("data/audit/w8_s1_imagenet_backbone.json")
+    p = Path("data/audit/w8_s1_imagenet_backbone.json" if _uni == "executable"
+             else f"data/audit/w8_s1_imagenet_backbone_{_uni}.json")
     p.write_text(json.dumps(out, indent=2, default=str))
     print(f"S1: imagenet_probe_ic={out['imagenet_probe_ic']} "
           f"mom_ic={out['momentum_baseline_ic']} "
