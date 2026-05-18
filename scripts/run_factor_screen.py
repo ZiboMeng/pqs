@@ -46,9 +46,13 @@ logger = get_logger("run_factor_screen")
 
 
 def load_price_volume(store, symbols, start_date):
+    # P0-A F1: factor-IC library MUST be computed on split-adjusted
+    # prices (was store.read = MarketDataStore raw → grand-audit P0-A:
+    # the "143 factors / 16 families" IC numbers were raw-suspect).
+    from core.data.price_access import load_adjusted
     price_frames, vol_frames = {}, {}
     for sym in symbols:
-        df = store.read(sym, "1d")
+        df = load_adjusted(sym, store.data_dir, "1d")
         if df is not None and not df.empty:
             if "close" in df.columns:
                 price_frames[sym] = df["close"]

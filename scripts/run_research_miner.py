@@ -98,22 +98,13 @@ def _load_price_volume(
     if drop_symbols:
         drop_set = set(drop_symbols)
         tradable = [s for s in tradable if s not in drop_set]
-    frames = {k: {} for k in ("close", "open", "high", "low", "volume")}
-    for sym in tradable:
-        df = store.read(sym, "1d")
-        if df is None or df.empty or "close" not in df.columns:
-            continue
-        frames["close"][sym] = df["close"]
-        for col in ("open", "high", "low", "volume"):
-            if col in df.columns:
-                frames[col][sym] = df[col]
-    out = {}
-    out["close"] = pd.DataFrame(frames["close"]).sort_index()
-    for col in ("open", "high", "low", "volume"):
-        if frames[col]:
-            out[col] = pd.DataFrame(frames[col]).reindex_like(out["close"])
-        else:
-            out[col] = None
+    # P0-A F1: price-consumer tier MUST load split-adjusted via
+    # BarStore (was store.read = MarketDataStore raw, bypassing the
+    # split cascade — grand-audit P0-A). MarketDataStore `store` arg
+    # retained for signature/back-compat but no longer the price source.
+    from core.data.price_access import load_adjusted_panel
+    out = load_adjusted_panel(tradable, cfg.system.paths.data_dir,
+                              freq="1d")
     # Start date
     start = cfg.backtest.start_date or "2007-01-02"
     mask = out["close"].index >= pd.Timestamp(start)

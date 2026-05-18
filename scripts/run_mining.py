@@ -51,10 +51,12 @@ logger = get_logger("run_mining")
 
 
 def load_prices(store: MarketDataStore, symbols: list) -> pd.DataFrame:
+    # P0-A F1: split-adjusted via BarStore (was store.read raw).
+    from core.data.price_access import load_adjusted
     frames = {}
     for sym in symbols:
         try:
-            df = store.read(sym, "1d")
+            df = load_adjusted(sym, store.data_dir, "1d")
             if df is not None and not df.empty and "close" in df.columns:
                 frames[sym] = df["close"]
         except Exception as exc:
@@ -198,7 +200,8 @@ def main():
     open_frames = {}
     for sym in all_syms:
         try:
-            df = store.read(sym, "1d")
+            from core.data.price_access import load_adjusted
+            df = load_adjusted(sym, store.data_dir, "1d")  # P0-A F1
             if df is not None and not df.empty and "open" in df.columns:
                 open_frames[sym] = df["open"]
         except Exception:
@@ -282,8 +285,9 @@ def main():
 
     # ── 启动挖掘 ─────────────────────────────────────────────────────────────
     logger.info("启动策略挖掘循环 (trials=%d, budget=%.0fs)...", args.trials, args.budget)
-    # QQQ series for the hard gate. Load from store alongside SPY.
-    qqq_df = store.read("QQQ", "1d")
+    # QQQ series for the hard gate. P0-A F1: split-adjusted via BarStore.
+    from core.data.price_access import load_adjusted
+    qqq_df = load_adjusted("QQQ", store.data_dir, "1d")
     qqq_series = (qqq_df["close"].reindex(price_df.index, method="ffill")
                   if qqq_df is not None and not qqq_df.empty else None)
     if qqq_series is None:
