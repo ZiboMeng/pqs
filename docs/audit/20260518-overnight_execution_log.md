@@ -513,3 +513,24 @@ survivorship/late-entrant 驱动 → 非证伪证据(反向)。**
 要测的东西)。** 下一步:建 chart_native_s1_evidence_v1 standalone
 观察轨(learned-probe,mirror pead/simple_baseline 模式;非 main
 composite runner)。
+
+### pandas 3.0.2 全量回归 + P0-A W2 真回归 ROOT CAUSE + 修复
+全量 `pytest tests/unit`(无 -x):**3333 passed / 7 failed / 2 skipped /
+1320s**(py3.14.4 / pandas 3.0.2)。7 失败**全在**
+`tests/unit/scripts/test_run_research_miner_cli.py`。
+**ROOT CAUSE(非 pandas-3,是我 P0-A W2 的真回归)**:P0-A commit
+`7850b98` 把 `_load_price_volume` 从"用注入的 `store.read()`"改成
+`load_adjusted_panel(cfg.system.paths.data_dir,…)` —— (a) 有意忽略
+注入 store(生产正确:绕开 raw-未复权的 split-cascade-bypass,这正是
+P0-A 要修的);但 (b) 新增硬依赖 `cfg.system.paths.data_dir`,而这 7
+个 CLI 测试用 stub cfg(无 `.system`)+ `_FakeStore`(无 data_dir),
+按旧 store-注入契约写 → `AttributeError: SimpleNamespace has no
+attribute 'system'`。**生产 cfg 有该字段,故生产正常、P0-A 修复有效**。
+**诚实纠正 overclaim**:P0-A W2/W3/W5 当时**没跑
+`test_run_research_miner_cli.py`** → 我之前 P0-A "回归覆盖/ smoke
+通过" 的陈述对这个文件是 overclaim,此处留痕纠正(不 hand-wave)。
+**修复(不动生产,P0-A 意图正确)**:该测试文件加 autouse fixture
+monkeypatch `core.data.price_access.load_adjusted_panel` 为合成
+builder(2020–2025 同旧 _FakeStore 窗)+ `_fake_cfg` 补
+`system.paths.data_dir`。**9/9 全过**(原 7 + 同文件 2),实质全量
+= 3340 passed / 0 failed。改动纯测试侧、不触生产。

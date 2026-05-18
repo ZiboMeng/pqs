@@ -72,6 +72,38 @@ class _FakeStore:
         return self._frames.get(sym)
 
 
+@pytest.fixture(autouse=True)
+def _patch_adjusted_panel(monkeypatch):
+    """P0-A (grand-audit, commit 7850b98) made `_load_price_volume`
+    load split-adjusted data from disk via
+    `core.data.price_access.load_adjusted_panel` and STOP using the
+    injected `store` (intentional: the raw MarketDataStore.read path
+    bypassed the split cascade — that was the whole P0-A bug). These
+    CLI tests exercise the --end-date / --drop-symbols PLUMBING, not
+    price adjustment, so we patch the disk loader with a synthetic
+    builder spanning the same window the old `_FakeStore` used
+    (2020-01-01 → 2025-12-31). Without this, post-P0-A the tests
+    would hit real parquet (slow / environment-coupled) and the stub
+    cfg would AttributeError on `cfg.system.paths.data_dir`.
+    """
+    def _fake_load_adjusted_panel(symbols, root, freq="1d", **kw):
+        idx = pd.date_range("2020-01-01", "2025-12-31", freq="B")
+        close = pd.DataFrame({s: 100.0 for s in symbols}, index=idx)
+        return {
+            "close": close,
+            "open": close.copy(),
+            "high": close.copy() + 1.0,
+            "low": close.copy() - 1.0,
+            "volume": pd.DataFrame({s: 1_000_000 for s in symbols},
+                                   index=idx),
+        }
+
+    monkeypatch.setattr(
+        "core.data.price_access.load_adjusted_panel",
+        _fake_load_adjusted_panel,
+    )
+
+
 def _fake_cfg(seed_pool, sector_etfs=None, factor_etfs=None,
               cross_asset=None, blacklist=None, macro_reference=None,
               start_date="2020-01-01"):
@@ -84,7 +116,13 @@ def _fake_cfg(seed_pool, sector_etfs=None, factor_etfs=None,
         macro_reference=list(macro_reference or []),
     )
     backtest = SimpleNamespace(start_date=start_date)
-    return SimpleNamespace(universe=universe, backtest=backtest)
+    # P0-A: _load_price_volume resolves the data root via
+    # cfg.system.paths.data_dir (the patched loader ignores it, but
+    # the attribute must exist — production cfg always has it).
+    system = SimpleNamespace(
+        paths=SimpleNamespace(data_dir=str(ROOT / "data")))
+    return SimpleNamespace(universe=universe, backtest=backtest,
+                           system=system)
 
 
 # ── --end-date ──────────────────────────────────────────────────────
