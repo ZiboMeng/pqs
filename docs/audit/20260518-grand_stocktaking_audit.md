@@ -96,7 +96,47 @@ P0-A 只命中**挖矿搜索环节**,不命中验收/sealed:
   paper run 经 raw → 这些**数值**raw-suspect(已在 CLAUDE.md NAV-
   magnitude DEPRECATED 内);**qualitative sibling 由 adjusted forward
   realized NAV 独立支持**,保留。
-- backstop 强度 = 待量化(见 §1.A.q)。
+- backstop 强度量化结果见 §1.A.q。
+
+#### §1.A.q adjusted-gate backstop 强度量化(真跑,train-only)
+
+脚本 `dev/scripts/audit/quantify_adjusted_gate_backstop.py`,executable
+76 syms × train-only 3021 日(`alternating_regime_holdout_v1` train
+years,sealed/validation 未读),10 个 split-敏感因子的单因子
+cross-sectional IC_IR,raw(MarketDataStore)vs adjusted(BarStore):
+
+| 因子 | raw IC_IR | adj IC_IR | 翻转 |
+|---|---|---|---|
+| drawup_252d | +1.740 | +1.601 | 否 |
+| vol_63d | +1.338 | +1.448 | 否 |
+| vol_21d | +1.164 | +1.243 | 否 |
+| mom_126d | +1.056 | +1.066 | 否 |
+| mom_252d | +0.725 | +0.794 | 否 |
+| mom_63d | +0.499 | +0.448 | 否 |
+| mom_21d | +0.228 | +0.256 | 否 |
+| ret_5d / ret_1d / rev_5d | ≈0(−0.01~+0.01) | ≈0 | **是×3(噪声级)** |
+
+**Spearman(raw_ir, adj_ir)=0.964;top-3 完全一致;3 个 sign-flip 全
+在 |IC_IR|<0.011 噪声级因子上。**
+
+**量化结论(no blanket,scoped)**:
+- **主选择轴(中长动量 + vol + drawup —— 每个 cycle nominee 的
+  IC_IR 实际来源)raw≈adjusted(Spearman 0.96,top-3 同)→ backstop
+  对主轴基本冗余、false-negative 风险低**。机制上成立:split 假突
+  跳被长 lookback 平摊,几乎不动其 IC_IR。**这反而 de-escalate 了
+  P0-A 对 drawup/动量/vol 锚定 nominee(RCMv1 / cycle04-08 family /
+  trial9 max_dd_126d)的 selection-bias 严重性**——它们被一个
+  adjusted 几乎不改的排名 surface 出来。
+- **残余真风险(精确点名)= 短周期因子合成**:ret_1d/ret_5d/rev_5d
+  的 raw IC 符号不可靠 → 任何 edge 倚重短周期因子的 composite
+  (如含 `ret_1d` 的 cycle07a Trial 3 / Trial 9)被 raw 搜索 mis-rank。
+  adjusted Track A gate 对这类**确实在扛活**;过了 adjusted gate 的
+  仍真,但 raw 搜索对这类的排名(上/下)不可信。
+- **诚实 caveat**:这是单因子 IC 代理,非全 composite IC_IR;
+  composite 交互可能不同。但"主轴 Spearman 0.96 + top-3 同 + 翻转
+  全在噪声因子"是强代理,主轴结论 robust;短周期残余风险结论亦
+  robust(机制 + 数据双支持)。artifact:
+  `data/audit/adjusted_gate_backstop_quant.json`。
 
 **Root cause**:挖矿/ paper 数据 loader 选了 `MarketDataStore`(raw
 parquet 直读)而非 `BarStore`(split cascade)。**从未被命名为"loader

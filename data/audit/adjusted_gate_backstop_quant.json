@@ -1,0 +1,109 @@
+{
+  "audit": "adjusted_gate_backstop_strength",
+  "created_at": "2026-05-18T05:06:59.510782+00:00",
+  "split_name": "alternating_regime_holdout_v1",
+  "train_years_only": [
+    2009,
+    2010,
+    2011,
+    2012,
+    2013,
+    2014,
+    2015,
+    2016,
+    2017,
+    2020,
+    2022,
+    2024
+  ],
+  "sealed_2026_read": false,
+  "n_symbols": 76,
+  "n_dates_train": 3021,
+  "per_factor": [
+    {
+      "factor": "mom_252d",
+      "raw_ic": 0.05441,
+      "adj_ic": 0.06687,
+      "raw_ic_ir": 0.7249,
+      "adj_ic_ir": 0.7939,
+      "sign_flip": false
+    },
+    {
+      "factor": "mom_126d",
+      "raw_ic": 0.08043,
+      "adj_ic": 0.0874,
+      "raw_ic_ir": 1.0558,
+      "adj_ic_ir": 1.0658,
+      "sign_flip": false
+    },
+    {
+      "factor": "mom_63d",
+      "raw_ic": 0.03828,
+      "adj_ic": 0.03563,
+      "raw_ic_ir": 0.4994,
+      "adj_ic_ir": 0.448,
+      "sign_flip": false
+    },
+    {
+      "factor": "mom_21d",
+      "raw_ic": 0.01791,
+      "adj_ic": 0.02056,
+      "raw_ic_ir": 0.2284,
+      "adj_ic_ir": 0.2557,
+      "sign_flip": false
+    },
+    {
+      "factor": "ret_5d",
+      "raw_ic": -0.0008,
+      "adj_ic": 0.00061,
+      "raw_ic_ir": -0.0104,
+      "adj_ic_ir": 0.0079,
+      "sign_flip": true
+    },
+    {
+      "factor": "ret_1d",
+      "raw_ic": -4e-05,
+      "adj_ic": 0.00077,
+      "raw_ic_ir": -0.0005,
+      "adj_ic_ir": 0.0102,
+      "sign_flip": true
+    },
+    {
+      "factor": "rev_5d",
+      "raw_ic": 0.0008,
+      "adj_ic": -0.00061,
+      "raw_ic_ir": 0.0104,
+      "adj_ic_ir": -0.0079,
+      "sign_flip": true
+    },
+    {
+      "factor": "vol_21d",
+      "raw_ic": 0.10421,
+      "adj_ic": 0.11266,
+      "raw_ic_ir": 1.1637,
+      "adj_ic_ir": 1.2428,
+      "sign_flip": false
+    },
+    {
+      "factor": "vol_63d",
+      "raw_ic": 0.12075,
+      "adj_ic": 0.13197,
+      "raw_ic_ir": 1.3384,
+      "adj_ic_ir": 1.4481,
+      "sign_flip": false
+    },
+    {
+      "factor": "drawup_252d",
+      "raw_ic": 0.13408,
+      "adj_ic": 0.14289,
+      "raw_ic_ir": 1.7404,
+      "adj_ic_ir": 1.601,
+      "sign_flip": false
+    }
+  ],
+  "spearman_rank_corr_raw_vs_adj_ic_ir": 0.9636,
+  "top3_overlap_raw_vs_adj": 1.0,
+  "n_sign_flips": 3,
+  "n_factors": 10,
+  "interpretation": "high spearman + high overlap + 0 flips \u2192 raw selection \u2248 adjusted; backstop light, low false-negative. low spearman / flips \u2192 raw ranking scrambled; gate carries load + high false-negative (good composites missed by raw search)."
+}
