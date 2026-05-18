@@ -1,0 +1,34 @@
+[08:33:12] INFO     Criteria yaml loaded as source of truth:                    
+                    lineage=track-c-cycle-2026-05-18-13 composite_weighting=None
+                    composite_cardinality=None trials=200 seed=42 sampler=tpe   
+                    end_date=2025-12-31 drop_symbols=['BRK-B', 'USO', 'SLV']    
+           INFO     Study: rcm-v1-run-20260518T153312  Lineage:                 
+                    track-c-cycle-2026-05-18-13  Trials: 200  Seed: 42          
+           INFO     Temporal split active: alternating_regime_holdout_v1        
+                    (sha256=0391d7ebd0252ffa) role=core                         
+           INFO     Loading price/volume frames...                              
+           INFO     Panel end_date cap: 2025-12-31 (G4 cutoff)                  
+           INFO     Drop symbols: ['BRK-B', 'USO', 'SLV'] (criteria yaml        
+                    drop_symbols)                                               
+[08:33:39] INFO     Temporal split filter: 4780 → 3021 rows (dropped 1759       
+                    holdout-year rows)                                          
+           INFO     Panel max date (post-split): 2024-12-31T00:00:00            
+           INFO     Panel: 3021 dates × 79 symbols (79 tradable)                
+           INFO     Generating factors (this takes 1-2 min)...                  
+[08:34:23] INFO     FactorGenerator: produced 113 candidate factors             
+[08:37:45] INFO     Fundamental factors merged: 51                              
+[08:38:26] INFO     Sector factors merged: 5                                    
+[08:38:30] INFO     Macro factors merged: 6                                     
+           INFO     Event window factors merged: 4                              
+[08:38:31] INFO     Signal-confirmation factors merged: 5                       
+[08:38:32] INFO     purge_labels_at_boundary: applied                           
+                    (split=alternating_regime_holdout_v1, horizon_max=21d)      
+           INFO     factor_registry_pool=RESEARCH_FACTORS reachability preflight
+                    PASS (187 factors reachable across 20 families; 0           
+                    explicit_exclusions)                                        
+Panel-availability contract violation (A++ patch 2026-04-30):
+  factor_registry_pool=RESEARCH_FACTORS
+  Sampler can reach: 187 factors
+  Panel pipeline produced: 184 factors
+  Unreachable due to missing panel (3): ['intraday_autocorr_21d', 'intraday_vol_ratio_21d', 'realized_vol_60m_21d']
+Resolution: either (a) wire the factor pipeline to produce these panels, or (b) declare them under criteria yaml mining_config.explicit_exclusions with a documented data-dependency reason.
