@@ -1,0 +1,48 @@
+candidate_id: chart_native_s1_evidence_v1
+candidate_role: evidence_only_observation
+strategy_type: chart_native_learned_probe
+lineage: ml-method-redo-2026-05-16
+construction:
+  gaf_window_len: 63
+  label_horizon_bars: 21
+  backbone: torchvision.resnet18 IMAGENET1K_V1 (fc=Identity, all params frozen, eval())
+  probe: ridge
+  probe_lambda: 10.0
+  probe_fit_scope: train-year rows ONLY (frozen, never refit forward)
+  rebalance_cadence: monthly
+  construction_mode: cap_aware_cross_asset
+  top_n: 10
+  cluster_cap: 0.2
+  max_single_weight: 0.1
+  asset_class_caps:
+    equities: 0.7
+    bonds: 0.4
+    commodities: 0.2
+    cash_anchor: 0.3
+frozen_probe_beta_path: data/research_candidates/chart_native_s1_evidence_v1_frozen_probe_beta.npy
+frozen_probe_beta_sha256: 439ee31e1de3e5f8fdd89864062d21492f505317a005856f7ffe8b4704b94fb7
+panel_contract:
+  universe_source: config/universe.yaml (executable)
+  adjusted: true
+  adjusted_total_return_for_cross_asset: true
+  partition: alternating_regime_holdout_v1 selector (train+validation; SEALED 2026
+    excluded)
+forward_contract:
+  start_date: '2026-05-19'
+  freeze_date: '2026-05-18'
+evidence:
+  track_a: PASS all 17 gates (original causally-clean)
+  falsification_attempts:
+  - 'neg-control: shuffled labels collapse (cleared harness/pooling artifact)'
+  - 'no-overlap: 21d-gap handicap, IC/20x preserved (cleared overlap/lookahead)'
+  - "survivorship n=8: confound (data-coverage cliff), INCONCLUSIVE \u2014 not evidence"
+  - 'survivorship 70-name meaningful: PASS Track-A, edge survives (NOT falsified)'
+  structural_residual_honest: pre-2015 true point-in-time / delisted-name survivorship
+    is structurally infeasible offline (no delisting DB; dataset itself a 2015+ vendor
+    survivor cross-section; C5 precedent). Forward observation IS the OOS test for
+    this residual (real-time data has no survivorship). NOT faked, NOT a rejection
+    ground per harness.
+  scope_caveat: config-scoped research signal; pooled-IC magnitude may be inflated
+    (Track-A uses portfolio metrics not pooled IC); PBO red_flag is N/A for single-signal
+    (folds-as-configs misuse, audited); DSR placeholder-N not an anchor. Evidence-only;
+    does NOT enter fleet.

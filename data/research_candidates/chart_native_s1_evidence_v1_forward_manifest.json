@@ -1,0 +1,35 @@
+{
+  "candidate_id": "chart_native_s1_evidence_v1",
+  "candidate_role": "evidence_only_observation",
+  "strategy_type": "chart_native_learned_probe",
+  "spec_hash_sha256": "d035c1840dd0bccb96638fdd82d642b7d92323b64cabf0aff5598f5701a52361",
+  "frozen_probe_beta_sha256": "439ee31e1de3e5f8fdd89864062d21492f505317a005856f7ffe8b4704b94fb7",
+  "spec_path": "data/research_candidates/chart_native_s1_evidence_v1.yaml",
+  "nav_path": "data/research_candidates/chart_native_s1_evidence_v1_forward_nav.parquet",
+  "beta_path": "data/research_candidates/chart_native_s1_evidence_v1_frozen_probe_beta.npy",
+  "start_date": "2026-05-19",
+  "freeze_date": "2026-05-18",
+  "created_at": "2026-05-18T22:16:12.874913+00:00",
+  "schema_version": "chart_native_evidence_v1",
+  "current_status": "in_progress",
+  "lifecycle_note": "Evidence-only observation, standalone track (NOT main composite runner; learned probe). Does NOT enter fleet allocation. Frozen-probe contract: beta NEVER refit forward. Decision point TD60 ~ 2026-08-13. Forward soak is the OOS test for the structurally-untestable pre-2015 survivorship residual.",
+  "universe_size_at_freeze": 79,
+  "td_observations": [
+    {
+      "td_id": "TD000",
+      "td_phase": "initial_baseline",
+      "observation_date": "2025-12-31",
+      "freeze_date": "2026-05-18",
+      "strat_equity": 2142222.909242363,
+      "frozen_baseline_cum_ret": 20.42222909242363,
+      "frozen_baseline_sharpe": 1.5886588942032607,
+      "frozen_baseline_max_dd": -0.1679660090427566,
+      "frozen_baseline_vs_spy": 14.086600976824187,
+      "frozen_baseline_vs_qqq": 15.458442495032855,
+      "n_probe_train_rows": 86785,
+      "n_validation_oos_rows": 70679,
+      "sealed_2026_read": false
+    }
+  ],
+  "td_count": 1
+}

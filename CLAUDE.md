@@ -1491,6 +1491,23 @@ history" entry below). **Active forward candidates as of 2026-05-15**:
   runner (event-driven SUE signal doesn't fit factor-composite schema)
 - `spy_8otm_bull_put_v1` (options sleeve, TD007 @ 2026-05-15, TD60
   verdict ~ 2026-07-30) — options paper-trading layer, separate path
+- `chart_native_s1_evidence_v1` (evidence_only_observation role,
+  TD000 baseline @ 2026-05-18, start 2026-05-19, TD60 ~2026-08-13) —
+  standalone observation track for the chart-native learned probe
+  (GAF63 → frozen ResNet18 IMAGENET1K_V1 → train-only ridge β,
+  FROZEN never refit forward; spec_hash d035c184…, beta_sha
+  439ee31e…). Does NOT use main composite runner (learned probe ≠
+  ResearchCompositeSpec; pead/simple_baseline precedent). Does NOT
+  enter fleet. Evidence-grounded forward-init per
+  feedback_promotion_only_falsification_evidence_gated: original
+  PASSED Track-A all 17 gates; 4 falsification attempts (neg-control
+  / no-overlap / survivorship n=8 confound / survivorship 70-name
+  meaningful PASS) yielded ZERO strategy-self flaw evidence; pre-2015
+  true-PIT survivorship structurally untestable (C5) is exactly what
+  forward soak tests. Closeout:
+  `docs/memos/20260518-chart_native_s1_evidence_forward_init.md`.
+  init: `dev/scripts/chart_native_l3/init_chart_native_evidence.py`.
+  daily-ritual observe script = follow-up (mirrors pead pattern).
 Forward fleet anti-sibling: cycle06/cycle08/trial9 pairwise raw NAV
 0.704-0.825 (all < 0.85). Daily ritual log: docs/forward_observation_log.md.
 - **R-fwd-1 done** — forward runner minimum closed loop (init /
