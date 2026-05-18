@@ -193,3 +193,23 @@ restate.md`;audit memo §1 scope 行已 fold。F1 修复仍必要(根治 +
 - **结论**:W5/F4 "最敏感"是基于保守假设;R3 实证后 = F4-A1 真修
   +parity 保持+隔离经验证明,F4-A2 重机制**不需要**(风险在此路径
   不存在)。不假装做了不需要的机制,也不隐瞒 60m 残余。
+
+### W7c/d — CPCV-distribution fold acceptance 接进生产 evaluator ✅(用户授权新 cycle → 真 consumer)
+- `temporal_split_acceptance`:加 optional `cpcv_acceptance` 字段
+  (lazy-migration,legacy 无 `cpcv_inputs`→None→字节不变零回溯);
+  run_split_acceptance 读 `metrics["cpcv_inputs"]` → 调
+  cpcv_acceptance_distribution(purged+embargo G4)+ append **binding
+  fail-closed gate** `cpcv_distribution_acceptance`(insufficient/
+  noise/error → passed=False → overall_passed=False)。
+- new-cycle-only by 输入存在;contiguous-year gate 保留为 legacy 路径
+  (G4-A3 back-compat by construction)。
+- 测试 5/5 + W7b 6 + G4 6 + **temporal_split/acceptance 216 passed
+  0 回归**(211→216)。不走过场:测了 legacy 字节不变/强 edge 过/
+  noise+insufficient+error 三种 fail-closed binding。
+- **P0-B W7 完整**:W7a HAC + W7b DSR/PBO/MinBTL + W7c/d CPCV fold,
+  全真接 canonical 生产 evaluator,new-cycle-only。用户授权新 cycle
+  使 W7c/d 从"new-cycle-gated 剩余"变"真 consumer 已接"。
+- 硬 blocker 已 surface:`alternating_regime_holdout_v1` 2026 sealed
+  CONSUMED → 新 cycle scope = adjusted mining SEARCH + Track-A-accept
+  (train/val),**sealed 步骤 pre-register DEFERRED**(合纪律,非
+  静默跳)。下:pre-reg criteria yaml + 后台 mining + W8 GPU。

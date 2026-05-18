@@ -116,6 +116,12 @@ class SplitAcceptanceResult:
     # → as_dict byte-identical, NO retro mutation of cycle06/08.
     # Populated ONLY for new-cycle callers that supply overfit_inputs.
     overfit_diagnostics: Optional[Dict[str, Any]] = None
+    # P0-B W7c/d: CPCV-distribution fold acceptance (G4). Same lazy-
+    # migration contract as overfit_diagnostics — None on every legacy
+    # / pre-W7c caller (no "cpcv_inputs" in metrics) → as_dict
+    # byte-identical, NO retro mutation of cycle06/08. Populated +
+    # its gate binds overall_passed ONLY for new-cycle callers.
+    cpcv_acceptance: Optional[Dict[str, Any]] = None
 
     def as_dict(self) -> Dict[str, Any]:
         d = {
@@ -128,6 +134,8 @@ class SplitAcceptanceResult:
         }
         if self.overfit_diagnostics is not None:
             d["overfit_diagnostics"] = self.overfit_diagnostics
+        if self.cpcv_acceptance is not None:
+            d["cpcv_acceptance"] = self.cpcv_acceptance
         return d
 
     def gate_named(self, name: str) -> Optional[SplitGateResult]:
@@ -785,4 +793,55 @@ def run_split_acceptance(
             res.overfit_diagnostics = {
                 "error": f"{type(e).__name__}: {e}",
                 "note": "overfit panel failed — NOT a silent pass"}
+
+    # P0-B W7c/d: CPCV-distribution fold acceptance (G4) as a BINDING
+    # gate, new-cycle-only. Same lazy-migration contract: only new-cycle
+    # callers put "cpcv_inputs" in metrics → CPCV distribution computed
+    # + a fail-closed gate appended that ANDs into overall_passed.
+    # Absent (every legacy/cycle06-08 metrics) → res byte-identical,
+    # NO retro mutation, contiguous-year gates remain the legacy path
+    # (G4-A3 back-compat by construction).
+    ci = metrics.get("cpcv_inputs")
+    if isinstance(ci, dict) and ci.get("pred") is not None:
+        try:
+            from core.research.cpcv_acceptance import (
+                cpcv_acceptance_distribution,
+            )
+            dist = cpcv_acceptance_distribution(
+                ci["pred"], ci["fwd"],
+                n_groups=int(ci.get("n_groups", 6)),
+                k_test=int(ci.get("k_test", 2)),
+                horizon=int(ci.get("horizon", 21)),
+                honest_n_trials=ci["honest_n_trials"],
+                embargo_frac=float(ci.get("embargo_frac", 0.01)),
+            )
+            res.cpcv_acceptance = dist
+            min_ic = float(ci.get("min_ic_sample_weighted", 0.0))
+            insufficient = bool(dist.get("insufficient"))
+            icw = dist.get("ic_sample_weighted")
+            passed = (not insufficient) and icw is not None and icw > min_ic
+            gate = SplitGateResult(
+                name="cpcv_distribution_acceptance",
+                passed=passed,
+                values={"insufficient": insufficient,
+                        "ic_sample_weighted": icw,
+                        "n_folds": dist.get("n_folds"),
+                        "dsr": dist.get("dsr"),
+                        "pbo_red_flag": dist.get("pbo_red_flag")},
+                threshold={"min_ic_sample_weighted": min_ic,
+                           "not_insufficient": True},
+                notes="W7c/d new-cycle CPCV fold acceptance "
+                      "(purged+embargo; replaces contiguous-year for "
+                      "new cycles). fail-closed on insufficient.")
+            res.gates.append(gate)
+            if not passed:
+                res.overall_passed = False   # binding, fail-closed
+        except Exception as e:
+            res.cpcv_acceptance = {
+                "error": f"{type(e).__name__}: {e}",
+                "note": "CPCV acceptance failed — NOT a silent pass"}
+            res.gates.append(SplitGateResult(
+                name="cpcv_distribution_acceptance", passed=False,
+                notes=f"CPCV eval errored: {type(e).__name__}"))
+            res.overall_passed = False       # fail-closed on error
     return res
