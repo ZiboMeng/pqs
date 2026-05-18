@@ -255,3 +255,22 @@ restate.md`;audit memo §1 scope 行已 fold。F1 修复仍必要(根治 +
   replay top trial spec → adjusted backtest → run_split_acceptance
   带 overfit_inputs(W7b)+ cpcv_inputs(W7c/d)= 两套新机器**首次
   实战**。这是实质新 eval 脚本,独立专注做,不在 270+ 调用 turn 尾凑。
+
+### W8 S1 — torchvision 装(用户授权)+ frozen ImageNet backbone 脚本
+- **诚实 surface(不走过场)**:`pip install torchvision` **强制
+  torch 2.11→2.12**(torchvision 0.27 依赖)。这是装库的连带后果,
+  量级大(全 ML 栈)。**已验证 bump 良性**:G1-G5+W7b/c-d+HAC+价基
+  回归 smoke **60/60 passed on torch 2.12**。
+- **provenance 诚实**:S2(PID 253157)+ cycle13b re-run2(262500)
+  旧进程在 **torch 2.11 内存**里跑(uninstall 前已 load),其结果
+  标"torch 2.11 下产出";新跑(S1/以后)= torch 2.12。非 corruption,
+  honest provenance。
+- **S1 脚本就绪**:`dev/scripts/scaled_checkpoint/run_s1_imagenet_
+  backbone.py` —— GAF 图 → **frozen torchvision ResNet18
+  IMAGENET1K_V1**(标准预训练 backbone,**不自造模型**,用户明确)→
+  ridge probe + CPCV + honest-N DSR + vs 动量 baseline。adjusted +
+  train-only + SEALED guard。compile OK + micro-smoke(resnet18
+  权重 44.7M 下载、(4,512) 特征路径通)。
+- **S1 GPU run 串行排 S2 后**(单 4GB 卡;S2 1830s 仍跑)。监控
+  bthn7d9k1(S2)完成→启 S1 GPU run;bnz0y7yb9(cycle13b re-run2)
+  完成→报 W7c/d 修后首战结果。两监控自动续。
