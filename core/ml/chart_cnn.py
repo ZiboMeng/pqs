@@ -59,6 +59,68 @@ def build_gaf_panel(
     return np.stack(imgs, axis=0), keys
 
 
+# ── PRD-3 RA5: JKX-style OHLC+vol bar-image builder (ADDITIVE) ────────
+# A3 arm. JKX 2023 uses an OHLC bar-chart image; we keep the existing
+# deterministic GAF encoding (no plotting ambiguity, per the module
+# docstring) and extend it to a MULTI-CHANNEL bar image: GASF+GADF of
+# {close, intrabar range (h-l)/c, log volume}. Each channel is
+# rescaled independently inside ``to_gasf_gadf`` → implicit per-name
+# scaling (the value RA4 proved is the point, not the image per se).
+# This is purely additive: ``gaf_image`` / ``build_gaf_panel``
+# (close-only) are untouched and remain bit-identical.
+_JKX_CHANNELS = ("close", "range", "logvol")
+
+
+def jkx_bar_image(window_ohlcv: np.ndarray) -> np.ndarray:
+    """One OHLCV window ``(W, 5)`` [o,h,l,c,v] → ``(6, W, W)`` image:
+    GASF+GADF of close, of intrabar range (h-l)/c, and of log1p(vol).
+
+    Causal by construction — a pure function of the trailing window
+    (mirrors ``gaf_image``; never reads a bar after ``t``).
+    """
+    w = np.asarray(window_ohlcv, dtype=float)
+    if w.ndim != 2 or w.shape[1] != 5:
+        raise ValueError(
+            f"jkx_bar_image expects (W,5) [o,h,l,c,v], got {w.shape}")
+    o, h, low, c, v = w[:, 0], w[:, 1], w[:, 2], w[:, 3], w[:, 4]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        rng = np.where(c != 0.0, (h - low) / c, 0.0)
+    logv = np.log1p(np.clip(v, 0.0, None))
+    chans = [to_gasf_gadf(s) for s in (c, rng, logv)]  # each (2,W,W)
+    return np.concatenate(chans, axis=0).astype(np.float32)
+
+
+def build_jkx_bar_panel(
+    ohlcv_by_symbol: dict[str, pd.DataFrame],
+    t_indices_by_symbol: dict[str, list[int]],
+    window_len: int = WINDOW_LEN,
+) -> tuple[np.ndarray, list[tuple[str, int]]]:
+    """Multi-channel JKX bar-image panel — parallel to
+    ``build_gaf_panel`` (same causal warmup / skip rules), additive.
+    Returns ``(images (N,6,W,W), keys)``."""
+    imgs: list[np.ndarray] = []
+    keys: list[tuple[str, int]] = []
+    for sym, idxs in t_indices_by_symbol.items():
+        df = ohlcv_by_symbol.get(sym)
+        if df is None or not {"open", "high", "low", "close",
+                              "volume"}.issubset(df.columns):
+            continue
+        arr = df[["open", "high", "low", "close", "volume"]].to_numpy(
+            dtype=float)
+        for t in idxs:
+            if t < window_len - 1 or t >= len(arr):
+                continue
+            win = arr[t - window_len + 1: t + 1]
+            if not np.isfinite(win).all():
+                continue
+            imgs.append(jkx_bar_image(win))
+            keys.append((sym, t))
+    if not imgs:
+        return (np.empty((0, 6, window_len, window_len), np.float32),
+                keys)
+    return np.stack(imgs, axis=0), keys
+
+
 if is_torch_available():
     import torch
     import torch.nn as nn
