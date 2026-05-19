@@ -1,0 +1,125 @@
+{
+  "experiment": "chart_native_l3_track_a[expanded_v2]",
+  "universe": "expanded_v2",
+  "probe_train_cross_section_note": "probe ridge fit on this universe's train-year rows; cap_aware Track-A portfolio still restricted to cluster_map (~59 names, eligible_cols) \u2014 NOT a full-universe portfolio",
+  "created_at": "2026-05-19T02:34:34.704681+00:00",
+  "candidate": "chart_native_s1 (GAF\u2192frozen ResNet18 IMAGENET1K_V1\u2192train-only ridge probe)",
+  "no_leakage": {
+    "probe_fit_train_rows": 1166153,
+    "validation_rows_frozen_oos": 306112,
+    "sealed_2026_read": false
+  },
+  "track_a_overall_passed": false,
+  "track_a_failed_gates": [
+    "validation_year_2018_maxdd",
+    "validation_aggregate_excess_vs_spy",
+    "stress_slice_covid_flash_maxdd"
+  ],
+  "metrics_full_period": {
+    "cum_ret": 6.4973528453854295,
+    "sharpe": 1.0876107278458795,
+    "max_dd": -0.26758472931092725,
+    "vs_spy": 0.16172472978598496,
+    "spy_cum_ret": 6.3356281155994445,
+    "vs_qqq": 1.5335662479946528,
+    "qqq_cum_ret": 4.963786597390777
+  },
+  "metrics_per_year": {
+    "2018": {
+      "cum_ret": -0.12023149086416385,
+      "sharpe": -0.7735896431250467,
+      "max_dd": -0.21601036323882652,
+      "vs_spy": -0.0500972064751144,
+      "spy_cum_ret": -0.07013428438904945,
+      "vs_qqq": -0.09360183737646133,
+      "qqq_cum_ret": -0.02662965348770252
+    },
+    "2019": {
+      "cum_ret": 0.30150275914263625,
+      "sharpe": 2.658809882625392,
+      "max_dd": -0.04970132129002314,
+      "vs_spy": 0.014989069901808927,
+      "spy_cum_ret": 0.2865136892408273,
+      "vs_qqq": -0.07095513141670584,
+      "qqq_cum_ret": 0.3724578905593421
+    },
+    "2021": {
+      "cum_ret": 0.2564156080203168,
+      "sharpe": 1.9215480127531177,
+      "max_dd": -0.05214975741590848,
+      "vs_spy": -0.03147175457135121,
+      "spy_cum_ret": 0.28788736259166803,
+      "vs_qqq": -0.02918783950689474,
+      "qqq_cum_ret": 0.28560344752721156
+    },
+    "2023": {
+      "cum_ret": 0.18130249688546662,
+      "sharpe": 1.6469880142706745,
+      "max_dd": -0.07022952589792632,
+      "vs_spy": -0.06681994525799206,
+      "spy_cum_ret": 0.2481224421434587,
+      "vs_qqq": -0.36698459638032177,
+      "qqq_cum_ret": 0.5482870932657884
+    },
+    "2025": {
+      "cum_ret": 0.17353801548926673,
+      "sharpe": 1.4659551410644465,
+      "max_dd": -0.08390645731776958,
+      "vs_spy": 0.007145079966000667,
+      "spy_cum_ret": 0.16639293552326606,
+      "vs_qqq": -0.030511621619131013,
+      "qqq_cum_ret": 0.20404963710839774
+    }
+  },
+  "metrics_per_stress": {
+    "covid_flash": {
+      "cum_ret": -0.0556036710403256,
+      "sharpe": -0.3393214838344941,
+      "max_dd": -0.26758472931092725,
+      "vs_spy": 0.08174672390821924,
+      "spy_cum_ret": -0.13735039494854484,
+      "vs_qqq": 0.010725062707072075,
+      "qqq_cum_ret": -0.06632873374739767
+    },
+    "rate_hike_2022": {
+      "cum_ret": -0.10119714868191942,
+      "sharpe": -3.3168662604886556,
+      "max_dd": -0.10211610931671741,
+      "vs_spy": 0.06489430984004663,
+      "spy_cum_ret": -0.16609145852196605,
+      "vs_qqq": 0.11633509427024713,
+      "qqq_cum_ret": -0.21753224295216655
+    }
+  },
+  "overfit_diagnostics": {
+    "dsr": 0.9990660636919002,
+    "dsr_n_trials": 6,
+    "sharpe": 0.06851303593157498,
+    "min_btl_gate": {
+      "passed": true,
+      "reason": "ok",
+      "actual_years": 17.151,
+      "min_btl_years": 3.029442673092537,
+      "expected_max_sr_annual": 1.8930184728248454,
+      "n_trials": 6,
+      "safety_multiple": 1.0
+    },
+    "scope": "new_cycle_only; additive; cycle06/08 NOT retro-eval",
+    "pbo": {
+      "pbo": null,
+      "note": "forward-only: per-trial matrix not supplied (rcm_trials scalar-only, audit \u00a76) \u2014 NOT a pass"
+    }
+  },
+  "cpcv_gate": {
+    "passed": true,
+    "values": {
+      "insufficient": false,
+      "ic_sample_weighted": 0.10532161545285024,
+      "n_folds": 15,
+      "dsr": 1.0,
+      "pbo_red_flag": true
+    }
+  },
+  "honest_n_trials": 6,
+  "verdict_scope": "L3 production-acceptance; pass\u2192path-1 forward; fail\u2192definitive retire verdict for chart-native line. config-scoped; no over-claim."
+}
