@@ -95,6 +95,36 @@ def apply_t1_inverse_hedge(
     return out
 
 
+def inverse_etf_decay_return(
+    index_daily_returns,
+    expense_annual: float = 0.0090,
+):
+    """PRD-2 P2.1 R3 — 1x inverse-ETF daily-reset cost model.
+
+    A -1x daily-reset ETF held over multiple days does NOT return
+    -(cumulative index move): it compounds each day's inverse, so
+    volatility / path introduces drift ("beta slippage" / volatility
+    decay). Returns ``(modeled, naive_optimistic)`` so callers MUST
+    report BOTH (PRD-2 §7 P2.1(c): never report only the optimistic
+    leg).
+
+    modeled = ∏(1 - r_t - expense_daily) - 1   (daily-reset compounding)
+    naive   = -(∏(1 + r_t) - 1)                (pretend exact -cum move)
+
+    decay = modeled - naive is PATH-DEPENDENT (a drag in oscillating
+    markets, can be positive on a monotone trend). 1x only — leverage
+    is out of scope (SQQQ/-2x/-3x permanently blacklisted).
+    """
+    import numpy as _np
+    r = _np.asarray(list(index_daily_returns), dtype=float)
+    if r.size == 0:
+        return 0.0, 0.0
+    exp_d = expense_annual / 252.0
+    modeled = float(_np.prod(1.0 - r - exp_d) - 1.0)
+    naive = float(-(_np.prod(1.0 + r) - 1.0))
+    return modeled, naive
+
+
 def apply_tier_overlay(
     signals: "pd.DataFrame",
     construction_tier: str,
