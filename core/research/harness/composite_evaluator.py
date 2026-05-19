@@ -380,6 +380,15 @@ _VALID_CONSTRUCTION_MODES = (
     "cap_aware_risk_parity",  # C10-2-A: cap_aware selection + inverse-vol weighting
 )
 
+# PRD-2 ralph-loop P2.1 R1 (2026-05-19): construction-tier governance.
+# T0 = long-only (default; pure no-op scaffold here — bit-identical to
+#      the pre-tier path; nothing consumes it until R2).
+# T1 = 1x inverse-ETF hedge (SH/PSQ/DOG) — wired in P2.1 R2.
+# T2 = true short — INVARIANT BREAK; permanently gated (PRD-2 §6 /
+#      P2.4): schema/design only, execution needs user explicit-go,
+#      NEVER auto-enabled by the loop.
+_VALID_CONSTRUCTION_TIERS = ("T0", "T1", "T2")
+
 
 @dataclass(frozen=True)
 class HarnessConfig:
@@ -435,8 +444,27 @@ class HarnessConfig:
     initial_capital: float = 100_000.0
     rebalance_threshold: float = 0.02
     integer_shares: bool = False
+    construction_tier: str = "T0"  # PRD-2 P2.1; T0=long-only no-op (R1)
 
     def __post_init__(self) -> None:
+        if self.construction_tier not in _VALID_CONSTRUCTION_TIERS:
+            raise ValueError(
+                f"construction_tier must be one of "
+                f"{_VALID_CONSTRUCTION_TIERS!r}, got {self.construction_tier!r}"
+            )
+        if self.construction_tier == "T1":
+            raise NotImplementedError(
+                "construction_tier='T1' (1x inverse-ETF hedge) is not yet "
+                "wired — PRD-2 ralph-loop P2.1 R2. Use T0 (default)."
+            )
+        if self.construction_tier == "T2":
+            raise ValueError(
+                "construction_tier='T2' (true short) is an INVARIANT BREAK "
+                "and is PERMANENTLY GATED (PRD-2 §6 / P2.4): schema/design "
+                "only; execution requires a user explicit-go decision memo "
+                "+ borrow/margin/squeeze/SSR model + risk-invariant "
+                "regression. It is never auto-enabled."
+            )
         if self.rebalance_cadence not in _VALID_CADENCES:
             raise ValueError(
                 f"rebalance_cadence must be one of {_VALID_CADENCES!r}, "
