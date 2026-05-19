@@ -1,0 +1,30 @@
+=== A1 (RA1+RA2 daily-close engineered + shallow XGB) ===
+  A1 verdict=PASS
+    cum_ret=+56.1699
+    sharpe=+2.0146
+    max_dd=-0.1564
+    vs_spy=+49.8343
+    spy_cum_ret=+6.3356
+    vs_qqq=+51.2061
+    qqq_cum_ret=+4.9638
+    gate vs_spy_hard: {'vs_spy': 49.83430403228488, 'pass': True}
+    gate per_validation_year_maxdd_le_20pct: {'pass': True, 'per_year': {2018: {'max_dd': 0.15644950882903746, 'pass': True}, 2019: {'max_dd': 0.07885761079616958, 'pass': True}, 2021: {'max_dd': 0.06853369198035009, 'pass': True}, 2023: {'max_dd': 0.0911624259377569, 'pass': True}, 2025: {'max_dd': 0.14138674454344974, 'pass': True}}}
+    gate stress_slice_maxdd_le_25pct: {'pass': True, 'per_slice': {'covid_flash': {'max_dd': 0.10027552189058442, 'pass': True}, 'rate_hike_2022': {'max_dd': 0.08831159938807545, 'pass': True}}}
+    gate concentration: {'top1_max': 0.0, 'top3_max': 0.0, 'pass': True}
+    gate vs_qqq_diagnostic: {'vs_qqq': 51.206145550493545, 'blocking': False}
+=== B1 (RB2 intraday engineered + shallow XGB) ===
+  B1 verdict=FAIL_recorded_root_cause
+    cum_ret=+0.7180
+    sharpe=+0.7976
+    max_dd=-0.0763
+    vs_spy=-5.6176
+    spy_cum_ret=+6.3356
+    vs_qqq=-4.2458
+    qqq_cum_ret=+4.9638
+    gate vs_spy_hard: {'vs_spy': -5.617625537534179, 'pass': False}
+    gate per_validation_year_maxdd_le_20pct: {'pass': True, 'per_year': {2018: {'max_dd': 0.06314907868276054, 'pass': True}, 2019: {'max_dd': 0.029023853048203613, 'pass': True}, 2021: {'max_dd': 0.02097571820783988, 'pass': True}, 2023: {'max_dd': 0.025775999230091207, 'pass': True}, 2025: {'max_dd': 0.04835431390627053, 'pass': True}}}
+    gate stress_slice_maxdd_le_25pct: {'pass': True, 'per_slice': {'covid_flash': {'max_dd': 0.06383250873951088, 'pass': True}, 'rate_hike_2022': {'max_dd': 0.04676564654963624, 'pass': True}}}
+    gate concentration: {'top1_max': 0.0, 'top3_max': 0.0, 'pass': True}
+    gate vs_qqq_diagnostic: {'vs_qqq': -4.245784019325511, 'blocking': False}
+
+verdict JSON -> data/audit/ml_redo/a1_b1_nav_track_a.json

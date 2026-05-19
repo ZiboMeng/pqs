@@ -85,18 +85,26 @@ def _bar_integrity(close):
 
 
 # ── A1 prediction panel ──────────────────────────────────────────────
-def _a1_pred_panel(panel, tr_years):
-    """Train RA1+RA2 on train_years rows; predict on the full panel.
-    Returns a (date × symbol) DataFrame of predictions; rows where
-    the model couldn't predict (missing features) are NaN.
+def _a1_pred_panel(panel, tr_years, val_years):
+    """STRICT CHRONOLOGICAL year-by-year rolling walk-forward
+    (R1-fixed: prior single-fit `train on all train_years` was a
+    temporal-leakage bug under cycle06's INTERLEAVED selector
+    partition — train_years={2009-17,20,22,24} vs val_years=
+    {18,19,21,23,25} are time-interleaved; one model fit on all
+    train_years would learn 2020/2022/2024 regularities and then
+    "predict" earlier 2018/2019/2021 = looking-forward leakage).
+
+    Fixed protocol: for each val_year Y in sorted ascending order,
+    train a FRESH model on ``train_years ∩ {y < Y}`` only, then
+    predict rows where ``year == Y``. The model fitting prediction
+    for Y NEVER sees any year ≥ Y. Empty train-subset → skip Y
+    (e.g. if val_years contained a year before any train year).
     """
     close = panel["close"]
     feat_map = build_engineered_panel(
         panel["open"], panel["high"], panel["low"], close,
         panel["volume"], close_windows=(20, 63), monthly_rank=False)
     feat_cols = list(feat_map.keys())
-
-    # build long frame on month-end rows (cycle06 monthly cadence)
     idx = pd.DatetimeIndex(close.index)
     me = [pd.Timestamp(d) for d in pd.Series(idx, index=idx).groupby(
         [idx.year, idx.month]).last().to_numpy()]
@@ -116,24 +124,37 @@ def _a1_pred_panel(panel, tr_years):
     df = pd.DataFrame(rows)
     if df.empty:
         return pd.DataFrame(index=close.index, columns=close.columns)
-    tr = df[df.year.isin(tr_years)].reset_index(drop=True)
-    sym_codes = {s: i for i, s in enumerate(sorted(df.symbol.unique()))}
-    # forward returns as labels (train-only)
     fwd = close.shift(-_H) / close - 1.0
-    y_tr = np.array([float(fwd.at[r.date, r.symbol])
-                     for r in tr.itertuples()])
-    keep = ~np.isnan(y_tr)
-    tr = tr.loc[keep].reset_index(drop=True)
-    y_tr = y_tr[keep]
-    res = train_a1(
-        tr[feat_cols], pd.Series(y_tr),
-        start_pos=tr.start_pos.to_numpy(), horizon=_H,
-        groups=np.array([sym_codes[s] for s in tr.symbol]),
-        cfg=A1Config(max_depth=3, n_estimators=300, random_state=42))
-    pred = res.model.predict(df[feat_cols])
+    df["y"] = [float(fwd.at[r.date, r.symbol])
+               if r.symbol in fwd.columns else np.nan
+               for r in df.itertuples()]
+    df = df.dropna(subset=["y"]).reset_index(drop=True)
+    sym_codes = {s: i for i, s in enumerate(sorted(df.symbol.unique()))}
     out = pd.DataFrame(np.nan, index=close.index, columns=close.columns)
-    for r, p in zip(df.itertuples(), pred):
-        out.at[r.date, r.symbol] = float(p)
+    folds = {}
+    for Y in sorted(val_years):
+        tr_subset = {y for y in tr_years if y < Y}
+        if not tr_subset:
+            folds[Y] = "skipped — no train year strictly before"
+            continue
+        tr = df[df.year.isin(tr_subset)].reset_index(drop=True)
+        va = df[df.year == Y].reset_index(drop=True)
+        if tr.empty or va.empty:
+            folds[Y] = f"skipped — train={len(tr)} val={len(va)}"
+            continue
+        res = train_a1(
+            tr[feat_cols], pd.Series(tr.y.to_numpy()),
+            start_pos=tr.start_pos.to_numpy(), horizon=_H,
+            groups=np.array([sym_codes[s] for s in tr.symbol]),
+            cfg=A1Config(max_depth=3, n_estimators=300,
+                         random_state=42))
+        pred = res.model.predict(va[feat_cols])
+        for r, p in zip(va.itertuples(), pred):
+            out.at[r.date, r.symbol] = float(p)
+        folds[Y] = f"train_years≤{Y-1} n={len(tr)} val n={len(va)}"
+    print("  A1 walk-forward folds:")
+    for y, s in folds.items():
+        print(f"    {y}: {s}")
     return out
 
 
@@ -150,7 +171,11 @@ _LIQUID = ("SPY", "QQQ", "XLK", "XLF", "XLE", "XLV", "XLI", "XLY",
            "AAPL", "MSFT")
 
 
-def _b1_pred_panel(panel, tr_years):
+def _b1_pred_panel(panel, tr_years, val_years):
+    """Same STRICT CHRONOLOGICAL year-by-year rolling walk-forward
+    as A1 — fresh model per val_year Y trained on
+    ``train_years ∩ {y < Y} ∩ intraday-available`` only.
+    """
     close = panel["close"]
     syms = [s for s in _LIQUID if s in close.columns]
     intraday = {}
@@ -187,24 +212,37 @@ def _b1_pred_panel(panel, tr_years):
         return pd.DataFrame(index=close.index, columns=close.columns)
     feat_cols = ["open_range_breakout", "vwap_deviation",
                  "realized_vol_regime", "intraday_volume_z"]
-    tr = df[df.year.isin(tr_years)].reset_index(drop=True)
     fwd = close.shift(-_H) / close - 1.0
-    y_tr = np.array([float(fwd.at[r.date, r.symbol])
-                     for r in tr.itertuples()])
-    keep = ~np.isnan(y_tr)
-    tr = tr.loc[keep].reset_index(drop=True)
-    y_tr = y_tr[keep]
+    df["y"] = [float(fwd.at[r.date, r.symbol])
+               if r.symbol in fwd.columns else np.nan
+               for r in df.itertuples()]
+    df = df.dropna(subset=["y"]).reset_index(drop=True)
     sym_codes = {s: i for i, s in enumerate(sorted(df.symbol.unique()))}
-    res = train_b1(
-        tr[feat_cols], pd.Series(y_tr),
-        start_pos=tr.start_pos.to_numpy(), horizon=_H,
-        groups=np.array([sym_codes[s] for s in tr.symbol]),
-        cfg=B1Config(archetype="intraday_reversal",
-                     max_depth=3, n_estimators=300))
-    pred = res.model.predict(df[feat_cols])
     out = pd.DataFrame(np.nan, index=close.index, columns=close.columns)
-    for r, p in zip(df.itertuples(), pred):
-        out.at[r.date, r.symbol] = float(p)
+    folds = {}
+    for Y in sorted(val_years):
+        tr_subset = {y for y in tr_years if y < Y}
+        if not tr_subset:
+            folds[Y] = "skipped — no train year strictly before"
+            continue
+        tr = df[df.year.isin(tr_subset)].reset_index(drop=True)
+        va = df[df.year == Y].reset_index(drop=True)
+        if tr.empty or va.empty:
+            folds[Y] = f"skipped — train={len(tr)} val={len(va)}"
+            continue
+        res = train_b1(
+            tr[feat_cols], pd.Series(tr.y.to_numpy()),
+            start_pos=tr.start_pos.to_numpy(), horizon=_H,
+            groups=np.array([sym_codes[s] for s in tr.symbol]),
+            cfg=B1Config(archetype="intraday_reversal",
+                         max_depth=3, n_estimators=300))
+        pred = res.model.predict(va[feat_cols])
+        for r, p in zip(va.itertuples(), pred):
+            out.at[r.date, r.symbol] = float(p)
+        folds[Y] = f"train_years≤{Y-1} n={len(tr)} val n={len(va)}"
+    print("  B1 walk-forward folds:")
+    for y, s in folds.items():
+        print(f"    {y}: {s}")
     return out
 
 
@@ -313,7 +351,7 @@ def main() -> int:
            "candidates": {}}
     if args.only in ("a1", "both"):
         print("=== A1 (RA1+RA2 daily-close engineered + shallow XGB) ===")
-        p_a1 = _a1_pred_panel(panel, tr_years)
+        p_a1 = _a1_pred_panel(panel, tr_years, val_years)
         ev_a1 = _evaluate(p_a1, "a1", panel, val_years, sslices, mask)
         gates_a1 = _track_a_gates("a1", ev_a1)
         out["candidates"]["a1"] = gates_a1
@@ -326,7 +364,7 @@ def main() -> int:
 
     if args.only in ("b1", "both"):
         print("=== B1 (RB2 intraday engineered + shallow XGB) ===")
-        p_b1 = _b1_pred_panel(panel, tr_years)
+        p_b1 = _b1_pred_panel(panel, tr_years, val_years)
         ev_b1 = _evaluate(p_b1, "b1", panel, val_years, sslices, mask)
         gates_b1 = _track_a_gates("b1", ev_b1)
         out["candidates"]["b1"] = gates_b1
