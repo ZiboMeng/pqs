@@ -15,7 +15,8 @@ run4 证实：21d 重叠标签未做 average-uniqueness 降权 + score-生成的
 
 **In**：
 - P1.1 `core/research/` 加 canonical `average_uniqueness_weights(labels, horizon)`（López de Prado Ch.4 concurrency）+ `probe_fit_purge_mask`（train 行 label 窗跨进 validation 年则 purge + embargo），含单元测试。
-- P1.2 接入：`temporal_split_acceptance` + `cpcv_acceptance` + 所有 probe-fit/score-生成路径（chart_native L3 已 default-on，本 PRD 把它提升为 core-level 契约）。新增 `acceptance.yaml` 开关 `leakage_correct: true`（default），`legacy_no_leakage_corr` 逃生口（forensic，bit-identical 复现旧数）。
+- P1.2 接入：`temporal_split_acceptance` + 所有 probe-fit/score-生成路径（chart_native L3 已 default-on，本 PRD 把它提升为 core-level 契约）。新增 `acceptance.yaml` 开关 `leakage_correct: true`（default），`legacy_no_leakage_corr` 逃生口（forensic，bit-identical 复现旧数）。
+  - **§3 契约调和（实现者必读,防错）**：average-uniqueness 是 **probe-fit loss 的 per-sample 训练权重 + label 构造偏差修正**,**只入样本/probe-fit 层**;**不得**改 `cpcv_acceptance` §3 的 fold-aggregation sample-SIZE 加权（§3 禁的是 fold 聚合层的自由裁量 recency/regime DOF；uniqueness 是原则性减偏,范畴不同,两层正交,§3 rationale 不适用）。purge/embargo 同理作用于 probe-fit 训练行,cpcv 的 fold-level purge 保持不动。
 - P1.3 **诚实全重评**：对所有走 factor-composite Track-A 的在任/历史候选（**cycle06/08 = 主轴**；trial9 已 completed_fail 仅留痕；pead/options/simple_baseline 独立轨单列）跑 leakage-correct 重评，逐候选产"修正前/后 + 哪门翻 + root cause"对照表。**全 retire 可接受**（用户 2026-05-18）；但 retirement 逐候选 evidence-gated（leakage-correct FAIL 的具体证据），**非一刀切扫**（`feedback_no_blanket_failure_verdict`）。
 - P1.4 重评结论 fold 进各候选 manifest/memo + CLAUDE.md forward-state；被推翻者按 evidence retire，留 forensic。
 

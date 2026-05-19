@@ -43,9 +43,14 @@
 - **TODO-Q2（真 short execution）**：触发 = T1+cadence 在 leakage-correct+forward 跑出正证据 + 用户 explicit-go + borrow/margin/squeeze/SSR 模型 + 风险不变量回归。**未授权前 T2 仅 schema+gate**。
 - 不动 risk.yaml 风险天花板；不动 sealed/partition。
 
-## §7 验收（per phase）
+## §7 验收（per phase，可量化 — 审计修正,替换原 generic 表述）
 
-每 phase：leakage-correct Track-A + 成本敏感性（2x/3x，intraday 更严）+ 风险不变量全过 + Path-1 forward init（非 IC 层宣布胜利）；P2.3 额外:Multi-TF Leakage Rules（bar-completion/无未来高 TF/执行延迟）+ A/B 去混淆。
+通用（所有 phase）：PRD-1 leakage-correct Track-A 全门过 + 风险不变量(allow_margin/DD≤20%/2008-≤25%/halt 0.25)无一放松 + Path-1 forward init（非 IC 层宣布胜利）+ DLinear/long-only 基线对照。
+
+- **P2.1 T1 1× 反向对冲**：成本模型 ON（1× 每日重置 decay + expense）后,(a) 2022-bear / covid 切片 max_dd 相对 T0 同 spec **绝对降 ≥3pp**,(b) full-period vs_spy 净成本后**不低于 T0 同 spec − 1pp**（对冲不该白杀 alpha）,(c) decay 建模做了对照（无 decay 模型的乐观版 vs 有 decay 版差异显式报告,禁只报乐观）。**cadence 日/周**：换手成本 2x/3x 下 full-period 仍 > SPY。
+- **P2.2 cross-asset/horizon**：non-equity 利用率与 DD 改善量化报告;不得引入 leveraged-inverse（SQQQ blacklist 回归测试）。
+- **P2.3 multi-TF intraday 构建**：Multi-TF Leakage Rules 单测全过（bar-completion / 无未来高 TF / ≥1-bar 执行延迟）+ **A/B 去混淆数值**（信息贡献 vs timing 贡献分离曲线,沿用 chart_native 三点曲线法）+ intraday 成本 3x 敏感下仍正 + 与 60m-only 基线对照（CLAUDE.md Multi-TF Timing Contract 回归:不得劣于 60m-only,否则按 naive-voting 先例淘汰）。
+- **P2.4 真 short**：不验收（未实现,§6 TODO）。
 
 ## §8 R1-R4 自审
 
