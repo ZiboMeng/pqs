@@ -28,36 +28,36 @@
     "train": 720,
     "val": 589
   },
-  "val_ic": 0.08394966615305598,
+  "val_ic": 0.032229070364663576,
   "ab_deconfound_3point": {
     "p0_60m_only": {
       "terminal": 1.9070217327832228,
       "sharpe": 0.5094106849222602
     },
     "p1_info_only_veto": {
-      "terminal": 1.807835510040222,
-      "sharpe": 0.49701389200591817
+      "terminal": 2.1406620354868355,
+      "sharpe": 0.5499411219528103
     },
     "p2_full_b1_signal": {
-      "terminal": 1.9512507087639,
-      "sharpe": 0.5120649664526686
+      "terminal": 2.206607896309112,
+      "sharpe": 0.5472465918351039
     },
-    "information_contribution_terminal": -0.09918622274300093,
-    "timing_contribution_terminal": 0.14341519872367803,
+    "information_contribution_terminal": 0.2336403027036127,
+    "timing_contribution_terminal": 0.06594586082227627,
     "method": "chart_native 3-point precedent (R13/RA4)"
   },
   "intraday_3x_cost": {
     "p2_at_3x": {
-      "terminal": 1.7371946644402252,
-      "sharpe": 0.48138789997184345
+      "terminal": 1.9524054660695778,
+      "sharpe": 0.513398310150683
     },
     "still_positive": true
   },
   "not_worse_than_60m_only": {
     "pass": true,
-    "p2_terminal": 1.9512507087639,
+    "p2_terminal": 2.206607896309112,
     "p0_terminal": 1.9070217327832228,
-    "p2_sharpe": 0.5120649664526686,
+    "p2_sharpe": 0.5472465918351039,
     "p0_sharpe": 0.5094106849222602
   },
   "archetype": "intraday_reversal",
