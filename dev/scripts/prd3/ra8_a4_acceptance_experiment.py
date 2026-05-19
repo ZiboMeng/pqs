@@ -37,8 +37,13 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
+
+# 4GB-VRAM constraint (PRD-3 RA7 "GPU 4GB 串行"): reduce allocator
+# fragmentation per the torch OOM guidance. Set BEFORE torch import.
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 PROJ = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJ))
@@ -138,6 +143,8 @@ def main() -> int:
     w_uniq = l3._avg_uniqueness_weights(keys, date_pos, _H)
     tr_m, va_m = is_tr & keep, ~is_tr
 
+    import torch
+
     # in-domain SSL arm (RA7 scaffold, curated → guard passes)
     _model, embed = a4_ssl_frozen_probe_scaffold(
         cwins[tr_m], steps=200, universe_name="executable", seed=42)
@@ -145,20 +152,28 @@ def main() -> int:
     ic_ssl, ics_ssl = _ridge_probe_ic(
         Fssl[tr_m], ys[tr_m], w_uniq[tr_m],
         Fssl[va_m], ys[va_m], dates[va_m])
+    # ROOT CAUSE fix (R41): free the SSL MAE model from the 4GB GPU
+    # BEFORE the ImageNet arm — otherwise the resident SSL graph +
+    # ResNet18 + the 224-interpolate forward OOM the 4GB card.
+    del _model, embed
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
-    # ImageNet domain-transfer arm (close GAF → frozen ResNet18)
-    import torch
+    # ImageNet domain-transfer arm (close GAF → frozen ResNet18).
+    # ROOT CAUSE fix (R41): NEVER call _encode_batch on the full
+    # ~7781-image array (that allocates ~23GB on a 4GB GPU = the OOM
+    # crash). ALWAYS stream bounded small batches (the S1/L3
+    # streaming discipline; bs=16 is safe for 4GB at 224x224x3).
     dev = "cuda" if torch.cuda.is_available() else "cpu"
     net = l3._build_frozen_net(dev)
-    gimgs = np.stack([gaf_image(w) for w in cwins]).astype(np.float32)
-    Fimg = l3._encode_batch(net, gimgs, dev) if hasattr(
-        l3, "_encode_batch") else None
-    if Fimg is None or len(Fimg) != len(gimgs):
-        # stream in batches via the canonical _encode_batch
-        outs = []
-        for i in range(0, len(gimgs), 64):
-            outs.append(l3._encode_batch(net, gimgs[i:i + 64], dev))
-        Fimg = np.concatenate(outs, 0)
+    outs = []
+    for i in range(0, len(cwins), 16):
+        gb = np.stack([gaf_image(w) for w in cwins[i:i + 16]]
+                      ).astype(np.float32)
+        outs.append(l3._encode_batch(net, gb, dev))
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    Fimg = np.concatenate(outs, 0)
     ic_img, _ics_img = _ridge_probe_ic(
         Fimg[tr_m], ys[tr_m], w_uniq[tr_m],
         Fimg[va_m], ys[va_m], dates[va_m])
