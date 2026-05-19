@@ -1,0 +1,4 @@
+P2.2 R8 verdict=PASS -> data/audit/ml_redo/p2_2_r8_cross_asset.json
+  non_equity_weight_avg=0.3703 (pass=True)
+  full max_dd xasset=-0.2568 eqonly=-0.3255 improvement=6.88pp (not-worse pass=True)
+  leveraged_inverse_leaked=NONE (pass=True)

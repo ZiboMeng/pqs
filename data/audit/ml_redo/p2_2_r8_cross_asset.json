@@ -1,0 +1,59 @@
+{
+  "experiment": "p2_2_r8_cross_asset_acceptance",
+  "sealed_2026_read": false,
+  "spec_feats": [
+    "drawup_from_252d_low",
+    "trend_tstat_20d",
+    "ret_2d"
+  ],
+  "non_equity_instruments_in_panel": 6,
+  "xasset_mfp": {
+    "cum_ret": 9.539731177290625,
+    "sharpe": 1.1310701008566841,
+    "max_dd": -0.2567819628224608,
+    "vs_spy": 3.20410306169118,
+    "spy_cum_ret": 6.3356281155994445,
+    "vs_qqq": 4.575944579899848,
+    "qqq_cum_ret": 4.963786597390777
+  },
+  "eqonly_mfp": {
+    "cum_ret": 15.670548739579605,
+    "sharpe": 1.0610698003548196,
+    "max_dd": -0.3255452440482943,
+    "vs_spy": 9.33492062398016,
+    "spy_cum_ret": 6.3356281155994445,
+    "vs_qqq": 10.706762142188829,
+    "qqq_cum_ret": 4.963786597390777
+  },
+  "gates": {
+    "non_equity_utilization": {
+      "non_equity_weight_avg": 0.37026041863064946,
+      "pass": true
+    },
+    "dd_not_worse": {
+      "full": {
+        "xasset": -0.2567819628224608,
+        "eqonly": -0.3255452440482943,
+        "improvement_pp": 6.876328122583352
+      },
+      "stress": {
+        "covid_flash": {
+          "xasset_dd": 0.2058787541043713,
+          "eqonly_dd": 0.3255452440482943,
+          "improvement_pp": 11.966648994392305
+        },
+        "rate_hike_2022": {
+          "xasset_dd": 0.10708262974088742,
+          "eqonly_dd": 0.1347407094346608,
+          "improvement_pp": 2.765807969377337
+        }
+      },
+      "pass": true
+    },
+    "no_leveraged_inverse": {
+      "leaked": [],
+      "pass": true
+    }
+  },
+  "verdict": "PASS"
+}
