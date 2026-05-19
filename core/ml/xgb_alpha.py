@@ -78,7 +78,13 @@ class XGBAlphaModel:
         X_val: Optional[pd.DataFrame] = None,
         y_val: Optional[pd.Series] = None,
         feature_cols: Optional[List[str]] = None,
+        sample_weight: Optional[Any] = None,
     ) -> "XGBAlphaModel":
+        # ``sample_weight`` is an additive passthrough (PRD-3 RA2 — to
+        # carry the PRD-1 leakage-correct uniqueness weights into the
+        # tree). ``None`` (the default) is bit-identical to the prior
+        # behaviour: xgboost's ``fit(sample_weight=None)`` is exactly
+        # the unweighted fit, so existing callers are unaffected.
         import xgboost as xgb
         if feature_cols is None:
             feature_cols = [c for c in X_train.columns
@@ -101,6 +107,7 @@ class XGBAlphaModel:
             self.model = xgb.XGBRegressor(**params)
             self.model.fit(
                 X_train[feature_cols], y_train,
+                sample_weight=sample_weight,
                 eval_set=[(X_val[feature_cols], y_val)],
                 verbose=False,
             )
@@ -110,7 +117,8 @@ class XGBAlphaModel:
             )
         else:
             self.model = xgb.XGBRegressor(**params)
-            self.model.fit(X_train[feature_cols], y_train, verbose=False)
+            self.model.fit(X_train[feature_cols], y_train,
+                            sample_weight=sample_weight, verbose=False)
             self.best_iteration = None
         return self
 
