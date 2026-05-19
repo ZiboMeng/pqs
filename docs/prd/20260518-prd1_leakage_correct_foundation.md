@@ -17,7 +17,11 @@ run4 证实：21d 重叠标签未做 average-uniqueness 降权 + score-生成的
 - P1.1 `core/research/` 加 canonical `average_uniqueness_weights(labels, horizon)`（López de Prado Ch.4 concurrency）+ `probe_fit_purge_mask`（train 行 label 窗跨进 validation 年则 purge + embargo），含单元测试。
 - P1.2 接入：`temporal_split_acceptance` + 所有 probe-fit/score-生成路径（chart_native L3 已 default-on，本 PRD 把它提升为 core-level 契约）。新增 `acceptance.yaml` 开关 `leakage_correct: true`（default），`legacy_no_leakage_corr` 逃生口（forensic，bit-identical 复现旧数）。
   - **§3 契约调和（实现者必读,防错）**：average-uniqueness 是 **probe-fit loss 的 per-sample 训练权重 + label 构造偏差修正**,**只入样本/probe-fit 层**;**不得**改 `cpcv_acceptance` §3 的 fold-aggregation sample-SIZE 加权（§3 禁的是 fold 聚合层的自由裁量 recency/regime DOF；uniqueness 是原则性减偏,范畴不同,两层正交,§3 rationale 不适用）。purge/embargo 同理作用于 probe-fit 训练行,cpcv 的 fold-level purge 保持不动。
-- P1.3 **诚实全重评**：对所有走 factor-composite Track-A 的在任/历史候选（**cycle06/08 = 主轴**；trial9 已 completed_fail 仅留痕；pead/options/simple_baseline 独立轨单列）跑 leakage-correct 重评，逐候选产"修正前/后 + 哪门翻 + root cause"对照表。**全 retire 可接受**（用户 2026-05-18）；但 retirement 逐候选 evidence-gated（leakage-correct FAIL 的具体证据），**非一刀切扫**（`feedback_no_blanket_failure_verdict`）。
+- P1.3 **诚实重评**（**SCOPE-CORRECTED 2026-05-18 loop R3,grounded —— 见 `docs/memos/20260518-prd1_p13_scope_correction_factor_composite_unaffected.md`**）：
+  - 原 premise"cycle06/08 = factor-composite Track-A 通病须重评"**对 factor-composite 是错的**（诚实纠 overclaim）：R3 实读 `cycle06_track_a_eval.py` = `ResearchCompositeSpec`+`evaluate_composite_spec`,**无 ridge probe / 无 cpcv_inputs 重叠标签向量**;run4 leakage 是 **learned-probe-specific**(chart_native),对确定性 composite 无机械作用面 → cycle06/08 Track-A PASS 不因该机制虚高,**不重评、不 retire、主线不归零**（grounded,非护盘）。
+  - 正确 scope:learned-probe（chart_native_s1）→ Option A caveat done;pead_sue → 单独小检查（事件驱动,evidence-only 非主线）;cycle06/08/options/simple_baseline → probe-fit leakage 无作用面。
+  - "全 retire 可接受"（用户 2026-05-18）仍立,但 retirement 逐候选 evidence-gated；目前 grounded 证据 = 仅 chart_native 受影响（已 caveat）。
+  - **directional STOP-for-user**：scope 纠正改变"之前结论真实性"判断 + 评估准则 scope + 主线去留 → 选项 A/B/C 见 scope-correction memo §5,待用户 ratify 才续 P1.3。
 - P1.4 重评结论 fold 进各候选 manifest/memo + CLAUDE.md forward-state；被推翻者按 evidence retire，留 forensic。
 
 **Out / Deferred**：不改 temporal_split partition/sealed_ledger（C4 lock）；不改 acceptance 阈值数值（仅加 leakage-correct 加权/purge，阈值不动）；新 mining 本身 = PRD-2。
