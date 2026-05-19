@@ -1,0 +1,5 @@
+=== run L: legacy (reproduce old leakage-naive canonical) ===
+LEGACY BIT-IDENTICAL vs old canonical: PASS — NONE differ
+=== run D: default = NEW leakage-correct canonical ===
+NEW canonical (leakage-correct default): FAIL | failed= ['validation_aggregate_excess_vs_spy', 'role_core__validation__2025__excess_vs_spy'] | oos_ic= {'pooled_all': 0.010571180841851104, 'on_clustermap_59': 0.010979753103743635} | leakage_correct_default= True | flags= {'legacy_no_leakage_corr': False, 'fit_clustermap_only': False, 'sample_uniqueness': True, 'purge_embargo': True}
+=== DONE ===

@@ -1,115 +1,112 @@
 {
-  "experiment": "chart_native_l3_track_a",
+  "experiment": "chart_native_l3_track_a_legacyNoCorr",
   "universe": "executable",
-  "leakage_correct_default": true,
+  "leakage_correct_default": false,
   "diagnostic_flags": {
-    "legacy_no_leakage_corr": false,
+    "legacy_no_leakage_corr": true,
     "fit_clustermap_only": false,
-    "sample_uniqueness": true,
-    "purge_embargo": true
+    "sample_uniqueness": false,
+    "purge_embargo": false
   },
   "oos_rank_ic": {
-    "pooled_all": 0.010571180841851104,
-    "on_clustermap_59": 0.010979753103743635
+    "pooled_all": 0.012229306360699839,
+    "on_clustermap_59": 0.014629663129627341
   },
   "probe_train_cross_section_note": "probe ridge fit on this universe's train-year rows; cap_aware Track-A portfolio still restricted to cluster_map (~59 names, eligible_cols) \u2014 NOT a full-universe portfolio",
-  "created_at": "2026-05-19T05:03:24.070352+00:00",
+  "created_at": "2026-05-19T04:57:42.553261+00:00",
   "candidate": "chart_native_s1 (GAF\u2192frozen ResNet18 IMAGENET1K_V1\u2192train-only ridge probe)",
   "no_leakage": {
-    "probe_fit_train_rows": 80911,
+    "probe_fit_train_rows": 86785,
     "validation_rows_frozen_oos": 70679,
     "sealed_2026_read": false
   },
-  "track_a_overall_passed": false,
-  "track_a_failed_gates": [
-    "validation_aggregate_excess_vs_spy",
-    "role_core__validation__2025__excess_vs_spy"
-  ],
+  "track_a_overall_passed": true,
+  "track_a_failed_gates": [],
   "metrics_full_period": {
-    "cum_ret": 18.18673640658963,
-    "sharpe": 1.5466888950027702,
-    "max_dd": -0.16879687382206526,
-    "vs_spy": 11.851108290990187,
+    "cum_ret": 20.42222909242363,
+    "sharpe": 1.5886588942032607,
+    "max_dd": -0.1679660090427566,
+    "vs_spy": 14.086600976824187,
     "spy_cum_ret": 6.3356281155994445,
-    "vs_qqq": 13.222949809198855,
+    "vs_qqq": 15.458442495032855,
     "qqq_cum_ret": 4.963786597390777
   },
   "metrics_per_year": {
     "2018": {
-      "cum_ret": -0.03378060867816279,
-      "sharpe": -0.18198028413430178,
-      "max_dd": -0.15886270552568368,
-      "vs_spy": 0.03635367571088666,
+      "cum_ret": -0.02825427575498718,
+      "sharpe": -0.14440223058757928,
+      "max_dd": -0.14433978524353439,
+      "vs_spy": 0.04188000863406227,
       "spy_cum_ret": -0.07013428438904945,
-      "vs_qqq": -0.007150955190460273,
+      "vs_qqq": -0.0016246222672846589,
       "qqq_cum_ret": -0.02662965348770252
     },
     "2019": {
-      "cum_ret": 0.38702944346731494,
-      "sharpe": 2.7657827819405614,
-      "max_dd": -0.05466071421789153,
-      "vs_spy": 0.10051575422648762,
+      "cum_ret": 0.34661414338945584,
+      "sharpe": 2.5075022618352283,
+      "max_dd": -0.0859802745912019,
+      "vs_spy": 0.060100454148628524,
       "spy_cum_ret": 0.2865136892408273,
-      "vs_qqq": 0.014571552907972851,
+      "vs_qqq": -0.025843747169886244,
       "qqq_cum_ret": 0.3724578905593421
     },
     "2021": {
-      "cum_ret": 0.32664183546417314,
-      "sharpe": 2.4517989929792647,
-      "max_dd": -0.049179709361171726,
-      "vs_spy": 0.03875447287250511,
+      "cum_ret": 0.23714432921890816,
+      "sharpe": 1.8730583451139322,
+      "max_dd": -0.06809009255744285,
+      "vs_spy": -0.05074303337275987,
       "spy_cum_ret": 0.28788736259166803,
-      "vs_qqq": 0.04103838793696157,
+      "vs_qqq": -0.048459118308303406,
       "qqq_cum_ret": 0.28560344752721156
     },
     "2023": {
-      "cum_ret": 0.18049133081155277,
-      "sharpe": 1.5439554549143097,
-      "max_dd": -0.08253938616329484,
-      "vs_spy": -0.06763111133190591,
+      "cum_ret": 0.267763585072176,
+      "sharpe": 2.1043871062580295,
+      "max_dd": -0.08922989968550003,
+      "vs_spy": 0.019641142928717326,
       "spy_cum_ret": 0.2481224421434587,
-      "vs_qqq": -0.3677957624542356,
+      "vs_qqq": -0.2805235081936124,
       "qqq_cum_ret": 0.5482870932657884
     },
     "2025": {
-      "cum_ret": 0.160521065924639,
-      "sharpe": 1.0317974934749825,
-      "max_dd": -0.14189358178988065,
-      "vs_spy": -0.005871869598627066,
+      "cum_ret": 0.17795365986320166,
+      "sharpe": 1.0489819887798673,
+      "max_dd": -0.15447215236558176,
+      "vs_spy": 0.011560724339935602,
       "spy_cum_ret": 0.16639293552326606,
-      "vs_qqq": -0.043528571183758746,
+      "vs_qqq": -0.026095977245196078,
       "qqq_cum_ret": 0.20404963710839774
     }
   },
   "metrics_per_stress": {
     "covid_flash": {
-      "cum_ret": 0.025599683923863692,
-      "sharpe": 0.5145190584457712,
-      "max_dd": -0.16805124036510188,
-      "vs_spy": 0.16295007887240853,
+      "cum_ret": 0.023279302861348272,
+      "sharpe": 0.48377242386090247,
+      "max_dd": -0.16296894195472245,
+      "vs_spy": 0.1606296978098931,
       "spy_cum_ret": -0.13735039494854484,
-      "vs_qqq": 0.09192841767126136,
+      "vs_qqq": 0.08960803660874594,
       "qqq_cum_ret": -0.06632873374739767
     },
     "rate_hike_2022": {
-      "cum_ret": -0.11822504716272864,
-      "sharpe": -4.058976941332886,
-      "max_dd": -0.12022181402214233,
-      "vs_spy": 0.047866411359237415,
+      "cum_ret": -0.114920523745345,
+      "sharpe": -4.073946428666552,
+      "max_dd": -0.11916255848290255,
+      "vs_spy": 0.051170934776621047,
       "spy_cum_ret": -0.16609145852196605,
-      "vs_qqq": 0.09930719578943792,
+      "vs_qqq": 0.10261171920682155,
       "qqq_cum_ret": -0.21753224295216655
     }
   },
   "overfit_diagnostics": {
-    "dsr": 0.9999998372720628,
+    "dsr": 0.9999999415169701,
     "dsr_n_trials": 6,
-    "sharpe": 0.09743224218482432,
+    "sharpe": 0.10007610362315951,
     "min_btl_gate": {
       "passed": true,
       "reason": "ok",
       "actual_years": 16.968,
-      "min_btl_years": 1.4979722539653322,
+      "min_btl_years": 1.419869358377993,
       "expected_max_sr_annual": 1.8930184728248454,
       "n_trials": 6,
       "safety_multiple": 1.0
@@ -124,9 +121,9 @@
     "passed": true,
     "values": {
       "insufficient": false,
-      "ic_sample_weighted": 0.1415462006608613,
+      "ic_sample_weighted": 0.1467818632885955,
       "n_folds": 15,
-      "dsr": 0.9999999993772029,
+      "dsr": 0.9999999981128872,
       "pbo_red_flag": true
     }
   },

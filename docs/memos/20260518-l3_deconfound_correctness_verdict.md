@@ -57,3 +57,6 @@ run4 = 79-train + López de Prado average-uniqueness 加权 + purge/embargo:
 - config-scoped / train-only / sealed 2026 未读;DSR/pbo caveat 同 L3-A。
 
 关联 [[project-backtest-robustness-ml-redo-2026-05]] [[project-grand-audit-2026-05-18-two-p0]];前序 `docs/memos/20260518-l3_option_a_expanded_v2_verdict.md`(§3.4 over-claim 在此最终更正)、`docs/memos/20260518-chart_native_architecture_literature_synthesis.md`(收敛⑤ correctness 缺口在此实测确认)、`docs/memos/20260518-s1_scale_falsification_verdict.md`(pooled IC 掩盖 on-59 退化,在此暴露)。
+
+## §8 B VERIFY 2026-05-18
+leakage-correct-default flip 验证(`run_l3_leakagecorrect_default_verify.sh`):legacy(`CHART_L3_LEGACY_NO_LEAKAGE_CORR=1`)vs pre-flip canonical = **bit-identical, NONE differ**(逃生口精确,delta 隔离干净);新默认 canonical = leakage-correct **FAIL**(failed=validation_aggregate_excess_vs_spy + 2025 vs_spy;oos_ic pooled 0.01057 / on_59 0.01098;leakage_correct_default=True),与 run4 数值一致。B 落地 + 验证完成。
