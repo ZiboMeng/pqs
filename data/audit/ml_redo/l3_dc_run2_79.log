@@ -1,0 +1,10 @@
+panel (4276, 79) years=[2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025] (22s)
+157681 GAF windows, streamed frozen features (289s) device=cuda
+features (157681, 512) (289s)
+probe fit on 86785 TRAIN rows; 70679 validation rows are frozen-OOS (flags cmap=False suniq=False purge=False) (297s)
+OOS rank-IC: pooled_all=0.012229306360699839 on_clustermap_59=0.014629663129627341
+
+L3 Track-A: PASS | failed=[]
+full: {"cum_ret": 20.42222909242363, "sharpe": 1.5886588942032607, "max_dd": -0.1679660090427566, "vs_spy": 14.086600976824187, "spy_cum_ret": 6.3356281155994445, "vs_qqq": 15.458442495032855, "qqq_cum_ret": 4.963786597390777}
+cpcv_gate={'passed': True, 'values': {'insufficient': False, 'ic_sample_weighted': 0.1467818632885955, 'n_folds': 15, 'dsr': 0.9999999981128872, 'pbo_red_flag': True}} | overfit_dsr=0.9999999415169701
+-> data/audit/chart_native_l3_track_a.json (325s)

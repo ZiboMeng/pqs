@@ -1,114 +1,113 @@
 {
-  "experiment": "chart_native_l3_track_a[expanded_v2]",
-  "universe": "expanded_v2",
+  "experiment": "chart_native_l3_track_a_suniq_purge",
+  "universe": "executable",
   "diagnostic_flags": {
     "fit_clustermap_only": false,
-    "sample_uniqueness": false,
-    "purge_embargo": false
+    "sample_uniqueness": true,
+    "purge_embargo": true
   },
   "oos_rank_ic": {
-    "pooled_all": 0.022333327631782703,
-    "on_clustermap_59": -0.012458298069869094
+    "pooled_all": 0.010571180841851104,
+    "on_clustermap_59": 0.010979753103743635
   },
   "probe_train_cross_section_note": "probe ridge fit on this universe's train-year rows; cap_aware Track-A portfolio still restricted to cluster_map (~59 names, eligible_cols) \u2014 NOT a full-universe portfolio",
-  "created_at": "2026-05-19T04:27:20.269666+00:00",
+  "created_at": "2026-05-19T03:36:46.175601+00:00",
   "candidate": "chart_native_s1 (GAF\u2192frozen ResNet18 IMAGENET1K_V1\u2192train-only ridge probe)",
   "no_leakage": {
-    "probe_fit_train_rows": 1166153,
-    "validation_rows_frozen_oos": 306112,
+    "probe_fit_train_rows": 80911,
+    "validation_rows_frozen_oos": 70679,
     "sealed_2026_read": false
   },
   "track_a_overall_passed": false,
   "track_a_failed_gates": [
-    "validation_year_2018_maxdd",
     "validation_aggregate_excess_vs_spy",
-    "stress_slice_covid_flash_maxdd"
+    "role_core__validation__2025__excess_vs_spy"
   ],
   "metrics_full_period": {
-    "cum_ret": 6.4973528453854295,
-    "sharpe": 1.0876107278458795,
-    "max_dd": -0.26758472931092725,
-    "vs_spy": 0.16172472978598496,
+    "cum_ret": 18.18673640658963,
+    "sharpe": 1.5466888950027702,
+    "max_dd": -0.16879687382206526,
+    "vs_spy": 11.851108290990187,
     "spy_cum_ret": 6.3356281155994445,
-    "vs_qqq": 1.5335662479946528,
+    "vs_qqq": 13.222949809198855,
     "qqq_cum_ret": 4.963786597390777
   },
   "metrics_per_year": {
     "2018": {
-      "cum_ret": -0.12023149086416385,
-      "sharpe": -0.7735896431250467,
-      "max_dd": -0.21601036323882652,
-      "vs_spy": -0.0500972064751144,
+      "cum_ret": -0.03378060867816279,
+      "sharpe": -0.18198028413430178,
+      "max_dd": -0.15886270552568368,
+      "vs_spy": 0.03635367571088666,
       "spy_cum_ret": -0.07013428438904945,
-      "vs_qqq": -0.09360183737646133,
+      "vs_qqq": -0.007150955190460273,
       "qqq_cum_ret": -0.02662965348770252
     },
     "2019": {
-      "cum_ret": 0.30150275914263625,
-      "sharpe": 2.658809882625392,
-      "max_dd": -0.04970132129002314,
-      "vs_spy": 0.014989069901808927,
+      "cum_ret": 0.38702944346731494,
+      "sharpe": 2.7657827819405614,
+      "max_dd": -0.05466071421789153,
+      "vs_spy": 0.10051575422648762,
       "spy_cum_ret": 0.2865136892408273,
-      "vs_qqq": -0.07095513141670584,
+      "vs_qqq": 0.014571552907972851,
       "qqq_cum_ret": 0.3724578905593421
     },
     "2021": {
-      "cum_ret": 0.2564156080203168,
-      "sharpe": 1.9215480127531177,
-      "max_dd": -0.05214975741590848,
-      "vs_spy": -0.03147175457135121,
+      "cum_ret": 0.32664183546417314,
+      "sharpe": 2.4517989929792647,
+      "max_dd": -0.049179709361171726,
+      "vs_spy": 0.03875447287250511,
       "spy_cum_ret": 0.28788736259166803,
-      "vs_qqq": -0.02918783950689474,
+      "vs_qqq": 0.04103838793696157,
       "qqq_cum_ret": 0.28560344752721156
     },
     "2023": {
-      "cum_ret": 0.18130249688546662,
-      "sharpe": 1.6469880142706745,
-      "max_dd": -0.07022952589792632,
-      "vs_spy": -0.06681994525799206,
+      "cum_ret": 0.18049133081155277,
+      "sharpe": 1.5439554549143097,
+      "max_dd": -0.08253938616329484,
+      "vs_spy": -0.06763111133190591,
       "spy_cum_ret": 0.2481224421434587,
-      "vs_qqq": -0.36698459638032177,
+      "vs_qqq": -0.3677957624542356,
       "qqq_cum_ret": 0.5482870932657884
     },
     "2025": {
-      "cum_ret": 0.17353801548926673,
-      "sharpe": 1.4659551410644465,
-      "max_dd": -0.08390645731776958,
-      "vs_spy": 0.007145079966000667,
+      "cum_ret": 0.160521065924639,
+      "sharpe": 1.0317974934749825,
+      "max_dd": -0.14189358178988065,
+      "vs_spy": -0.005871869598627066,
       "spy_cum_ret": 0.16639293552326606,
-      "vs_qqq": -0.030511621619131013,
+      "vs_qqq": -0.043528571183758746,
       "qqq_cum_ret": 0.20404963710839774
     }
   },
   "metrics_per_stress": {
     "covid_flash": {
-      "cum_ret": -0.0556036710403256,
-      "sharpe": -0.3393214838344941,
-      "max_dd": -0.26758472931092725,
-      "vs_spy": 0.08174672390821924,
+      "cum_ret": 0.025599683923863692,
+      "sharpe": 0.5145190584457712,
+      "max_dd": -0.16805124036510188,
+      "vs_spy": 0.16295007887240853,
       "spy_cum_ret": -0.13735039494854484,
-      "vs_qqq": 0.010725062707072075,
+      "vs_qqq": 0.09192841767126136,
       "qqq_cum_ret": -0.06632873374739767
     },
     "rate_hike_2022": {
-      "cum_ret": -0.10119714868191942,
-      "sharpe": -3.3168662604886556,
-      "max_dd": -0.10211610931671741,
-      "vs_spy": 0.06489430984004663,
+      "cum_ret": -0.11822504716272864,
+      "sharpe": -4.058976941332886,
+      "max_dd": -0.12022181402214233,
+      "vs_spy": 0.047866411359237415,
       "spy_cum_ret": -0.16609145852196605,
-      "vs_qqq": 0.11633509427024713,
+      "vs_qqq": 0.09930719578943792,
       "qqq_cum_ret": -0.21753224295216655
     }
   },
   "overfit_diagnostics": {
-    "dsr": 0.9990660636919002,
+    "dsr": 0.9999998372720628,
     "dsr_n_trials": 6,
-    "sharpe": 0.06851303593157498,
+    "sharpe": 0.09743224218482432,
     "min_btl_gate": {
       "passed": true,
       "reason": "ok",
-      "actual_years": 17.151,
-      "min_btl_years": 3.029442673092537,
+      "actual_years": 16.968,
+      "min_btl_years": 1.4979722539653322,
       "expected_max_sr_annual": 1.8930184728248454,
       "n_trials": 6,
       "safety_multiple": 1.0
@@ -123,9 +122,9 @@
     "passed": true,
     "values": {
       "insufficient": false,
-      "ic_sample_weighted": 0.10532161545285024,
+      "ic_sample_weighted": 0.1415462006608613,
       "n_folds": 15,
-      "dsr": 1.0,
+      "dsr": 0.9999999993772029,
       "pbo_red_flag": true
     }
   },

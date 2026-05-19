@@ -1,8 +1,17 @@
 {
   "experiment": "chart_native_l3_track_a",
   "universe": "executable",
+  "diagnostic_flags": {
+    "fit_clustermap_only": false,
+    "sample_uniqueness": false,
+    "purge_embargo": false
+  },
+  "oos_rank_ic": {
+    "pooled_all": 0.012229306360699839,
+    "on_clustermap_59": 0.014629663129627341
+  },
   "probe_train_cross_section_note": "probe ridge fit on this universe's train-year rows; cap_aware Track-A portfolio still restricted to cluster_map (~59 names, eligible_cols) \u2014 NOT a full-universe portfolio",
-  "created_at": "2026-05-19T01:42:32.732915+00:00",
+  "created_at": "2026-05-19T03:25:32.662042+00:00",
   "candidate": "chart_native_s1 (GAF\u2192frozen ResNet18 IMAGENET1K_V1\u2192train-only ridge probe)",
   "no_leakage": {
     "probe_fit_train_rows": 86785,

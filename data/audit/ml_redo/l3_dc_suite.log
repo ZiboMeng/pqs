@@ -1,0 +1,12 @@
+=== run2: 79-train/59-trade (default, canonical bit-identical + IC-on-59) ===
+BIT-IDENTICAL CHECK (run2 gates vs canonical): PASS — NONE differ
+ run2 oos_rank_ic: {'pooled_all': 0.012229306360699839, 'on_clustermap_59': 0.014629663129627341}
+=== run1: 59-train/59-trade (fit clustermap-only) ===
+=== run4: correctness (sample-uniqueness + purge/embargo) on 79 ===
+=== run3: 1k-train/59-trade (expanded_v2) ===
+=== SUITE SUMMARY ===
+run1_59train: FAIL | failed=['validation_aggregate_excess_vs_spy'] | oos_ic={'pooled_all': 0.021313389770805203, 'on_clustermap_59': 0.021781045152676124} | cum_ret=25.930 vs_spy=19.595 max_dd=-0.2047 | n_fit=65586 | flags={'fit_clustermap_only': True, 'sample_uniqueness': False, 'purge_embargo': False}
+run2_79train: PASS | failed=[] | oos_ic={'pooled_all': 0.012229306360699839, 'on_clustermap_59': 0.014629663129627341} | cum_ret=20.422 vs_spy=14.087 max_dd=-0.1680 | n_fit=86785 | flags={'fit_clustermap_only': False, 'sample_uniqueness': False, 'purge_embargo': False}
+run4_79_corr: FAIL | failed=['validation_aggregate_excess_vs_spy', 'role_core__validation__2025__excess_vs_spy'] | oos_ic={'pooled_all': 0.010571180841851104, 'on_clustermap_59': 0.010979753103743635} | cum_ret=18.187 vs_spy=11.851 max_dd=-0.1688 | n_fit=80911 | flags={'fit_clustermap_only': False, 'sample_uniqueness': True, 'purge_embargo': True}
+run3_1ktrain: FAIL | failed=['validation_year_2018_maxdd', 'validation_aggregate_excess_vs_spy', 'stress_slice_covid_flash_maxdd'] | oos_ic={'pooled_all': 0.022333327631782703, 'on_clustermap_59': -0.012458298069869094} | cum_ret=6.497 vs_spy=0.162 max_dd=-0.2676 | n_fit=1166153 | flags={'fit_clustermap_only': False, 'sample_uniqueness': False, 'purge_embargo': False}
+=== DONE ===
