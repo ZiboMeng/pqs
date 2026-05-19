@@ -5,7 +5,7 @@ Standalone CLI — does NOT modify config/production_strategy.yaml.
 Use scripts/promote_strategy.py for the promote action.
 
 Typical usage:
-  python scripts/acceptance_pack.py --spec-id 81f5cdaa053e --out-dir artifacts/
+  python scripts/acceptance_pack.py --spec-id 81f5cdaa053e --out-dir dev/artifacts/
   python scripts/acceptance_pack.py --spec-id 81f5 --verbose   # prefix match
 """
 from __future__ import annotations
@@ -31,7 +31,7 @@ def main() -> int:
                         help="Archive spec_id (prefix match allowed)")
     parser.add_argument("--archive-db", default="data/mining/archive.db",
                         help="Path to mining archive DB")
-    parser.add_argument("--out-dir", default="artifacts/acceptance_packs",
+    parser.add_argument("--out-dir", default="dev/artifacts/acceptance_packs",
                         help="Directory to write the pack JSON")
     parser.add_argument("--verbose", action="store_true",
                         help="Print full gate breakdown to stdout")
