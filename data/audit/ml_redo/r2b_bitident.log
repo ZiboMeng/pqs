@@ -1,0 +1,2 @@
+/tmp/r2b_bitident.sh: line 18: warning: here-document at line 5 delimited by end-of-file (wanted `PYEOF')
+R2-b T0 BIT-IDENTICAL (cycle06 default-tier vs C-lite baseline): PASS - NONE differ
