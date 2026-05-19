@@ -101,8 +101,8 @@
           }
         },
         "concentration": {
-          "top1_max": 0.0,
-          "top3_max": 0.0,
+          "top1_max": 0.13234547137714586,
+          "top3_max": 0.3613681552424668,
           "pass": true
         },
         "vs_qqq_diagnostic": {
@@ -168,8 +168,8 @@
           }
         },
         "concentration": {
-          "top1_max": 0.0,
-          "top3_max": 0.0,
+          "top1_max": 0.12746198626372124,
+          "top3_max": 0.23805588752014023,
           "pass": true
         },
         "vs_qqq_diagnostic": {
