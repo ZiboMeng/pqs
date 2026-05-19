@@ -51,4 +51,36 @@ artifact: `data/audit/chart_native_l3_track_a_expanded_v2.json`、`data/audit/ml
 - config-scoped / train-only / sealed 2026 未读;DSR=1.0 是 placeholder-N 天花板非证据锚,pbo_red_flag=True 两边都有(全线既有 caveat)。
 - 失败是构建层,**不能 over-claim 成"信号没用"**——信号 IC 在 1k 仍正、仍胜动量(S1 已证)。
 
+## §6 AMENDMENT 2026-05-18 — 自纠 over-claim:L3-A 是 train/trade 错配的污染实验
+
+用户 2026-05-18 指出 §3.4 + §4 的框定 over-claim。更正:
+
+**L3-A 不是 "1k vs 79" 的干净对照,是 train/trade 错配**:probe 在
+1006 训练但**只在 59 名(cluster_map)交易**。79-PASS = 训练≈交易
+(79⊃59,强针对性);1k-FAIL = 训练≫交易(1006 vs 59),ridge 系数
+被往 1000 名(双峰:442 深史+380 浅 2015)平均结构拉,**那 59 个特有
+的 predictive 结构被稀释**。因此**不能用 L3-A FAIL 推出"扩到 1k 无
+改善"**——那是 `feedback_no_blanket_failure_verdict` 禁的 over-claim;
+§3.4 "再次坐实 construction-bound" 低估了此 confound,在此更正。
+
+**现有 ≥3 个互不排斥解释,L3-A 单独分不开**:(a) train/trade 稀释
+(用户假设,机制成立,**未测**);(b) construction-bound(cycle04-10
+独立成立,但不能用 L3-A 单独"坐实");(c) correctness 缺口(IC 本身
+可疑)。关键空缺:**S1 的 +0.105 是 pooled 在 1000 名上量的,从未量
+1k-probe 在那 59 个可交易名字上的 IC** → S1+L3-A 合起来仍分不开稀释
+vs construction。
+
+**决定性便宜实验(不需 Path B 基建)**:三点曲线 [59-train/59-trade,
+79-train/59-trade(已 PASS),1k-train/59-trade(已 FAIL)] + 把
+1k-probe IC 限制在 59 子集量(对比 79-probe 同 59)。IC-on-59 随
+59→79→1k 单调降而 pooled 不变 → 稀释确认,L3-A FAIL 主因是错配非
+construction,Path B 在 train/trade 对齐下需重估;若 59-train(最大
+针对性)也 FAIL Track-A → construction-bound 占主导。
+
+**对 §4 决策的影响**:Path B(1000 名基建)**仍不立即起**(稀释假设
+未证、不是"1k-trade 已证好");但 §4 "L3-A 再次坐实 construction-
+bound、攻 construction 非信号" 的确定性**下调**——须先跑上述去混淆
+实验才能定 construction vs 稀释 何者主导。correctness 缺口 (a) 仍是
+最高优先地基(IC 可疑则三点曲线也不可信)。
+
 关联 [[project-backtest-robustness-ml-redo-2026-05]] [[project-grand-audit-2026-05-18-two-p0]];同源 `docs/memos/20260518-chart_native_architecture_literature_synthesis.md`(收敛⑤)、`docs/memos/20260518-s1_scale_falsification_verdict.md`。
