@@ -1,0 +1,184 @@
+{
+  "experiment": "a1_b1_nav_track_a",
+  "sealed_2026_read": false,
+  "bar_integrity": {
+    "weekend_rows": 0,
+    "years": [
+      2009,
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ]
+  },
+  "train_years": [
+    2009,
+    2010,
+    2011,
+    2012,
+    2013,
+    2014,
+    2015,
+    2016,
+    2017,
+    2020,
+    2022,
+    2024
+  ],
+  "validation_years": [
+    2018,
+    2019,
+    2021,
+    2023,
+    2025
+  ],
+  "candidates": {
+    "a1": {
+      "name": "a1",
+      "verdict": "FAIL_recorded_root_cause",
+      "metrics_full_period": {
+        "cum_ret": 2.8057143867473844,
+        "sharpe": 0.7254551244059368,
+        "max_dd": -0.23912241766594688,
+        "vs_spy": -3.52991372885206,
+        "spy_cum_ret": 6.3356281155994445,
+        "vs_qqq": -2.1580722106433923,
+        "qqq_cum_ret": 4.963786597390777
+      },
+      "gates": {
+        "vs_spy_hard": {
+          "vs_spy": -3.52991372885206,
+          "pass": false
+        },
+        "per_validation_year_maxdd_le_20pct": {
+          "pass": false,
+          "per_year": {
+            "2018": {
+              "max_dd": 0.20022925389819649,
+              "pass": false
+            },
+            "2019": {
+              "max_dd": 0.08657136137729626,
+              "pass": true
+            },
+            "2021": {
+              "max_dd": 0.06959981554904185,
+              "pass": true
+            },
+            "2023": {
+              "max_dd": 0.09846491942962367,
+              "pass": true
+            },
+            "2025": {
+              "max_dd": 0.14096368919669677,
+              "pass": true
+            }
+          }
+        },
+        "stress_slice_maxdd_le_25pct": {
+          "pass": true,
+          "per_slice": {
+            "covid_flash": {
+              "max_dd": 0.19842377090667776,
+              "pass": true
+            },
+            "rate_hike_2022": {
+              "max_dd": 0.17440303777144067,
+              "pass": true
+            }
+          }
+        },
+        "concentration": {
+          "top1_max": 0.0,
+          "top3_max": 0.0,
+          "pass": true
+        },
+        "vs_qqq_diagnostic": {
+          "vs_qqq": -2.1580722106433923,
+          "blocking": false
+        }
+      },
+      "n_observed_days": 4276
+    },
+    "b1": {
+      "name": "b1",
+      "verdict": "FAIL_recorded_root_cause",
+      "metrics_full_period": {
+        "cum_ret": 0.523496266449843,
+        "sharpe": 0.6808198339596203,
+        "max_dd": -0.0661860493409466,
+        "vs_spy": -5.812131849149601,
+        "spy_cum_ret": 6.3356281155994445,
+        "vs_qqq": -4.440290330940933,
+        "qqq_cum_ret": 4.963786597390777
+      },
+      "gates": {
+        "vs_spy_hard": {
+          "vs_spy": -5.812131849149601,
+          "pass": false
+        },
+        "per_validation_year_maxdd_le_20pct": {
+          "pass": true,
+          "per_year": {
+            "2018": {
+              "max_dd": 0.06299935509202688,
+              "pass": true
+            },
+            "2019": {
+              "max_dd": 0.026102403514066414,
+              "pass": true
+            },
+            "2021": {
+              "max_dd": 0.022333251751912173,
+              "pass": true
+            },
+            "2023": {
+              "max_dd": 0.028509104742221014,
+              "pass": true
+            },
+            "2025": {
+              "max_dd": 0.04911994122484492,
+              "pass": true
+            }
+          }
+        },
+        "stress_slice_maxdd_le_25pct": {
+          "pass": true,
+          "per_slice": {
+            "covid_flash": {
+              "max_dd": 0.06555785475139171,
+              "pass": true
+            },
+            "rate_hike_2022": {
+              "max_dd": 0.04742852514119325,
+              "pass": true
+            }
+          }
+        },
+        "concentration": {
+          "top1_max": 0.0,
+          "top3_max": 0.0,
+          "pass": true
+        },
+        "vs_qqq_diagnostic": {
+          "vs_qqq": -4.440290330940933,
+          "blocking": false
+        }
+      },
+      "n_observed_days": 4276
+    }
+  },
+  "funnel_caveat": "Track-A PASS does NOT promote to fleet \u2014 it unlocks the next phase (forward observation + sealed gate). FAIL \u2192 ROOT CAUSE which gate broke; NOT blanket 'ML doesn't work'."
+}
