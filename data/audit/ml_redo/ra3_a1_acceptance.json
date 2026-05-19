@@ -1,0 +1,62 @@
+{
+  "experiment": "ra3_a1_acceptance",
+  "sealed_2026_read": false,
+  "bar_integrity": {
+    "weekend_rows": 0,
+    "monotone": true,
+    "years": [
+      2009,
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ]
+  },
+  "n_rows": {
+    "train": 3105,
+    "val": 2730
+  },
+  "feat_cols": [
+    "close_pos_w20",
+    "close_pos_w63",
+    "kline_body",
+    "kline_upper_wick",
+    "kline_lower_wick",
+    "kline_gap",
+    "volume_z20",
+    "frac_diff_close"
+  ],
+  "ic": {
+    "pooled": 0.0558267281974186,
+    "on_tradeable": 0.05305878628039633
+  },
+  "baselines": {
+    "momentum_trend_tstat_20d": 0.011436574257473794,
+    "dlinear_essence_ridge": 0.05444055388797798,
+    "best_baseline": 0.05444055388797798
+  },
+  "jkx_sibling": {
+    "sib_factors": [
+      "trend_tstat_20d",
+      "ret_5d",
+      "amihud_20d"
+    ],
+    "r2": 0.03296242229482649,
+    "threshold": 0.12,
+    "differentiated_non_sibling": true
+  },
+  "verdict": "PASS",
+  "signal_not_binding_caveat": "IC-layer screen only. Per PRD-3 ironclad rule the binding gate is the PRD-2-construction NAV Track-A; RA3 is the differentiation + IC screen, NOT a promotion. Negative does not terminate the loop (config-scoped, no blanket)."
+}

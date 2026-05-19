@@ -1,0 +1,5 @@
+RA3 verdict=PASS -> data/audit/ml_redo/ra3_a1_acceptance.json
+  IC pooled=0.0558 on_tradeable=0.0531
+  baselines mom=0.0114 dlinear_ess=0.0544 best=0.0544
+  JKX sibling R^2=0.0330 (<=0.12 → differentiated=True)
+  caveat: signal NOT binding — NAV Track-A is the gate.
