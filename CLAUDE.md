@@ -12,7 +12,7 @@
 - macOS local execution; no AWS/cloud deployment priority
 - Benchmark: **SPY primary (HARD outperform gate over full period + 2025 holdout); QQQ secondary (DIAGNOSTIC only — sector-tilt reference, NOT a hard gate)** [REVISED 2026-05-02 per `docs/memos/20260502-qqq_benchmark_deprecation.md`]
 - Left-side trading = enhancement module only, never default engine
-- Intraday: 60m/30m primary, 15m research only
+- Intraday: 60m/30m primary（**正式验证层不变**）; 15m 允许作**决策输入**（construction/execution timing: entry/exit/sizing/veto），**非** intraday-alpha-mining、**非**正式验证层 [REVISED 2026-05-19 per `docs/memos/20260519-15m_decision_input_boundary_revision.md`]
 - All thresholds must be configurable (config/*.yaml), never hardcoded
 - Must preserve backtest-execution consistency
 - Chinese reporting, English code naming
