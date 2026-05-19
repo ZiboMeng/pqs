@@ -68,12 +68,49 @@ class FactorTierThresholds(BaseModel):
     c_min_ir: float = Field(default=0.10, ge=0)
 
 
+class LeakageCorrectPolicy(BaseModel):
+    """PRD-1 P1.2b — leakage-correct probe-fit/sample-layer contract.
+
+    Governs ONLY the score-generation / probe-fit layer (overlapping-
+    label average-uniqueness weighting + purge/embargo of train rows
+    whose label window reaches a holdout year — see
+    ``core.research.label_leakage``). Per PRD-1 §2 / cross-audit §C
+    this MUST NOT alter ``cpcv_acceptance`` §3 fold-aggregation
+    sample-SIZE weighting (a different, orthogonal layer; §3 bans
+    discretionary recency/regime fold weighting, whereas uniqueness
+    is a principled overlapping-label bias correction).
+
+    Default = leakage-correct ON. ``legacy_no_leakage_corr=True`` is
+    the forensic escape hatch that reproduces the pre-fix leakage-
+    naive numbers bit-identically.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True
+    sample_uniqueness: bool = True
+    purge_embargo: bool = True
+    embargo: int = Field(default=5, ge=0)
+    legacy_no_leakage_corr: bool = False
+
+    def effective(self) -> dict:
+        """Resolve the active policy. ``legacy_no_leakage_corr`` OR
+        ``not enabled`` forces both legs off (embargo passthrough)."""
+        off = self.legacy_no_leakage_corr or not self.enabled
+        return {
+            "sample_uniqueness": False if off else self.sample_uniqueness,
+            "purge_embargo": False if off else self.purge_embargo,
+            "embargo": self.embargo,
+        }
+
+
 class AcceptanceThresholds(BaseModel):
     """Single source of truth for acceptance-tier thresholds.
 
-    Three nested groups: ``tier_d`` (Tier D promotion gate),
+    Nested groups: ``tier_d`` (Tier D promotion gate),
     ``walk_forward`` (OOS / walk-forward governance), ``factor_tiers``
-    (factor IR auto-tier cuts).
+    (factor IR auto-tier cuts), ``leakage_correct`` (PRD-1 probe-fit
+    leakage policy — contract surface).
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -81,3 +118,5 @@ class AcceptanceThresholds(BaseModel):
     tier_d: TierDThresholds = Field(default_factory=TierDThresholds)
     walk_forward: WalkForwardThresholds = Field(default_factory=WalkForwardThresholds)
     factor_tiers: FactorTierThresholds = Field(default_factory=FactorTierThresholds)
+    leakage_correct: LeakageCorrectPolicy = Field(
+        default_factory=LeakageCorrectPolicy)

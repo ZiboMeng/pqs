@@ -1,0 +1,3 @@
+P1.2a BIT-IDENTICAL (canonical-helper refactor vs pre-refactor leakage-correct canonical): PASS — NONE differ
+ oos_rank_ic: {'pooled_all': 0.010571180841851104, 'on_clustermap_59': 0.010979753103743635} | verdict: FAIL
+=== P1.2a VERIFY DONE ===

@@ -13,7 +13,7 @@
     "on_clustermap_59": 0.010979753103743635
   },
   "probe_train_cross_section_note": "probe ridge fit on this universe's train-year rows; cap_aware Track-A portfolio still restricted to cluster_map (~59 names, eligible_cols) \u2014 NOT a full-universe portfolio",
-  "created_at": "2026-05-19T05:03:24.070352+00:00",
+  "created_at": "2026-05-19T05:47:35.865906+00:00",
   "candidate": "chart_native_s1 (GAF\u2192frozen ResNet18 IMAGENET1K_V1\u2192train-only ridge probe)",
   "no_leakage": {
     "probe_fit_train_rows": 80911,

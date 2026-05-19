@@ -33,3 +33,15 @@ factor_tiers:
   a_min_ir: 0.50
   b_min_ir: 0.30
   c_min_ir: 0.10
+
+# PRD-1 P1.2b (2026-05-18) — leakage-correct probe-fit/sample-layer
+# contract surface. Default ON. legacy_no_leakage_corr=true reproduces
+# the pre-fix leakage-naive numbers bit-identically (forensic only).
+# Governs probe-fit/score-gen ONLY; does NOT touch cpcv_acceptance §3
+# fold-aggregation size-weighting (orthogonal layer; PRD-1 §2).
+leakage_correct:
+  enabled: true
+  sample_uniqueness: true
+  purge_embargo: true
+  embargo: 5
+  legacy_no_leakage_corr: false
