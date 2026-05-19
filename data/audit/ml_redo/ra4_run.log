@@ -1,0 +1,6 @@
+RA4 verdict=PASS_image_not_necessary -> data/audit/ml_redo/ra4_a2_ablation.json
+  p0 raw-floor      IC=0.0001
+  p1 ROCKET-essence IC=0.0246
+  p2 explicit+tree  IC=0.0558
+  monotone=True explicit_recovers=True
+  → image necessary? NO

@@ -1,0 +1,42 @@
+{
+  "experiment": "ra4_a2_ablation",
+  "sealed_2026_read": false,
+  "bar_integrity": {
+    "weekend_rows": 0,
+    "years": [
+      2009,
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ]
+  },
+  "n_rows": {
+    "train": 3105,
+    "val": 2730
+  },
+  "three_point_curve": {
+    "p0_raw_window_no_norm_no_image": 9.145336348630537e-05,
+    "p1_rocket_essence_implicit_norm": 0.02463585398684886,
+    "p2_explicit_pername_norm_plus_tree": 0.0558267281974186,
+    "method": "chart_native 3-point curve precedent",
+    "rocket_note": "sktime/tsai unavailable \u2192 sklearn random 1D-conv + PPV/max = MiniROCKET essence (honest documented reduction, NOT a scope cut)"
+  },
+  "monotone_p0_p1_p2": true,
+  "explicit_normalization_recovers": true,
+  "verdict": "PASS_image_not_necessary",
+  "interpretation": "explicit per-name normalization (p2) >= ROCKET implicit (p1) > raw floor (p0) \u21d2 the representation value is recoverable WITHOUT an image (JKX 2023 implicit-per-name-scaling thesis holds) \u21d2 image NOT necessary for A1/A2.",
+  "signal_not_binding_caveat": "IC-layer ablation only; binding gate = PRD-2 NAV Track-A. Negative does NOT terminate the loop (config-scoped, no blanket)."
+}
