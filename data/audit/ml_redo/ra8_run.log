@@ -1,0 +1,4 @@
+RA8 verdict=FAIL_recorded_root_cause -> data/audit/ml_redo/ra8_a4_acceptance.json
+  in_domain_ssl IC=0.0193  imagenet_xfer IC=-0.0055  increment=+0.0249
+  DSR=None (honest_n=10)  in_domain_better=True dsr_survives=False
+  NO vision-scale overclaim; IC-layer; binding=PRD-2 NAV

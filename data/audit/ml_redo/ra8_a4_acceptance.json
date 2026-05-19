@@ -1,0 +1,45 @@
+{
+  "experiment": "ra8_a4_acceptance",
+  "sealed_2026_read": false,
+  "bar_integrity": {
+    "weekend_rows": 0,
+    "years": [
+      2009,
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ]
+  },
+  "n_windows": 7781,
+  "in_domain_ssl_ic": 0.019343950342716465,
+  "imagenet_xfer_ic": -0.005538157079322537,
+  "in_domain_increment": 0.024882107422039,
+  "dsr": {
+    "deflated_sharpe": 0.1583261709440325,
+    "sharpe": 0.07331714286997924,
+    "sr0": 0.20499523815075701,
+    "skew": -0.014449887145728127,
+    "kurtosis": 2.39736697256695,
+    "n_trials": 10.0,
+    "T": 59.0
+  },
+  "dsr_honest_n_trials": 10,
+  "in_domain_better": true,
+  "dsr_survives": false,
+  "verdict": "FAIL_recorded_root_cause",
+  "no_vision_overclaim_note": "Increment reported at financial-SNR scale ONLY. NO CV/vision-magnitude claim. close-GAF ImageNet arm ~0 under leakage-correct eval is EXPECTED per the chart_native_s1 leakage caveat + RA6 (NOT new). RA4 already showed the image is NOT necessary vs explicit normalization \u2014 RA8 narrowly asks whether IN-DOMAIN SSL pretrain beats OUT-of-domain ImageNet transfer.",
+  "signal_not_binding_caveat": "IC-layer acceptance only; binding gate = PRD-2 NAV Track-A (R13 showed construction is binding). Negative \u2192 ROOT CAUSE, no termination, no blanket. Not a promotion (PRD-3 funnel discipline)."
+}
