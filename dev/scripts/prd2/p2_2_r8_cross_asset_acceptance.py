@@ -105,8 +105,14 @@ def main() -> int:
                for s in split_cfg.partition.stress_slices}
     caps_xasset = {"equities": 0.70, "bonds": 0.40,
                    "commodities": 0.20, "cash_anchor": 0.30}
-    caps_eqonly = {"equities": 1.0, "bonds": 0.0,
-                   "commodities": 0.0, "cash_anchor": 0.0}
+    # R21 ROOT CAUSE fix: topn_signals_with_caps requires every
+    # asset_class_cap in (0, 1] — a literal 0.0 raises ValueError at
+    # RUN time (not config time, so the R20 smoke could not catch it).
+    # Express "~equities-only" with a tiny epsilon cap (any single
+    # ~10% pick blows a 1e-6 non-equity bucket -> 0 non-equity in
+    # practice) while staying inside the (0,1] contract.
+    caps_eqonly = {"equities": 1.0, "bonds": 1e-6,
+                   "commodities": 1e-6, "cash_anchor": 1e-6}
     n_ne = sum(1 for c in panel["close"].columns
                if acmap.get(c, "equities") != "equities")
 
