@@ -151,15 +151,32 @@ def main() -> int:
         out["T1"][f"frac_{fr}"] = {"mfp": mfp, "stress": ss}
         out["gates"][f"frac_{fr}"] = {"a_stress_maxdd": ga, "b_vs_spy": vb}
 
-    # gate (c): decay both legs on SH realized daily returns (period)
-    sh = panel["close"][_HEDGE_ETF].dropna()
-    sh_ret = sh.pct_change().dropna().to_numpy()
-    modeled, naive = inverse_etf_decay_return(sh_ret, expense_annual=0.0090)
+    # gate (c): decay both legs. inverse_etf_decay_return models a -1x
+    # daily-reset of the UNDERLYING INDEX (SPY), NOT the inverse ETF's
+    # own returns (feeding SH's own returns double-inverts -> garbage,
+    # R17 root-cause). modeled ≈ what a real -1x-of-SPY path returns
+    # (decay-inclusive, ~ the realized SH); naive_optimistic =
+    # -(SPY cumulative) (the no-decay fantasy). Both reported so the
+    # optimistic leg is never shown alone (PRD-2 §7 P2.1c).
+    spy_px = panel["close"].get("SPY")
+    sh_real = panel["close"][_HEDGE_ETF].dropna()
+    if spy_px is not None:
+        spy_ret = spy_px.reindex(sh_real.index).pct_change().dropna()
+        modeled, naive = inverse_etf_decay_return(
+            spy_ret.to_numpy(), expense_annual=0.0090)
+        realized_sh_cum = float(sh_real.iloc[-1] / sh_real.iloc[0] - 1.0)
+    else:
+        modeled = naive = realized_sh_cum = float("nan")
     out["decay_both_legs"] = {
-        "note": "realized SH price path already embeds real daily-reset "
-                "decay; naive-optimistic is the no-decay counterfactual. "
-                "Both reported (PRD-2 §7 P2.1c — never only optimistic).",
-        "sh_modeled_cum": modeled, "sh_naive_optimistic_cum": naive,
+        "note": "modeled = -1x daily-reset of the SPY index "
+                "(decay-inclusive, ~ realized SH); naive_optimistic = "
+                "-(SPY cumulative) (no-decay fantasy); realized_sh_cum = "
+                "actual SH price path. Both/all reported (PRD-2 §7 "
+                "P2.1c — never only optimistic). R17 fix: feed SPY "
+                "index returns, NOT SH's own returns.",
+        "modeled_inv_spy_cum": modeled,
+        "naive_optimistic_cum": naive,
+        "realized_sh_cum": realized_sh_cum,
         "decay_drag_pp": (modeled - naive) * 100}
 
     verdict_pass = all(

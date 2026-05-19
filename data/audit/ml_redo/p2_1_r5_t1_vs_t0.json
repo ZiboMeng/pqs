@@ -1,0 +1,212 @@
+{
+  "experiment": "p2_1_r5_t1_vs_t0",
+  "spec_feats": [
+    "drawup_from_252d_low",
+    "trend_tstat_20d",
+    "ret_2d"
+  ],
+  "sealed_2026_read": false,
+  "T0": {
+    "mfp": {
+      "cum_ret": 9.539731177290625,
+      "sharpe": 1.1310701008566841,
+      "max_dd": -0.2567819628224608,
+      "vs_spy": 3.20410306169118,
+      "spy_cum_ret": 6.3356281155994445,
+      "vs_qqq": 4.575944579899848,
+      "qqq_cum_ret": 4.963786597390777
+    },
+    "stress": {
+      "covid_flash": {
+        "cum_ret": 0.0224541776940248,
+        "sharpe": 0.4745640516623307,
+        "max_dd": -0.2058787541043713,
+        "vs_spy": 0.15980457264256964,
+        "spy_cum_ret": -0.13735039494854484,
+        "vs_qqq": 0.08878291144142247,
+        "qqq_cum_ret": -0.06632873374739767
+      },
+      "rate_hike_2022": {
+        "cum_ret": -0.06865874040717068,
+        "sharpe": -2.123901545958789,
+        "max_dd": -0.10708262974088742,
+        "vs_spy": 0.09743271811479537,
+        "spy_cum_ret": -0.16609145852196605,
+        "vs_qqq": 0.14887350254499587,
+        "qqq_cum_ret": -0.21753224295216655
+      }
+    }
+  },
+  "T1": {
+    "frac_0.1": {
+      "mfp": {
+        "cum_ret": 5.301869899554202,
+        "sharpe": 1.0411199715845456,
+        "max_dd": -0.22825701151522956,
+        "vs_spy": -1.0337582160452428,
+        "spy_cum_ret": 6.3356281155994445,
+        "vs_qqq": 0.3380833021634251,
+        "qqq_cum_ret": 4.963786597390777
+      },
+      "stress": {
+        "covid_flash": {
+          "cum_ret": 0.038942557454020754,
+          "sharpe": 0.8161073598912558,
+          "max_dd": -0.15909400921648684,
+          "vs_spy": 0.1762929524025656,
+          "spy_cum_ret": -0.13735039494854484,
+          "vs_qqq": 0.10527129120141843,
+          "qqq_cum_ret": -0.06632873374739767
+        },
+        "rate_hike_2022": {
+          "cum_ret": -0.04209882618460403,
+          "sharpe": -1.6865236855657717,
+          "max_dd": -0.08072904284030105,
+          "vs_spy": 0.12399263233736202,
+          "spy_cum_ret": -0.16609145852196605,
+          "vs_qqq": 0.17543341676756252,
+          "qqq_cum_ret": -0.21753224295216655
+        }
+      }
+    },
+    "frac_0.2": {
+      "mfp": {
+        "cum_ret": 2.2415146216032307,
+        "sharpe": 0.7482480040022997,
+        "max_dd": -0.20236594946235723,
+        "vs_spy": -4.094113493996214,
+        "spy_cum_ret": 6.3356281155994445,
+        "vs_qqq": -2.722271975787546,
+        "qqq_cum_ret": 4.963786597390777
+      },
+      "stress": {
+        "covid_flash": {
+          "cum_ret": 0.03580142106390771,
+          "sharpe": 1.001832912331457,
+          "max_dd": -0.11792361861408032,
+          "vs_spy": 0.17315181601245255,
+          "spy_cum_ret": -0.13735039494854484,
+          "vs_qqq": 0.10213015481130538,
+          "qqq_cum_ret": -0.06632873374739767
+        },
+        "rate_hike_2022": {
+          "cum_ret": -0.017721680551162633,
+          "sharpe": -0.9527390110007331,
+          "max_dd": -0.05634044477529832,
+          "vs_spy": 0.14836977797080342,
+          "spy_cum_ret": -0.16609145852196605,
+          "vs_qqq": 0.19981056240100392,
+          "qqq_cum_ret": -0.21753224295216655
+        }
+      }
+    },
+    "frac_0.3": {
+      "mfp": {
+        "cum_ret": 0.7749862823583207,
+        "sharpe": 0.39729198551728523,
+        "max_dd": -0.35559687446990035,
+        "vs_spy": -5.560641833241124,
+        "spy_cum_ret": 6.3356281155994445,
+        "vs_qqq": -4.188800315032456,
+        "qqq_cum_ret": 4.963786597390777
+      },
+      "stress": {
+        "covid_flash": {
+          "cum_ret": 0.051311166789682616,
+          "sharpe": 1.895055730404218,
+          "max_dd": -0.07201838482193323,
+          "vs_spy": 0.18866156173822746,
+          "spy_cum_ret": -0.13735039494854484,
+          "vs_qqq": 0.11763990053708029,
+          "qqq_cum_ret": -0.06632873374739767
+        },
+        "rate_hike_2022": {
+          "cum_ret": 0.005491816020807949,
+          "sharpe": 0.45095758918702444,
+          "max_dd": -0.037415574823760546,
+          "vs_spy": 0.171583274542774,
+          "spy_cum_ret": -0.16609145852196605,
+          "vs_qqq": 0.2230240589729745,
+          "qqq_cum_ret": -0.21753224295216655
+        }
+      }
+    }
+  },
+  "gates": {
+    "frac_0.1": {
+      "a_stress_maxdd": {
+        "covid_flash": {
+          "t0_dd": 0.2058787541043713,
+          "t1_dd": 0.15909400921648684,
+          "abs_drop_pp": 4.678474488788445,
+          "pass": true
+        },
+        "rate_hike_2022": {
+          "t0_dd": 0.10708262974088742,
+          "t1_dd": 0.08072904284030105,
+          "abs_drop_pp": 2.635358690058637,
+          "pass": false
+        }
+      },
+      "b_vs_spy": {
+        "t0_vs_spy": 3.20410306169118,
+        "t1_vs_spy": -1.0337582160452428,
+        "pass": false
+      }
+    },
+    "frac_0.2": {
+      "a_stress_maxdd": {
+        "covid_flash": {
+          "t0_dd": 0.2058787541043713,
+          "t1_dd": 0.11792361861408032,
+          "abs_drop_pp": 8.795513549029096,
+          "pass": true
+        },
+        "rate_hike_2022": {
+          "t0_dd": 0.10708262974088742,
+          "t1_dd": 0.05634044477529832,
+          "abs_drop_pp": 5.07421849655891,
+          "pass": true
+        }
+      },
+      "b_vs_spy": {
+        "t0_vs_spy": 3.20410306169118,
+        "t1_vs_spy": -4.094113493996214,
+        "pass": false
+      }
+    },
+    "frac_0.3": {
+      "a_stress_maxdd": {
+        "covid_flash": {
+          "t0_dd": 0.2058787541043713,
+          "t1_dd": 0.07201838482193323,
+          "abs_drop_pp": 13.386036928243804,
+          "pass": true
+        },
+        "rate_hike_2022": {
+          "t0_dd": 0.10708262974088742,
+          "t1_dd": 0.037415574823760546,
+          "abs_drop_pp": 6.966705491712688,
+          "pass": true
+        }
+      },
+      "b_vs_spy": {
+        "t0_vs_spy": 3.20410306169118,
+        "t1_vs_spy": -5.560641833241124,
+        "pass": false
+      }
+    }
+  },
+  "decay_both_legs": {
+    "note": "R17 fix: modeled=-1x daily-reset of SPY index (decay-inclusive ~ realized SH); naive_optimistic=-(SPY cum) no-decay fantasy; realized_sh_cum=actual SH path. all reported (PRD-2 \u00a77 P2.1c). prior 1857pp was a bug (fed SH own returns).",
+    "modeled_inv_spy_cum": -0.9323542067333986,
+    "naive_optimistic_cum": -6.335628115599365,
+    "realized_sh_cum": -0.9919530153274536,
+    "decay_drag_pp": 540.3273908865966
+  },
+  "verdict": "FAIL_recorded_root_cause",
+  "r17_root_cause": {
+    "gate_b_fail": "economically expected: static always-on 1x-inverse(SH) over 2009-2025 bull-dominated train+val structurally bleeds full-period alpha (vs_spy +3.20 -> negative). NOT blanket: gate(a) shows real crisis-DD reduction (covid -4.7/-8.8/-13.4pp). static T1 not standalone improvement on bull window -> value is regime-conditional/timed (-> P2.3 cadence/multi-TF). funnel-hypothesis confirmed, loop continues.",
+    "gate_c_decay_bug": "FIXED: inverse_etf_decay_return was fed SH's own returns (double-invert) -> garbage 1857pp; now fed SPY index returns. gate(a)/(b) used real backtest, unaffected."
+  }
+}
