@@ -8,7 +8,10 @@
 
 ### PRD-1 leakage-correct 地基（必先，全做完才解锁 PRD-2/3）
 - ✅ P1.1 canonical helper `core/research/label_leakage.py` + 10/10 TDD（commit 5381d83）
-- ⬜ P1.2 接入 `temporal_split_acceptance` + 重构 chart_native L3 用 canonical（替原型）+ bit-identical 后台回归验证
+- 🟡 P1.2 接入 `temporal_split_acceptance` + 重构 chart_native L3 用 canonical（替原型）+ bit-identical 后台回归
+  - ✅ P1.2a chart_native L3 原型 → canonical adapter（keys 签名保留,call site 不动,bit-identical by construction）。后台回归 `bi7e15u7s` 跑中(~32min,结果下轮判)
+  - ⬜ P1.2b 接 `temporal_split_acceptance`（§3 调和:仅样本/probe-fit 层,不动 cpcv fold size 加权）+ tests
+  - ⬜ P1.2c acceptance.yaml `leakage_correct` 开关 + legacy 逃生口契约化
 - ⬜ P1.3 cycle06/08 + pead/options 独立轨 leakage-correct 重评（后台串行；逐候选"修正前/后+哪门翻+root cause"对照表，全 retire 可接受但 evidence-gated 非一刀切）
 - ⬜ P1.4 重评结论 fold 进 manifest/CLAUDE.md，被推翻者按 evidence retire 留 forensic
 
@@ -26,3 +29,4 @@
 
 ## 本轮要更新此节（loop 每轮追加，最新在上）
 - 2026-05-18 R0：账本建立；P1.1 已 ✅。下一步 = P1.2。
+- 2026-05-18 R1：P1.2a chart_native L3 原型→canonical adapter 重构（call site byte-unchanged）;py_compile OK;label_leakage 10/10 复跑 GREEN;bit-identical 后台回归 `bi7e15u7s` 跑中(~32min)。下一步 = 待 `bi7e15u7s` 出 PASS → P1.2b 接 temporal_split_acceptance（若 FAIL → root-cause adapter 数值偏差,不 hand-wave）。

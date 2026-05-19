@@ -100,48 +100,38 @@ def _encode_batch(net, imgs_np, device):
         return net(x).cpu().numpy()
 
 
+# PRD-1 P1.2a (2026-05-18): these were the run4-validated prototypes;
+# now thin adapters delegating to the canonical core helper
+# (core/research/label_leakage). keys-signature preserved so call
+# sites are byte-unchanged; canonical logic is identical to the old
+# prototype bodies (verified by test_label_leakage 10/10 + the
+# bit-identical regression run) → leakage-correct chart_native L3
+# numbers unchanged. Single source of truth, no prototype copy.
+from core.research.label_leakage import (  # noqa: E402
+    average_uniqueness_weights as _canon_avg_uniq,
+    purge_embargo_mask as _canon_purge,
+)
+
+
 def _avg_uniqueness_weights(keys, date_pos, H):
-    """López de Prado Ch.4 average-uniqueness sample weights for the
-    overlapping H-day forward labels (per symbol, along its own date
-    axis). Returns weight array aligned to `keys` (mean-normalized to
-    1.0; NOT used unless CHART_L3_SAMPLE_UNIQ=1)."""
-    from collections import defaultdict
-    by_sym = defaultdict(list)
-    for ix, (s, d) in enumerate(keys):
-        by_sym[s].append((date_pos[d], ix))
-    w = np.ones(len(keys), np.float64)
-    for s, lst in by_sym.items():
-        lst.sort()
-        pos = np.array([p for p, _ in lst])
-        ixs = np.array([i for _, i in lst])
-        if len(pos) == 0:
-            continue
-        span = pos.max() + H + 1
-        conc = np.zeros(span, np.float64)
-        for p in pos:
-            conc[p:p + H + 1] += 1.0
-        for k, p in enumerate(pos):
-            seg = conc[p:p + H + 1]
-            seg = seg[seg > 0]
-            w[ixs[k]] = float(np.mean(1.0 / seg)) if seg.size else 1.0
-    m = w.mean()
-    return w / m if m > 0 else w
+    """Adapter → core.research.label_leakage.average_uniqueness_weights
+    (per-symbol concurrency; mean-normalized; aligned to `keys`)."""
+    if not keys:
+        return np.empty((0,), np.float64)
+    start_pos = np.array([date_pos[d] for (s, d) in keys])
+    groups = np.array([s for (s, d) in keys])
+    return _canon_avg_uniq(start_pos, H, groups=groups)
 
 
 def _purge_embargo_mask(keys, date_pos, idx_years, H, val_years, embargo=5):
-    """True = KEEP (train row's [p, p+H+embargo] label window does NOT
-    reach into a validation year). López de Prado Ch.7 purge+embargo at
-    the alternating-regime year boundary (NOT used unless
-    CHART_L3_PURGE_EMBARGO=1)."""
-    keep = np.ones(len(keys), bool)
-    vy = set(val_years)
-    n = len(idx_years)
-    for ix, (s, d) in enumerate(keys):
-        p = date_pos[d]
-        hi = min(p + H + embargo, n - 1)
-        if any(idx_years[q] in vy for q in range(p, hi + 1)):
-            keep[ix] = False
-    return keep
+    """Adapter → core.research.label_leakage.purge_embargo_mask
+    (True=KEEP; label window [p, p+H+embargo] not reaching a
+    holdout/validation year)."""
+    if not keys:
+        return np.empty((0,), bool)
+    t_pos = np.array([date_pos[d] for (s, d) in keys])
+    return _canon_purge(t_pos, list(idx_years), H, set(val_years),
+                        embargo=embargo)
 
 
 def main() -> int:
