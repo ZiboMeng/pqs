@@ -1,0 +1,6 @@
+=== Init chart-native evidence track: chart_native_s1_evidence_v1 ===
+  panel (4276, 79) years=[2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025] (24s)
+  157681 GAF windows → frozen features (59s) dev=cuda
+  probe fit 86785 TRAIN rows; 70679 validation frozen-OOS
+  frozen baseline: cum_ret +20.4222 Sharpe +1.589 MaxDD -0.1680 vs_spy 14.086600976824187
+  [dry-run] no artifacts written

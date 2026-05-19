@@ -1,0 +1,14 @@
+=== Init chart-native evidence track: chart_native_s1_evidence_v1 ===
+  panel (4276, 79) years=[2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025] (26s)
+  157681 GAF windows → frozen features (63s) dev=cuda
+  probe fit 86785 TRAIN rows; 70679 validation frozen-OOS
+  frozen baseline: cum_ret +20.4222 Sharpe +1.589 MaxDD -0.1680 vs_spy 14.086600976824187
+
+=== Init complete (333s) ===
+  candidate_id : chart_native_s1_evidence_v1
+  role         : evidence_only_observation
+  spec_hash    : d035c1840dd0bccb96638fdd82d642b7d92323b64cabf0aff5598f5701a52361
+  beta_sha256  : 439ee31e1de3e5f8fdd89864062d21492f505317a005856f7ffe8b4704b94fb7
+  start_date   : 2026-05-19 (freeze 2026-05-18)
+  TD000        : cum_ret +20.4222 / Sharpe +1.589 / MaxDD -0.1680
+  Next: post-NYSE close, daily-ritual observe (follow-up script, mirrors pead observe pattern)

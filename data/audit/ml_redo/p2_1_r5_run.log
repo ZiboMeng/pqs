@@ -1,0 +1,5 @@
+P2.1 R5 verdict=FAIL_recorded_root_cause -> data/audit/ml_redo/p2_1_r5_t1_vs_t0.json
+  frac=0.1: vs_spy 3.204->-1.034(pass=False) covid dd-drop 4.68pp
+  frac=0.2: vs_spy 3.204->-4.094(pass=False) covid dd-drop 8.80pp
+  frac=0.3: vs_spy 3.204->-5.561(pass=False) covid dd-drop 13.39pp
+  decay: modeled=19.5642 naive=0.9920 drag=1857.22pp

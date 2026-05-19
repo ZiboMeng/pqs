@@ -1,0 +1,6 @@
+=== Observe chart-native evidence: chart_native_s1_evidence_v1 ===
+  frozen beta loaded ((512,)), sha256 OK
+  start_date 2026-05-19 freeze 2026-05-18
+  panel (4874, 79) latest_bar 2026-05-18 (26s)
+  163963 GAF windows → frozen features (71s) dev=cuda
+  <2 bars past start_date 2026-05-19. Waiting (no TD yet).

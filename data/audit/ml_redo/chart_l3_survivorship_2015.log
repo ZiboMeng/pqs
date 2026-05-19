@@ -1,0 +1,10 @@
+SURVIVORSHIP FALSIFICATION (cutoff<=2015-06-30): kept 70 dropped 9 late-entrants
+panel (4276, 70) years=[2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025] (25s)
+147281 GAF windows, extracting frozen features (61s) device=cuda
+features (147281, 512) (281s)
+probe fit on 81763 TRAIN rows; 65328 validation rows are frozen-OOS (289s)
+
+L3 Track-A: PASS | failed=[]
+full: {"cum_ret": 21.628984246188946, "sharpe": 1.6207981907142326, "max_dd": -0.1753607288849868, "vs_spy": 15.293356130589501, "spy_cum_ret": 6.3356281155994445, "vs_qqq": 16.66519764879817, "qqq_cum_ret": 4.963786597390777}
+cpcv_gate={'passed': True, 'values': {'insufficient': False, 'ic_sample_weighted': 0.1435323306500541, 'n_folds': 15, 'dsr': 0.9999999979603729, 'pbo_red_flag': True}} | overfit_dsr=0.9999999703463107
+-> data/audit/chart_native_l3_SURVIVORSHIP.json (316s)

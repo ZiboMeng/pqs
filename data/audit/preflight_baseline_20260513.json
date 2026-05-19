@@ -2,8 +2,8 @@
   "snapshot_date": "2026-05-13",
   "purpose": "pre-flight baseline for ML-1 + C10-2 implementation; compare post-implementation reproduction must match",
   "git": {
-    "head": "454460d6903c274abd5aa29c22299f13b242a4d5",
-    "status_clean": true
+    "head": "f2943eac31e95b6e1d28a7b7a11dff584d1b9c99",
+    "status_clean": false
   },
   "critical_file_sha256": {
     "config/universe.yaml": "6abc8f268d37c4e00444c77bae2c1172371d5f5aed88b78dfe32c41dfc4c0d6d",
@@ -13,9 +13,9 @@
     "config/research_mask.yaml": "3ce962762b82f85eb3b3467935ded73f2f5ee14a0ed02586f2aa1aa7f63ab544",
     "config/temporal_split.yaml": "602cf826c902f1be01d802d045627420ee60d9957a6f0e50fcd6911d5e3a4f94",
     "config/cost_model.yaml": "c1b5fee2ec136db7051a47d5b6364d8b05c623a9b049cdf7f95c1d727a7e1b0d",
-    "core/factors/factor_registry.py": "176d7750fc800c79ae58442188eb3c58a0e8727c4c4b94af78b3de542fbdf33b",
-    "core/research/forward/runner.py": "81536e67006b6734430ef49f6569ce33c2fd45808432ef1a328e2db30462ed04",
-    "core/research/harness/composite_evaluator.py": "911cf5432cfcc9e1ad16e876aa7e528d20d50b457df515649fcb73331c845ea6",
+    "core/factors/factor_registry.py": "f8b38d633e718993f0c79eab85cc5ec1a238465bb36f1e3fed1cb29c10b5b8d7",
+    "core/research/forward/runner.py": "29013d121a2baf56a98fa1139c0b5c76e30d5513dacfa9adc5f0531c05abfe79",
+    "core/research/harness/composite_evaluator.py": "0d582482f0284d5e3f199de023b18818395e9c879e37823a2e04f90ab261121f",
     "core/research/risk_cluster_map.py": "7f04f245de02a4c68e1061ad11c01919df01f86362b1aac1e9a7df8e04184a7a",
     "core/ml/xgb_alpha.py": "ef7e5f9d36060dead663c41f333dfa1a13fe52c2d499a043f5867ec7d2bc68f3",
     "core/ml/feature_panel_builder.py": "838c60814ff5529237eb7444e9fcfe1604467edca8f4da9c4a3cd482dae9e54c",
@@ -23,22 +23,22 @@
     "scripts/run_xgb_alpha_mining.py": "1ab150d06e5265c7afd9609fd274b8fcc4cf4d39b5f66cbb2bc1b000a6809915"
   },
   "trial9_v2_manifest": {
-    "manifest_sha256": "0d30380b190425b0997609e226df444c948a5aaed0cc8bc711f8c4b7574c1522",
+    "manifest_sha256": "f66d686169c9f1594c9e93ceba50e24f34e256d93bad5bfa4d43b020247c4580",
     "universe_hash": "7a02437a450d8a5bb34195a4c896b4e3a6a314adf612d63bb38be7bd104cba47",
     "factor_registry_hash": "e9bc4a602821c82ac8a1506a2387a16f42a540f5eba1576fc869683f9b12fab1",
     "risk_config_hash": "9068b5f72d64208803bd98ac1d092652327cd4c2406bcaed483846c2f2a3dbad",
     "system_config_hash": "b2f96c3b9733d35f15b463339e14bbb55c374d6344d92f463d309e2fa836db82",
     "research_mask_hash": "99ef97d08c326ff766a865dd7ddbe5880f5c3b91ae7658f30cae4b7f100de10a",
     "spec_hash": "44870b91073aa5440dfa5d8ccc07b1f43dcc25235ce9139e2ca0352559e8f985",
-    "current_status": "in_progress",
-    "n_runs": 1
+    "current_status": "completed_fail",
+    "n_runs": 3
   },
   "runtime_canonical_drift_check": {
     "trial9_diversifier_002": {
       "universe_drift": false,
-      "factor_registry_drift": false,
-      "would_halt_on_next_observe": false,
-      "current_status": "in_progress"
+      "factor_registry_drift": true,
+      "would_halt_on_next_observe": true,
+      "current_status": "completed_fail"
     },
     "trial9_diversifier_001": {
       "universe_drift": true,
@@ -109,15 +109,15 @@
     "baseline_threshold": 0.1531
   },
   "baseline_tests": {
-    "file_sha256": "0f3044a22ac3398628e4b95fcc07726bc8af9897f5a1656509502b62c5f9b52c",
+    "file_sha256": "dce8617aeb5f8908cc624437eda56e71a7cc7f1e86e6849fbaf3d1d1f783ee3f",
     "test_count": null,
-    "pass_count": null
+    "pass_count": 3165
   },
   "forward_manifests_sha256": {
     "rcm_v1_defensive_composite_01_forward_manifest.json": "f0451a66bfbfff891f7dcf0b67f06b522fa89dd1fefa5d904ccbdd8f054e60a7",
     "candidate_2_orthogonal_01_forward_manifest.json": "3f82fdb0249a1f48abacf328ee49b53351e8dd2001d0258a22eff4fcc02b5814",
     "trial9_diversifier_001_forward_manifest.json": "eac2951ed85fc59a487b1e6bb8473a316a577175b92110d09dadf4ba028eaefe",
-    "trial9_diversifier_002_forward_manifest.json": "0d30380b190425b0997609e226df444c948a5aaed0cc8bc711f8c4b7574c1522"
+    "trial9_diversifier_002_forward_manifest.json": "f66d686169c9f1594c9e93ceba50e24f34e256d93bad5bfa4d43b020247c4580"
   },
   "cycle09b_yaml_sha256": "b0b9e181066152b7eb8195e993d62d14e38b8ef206b256005ff10b5f2b17609a",
   "cycle09b_yaml_expected_sha": "b0b9e181066152b7eb8195e993d62d14e38b8ef206b256005ff10b5f2b17609a",

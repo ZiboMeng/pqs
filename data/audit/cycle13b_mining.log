@@ -1,0 +1,68 @@
+[08:41:13] INFO     Criteria yaml loaded as source of truth:                    
+                    lineage=track-c-cycle-2026-05-18-13b                        
+                    composite_weighting=None composite_cardinality=None         
+                    trials=200 seed=42 sampler=tpe end_date=2025-12-31          
+                    drop_symbols=['BRK-B', 'USO', 'SLV']                        
+           INFO     Study: rcm-v1-run-20260518T154113  Lineage:                 
+                    track-c-cycle-2026-05-18-13b  Trials: 200  Seed: 42         
+           INFO     Temporal split active: alternating_regime_holdout_v1        
+                    (sha256=0391d7ebd0252ffa) role=core                         
+           INFO     Loading price/volume frames...                              
+           INFO     Panel end_date cap: 2025-12-31 (G4 cutoff)                  
+           INFO     Drop symbols: ['BRK-B', 'USO', 'SLV'] (criteria yaml        
+                    drop_symbols)                                               
+[08:41:38] INFO     Temporal split filter: 4780 → 3021 rows (dropped 1759       
+                    holdout-year rows)                                          
+           INFO     Panel max date (post-split): 2024-12-31T00:00:00            
+           INFO     Panel: 3021 dates × 79 symbols (79 tradable)                
+           INFO     Generating factors (this takes 1-2 min)...                  
+[08:42:22] INFO     FactorGenerator: produced 113 candidate factors             
+[08:45:44] INFO     Fundamental factors merged: 51                              
+[08:46:26] INFO     Sector factors merged: 5                                    
+[08:46:27] INFO     Macro factors merged: 6                                     
+           INFO     Event window factors merged: 4                              
+[08:46:29] INFO     Signal-confirmation factors merged: 5                       
+[08:46:30] INFO     purge_labels_at_boundary: applied                           
+                    (split=alternating_regime_holdout_v1, horizon_max=21d)      
+           INFO     factor_registry_pool=RESEARCH_FACTORS reachability preflight
+                    PASS (187 factors reachable across 20 families; 3           
+                    explicit_exclusions)                                        
+           INFO     explicit_exclusions: ['intraday_autocorr_21d',              
+                    'intraday_vol_ratio_21d', 'realized_vol_60m_21d']           
+                    (data-dependency not satisfied in this pipeline)            
+           WARNING  Family factors not present in panel_map — sampler will still
+                    generate but evaluate will raise KeyError on those:         
+                    ['intraday_autocorr_21d', 'intraday_vol_ratio_21d',         
+                    'realized_vol_60m_21d']                                     
+           INFO     factor_panel_map: 184 factors; 12 PRD features in catalog:  
+                    True                                                        
+           INFO     Research mask: 119620 bar-symbol cells masked out           
+           INFO     Opening archive: data/mining/rcm_archive.db                 
+           INFO     Building ResearchMiner with RESEARCH_FACTORS...             
+           INFO     Starting mining (Optuna storage:                            
+                    sqlite:///data/mining/rcm_optuna.db,                        
+                    study=rcm-v1-run-20260518T154113, resume=False)             
+[08:58:03] INFO     Completed: 191 finite-objective trials (of 200 attempted)   
+           INFO       #1 obj=+1.1247  IR=+1.143  corr=0.010  turn=0.016         
+                    n_feat=4  families={'L': 1, 'T': 1, 'J': 1, 'C': 1, 'A': 0, 
+                    'B': 0, 'D': 0, 'E': 0, 'F': 0, 'R': 0, 'S': 0, 'G': 0, 'H':
+                    0, 'I': 0, 'K': 0, 'M': 0, 'N': 0, 'O': 0, 'P': 0, 'Q': 0}  
+           INFO       #2 obj=+1.1242  IR=+1.148  corr=0.016  turn=0.016         
+                    n_feat=3  families={'L': 1, 'C': 1, 'J': 1, 'A': 0, 'B': 0, 
+                    'D': 0, 'E': 0, 'F': 0, 'R': 0, 'S': 0, 'T': 0, 'G': 0, 'H':
+                    0, 'I': 0, 'K': 0, 'M': 0, 'N': 0, 'O': 0, 'P': 0, 'Q': 0}  
+           INFO       #3 obj=+1.1217  IR=+1.146  corr=0.016  turn=0.016         
+                    n_feat=3  families={'L': 1, 'C': 1, 'J': 1, 'A': 0, 'B': 0, 
+                    'D': 0, 'E': 0, 'F': 0, 'R': 0, 'S': 0, 'T': 0, 'G': 0, 'H':
+                    0, 'I': 0, 'K': 0, 'M': 0, 'N': 0, 'O': 0, 'P': 0, 'Q': 0}  
+           INFO     Artifacts written to                                        
+                    data/ml/research_miner/rcm-v1-run-20260518T154113           
+======================================================================
+Research Composite Miner v1 — rcm-v1-run-20260518T154113
+Lineage: track-c-cycle-2026-05-18-13b  Trials: 200
+======================================================================
+Best objective: +1.1247
+Best IC_IR:     +1.1482
+Archive rows under lineage: 162
+
+Artifacts: data/ml/research_miner/rcm-v1-run-20260518T154113

@@ -1,0 +1,64 @@
+freeze_date for split dispatch: 2026-05-18
+Loading top-3 archived trials from track-c-cycle-2026-05-18-13b...
+Loading panel + factors (selector role)...
+[09:39:48] INFO     FactorGenerator: produced 113 candidate factors             
+[09:44:36] INFO     Fundamental factors merged: 51                              
+[09:46:13] INFO     Sector factors merged: 5                                    
+[09:46:14] INFO     Macro factors merged: 6                                     
+[09:46:15] INFO     Event window factors merged: 4                              
+[09:46:20] INFO     Signal-confirmation factors merged: 5                       
+  panel: 4276 dates × 79 symbols (515.1s)
+
+[1/3] trial_id=99398d4e540d holding=monthly feats=beneish_m_score,swing_fib_retrace_fit_382,month_end_quarter_end,amihud_20d
+  Track A verdict: FAIL (27.5s)
+  Failed gates (3):
+    - validation_aggregate_excess_vs_spy
+    - stress_slice_covid_flash_maxdd
+    - cpcv_distribution_acceptance
+    2018: maxdd=-19.28% vs_spy=-6.90% vs_qqq=-11.25%
+    2019: maxdd=-4.10% vs_spy=+10.46% vs_qqq=+1.87%
+    2021: maxdd=-5.64% vs_spy=+2.36% vs_qqq=+2.58%
+    2023: maxdd=-10.60% vs_spy=-13.99% vs_qqq=-44.00%
+    2025: maxdd=-10.51% vs_spy=+6.30% vs_qqq=+2.53%
+    [stress] covid_flash: maxdd=-33.87%
+    [stress] rate_hike_2022: maxdd=-13.50%
+    [W7b] DSR(honest N=200)=0.7967807063208701  MinBTL_gate=True
+    [W7c/d] cpcv_gate passed=False vals={'insufficient': False, 'ic_sample_weighted': -0.002078477141956422, 'n_folds': 15, 'dsr': 0.0010445023945183096, 'pbo_red_flag': True}
+    [W7c/d] cpcv_inputs_n=37487 skipped=None
+
+[2/3] trial_id=8eb5a7ac4d55 holding=monthly feats=beneish_m_score,amihud_20d,month_end_quarter_end
+  Track A verdict: FAIL (32.1s)
+  Failed gates (3):
+    - validation_aggregate_excess_vs_spy
+    - stress_slice_covid_flash_maxdd
+    - cpcv_distribution_acceptance
+    2018: maxdd=-19.39% vs_spy=-6.99% vs_qqq=-11.34%
+    2019: maxdd=-4.02% vs_spy=+9.92% vs_qqq=+1.32%
+    2021: maxdd=-5.61% vs_spy=+1.25% vs_qqq=+1.48%
+    2023: maxdd=-10.16% vs_spy=-11.79% vs_qqq=-41.80%
+    2025: maxdd=-10.17% vs_spy=+5.60% vs_qqq=+1.84%
+    [stress] covid_flash: maxdd=-34.35%
+    [stress] rate_hike_2022: maxdd=-12.49%
+    [W7b] DSR(honest N=200)=0.8264920246220464  MinBTL_gate=True
+    [W7c/d] cpcv_gate passed=False vals={'insufficient': False, 'ic_sample_weighted': -0.0008821998030954806, 'n_folds': 15, 'dsr': 0.002272865540347946, 'pbo_red_flag': True}
+    [W7c/d] cpcv_inputs_n=37814 skipped=None
+
+[3/3] trial_id=212ac6f53ca9 holding=monthly feats=beneish_m_score,amihud_20d,month_end_quarter_end
+  Track A verdict: FAIL (31.2s)
+  Failed gates (3):
+    - validation_aggregate_excess_vs_spy
+    - stress_slice_covid_flash_maxdd
+    - cpcv_distribution_acceptance
+    2018: maxdd=-19.35% vs_spy=-6.89% vs_qqq=-11.24%
+    2019: maxdd=-4.15% vs_spy=+10.26% vs_qqq=+1.67%
+    2021: maxdd=-5.54% vs_spy=+1.21% vs_qqq=+1.44%
+    2023: maxdd=-10.45% vs_spy=-14.15% vs_qqq=-44.17%
+    2025: maxdd=-10.26% vs_spy=+6.19% vs_qqq=+2.42%
+    [stress] covid_flash: maxdd=-33.97%
+    [stress] rate_hike_2022: maxdd=-13.41%
+    [W7b] DSR(honest N=200)=0.7989474562097479  MinBTL_gate=True
+    [W7c/d] cpcv_gate passed=False vals={'insufficient': False, 'ic_sample_weighted': -0.0026926564447651456, 'n_folds': 15, 'dsr': 0.0007270000115049413, 'pbo_red_flag': True}
+    [W7c/d] cpcv_inputs_n=37814 skipped=None
+
+Wrote data/audit/cycle13b_track_a_eval_track-c-cycle-2026-05-18-13b.json
+Verdict: 0 of 3 passed Track A acceptance
