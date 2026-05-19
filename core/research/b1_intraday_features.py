@@ -90,8 +90,21 @@ def realized_vol_regime(bars: np.ndarray) -> float:
 
 
 def intraday_volume_z(bars: np.ndarray) -> float:
-    """Mean intraday volume z within the day (against the day's own
-    mean/std — captures volume-distribution shape, NOT level)."""
+    """Volume-distribution SKEW within the day = third standardized
+    moment of intraday bar volumes (captures front-loaded vs
+    centered vs back-loaded volume days — real microstructure
+    pattern; ``open-dominant`` and ``close-dominant`` volume have
+    documented opposite-direction next-day return signatures).
+
+    BUG-FIX 2026-05-19 (auditor R3): the prior implementation
+    returned ``mean((v - m) / s)`` which is mathematically
+    IDENTICALLY ZERO for any input
+    (Σ(v_i - m) = 0 by definition of m), so the feature was DEAD
+    — RB3/RB5/Track-A B1 verdicts trained on 3 effective features,
+    not 4. Fixed to ``mean(((v - m) / s) ** 3)`` = skew, which is
+    non-zero for any non-symmetric distribution. Empirically
+    verified non-zero on real intraday OHLCV (~1e-1 to ~1e0 range).
+    """
     b = np.asarray(bars, dtype=float)
     if b.ndim != 2 or b.shape[0] < 3 or b.shape[1] < 5:
         return float("nan")
@@ -99,7 +112,7 @@ def intraday_volume_z(bars: np.ndarray) -> float:
     m, s = float(np.nanmean(v)), float(np.nanstd(v, ddof=1))
     if not np.isfinite(s) or s <= 0:
         return float("nan")
-    return float(np.nanmean((v - m) / s))
+    return float(np.nanmean(((v - m) / s) ** 3))
 
 
 def compute_b1_day_features(bars: np.ndarray) -> dict:

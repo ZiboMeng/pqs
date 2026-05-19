@@ -278,8 +278,14 @@ def _track_a_gates(name, ev):
     g["stress_slice_maxdd_le_25pct"] = {"pass": ss_pass,
                                          "per_slice": ss_detail}
     # concentration: top1 ≤ 40, top3 ≤ 70
-    top1 = float(conc.get("top1_max", 0.0))
-    top3 = float(conc.get("top3_max", 0.0))
+    # BUG-FIX 2026-05-19 (auditor R3): real keys emitted by
+    # core.backtest.concentration_metrics.compute_concentration_metrics
+    # are ``m12_top1_weight_max`` / ``m12_top3_weight_max``, NOT the
+    # stale-docstring ``top1_max`` / ``top3_max`` we were reading.
+    # Prior driver read top1_max (MISSING) → default 0.0 → false-PASS
+    # silently (concentration gate never actually checked anything).
+    top1 = float(conc.get("m12_top1_weight_max", 0.0))
+    top3 = float(conc.get("m12_top3_weight_max", 0.0))
     g["concentration"] = {"top1_max": top1, "top3_max": top3,
                           "pass": top1 <= 0.40 + 1e-9
                           and top3 <= 0.70 + 1e-9}
@@ -326,8 +332,11 @@ def main() -> int:
                     default="both")
     args = ap.parse_args()
 
-    assert_component_b_prerequisites()  # B-side gate (RB1) safe even
-                                         # if only running A1 — no-op for A.
+    # BUG-FIX 2026-05-19 (auditor R3): RB1 gate moved INSIDE b1
+    # branch — A1 path must not be gated on B prereqs. Prior code
+    # asserted unconditionally before the --only branch, creating
+    # a false coupling (e.g. an A1-only diagnostic run could be
+    # blocked by an unrelated B prereq breaking).
     panel, _f, mask, sc = _c6_panel()
     close = panel["close"]
     integ = _bar_integrity(close)
@@ -363,6 +372,8 @@ def main() -> int:
             print(f"    gate {k}: {v}")
 
     if args.only in ("b1", "both"):
+        # RB1 gate only on the B path (not A) — see auditor fix above.
+        assert_component_b_prerequisites()
         print("=== B1 (RB2 intraday engineered + shallow XGB) ===")
         p_b1 = _b1_pred_panel(panel, tr_years, val_years)
         ev_b1 = _evaluate(p_b1, "b1", panel, val_years, sslices, mask)

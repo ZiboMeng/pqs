@@ -52,6 +52,20 @@ class TestPrimitives:
     def test_intraday_volume_z_finite(self):
         assert np.isfinite(intraday_volume_z(_day(seed=8)))
 
+    def test_intraday_volume_z_not_identically_zero(self):
+        """Regression for the 2026-05-19 dead-feature bug
+        (auditor-flagged): the prior mean((v-m)/s) was IDENTICALLY
+        zero for any input; skew is non-zero for any non-symmetric
+        distribution. Front-loaded volume → positive skew is large.
+        """
+        front = np.array([5e6, 3e6, 1.5e6, 1.2e6, 1e6, 0.8e6])
+        bars = np.column_stack([np.zeros(6), np.zeros(6),
+                                np.zeros(6), np.zeros(6), front])
+        z = intraday_volume_z(bars)
+        # asymmetric front-loaded volume must yield |skew| > 0.1,
+        # NOT the prior dead 0.0
+        assert abs(z) > 0.1, f"feature still dead-like: z={z}"
+
     def test_no_lookahead_per_day_function(self):
         # functions take a SINGLE day's bars and depend only on
         # that day (no cross-day mutation): truncating later bars
