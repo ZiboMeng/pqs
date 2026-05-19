@@ -21,7 +21,7 @@ run4 证实：21d 重叠标签未做 average-uniqueness 降权 + score-生成的
   - 原 premise"cycle06/08 = factor-composite Track-A 通病须重评"**对 factor-composite 是错的**（诚实纠 overclaim）：R3 实读 `cycle06_track_a_eval.py` = `ResearchCompositeSpec`+`evaluate_composite_spec`,**无 ridge probe / 无 cpcv_inputs 重叠标签向量**;run4 leakage 是 **learned-probe-specific**(chart_native),对确定性 composite 无机械作用面 → cycle06/08 Track-A PASS 不因该机制虚高,**不重评、不 retire、主线不归零**（grounded,非护盘）。
   - 正确 scope:learned-probe（chart_native_s1）→ Option A caveat done;pead_sue → 单独小检查（事件驱动,evidence-only 非主线）;cycle06/08/options/simple_baseline → probe-fit leakage 无作用面。
   - "全 retire 可接受"（用户 2026-05-18）仍立,但 retirement 逐候选 evidence-gated；目前 grounded 证据 = 仅 chart_native 受影响（已 caveat）。
-  - **directional STOP-for-user**：scope 纠正改变"之前结论真实性"判断 + 评估准则 scope + 主线去留 → 选项 A/B/C 见 scope-correction memo §5,待用户 ratify 才续 P1.3。
+  - **✅ RATIFIED A + C-lite（用户 2026-05-19）**：grounded scope 接受 —— 仅 chart_native_s1 受 run4 probe-fit leakage（已 Option A caveat done）;cycle06/08 + pead（R4 grounded）+ options/simple_baseline **不受影响、不重评、不 retire,主线不归零**。C-lite = 后台对 cycle06/08 重评 empirical 背书（确认 P1.1/P1.2b leakage 机器未扰动其确定性 verdict;预期 bit-不变,偏差则 §1 grounded 分析错 → ROOT CAUSE）。B（未来 factor-composite cpcv-IC uniqueness）= §3 冻结契约修订,未触发,日后用户要管未来 cycle 才另起 mini-PRD。P1.3 在 C-lite 背书通过后即闭。
 - P1.4 重评结论 fold 进各候选 manifest/memo + CLAUDE.md forward-state；被推翻者按 evidence retire，留 forensic。
 
 **Out / Deferred**：不改 temporal_split partition/sealed_ledger（C4 lock）；不改 acceptance 阈值数值（仅加 leakage-correct 加权/purge，阈值不动）；新 mining 本身 = PRD-2。
