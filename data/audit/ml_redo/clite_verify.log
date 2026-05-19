@@ -1,0 +1,8 @@
+=== C-lite STEP0: bar-level data-integrity smoke ===
+smoke: scanned 90 daily; weekend-row anomalies: 81 [('AAA', 'weekend_rows', 231), ('AAAA', 'weekend_rows', 38), ('AAAC', 'weekend_rows', 17), ('AAAP', 'weekend_rows', 114), ('AAAU', 'weekend_rows', 386)]
+=== C-lite cycle06 re-eval (current HEAD: P1.1/P1.2b leakage machinery in tree) ===
+=== C-lite cycle08 re-eval ===
+=== C-lite DIFF vs postP0maxdd baseline (verdict + per-trial gates) ===
+cycle06: C-lite VERDICT BIT-IDENTICAL vs postP0maxdd = PASS — NONE differ
+cycle08: C-lite VERDICT BIT-IDENTICAL vs postP0maxdd = PASS — NONE differ
+=== C-lite DONE ===

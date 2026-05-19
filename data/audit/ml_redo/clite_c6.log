@@ -1,0 +1,43 @@
+freeze_date for split dispatch: 2026-05-06
+Loading top-3 archived trials from track-c-cycle-2026-05-06-01...
+Loading panel + factors (selector role)...
+  panel: 4276 dates × 79 symbols (98.0s)
+
+[1/3] trial_id=bab8cfe88af3 holding=monthly feats=drawup_from_252d_low,trend_tstat_20d,ret_2d
+  Track A verdict: FAIL (21.9s)
+  Failed gates (2):
+    - validation_year_2018_maxdd
+    - validation_aggregate_excess_vs_spy
+    2018: maxdd=-23.84% vs_spy=-7.30% vs_qqq=-11.65%
+    2019: maxdd=-8.26% vs_spy=-7.89% vs_qqq=-16.48%
+    2021: maxdd=-5.59% vs_spy=+8.50% vs_qqq=+8.73%
+    2023: maxdd=-12.16% vs_spy=+20.96% vs_qqq=-9.06%
+    2025: maxdd=-18.33% vs_spy=+15.76% vs_qqq=+12.00%
+    [stress] covid_flash: maxdd=-20.59%
+    [stress] rate_hike_2022: maxdd=-10.71%
+
+[2/3] trial_id=31af04cf2ff9 holding=weekly feats=drawup_from_252d_low,trend_tstat_20d,ret_2d
+  Track A verdict: PASS (20.3s)
+    2018: maxdd=-19.60% vs_spy=+0.43% vs_qqq=-3.92%
+    2019: maxdd=-5.69% vs_spy=-3.44% vs_qqq=-12.03%
+    2021: maxdd=-9.83% vs_spy=+5.87% vs_qqq=+6.10%
+    2023: maxdd=-9.31% vs_spy=+27.22% vs_qqq=-2.80%
+    2025: maxdd=-16.58% vs_spy=+22.85% vs_qqq=+19.08%
+    [stress] covid_flash: maxdd=-15.32%
+    [stress] rate_hike_2022: maxdd=-9.48%
+
+[3/3] trial_id=a9e39c21feed holding=monthly feats=drawup_from_252d_low,return_per_risk_21d,ret_2d
+  Track A verdict: FAIL (21.7s)
+  Failed gates (2):
+    - validation_year_2018_maxdd
+    - validation_aggregate_excess_vs_spy
+    2018: maxdd=-24.95% vs_spy=-7.93% vs_qqq=-12.28%
+    2019: maxdd=-8.91% vs_spy=-12.41% vs_qqq=-21.01%
+    2021: maxdd=-5.45% vs_spy=-4.10% vs_qqq=-3.87%
+    2023: maxdd=-11.45% vs_spy=+24.89% vs_qqq=-5.13%
+    2025: maxdd=-15.52% vs_spy=+19.18% vs_qqq=+15.42%
+    [stress] covid_flash: maxdd=-20.32%
+    [stress] rate_hike_2022: maxdd=-10.42%
+
+Wrote data/audit/cycle06_track_a_eval_track-c-cycle-2026-05-06-01.json
+Verdict: 1 of 3 passed Track A acceptance
