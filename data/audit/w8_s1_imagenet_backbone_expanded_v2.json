@@ -1,7 +1,7 @@
 {
-  "experiment": "w8_s1_imagenet_frozen_backbone[executable]",
-  "universe": "executable",
-  "created_at": "2026-05-18T23:53:00.899920+00:00",
+  "experiment": "w8_s1_imagenet_frozen_backbone[expanded_v2]",
+  "universe": "expanded_v2",
+  "created_at": "2026-05-19T00:38:07.047508+00:00",
   "torch_version": "2.12.0+cu130",
   "backbone": "torchvision resnet18 IMAGENET1K_V1 (frozen, fc=Identity)",
   "train_years_only": [
@@ -19,11 +19,11 @@
     2024
   ],
   "sealed_2026_read": false,
-  "n_windows": 85404,
+  "n_windows": 1168452,
   "n_folds": 15,
-  "imagenet_probe_ic": 0.12172,
-  "momentum_baseline_ic": 0.03205,
-  "vs_momentum": 0.08967,
+  "imagenet_probe_ic": 0.10148,
+  "momentum_baseline_ic": -0.00049,
+  "vs_momentum": 0.10197,
   "dsr_honest_n": 1.0,
   "dsr_n_trials": 2,
   "honest_caveat": "ImageNet\u2192GAF transfer literature-mixed (GAF not a natural image); config-scoped research signal; NOT deployable; not hand-rolled (standard torchvision pretrained backbone).",
