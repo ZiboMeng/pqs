@@ -20,7 +20,9 @@
 - ✅ P2.0 PRD-2 ralph-loop 执行拆解子 PRD = `docs/prd/20260519-prd2_ralph_loop_execution.md`（R1-R14;P2.1 R1-R5 / P2.2 R6-R8 / P2.3 R9-R13 / P2.4 R14-stub;R9 15m-boundary + R14 真short = directional 停等点）
 - 🟡 P2.1 T0/T1 + cadence(R1-R5)
   - ✅ R1 construction_tier 字段(default T0 纯 no-op,bit-identical 守卫):`composite_evaluator.HarnessConfig.construction_tier` + `_VALID_CONSTRUCTION_TIERS` + __post_init__ 校验(T1→NotImplementedError R2 待;T2→ValueError 永久 gated PRD-2§6 explicit-go only;bogus 拒)。TDD 6/6 GREEN + 316 回归 0 fail(T0 结构性不被构建代码消费 = bit-identical 保证)
-  - ⬜ R2 T1 1× 反向对冲 execution wiring(SH/PSQ/DOG ← universe_priority5)接 long_short_config + 风险不变量 guard + T0 回归 bit-identical
+  - 🟡 R2 T1 1× 反向对冲
+    - ✅ R2-a canonical `core/research/construction_tiers.py`:`T1HedgeConfig` + `apply_t1_inverse_hedge`(SH/PSQ/DOG only,SQQQ+杠杆 inverse 永久 blacklist;all≥0+sum-preserving 不破 no-short/no-margin;负输入→ValueError=T2 territory 拒)。TDD 9/9 + 回归 325/0,零 core-path 改。**诚实纠 PRD-2 §3 "接 long_short_config" 措辞**:T1(1× 对冲,买 long 工具)机制 ≠ long_short_config(true-short 负权重=T2/§6 永久 gated),独立模块,不混淆
+    - ⬜ R2-b composite_evaluator 路由 `construction_tier=='T1'` → `apply_t1_inverse_hedge`(翻 R1 的 NotImplementedError)+ **T0 bit-identical 后台回归**(动 core acceptance path)
   - ⬜ R3 1× decay 成本模型 / ⬜ R4 cadence 日周 wiring / ⬜ R5 T1-vs-T0 leakage-correct experiment
 - ⬜ P2.2 cross-asset done right + 非 intraday horizon
 - ⬜ P2.3 multi-TF intraday 构建/执行 DOF + 15m boundary 修订 memo（草拟，标"待用户 ratify",不静默当已批）
@@ -34,6 +36,7 @@
 ## 本轮要更新此节（loop 每轮追加，最新在上）
 - 2026-05-18 R0：账本建立；P1.1 已 ✅。下一步 = P1.2。
 - 2026-05-18 R1：P1.2a chart_native L3 原型→canonical adapter 重构（call site byte-unchanged）;py_compile OK;label_leakage 10/10 复跑 GREEN;bit-identical 后台回归 `bi7e15u7s` 跑中(~32min)。下一步 = 待 `bi7e15u7s` 出 PASS → P1.2b 接 temporal_split_acceptance（若 FAIL → root-cause adapter 数值偏差,不 hand-wave）。
+- 2026-05-19 R10：**P2.1 R2-a 实现**(TDD):canonical `construction_tiers.py`(T1HedgeConfig + apply_t1_inverse_hedge,1× 反向对冲,invariant-preserving)。RED(module 缺)→ GREEN 9/9 → 回归 325/0。诚实纠 PRD-2 §3 "T1 接 long_short_config" 措辞(T1 ≠ true-short 负权重 schema,独立模块防混淆)。零 core-path 改 → T0 trivially bit-identical。R1-R4 自审过(SQQQ+杠杆 inverse 永久拒守不变量;负输入拒守 T1/T2 分离)。下一步 = R2-b composite_evaluator 路由 T1(翻 NotImplementedError)+ T0 bit-identical 后台回归(动 core acceptance,须后台验证)。
 - 2026-05-19 R9：用户"接着走"。**P2.1 R1 实现**(首个真实代码 round,TDD):`HarnessConfig.construction_tier` 默认 T0 纯 no-op 守卫 + T1/T2/bogus 校验。RED(5 fail 正确原因)→ GREEN(6/6)→ 回归 316/0(harness/composite/cap_aware/label_leakage/acceptance/temporal_split)。bit-identical 保证 = T0 结构性不被构建代码消费(test_tier_not_consumed)+ 既有套件零回归。R1-R4 自审过(T2 invariant-break 永久 gated explicit-go-only,协议 directional 守住)。下一步 = P2.1 R2(T1 1× 反向对冲 execution wiring,spine 优先;PRD-3-A RA1 可并行,锁定顺序)。
 - 2026-05-19 R8：写 PRD-3 ralph-loop 拆解 `docs/prd/20260519-prd3_ralph_loop_execution.md`(A RA1-RA8 / B RB1-RB5;B gated 于 P2.3;铁律=全走 PRD-1 leakage-correct + 信号非 binding 每 verdict 接 PRD-2 NAV + 不晋升不入 fleet)。**两子 PRD(P2.0/P3.0)已写齐 → 可逐 round 实现**。下一步 = P2.1 R1(T0 bit-identical 守卫,TDD;cheapest-safest-first + spine 优先,先 PRD-2 P2.1 R1 再 PRD-3-A RA1,锁定顺序两者可并行推进)。
 - 2026-05-19 R7：PRD-1 全 ✅ → 进 PRD-2 入口。写 PRD-2 ralph-loop 执行拆解 `docs/prd/20260519-prd2_ralph_loop_execution.md`(14 round:build=确定性 AC / experiment=跑了+记录+负 root-cause;R9 15m-boundary、R14 真short = directional 停等)。下一步=R8 写 PRD-3-A ralph-loop 拆解(锁定顺序 PRD-2 ∥ PRD-3-A,两子 PRD 先写齐再逐 round);之后 P2.1 R1(T0 bit-identical 守卫,TDD)。

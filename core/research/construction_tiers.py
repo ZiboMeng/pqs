@@ -1,0 +1,95 @@
+"""PRD-2 P2.1 — construction-tier weight construction (T1 hedge).
+
+T1 = invariant-PRESERVING 1x inverse-ETF hedge sleeve. You BUY a 1x
+inverse ETF (SH / PSQ / DOG) — it is itself a LONG position, so
+no-short / no-margin / long-only invariants are NOT broken:
+  - every output weight stays >= 0
+  - output sum == input sum (no leverage / no margin added)
+
+This is mechanistically DISTINCT from
+``core/research/long_short_config.py`` (true short / negative weights
+= T2 territory, PRD-2 §6 PERMANENTLY GATED, needs user explicit-go).
+T1 must NOT be routed through that schema (would conflate an
+invariant-preserving hedge with an invariant-breaking short).
+
+CLAUDE.md invariant: SQQQ permanently blacklisted; any LEVERAGED
+inverse (-2x/-3x: SQQQ/SPXU/SDS/SPXS/SOXS…) is rejected. Only the
+three 1x inverse ETFs the project already vetted in
+``config/universe_priority5.yaml`` are allowed.
+
+(P2.1 R2: pure construction function + config + invariant guards;
+fully unit-testable in isolation, zero core-path change. Routing
+``HarnessConfig.construction_tier == 'T1'`` through this — i.e.
+flipping the R1 NotImplementedError — is the next step P2.1 R2-cont
+with a T0 bit-identical regression on composite_evaluator.)
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import pandas as pd
+
+# Only the 1x inverse ETFs vetted in config/universe_priority5.yaml.
+# SQQQ + every leveraged inverse stay permanently blacklisted.
+_VALID_1X_INVERSE = ("SH", "PSQ", "DOG")
+_EPS = 1e-12
+
+
+def _check_hedge_etf(etf: str) -> None:
+    if etf not in _VALID_1X_INVERSE:
+        raise ValueError(
+            f"hedge_etf={etf!r} not allowed. T1 permits ONLY 1x inverse "
+            f"ETFs {_VALID_1X_INVERSE!r}; SQQQ + all leveraged inverse "
+            f"(-2x/-3x) are permanently blacklisted (CLAUDE.md invariant)."
+        )
+
+
+@dataclass
+class T1HedgeConfig:
+    """1x inverse-ETF hedge config. Defaults = no hedge (== T0)."""
+
+    hedge_etf: str = "SH"
+    hedge_frac: float = 0.0
+    max_hedge_frac: float = 0.30
+
+    def __post_init__(self) -> None:
+        _check_hedge_etf(self.hedge_etf)
+        if not (0.0 < self.max_hedge_frac <= 0.5):
+            raise ValueError(
+                f"max_hedge_frac {self.max_hedge_frac} must be in (0, 0.5]"
+            )
+        if not (0.0 <= self.hedge_frac <= self.max_hedge_frac):
+            raise ValueError(
+                f"hedge_frac {self.hedge_frac} must be in "
+                f"[0, max_hedge_frac={self.max_hedge_frac}]"
+            )
+
+
+def apply_t1_inverse_hedge(
+    long_weights: pd.Series,
+    hedge_etf: str,
+    hedge_frac: float,
+) -> pd.Series:
+    """Overlay a 1x inverse-ETF hedge sleeve on a long-only weight
+    vector. Long sleeve scaled to ``(1 - hedge_frac)``; ``hedge_frac``
+    added (combined, not overwritten) into ``hedge_etf``.
+
+    Invariant-preserving: refuses if any input weight is negative
+    (that is already T2/true-short territory, not T1); output stays
+    all->=0 and sum-preserving (no margin).
+    """
+    _check_hedge_etf(hedge_etf)
+    if not (0.0 <= hedge_frac <= 1.0):
+        raise ValueError(f"hedge_frac {hedge_frac} must be in [0, 1]")
+    if (long_weights < -_EPS).any():
+        raise ValueError(
+            "apply_t1_inverse_hedge received a NEGATIVE input weight — "
+            "T1 is invariant-preserving and only overlays a long hedge; "
+            "negative weights are T2/true-short territory (PRD-2 §6 "
+            "permanently gated)."
+        )
+    if hedge_frac == 0.0:
+        return long_weights.copy()
+    out = (long_weights * (1.0 - hedge_frac)).copy()
+    out.loc[hedge_etf] = out.get(hedge_etf, 0.0) + hedge_frac
+    return out
