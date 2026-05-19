@@ -1,0 +1,85 @@
+{
+  "experiment": "rb5_b2_acceptance",
+  "sealed_2026_read": false,
+  "bar_integrity": {
+    "weekend_rows": 0,
+    "years": [
+      2009,
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ],
+    "intraday_pairs": 10
+  },
+  "n_rows": {
+    "train": 720,
+    "val": 589
+  },
+  "honest_n_trials": 15,
+  "ic": {
+    "dlinear": -0.05570107858243449,
+    "shallow": 0.086748844375963,
+    "deep": -0.08939393939393937
+  },
+  "ab_deconfound": {
+    "dlinear": {
+      "info_only_ic": 0.15240272548318787,
+      "full_ic": -0.05570107858243449,
+      "timing_contrib_ic": -0.20810380406562234
+    },
+    "shallow": {
+      "info_only_ic": 0.05451437546070394,
+      "full_ic": 0.086748844375963,
+      "timing_contrib_ic": 0.032234468915259065
+    },
+    "deep": {
+      "info_only_ic": 0.07561447349747358,
+      "full_ic": -0.08939393939393937,
+      "timing_contrib_ic": -0.16500841289141294
+    }
+  },
+  "pbo": {
+    "pbo": 0.11904761904761904,
+    "red_flag": false,
+    "n_combinations": 252,
+    "S": 10,
+    "mean_logit": -0.2529808610855076,
+    "threshold": 0.5,
+    "auto_kill": false,
+    "note": "diagnostic red-flag only; human adjudicates (PRD G2-A3). forward-only: past cycles not retro-computable (scalar-only archive)."
+  },
+  "dsr_on_best": {
+    "best_arm": "shallow",
+    "dsr": {
+      "deflated_sharpe": 0.537632296016434,
+      "sharpe": 0.2429395817823853,
+      "sr0": 0.23052336749171165,
+      "skew": 0.11913023599400437,
+      "kurtosis": 3.088608894349346,
+      "n_trials": 15.0,
+      "T": 59.0
+    }
+  },
+  "gates": {
+    "deep_ge_shallow": false,
+    "shallow_ge_dlinear": true,
+    "dsr_survives": true,
+    "pbo_not_red_flagged": true,
+    "all_ics_positive": false
+  },
+  "verdict": "FAIL_recorded_root_cause",
+  "intraday_ml_self_deception_caveat": "PRD-3 \u00a73: intraday-ML = the program's HIGHEST self-deception risk arm. RB5 verdict MOST strict (deep>=shallow>=DLinear AND DSR survives AND PBO not red-flagged AND all ICs positive \u2014 every gate required). Negative \u2192 ROOT CAUSE, no termination, no blanket. IC-layer screen only; binding gate = PRD-2 NAV Track-A; not a promotion (funnel)."
+}
