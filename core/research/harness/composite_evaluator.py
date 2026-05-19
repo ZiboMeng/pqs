@@ -444,7 +444,9 @@ class HarnessConfig:
     initial_capital: float = 100_000.0
     rebalance_threshold: float = 0.02
     integer_shares: bool = False
-    construction_tier: str = "T0"  # PRD-2 P2.1; T0=long-only no-op (R1)
+    construction_tier: str = "T0"  # PRD-2 P2.1; T0=long-only no-op
+    hedge_etf: str = "SH"          # T1 1x inverse-ETF (SH/PSQ/DOG)
+    hedge_frac: float = 0.0        # T1 hedge fraction (0.0 == T0 effect)
 
     def __post_init__(self) -> None:
         if self.construction_tier not in _VALID_CONSTRUCTION_TIERS:
@@ -453,10 +455,11 @@ class HarnessConfig:
                 f"{_VALID_CONSTRUCTION_TIERS!r}, got {self.construction_tier!r}"
             )
         if self.construction_tier == "T1":
-            raise NotImplementedError(
-                "construction_tier='T1' (1x inverse-ETF hedge) is not yet "
-                "wired — PRD-2 ralph-loop P2.1 R2. Use T0 (default)."
-            )
+            # P2.1 R2-b: T1 now wired. Reuse the canonical T1HedgeConfig
+            # guards (SQQQ/leveraged-inverse blacklist + frac bounds).
+            from core.research.construction_tiers import T1HedgeConfig
+            T1HedgeConfig(hedge_etf=self.hedge_etf,
+                          hedge_frac=self.hedge_frac)
         if self.construction_tier == "T2":
             raise ValueError(
                 "construction_tier='T2' (true short) is an INVARIANT BREAK "
@@ -680,6 +683,13 @@ def evaluate_composite_spec(
             top_n=cfg.top_n,
             min_holding_days=cfg.min_holding_days,
         )
+
+    # 2b) PRD-2 P2.1 construction-tier overlay. T0 (default) = IDENTITY
+    # → bit-identical to the pre-tier path. T1 = 1x inverse-ETF hedge.
+    # T2 = permanently gated (PRD-2 §6, never auto).
+    from core.research.construction_tiers import apply_tier_overlay
+    signals = apply_tier_overlay(
+        signals, cfg.construction_tier, cfg.hedge_etf, cfg.hedge_frac)
 
     # 3) Run BacktestEngine
     if cost_model is None:

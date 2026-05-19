@@ -35,11 +35,17 @@ class TestConstructionTierT0:
         # specifying T0 changes nothing vs the default path.
         assert _cfg() == _cfg(construction_tier="T0")
 
-    def test_T1_not_yet_wired(self):
-        # R2 wires 1x inverse-hedge; until then T1 must refuse loudly,
-        # not silently behave like T0.
-        with pytest.raises(NotImplementedError):
-            _cfg(construction_tier="T1")
+    def test_T1_now_wired_R2b_supersedes_R1_stub(self):
+        # R1 scaffold made T1 raise NotImplementedError ("not yet
+        # wired"). P2.1 R2-b legitimately FLIPPED that: T1 is now wired
+        # (1x inverse-ETF hedge). With valid/default hedge params T1 no
+        # longer raises; bad hedge params delegate to T1HedgeConfig
+        # guards (ValueError). This test supersedes the R1 "not yet
+        # wired" guard — recorded, not hand-waved.
+        c = _cfg(construction_tier="T1")  # default hedge_frac=0.0 == T0
+        assert c.construction_tier == "T1" and c.hedge_frac == 0.0
+        with pytest.raises(ValueError):
+            _cfg(construction_tier="T1", hedge_etf="SQQQ")
 
     def test_T2_permanently_gated(self):
         # true short = invariant break; PRD-2 §6 — never auto, needs

@@ -93,3 +93,45 @@ def apply_t1_inverse_hedge(
     out = (long_weights * (1.0 - hedge_frac)).copy()
     out.loc[hedge_etf] = out.get(hedge_etf, 0.0) + hedge_frac
     return out
+
+
+def apply_tier_overlay(
+    signals: "pd.DataFrame",
+    construction_tier: str,
+    hedge_etf: str,
+    hedge_frac: float,
+) -> "pd.DataFrame":
+    """Single hook evaluate_composite_spec calls after signals are
+    built. T0 = IDENTITY (returns signals unchanged → bit-identical to
+    the pre-tier path). T1 = overlay the 1x inverse-ETF hedge per
+    rebalance (non-zero) row. T2 = permanently gated (PRD-2 §6).
+    """
+    if construction_tier == "T0":
+        return signals
+    if construction_tier == "T2":
+        raise ValueError(
+            "construction_tier='T2' (true short) is PERMANENTLY GATED "
+            "(PRD-2 §6 / P2.4): never auto; needs user explicit-go."
+        )
+    if construction_tier != "T1":
+        raise ValueError(
+            f"unknown construction_tier {construction_tier!r}; "
+            f"expected one of {_VALID_1X_INVERSE and ('T0','T1','T2')}"
+        )
+    # T1
+    if hedge_frac == 0.0:
+        return signals                       # == T0 effect (no hedge)
+    _check_hedge_etf(hedge_etf)
+    out = signals.copy()
+    if hedge_etf not in out.columns:
+        out[hedge_etf] = 0.0
+    cols = out.columns
+
+    def _row(r):
+        nz = r[r != 0.0]
+        if nz.empty:
+            return r                          # no-trade row untouched
+        h = apply_t1_inverse_hedge(nz, hedge_etf, hedge_frac)
+        return h.reindex(cols).fillna(0.0)
+
+    return out.apply(_row, axis=1)
