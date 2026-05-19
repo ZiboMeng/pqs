@@ -30,33 +30,33 @@
   },
   "honest_n_trials": 15,
   "ic": {
-    "dlinear": -0.05570107858243449,
-    "shallow": 0.086748844375963,
-    "deep": -0.08939393939393937
+    "dlinear": -0.07850539291217257,
+    "shallow": 0.03418079096045197,
+    "deep": -0.09062660503338466
   },
   "ab_deconfound": {
     "dlinear": {
-      "info_only_ic": 0.15240272548318787,
-      "full_ic": -0.05570107858243449,
-      "timing_contrib_ic": -0.20810380406562234
+      "info_only_ic": 0.09130651431622068,
+      "full_ic": -0.07850539291217257,
+      "timing_contrib_ic": -0.16981190722839323
     },
     "shallow": {
-      "info_only_ic": 0.05451437546070394,
-      "full_ic": 0.086748844375963,
-      "timing_contrib_ic": 0.032234468915259065
+      "info_only_ic": 0.08038071838002278,
+      "full_ic": 0.03418079096045197,
+      "timing_contrib_ic": -0.04619992741957081
     },
     "deep": {
       "info_only_ic": 0.07561447349747358,
-      "full_ic": -0.08939393939393937,
-      "timing_contrib_ic": -0.16500841289141294
+      "full_ic": -0.09062660503338466,
+      "timing_contrib_ic": -0.16624107853085823
     }
   },
   "pbo": {
-    "pbo": 0.11904761904761904,
+    "pbo": 0.16666666666666666,
     "red_flag": false,
     "n_combinations": 252,
     "S": 10,
-    "mean_logit": -0.2529808610855076,
+    "mean_logit": -0.6314320777436888,
     "threshold": 0.5,
     "auto_kill": false,
     "note": "diagnostic red-flag only; human adjudicates (PRD G2-A3). forward-only: past cycles not retro-computable (scalar-only archive)."
@@ -64,11 +64,11 @@
   "dsr_on_best": {
     "best_arm": "shallow",
     "dsr": {
-      "deflated_sharpe": 0.537632296016434,
-      "sharpe": 0.2429395817823853,
+      "deflated_sharpe": 0.14665428882304343,
+      "sharpe": 0.09220453349610071,
       "sr0": 0.23052336749171165,
-      "skew": 0.11913023599400437,
-      "kurtosis": 3.088608894349346,
+      "skew": -0.024388792442312242,
+      "kurtosis": 2.195473843089924,
       "n_trials": 15.0,
       "T": 59.0
     }
@@ -76,7 +76,7 @@
   "gates": {
     "deep_ge_shallow": false,
     "shallow_ge_dlinear": true,
-    "dsr_survives": true,
+    "dsr_survives": false,
     "pbo_not_red_flagged": true,
     "all_ics_positive": false
   },

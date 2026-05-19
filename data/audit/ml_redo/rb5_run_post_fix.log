@@ -1,0 +1,7 @@
+RB5 verdict=FAIL_recorded_root_cause -> data/audit/ml_redo/rb5_b2_acceptance.json
+  IC: dlinear=-0.0785 shallow=+0.0342 deep=-0.0906
+  ordering: deep>=shallow=False, shallow>=DLinear=True, all_positive=False
+  PBO: 0.167 red_flag=False
+  DSR(best=shallow, honest_n=15)=0.14665428882304343 survives>0.5=False
+  A/B forced: dlinear(info +0.0913/full -0.0785/timing -0.1698) shallow(info +0.0804/full +0.0342/timing -0.0462) deep(info +0.0756/full -0.0906/timing -0.1662)
+  intraday-ML self-deception: highest; not a promotion
