@@ -1,0 +1,66 @@
+{
+  "experiment": "rb3_b1_acceptance",
+  "sealed_2026_read": false,
+  "bar_integrity": {
+    "weekend_rows": 0,
+    "years": [
+      2009,
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ],
+    "intraday_pairs": 10
+  },
+  "n_rows": {
+    "train": 720,
+    "val": 589
+  },
+  "val_ic": 0.08394966615305598,
+  "ab_deconfound_3point": {
+    "p0_60m_only": {
+      "terminal": 1.9070217327832228,
+      "sharpe": 0.5094106849222602
+    },
+    "p1_info_only_veto": {
+      "terminal": 1.807835510040222,
+      "sharpe": 0.49701389200591817
+    },
+    "p2_full_b1_signal": {
+      "terminal": 1.9512507087639,
+      "sharpe": 0.5120649664526686
+    },
+    "information_contribution_terminal": -0.09918622274300093,
+    "timing_contribution_terminal": 0.14341519872367803,
+    "method": "chart_native 3-point precedent (R13/RA4)"
+  },
+  "intraday_3x_cost": {
+    "p2_at_3x": {
+      "terminal": 1.7371946644402252,
+      "sharpe": 0.48138789997184345
+    },
+    "still_positive": true
+  },
+  "not_worse_than_60m_only": {
+    "pass": true,
+    "p2_terminal": 1.9512507087639,
+    "p0_terminal": 1.9070217327832228,
+    "p2_sharpe": 0.5120649664526686,
+    "p0_sharpe": 0.5094106849222602
+  },
+  "archetype": "intraday_reversal",
+  "verdict": "PASS",
+  "intraday_ml_self_deception_caveat": "intraday-ML = highest self-deception risk program (PRD-3 \u00a73). RB3 verdict MOST strict. Negative \u2192 retire per naive-voting precedent + ROOT CAUSE, no termination, no blanket. IC-layer only; binding gate = PRD-2 NAV Track-A. NOT a promotion (PRD-3 funnel)."
+}

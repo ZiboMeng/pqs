@@ -1,0 +1,9 @@
+RB3 verdict=PASS -> data/audit/ml_redo/rb3_b1_acceptance.json
+  val_ic=+0.0839
+  p0(60m-only)   term=+1.9070 sh=+0.51
+  p1(info-veto)  term=+1.8078 sh=+0.50
+  p2(full B1)    term=+1.9513 sh=+0.51
+  info_contrib=-0.0992 timing_contrib=+0.1434
+  p2@3x-cost term=+1.7372 still_positive=True
+  not_worse_than_60m_only=True
+  intraday-ML self-deception caveat: IC-layer, not a promotion
