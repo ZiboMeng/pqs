@@ -17,7 +17,7 @@
 - ✅ P1.4 结论 fold:ledger + scope-correction + clite-finding memo;**CLAUDE.md-fold 已由 2026-05-19 reorg 新「Active State」节满足**(chart_native_s1 leakage caveat + cycle06/08 不受影响 + PRD-1 P1.3✅ 入口可见);被推翻者=仅 chart_native_s1(Option A 保留+caveat 非 retire);cycle06/08/pead/options 不受影响无 retire。**PRD-1 全 ✅。**
 
 ### PRD-2 construction-DOF（PRD-1 完成后；P2.4 不实现）
-- ⬜ P2.0 先写 PRD-2 ralph-loop 执行拆解子 PRD（round 列 + machine-checkable AC，仿 chart_structure 17-round）
+- ✅ P2.0 PRD-2 ralph-loop 执行拆解子 PRD = `docs/prd/20260519-prd2_ralph_loop_execution.md`（R1-R14;P2.1 R1-R5 / P2.2 R6-R8 / P2.3 R9-R13 / P2.4 R14-stub;R9 15m-boundary + R14 真short = directional 停等点）
 - ⬜ P2.1 T0/T1(1× 反向对冲 execution wiring on long_short_config)+ cadence 日/周
 - ⬜ P2.2 cross-asset done right + 非 intraday horizon
 - ⬜ P2.3 multi-TF intraday 构建/执行 DOF + 15m boundary 修订 memo（草拟，标"待用户 ratify",不静默当已批）
@@ -31,6 +31,7 @@
 ## 本轮要更新此节（loop 每轮追加，最新在上）
 - 2026-05-18 R0：账本建立；P1.1 已 ✅。下一步 = P1.2。
 - 2026-05-18 R1：P1.2a chart_native L3 原型→canonical adapter 重构（call site byte-unchanged）;py_compile OK;label_leakage 10/10 复跑 GREEN;bit-identical 后台回归 `bi7e15u7s` 跑中(~32min)。下一步 = 待 `bi7e15u7s` 出 PASS → P1.2b 接 temporal_split_acceptance（若 FAIL → root-cause adapter 数值偏差,不 hand-wave）。
+- 2026-05-19 R7：PRD-1 全 ✅ → 进 PRD-2 入口。写 PRD-2 ralph-loop 执行拆解 `docs/prd/20260519-prd2_ralph_loop_execution.md`(14 round:build=确定性 AC / experiment=跑了+记录+负 root-cause;R9 15m-boundary、R14 真short = directional 停等)。下一步=R8 写 PRD-3-A ralph-loop 拆解(锁定顺序 PRD-2 ∥ PRD-3-A,两子 PRD 先写齐再逐 round);之后 P2.1 R1(T0 bit-identical 守卫,TDD)。
 - 2026-05-19 R6-final：用户 CLAUDE.md reorg 已批准+立即执行(交错于本轮)：CLAUDE.md 2155→498 行(−77%),8 模块 CONTEXT.md content-preserving(线数守恒 470+1686=2156 零丢失),R3 验 13/13 不变量/纪律锚点全在。**P1.4 CLAUDE.md-fold 现已由 reorg 新「Active State」节满足 → PRD-1 全 ✅**。下一步=PRD-2 ∥ PRD-3-A 入口(各先写 ralph-loop 执行拆解子 PRD,再逐 round)。loop 续(无 directional;PRD-2 P2.4 真 short / 15m ratify 仍是后续停等点)。
 - 2026-05-19 R6：C-lite `bdwoxptnv` = **cycle06/08 VERDICT BIT-IDENTICAL — NONE differ** vs postP0maxdd → grounded §1 经验证实,**A grounded+empirical 双确认,PRD-1 P1.3 正式闭**。smoke 报 81/90 weekend 行 → R3 blast-radius:curated/active/cycle06-08/forward 全干净;仅 ~1000 bulk expanded_v2 污染+stale(SPY off-by-one fix 未覆盖 bulk;chart_native 1k 实验那批数据有此 confound,已 caveat/已闭/off-critical-path)。finding memo `docs/memos/20260519-clite_pass_plus_weekend_row_finding.md`。**P1.4 CLAUDE.md-fold 暂缓**(用户 reorg 进行中,避免冲突;已 fold ledger+memo)。PRD-1:P1.1✅P1.2✅P1.3✅,P1.4 仅 CLAUDE.md 尾巴 entangled reorg。下一步=PRD-2∥PRD-3-A 入口(各先写 ralph-loop 拆解子 PRD)。
 - 2026-05-19 R5：用户 ratify **A + C-lite**。ratify A 落 doc（PRD-1 P1.3 + ledger:scope 接受,cycle06/08/pead/options 不重评不 retire,主线不归零;chart_native 已 caveat）。启 C-lite 后台 `bdwoxptnv`（bar-integrity smoke → cycle06/08 各 top-3 重评于当前 HEAD[含 P1.1/P1.2b leakage 机器] → diff vs postP0maxdd baseline:n_passed+per-trial verdict/failed/mfp）。预期 bit-不变（确定性 composite 无 probe-fit 作用面)；DIFF 则 §1 grounded 错必 ROOT CAUSE。下一步 = bg 完成判读:PASS → P1.3 闭 + P1.4 收尾 → PRD-1 DONE → 解锁 PRD-2 ∥ PRD-3-A;DIFF → root-cause。
