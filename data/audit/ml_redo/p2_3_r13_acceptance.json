@@ -1,0 +1,71 @@
+{
+  "experiment": "p2_3_r13_acceptance",
+  "sealed_2026_read": false,
+  "bar_integrity": {
+    "weekend_rows": 0,
+    "years": [
+      2009,
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ]
+  },
+  "liquid_syms": [
+    "SPY",
+    "QQQ",
+    "XLK",
+    "XLF",
+    "XLE",
+    "XLV",
+    "XLI",
+    "XLY",
+    "AAPL",
+    "MSFT"
+  ],
+  "ab_deconfound_3point": {
+    "p0_60m_only": {
+      "terminal": 3.6776924682123253,
+      "sharpe": 0.6626711502054469
+    },
+    "p1_plus_veto_info": {
+      "terminal": 3.6776924682123253,
+      "sharpe": 0.6626711502054469
+    },
+    "p2_full_cascade": {
+      "terminal": 1.6243647089464663,
+      "sharpe": 0.5527065820280206
+    },
+    "information_contribution_terminal": 0.0,
+    "timing_contribution_terminal": -2.053327759265859,
+    "method": "chart_native 3-point curve precedent"
+  },
+  "intraday_3x_cost": {
+    "p2_at_3x": {
+      "terminal": 1.4576927576061238,
+      "sharpe": 0.5187572051256153
+    },
+    "still_positive": true
+  },
+  "not_worse_than_60m_only": {
+    "pass": false,
+    "p2_terminal": 1.6243647089464663,
+    "p0_terminal": 3.6776924682123253,
+    "p2_sharpe": 0.5527065820280206,
+    "p0_sharpe": 0.6626711502054469
+  },
+  "verdict": "FAIL_recorded_root_cause",
+  "timing_layer_caveat": "cascade = timing/sizing/veto on EXISTING daily weights (ratified 15m-decision-input boundary), NOT intraday alpha mining. not-worse-than-60m-only failing \u21d2 retire per naive-voting precedent + root-cause; negative does NOT terminate the loop (config-scoped, no blanket)."
+}

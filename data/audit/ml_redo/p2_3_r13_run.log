@@ -1,0 +1,8 @@
+R13 verdict=FAIL_recorded_root_cause -> data/audit/ml_redo/p2_3_r13_acceptance.json
+  p0(60m-only) term=3.6777 sh=0.66
+  p1(+veto)    term=3.6777 sh=0.66
+  p2(full)     term=1.6244 sh=0.55
+  info_contrib=0.0000 timing_contrib=-2.0533
+  p2@3x-cost term=1.4577 still_positive=True
+  not_worse_than_60m_only=False
+  caveat: timing-layer, NOT alpha; negative→root-cause not blanket
