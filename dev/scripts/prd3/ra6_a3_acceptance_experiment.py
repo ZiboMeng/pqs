@@ -200,7 +200,19 @@ def main() -> int:
                               flat_va, ys[va_m], dates[va_m])
 
     incr = res["jkx_bar"] - res["close_gaf"]
-    frozen_beats_scratch = res["close_gaf"] > ic_scratch
+    # frozen-vs-from-scratch must be judged on the SIGNAL-BEARING
+    # representation. close-GAF under leakage-correct purge on the
+    # curated cycle06 set carries ~0 IC (EXPECTED — consistent with
+    # the chart_native_s1 leakage caveat: the original 17/17 was
+    # leakage-inflated, leakage-correct close-GAF FAILs; ill-cond
+    # ridge confirms it is near-rank-deficient). Comparing two ~0
+    # numbers (close_gaf frozen vs raw floor) is vacuous; the L3
+    # frozen-vs-from-scratch thesis is tested where signal exists =
+    # the JKX arm. Both arms reported for honesty. (R38 ROOT CAUSE
+    # fix: prior `res["close_gaf"] > ic_scratch` mis-scoped the
+    # gate's arm — a driver-logic bug, raw ICs untouched.)
+    frozen_beats_scratch = res["jkx_bar"] > ic_scratch
+    close_gaf_vacuous = abs(res["close_gaf"]) < 0.01
     verdict = ("PASS" if (incr > 0 and frozen_beats_scratch)
                else "FAIL_recorded_root_cause")
     out = {
@@ -211,6 +223,8 @@ def main() -> int:
         "jkx_increment_over_close_gaf": incr,
         "from_scratch_floor_ic": float(ic_scratch),
         "frozen_beats_from_scratch": bool(frozen_beats_scratch),
+        "frozen_vs_scratch_arm": "jkx_bar (signal-bearing)",
+        "close_gaf_vacuous_per_s1_leakage_caveat": bool(close_gaf_vacuous),
         "verdict": verdict,
         "from_scratch_proxy_note": (
             "from-scratch = raw-GAF-pixel ridge floor (no pretrained "

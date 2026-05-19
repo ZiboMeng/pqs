@@ -1,0 +1,6 @@
+/home/zibo/miniconda3/envs/pqs/lib/python3.14/site-packages/sklearn/linear_model/_ridge.py:265: LinAlgWarning: An ill-conditioned matrix detected: slice 0 has rcond = 4.122774122095052e-09.
+  dual_coef = linalg.solve(K, y, assume_a="pos", overwrite_a=False)
+RA6 verdict=FAIL_recorded_root_cause -> data/audit/ml_redo/ra6_a3_acceptance.json
+  close_gaf IC=-0.0055  jkx_bar IC=0.0257  increment=+0.0312
+  from_scratch floor IC=0.0019  frozen>scratch=False
+  caveat: IC-layer; binding gate = PRD-2 NAV (RA4: image not necessary vs explicit norm)

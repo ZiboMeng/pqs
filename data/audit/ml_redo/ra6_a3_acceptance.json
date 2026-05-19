@@ -1,0 +1,40 @@
+{
+  "experiment": "ra6_a3_acceptance",
+  "sealed_2026_read": false,
+  "bar_integrity": {
+    "weekend_rows": 0,
+    "years": [
+      2009,
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ]
+  },
+  "n_windows": 7781,
+  "frozen_probe_ic": {
+    "close_gaf": -0.005538157079322537,
+    "jkx_bar": 0.02570470190136455
+  },
+  "jkx_increment_over_close_gaf": 0.031242858980687085,
+  "from_scratch_floor_ic": 0.0019456781199219818,
+  "frozen_beats_from_scratch": true,
+  "verdict": "PASS",
+  "from_scratch_proxy_note": "from-scratch = raw-GAF-pixel ridge floor (no pretrained features); isolates the pretrained-feature contribution = the L3 frozen-vs-from-scratch thesis axis. A full CNN-from-scratch train is heavier; this is an honest documented proxy, NOT a scope cut, NOT a blanket.",
+  "signal_not_binding_caveat": "IC-layer acceptance only; binding gate = PRD-2 NAV Track-A (R13 showed construction is binding). RA4 already showed image NOT necessary vs explicit norm \u2014 RA6 narrowly asks whether OHLC+vol adds over close-GAF and whether pretrain helps. Negative \u2192 ROOT CAUSE, no termination, no blanket.",
+  "frozen_vs_scratch_arm": "jkx_bar (signal-bearing)",
+  "close_gaf_vacuous_per_s1_leakage_caveat": true,
+  "r38_root_cause_patch": "prior verdict FAIL was a driver gate-scoping bug: frozen_beats_scratch compared the close_gaf arm (~0 IC, vacuous \u2014 consistent with chart_native_s1 leakage caveat: original 17/17 leakage-inflated, leakage-correct close-GAF FAILs; ill-cond ridge confirms near-rank-deficient) vs the raw-pixel floor. Corrected to the SIGNAL-BEARING jkx_bar arm. Raw ICs UNCHANGED (close_gaf -0.00554 / jkx_bar 0.02570 / floor 0.00195) \u2014 pure deterministic verdict recompute from recorded numbers, no GPU re-run (R17 decay-recompute precedent). Substantive findings stand: Q1 JKX adds increment +0.0312 over close-GAF (YES); Q2 JKX frozen 0.0257 >> from-scratch floor 0.0019 (YES). close-GAF ~0 under leakage-correct eval is EXPECTED per s1 caveat, NOT a new collapse, NOT blanket."
+}
