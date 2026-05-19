@@ -65,27 +65,39 @@ _H = 21
 _CHART_NATIVE_PROGRAM_ARMS = 6
 
 
-def _frozen_imagenet_features(imgs, device, batch=64):
+def _build_frozen_net(device):
+    """STANDARD torchvision ResNet18 IMAGENET1K_V1, fc=Identity,
+    frozen + eval. Built ONCE (streaming refactor 2026-05-18, mirrors
+    run_s1_imagenet_backbone commit 7f22b85)."""
     import torch
-    import torch.nn.functional as F
     from torchvision.models import ResNet18_Weights, resnet18
     net = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
     net.fc = torch.nn.Identity()
     net = net.to(device).eval()
     for p in net.parameters():
         p.requires_grad_(False)
+    return net
+
+
+def _encode_batch(net, imgs_np, device):
+    """One batch (b,2,W,W) float32 → (b,512) frozen features. Exact
+    per-batch math preserved from the pre-refactor whole-array path
+    (cat per-image channel-mean as 3rd ch; bilinear 224; ImageNet
+    norm). eval-mode ResNet18 is per-sample (BN running stats; bilinear
+    interpolate per-sample) → streaming is numerically bit-identical to
+    np.stack(imgs)→_frozen_imagenet_features (executable default
+    unchanged); peak host RAM is now O(batch) not O(all windows)."""
+    import torch
+    import torch.nn.functional as F
     mean = torch.tensor([0.485, 0.456, 0.406], device=device).view(1, 3, 1, 1)
     std = torch.tensor([0.229, 0.224, 0.225], device=device).view(1, 3, 1, 1)
-    out = []
     with torch.no_grad():
-        for i in range(0, len(imgs), batch):
-            x = torch.tensor(imgs[i:i + batch], device=device)
-            x = torch.cat([x, x.mean(1, keepdim=True)], 1)
-            x = F.interpolate(x, size=(224, 224), mode="bilinear",
-                              align_corners=False)
-            x = (x - mean) / std
-            out.append(net(x).cpu().numpy())
-    return np.concatenate(out, 0)
+        x = torch.tensor(np.asarray(imgs_np), device=device)
+        x = torch.cat([x, x.mean(1, keepdim=True)], 1)
+        x = F.interpolate(x, size=(224, 224), mode="bilinear",
+                          align_corners=False)
+        x = (x - mean) / std
+        return net(x).cpu().numpy()
 
 
 def main() -> int:
@@ -97,10 +109,26 @@ def main() -> int:
     tyset = train_year_set(split)
 
     uni = cfg.universe
-    syms = [s for s in (list(uni.seed_pool) + list(uni.sector_etfs)
-                        + list(uni.factor_etfs) + list(uni.cross_asset))
-            if s not in uni.blacklist and s not in uni.macro_reference
-            and s not in ("BRK-B", "USO", "SLV")]
+    # CHART_L3_UNIVERSE env-flag (Option A scale, 2026-05-18): default
+    # "executable" preserves the canonical L3 run BIT-FOR-BIT (this
+    # branch never calls resolve_universe). "expanded_v2" trains the
+    # frozen-ImageNet ridge probe on the ~1006 cross-section; the
+    # cap_aware Track-A portfolio is STILL restricted to cluster_map
+    # (~59 names, composite_evaluator.py:236 eligible_cols) — i.e. this
+    # tests "does a 1k-trained probe pass production Track-A on the
+    # tradeable universe", NOT a 1k portfolio (honest scope).
+    import os as _osu
+    _uni = _osu.environ.get("CHART_L3_UNIVERSE", "executable")
+    if _uni == "executable":
+        syms = [s for s in (list(uni.seed_pool) + list(uni.sector_etfs)
+                            + list(uni.factor_etfs) + list(uni.cross_asset))
+                if s not in uni.blacklist and s not in uni.macro_reference
+                and s not in ("BRK-B", "USO", "SLV")]
+    else:
+        from core.universe.universe_resolver import resolve_universe
+        syms = [s for s in resolve_universe(_uni)
+                if s not in uni.blacklist and s not in uni.macro_reference
+                and s not in ("BRK-B", "USO", "SLV")]
     syms = list(dict.fromkeys(syms + ["SPY", "QQQ"]))
     ca = set(CROSS_ASSET_RISK_CLUSTER_MAP.keys())
     fr = {k: {} for k in ("close", "open", "high", "low", "volume")}
@@ -182,7 +210,20 @@ def main() -> int:
     if _NOOVL:
         print("NO-OVERLAP control: GAF window ends at i-_H "
               "(zero overlap + gap vs label)")
-    imgs, keys = [], []   # keys = (sym, date)
+    # STREAMING (2026-05-18, mirrors run_s1_imagenet_backbone commit
+    # 7f22b85): the pre-refactor path materialized ALL GAF images in
+    # host RAM (imgs list → np.stack → I). At executable-79 that is
+    # fine; at expanded_v2 (~1006 syms, ~1.1M windows) it is a ~35 GB
+    # array / ~69 GB peak → OOM. We now encode each window through a
+    # built-once frozen backbone in a bounded batch buffer and keep
+    # ONLY the 512-d features (~2.4 GB at 1.1M windows). keys order +
+    # E row order preserved exactly → no-leakage probe fit + score
+    # panel reconstruction unchanged; executable default bit-identical.
+    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    net = _build_frozen_net(dev)
+    _BATCH = 64
+    feats, keys = [], []   # keys = (sym, date)
+    buf = []
     for s in [c for c in px.columns if c not in ("SPY", "QQQ")]:
         v = px[s].to_numpy(float)
         idx = px.index
@@ -194,13 +235,18 @@ def main() -> int:
             w = v[j - WINDOW_LEN + 1:j + 1]
             if not (np.isfinite(w).all() and w[0] > 0):
                 continue
-            imgs.append(gaf_image(w))
+            buf.append(gaf_image(w))
             keys.append((s, dt))
-    I = np.stack(imgs).astype(np.float32)
-    dev = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"{len(I)} GAF windows, extracting frozen features "
+            if len(buf) == _BATCH:
+                feats.append(_encode_batch(net, buf, dev))
+                buf = []
+    if buf:
+        feats.append(_encode_batch(net, buf, dev))
+    n_win = len(keys)
+    print(f"{n_win} GAF windows, streamed frozen features "
           f"({time.time()-t0:.0f}s) device={dev}")
-    E = _frozen_imagenet_features(I, dev)
+    E = (np.concatenate(feats, 0) if feats
+         else np.empty((0, 512), np.float32))
     print(f"features {E.shape} ({time.time()-t0:.0f}s)")
 
     # ── NO-LEAKAGE PROBE: fit on TRAIN-YEARS rows ONLY ──
@@ -286,11 +332,17 @@ def main() -> int:
                if g.name == "cpcv_distribution_acceptance"), None)
     _FULLHIST = (_os.environ.get("CHART_L3_FULLHIST") == "1"
                  or bool(_os.environ.get("CHART_L3_FULLHIST_BY")))
+    _base_exp = ("chart_native_l3_SURVIVORSHIP_fullhist_subset" if _FULLHIST
+                 else "chart_native_l3_NOOVERLAP_window_ends_i_minus_H"
+                 if _NOOVL else "chart_native_l3_track_a")
     out = {
-        "experiment": (
-            "chart_native_l3_SURVIVORSHIP_fullhist_subset" if _FULLHIST
-            else "chart_native_l3_NOOVERLAP_window_ends_i_minus_H"
-            if _NOOVL else "chart_native_l3_track_a"),
+        "experiment": (_base_exp if _uni == "executable"
+                       else f"{_base_exp}[{_uni}]"),
+        "universe": _uni,
+        "probe_train_cross_section_note": (
+            "probe ridge fit on this universe's train-year rows; "
+            "cap_aware Track-A portfolio still restricted to cluster_map "
+            "(~59 names, eligible_cols) — NOT a full-universe portfolio"),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "candidate": "chart_native_s1 (GAF→frozen ResNet18 IMAGENET1K_V1"
                      "→train-only ridge probe)",
@@ -312,9 +364,11 @@ def main() -> int:
                          " fail→definitive retire verdict for chart-native"
                          " line. config-scoped; no over-claim.",
     }
-    p = Path("data/audit/chart_native_l3_SURVIVORSHIP.json" if _FULLHIST
-             else "data/audit/chart_native_l3_NOOVERLAP.json" if _NOOVL
-             else "data/audit/chart_native_l3_track_a.json")
+    _base_path = ("data/audit/chart_native_l3_SURVIVORSHIP.json" if _FULLHIST
+                  else "data/audit/chart_native_l3_NOOVERLAP.json" if _NOOVL
+                  else "data/audit/chart_native_l3_track_a.json")
+    p = (Path(_base_path) if _uni == "executable"
+         else Path(_base_path.replace(".json", f"_{_uni}.json")))
     p.write_text(json.dumps(out, indent=2, default=str))
     v = "PASS" if out["track_a_overall_passed"] else "FAIL"
     print(f"\nL3 Track-A: {v} | failed={out['track_a_failed_gates']}")
