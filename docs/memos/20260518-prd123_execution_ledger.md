@@ -24,13 +24,14 @@
 - ⬜ P2.4 真 short execution = **不实现**（permanent TODO，触发须用户 explicit-go）
 
 ### PRD-3 信号 ML arms（组件 A 与 PRD-2 并行；组件 B gated 于 P2.3）
-- ⬜ P3.0 先写 PRD-3 ralph-loop 执行拆解子 PRD
+- ✅ P3.0 PRD-3 ralph-loop 执行拆解子 PRD = `docs/prd/20260519-prd3_ralph_loop_execution.md`(组件 A RA1-RA8 / 组件 B RB1-RB5;RB1=B 前置 gate;A4/B expanded-universe 须先修 bulk weekend-row R6 finding;全走 PRD-1 leakage-correct,信号非 binding 每 verdict 必接 PRD-2 NAV)
 - ⬜ 组件 A1 工程特征+XGBoost+stack frozen-probe → A2 1D/ROCKET vs 图像 ablation → A3 JKX-bar → A4 iTransformer 域内 SSL
 - ⬜ 组件 B1 intraday 工程特征+XGBoost → B2 intraday 深度（gate 最硬，gated 于 P2.3 + A 跑通 + A/B 去混淆）
 
 ## 本轮要更新此节（loop 每轮追加，最新在上）
 - 2026-05-18 R0：账本建立；P1.1 已 ✅。下一步 = P1.2。
 - 2026-05-18 R1：P1.2a chart_native L3 原型→canonical adapter 重构（call site byte-unchanged）;py_compile OK;label_leakage 10/10 复跑 GREEN;bit-identical 后台回归 `bi7e15u7s` 跑中(~32min)。下一步 = 待 `bi7e15u7s` 出 PASS → P1.2b 接 temporal_split_acceptance（若 FAIL → root-cause adapter 数值偏差,不 hand-wave）。
+- 2026-05-19 R8：写 PRD-3 ralph-loop 拆解 `docs/prd/20260519-prd3_ralph_loop_execution.md`(A RA1-RA8 / B RB1-RB5;B gated 于 P2.3;铁律=全走 PRD-1 leakage-correct + 信号非 binding 每 verdict 接 PRD-2 NAV + 不晋升不入 fleet)。**两子 PRD(P2.0/P3.0)已写齐 → 可逐 round 实现**。下一步 = P2.1 R1(T0 bit-identical 守卫,TDD;cheapest-safest-first + spine 优先,先 PRD-2 P2.1 R1 再 PRD-3-A RA1,锁定顺序两者可并行推进)。
 - 2026-05-19 R7：PRD-1 全 ✅ → 进 PRD-2 入口。写 PRD-2 ralph-loop 执行拆解 `docs/prd/20260519-prd2_ralph_loop_execution.md`(14 round:build=确定性 AC / experiment=跑了+记录+负 root-cause;R9 15m-boundary、R14 真short = directional 停等)。下一步=R8 写 PRD-3-A ralph-loop 拆解(锁定顺序 PRD-2 ∥ PRD-3-A,两子 PRD 先写齐再逐 round);之后 P2.1 R1(T0 bit-identical 守卫,TDD)。
 - 2026-05-19 R6-final：用户 CLAUDE.md reorg 已批准+立即执行(交错于本轮)：CLAUDE.md 2155→498 行(−77%),8 模块 CONTEXT.md content-preserving(线数守恒 470+1686=2156 零丢失),R3 验 13/13 不变量/纪律锚点全在。**P1.4 CLAUDE.md-fold 现已由 reorg 新「Active State」节满足 → PRD-1 全 ✅**。下一步=PRD-2 ∥ PRD-3-A 入口(各先写 ralph-loop 执行拆解子 PRD,再逐 round)。loop 续(无 directional;PRD-2 P2.4 真 short / 15m ratify 仍是后续停等点)。
 - 2026-05-19 R6：C-lite `bdwoxptnv` = **cycle06/08 VERDICT BIT-IDENTICAL — NONE differ** vs postP0maxdd → grounded §1 经验证实,**A grounded+empirical 双确认,PRD-1 P1.3 正式闭**。smoke 报 81/90 weekend 行 → R3 blast-radius:curated/active/cycle06-08/forward 全干净;仅 ~1000 bulk expanded_v2 污染+stale(SPY off-by-one fix 未覆盖 bulk;chart_native 1k 实验那批数据有此 confound,已 caveat/已闭/off-critical-path)。finding memo `docs/memos/20260519-clite_pass_plus_weekend_row_finding.md`。**P1.4 CLAUDE.md-fold 暂缓**(用户 reorg 进行中,避免冲突;已 fold ledger+memo)。PRD-1:P1.1✅P1.2✅P1.3✅,P1.4 仅 CLAUDE.md 尾巴 entangled reorg。下一步=PRD-2∥PRD-3-A 入口(各先写 ralph-loop 拆解子 PRD)。
