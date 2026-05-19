@@ -54,11 +54,24 @@ class CostModelConfig(BaseModel):
                 return tier
         return self.tiers["default"]
 
-    def get_slippage_bps(self, symbol: str, freq: str, vix: float) -> float:
+    def get_slippage_bps(self, symbol: str, freq: str, vix: float,
+                         sensitivity_multiplier: float = 1.0) -> float:
         """
         Return total slippage in bps for a symbol/freq/vix combination.
         freq: 'interday' | 'intraday'
+
+        ``sensitivity_multiplier`` (PRD-2 P2.3 R11): an UNCONDITIONAL
+        cost-stress knob for the P2.3 acceptance sensitivity sweep
+        (e.g. 3.0 = "intraday 3x cost still positive"). Stacks on top
+        of the VIX-conditional ``stress_slippage_multiplier``. Default
+        ``1.0`` is bit-identical to the prior behaviour. Must be
+        ``>= 1.0`` — a sensitivity knob must never UNDERSTATE cost
+        (that would be a dangerous false-positive).
         """
+        if sensitivity_multiplier < 1.0:
+            raise ValueError(
+                f"sensitivity_multiplier={sensitivity_multiplier} < 1.0 "
+                f"— a cost-stress knob must never understate cost")
         tier = self.get_tier_for_symbol(symbol)
         base = (
             tier.slippage_interday_bps
@@ -66,10 +79,15 @@ class CostModelConfig(BaseModel):
             else tier.slippage_intraday_bps
         )
         multiplier = self.stress_slippage_multiplier if vix >= self.vix_stress_threshold else 1.0
-        return base * multiplier
+        return base * multiplier * sensitivity_multiplier
 
     def get_commission_bps(self, symbol: str) -> float:
         return self.get_tier_for_symbol(symbol).commission_bps
 
-    def get_total_cost_bps(self, symbol: str, freq: str, vix: float) -> float:
-        return self.get_commission_bps(symbol) + self.get_slippage_bps(symbol, freq, vix)
+    def get_total_cost_bps(self, symbol: str, freq: str, vix: float,
+                           sensitivity_multiplier: float = 1.0) -> float:
+        # commission deliberately NOT scaled by the sensitivity knob —
+        # slippage is the volatility-sensitive component
+        # (conservative-honest; matches mining-evaluator cost_multiplier).
+        return self.get_commission_bps(symbol) + self.get_slippage_bps(
+            symbol, freq, vix, sensitivity_multiplier)

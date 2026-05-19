@@ -60,6 +60,7 @@ class CostModel:
         symbol: str,
         freq:   str = "interday",
         vix:    float = 15.0,
+        sensitivity_multiplier: float = 1.0,
     ) -> float:
         """
         返回总成本（commission + slippage）的 bps 值。
@@ -69,8 +70,11 @@ class CostModel:
         symbol : ticker
         freq   : 'interday' 或 'intraday'
         vix    : 当前 VIX 水平（用于应激压力倍数）
+        sensitivity_multiplier : PRD-2 P2.3 R11 无条件成本压力旋钮
+            （默认 1.0 = bit-identical；3.0 = 3x 敏感 sweep）。
         """
-        return self._cfg.get_total_cost_bps(symbol, freq, vix)
+        return self._cfg.get_total_cost_bps(
+            symbol, freq, vix, sensitivity_multiplier)
 
     def estimate_cost(
         self,
@@ -78,6 +82,7 @@ class CostModel:
         notional_usd: float,
         freq:         str = "interday",
         vix:          float = 15.0,
+        sensitivity_multiplier: float = 1.0,
     ) -> CostBreakdown:
         """
         预估一笔交易的成本明细。
@@ -85,13 +90,16 @@ class CostModel:
         Parameters
         ----------
         notional_usd : 交易名义金额（正数，不区分买卖）
+        sensitivity_multiplier : PRD-2 P2.3 R11 成本压力旋钮（默认
+            1.0 = bit-identical；只缩放 slippage 不缩放 commission）。
         """
         notional_usd = abs(notional_usd)
         if notional_usd == 0:
             return CostBreakdown(symbol, 0, 0, 0, 0, 0)
 
         commission_bps  = self._cfg.get_commission_bps(symbol)
-        slippage_bps    = self._cfg.get_slippage_bps(symbol, freq, vix)
+        slippage_bps    = self._cfg.get_slippage_bps(
+            symbol, freq, vix, sensitivity_multiplier)
         total_bps       = commission_bps + slippage_bps
 
         commission_usd  = notional_usd * commission_bps / 10_000
