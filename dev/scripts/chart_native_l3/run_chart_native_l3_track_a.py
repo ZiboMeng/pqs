@@ -293,21 +293,33 @@ def main() -> int:
          else np.empty((0, 512), np.float32))
     print(f"features {E.shape} ({time.time()-t0:.0f}s)")
 
-    # ── NO-LEAKAGE PROBE: fit on TRAIN-YEARS rows ONLY ──
-    # Diagnostic env-flags (2026-05-18, ALL default off → default
-    # executable path BIT-IDENTICAL; the de-confounding (b) 3-point
-    # curve + correctness (a) sample-uniqueness/purge-embargo run):
+    # ── LEAKAGE-CORRECT PROBE (DEFAULT since 2026-05-18) ──
+    # User decision 2026-05-18: leakage-correct is now the chart_native
+    # L3 research-eval DEFAULT (sample-uniqueness weighting + purge/
+    # embargo of train rows whose 21d label reaches a validation year).
+    # Rationale: run4 showed the leakage-naive probe fit inflated
+    # IC-on-59 ~25% and turned the forward candidate's Track-A
+    # PASS→FAIL; the honest canonical must be leakage-correct.
+    # (Scope: ONLY this chart_native L3 research path — no other
+    # candidate depends on it. The project-wide absence of sample-
+    # uniqueness in core acceptance is a SEPARATE high-priority finding
+    # requiring its own PRD; NOT silently changed here.)
+    #   CHART_L3_LEGACY_NO_LEAKAGE_CORR=1 → reproduce the pre-fix
+    #     leakage-naive run (suniq+purge OFF) — forensic / bit-identical
+    #     to the old canonical only.
+    #   CHART_L3_SAMPLE_UNIQ / CHART_L3_PURGE_EMBARGO = 0/1 → granular
+    #     override of either leg (default 1 each).
     #   CHART_L3_PROBE_FIT_CLUSTERMAP_ONLY=1 → fit ridge ONLY on the
-    #     ~59 cluster_map (tradeable) names → "59-train/59-trade"
-    #     (user's train/trade-alignment dilution hypothesis test).
-    #   CHART_L3_SAMPLE_UNIQ=1 → weighted ridge w/ López de Prado
-    #     average-uniqueness weights (overlapping 21d labels).
-    #   CHART_L3_PURGE_EMBARGO=1 → purge+embargo train rows whose
-    #     label window reaches a validation year.
+    #     ~59 cluster_map names (dilution-hypothesis diagnostic).
     import os as _osd
+
+    def _envbool(_n, _d):
+        _v = _osd.environ.get(_n)
+        return _d if _v is None else (_v == "1")
+    _LEGACY = _osd.environ.get("CHART_L3_LEGACY_NO_LEAKAGE_CORR") == "1"
     _FIT_CMAP = _osd.environ.get("CHART_L3_PROBE_FIT_CLUSTERMAP_ONLY") == "1"
-    _SUNIQ = _osd.environ.get("CHART_L3_SAMPLE_UNIQ") == "1"
-    _PURGE = _osd.environ.get("CHART_L3_PURGE_EMBARGO") == "1"
+    _SUNIQ = False if _LEGACY else _envbool("CHART_L3_SAMPLE_UNIQ", True)
+    _PURGE = False if _LEGACY else _envbool("CHART_L3_PURGE_EMBARGO", True)
     _cmap_keys = set(make_unified_cluster_map(include_cross_asset=True))
     yk = np.array([
         fwd21.at[d, s] if (d in fwd21.index and s in fwd21.columns)
@@ -429,15 +441,21 @@ def main() -> int:
     _base_exp = ("chart_native_l3_SURVIVORSHIP_fullhist_subset" if _FULLHIST
                  else "chart_native_l3_NOOVERLAP_window_ends_i_minus_H"
                  if _NOOVL else "chart_native_l3_track_a")
-    _diag = ([] + (["fitcmap59"] if _FIT_CMAP else [])
-             + (["suniq"] if _SUNIQ else [])
-             + (["purge"] if _PURGE else []))
+    # Tag reflects DEVIATIONS from the new leakage-correct default
+    # (default = no tag → canonical chart_native_l3_track_a.json holds
+    # the honest leakage-correct result).
+    _diag = ([] + (["legacyNoCorr"] if _LEGACY else [])
+             + (["fitcmap59"] if _FIT_CMAP else [])
+             + (["nosuniq"] if (not _LEGACY and not _SUNIQ) else [])
+             + (["nopurge"] if (not _LEGACY and not _PURGE) else []))
     _diag_tag = ("_" + "_".join(_diag)) if _diag else ""
     out = {
         "experiment": ((_base_exp if _uni == "executable"
                         else f"{_base_exp}[{_uni}]") + _diag_tag),
         "universe": _uni,
-        "diagnostic_flags": {"fit_clustermap_only": _FIT_CMAP,
+        "leakage_correct_default": (not _LEGACY and _SUNIQ and _PURGE),
+        "diagnostic_flags": {"legacy_no_leakage_corr": _LEGACY,
+                             "fit_clustermap_only": _FIT_CMAP,
                              "sample_uniqueness": _SUNIQ,
                              "purge_embargo": _PURGE},
         "oos_rank_ic": {"pooled_all": ic_pooled_all,
