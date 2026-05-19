@@ -100,6 +100,50 @@ def _encode_batch(net, imgs_np, device):
         return net(x).cpu().numpy()
 
 
+def _avg_uniqueness_weights(keys, date_pos, H):
+    """López de Prado Ch.4 average-uniqueness sample weights for the
+    overlapping H-day forward labels (per symbol, along its own date
+    axis). Returns weight array aligned to `keys` (mean-normalized to
+    1.0; NOT used unless CHART_L3_SAMPLE_UNIQ=1)."""
+    from collections import defaultdict
+    by_sym = defaultdict(list)
+    for ix, (s, d) in enumerate(keys):
+        by_sym[s].append((date_pos[d], ix))
+    w = np.ones(len(keys), np.float64)
+    for s, lst in by_sym.items():
+        lst.sort()
+        pos = np.array([p for p, _ in lst])
+        ixs = np.array([i for _, i in lst])
+        if len(pos) == 0:
+            continue
+        span = pos.max() + H + 1
+        conc = np.zeros(span, np.float64)
+        for p in pos:
+            conc[p:p + H + 1] += 1.0
+        for k, p in enumerate(pos):
+            seg = conc[p:p + H + 1]
+            seg = seg[seg > 0]
+            w[ixs[k]] = float(np.mean(1.0 / seg)) if seg.size else 1.0
+    m = w.mean()
+    return w / m if m > 0 else w
+
+
+def _purge_embargo_mask(keys, date_pos, idx_years, H, val_years, embargo=5):
+    """True = KEEP (train row's [p, p+H+embargo] label window does NOT
+    reach into a validation year). López de Prado Ch.7 purge+embargo at
+    the alternating-regime year boundary (NOT used unless
+    CHART_L3_PURGE_EMBARGO=1)."""
+    keep = np.ones(len(keys), bool)
+    vy = set(val_years)
+    n = len(idx_years)
+    for ix, (s, d) in enumerate(keys):
+        p = date_pos[d]
+        hi = min(p + H + embargo, n - 1)
+        if any(idx_years[q] in vy for q in range(p, hi + 1)):
+            keep[ix] = False
+    return keep
+
+
 def main() -> int:
     import torch
     t0 = time.time()
@@ -250,21 +294,71 @@ def main() -> int:
     print(f"features {E.shape} ({time.time()-t0:.0f}s)")
 
     # ── NO-LEAKAGE PROBE: fit on TRAIN-YEARS rows ONLY ──
+    # Diagnostic env-flags (2026-05-18, ALL default off → default
+    # executable path BIT-IDENTICAL; the de-confounding (b) 3-point
+    # curve + correctness (a) sample-uniqueness/purge-embargo run):
+    #   CHART_L3_PROBE_FIT_CLUSTERMAP_ONLY=1 → fit ridge ONLY on the
+    #     ~59 cluster_map (tradeable) names → "59-train/59-trade"
+    #     (user's train/trade-alignment dilution hypothesis test).
+    #   CHART_L3_SAMPLE_UNIQ=1 → weighted ridge w/ López de Prado
+    #     average-uniqueness weights (overlapping 21d labels).
+    #   CHART_L3_PURGE_EMBARGO=1 → purge+embargo train rows whose
+    #     label window reaches a validation year.
+    import os as _osd
+    _FIT_CMAP = _osd.environ.get("CHART_L3_PROBE_FIT_CLUSTERMAP_ONLY") == "1"
+    _SUNIQ = _osd.environ.get("CHART_L3_SAMPLE_UNIQ") == "1"
+    _PURGE = _osd.environ.get("CHART_L3_PURGE_EMBARGO") == "1"
+    _cmap_keys = set(make_unified_cluster_map(include_cross_asset=True))
     yk = np.array([
         fwd21.at[d, s] if (d in fwd21.index and s in fwd21.columns)
         else np.nan for (s, d) in keys], np.float64)
     is_train = np.array([d.year in tyset for (s, d) in keys])
     fit_m = is_train & np.isfinite(yk)
+    if _FIT_CMAP:
+        fit_m = fit_m & np.array([s in _cmap_keys for (s, d) in keys])
+    if _PURGE:
+        _dpos = {d: p for p, d in enumerate(px.index)}
+        _iyrs = [ts.year for ts in px.index]
+        _keep = _purge_embargo_mask(keys, _dpos, _iyrs, _H,
+                                    sorted({vy.year for vy
+                                            in split.partition.validation_years}))
+        fit_m = fit_m & _keep
     Xtr, ytr = E[fit_m], yk[fit_m]
     lam = 10.0
-    A = Xtr.T @ Xtr + lam * np.eye(Xtr.shape[1])
-    beta = np.linalg.solve(A, Xtr.T @ ytr)        # probe trained train-only
+    if _SUNIQ:
+        _dpos2 = {d: p for p, d in enumerate(px.index)}
+        wfull = _avg_uniqueness_weights(keys, _dpos2, _H)
+        w = wfull[fit_m]
+        A = Xtr.T @ (w[:, None] * Xtr) + lam * np.eye(Xtr.shape[1])
+        beta = np.linalg.solve(A, Xtr.T @ (w * ytr))
+    else:
+        # default path — EXACT original two lines (bit-identical)
+        A = Xtr.T @ Xtr + lam * np.eye(Xtr.shape[1])
+        beta = np.linalg.solve(A, Xtr.T @ ytr)    # probe trained train-only
     score_all = E @ beta                          # applied to ALL rows
     n_train_fit = int(fit_m.sum())
     n_val_oos = int((~is_train).sum())
     print(f"probe fit on {n_train_fit} TRAIN rows; "
           f"{n_val_oos} validation rows are frozen-OOS "
+          f"(flags cmap={_FIT_CMAP} suniq={_SUNIQ} purge={_PURGE}) "
           f"({time.time()-t0:.0f}s)")
+    # ── ALWAYS-ON additive metric (does NOT touch Track-A gates):
+    # frozen-OOS rank-IC pooled vs restricted to the ~59 cluster_map
+    # tradeable names. This is the measurement S1/L3-A never took and
+    # is load-bearing for the dilution-vs-construction question.
+    def _rank_ic(p, y):
+        m = np.isfinite(p) & np.isfinite(y)
+        if m.sum() < 30:
+            return None
+        return float(np.corrcoef(pd.Series(p[m]).rank(),
+                                 pd.Series(y[m]).rank())[0, 1])
+    _oos = ~is_train
+    _in59 = np.array([s in _cmap_keys for (s, d) in keys])
+    ic_pooled_all = _rank_ic(score_all[_oos], yk[_oos])
+    ic_on_clustermap_59 = _rank_ic(score_all[_oos & _in59],
+                                   yk[_oos & _in59])
+    print(f"OOS rank-IC: pooled_all={ic_pooled_all} "
+          f"on_clustermap_59={ic_on_clustermap_59}")
 
     # score panel (date × sym) — single synthetic factor
     sc = pd.DataFrame(index=px.index, columns=[c for c in px.columns
@@ -335,10 +429,19 @@ def main() -> int:
     _base_exp = ("chart_native_l3_SURVIVORSHIP_fullhist_subset" if _FULLHIST
                  else "chart_native_l3_NOOVERLAP_window_ends_i_minus_H"
                  if _NOOVL else "chart_native_l3_track_a")
+    _diag = ([] + (["fitcmap59"] if _FIT_CMAP else [])
+             + (["suniq"] if _SUNIQ else [])
+             + (["purge"] if _PURGE else []))
+    _diag_tag = ("_" + "_".join(_diag)) if _diag else ""
     out = {
-        "experiment": (_base_exp if _uni == "executable"
-                       else f"{_base_exp}[{_uni}]"),
+        "experiment": ((_base_exp if _uni == "executable"
+                        else f"{_base_exp}[{_uni}]") + _diag_tag),
         "universe": _uni,
+        "diagnostic_flags": {"fit_clustermap_only": _FIT_CMAP,
+                             "sample_uniqueness": _SUNIQ,
+                             "purge_embargo": _PURGE},
+        "oos_rank_ic": {"pooled_all": ic_pooled_all,
+                        "on_clustermap_59": ic_on_clustermap_59},
         "probe_train_cross_section_note": (
             "probe ridge fit on this universe's train-year rows; "
             "cap_aware Track-A portfolio still restricted to cluster_map "
@@ -367,8 +470,8 @@ def main() -> int:
     _base_path = ("data/audit/chart_native_l3_SURVIVORSHIP.json" if _FULLHIST
                   else "data/audit/chart_native_l3_NOOVERLAP.json" if _NOOVL
                   else "data/audit/chart_native_l3_track_a.json")
-    p = (Path(_base_path) if _uni == "executable"
-         else Path(_base_path.replace(".json", f"_{_uni}.json")))
+    _stem = ("" if _uni == "executable" else f"_{_uni}") + _diag_tag
+    p = Path(_base_path.replace(".json", f"{_stem}.json"))
     p.write_text(json.dumps(out, indent=2, default=str))
     v = "PASS" if out["track_a_overall_passed"] else "FAIL"
     print(f"\nL3 Track-A: {v} | failed={out['track_a_failed_gates']}")
