@@ -17,7 +17,7 @@
 | Phase | 名称 | 顺序 | 性质 | 状态 |
 |---|---|---|---|---|
 | X0 | Dividend extension + atr flip | 1 | data work | ✅ Round 1+2+3 done (data+flip+R3 smoke+TR baseline rerun) |
-| X1 | Protocol schema + GenerateStrategyAdapter | 2 | TDD build | ⬜ |
+| X1 | Protocol schema + GenerateStrategyAdapter | 2 | TDD build | ✅ Round 4 (18/18 GREEN + 26/26 regression) |
 | X2 | Rule-based trigger + exit policy + vol-conditional no-trade band | 3 | TDD build + experiment | ⬜ |
 | **X4** | **Deferred execution integration + M11 parity matrix** | **4** | **integrate existing** | ⬜ |
 | **X3** | **Partial rebalance / delta-to-trade policy** | **5** | **true new build + experiment** | ⬜ |
@@ -48,6 +48,33 @@
 ---
 
 ## 轮次日志(每轮 commit 时追加 1 行)
+
+### Round 4(2026-05-19) — X1 Protocol schema TDD build (18/18 GREEN)
+
+- **目标**: PRD §11 X1 — DecisionPolicy/ExecutionPolicy Protocol schema + GenerateStrategyAdapter,bit-identical default (per cascade_overlay R12/T0/sample_weight=None precedent)。
+- **新增模块**: `core/research/decision/__init__.py`(纯 schema 层,AST-verified 零 panel/bar_store/yfinance import)。
+- **核心成员**:
+  - `ActionType` enum 9 actions (ENTER_FULL/ENTER_PARTIAL/ADD/HOLD/TRIM/EXIT/DEFER/VETO/NO_TRADE),disjoint with SignalStatus 3 states (per audit issue #12)
+  - `PositionState` enum (FLAT/HOLD) per §4.1.1
+  - `ActionDecision` dataclass + `__post_init__` long-only invariant guard(target_weight<0 raises ValueError)
+  - `DecisionPolicy` Protocol (4 method state-machine API,modelled on intraday_reversal blueprint,§F.2)
+  - `ExecutionPolicy` Protocol (3 method facade:schedule_fill/should_defer/partial_size)
+  - `GenerateStrategyAdapter` wraps 6 `.generate()` strategies via composition(零 strategy 修改),mode="off" default bit-identical pass-through;`active` mode 为 X2 占位 raise NotImplementedError(不静默 no-op)
+  - `LifecycleMapper.from_lifecycle()` PRD §4.1 9-state → (SignalStatus, ActionType, PositionState) 三元组
+- **TDD**: RED(ModuleNotFoundError 模块缺)→ GREEN 18/18,涵盖:
+  - 9 actions + disjoint-from-SignalStatus
+  - PositionState 仅 FLAT/HOLD
+  - ActionDecision dataclass shape + 负 weight reject(long-only invariant)
+  - DecisionPolicy / ExecutionPolicy Protocol method presence
+  - GenerateStrategyAdapter mode="off" identity pass-through(R3 实测 byte-equal to strategy.generate())
+  - bogus mode raises;strategy 不被 mutate
+  - LifecycleMapper 4 case + unknown lifecycle raises
+  - long-only invariant cross-check(no SHORT_*-style action names)
+  - AST-based import check(纯 schema 层,no panel/data import)
+- **ROOT CAUSE 我留痕(test-bug 不是 impl-bug)**: 初 RED→GREEN 后 1 fail = `test_decision_module_imports_no_panel_or_bar_store` 用 `forbidden not in src` raw text grep,撞 docstring 描述性文本("NO yfinance/bar-store imports" 警句)。修为 `ast.parse` 检 真实 import statements,GREEN。
+- **regression**: signal_state + cascade_overlay + construction_tier T0 既有 26/26 不变 — 复用模块零回归,纯 additive 新模块。
+- **invariant 全过**: §6.4 long-only(ActionDecision negative weight reject + ActionType 无 SHORT_*) / no-margin(N/A 本 phase) / SQQQ N/A / sealed 2026 永不读(AST 证 schema 不读 panel) / 真 short execution untouched / bit-identical default mode ✓ (mode="off")。
+- **下一步**: Round 5 = X2 Rule-based trigger + exit policy + vol-conditional no-trade band(per §5.1/§5.2.C 复用 RegimeDetector/KillSwitch/FailureDetector + §5.3.1 vol-conditional band per Leland 1999)。
 
 ### Round 3(2026-05-19) — X0 phase verdict + 完整收官
 
