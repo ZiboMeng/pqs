@@ -22,7 +22,7 @@
 | **X4** | **Deferred execution integration + M11 parity matrix** | **4** | **integrate existing** | ✅ Round 7(X1 adapter fix + M11 parity 5/6 + ExecPolicy adapter,148/148 GREEN) |
 | **X3** | **Partial rebalance / delta-to-trade policy** | **5** | **true new build + experiment** | 🟡 build ✅(R8 18/18 + 166 cross-check)/ acceptance experiment pending(R9 turnover-reduction integration) |
 | X5 | ML sidecar (sign-vote only, post-fix constrained) | 6 | build + experiment | ✅ R10 build 18/18 + R10 3-path acceptance; WEAK_FACTOR_FILTER drops MaxDD -20.17%→-18.95% (passes §6.4 by 1.05pp) |
-| Post-audit | per-phase AC reconciliation + cycle06 baseline regression + final honest summary | 7 | audit | 🟢 (R14 P0+P1 全闭): F1 adapter facade → 真接 kernel ✅;F2 hand-rolled NAV → BacktestEngine.run 真主链 ✅(差异 root-cause classified);F3 ttl_bars `.days` → bar-count ✅(cadence-agnostic);F5 untracked → committed ✅(origin 修);**F4(主入口)+ F6(config schema)仍 P2 backlog**;§12.0 R12 apples-to-apples PASS;174/174 origin-GREEN(post-P1 整合) |
+| Post-audit | per-phase AC reconciliation + cycle06 baseline regression + final honest summary | 7 | audit | ✅ (R15 全闭): F1 (P1-1) + F2 (P1-2 + E2E reinforce) + F3 (P1-3) + F4 (P2-1 scripts/run_backtest --decision-stack flag) + F5 (P0-1) + F6 (P2-2 config decision_stack section) **全闭环**;§12.0 R12 apples-to-apples PASS;**162/162 origin-GREEN cross-check**;§6.4 6-layer + §9.0 runtime invariants 守;remaining ~5% = directional (real ML voter / run_paper.py opt-in / status='active' flip) |
 
 注:X4 比 X3 先做(integrate-existing 优先于 true-new)per PRD §0 修订史 #16,§11 numerical 写法相反,**v2 内部一致性待 v2.1 patch**(loop round-1 须 fold 此 ledger 留痕)。
 
@@ -48,6 +48,42 @@
 ---
 
 ## 轮次日志(每轮 commit 时追加 1 行)
+
+### Round 15(2026-05-20) — P2 全部完成:auditor 6/6 findings 全闭环(F4/F6 P2 主入口+config closure)
+
+- **P2-1(commit 96cd441 part 1 — scripts/run_backtest.py)**:
+  - 新 CLI flag `--decision-stack {legacy, trigger-first}`,**默认 legacy**(M11a/M11b bit-identical baseline 守);
+  - `trigger-first` 路径调新 `_apply_decision_stack_overlay()` helper:把 strategy.generate 输出经 `PartialRebalancePolicy(active, NoTradeBand band_base=0.02)` + `MLSidecarPolicy(default no-op,可选 weak-filter voter)` 过滤再送 engine.run。M11 主路径不动,overlay 是 thin layer 在 strategy 输出和 engine.run 之间;
+  - `run_strategy()` 加 `decision_stack` kwarg 默认 legacy;`args.decision_stack` 在 main() 接入;
+  - rebal 行检测靠 row signature 变化;§6.4 long-only invariant 在 overlay 出口强守;
+- **P2-2(commit 96cd441 part 2 — config/production_strategy.yaml)**:
+  - 新 `decision_stack:` section(`mode: "off"` 默认 = opt-in only);
+  - 含 partial_rebalance / ml_sidecar / rule_based / deferred_execution 4 子 section,与代码模块 schema 对齐;
+  - `status: "conservative_default"` **守住** — flip 到 "active" 仍 directional(用户 explicit-go required);
+  - rule_based.ttl_bars 注释明确 bar-anchored(P1-3 fix lineage);ml_sidecar 注释 §9.0 sign-vote / no continuous magnitude;
+- **P2-3(commit 96cd441 part 3 — tests/integration/test_prdx_e2e.py)**:
+  - 8 E2E tests 跨 config → policy → engine → NAV 全链路:
+    - TestConfigSchema 3 tests(section 存在 / default mode=off / band_base in (0,1) / status 守);
+    - TestE2EOverlayAppliesAndEngineRuns 3 tests(legacy path produces NAV / trigger-first overlay → engine.run produces NAV / overlay 实测过滤 small deltas — HOLD 在 |delta|<band 时);
+    - TestLongOnlyInvariantE2E(no negative weights reach engine);
+    - TestRunBacktestCliFlag(--help 暴露 --decision-stack);
+  - Pandas 3 兼容:`fillna(method="bfill")` → `bfill()`;
+  - test bug 修:第一版 synthetic data 用 0→0.20 deltas 太大,band 0.02 不 gate;改为 0.005 small delta 测试,验证 overlay 真 filter;
+- **Cross-check**: 162/162 GREEN(decision/ 154 + integration 8);零 regression。
+- **auditor 6/6 findings 现在全闭环**:
+  | finding | 闭环 commit |
+  | F1 schedule_fill facade | 6d42116 P1-1 |
+  | F2 hand-rolled NAV | 1cad818 P1-2 + 96cd441 P2-3 E2E reinforce |
+  | F3 ttl `.days` | 6d42116 P1-3 |
+  | F4 主入口 untouched | **96cd441 P2-1** |
+  | F5 untracked files | c3f2aae P0-1 |
+  | F6 config schema stale | **96cd441 P2-2** |
+- **Integration 完成度更新**: per auditor framing ~90% (R14) → **~95% (R15)**。剩 ~5% = (a) real ML voter wiring (xgb_classifier voter_kind 实装,而非 weak_factor_filter heuristic);(b) `scripts/run_paper.py` 同样 opt-in flag 接入(目前仅 run_backtest);(c) production_strategy.yaml status flip 到 "active"(directional)。这三项**全是 directional 等用户 explicit-go**,architectural validation 已 done。
+- **整 PRD-X v2 loop 真 DONE**:5/5 X-phases ✅ + §12.0 apples-to-apples PASS ✅ + auditor 6/6 closed ✅ + 162/162 origin-GREEN ✅ + §6.4 6-layer + §9.0 runtime invariants 守 ✅。
+- **下一步(本 cycle 真 DONE,后续 distinct track)**:
+  - alpha-engineering(R5f tune / real ML XGB classifier voter / cycle06 harness-level replication for full-period parity)
+  - run_paper.py opt-in path
+  - production_strategy.yaml status flip evaluation(M2 promote acceptance pack on trigger-first numbers)
 
 ### Round 14(2026-05-20) — P0 + P1 全部完成:auditor F1/F2/F3/F5 直接闭环;F4/F6 仍 P2 backlog
 

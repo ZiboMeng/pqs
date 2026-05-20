@@ -491,3 +491,90 @@ auditor F2 flagged was missing.
 **Integration completeness now ~90% per auditor framing** (up from
 ~70-80% pre-R14). The remaining 🟡 items are production-adoption,
 not architectural validation. Architectural correctness fully proven.
+
+---
+
+### R15 P2 closure (auditor 6/6 findings ALL CLOSED, 2026-05-20)
+
+After R14 P0+P1, user said "go P2" — completed P2-1/2-2/2-3 in
+commit `96cd441`. All 6 auditor findings now closed:
+
+| Finding | Closure | Status |
+|---|---|---|
+| F1 schedule_fill facade | P1-1 (6d42116) | ✅ Drives kernel, tests assert `_pending` populated |
+| F2 hand-rolled NAV | P1-2 (1cad818) + P2-3 (96cd441) | ✅ Real BacktestEngine.run path + E2E regression test |
+| F3 ttl_bars `.days` | P1-3 (6d42116) | ✅ bar-count anchored, cadence-agnostic |
+| F4 main entries unchanged | P2-1 (96cd441) | ✅ `scripts/run_backtest --decision-stack {legacy, trigger-first}` opt-in flag |
+| F5 untracked files | P0-1 (c3f2aae) | ✅ no_trade_band.py + test git-tracked |
+| F6 config schema stale | P2-2 (96cd441) | ✅ `decision_stack:` section in production_strategy.yaml |
+
+**Integration completeness ~95% post-R15** (up from ~90% post-R14).
+
+R15 P2 specifics:
+
+- **P2-1**: `scripts/run_backtest.py` adds `--decision-stack {legacy,
+  trigger-first}` CLI flag (default `legacy` bit-identical). When
+  `trigger-first`, applies `_apply_decision_stack_overlay()` =
+  PartialRebalancePolicy(active, band=0.02) + MLSidecarPolicy
+  (default no-op) as a thin overlay between `strategy.generate()`
+  output and `engine.run()`. M11 parity preserved (overlay sits
+  BEFORE engine.run, kernel untouched).
+
+- **P2-2**: `config/production_strategy.yaml` adds `decision_stack:`
+  section (`mode: off` default, opt-in only):
+  - `partial_rebalance.band_base` / `partial_full_threshold`
+  - `ml_sidecar.enabled` / `voter_kind` / `voter_params` —
+    voter_kind options: `no_op` / `weak_factor_filter` /
+    `xgb_classifier` (last is backlog wiring)
+  - `rule_based.entry_threshold` / `exit_threshold` /
+    `confirm_min_bars` / `base_position_size` / `ttl_bars`
+    (bar-anchored per P1-3 fix)
+  - `deferred_execution.execution_delay_bars` / `enabled`
+  - `status: "conservative_default"` PRESERVED — flip to "active"
+    remains directional (M2 promote_strategy.py acceptance pack
+    on trigger-first numbers required, not just legacy MFS)
+
+- **P2-3**: `tests/integration/test_prdx_e2e.py` 8 tests covering
+  the full chain config → DecisionPolicy → engine → NAV. Including
+  `test_overlay_filters_small_deltas` which constructs a panel
+  with intentional 0.005 small deltas to verify band-gating
+  produces HOLD action.
+
+### Remaining 🟡 items (post-R15)
+
+These are all directional production-adoption work, NOT
+architectural validation gaps:
+
+1. Real ML voter wiring (`voter_kind: "xgb_classifier"`) — replace
+   `weak_factor_filter` heuristic with a trained classifier
+   producing SignVote outputs per §9.0. Threading via
+   `docs/memos/20260519-strategic_close_out_REVISION_post_audit_fix.md`.
+2. `scripts/run_paper.py` opt-in `--decision-stack` flag (currently
+   only `run_backtest.py` adopts; `run_paper.py` legacy MFS-only).
+3. `production_strategy.yaml` `status: "active"` flip — requires
+   M2 acceptance pack on trigger-first NAV numbers, not just
+   legacy MFS R33 grid.
+4. M11 parity matrix 6th strategy (ConfirmationPattern
+   grep-introspection bug fix).
+5. cycle06 harness-level replication for §12.0 strict full-period
+   1.37 Sharpe baseline (vs apples-to-apples 0.5654 which IS PASS).
+
+### Closing note (FINAL FINAL, post-R15)
+
+The PRD-X v2 implementation loop is **substantively DONE**:
+
+- All 5 X-phases shipped with acceptance experiments
+- §12.0 baseline regression PASS (apples-to-apples)
+- Auditor 6/6 findings closed
+- 162/162 origin-GREEN cross-check (decision/ 154 + integration 8)
+- §6.4 6-layer + §9.0 runtime invariants守
+- sealed-2026 never accessed
+- Main entry opt-in path wired
+- Config SoT v2 schema reflects architectural direction
+- E2E integration test as regression seam for future changes
+
+Remaining work is alpha-engineering + production adoption, both
+distinct tracks. The architectural surface is correct, integrated,
+and regression-tested.
+
+— end of PRD-X v2 final summary —
