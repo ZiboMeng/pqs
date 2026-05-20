@@ -49,6 +49,42 @@
 
 ## 轮次日志(每轮 commit 时追加 1 行)
 
+### Round 20(2026-05-20 night) — PRD #4 P4.1 sub-step 2:XGBRankerRankModel(20/20 GREEN, in-sample overfit R3 catch + fix)
+
+- **本轮主题**:PRD #4 P4.1 sub-step 2 — XGBRanker concrete impl(P4.1 第二个 model class,LightGBM 因 env 未装 skip)。
+- **本轮目标**:wrap `xgboost.XGBRanker(objective="rank:pairwise")` 成 `XGBRankerRankModel` 类,与 LinearBaseline 同 Protocol(fit + predict_rank,dict[name, panel] form),Pareto-floor sanity test 验证 XGB ≥ Linear。
+- **为什么这轮优先**:per unified loop script default order #2;LinearBaseline 已 ship,XGB 是 PRD #4 P4.1 AC 的核心 model class(rank-IC > 0.02 + rank-IR > 0.30 都需 boosting model 才有望)。
+- **做了什么**:
+  - 新建 `core/research/ml/xgb_rank_model.py`:`XGBRankerRankModel` dataclass + fit/predict_rank;每 bar = 1 query group;y → within-group integer rank(rank-pairwise 不是 magnitude-pairwise per §9.0);per-bar cross-sectional standardize 同 LinearBaseline。
+  - 新建 `tests/unit/research/ml/test_xgb_rank_model.py`:10 tests covering construction / unfitted safety / fit synth / pure-noise held-out / §9.0 invariant / XGB vs Linear Pareto-floor / feature columns / insufficient data。
+  - **R3 self-audit catch**:初版 pure-noise test 在 in-sample 上跑出 IC=0.45 — 显然 overfit(20 trees + 80 bars × 8 symbols small panel)。fix:加 strict-chronological train/test split(70 bar train / 30 bar held-out),held-out IC 真 < 0.30。**non-blanket framing**:不是 "XGB overfits 不能用",是 "in-sample evaluation on small panel is misleading" — discipline 已知(per `feedback_temporal_split_discipline` + Track-A R1 leakage 教训)。这条 R3 catch 后面 P4.4 pipeline 必须 walk-forward 而非 in-sample。
+- **改了哪些文件**:
+  - 新:`core/research/ml/xgb_rank_model.py`(202 lines)
+  - 新:`tests/unit/research/ml/test_xgb_rank_model.py`(10 tests)
+- **跑了什么测试 + 结果**:`pytest tests/unit/research/ml/` 全 20/20 GREEN(10 LinearBaseline + 10 XGBRanker)。XGB on synth panel:rank-IC > 0.10(strong synthetic signal recovered);XGB Pareto-floor 测试 XGB ≥ 0.7 × Linear IC。
+- **新发现 / 新机会**:
+  - in-sample overfitting on small panel 是 default trap(XGB 默认 hyperparams 容易记 noise)。P4.4 pipeline 必须 walk-forward 才稳。
+  - XGBRanker `objective="rank:pairwise"` + within-group integer rank target = §9.0 alignment(rank-pairwise 不是 magnitude-pairwise)。
+- **剩余风险**:
+  - LightGBM env 未装,P4.1 只有 LinearBaseline + XGB 两 model class(PRD 写 3 model class option,LightGBM 留 P4.4+ backlog)
+  - P4.1 还没有 real-data 测试(只有 synth panel)— 真实测试需要 P4.4 pipeline 接 113-factor research panel
+  - in-sample overfit lesson 表明 P4.1 AC `rank-IC > 0.02 + rank-IR > 0.30` 必须从 **walk-forward held-out** 计算,不是 in-sample
+- **下一轮建议方向**:per unified script #3 = **PRD #3 P3.5 fingerprint computation utility**(可独立 + 解锁 P3.6 M2 promote)— 切 PRD 平行减少单一 PRD 知识深度风险,interleave per unified script spec。
+
+### Round 19(2026-05-20 night) — P4.1 sub-step 1:LinearBaselineRankModel scaffold + 10 GREEN(已 commit d83b2a1)
+
+- 新 `core/research/ml/{__init__.py, rank_model.py}`:RankModelProtocol + LinearBaselineRankModel + rank_ic / rank_ir 指标 + cross_sectional helpers
+- 10 TDD tests:standardize zero-mean / rank in (0,1] / perfect-match IC ≈ 1 / anti-match IC ≈ -1 / noise IC ≈ 0 / unfitted predict raises / fit synth → positive IC / pure-noise IC near zero / §9.0 output ∈ [0,1] / schema purity(no yfinance/bar_store)
+- §9.0 invariant explicit at API:predict_rank() 输出 cross-sectional rank ∈ [0,1] 不是 magnitude
+- per-bar cross-sectional standardization 实现(features + labels 都),避 magnitude leakage + time-aggregated look-ahead
+
+### Round 18(2026-05-20)— R18 option A tactical fixes(已 commit e6d343d)
+
+- F5 closure:NoTradeBandCalculator.compute 加 ctx['realized_vol_by_symbol'] 优先;run_backtest/run_paper 计算 60d annualized realized-vol panel 并传入 overlay(原 hardcoded 0.15 == _VOL_ANCHOR → vol_multiplier=1.0,band 实际 inert,R18 修)
+- PRD 双向 sharpen:canonical_promotion §1 加 SCOPE BOUNDARY(thin overlay NOT full state-machine);P3.7 AC 加 yaml-state-driven default 注解(F1);rank_first_ml P4.1 AC 加 3 binding constraint(universe / horizon / pool,F7)
+- F6 surface:`20260520-passed_qqq_gate_schema_decision.md` 3 options A/B/C(operator 推 A)
+- 190/190 GREEN post-R18
+
 ### Round 17(2026-05-20) — auditor 2nd-round F5/F8 closure + PRD #3 / #4 draft
 
 - **触发**: auditor 第二轮 review surface F5 (hardcoded params not from yaml) + F8 (voter_kind config 未 consumed) + 主链/live/RuleBased 等 deeper findings。user "go" 修 #1 + 写 PRD #3 + #4。
