@@ -216,6 +216,45 @@ class TestRunBacktestCliFlag:
         assert "trigger-first" in out.stdout
 
 
+# ── Round 31 audit close: run_paper.py live parity ──────────────────
+class TestRunPaperLiveParity:
+    """Round 31 audit close: scripts/run_paper.py live mode must apply
+    the same decision_stack overlay as replay (auditor F1: live ≠ replay
+    was the biggest live parity gap).
+
+    AST/source-string seam test — verifies overlay wiring is in the live
+    branch source. A full live smoke needs real intraday bars; this
+    seam catches the regression "live branch silently drops overlay".
+    """
+
+    def test_live_branch_applies_decision_stack_overlay(self):
+        src = (PROJ / "scripts" / "run_paper.py").read_text()
+        # split into replay and live regions
+        live_marker = 'elif args.mode == "live":'
+        assert live_marker in src, "live branch marker missing"
+        live_idx = src.index(live_marker)
+        live_branch_src = src[live_idx:]
+        # Overlay wiring must appear inside the live branch
+        assert "_apply_decision_stack_overlay_from_config" in live_branch_src, (
+            "live branch missing _apply_decision_stack_overlay_from_config "
+            "call (Round 31 audit close: live parity with replay)")
+        assert "decision_stack" in live_branch_src
+        assert "load_production_strategy" in live_branch_src
+
+    def test_live_overlay_guarded_by_decision_stack_flag(self):
+        """The overlay must only run when --decision-stack trigger-first
+        is explicitly set; legacy default must still bypass."""
+        src = (PROJ / "scripts" / "run_paper.py").read_text()
+        live_idx = src.index('elif args.mode == "live":')
+        # find the overlay block
+        overlay_idx = src.index("_apply_decision_stack_overlay_from_config",
+                                live_idx)
+        # walk backwards to find the if-guard
+        preceding = src[live_idx:overlay_idx]
+        assert 'args.decision_stack == "trigger-first"' in preceding, (
+            "live overlay must be guarded by --decision-stack flag check")
+
+
 # ── R17 auditor F5/F8 closure: config-driven runtime ─────────────────
 class TestConfigDrivenRuntime:
     """Auditor F5 + F8 closure: scripts must consume

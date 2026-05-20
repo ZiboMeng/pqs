@@ -602,6 +602,40 @@ def main():
             regime_series = regime,
         )
 
+        # PRD #4 P4.5 audit close (Round 31, 2026-05-20): live parity gap
+        # — replay path applies decision_stack overlay (loaded from
+        # production_strategy.yaml::decision_stack at line 521-557 above),
+        # but live path historically went strategy→constructor→target
+        # directly, bypassing the trigger-first overlay. This block mirrors
+        # the replay wiring so live === replay === backtest decision chain
+        # when --decision-stack trigger-first.
+        if args.decision_stack == "trigger-first":
+            try:
+                from core.config.production_strategy import (
+                    load_production_strategy,
+                )
+                from scripts.run_backtest import (
+                    _apply_decision_stack_overlay_from_config,
+                )
+                _ps_live = load_production_strategy(
+                    "config/production_strategy.yaml")
+                _ds_live = _ps_live.decision_stack
+                logger.info(
+                    "paper-live decision_stack overlay: mode=%s, "
+                    "band_base=%s, sidecar.enabled=%s, voter_kind=%s",
+                    _ds_live.mode,
+                    _ds_live.partial_rebalance.band_base,
+                    _ds_live.ml_sidecar.enabled,
+                    _ds_live.ml_sidecar.voter_kind)
+                weights = _apply_decision_stack_overlay_from_config(
+                    weights, regime, _ds_live, price_df=price_df_1d,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "live decision_stack overlay FAILED (%s); falling "
+                    "back to legacy weights — live ≠ replay parity is "
+                    "BROKEN this run.", exc)
+
         # PRD M10: cross-ticker DSL on live weights
         try:
             from core.signals.cross_ticker_wrapper import apply_rules_to_weight_matrix

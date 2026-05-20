@@ -1,0 +1,67 @@
+{
+  "R_ML_A_weak_factor_filter": {
+    "ml_mode": "active",
+    "n_rebal": 81,
+    "turnover_per_rebal": 0.0552,
+    "cum_return": 0.608,
+    "annualized_sharpe": 0.6174,
+    "max_drawdown": -0.2283,
+    "vs_spy_excess_cum": -0.8341,
+    "vote_counts": {
+      "VETO": 814,
+      "NO_VOTE": 3934,
+      "CONFIRM": 0
+    }
+  },
+  "R_ML_B_trained_xgb_classifier": {
+    "ml_mode": "active",
+    "n_rebal": 81,
+    "turnover_per_rebal": 0.0585,
+    "cum_return": 0.6419,
+    "annualized_sharpe": 0.6284,
+    "max_drawdown": -0.2413,
+    "vs_spy_excess_cum": -0.8002,
+    "vote_counts": {
+      "VETO": 702,
+      "NO_VOTE": 4046,
+      "CONFIRM": 0
+    }
+  },
+  "R_ML_C_stage1_rank_factor_plus_classifier": {
+    "ml_mode": "active",
+    "n_rebal": 81,
+    "turnover_per_rebal": 0.0538,
+    "cum_return": 0.446,
+    "annualized_sharpe": 0.64,
+    "max_drawdown": -0.1983,
+    "vs_spy_excess_cum": -0.9961,
+    "vote_counts": {
+      "VETO": 815,
+      "NO_VOTE": 4349,
+      "CONFIRM": 0
+    }
+  },
+  "diff_C_minus_A": {
+    "sharpe": 0.0226,
+    "max_dd": 0.03,
+    "cum_return": -0.162
+  },
+  "p45_ac_pass_C": true,
+  "diff_B_minus_A": {
+    "sharpe": 0.011,
+    "max_dd": -0.013,
+    "cum_return": 0.0339,
+    "vs_spy_excess_cum": 0.0339
+  },
+  "p45_ac_pass_B": false,
+  "config": {
+    "classifier_artifact": "data/ml/sign_XGBSignClassifier_2010-2018_20260520T185728Z",
+    "classifier_lineage": "XGBSignClassifier_2010-2018_20260520T185728Z",
+    "classifier_spec_id": "aff4e7aa5a3f019231e745b48ee563332564ab8391c27f54768b9dc446b89a81",
+    "backtest_start": "2018-01-01",
+    "backtest_end": "2024-12-31",
+    "context_bundle": "regime_state",
+    "include_r_ml_c": true
+  },
+  "trained_at_utc": "20260520T190644Z"
+}

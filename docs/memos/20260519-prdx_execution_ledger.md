@@ -49,6 +49,47 @@
 
 ## 轮次日志(每轮 commit 时追加 1 行)
 
+### Round 31(2026-05-20 night) — audit close P1+P2:run_paper.py live parity + R29 audit hygiene(2 AST tests + 381/381 regression)
+
+- **本轮主题**: 外部 auditor review 7 findings,operator 独立 R3 实证后接受 5 完全对 + 1 半对(F5 vol proxy 在 R-ML-C verdict 上影响 zero,但 live 路径担忧成立)+ 1 hygiene。本轮关 priority 1+2(live parity + audit JSON hygiene)。
+- **本轮目标**: (P1) `run_paper.py` live mode 添 decision_stack overlay → live ≡ replay ≡ backtest 单决策链;(P2) 处理 R29 untracked audit JSON(R10 precedent committed → commit 而非 gitignore)。
+- **为什么这轮优先**: per operator-决定的 audit response 顺序,(1) live parity 是真 gap + production-readiness 必经,(2) hygiene trivial 2 分钟做完不留尾巴,(3) 后续 walk-forward retrain / vol proxy / alpha-root attack 都不依赖 audit JSON 的归属。
+- **做了什么**:
+  - **P1 live parity**: `scripts/run_paper.py` live branch(line 607-639,在 `signals = strategy.generate` + `weights = constructor.build` 之后、cross-ticker DSL 之前):
+    - 若 `args.decision_stack == "trigger-first"`:`load_production_strategy("config/production_strategy.yaml")` → 拿 `decision_stack` config → `_apply_decision_stack_overlay_from_config(weights, regime, _ds_live, price_df=price_df_1d)` 应用到 weights
+    - Exception fallback:warning log + legacy weights(防 live 完全 break,但 parity 显式标 BROKEN)
+    - **mirror replay 接线(line 521-557)** — 现 replay 与 live 共用同一 `_apply_decision_stack_overlay_from_config`,backtest 主链亦同(`scripts/run_backtest.py:238`)
+  - **P2 audit JSON hygiene**: 删 r29_r_ml_a_vs_b_20260520T190038Z.json(只 A-vs-B,被 190644 superseded)+ commit 190644(R-ML-A vs B vs C 完整 verdict)入 git。precedent:R10 acceptance JSON `prdx_r10_x5_acceptance.json` 已 committed(commit 4964538)
+  - 加 2 AST tests `tests/integration/test_prdx_e2e.py::TestRunPaperLiveParity`:
+    - `test_live_branch_applies_decision_stack_overlay`:live branch source 必含 `_apply_decision_stack_overlay_from_config` + `decision_stack` + `load_production_strategy`(seam test 防 live 静默丢 overlay 退化)
+    - `test_live_overlay_guarded_by_decision_stack_flag`:overlay call 之前必有 `args.decision_stack == "trigger-first"` 守(默认 legacy 不动)
+- **改了哪些文件**:
+  - 改:`scripts/run_paper.py`(live branch + decision_stack overlay 接入 33 行)
+  - 改:`tests/integration/test_prdx_e2e.py`(加 TestRunPaperLiveParity class,2 tests)
+  - 新(入 git):`data/audit/r29_r_ml_a_vs_b_20260520T190644Z.json`(R-ML-A vs B vs C 完整 verdict JSON)
+  - 删:`data/audit/r29_r_ml_a_vs_b_20260520T190038Z.json`(被 superseded 的 A-vs-B-only)
+  - 改:`docs/memos/20260519-prdx_execution_ledger.md`(Round 31 entry)
+- **跑了什么测试 + 结果**:
+  - 新 TestRunPaperLiveParity:**2/2 GREEN**(0.x s)
+  - 全 integration/prdx_e2e + ml/ + promotion/ + decision/ + config production_strategy + universe_propagation + research_promote_cli regression:**381/381 GREEN**(34.45s),零 regression
+  - AST verify:`_apply_decision_stack_overlay_from_config` 在 `scripts/run_paper.py` **4 处 refs**(2 replay + 2 live)
+- **operator R3 audit verdict 5 完全对 + 1 半对 + 1 hygiene 详情**(供 ledger 后续追溯):
+  - F1 (live 路径未接 decision_stack):✅ 完全对 — **本轮关**
+  - F2 (promote_strategy.py legacy-only):✅ 完全对 — 留 priority 6(PRD #3 promote)
+  - F3 (status=conservative_default):✅ 完全对 — design 一直是 user-gate
+  - F4 (CLI default 是 legacy 不是 trigger-first):✅ 完全对 — 留 PRD #3 P3.7.x yaml-state-driven default
+  - F5 (vol proxy 0.15):⚠ **半对** — `_apply_decision_stack_overlay:332` 0.15 是 scalar fallback;R18 已 ship per-symbol panel(line 278-286)+ `realized_vol_by_symbol` 优先;**R29 acceptance driver 自己用 `_realized_vol_60d(close)` 真 per-symbol vol,R-ML-C verdict 不受 proxy 影响**;仅 LIVE 路径 price_df=None 时 fallback 触发 — 留 priority 4(可选 live-path defensive fix)
+  - F6 (classifier_voter yaml loading 接上):✅ 完全对 — auditor 表扬 R28 work
+  - F7 (2 untracked audit JSONs):✅ 完全对 — **本轮关**
+- **新发现 / 新机会**:
+  - replay vs live 现在共用 `_apply_decision_stack_overlay_from_config`(同一函数引用),drift 不可能(单 source)
+  - AST seam test pattern 防止 "silently 丢 overlay 退化"(类似 R23 panel.index 假设 surface)
+- **剩余风险**:
+  - live overlay 用 daily price_df 计算 60d realized vol panel — vol panel 是 daily,intraday timing 不参与;若 P4.5 R-ML-D 决定用 intraday context features,vol panel 需扩 60m
+  - live overlay Exception fallback 用 warning,**没硬 raise** — 这是 design choice 保 live 不完全 break,但产生 parity-broken-yet-running 风险;P3.7.x 需 strict_match runtime check 来 catch
+  - audit JSON `r29_r_ml_a_vs_b_20260520T190644Z.json` 现入 git,但其 timestamp filename 不利后续 audit (filename 含 UTC) — 可考虑 rename 成 `r29_r_ml_a_vs_b_final.json` future round
+- **下一轮建议方向**: **Round 32 = priority 3 Stage 2 walk-forward retrain + hyperparam search**(operator 推 priority 3 高于 vol proxy fix per audit response;直接拉 P4.2 val precision 0.39 → 期望 ≥ 0.55)。
+
 ### Round 30(2026-05-20 night) — PRD #4 P4.5 R-ML-C:Stage 1 rank as factor_score + 通过 P4.5 binding AC ✅
 
 - **本轮主题**: PRD #4 P4.5 R-ML-C 实验。R29 R-ML-B AC FAIL on MaxDD,扩 r29 driver 加 path C(Stage 1 cycle06 rank 替 mom_12_1 作 entry trigger 信号源)+ 同 trained classifier overlay。
