@@ -61,7 +61,14 @@ def _load_panel():
     cross_asset_set = set(CROSS_ASSET_RISK_CLUSTER_MAP.keys())
     frames = {k: {} for k in ("close", "open", "high", "low", "volume")}
     for sym in syms:
-        atr = sym in cross_asset_set
+        # PRD-X v2 Phase X0 (2026-05-19, ledger Round 1): flip to
+        # atr=True universally. bar_store no-ops TR cascade for symbols
+        # absent from distributions.parquet (docstring guarantee). pre-X0
+        # cycle06 numbers preserved in git history; Track-A v1 vs-SPY
+        # -353pp used split-only SPY (cum 6.34), TR-adjusted SPY is
+        # cum 9.00 (+267pp). atr=True changes cycle06 baseline NAV
+        # — Track-A regression must rerun.
+        atr = True
         df = store.load(sym, freq="1d", adjusted=True,
                         adjusted_total_return=atr, fallback="local")
         if df is None or df.empty or "close" not in df.columns:

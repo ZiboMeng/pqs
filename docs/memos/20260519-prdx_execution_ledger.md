@@ -16,7 +16,7 @@
 
 | Phase | 名称 | 顺序 | 性质 | 状态 |
 |---|---|---|---|---|
-| X0 | Dividend extension + atr flip | 1 | data work | ⬜ |
+| X0 | Dividend extension + atr flip | 1 | data work | 🟡 R1 done (data+flip+smoke);R2 re-run baselines |
 | X1 | Protocol schema + GenerateStrategyAdapter | 2 | TDD build | ⬜ |
 | X2 | Rule-based trigger + exit policy + vol-conditional no-trade band | 3 | TDD build + experiment | ⬜ |
 | **X4** | **Deferred execution integration + M11 parity matrix** | **4** | **integrate existing** | ⬜ |
@@ -48,6 +48,15 @@
 ---
 
 ## 轮次日志(每轮 commit 时追加 1 行)
+
+### Round 1(2026-05-19) — v2.1 patch + X0 sub-step-1 (data+flip+R3 smoke)
+
+- **v2.1 PRD patch**: PRD §11 头部 + R1 留痕注:execution order per §0 #16 logical(X0→X1→X2→X4→X3→X5),§11 phase numbering vs execution order 内部不一致正式 documented,future v2.2 可选重命名 phase IDs。提交于本 round commit。
+- **X0 sub-step 1 builder**:`dev/scripts/data_integrity/build_distributions_parquet.py --symbols SPY QQQ XLK XLF XLE XLV XLI XLY AAPL MSFT --start 2009-01-01 --append`。distributions.parquet:**876 → 1342 rows**(+466 = 10 new equity symbols)。Dry-run 先于 real-run。SPY 68 events($80.28 17yr 合理),sector ETFs/AAPL/MSFT 44-45 events 各(2015 start due yfinance coverage)。
+- **X0 sub-step 2 atr flip**:`dev/scripts/cycle06/cycle06_track_a_eval.py:64` `atr = sym in cross_asset_set` → `atr = True`(注释完整,引用 bar_store no-op guarantee for non-distributions symbols)。Track-A `a1_b1_nav_track_a.py` 通过 importlib `_c6_panel()` reuse cycle06 automatic propagate。
+- **R3 smoke**:cycle06 panel SPY 现 TR cum_ret **9.0037 vs pre-X0 split-only 6.3356**(+267pp,17yr ~1.5%/yr dividend yield 一致)。QQQ "NaN" 初见误判 ROOT-CAUSE = my math bug(iloc[0] 取了 SPY-start 2007 NaN-aligned 位置,QQQ raw 数据自 2015 起);per-symbol first-valid 重算:QQQ 5.48 / XLK 6.95 / XLF 1.70 / AAPL 10.22 / MSFT 11.14 全 reasonable TR-adjusted cum_ret。
+- **诚实留痕**:Track-A v1 vs-SPY -353pp(split-only baseline)在 X0 后会变 **A1 -619pp**(strategy 比正确 TR baseline 显著更差)。**A1/B1 FAIL Track-A 真相在 TR baseline 下更 decisive,非翻盘**——与 v2 §11 X0 deliverable 预期(post-X0 vs-SPY 可能更负)完全 align。
+- **下一步**:Round 2 = re-run cycle06 + Track-A 用 TR baseline(bg,heavy);记录 post-X0 verdict 数;X0 phase 完结。
 
 ### Round 0(2026-05-19 initialization)
 

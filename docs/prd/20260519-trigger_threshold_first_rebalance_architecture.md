@@ -534,6 +534,8 @@ Fleet allocator 消费 `List[CandidateDecisionPanel]`（多候选合成），调
 
 ## §11 实施分期（v2 重排：dividend 先、已建整合次之、真新建后置）
 
+> **v2.1 patch 2026-05-19 (R1 ledger留痕)**: 下方 phase headers 用 numerical X0→X1→X2→X3→X4→X5 顺序写,但 **execution order 按 §0 修订史 #16 logical ordering**:**X0 → X1 → X2 → X4(integrate existing,lower risk)→ X3(true new partial)→ X5**(integrate-existing 先,true-new 后)。X3/X4 numerical order vs implementation order 的不一致是 v2 内部 inconsistency, /loop 严格按 logical order 执行,X3 章节在 X4 章节前是文档结构选择,不是 execution order。Future v2.2 可考虑重命名 phase IDs 让 numerical = logical,本轮不动以避免大范围 renumber。
+
 ### Phase X0 — Dividend extension + atr flag flip（**v2 新增**，覆盖 audit issue #6）
 
 #### 目标
