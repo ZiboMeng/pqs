@@ -328,3 +328,121 @@ DONE; resumption is the alpha-tuning track, distinct from this
 loop's scope.
 
 — end of PRD-X v2 final summary —
+
+---
+
+## CORRECTION APPENDIX (post-audit, 2026-05-20)
+
+**Auditor surfaced 6 substantive findings after R12 DONE declaration.
+All 6 verified accurate via R3 (operator-side independent code check).
+This appendix records corrections without rewriting prior verdict text
+(留痕 discipline per `feedback_decision_authority_operator_audit_split`
+— append, don't overwrite).**
+
+### Findings verified
+
+1. **DeferredExecutionAdapter.schedule_fill() is a facade** —
+   `execution_policy.py:90` body constructs an audit dict and returns;
+   it does NOT invoke `self._schedule.schedule_fill(...)` on the
+   underlying DeferredExecutionSchedule kernel. The X4 phase
+   delivered the ExecutionPolicy Protocol + audit envelope, NOT the
+   live wiring from decision → kernel.
+
+2. **Acceptance experiments use hand-rolled NAV, not SignalDrivenBacktest** —
+   `r9_x3` line 240-242 and `r10_x5` (same pattern) compute
+   `port_ret = (shifted_w * rets).sum(axis=1); nav = (1+port_ret).cumprod()`.
+   They DO NOT route through `SignalDrivenBacktest` → `BacktestEngine.run`.
+   Fill timing, open-close semantic, defer/veto execution semantics
+   are NOT validated by current acceptance.
+
+3. **ttl_bars uses `.days` not bar count** — `rule_based_policy.py:218`
+   `bars_armed = (date - r.armed_date).days`. The R5e driver patch
+   (ttl_bars=90 for monthly) was a workaround; the source semantic
+   is still day-anchored and will misbehave on weekly/intraday
+   cadences. The field name is misleading.
+
+4. **Main entry points unchanged** — `scripts/run_backtest.py:46`
+   imports `MultiFactorStrategy`; PRD-X stack appears in tests +
+   `dev/scripts/prdx/` only.
+
+5. **🔴 origin/main was BROKEN until P0 hotfix above** —
+   `no_trade_band.py` was untracked from R5a; `partial_rebalance.py`
+   (committed R8) imports `from core.research.decision.no_trade_band
+   import ...`. Anyone cloning origin between R8 and the P0 hotfix
+   commit got ImportError. ALL "195/195 GREEN" claims in R5a/R8/R9/
+   R10/R12 ran on local-worktree state, not origin head.
+
+6. **config/production_strategy.yaml unchanged** — `status:
+   "conservative_default"`, `rebalance_monthly: false`,
+   `min_holding_days: 3` etc — SoT schema has not absorbed the
+   DecisionPolicy / ExecutionPolicy / NoTradeBand / trigger-threshold
+   abstractions. Documented architectural direction ≠ adopted config
+   schema.
+
+### Verdict scope downgrade
+
+The R11/R12 final summary said "Decision → Execution stack end-to-end
+complete". The honest scope per the above is:
+
+- **module + schema layer**: ✅ — 8 decision modules + 165 unit tests
+  GREEN; §6.4 / §9.0 invariants runtime-enforced; bit-identical
+  default mode at every layer.
+- **research-script acceptance**: ✅ — R5e/R9/R10/R12 actually ran,
+  produced numbers, recorded non-blanket verdicts.
+- **system integration**: 🟡 — F1 (adapter is facade) + F2 (acceptance
+  hand-rolled NAV) + F4 (main entries untouched) + F5 (origin was
+  broken pre-hotfix) + F6 (config SoT stale) compose to
+  **"PRD module-complete, system-integration incomplete"**, which
+  is the auditor's correct framing.
+
+### Pipeline diagram caveat (R11 over-claim)
+
+The pipeline diagram in this memo above shows
+`DeferredExecutionAdapter → SignalDrivenBacktest → BacktestEngine.run`.
+
+That diagram depicts the **intended architecture**, not the **R9/R10
+acceptance-validated path**. The validated path is:
+
+```
+   RuleBasedDecisionPolicy → PartialRebalancePolicy → MLSidecarPolicy
+       │
+       ▼
+   weight panel (dict[str, float]) — INSIDE the research driver
+       │
+       ▼
+   shift(1) + (panel × rets).sum(axis=1) — HAND-ROLLED NAV
+                            ▲
+                            └── DeferredExecutionAdapter sits ALONGSIDE
+                                this path, NOT inside it.
+                                It exists, has 18/18 tests, but its
+                                schedule_fill() returns audit dict
+                                rather than driving the kernel.
+                                SignalDrivenBacktest / BacktestEngine
+                                are NOT in the R9/R10 acceptance call
+                                stack.
+```
+
+### Real DONE status (post-correction)
+
+- module + schema + research-script acceptance: ✅
+- **integration into main backtest/paper/production seam: NOT done**
+- M11 parity matrix: 5+1 of 7 ✅
+- §12.0 baseline regression: ✅ apples-to-apples (R12 Path A)
+
+This is "Phase 70-80% complete on the integration axis" per the
+auditor's framing. The architectural surface is correct and locally
+verifiable; the live wiring + main-entry adoption is the next track.
+
+### Hard correction to R11/R12 process
+
+R11 declared DONE without verifying:
+- (a) acceptance experiments actually flow through the main backtest
+  kernel
+- (b) untracked critical files
+
+R12 corrected the §12.0 axis (apples-to-apples PASS) but did not
+re-examine (a) or (b). The auditor's re-invocation of /loop after R11
+caught the §12.0 gap; this appendix catches what R12 missed. The
+pattern is **over-eager DONE on the axis I was looking at, ignoring
+axes I wasn't looking at** — process improvement P4 (R3-self-audit
+checklist before any phase ✅ claim) is the durable fix.

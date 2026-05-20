@@ -22,7 +22,7 @@
 | **X4** | **Deferred execution integration + M11 parity matrix** | **4** | **integrate existing** | ✅ Round 7(X1 adapter fix + M11 parity 5/6 + ExecPolicy adapter,148/148 GREEN) |
 | **X3** | **Partial rebalance / delta-to-trade policy** | **5** | **true new build + experiment** | 🟡 build ✅(R8 18/18 + 166 cross-check)/ acceptance experiment pending(R9 turnover-reduction integration) |
 | X5 | ML sidecar (sign-vote only, post-fix constrained) | 6 | build + experiment | ✅ R10 build 18/18 + R10 3-path acceptance; WEAK_FACTOR_FILTER drops MaxDD -20.17%→-18.95% (passes §6.4 by 1.05pp) |
-| Post-audit | per-phase AC reconciliation + cycle06 baseline regression + final honest summary | 7 | audit | ✅ docs/memos/20260519-prdx_v2_final_summary.md(R11);**§12.0 R12 PASS vs apples-to-apples baseline**(R12);6/7 DONE 硬 gate ✅ + 1 backlog 🟡(M11 6th ConfirmationPattern);195/195 cross-check |
+| Post-audit | per-phase AC reconciliation + cycle06 baseline regression + final honest summary | 7 | audit | 🟡 (R13 honest downgrade): module + schema + research-script acceptance ✅;**system integration 🟡** per auditor 6-findings R3-verified — adapter facade(F1)+ acceptance hand-rolled NAV(F2)+ ttl_days mis-naming(F3)+ main entries untouched(F4)+ origin-broken-pre-hotfix(F5,now fixed)+ config SoT stale(F6);§12.0 R12 apples-to-apples PASS;195/195 local-worktree GREEN(post-P0 hotfix = origin-GREEN too) |
 
 注:X4 比 X3 先做(integrate-existing 优先于 true-new)per PRD §0 修订史 #16,§11 numerical 写法相反,**v2 内部一致性待 v2.1 patch**(loop round-1 须 fold 此 ledger 留痕)。
 
@@ -48,6 +48,26 @@
 ---
 
 ## 轮次日志(每轮 commit 时追加 1 行)
+
+### Round 13(2026-05-20) — Auditor 6 findings R3-verified;P0 hotfix + correction appendix(integration depth honest 留痕)
+
+- **触发**: 用户贴 auditor 反馈(6 findings)+ "go" 指令开始 P0 修复。R12 declare DONE 后 auditor 再 surface,我做 operator-side R3 独立 verify(non-yes-man auditor)。
+- **R3 verify 表**(all 6 findings 真):
+  | finding | 验证 | 严重性 |
+  | F1 schedule_fill 只返 dict 没调 kernel | execution_policy.py:90 body 实测确认 + 注释自己承认 "real wiring done by the caller" | 高 |
+  | F2 r9/r10 用 shift(1)+pct_change 手搓 NAV | r9 line 240-242 实测确认 | 高 |
+  | F3 ttl_bars 按 .days 不是 bar | rule_based_policy.py:218 `(date - armed_date).days` | 中 |
+  | F4 scripts/run_backtest.py 仍 MultiFactorStrategy | line 46 import 确认 | 中 |
+  | F5 no_trade_band.py + test untracked | `git ls-files` 验证 untracked + partial_rebalance.py 已 commit 但 import no_trade_band → **origin/main HEAD BROKEN** any fresh clone ImportError | **🔴 P0 critical** |
+  | F6 production_strategy.yaml conservative_default + rebalance_monthly | grep 确认 SoT 未跟架构 | 中 |
+- **比 auditor 更急的 catch**:F5 不只 "hygiene 尾巴"。partial_rebalance.py(R8 commit)import `from core.research.decision.no_trade_band import Bands, NoTradeBandCalculator`。no_trade_band.py 从 R5a 起未 add,所有 commits 间 origin/main 是 broken 的(fresh clone ImportError on PartialRebalancePolicy import)。**R5a/R8/R9/R10/R12 所有 "195/195 GREEN" 都是 local-worktree GREEN,不是 origin GREEN**。critical hygiene failure。
+- **P0-1 hotfix(commit c3f2aae)**:`git add core/research/decision/no_trade_band.py tests/unit/research/decision/test_no_trade_band.py` + commit + push。`git ls-files` 验证 decision/ dir 8 module 全 tracked。fresh-clone-style import test 跑通 PartialRebalancePolicy/NoTradeBandCalculator/MLSidecarPolicy 完整链。
+- **P0-2 honest correction appendix**(in final summary memo):append "CORRECTION APPENDIX" 不删既有 verdict(留痕 discipline);(a) 列 6 findings R3 verify 表;(b) verdict scope downgrade:module ✅ + research-script acceptance ✅ + system integration 🟡;(c) pipeline diagram caveat — R11 diagram 是 intended architecture 不是 acceptance-validated path;(d) 真 DONE status post-correction:"Phase 70-80% on integration axis";(e) R11/R12 process 反思:over-eager DONE on the axis I was looking at, ignoring axes I wasn't。
+- **operator verdict(non-yes-man-to-auditor + non-yes-man-to-self)**: auditor 6 findings 全 correct;我 R11/R12 declare 范围实际只到 "module + research-script" 层 NOT "system integration"。§13 live gate 不是没接入,而是连前置 wiring 都还没接 — auditor 准确。但 architectural 方向 + module 质量 ≠ 假 — proven by 165 unit tests + R12 §12.0 apples-to-apples PASS。
+- **下一步(directional decision 等用户决定)**: 
+  - **option A**: 走 P1 真接通 integration line(P1-1 schedule_fill 真接 kernel + P1-2 acceptance 改 SignalDrivenBacktest + P1-3 ttl_bars 改 bar-count)— substantial work,~2-3 round
+  - **option B**: 现状 commit-and-stop,P1 留独立 track,本 cycle stamp "module-complete + research-validated"
+  - operator 建议:option A,因为 P1-2 的 acceptance-via-真主链 才能证 fill timing / defer-veto execution semantic — 现在缺这个 acceptance 离 live readiness 还差关键一层。但 directional stop 等用户 explicit-go。
 
 ### Round 12(2026-05-20) — §12.0 cycle06 baseline regression attempt:Path A PASS vs apples-to-apples baseline
 
