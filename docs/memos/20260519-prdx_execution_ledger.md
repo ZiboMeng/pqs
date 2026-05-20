@@ -49,6 +49,75 @@
 
 ## 轮次日志(每轮 commit 时追加 1 行)
 
+### Round 29(2026-05-20 night) — PRD #4 P4.5 sub-step B:R-ML-A vs R-ML-B 真 backtest 对比 + 首次 P4.5 binding AC verdict
+
+- **本轮主题**: PRD #4 P4.5 sub-step B — R-ML-A heuristic baseline vs R-ML-B trained-XGB-classifier 真 backtest 7 年(2018-2024)对比。P4.5 binding AC = "at least one of B/C/D beats A on Sharpe AND MaxDD"。
+- **本轮目标**: retrain Stage 2 XGB classifier on 2010-2017(避 leakage)→ 写 r29 acceptance driver 用 R10 walk-forward pattern + panel-backed trained voter → 跑 R-ML-A vs R-ML-B → 出 verdict 表 + JSON summary。
+- **为什么这轮优先**: P4.5 是 PRD #4 最后 AC;sub-step A 把训练 + voter loading 都就位,sub-step B 是验证。
+- **做了什么**:
+  - retrain XGB Stage 2 on **2010-2017 train / 2018 val / 2010-2018 lineage**(避 backtest 2018-2024 window leakage):
+    - X_train shape: 4589 × 4(stage1_rank + regime_state 3-factor),class 1 prior 0.59
+    - X_val:        1479 × 4,class 1 prior 0.57
+    - TRAIN: F1(VETO)=0.5824 / precision(VETO)=0.7989 / acc=0.7294
+    - VAL:   F1(VETO)=0.4170 / precision(VETO)=0.3928 / acc=0.4632
+    - **non-blanket finding**:val precision 0.39 << 0.55 AC threshold,**Stage 2 P4.2 AC FAIL on val**;train 0.80 → val 0.39 = 60% drop = overfit 模式(同 R28 patten 一致)
+    - artifact saved: `sign_XGBSignClassifier_2010-2018_<UTC>.pkl/.json`
+  - 新 `dev/scripts/ml/r29_acceptance_r_ml_a_vs_b.py`(340 行):
+    - `_import_cycle06_loader`:复用 cycle06_track_a_eval `_load_panel`
+    - `_build_stage1_rank`:cycle06 3-feature zscore-avg → cross_sectional_rank
+    - `_weak_factor_filter_voter`:R10 复用(R-ML-A)
+    - `_trained_classifier_voter(model, stage1_rank, context_panels)`:closure-based panel-backed voter,(date, sym) → look up rank + context → model.predict → {0,1} → VETO/NO_VOTE(§9.0 enforced via SignVote 显式 return)
+    - `_walkforward_run`:R10 acceptance walk-forward pattern(mom_12_1 factor + entry_threshold=0.7 + month-end rebal + PartialRebalance + MLSidecar)
+    - 跑 Path A(weak_factor_filter)+ Path B(trained XGB classifier)
+    - 出 AC 表 + summary JSON 落 `data/audit/r29_r_ml_a_vs_b_<UTC>.json`
+- **🎯 R-ML-A vs R-ML-B 真 verdict(2018-2024,7 年 OOS)**:
+  | 指标 | R-ML-A heuristic | R-ML-B trained XGB | diff (B-A) | verdict |
+  |---|---|---|---|---|
+  | cum_return | 0.608 | **0.6419** | **+0.034** | B BEAT |
+  | annualized_sharpe | 0.6174 | **0.6284** | **+0.011** | B BEAT |
+  | max_drawdown | -0.2283 | -0.2413 | **-0.013** | B **FAIL** (deeper DD) |
+  | turnover/rebal | 0.0552 | 0.0585 | +0.0033 | comparable |
+  | vetos | 814 | 702 | -112 | classifier 更 selective |
+  | vs_SPY_excess_cum | -0.834 | -0.800 | +0.034 | B 稍好 但 两 path 都跑输 SPY ~80pp |
+  - **P4.5 binding AC**(B 在 Sharpe **AND** MaxDD 都 beat A)= **❌ FAIL**;Sharpe + cum + vs-SPY 都 beat,**只 MaxDD 略差 1.3pp**
+  - §9.0 invariant verified:trained classifier 全 return {0, 1} → SignVote enum,702 vetos 实算
+  - 可复现:classifier spec_id deterministic + R10 walk-forward pattern reproducible
+- **R3 non-blanket failure 留痕 4 条**:
+  1. **R-ML-B Sharpe + cum BEAT, MaxDD FAIL**:**not "ML doesn't work"**;ML 路径 7 年 OOS 真的产生了 Sharpe + cum 正向 lift,只是 MaxDD 比 heuristic 深 1.3pp。该 MaxDD diff 可能落 noise band(7 年 N 不大;Stage 1 rank panel 与 Stage 2 classifier 互相加噪)
+  2. **Stage 2 classifier val precision 0.39 < AC 0.55**:overfit 模式;**root cause hypothesis** = (a) 4 features 太少 / (b) regime_state broadcast 3 因子在 top-decile 内基本同值(per R28 R3 catch)→ XGB 找不到 boundary / (c) class prior shift train 0.59 → val 0.57 / cycle 不同年 0.61-0.73 / (d) hyperparams hand-pick
+  3. **两 path 都 underperform SPY by 80pp**(7yr):同 R10/R14 finding 一致 — cycle06 + 触发器路径仍是 sub-SPY alpha;ML overlay 没改 root drag。**这才是 P4.5 真正信号**,不是 A vs B microscopic diff
+  4. **R-ML-C / R-ML-D 未跑**:scope 留 sub-step C 决定。R-ML-C(Stage 1 rank → factor_score)修改 entry trigger 信号源;R-ML-D(cap_aware harness)需 harness 级 wiring(R25/R16 Path A precedent)
+- **改了哪些文件**:
+  - 新:`dev/scripts/ml/r29_acceptance_r_ml_a_vs_b.py`(340 行)
+  - 改:`docs/memos/20260519-prdx_execution_ledger.md`(Round 29 entry)
+  - 落盘(gitignored):1 trained Stage 2 classifier artifact + 1 r29 summary JSON
+- **跑了什么 + 结果**:
+  - retrain XGB Stage 2:F1(VETO) train 0.58 / val 0.42(P4.2 AC partial PASS)
+  - r29 driver real 7-year backtest:R-ML-A 跑 + R-ML-B 跑 + verdict 表
+  - regression tests 跑过(R28 已 340/340 GREEN;R29 不动 module 代码只加 driver,sweep 不重跑)
+- **🎯 完整 R20-R29 PRD #4 流程交付**:
+  - P4.1 sub-step 1 (R19): LinearBaselineRankModel scaffold
+  - P4.1 sub-step 2 (R20): XGBRankerRankModel + in-sample overfit R3 catch
+  - P4.4 sub-step 1 (R22): walk-forward pipeline + sealed guard
+  - P4.4 sub-step 2 (R23): artifact persistence + tamper detection
+  - P4.4 sub-step 3a (R24): labels + bar-integrity smoke + pipeline guard
+  - P4.4 sub-step 3b (R25): real-data driver + 首组 P4.1 AC numbers(rank-IC 4/4 PASS,IR 4/4 FAIL)
+  - P4.2 (R26): sign classifier scaffold(Logistic + XGB)
+  - P4.3 (R27): multi-TF context feature bundles
+  - P4.5 sub-step A (R28): sign classifier training driver + voter yaml-loading
+  - **P4.5 sub-step B (R29):R-ML-A vs R-ML-B 7-year OOS real backtest verdict = AC FAIL (MaxDD binding miss),documented non-blanket**
+- **剩余风险 / open question**(留给用户讨论 metric):
+  - **P4.1 rank-IR < 0.30 4/4 FAIL** + **P4.5 AC FAIL on MaxDD only**:两个 binding AC 都触动;`feedback_no_blanket_failure_verdict` 已留痕。讨论选项:
+    - 接受 partial PASS + 修订 AC thresholds(0.30 IR 偏严 / MaxDD 1.3pp 噪声?)
+    - 跑 R-ML-C / R-ML-D 看是否能 BEAT MaxDD
+    - 加 hyperparam search + walk-forward Stage 2 重训
+    - drop-high-nan preprocessing + 多 universe
+  - 两 path 都 underperform SPY 80pp:**这才是 alpha-engineering 真信号** — cycle06 + 触发器路径本身离 SPY 太远;ML overlay 不是关键 lever
+- **下一轮建议方向**(完全等用户决定):
+  - **选项 A**:**接受 P4.5 partial PASS 状态,结束 P4.2-P4.5 cycle,讨论 IR + MaxDD threshold + alpha root issues**(user "metric 事情我们之后讨论" 入口)
+  - 选项 B:R-ML-C/D 追加 round 看是否 BEAT MaxDD
+  - 选项 C:retrain classifier walk-forward + hyperparam search,看 Stage 2 是否能稳
+
 ### Round 28(2026-05-20 night) — PRD #4 P4.5 sub-step A:sign classifier训练 driver + voter yaml-loading + 真数据训(8 GREEN + R3 2-catch + Stage 2 验证 partial PASS)
 
 - **本轮主题**: PRD #4 P4.5 sub-step A — train Stage 2 sign classifier + 接 PRD-X overlay 的 voter 加载接口。整合 R23 artifact + R24 labels + R26 sign_classifier + R27 context_features。打通 train → save → yaml-load 到 PRD-X overlay 全链路;Round 29 sub-step B 真跑 R-ML-A vs R-ML-B 对比。
