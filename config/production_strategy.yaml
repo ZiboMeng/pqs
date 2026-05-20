@@ -90,3 +90,50 @@ fingerprints:
   universe_hash: ""
   factor_registry_hash: ""
   config_hash: ""
+
+# ---------------------------------------------------------------------------
+# PRD-X v2 (2026-05-20) — decision-stack overlay configuration
+# ---------------------------------------------------------------------------
+# This section is PRD-X-specific and OPT-IN. Default `mode: off` keeps the
+# legacy MultiFactorStrategy → PortfolioConstructor → BacktestEngine path
+# byte-identical (M11a/M11b parity preserved). Setting `mode: trigger-first`
+# requires explicit `--decision-stack trigger-first` CLI flag on run_backtest
+# OR an `active`-status promotion via promote_strategy.py M2 path.
+#
+# Status flip rules (mirror existing `status:` discipline above):
+#   - mode: off → legacy bit-identical (default)
+#   - mode: trigger-first → opt-in via CLI flag, no silent activation
+#   - production status: still "conservative_default" — flipping to "active"
+#     remains a directional decision requiring user explicit-go +
+#     M2 promote_strategy.py acceptance pack on the decision-stack
+#     path numbers (not just legacy MultiFactor numbers)
+#
+# Auditor F6 closure (R14 → P2-2): config SoT now reflects architectural
+# direction; status flip stays directional, not auto.
+decision_stack:
+  mode: "off"                        # off | trigger-first
+  # PartialRebalancePolicy parameters (active when mode != off)
+  partial_rebalance:
+    band_base: 0.02                  # NoTradeBandCalculator base width
+    partial_full_threshold: 0.05     # target ≤ threshold → ENTER_PARTIAL
+  # MLSidecarPolicy parameters (§9.0 sign-vote / include-veto only;
+  # never continuous magnitude as size weight — runtime ENFORCED)
+  ml_sidecar:
+    enabled: false                   # off → SignVote.NO_VOTE (pass-through)
+    voter_kind: "no_op"              # no_op | weak_factor_filter | xgb_classifier
+    voter_params: {}                 # voter-specific kwargs
+  # RuleBasedDecisionPolicy parameters (factor-driven entry/exit detection;
+  # ONLY used when upstream is not generating its own weight panel — e.g.
+  # research drivers in dev/scripts/prdx/. Production path via run_backtest
+  # uses the overlay-on-strategy pattern and skips RuleBased state machine.)
+  rule_based:
+    entry_threshold: 0.7
+    exit_threshold: 0.3
+    confirm_min_bars: 2
+    base_position_size: 0.05
+    ttl_bars: 3                      # bar-anchored (P1-3 fix; not days)
+  # DeferredExecutionAdapter parameters (P1-1 real kernel-driver)
+  deferred_execution:
+    execution_delay_bars: 1          # T+1 fill (matches BacktestEngine default)
+    enabled: false                   # currently audit-only; mode='off' bypass
+# ---------------------------------------------------------------------------

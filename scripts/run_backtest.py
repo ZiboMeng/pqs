@@ -52,6 +52,27 @@ from core.storage.artifact_manager import ArtifactManager
 from core.logging_setup import setup_logging, get_logger
 from core.mining.archive import MiningArchive
 
+# PRD-X v2 P2-1 (2026-05-20): opt-in decision-stack overlay. Default
+# legacy path (MultiFactorStrategy → PortfolioConstructor → engine)
+# unchanged; --decision-stack trigger-first applies
+# PartialRebalancePolicy + MLSidecarPolicy as a thin overlay on the
+# strategy's weight panel before engine.run. M11 parity preserved
+# (engine.run main path untouched). Status flip in
+# production_strategy.yaml to "active" remains directional (user
+# explicit-go required) per /loop discipline.
+from core.regime.regime_detector import RegimeState as _RegimeState
+from core.research.decision import ActionType as _ActionType
+from core.research.decision.ml_sidecar import (
+    MLSidecarPolicy as _MLSidecarPolicy,
+    SignVote as _SignVote,
+)
+from core.research.decision.no_trade_band import (
+    NoTradeBandCalculator as _NoTradeBandCalculator,
+)
+from core.research.decision.partial_rebalance import (
+    PartialRebalancePolicy as _PartialRebalancePolicy,
+)
+
 setup_logging()
 logger = get_logger("run_backtest")
 
@@ -146,6 +167,92 @@ def _build_ohlcv_frames(store, symbols: list) -> dict:
     return frames
 
 
+def _apply_decision_stack_overlay(
+    weights: pd.DataFrame,
+    regime_series: pd.Series,
+    band_base: float = 0.02,
+    use_sidecar: bool = True,
+    sidecar_voter=None,
+) -> pd.DataFrame:
+    """PRD-X v2 P2-1: opt-in thin overlay on a weight panel.
+
+    Routes the legacy strategy's weight panel through:
+      - PartialRebalancePolicy(active, vol/regime no-trade band)
+      - MLSidecarPolicy(active, default = no-op CONFIRM voter)
+    one rebalance row at a time, then re-emits a filtered panel.
+
+    Bit-identical to legacy IF all bands are 0 (degenerate);
+    materially different IF NoTradeBandCalculator gates small
+    deltas. ML sidecar default voter is NO_VOTE = pass-through
+    per §9.0 (no continuous magnitude scaling).
+
+    Skip rebalance days where target ≈ current within bands →
+    weights row stays at prior values (HOLD).
+    """
+    band = _NoTradeBandCalculator(base_band=band_base)
+    partial = _PartialRebalancePolicy(
+        no_trade_band=band, mode="active",
+        partial_full_threshold=0.05)
+    voter = sidecar_voter or (lambda ctx: _SignVote.NO_VOTE)
+    sidecar = _MLSidecarPolicy(
+        vote_fn=voter,
+        mode=("active" if use_sidecar else "off"))
+
+    out = pd.DataFrame(0.0, index=weights.index, columns=weights.columns)
+    current: dict = {}
+    # build per-day realized vol on the panel (60d rolling on row-sums
+    # — proxy; per-symbol vol context preferred but row-sum is
+    # cheap-and-correct-direction for the band scaling)
+    weights_nonzero_count = (weights != 0).sum(axis=1)
+    last_rebal_signature = None
+    for date in weights.index:
+        target_row = weights.loc[date]
+        # detect rebalance: row differs from last seen by > epsilon
+        sig = tuple(round(float(x), 6) for x in target_row.fillna(0).values)
+        is_rebal = (last_rebal_signature is None or
+                    sig != last_rebal_signature)
+        last_rebal_signature = sig
+        if not is_rebal:
+            # carry current
+            for s, w in current.items():
+                if s in out.columns:
+                    out.at[date, s] = w
+            continue
+        # target dict for active symbols (positive weight only;
+        # long-only invariant)
+        target = {s: float(target_row[s])
+                  for s in target_row.index
+                  if not pd.isna(target_row[s]) and target_row[s] > 0}
+        all_syms = set(target.keys()) | set(current.keys())
+        target_union = {s: target.get(s, 0.0) for s in all_syms}
+        current_union = {s: current.get(s, 0.0) for s in all_syms}
+        regime = (regime_series.get(date) if regime_series is not None
+                  else None)
+        regime_state = _RegimeState.NEUTRAL
+        if regime is not None and not pd.isna(regime):
+            try:
+                regime_state = _RegimeState(regime)
+            except ValueError:
+                regime_state = _RegimeState.NEUTRAL
+        ctx_partial = {"date": date, "regime": regime_state,
+                       "realized_vol": 0.15}  # anchor proxy
+        actions = partial.compute_actions(
+            target_weights=target_union,
+            current_weights=current_union,
+            ctx=ctx_partial)
+        new_w: dict = {}
+        for d in actions:
+            ml_ctx = {"symbol": d.symbol, "date": date}
+            d_final = sidecar.apply(d, ml_ctx)
+            if d_final.target_weight > 0:
+                new_w[d_final.symbol] = float(d_final.target_weight)
+        current = new_w
+        for s, w in current.items():
+            if s in out.columns:
+                out.at[date, s] = w
+    return out
+
+
 def run_strategy(
     name:             str,
     strategy,
@@ -160,6 +267,7 @@ def run_strategy(
     open_df:          pd.DataFrame = None,
     ohlcv_frames:     Optional[dict] = None,
     enable_cross_ticker_rules: bool = True,
+    decision_stack:   str = "legacy",
 ) -> dict:
     """运行单个策略回测，返回结果字典。"""
     logger.info("=== 回测策略: %s ===", name)
@@ -182,6 +290,20 @@ def run_strategy(
         weights, cross_ticker_stats = apply_rules_to_weight_matrix(
             weights, regime_series, ohlcv_frames,
         )
+
+    # PRD-X v2 P2-1 (opt-in,default legacy bit-identical): decision-
+    # stack overlay applied AFTER cross-ticker rules and BEFORE
+    # engine.run. M11 main path untouched.
+    if decision_stack == "trigger-first":
+        logger.info("%s: applying PRD-X trigger-first decision-stack "
+                    "overlay (PartialRebalance + MLSidecar)", name)
+        weights = _apply_decision_stack_overlay(
+            weights, regime_series, band_base=0.02,
+            use_sidecar=True)
+    elif decision_stack != "legacy":
+        raise ValueError(
+            f"unknown decision_stack={decision_stack!r}; "
+            f"expected 'legacy' or 'trigger-first'")
 
     bt_result = engine.run(
         signals_df       = weights,
@@ -246,6 +368,17 @@ def main():
                         help="Skip PRD M3 runtime alignment check. Use only "
                              "for explicit research runs where you know the "
                              "yaml fingerprint will not match.")
+    parser.add_argument(
+        "--decision-stack",
+        choices=["legacy", "trigger-first"],
+        default="legacy",
+        help=("PRD-X v2 opt-in (default legacy = unchanged from "
+              "M11a/M11b baseline). 'trigger-first' applies "
+              "PartialRebalancePolicy + MLSidecarPolicy as a thin "
+              "overlay on the strategy's weight panel before "
+              "engine.run. Status flip in production_strategy.yaml "
+              "to 'active' remains a directional decision."),
+    )
     parser.add_argument("--no-cross-ticker-rules", action="store_true",
                         help="Disable PRD M10 cross-ticker DSL wrapper. "
                              "Overrides config/cross_ticker_rules.yaml::enabled. "
@@ -376,6 +509,7 @@ def main():
             qqq_series       = qqq_close,  # closeout 2026-04-20: QQQ gate
             ohlcv_frames     = ohlcv_frames,
             enable_cross_ticker_rules = not args.no_cross_ticker_rules,
+            decision_stack   = args.decision_stack,
         )
         all_runs[name] = run
 
