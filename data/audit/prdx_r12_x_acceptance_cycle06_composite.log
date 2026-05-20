@@ -1,0 +1,15 @@
+[2026-05-20T02:54:22.205109Z] R12 §12.0 regression — cycle06 composite + weekly cadence
+[2026-05-20T02:55:57.818391Z] panel close (4276, 79) factors 113
+[2026-05-20T02:55:57.860477Z] cycle06 composite (drawup+trend+ret_2d eq-weighted ranks): shape=(4276, 79)
+[2026-05-20T02:55:57.860559Z] train window 2018-01-01 → 2024-12-31
+[2026-05-20T02:55:57.860569Z] Path A: cycle06 composite + monthly + sidecar OFF
+[2026-05-20T02:55:58.648623Z]   A: cum=0.4557, Sharpe=0.5792, MaxDD=-0.1732, turnover/rebal=0.0276
+[2026-05-20T02:55:58.648639Z] Path B: cycle06 composite + WEEKLY + sidecar OFF
+[2026-05-20T02:56:00.420141Z]   B: cum=0.0982, Sharpe=0.2938, MaxDD=-0.1294, turnover/rebal=0.0068
+[2026-05-20T02:56:00.420161Z] Path C: cycle06 composite + WEEKLY + sidecar weak-filter
+[2026-05-20T02:56:02.091075Z]   C: cum=0.0974, Sharpe=0.294, MaxDD=-0.1282, turnover/rebal=0.007
+[2026-05-20T02:56:02.091433Z] written /home/zibo/Documents/projects/pqs/data/audit/prdx_r12_x_acceptance_cycle06_composite.json
+[2026-05-20T02:56:02.091466Z] VERDICTS:
+[2026-05-20T02:56:02.091483Z]   Path A: Sharpe=0.5792 (vs nav_sharpe 0.5654 pass=True, vs full-period 1.37 pass=False), MaxDD_pass=True
+[2026-05-20T02:56:02.091511Z]   Path B: Sharpe=0.2938 (vs nav_sharpe 0.5654 pass=False, vs full-period 1.37 pass=False), MaxDD_pass=True
+[2026-05-20T02:56:02.091541Z]   Path C: Sharpe=0.294 (vs nav_sharpe 0.5654 pass=False, vs full-period 1.37 pass=False), MaxDD_pass=True
