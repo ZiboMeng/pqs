@@ -19,9 +19,10 @@ Protocol (already-blueprint).
 """
 from __future__ import annotations
 
+import inspect
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Optional, Protocol, Tuple
+from typing import Any, Dict, Optional, Protocol, Tuple, Union
 
 import pandas as pd
 
@@ -174,11 +175,43 @@ class GenerateStrategyAdapter:
         return [] if self._mode == "off" else _active_confirm(
             self._strategy, state, ctx)
 
-    def build_target_weights(self, state: Any, ctx: Any
-                              ) -> Dict[str, float]:
-        # off → byte-equal identity pass-through (legacy contract).
-        date = ctx.get("date") if isinstance(ctx, dict) else None
-        return self._strategy.generate(date, ctx)
+    def build_target_weights(
+        self, state: Any, ctx: Any
+    ) -> Union[Dict[str, float], pd.DataFrame]:
+        """Mode='off' → byte-equal identity pass-through to
+        `strategy.generate(**filtered_ctx)`.
+
+        Return type Union because real 6 .generate() strategies
+        return ``pd.DataFrame`` (date × symbol weight panel) while
+        intraday Decision-layer consumers may pass dict-returning
+        strategies. Caller decides whether to index into the
+        DataFrame for one bar or consume the panel directly.
+
+        Implementation: inspects the wrapped ``strategy.generate``
+        signature and forwards only the parameters present in ctx
+        (idempotent for mismatched-signature mocks). This is the
+        post-X4-M11-parity-fix contract — X1 mock-only test was
+        insufficient (per feedback_audit_surfaces_not_thorough).
+        """
+        if not isinstance(ctx, dict):
+            ctx = {}
+        # filter ctx → kwargs that the strategy.generate accepts
+        try:
+            sig = inspect.signature(self._strategy.generate)
+            params = sig.parameters
+        except (TypeError, ValueError):
+            # introspection failed (e.g. C-impl or dunder); fall
+            # back to the legacy positional (date, ctx) call so the
+            # pre-X4 mocks remain GREEN (bit-identical default).
+            date = ctx.get("date")
+            return self._strategy.generate(date, ctx)
+        kwargs: Dict[str, Any] = {}
+        for name in params:
+            if name == "self":
+                continue
+            if name in ctx and ctx[name] is not None:
+                kwargs[name] = ctx[name]
+        return self._strategy.generate(**kwargs)
 
     def step_day(self, state: Any, ctx: Any) -> Any:
         # off → no-op (no decision-layer state to advance).
