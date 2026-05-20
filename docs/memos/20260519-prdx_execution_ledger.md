@@ -18,7 +18,7 @@
 |---|---|---|---|---|
 | X0 | Dividend extension + atr flip | 1 | data work | ✅ Round 1+2+3 done (data+flip+R3 smoke+TR baseline rerun) |
 | X1 | Protocol schema + GenerateStrategyAdapter | 2 | TDD build | ✅ Round 4 (18/18 GREEN + 26/26 regression) |
-| X2 | Rule-based trigger + exit policy + vol-conditional no-trade band | 3 | TDD build + experiment | ⬜ |
+| X2 | Rule-based trigger + exit policy + vol-conditional no-trade band | 3 | TDD build + experiment | 🟡 build done (R5a+b+c+d 67 tests GREEN) / experiment pending (R5e) |
 | **X4** | **Deferred execution integration + M11 parity matrix** | **4** | **integrate existing** | ⬜ |
 | **X3** | **Partial rebalance / delta-to-trade policy** | **5** | **true new build + experiment** | ⬜ |
 | X5 | ML sidecar (sign-vote only, post-fix constrained) | 6 | build + experiment | ⬜ |
@@ -48,6 +48,32 @@
 ---
 
 ## 轮次日志(每轮 commit 时追加 1 行)
+
+### Round 5(2026-05-19) — X2 build phase: 4 modules + 67 new tests GREEN
+
+- **目标**: PRD §11 X2 build 阶段 — 4 块基石模块全 TDD GREEN,实现 trigger-first 决策架构的 vol/regime-conditional no-trade band + entry/exit trigger framework + rule-based DecisionPolicy compose 层。R5e acceptance experiment 留下一轮。
+- **新增模块**(4 个,纯 ctx-driven 零 panel/data 入侵,AST-verified schema-purity):
+  - `core/research/decision/no_trade_band.py`(R5a):`NoTradeBandCalculator` + `Bands` dataclass。vol/regime-conditional 4-band 宽度(enter/add/trim/exit),Leland 1999 mechanic 落地(high vol → wider band)。`_VOL_ANCHOR=0.15`,regime mult 表:BULL/RISK_ON/NEUTRAL=1.0,CAUTIOUS=1.5,RISK_OFF=2.0。floor 0.5 防 band collapse,non-negative 强制守 `__post_init__`。
+  - `core/research/decision/exit_triggers.py`(R5b):`ExitTrigger` Protocol + 4 concrete(ThesisDecay / FactorExit / EventInvalidation / RiskExit)。RiskExit 通过 ctx 订阅 KillSwitch / FailureSignal / higher_tf STRONG_VETO(per §5.2.C),duck-typed kwarg 不直 import core/risk/*(保 schema 纯净 + 可 mock)。record-and-route(Optional[ExitEvent] + reason)per `feedback_no_blanket_failure_verdict`。
+  - `core/research/decision/entry_triggers.py`(R5c):`EntryTrigger` Protocol + 3 concrete(FactorEntry / EventEntry / RegimeEntry)。`EntryEvent.strength` ∈ [0, 1] 强制 `__post_init__` 守(§6.4 long-only + §9.0 post-fix sign-vote 而非 continuous magnitude)。`RegimeEntryTrigger` 默认 allowed = {BULL, RISK_ON, NEUTRAL}(RISK_OFF/CAUTIOUS not in default 守 long-only 不在 defensive regime 进场)。
+  - `core/research/decision/rule_based_policy.py`(R5d):`RuleBasedDecisionPolicy` composes 上述 3 块进 4-method DecisionPolicy Protocol。State machine FLAT→ARMED(persistence=1)→ARMED(persistence++)→CONFIRMED(persistence≥confirm_min_bars)→EXPIRED(ExitTrigger fire OR TTL expire)。`mode='off'` default bit-identical 同 cascade_overlay R12 / construction_tier T0 precedent。Internal `_tracker: Dict[str, SetupRecord]` + `_exited: Dict[str, str]`。
+- **TDD**: 4 个 RED test files 先写,然后 4 个 GREEN impls。逐 phase verify:
+  - R5a: 14/14(Bands shape + neg reject / vol-monotone / regime-conditional / stacked mult / schema purity / base_band > 0 guard)
+  - R5b: 18/18(ExitEvent shape / 4 trigger 各 3-4 case / kill-switch ctx / failure-signal ctx / higher_tf veto ctx / silent paths / schema purity / Protocol satisfaction)
+  - R5c: 18/18(EntryEvent shape + strength∈[0,1] / 3 trigger 各 4 case / strength proportional to excess / long-only invariant guard / schema purity / Protocol satisfaction)
+  - R5d: 17/17(construction / mode validation / off bit-identical / active detect / ARMED→CONFIRMED persistence / build_target_weights long-only / exit-trigger wiring end-to-end / step_day / schema purity / SetupRecord shape)
+  - **decision/ 全 dir 85/85 GREEN**(X1: 18 + R5a: 14 + R5b: 18 + R5c: 18 + R5d: 17),零 regression。
+- **§6.4 long-only invariant guards(3 层 cross-cutting)**:
+  1. `ActionDecision.__post_init__` 拒绝 negative target_weight(X1)
+  2. `EntryEvent.__post_init__` 拒绝 strength 出 [0, 1](R5c)
+  3. `RuleBasedDecisionPolicy.__init__` 拒绝 negative base_position_size + `build_target_weights` 输出 `max(0.0, w)`(R5d)
+- **§9.0 post-audit-fix 约束保**:EntryEvent.strength 是 normalized confidence ∈ [0, 1],不是 continuous magnitude predictor;downstream sizing 用 `base * strength` 但 strength 来自 sign-vote / threshold-based logic,不是 magnitude IC(post-fix 跨 3 model class IC 普世毒结论守住)。
+- **bit-identical default 全模块**:`RuleBasedDecisionPolicy(mode='off')` 4 method 全 empty/None,既有路径不动(cascade_overlay R12 precedent 延续)。
+- **schema-purity 全模块 AST-verified**:4 个 module 均 AST-check 零 `core.data` / `yfinance` / `core.data.bar_store` import(sealed-2026 discipline)。RiskExit 通过 ctx 订阅 core/risk/* 而非直 import,保 schema 层纯净。
+- **R3 self-audit per phase**:
+  - 4 RED→GREEN cycle 全实跑 GREEN(R3 实测 67 tests 各 pass + 全 dir 85/85 cross-check)
+  - 期望 vs 实际:R5b 期望 14 tests 实际 18(meta-test 多);R5c 期望 14 实际 18;R5d 实际 17 — 总和 67 GREEN(vs originally-estimated ~50)。Magnitude offset 是 test coverage 更厚不是 bug。
+- **下一步**: Round 6 = R5e X2 acceptance experiment。compose `RuleBasedDecisionPolicy(FactorEntryTrigger + RegimeEntryTrigger + ThesisDecayTrigger + RiskExitTrigger, mode='active')`,接 cycle06 baseline data,跑 small-scale walk-forward(strict-chronological,2018-2024 train + 2025 validation),对比 cycle06 baseline per §12.0 regression AC(Sharpe / MaxDD / turnover 容差内)。bg 启动用 run_in_background。完后写 R5e verdict 进 ledger。
 
 ### Round 4(2026-05-19) — X1 Protocol schema TDD build (18/18 GREEN)
 
