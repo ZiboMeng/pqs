@@ -1,0 +1,141 @@
+{
+  "factor": "mom_12_1",
+  "train_start": "2018-01-01",
+  "train_end": "2024-12-31",
+  "n_rebal_dates": 81,
+  "turnover_total": 3.8186,
+  "turnover_per_rebal_avg": 0.0471,
+  "cum_return": 0.4083,
+  "annualized_sharpe": 0.4964,
+  "max_drawdown": -0.2095,
+  "benchmark_spy_cum_return": "1.4421",
+  "benchmark_qqq_cum_return": "2.382",
+  "vs_spy_excess": -1.0338,
+  "vs_qqq_excess": -1.9738,
+  "state_log_first5": [
+    {
+      "date": "2018-01-31",
+      "n_held": 0,
+      "gross": 0,
+      "top": []
+    },
+    {
+      "date": "2018-02-28",
+      "n_held": 17,
+      "gross": 0.5027,
+      "top": [
+        [
+          "SOXL",
+          0.05
+        ],
+        [
+          "TQQQ",
+          0.048
+        ],
+        [
+          "NVDA",
+          0.048
+        ],
+        [
+          "MU",
+          0.043
+        ],
+        [
+          "ISRG",
+          0.04
+        ]
+      ]
+    },
+    {
+      "date": "2018-04-30",
+      "n_held": 22,
+      "gross": 0.6147,
+      "top": [
+        [
+          "NVDA",
+          0.05
+        ],
+        [
+          "SOXL",
+          0.05
+        ],
+        [
+          "TQQQ",
+          0.048
+        ],
+        [
+          "MU",
+          0.045
+        ],
+        [
+          "AMZN",
+          0.043
+        ]
+      ]
+    },
+    {
+      "date": "2018-05-31",
+      "n_held": 24,
+      "gross": 0.6921,
+      "top": [
+        [
+          "NVDA",
+          0.05
+        ],
+        [
+          "SOXL",
+          0.05
+        ],
+        [
+          "MU",
+          0.05
+        ],
+        [
+          "TQQQ",
+          0.048
+        ],
+        [
+          "AMZN",
+          0.045
+        ]
+      ]
+    },
+    {
+      "date": "2018-06-29",
+      "n_held": 26,
+      "gross": 0.7576,
+      "top": [
+        [
+          "NVDA",
+          0.05
+        ],
+        [
+          "SOXL",
+          0.05
+        ],
+        [
+          "MU",
+          0.05
+        ],
+        [
+          "TQQQ",
+          0.048
+        ],
+        [
+          "AMZN",
+          0.045
+        ]
+      ]
+    }
+  ],
+  "policy_config": {
+    "factor_name": "mom_12_1",
+    "entry_threshold": 0.7,
+    "exit_threshold": 0.3,
+    "confirm_min_bars": 2,
+    "base_position_size": 0.05,
+    "ttl_bars": 10,
+    "regime_placeholder": "NEUTRAL_constant_R5e_smoke"
+  },
+  "timestamp": "2026-05-20T01:20:00.895090Z"
+}

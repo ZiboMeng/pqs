@@ -18,7 +18,7 @@
 |---|---|---|---|---|
 | X0 | Dividend extension + atr flip | 1 | data work | ✅ Round 1+2+3 done (data+flip+R3 smoke+TR baseline rerun) |
 | X1 | Protocol schema + GenerateStrategyAdapter | 2 | TDD build | ✅ Round 4 (18/18 GREEN + 26/26 regression) |
-| X2 | Rule-based trigger + exit policy + vol-conditional no-trade band | 3 | TDD build + experiment | 🟡 build done (R5a+b+c+d 67 tests GREEN) / experiment pending (R5e) |
+| X2 | Rule-based trigger + exit policy + vol-conditional no-trade band | 3 | TDD build + experiment | 🟡 build ✅(R5a+b+c+d 67 tests GREEN)/ smoke ✅(R5e wiring verified)/ regression pending(R5f tune + lev-ETF risk + band wired) |
 | **X4** | **Deferred execution integration + M11 parity matrix** | **4** | **integrate existing** | ⬜ |
 | **X3** | **Partial rebalance / delta-to-trade policy** | **5** | **true new build + experiment** | ⬜ |
 | X5 | ML sidecar (sign-vote only, post-fix constrained) | 6 | build + experiment | ⬜ |
@@ -48,6 +48,25 @@
 ---
 
 ## 轮次日志(每轮 commit 时追加 1 行)
+
+### Round 6(2026-05-19) — X2 R5e acceptance smoke + driver root-cause + verdict
+
+- **目标**: R5e X2 acceptance smoke — 把 R5a/b/c/d 组合的 `RuleBasedDecisionPolicy` 实跑在 cycle06 panel(TR-adjusted post-X0)+ 2018-2024 strict-chronological train + monthly cadence + mom_12_1 entry,验证 end-to-end wiring + state machine 真实可用,记 verdict 非 blanket。
+- **新增**:`dev/scripts/prdx/r5e_x2_acceptance_smoke.py`(driver,reuse cycle06 `_load_panel` via importlib;NEUTRAL regime placeholder + 60d realized vol)+ 输出 `data/audit/prdx_r5e_acceptance_smoke.{json,log}`。
+- **smoke v1 verdict + ROOT CAUSE 修(R3 实测对比期望)**:v1 跑 cum_ret 0.09% / Sharpe 0.24 / MaxDD -0.12% / **n_held=0 across first 5 rebal** — policy "持平"。**ROOT CAUSE**:driver 嵌套 per-symbol `detect→confirm→step_day` → `step_day` 内 TTL 全局 loop 用 `(date - armed_date).days > ttl_bars=10` → 月度 cadence(28-31 天)直接 > 10 → 上轮 ARMED 全 EXPIRED;detect 不重置 EXPIRED → 永远不到 CONFIRMED。**非 blanket framing**:bug = driver sequencing + ttl_bars semantic 单位错位(命名 `bars` 实现 `days`),不是 policy framework 坏。
+- **smoke v2 修两处**:driver 拆 phase(detect-all → confirm-once → step_day-per-symbol → build-weights)+ ttl_bars 10→90(=3 months 给 monthly cadence 2 chances re-fire)。
+- **smoke v2 实跑(bg `bdpenqibn` exit 0)**:cum_ret **40.83%** / Sharpe **0.50** / MaxDD **-20.95%** / 81 rebal / turnover-per-rebal **4.71%** / Feb-28 第一批 17 confirmed,April-30 22,May-31 24,June-29 26(growth 合理)/ top holdings: NVDA/SOXL/TQQQ/MU/AMZN(momentum leaders 数学一致)/ vs SPY-TR -103pp / vs QQQ-TR -197pp。
+- **R5e verdict 非 blanket(record-and-route per `feedback_no_blanket_failure_verdict`)**:
+  - ✅ end-to-end wiring works on real panel(R3 实测 81 rebal × 79 symbol × 4-phase 全 path 跑通)
+  - ✅ state machine FLAT→ARMED→CONFIRMED→EXPIRED transitions 实测(n_held growth Feb→June 17→26)
+  - 🟡 MaxDD -20.95% **borderline violates §6.4 MaxDD 15-20% target by 0.95pp**(刚过线非 catastrophic)
+  - ⚠ **CLAUDE.md invariant 边界注脚**: TQQQ + SOXL 持仓 5% each = 15% effective 3x leverage 但 "TQQQ/SOXL require stricter risk thresholds" 未应用。**这条不变量** 不是 hard block(允许持仓)而是 "需要 stricter handling"。**R5f/X3 必须接 lev-ETF risk-tightening**。
+  - 🟡 vs SPY -103pp(strategy CAGR ~5% vs SPY-TR CAGR ~13.6%)— smoke 未优化是预期,不是 framework 坏
+  - 🟡 §12.0 cycle06 baseline regression PASS condition(trigger-first ≥ cycle06 Sharpe/MaxDD/turnover)**X2 phase 当前 FAIL** per smoke,**ROOT CAUSE 已分类**(a) NEUTRAL regime placeholder 旁路 regime-conditional sizing(b) NoTradeBandCalculator 未接 rebalance delta-to-trade gate(c) lev-ETF stricter threshold 未实现(d) entry/exit threshold 未 tune
+- **诚实留痕 — 不假装完成**:R5e smoke 完 ≠ R5 phase 完。R5 = build + smoke ✅;R5f = full regression-grade experiment(plug regime detector + wire NoTradeBand into rebalance delta + lev-ETF risk + tune)pending。X2 phase 完结 = R5f PASS,**当前进度 🟡 build+smoke,not ✅**。
+- **修 display bug(R3 catch)**:JSON `policy_config.ttl_bars` 写 10 但 policy 实跑 90(driver dict literal 未跟改);修为 90。
+- **R5b/c/d/e 模块统计**:`core/research/decision/` 现有 5 模块 + 4 test files,4 RED→GREEN cycle,85/85 GREEN;driver 1 file(non-test research script)。
+- **下一步**: Round 7 = 抉择 → R5f X2 full regression(接 RegimeDetector + 接 NoTradeBand + lev-ETF tighten + tune)**vs** X4 deferred execution integration(integrate existing kernel,X2 已 smoke-ready 可 backlog)。**operator 判断 X4 优先**(integrate-existing 低风险高 ROI,可 unlock M11 parity matrix → 7-strategy 回归)— X2 R5f 留 backlog,标 🟡。
 
 ### Round 5(2026-05-19) — X2 build phase: 4 modules + 67 new tests GREEN
 

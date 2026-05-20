@@ -1,0 +1,8 @@
+[2026-05-20T01:18:30.467297Z] R5e X2 acceptance smoke — start
+[2026-05-20T01:18:30.467338Z] loading cycle06 panel (TR-adjusted, atr=True post-X0)
+[2026-05-20T01:19:58.965911Z] panel close shape = (4276, 79), factors n = 113, factor names sample = ['ret_1d', 'ret_2d', 'overnight_ret_1d', 'intraday_ret_1d', 'hl_range']
+[2026-05-20T01:19:58.965962Z] train window: 2018-01-01 → 2024-12-31 (strict-chronological; sealed 2026 永不读)
+[2026-05-20T01:19:58.965972Z] factor choice = 'mom_12_1'
+[2026-05-20T01:20:00.895219Z] result: cum_ret=0.4083, sharpe=0.4964, max_dd=-0.2095, n_rebal=81, turnover_per_rebal=0.0471
+[2026-05-20T01:20:00.895234Z] vs SPY (TR): -1.0338, vs QQQ (TR): -1.9738
+[2026-05-20T01:20:00.895536Z] written /home/zibo/Documents/projects/pqs/data/audit/prdx_r5e_acceptance_smoke.json
