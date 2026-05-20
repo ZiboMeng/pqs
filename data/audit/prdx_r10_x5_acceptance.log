@@ -1,0 +1,10 @@
+[2026-05-20T02:28:07.801229Z] R10 X5 acceptance — start (3-path comparison)
+[2026-05-20T02:29:46.709139Z] panel close (4276, 79) factors 113
+[2026-05-20T02:29:46.709199Z] train window 2018-01-01 → 2024-12-31
+[2026-05-20T02:29:46.709227Z] Path A: ML sidecar OFF (R9-active baseline reproduce)
+[2026-05-20T02:29:47.648707Z]   A: cum=0.4838, Sharpe=0.565, MaxDD=-0.2017, turnover=0.0434
+[2026-05-20T02:29:47.648725Z] Path B: ML sidecar ACTIVE + RANDOM_VETO 20%
+[2026-05-20T02:29:48.599243Z]   B: cum=0.4763, Sharpe=0.5655, MaxDD=-0.2024, turnover=0.0468, vetos=778
+[2026-05-20T02:29:48.599262Z] Path C: ML sidecar ACTIVE + WEAK_FACTOR_FILTER
+[2026-05-20T02:29:49.540526Z]   C: cum=0.4872, Sharpe=0.5839, MaxDD=-0.1895, turnover=0.0457, vetos=654
+[2026-05-20T02:29:49.541008Z] written /home/zibo/Documents/projects/pqs/data/audit/prdx_r10_x5_acceptance.json
