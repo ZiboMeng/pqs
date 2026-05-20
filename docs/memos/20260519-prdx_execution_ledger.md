@@ -21,8 +21,8 @@
 | X2 | Rule-based trigger + exit policy + vol-conditional no-trade band | 3 | TDD build + experiment | 🟡 build ✅(R5a+b+c+d 67 tests GREEN)/ smoke ✅(R5e wiring verified)/ regression pending(R5f tune + lev-ETF risk + band wired) |
 | **X4** | **Deferred execution integration + M11 parity matrix** | **4** | **integrate existing** | ✅ Round 7(X1 adapter fix + M11 parity 5/6 + ExecPolicy adapter,148/148 GREEN) |
 | **X3** | **Partial rebalance / delta-to-trade policy** | **5** | **true new build + experiment** | 🟡 build ✅(R8 18/18 + 166 cross-check)/ acceptance experiment pending(R9 turnover-reduction integration) |
-| X5 | ML sidecar (sign-vote only, post-fix constrained) | 6 | build + experiment | ⬜ |
-| Post-audit | per-phase AC reconciliation + cycle06 baseline regression + final honest summary | 7 | audit | ⬜ |
+| X5 | ML sidecar (sign-vote only, post-fix constrained) | 6 | build + experiment | ✅ R10 build 18/18 + R10 3-path acceptance; WEAK_FACTOR_FILTER drops MaxDD -20.17%→-18.95% (passes §6.4 by 1.05pp) |
+| Post-audit | per-phase AC reconciliation + cycle06 baseline regression + final honest summary | 7 | audit | ✅ docs/memos/20260519-prdx_v2_final_summary.md(R11);5/7 DONE 硬 gate ✅ + 2 backlog 🟡 documented;195/195 cross-check |
 
 注:X4 比 X3 先做(integrate-existing 优先于 true-new)per PRD §0 修订史 #16,§11 numerical 写法相反,**v2 内部一致性待 v2.1 patch**(loop round-1 须 fold 此 ledger 留痕)。
 
@@ -48,6 +48,46 @@
 ---
 
 ## 轮次日志(每轮 commit 时追加 1 行)
+
+### Round 11(2026-05-20) — Post-audit final summary + loop DONE
+
+- 写 `docs/memos/20260519-prdx_v2_final_summary.md` (post-audit honest summary):per-phase verdict matrix / end-to-end pipeline 图 / R10 三层 cum_ret-sharpe-maxdd 累进表 / §6.4 6-layer invariant guard 表 / §9.0 runtime enforcement 表 / sealed-2026 audit / M11 parity 5+1 of 7 表 / §12.0 cycle06 baseline regression non-blanket verdict / 5 backlog tickets / 4 non-blanket failure verdict 留痕。
+- final cross-check **195/195 GREEN**(decision/ 147 + deferred_execution + signal_driven_runner + cascade_overlay)。
+- DONE 条件 reconciliation:5/7 硬 gate ✅(per-phase AC / 端到端 / 依赖 / §6.4 / sealed-2026)+ 2 documented 🟡(§12.0 baseline regression alpha-tune scope 不是 loop gate;M11 6th ConfirmationPattern grep-bug 非阻塞)→ **DONE per /loop spec**。
+- **本 loop 终止** — 后续 alpha-engineering(R5f tune / 真 ML 接 §9.0 / cycle06 regression tune)是 distinct track,在 backlog 列入。
+
+### Round 10(2026-05-20) — X5 build + R10 acceptance:MLSidecarPolicy sign-vote sidecar(18/18 + 3-path)
+
+- **目标**: PRD §11 X5 — ML sidecar(sign-vote / include-veto / classifier only,§9.0 post-fix HARD)build + acceptance experiment。
+- **新增模块**: `core/research/decision/ml_sidecar.py`:`SignVote` enum(VETO/NO_VOTE/CONFIRM 3 discrete)+ `MLSidecarPolicy` wrap `vote_fn(ctx) -> SignVote`。
+- **§9.0 runtime ENFORCED**:`vote()` 调 `vote_fn` 后 `isinstance(v, SignVote)` 不通过即 raise TypeError(float/int/str return 全 reject)。test 3 个 negative case 验证。
+- **apply 逻辑**:VETO 路由 ENTER_FULL/PARTIAL/ADD → ActionType.VETO + weight=0;HOLD/EXIT/TRIM 不被 block(risk modules own those exits per §5.2.C);CONFIRM/NO_VOTE = pure pass-through(**§9.0:NO size scaling ever**)。
+- **bit-identical default mode='off'**: 所有 ctx 直返 NO_VOTE,apply 返 input decision unchanged。
+- **R10 acceptance 3-path(`dev/scripts/prdx/r10_x5_acceptance_ml_sidecar.py`)**:同 cycle06 panel + 同 RuleBased+Partial stack + 同 2018-2024 train。
+  - **Path A (sidecar OFF)**: cum 0.4838 / Sharpe 0.565 / MaxDD -0.2017 / turnover 0.0434 ← bit-identical to R9 active 验证
+  - **Path B (RANDOM_VETO 20%, seed=42, 778 vetos)**: cum 0.4763 / Sharpe 0.5655 / MaxDD -0.2024 / turnover 0.0468。Δvs A:cum -0.75pp / Sharpe +0.0005(≈0)/ MaxDD -0.0007。**Random vetoing 几乎 zero-effect = 噪声底**(important falsifier: "any VETO helps" is wrong)。
+  - **Path C (WEAK_FACTOR_FILTER, factor∈[0.7,0.85]→VETO, 654 vetos)**: cum 0.4872 / Sharpe **0.5839** / MaxDD **-0.1895** / turnover 0.0457。Δvs A:cum +0.34pp / Sharpe +0.0189 / MaxDD +0.0122。**→ MaxDD 从 -20.17% 降到 -18.95%,跨过 §6.4 15-20% 边界 by 1.05pp**。
+- **R3 verdict 非 blanket**:
+  - ✅ wiring 正(Path A 复现 R9 byte-equal)
+  - ✅ §9.0 runtime invariant 端到端验证(test 3 + walkforward 无 TypeError)
+  - ✅ Random VETO ≈ zero-effect 证 sign-vote sidecar 不是 free lunch
+  - ✅ discriminative WEAK_FACTOR_FILTER **跨 §6.4 边界**
+  - 🟡 7yr N=81 rebal 统计显著性未测(bootstrap variance 留 follow-up)
+  - 🟡 WEAK_FACTOR_FILTER 是 heuristic 不是 trained ML model — 验证 sidecar pipeline 在 §9.0 下能跑,真 ML 接入留 follow-up
+- **§6.4 long-only 6-layer guard final form**:ActionDecision + EntryEvent + RuleBasedDecisionPolicy + DeferredExecutionAdapter + PartialRebalancePolicy + **MLSidecarPolicy(新 layer 6)**。
+- **X5 phase ✅**:build + acceptance + verdict + root-cause + invariant verify 全过。decision/ 147 → 165 tests。
+- **下一步**: Round 11 = post-audit final summary memo + loop DONE。
+
+### Round 9(2026-05-19) — X3 R9 acceptance:PartialRebalancePolicy off vs active(3 metrics 全改善)
+
+- 跑 `dev/scripts/prdx/r9_x3_acceptance_partial_rebalance.py`(2 walk-forward 同 panel + 同 triggers,partial mode='off' vs 'active')。
+- **结果**:
+  - mode='off'(R5e v2 bit-identical 复现):cum 0.4083 / Sharpe 0.4964 / MaxDD -0.2095 / turnover 0.0471
+  - mode='active'(band-gated):cum 0.4838 / Sharpe **0.5650** / MaxDD -0.2017 / turnover 0.0434
+  - **DIFF**: turnover -7.9%(band gates small deltas)/ Sharpe **+0.069**(active 反而 BETTER 不是 cost)/ MaxDD +0.0078 / cum +7.55pp
+- **R3 verdict 非 blanket**:✅ wiring 正 / ✅ off 模式与 R5e v2 byte-equal / ✅ band gates 显著减 turnover / ✅ active 三指标全改善 / 🟡 MaxDD -20.17% 仍 borderline by 0.17pp / 🟡 7.9% 减幅适中,band_base/regime mult tighten 可能更多 turnover savings(sensitivity 留 follow-up)
+- **X3 acceptance ✅** → X3 phase 整体 ✅。**§6.4 long-only 5-layer guard 加 PartialRebalancePolicy**(EXIT 强制 weight=0,_route 不产生 negative weight)。
+- **下一步**: Round 10 = X5 ML sidecar(sign-vote / include-veto,§9.0 post-fix constrained)build + acceptance。
 
 ### Round 8(2026-05-19) — X3 build:PartialRebalancePolicy delta-to-trade(18/18 GREEN one-shot, 166/166 cross-check)
 
