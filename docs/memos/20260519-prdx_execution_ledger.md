@@ -49,6 +49,45 @@
 
 ## 轮次日志(每轮 commit 时追加 1 行)
 
+### Round 27(2026-05-20 night) — PRD #4 P4.3:multi-TF + macro context feature bundles(14 GREEN + drift detection)
+
+- **本轮主题**: PRD #4 P4.3 — 多 TF context feature bundles。承接 user directive 连续跑完 P4.2/P4.3/P4.5;P4.3 PRD scope = "feature ablation" 0.5 cycle 工作,actual ablation 跑在 P4.5。本轮 deliverable = 命名 bundle 常量 + extraction helpers + drift detection 测试。
+- **本轮目标**: `core/research/ml/context_features.py` 提供 5 命名 atomic bundles(regime_state / drawdown_context / relative_spy / overnight / trend_macro)+ all_context union;3 helpers(extract_feature_bundle / combine_feature_dicts / bundle_size);测试守 every bundle factor 必 in RESEARCH_FACTORS(drift detection)。
+- **为什么这轮优先**: 113 因子 panel 已有 24 个 regime/drawdown/SPY/overnight features(grep 验证);P4.3 工作 = 命名 bundle 让 P4.5 acceptance driver 可 `--with-context regime_state` 之类 opt-in;**不重新生成 features 而是命名复用**(per PRD #4 P4.3 "feature engineering only";per `feedback_no_over_conservative_scoping` 不重做已 ship 的)。
+- **做了什么**:
+  - 新 `core/research/ml/context_features.py`(140 行):
+    - `BUNDLES` Mapping[str, Tuple[str, ...]] 5 atomic bundles 21 个因子总:
+      - `regime_state`(3):regime_score_combined / regime_transition_risk / regime_persistence_score
+      - `drawdown_context`(4):drawdown_current / drawup_from_252d_low / market_drawdown / sector_neutral_drawup_252d
+      - `relative_spy`(6):rel_spy_5d / rel_spy_20d / rs_vs_spy_21d / rs_vs_spy_63d / rs_vs_spy_126d / residual_mom_spy_20d
+      - `overnight`(4):overnight_ret_1d / overnight_gap_5d / overnight_gap_21d / overnight_vs_intraday
+      - `trend_macro`(4):spy_trend_200d / spy_trend_gated_mom_63d / trend_tstat_20d / beta_spy_60d
+    - `BUNDLES_FULL = {**BUNDLES, "all_context": union(BUNDLES)}` 21 个 total(atomics 不重叠,测试验)
+    - `extract_feature_bundle(factor_panel, bundle_name)`:返 bundle factor 子集 dict;**HARD raise** on unknown bundle OR missing factor name(per `feedback_audit_surfaces_not_thorough` 不静默 drop)
+    - `combine_feature_dicts(*dicts)`:merge last-wins(stack base 3-factor + context bundle 用)
+    - `bundle_size(name)`:返 factor 数
+    - `ContextFeatureError(KeyError)`:专 raise 类型
+  - 14 TDD tests `tests/unit/research/ml/test_context_features.py`:
+    - bundle registration × 4(BUNDLE_NAMES 与 BUNDLES_FULL keys 一致 / all_context 是 atomic 并集 / **drift detection: 每 bundle 每 factor 必 in RESEARCH_FACTORS** / atomic bundles 互不相交)
+    - extract_feature_bundle × 4(regime_state subset / all_context subset / unknown raise / missing factor raise)
+    - combine_feature_dicts × 3(disjoint merge / 冲突 last wins / 空)
+    - bundle_size × 3(regime_state=3 / all_context = sum(atomic) / unknown raise)
+  - 本轮**故意不**做 ablation 实跑 — 那是 P4.5 acceptance experiment 的工作(PRD §P4.3 AC 显式说 "acceptance is folded into P4.5")
+- **改了哪些文件**:
+  - 新:`core/research/ml/context_features.py`(140 行)
+  - 新:`tests/unit/research/ml/test_context_features.py`(14 tests)
+- **跑了什么测试 + 结果**:
+  - new context_features tests:**14/14 GREEN**(1.01s)
+  - 全 ml/ + promotion/ + decision/ regression:**316/316 GREEN**(28.07s),零 regression
+- **新发现 / 新机会**:
+  - drift detection test 强自动:factor_generator 任何 rename / 删因子,bundle stale-reference test 立即 RED
+  - `last-wins` merge 语义让 caller 可 override(e.g. 想 swap regime_state 用自定义因子集 → 后传)
+- **剩余风险**:
+  - bundle 不包含 *真正的* intraday signals(60m/30m/15m timing)— 那需要从 `core/intraday/multi_timescale.py` 出 panel 接进 generate_all_factors,本轮 scope 之外。auditor 2026-05-20 也说 "15m→30m 不是 academic standard" — 留 P4.5 acceptance experiment 决定是否启用
+  - bundle 是 hand-pick 21 因子,不是穷尽 list;P4.5 ablation 应也测 "all_context" vs "cycle06 alone" 大对比看 sticker shock
+  - 没做 feature ablation 自动化 helper;留 P4.5 driver 里用 R22 pipeline run_walk_forward 直接对比 mean_rank_ic
+- **下一轮建议方向**: **Round 28 = PRD #4 P4.5** acceptance experiment driver — 4 paths R-ML-A/B/C/D 对比。需要的所有件已就位(R22 pipeline + R23 artifact + R24 labels/bar-integrity + R25 driver + R26 sign_classifier + R27 context bundles)→ P4.5 driver 是 orchestrator,把 prior 6 round 全 wire 起来。
+
 ### Round 26(2026-05-20 night) — PRD #4 P4.2:sign classifier scaffold(19 GREEN + §9.0 invariant 守 + binary_classifier_voter wiring)
 
 - **本轮主题**: PRD #4 P4.2 — Stage 2 sign-vote binary classifier scaffold。接 P4.4 通道 + Stage 1 rank model 输出。user directive "走完整个流程不要旁逸斜出",B/C 备份 memo `20260520-prd4_p41_ir_threshold_backlog.md`,直接进 P4.2。
