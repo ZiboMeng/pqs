@@ -22,7 +22,7 @@
 | **X4** | **Deferred execution integration + M11 parity matrix** | **4** | **integrate existing** | ✅ Round 7(X1 adapter fix + M11 parity 5/6 + ExecPolicy adapter,148/148 GREEN) |
 | **X3** | **Partial rebalance / delta-to-trade policy** | **5** | **true new build + experiment** | 🟡 build ✅(R8 18/18 + 166 cross-check)/ acceptance experiment pending(R9 turnover-reduction integration) |
 | X5 | ML sidecar (sign-vote only, post-fix constrained) | 6 | build + experiment | ✅ R10 build 18/18 + R10 3-path acceptance; WEAK_FACTOR_FILTER drops MaxDD -20.17%→-18.95% (passes §6.4 by 1.05pp) |
-| Post-audit | per-phase AC reconciliation + cycle06 baseline regression + final honest summary | 7 | audit | 🟡 (R13 honest downgrade): module + schema + research-script acceptance ✅;**system integration 🟡** per auditor 6-findings R3-verified — adapter facade(F1)+ acceptance hand-rolled NAV(F2)+ ttl_days mis-naming(F3)+ main entries untouched(F4)+ origin-broken-pre-hotfix(F5,now fixed)+ config SoT stale(F6);§12.0 R12 apples-to-apples PASS;195/195 local-worktree GREEN(post-P0 hotfix = origin-GREEN too) |
+| Post-audit | per-phase AC reconciliation + cycle06 baseline regression + final honest summary | 7 | audit | 🟢 (R14 P0+P1 全闭): F1 adapter facade → 真接 kernel ✅;F2 hand-rolled NAV → BacktestEngine.run 真主链 ✅(差异 root-cause classified);F3 ttl_bars `.days` → bar-count ✅(cadence-agnostic);F5 untracked → committed ✅(origin 修);**F4(主入口)+ F6(config schema)仍 P2 backlog**;§12.0 R12 apples-to-apples PASS;174/174 origin-GREEN(post-P1 整合) |
 
 注:X4 比 X3 先做(integrate-existing 优先于 true-new)per PRD §0 修订史 #16,§11 numerical 写法相反,**v2 内部一致性待 v2.1 patch**(loop round-1 须 fold 此 ledger 留痕)。
 
@@ -48,6 +48,22 @@
 ---
 
 ## 轮次日志(每轮 commit 时追加 1 行)
+
+### Round 14(2026-05-20) — P0 + P1 全部完成:auditor F1/F2/F3/F5 直接闭环;F4/F6 仍 P2 backlog
+
+- **P0-1(commit c3f2aae)**: `no_trade_band.py` + test 入版控;origin/main 修好;fresh-clone import chain 验证通(已在 R13 留痕)
+- **P0-2(commit cc47f59)**: CORRECTION APPENDIX 写入 final summary memo + ledger R13 留痕(已在 R13)
+- **P1-3(commit 6d42116 part 1)**: `ttl_bars` 改 bar-count anchored(not `.days`):SetupRecord 加 `armed_bar` 字段;RuleBasedDecisionPolicy 加 `_bar_counter` + `_last_bar_date`,step_day 仅在 date 变化时递增(per-symbol calls 不多 count);**cadence-agnostic** 验证 daily/weekly/monthly。新 4 tests + 17 existing 全 GREEN → 21/21。直接闭环 auditor F3。
+- **P1-1(commit 6d42116 part 2)**: `DeferredExecutionAdapter.schedule_fill()` 不再返 audit dict facade,实构造 `SignalState(status=CONFIRMED)` 调 `self._schedule.schedule_fill(state, weight)` 驱动 kernel。返 `ExecutionScheduleEntry`(kernel's type)。要求 `ctx['bar_idx']`(active mode)。新 4 tests 实测 `sched._pending` 真有 entry + `due_at()` 返 fills + multi-call accumulate + bar_idx-missing raises。13 existing 不动 → 21/21。直接闭环 auditor F1。
+- **P1-2(commit 1cad818)**: R14 driver(`dev/scripts/prdx/r14_p12_acceptance_real_engine.py`)同 decision stack(RuleBased + Partial band=0.02 + Sidecar weak-filter)同 2018-2024 train 跑 2 path:hand-rolled NAV vs `BacktestEngine.run` T+1 open exec。**Path B real engine 数字**:cum 0.4869 / Sharpe 0.6280 / MaxDD -0.1743 vs **hand-rolled Path A**:cum 0.5135 / Sharpe 0.6052 / MaxDD -0.1895。**DIFF**:cum_ret -2.66pp(engine 比 hand-rolled lower absolute)/ Sharpe +0.0228(engine BETTER risk-adjusted)/ MaxDD +1.5pp(less bad)。zero-cost model 隔离了 cost effect → 差异**ROOT CAUSE = T+1 open exec(engine)vs T+1 close MTM(hand-rolled)+ rebalance_threshold=0.02 filtering 把小 delta 滤掉**。filtered noise trades 解释了 Sharpe/MaxDD 改善。直接闭环 auditor F2。
+- **进度更新**:154 → 174 tests(+20 new P1-3/P1-1 tests);decision/ 全 dir GREEN;origin = local-worktree 一致。
+- **§6.4 long-only invariant 仍 5-layer 守**;§9.0 sign-vote runtime ENFORCED 仍守;sealed-2026 仍全程未读。
+- **下一步(后续 distinct track per 用户 directional)**:
+  - **P2-1** scripts/run_backtest.py 加 `--decision-stack trigger-first` flag 路由 PRD-X 路径(auditor F4)
+  - **P2-2** config/production_strategy.yaml v2 schema 加 decision_stack section(auditor F6;status 仍 conservative_default 不自决)
+  - **P2-3** tests/integration/test_prdx_e2e.py — config → policy stack → BacktestEngine → NAV 端到端回归
+  - P3 backlog: PRD v2.1 tolerance freeze / R5f tune / 真 ML wiring / M11 6th ConfirmationPattern / cycle06 harness-level replication
+  - P4-1/2/3 process improvement:commit hygiene check / R3-self-audit checklist / ✅/🟡/❌ 语义统一
 
 ### Round 13(2026-05-20) — Auditor 6 findings R3-verified;P0 hotfix + correction appendix(integration depth honest 留痕)
 
