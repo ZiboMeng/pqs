@@ -96,14 +96,37 @@ def _resolve_voter_from_config(ml_sidecar_cfg):
         # voter_params may carry entry_threshold override
         return _weak_factor_filter_voter(**params)
     if kind in ("classifier_voter", "binary_classifier_voter"):
-        # classifier wiring requires user-supplied artifact path
-        # + feature extractor — out of scope for default config
-        # consumption; raise with hint so users know what to do.
-        raise ValueError(
-            f"voter_kind={kind!r} requires explicit classifier "
-            f"artifact + feature_extractor wiring; not currently "
-            f"supported via yaml-only config. Use programmatic "
-            f"injection via run_strategy(..., sidecar_voter=...).")
+        # PRD #4 P4.5 sub-step A (2026-05-20): yaml-driven loading of
+        # trained classifier artifact. voter_params must carry:
+        #   model_path: path to .pkl saved by R23 save_artifact
+        #   feature_extractor: name of registered extractor function
+        # (in core.research.decision.classifier_feature_extractors)
+        model_path = params.pop("model_path", None)
+        feat_name = params.pop("feature_extractor", None)
+        if not model_path:
+            raise ValueError(
+                f"voter_kind={kind!r} requires voter_params.model_path "
+                f"pointing at a saved sign-classifier artifact (.pkl + "
+                f".json sibling pair via core.research.ml.artifact)")
+        if not feat_name:
+            raise ValueError(
+                f"voter_kind={kind!r} requires voter_params."
+                f"feature_extractor naming a registered extractor "
+                f"(see core.research.decision.classifier_feature_extractors)")
+        from core.research.ml.artifact import load_artifact
+        from core.research.decision.classifier_feature_extractors import (
+            get_feature_extractor,
+        )
+        artifact = load_artifact(model_path)
+        if artifact.metadata.output_type != "sign":
+            raise ValueError(
+                f"voter_kind={kind!r} requires output_type='sign' "
+                f"artifact; got {artifact.metadata.output_type!r}. "
+                f"Train via dev/scripts/ml/train_sign_classifier.py.")
+        extractor = get_feature_extractor(feat_name)
+        if kind == "binary_classifier_voter":
+            return _binary_classifier_voter(artifact.model, extractor)
+        return _classifier_voter(artifact.model, extractor)
     raise ValueError(
         f"unknown voter_kind={kind!r}; expected one of "
         f"{{no_op, weak_factor_filter, classifier_voter, "

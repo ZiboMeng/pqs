@@ -106,12 +106,16 @@ class ArtifactMetadata:
     spec_id: str
 
     def __post_init__(self) -> None:
-        if self.output_type != "rank":
+        # §9.0 invariant: output_type must be discrete (rank percentile
+        # OR sign vote {0,1}). Magnitude / continuous-return / proba
+        # are §9.0 post-fix HARD禁.
+        _ALLOWED_OUTPUT_TYPES = {"rank", "sign"}
+        if self.output_type not in _ALLOWED_OUTPUT_TYPES:
             raise ValueError(
                 f"§9.0 invariant: ArtifactMetadata.output_type must be "
-                f"'rank', got {self.output_type!r}. ML sidecar pipeline "
-                f"refuses non-rank artifacts (continuous magnitude is "
-                f"§9.0 post-fix HARD禁).")
+                f"one of {sorted(_ALLOWED_OUTPUT_TYPES)}, got "
+                f"{self.output_type!r}. ML sidecar pipeline refuses "
+                f"continuous-magnitude artifacts.")
 
 
 @dataclass

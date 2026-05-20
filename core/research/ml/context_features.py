@@ -57,7 +57,14 @@ BUNDLES: Mapping[str, Tuple[str, ...]] = {
         "drawdown_current",
         "drawup_from_252d_low",
         "market_drawdown",
-        "sector_neutral_drawup_252d",
+        # NOTE 2026-05-20: `sector_neutral_drawup_252d` was in this bundle
+        # initially but is NOT produced by current factor_generator output
+        # (it's registered in RESEARCH_FACTORS but the generator path is
+        # absent). Drift detection between registry and generator is a
+        # separate concern — bundles must align with WHAT GENERATOR
+        # PRODUCES, not just what's registered. Audit follow-up filed
+        # in P4.5 ledger entry; do not re-add without verifying
+        # factor_generator.py actually outputs the name.
     ),
     "relative_spy": (
         "rel_spy_5d",

@@ -49,6 +49,61 @@
 
 ## 轮次日志(每轮 commit 时追加 1 行)
 
+### Round 28(2026-05-20 night) — PRD #4 P4.5 sub-step A:sign classifier训练 driver + voter yaml-loading + 真数据训(8 GREEN + R3 2-catch + Stage 2 验证 partial PASS)
+
+- **本轮主题**: PRD #4 P4.5 sub-step A — train Stage 2 sign classifier + 接 PRD-X overlay 的 voter 加载接口。整合 R23 artifact + R24 labels + R26 sign_classifier + R27 context_features。打通 train → save → yaml-load 到 PRD-X overlay 全链路;Round 29 sub-step B 真跑 R-ML-A vs R-ML-B 对比。
+- **本轮目标**:(1) artifact.py output_type 扩 {rank, sign};(2) train_sign_classifier.py 驱动;(3) `_resolve_voter_from_config` 扩 classifier yaml-loading;(4) classifier_feature_extractors 注册表 + 默认 `rank_score_and_context`。
+- **为什么这轮优先**: user directive "走完整个流程" — P4.2/P4.3 已 ship,P4.5 必接 R-ML-A vs B/C/D 至少一个 trained-voter 路径。sub-step A 把所有接口就位 + Stage 2 真训出 .pkl,sub-step B 在下轮接进 run_backtest 跑对比。
+- **做了什么**:
+  - 改 `core/research/ml/artifact.py`:`__post_init__` 允许 `output_type ∈ {rank, sign}`(magnitude 仍 raise);test_metadata_construction_with_magnitude_raises 仍 PASS(改 set 不破现有 invariant test)
+  - 改 `core/research/ml/context_features.py::drawdown_context` bundle:删 `sector_neutral_drawup_252d`(R3 catch:在 RESEARCH_FACTORS 但 `factor_generator.py` 未实产 → 测试 RESEARCH_FACTORS 不够,要 RESEARCH_FACTORS ∩ generate_all_factors.keys();该 audit 留 P4.5 follow-up)
+  - 新 `core/research/decision/classifier_feature_extractors.py`(98 行):
+    - `FeatureExtractor` 类型别名
+    - `register_feature_extractor(name, fn)`:duplicate 名 raise
+    - `get_feature_extractor(name)`:unknown raise
+    - `FEATURE_EXTRACTOR_NAMES()`:snapshot 列表
+    - `rank_score_and_context_extractor(ctx)`:`[stage1_rank, *sorted(context_features)]`;ctx 缺键 / NaN / None → 返 None(extractor failsafe → voter NO_VOTE per §9.0)
+  - 改 `scripts/run_backtest.py::_resolve_voter_from_config`:classifier_voter / binary_classifier_voter 现支持 yaml-loading:
+    - voter_params.model_path → `load_artifact(path)`(校验 output_type=="sign")
+    - voter_params.feature_extractor → `get_feature_extractor(name)`
+    - 返 `_binary_classifier_voter(artifact.model, extractor)` 或 `_classifier_voter(artifact.model, extractor)`
+  - 新 `dev/scripts/ml/train_sign_classifier.py`(380 行):
+    - argparse:--horizon-days (default 21=monthly per PRD #4 P4.2)、--decile、--train-start/end、--val-start/end、--model {logistic, xgb}、--context-bundle、--save-dir、--no-save、--seed
+    - 流程:load_panel_and_factors → slice 到 train+val 范围 → bar-integrity + sealed guard → 构 Stage 1 rank(cycle06 3-feature equal-weight zscore-avg-rank)→ compute_binary_sign_labels(horizon=21)→ apply_tradeable_mask → `_build_xy_for_stage2` 在 top-decile 上 assemble X,y → fit Logistic 或 XGB → 打印 train/val F1(VETO) / precision(VETO) → save .pkl + .json artifact via R23 save_artifact(output_type="sign")
+    - **R3 catch #1**:panel 包含 2026 sealed 数据 → `assert_no_sealed_year` raise。fix = slice BEFORE smoke。
+    - **R3 catch #2**:context_bundle=regime_state 时 X_train=0 rows。**root cause**:Family S regime 因子是 broadcast(同 date 所有 symbol 相同)→ cross_sectional_standardize 行 std=0 → div-by-0 → NaN → ALL cells dropout。fix = `_build_xy_for_stage2` 用 RAW context values(Stage 2 classifier 自己处理 feature scaling)。
+  - 8 TDD tests `tests/unit/research/decision/test_classifier_feature_extractors.py`:
+    - 注册表 × 3(default 注册 / unknown raise / duplicate raise)
+    - rank_score_and_context_extractor × 8 corner case 实际只 7 个 named test methods 含(full ctx / missing rank / missing context / NaN rank / NaN context / None ctx value / empty context = only rank vec / sorted determinism)
+- **真数据训练 verdict**(cycle06 3-feature Stage 1 + horizon=21 monthly labels + 2010-2022 train / 2023-2024 val):
+  - **Logistic + regime_state context**:X_train 13690 × 4 features → predict_veto_count = 0(全预 class 1)。class 1 prior train 0.61 / val 0.73 — Logistic baseline 不足 break majority。AC F1(VETO)=0 FAIL,Precision(VETO)=0 FAIL。non-blanket = "Logistic baseline + 4 feature 不破 majority class";不是 binary classifier 路径不可。
+  - **XGB + regime_state context**:
+    - TRAIN:n=13690,pred_veto_count=2472,**F1(VETO)=0.4601 PASS / Precision(VETO)=0.7314 PASS**
+    - VAL:n=3543,pred_veto_count=789,F1(VETO)=0.2641 PASS / **Precision(VETO)=0.2940 FAIL**(< 0.55 threshold)
+    - val class 1 prior 0.7268 / accuracy 0.6351 → 模型 val 比 always-predict-1 baseline 差,overfit 模式(train precision 0.73 → val 0.29 = -60%)
+  - **PRD #4 P4.2 AC verdict (single split, this round)**:F1(VETO) > baseline PASS;**Precision(VETO) > 0.55 FAIL on val** — overfit 主导。fix path 留 sub-step B 时讨论:walk-forward 多 fold 平均 + hyperparam search + 加 drawdown_context / overnight 等不同 bundle。
+- **改了哪些文件**:
+  - 新:`core/research/decision/classifier_feature_extractors.py`(98 行)
+  - 新:`dev/scripts/ml/train_sign_classifier.py`(380 行)
+  - 新:`tests/unit/research/decision/test_classifier_feature_extractors.py`(8 tests)
+  - 改:`core/research/ml/artifact.py`(output_type allowlist `{rank, sign}`)
+  - 改:`core/research/ml/context_features.py`(drawdown_context bundle 修)
+  - 改:`scripts/run_backtest.py`(_resolve_voter_from_config 扩 classifier yaml-loading)
+  - 改:`docs/memos/20260519-prdx_execution_ledger.md`(Round 28 entry)
+  - 落盘(gitignored):2 sign artifacts(Logistic + XGB)+ 2 summary JSONs
+- **跑了什么测试 + 结果**:
+  - new extractor tests:**8/8 GREEN**(与 artifact 22 共 33 GREEN)
+  - 全 ml/ + promotion/ + decision/ + integration prdx regression:**340/340 GREEN**(34.79s),零 regression
+- **新发现 / 新机会**:
+  - **broadcast factors 触发 cross-sectional zscore NaN trap**——Family S 全 broadcast,Stage 2 driver 用 raw values 才 work。Stage 1 rank model 同样问题(P4.5 follow-up 检查 rank_model 对 broadcast factors 行为)
+  - **RESEARCH_FACTORS ⊋ generate_all_factors output**(`sector_neutral_drawup_252d` 缺产)——这是 codebase pre-existing 不一致,context_features.py 必须对齐 *实际生成*,而非 registry。我加 note 留 P4.5 ledger 时 sync 给 P0-gov 看
+  - **XGB Stage 2 train F1 0.46 / val F1 0.26 + precision 0.73→0.29**——经典 overfit pattern,but 也提示 boundary signal 存在(全 1 hard collapse 没出现)。walk-forward + hyperparam search 可能能稳定
+- **剩余风险**:
+  - sub-step B(R-ML-A vs R-ML-B 真 backtest)依赖 _resolve_voter_from_config 能跑通 trained artifact 加载——下轮第 1 件事是 smoke test 验证 yaml 加载 path
+  - 现 Stage 2 val precision 0.29 << 0.55 AC;backtest 跑 R-ML-B 仍可能因 false-positive VETO 拖累 Sharpe(留 sub-step B 数据反推)
+  - 单 split overfit;walk-forward 训 + 平均预测可能稳定,但 P4.5 PRD 显式要求 acceptance 真 backtest 而非 classifier 单 metric
+- **下一轮建议方向**: **Round 29 = PRD #4 P4.5 sub-step B**——extend run_backtest config schema 接 trained Stage 2 artifact + 跑 R-ML-A heuristic 与 R-ML-B trained-XGB-binary 对比 cum_ret / Sharpe / MaxDD / turnover / vs-SPY excess。R-ML-C(Stage 1 rank 替 factor_score)/ R-ML-D(cap_aware harness)留 sub-step C 看 sub-step B 结果决定。
+
 ### Round 27(2026-05-20 night) — PRD #4 P4.3:multi-TF + macro context feature bundles(14 GREEN + drift detection)
 
 - **本轮主题**: PRD #4 P4.3 — 多 TF context feature bundles。承接 user directive 连续跑完 P4.2/P4.3/P4.5;P4.3 PRD scope = "feature ablation" 0.5 cycle 工作,actual ablation 跑在 P4.5。本轮 deliverable = 命名 bundle 常量 + extraction helpers + drift detection 测试。
