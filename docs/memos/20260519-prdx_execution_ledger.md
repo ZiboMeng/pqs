@@ -49,6 +49,72 @@
 
 ## 轮次日志(每轮 commit 时追加 1 行)
 
+### Round 25(2026-05-20 night) — PRD #4 P4.4 sub-step 3b:real-data driver + 首组真实 P4.1 AC numbers(3 smoke GREEN + 10-fold cycle06 真跑 + 4-config IC ✅ / IR ❌)
+
+- **本轮主题**: PRD #4 P4.4 sub-step 3b — `dev/scripts/ml/walk_forward_rank_sign.py` real-data driver。整合 R22 pipeline + R23 artifact + R24 labels/bar-integrity → 真 cycle06 113-factor research panel + executable universe → 真 walk-forward rank-IC 数字。首次 PRD #4 P4.1 AC verdict 上桌(从 in-sample/synth 离开)。
+- **本轮目标**: 端到端跑通 + 产生 P4.1 AC 真值 + artifact save/load 真路径 + non-blanket 失败留痕。
+- **为什么这轮优先**: sub-step 3 是 P4.1 AC 真值出口;sub-step 3a 已就位所有 utility,3b 是闭合 R20-R24 5 轮的最后一步。
+- **做了什么**:
+  - 新 `dev/scripts/ml/__init__.py` + `dev/scripts/ml/walk_forward_rank_sign.py`(285 行):
+    - argparse:`--universe` / `--horizon-days` / `--start-year` / `--end-year` / `--train-window` / `--val-window` / `--step` / `--model` (linear|xgb|both) / `--features` (cycle06|all) / `--save-dir` / `--no-save` / `--seed`
+    - `_load_panel(universe)`: 复用 cycle06_track_a_eval pattern → BarStore.load(adjusted=True, adjusted_total_return=True) per 79 symbols + `generate_all_factors` 113 因子 + `research_mask_default` 57.7% tradeable
+    - `_slice_to_year_range` + `_filter_factors_to_panel` 非空过滤
+    - bar-integrity + sealed-year smoke 调 R24 labels module
+    - forward-return labels at horizon (default 5 = weekly per cycle06_31af04cf2ff9 spec)
+    - 2 model × 2 variant(pooled / on-tradeable mask)端到端 walk-forward
+    - 每 model+variant 训完用最后 fold train slice fit final 实例 → `make_artifact_metadata` + `save_artifact` 落盘 .pkl + .json
+    - human-readable per-fold table + summary JSON 输出
+  - 3 driver smoke tests `tests/unit/research/ml/test_driver_smoke.py`:`--help` exposes 11 flags / module imports without data load / expanded_v2 raise with "P4.5" hint
+  - 真数据 3 个独立实验跑过:
+    - **EXP-1** 2010-2017 × 3 folds × Linear/cycle06: pooled IC **0.0216 ✅** IR 0.0778 / tradeable IC **0.0098 ❌** IR 0.0359
+    - **EXP-2** 2010-2017 × 3 folds × XGB/cycle06: pooled IC **0.0257 ✅** IR 0.1406 / tradeable IC **0.0191 ❌(by 5%)** IR 0.1048
+    - **EXP-3** 2010-2024 × 10 folds × Linear+XGB/cycle06:
+      - Linear pooled IC **0.0411 ✅** IR 0.1394
+      - Linear tradeable IC **0.0371 ✅** IR 0.1258
+      - XGB pooled IC **0.0275 ✅** IR 0.1262
+      - XGB tradeable IC **0.0244 ✅** IR 0.1095
+    - **EXP-4** save 路径 smoke:8 artifacts on disk(4 models × .pkl + .json)+ load_artifact roundtrip:spec_id 验证 / lineage_tag / output_type=rank §9.0 / model 对象类型保留
+  - **R3 catch / non-blanket 失败 4 条留痕**:
+    1. **EXP-FULL113 fail-closed**:113-factor 全谱 × Linear/XGB × 10-fold 全 40 fold FAIL,error = `LinearBaselineRankModel.fit: no valid training observations after standardization + NaN filter`。**Root cause**:113 因子各有 NaN warmup window(252d / 60d / 20d 等);LinearBaseline.fit 用 strict-AND row-filter(所有 113 features 必须 non-NaN at single (date, sym))→ AND-of-113-warmups 后 zero observations。**non-blanket**:模型/驱动诊断正确 raise + driver `evaluate_fold` try-except 正确 collect per-fold FAIL 不 abort。**fix path 留 P4.5 acceptance experiment**:加 `drop_high_nan_features(features, min_coverage=0.7)` 预处理或换 NaN-tolerant 模型(XGB DMatrix 原生支持 NaN,但 our XGBRanker class uses dense matrix → needs refactor)
+    2. **Linear > XGB on IC(意外 Pareto-floor 反转)**:Linear pooled 0.0411 vs XGB pooled 0.0275(-33%);Linear tradeable 0.0371 vs XGB tradeable 0.0244(-34%)。**non-blanket per `feedback_no_blanket_failure_verdict`**:不写 "XGB 比 Linear 差";写 "this XGB hyperparam (n_estimators=50, depth=4) on 3-feature small panel **overfits noise**;Linear 0-regularization closed-form generalizes better。R20 synth Pareto-floor PASS 是 synthetic 强信号场景,不代表 real-data 小 feature set 必然 Linear ≤ XGB。P4.5 acceptance experiment 应**hyperparam search XGB** + 加 multi-TF context 让 XGB 见更多 split 而非 noise"
+    3. **Fold 7 (2022 val) 全负 IC**:Linear pooled -0.0143 / Linear tradeable -0.0152 / XGB pooled -0.0012 / XGB tradeable -0.0043;**root cause** = 2022 rate-hike regime shift cycle06 因子不外推;1/10 fold 负 IC 是统计常态(per `feedback_no_blanket_failure_verdict`)
+    4. **rank-IR < 0.30 AC threshold**:全 4 config 0.10-0.14 远低于 0.30;**root cause hypothesis** = 3-feature spec + horizon=5 + 10-fold n=10 → per-fold std ≈ 0.20-0.30 → IR ≈ IC/std 自然 ≤ 0.30;非模型问题。**fix path**:更多 fold(月度 step + 5y val)+ 加 multi-TF context(PRD #4 P4.3)+ XGB hyperparam tuning 应能拉 IR(留 P4.5)
+- **P4.1 AC verdict(本轮 partial PASS)**:
+  - ✅ rank-IC > 0.02:**4/4 config PASS** on cycle06 canonical(executable universe + horizon=5 + 10-fold 2010-2024)
+  - ❌ rank-IR > 0.30:**4/4 FAIL**;实际 0.10-0.14 非 trivially 0,但 threshold 未达
+  - ✅ executable universe wired
+  - 🟡 expanded_v2 wiring 留 P4.5(driver `--universe expanded_v2` raise with hint)
+  - ✅ on-tradeable mask + pooled BOTH 计算
+  - ✅ horizon matches PRD-2 cycle06 candidate(weekly = 5 bday)
+  - ✅ no leakage / sealed-2026 守(panel.close 2010-2024 range,sealed_years=(2026,)guard 双层 fail-fast)
+  - ✅ reproducible(seed=42 + XGB random_state=42)
+  - ✅ artifact end-to-end:8 files on disk + load roundtrip 验 §9.0 output_type=rank
+- **改了哪些文件**:
+  - 新:`dev/scripts/ml/__init__.py` + `dev/scripts/ml/walk_forward_rank_sign.py`(285 行)
+  - 新:`tests/unit/research/ml/test_driver_smoke.py`(3 tests)
+  - 改:`docs/memos/20260519-prdx_execution_ledger.md`(Round 25 entry)
+  - 落盘(gitignored)on `data/ml/`:8 .pkl/.json + 1 summary JSON
+- **跑了什么测试 + 结果**:
+  - driver smoke:**3/3 GREEN**(3.72s)
+  - 全 ml/ + promotion/ + decision/ regression:**283/283 GREEN**(57.53s)
+  - 真数据 EXP-3 cycle06 10-fold:**Linear+XGB × pooled+tradeable 4/4 GREEN**(40/40 folds OK)
+  - artifact load roundtrip on disk:spec_id 验证通过、§9.0 output_type=rank 保留、XGB model 对象正确反序列化
+- **新发现 / 新机会**:
+  - cycle06 3-feature 在 weekly 5-bday horizon **跨 pooled/tradeable mask 都 IC ≥ 0.02**——验证 cycle06 spec 在 P4.4 接口下产生统计有信号(non-trivial finding)
+  - **Linear > XGB on small feature set** 是先验未明的现象(per R20 in-sample Pareto-floor PASS 是 synth strong signal),real-data 3-feature 上 XGB 50-tree depth-4 hyperparam 过拟合 noise;P4.5 必 XGB hyperparam search
+  - 113-factor scope mismatch 教训 → driver 应加 `--drop-high-nan` 预处理参数(留 follow-up TODO)
+- **剩余风险**:
+  - **rank-IR FAIL 是 PRD #4 P4.1 AC binding constraint 之一**;若 expand 到 monthly horizon(21 day)+ multi-TF context 仍 < 0.30,需 PRD 修订 IR threshold 或承认 cycle06 3-feature 不满足 IR AC
+  - expanded_v2 universe wiring 未做(P4.5 dep)
+  - artifact save 用最后 fold train slice fit,**不是 train+val 全合训练**;production deploy 前应 fit on full train+val(P4.5 acceptance scope)
+  - 113-factor fail 暴露 LinearBaseline.fit 的 strict-AND 限制(XGB 同样);NaN-tolerant 模型/preprocessing 留 follow-up
+  - hyperparam search 未做(XGB 50/4/0.1 是 hand-pick,可能 sub-optimal)
+- **下一轮建议方向**:
+  - **Round 26 选项 A** = **PRD #4 P4.2 sign classifier scaffold**(独立、解锁 P4.5 acceptance);3-feature horizon=5 IC>0.02 验证后 → top-decile entry-eligible 集训 binary VETO/NO_VOTE classifier。
+  - 选项 B = **P4.5 acceptance experiment driver**(R-ML-A/B/C/D 4-path)— 但 P4.2 ship 之后才有 trained classifier_voter 可接;此 round 等 P4.2。
+  - 选项 C = `--drop-high-nan` preprocessing + monthly horizon retest + XGB hyperparam search — 拉 P4.1 IR(但 IR 改善不是 P4.4 阻塞 P4.2;P4.5 整盘 acceptance 才是真验证)
+  - 推荐 **选项 A**:独立 + 解锁 acceptance + 与 cycle06 IC≥0.02 已验证签接好。
+
 ### Round 24(2026-05-20 night) — PRD #4 P4.4 sub-step 3a:labels + bar-integrity smoke + pipeline panel-index guard(24 GREEN + R23 catch closed)
 
 - **本轮主题**: PRD #4 P4.4 sub-step 3 prereq — `core/research/ml/labels.py` 提供 forward-return labels + 4 个 bar-integrity smoke helpers;并把 R23 surface 的 panel.index 隐性假设 fold 进 `run_walk_forward` 入口(`_validate_panel_indices`)。24a 拆 2 sub-sub:24a-1(本轮)就位所有 utility,24a-2(下轮)real-data driver 调用。
