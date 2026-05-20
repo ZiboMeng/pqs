@@ -4,6 +4,16 @@ Concrete ExecutionPolicy Protocol implementation that wraps the
 existing `core.backtest.deferred_execution.DeferredExecutionSchedule`
 kernel (PRD §F.3 C1 reuse pattern — NOT a new build).
 
+**P1-1 fix (2026-05-20, post-auditor)**: prior version's
+schedule_fill() returned only an audit dict, never invoking the
+underlying kernel. Auditor F1 correctly flagged this as facade-only
+"X4 schema + adapter shell" not real integration. Updated impl
+constructs a SignalState (CONFIRMED) from the ActionDecision +
+ctx-supplied bar indices, then calls `schedule.schedule_fill(state,
+target_weight)` to actually register the pending fill in the
+kernel queue. ctx must supply `bar_idx` (current); `armed_at_bar`
+defaults to `bar_idx - 1` if not provided.
+
 API surface (PRD §6.3 4-action facade via 3 methods):
 
   schedule_fill(decision, ctx)
@@ -39,6 +49,7 @@ from core.backtest.deferred_execution import (
     ExecutionScheduleEntry,
 )
 from core.research.decision import ActionDecision, ActionType
+from core.signals.signal_state import SignalState, SignalStatus
 
 __all__ = ["DeferredExecutionAdapter"]
 
@@ -89,12 +100,18 @@ class DeferredExecutionAdapter:
 
     def schedule_fill(
         self, decision: ActionDecision, ctx: Any
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[ExecutionScheduleEntry]:
         """Schedule a fill for a CONFIRMED ActionDecision.
 
-        Returns an audit-friendly dict summary of the scheduled
-        entry, or None if the decision is not a fill-action
-        (HOLD / DEFER / VETO / NO_TRADE → no fill scheduled).
+        P1-1 (post-auditor): actually invokes the underlying
+        DeferredExecutionSchedule.schedule_fill() kernel — no longer
+        an audit-only facade. Returns the ExecutionScheduleEntry that
+        the kernel registered (or None for off-mode / non-fill
+        actions).
+
+        Requires `ctx['bar_idx']` (current bar index). `ctx['armed_at_bar']`
+        optional (defaults to bar_idx - 1). `ctx['ttl_bars']` optional
+        (defaults to 5, matches SignalStateMachine convention).
         """
         if decision.target_weight < 0:
             raise ValueError(
@@ -109,17 +126,36 @@ class DeferredExecutionAdapter:
             ActionType.ADD, ActionType.TRIM, ActionType.EXIT,
         }:
             return None
-        # Construct an audit dict; real wiring to
-        # SignalState/SignalStateMachine is done by the caller
-        # (DecisionPolicy → SignalState conversion is a separate
-        # concern; this adapter only owns the schedule kernel call).
-        return {
-            "symbol": decision.symbol,
-            "date": decision.date,
-            "target_weight": decision.target_weight,
-            "action": decision.action.value,
-            "reason": decision.reason,
-        }
+        ctx = ctx if isinstance(ctx, dict) else {}
+        bar_idx = ctx.get("bar_idx")
+        if bar_idx is None:
+            raise ValueError(
+                "DeferredExecutionAdapter.schedule_fill active mode "
+                "requires ctx['bar_idx'] (current bar index for the "
+                "underlying DeferredExecutionSchedule kernel)")
+        bar_idx = int(bar_idx)
+        armed_at_bar = int(ctx.get("armed_at_bar", bar_idx - 1))
+        ttl_bars = int(ctx.get("ttl_bars", 5))
+        # Construct a CONFIRMED SignalState — the kernel's
+        # schedule_fill contract requires status=CONFIRMED.
+        state = SignalState(
+            symbol=decision.symbol,
+            armed_at_bar=armed_at_bar,
+            ttl_bars=ttl_bars,
+            status=SignalStatus.CONFIRMED,
+            confirmed_at_bar=bar_idx,
+            setup_metadata={
+                "action": decision.action.value,
+                "reason": decision.reason,
+                "decision_date": str(decision.date),
+            },
+        )
+        # Drive the kernel — this is the real X4 integration that
+        # auditor F1 flagged missing.
+        return self._schedule.schedule_fill(
+            signal_state=state,
+            target_weight=decision.target_weight,
+        )
 
     def should_defer(self, decision: ActionDecision, ctx: Any) -> bool:
         """Returns True if this decision should be deferred (i.e.

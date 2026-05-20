@@ -60,6 +60,9 @@ class SetupRecord:
       source         — which trigger fired ('factor_entry' / etc.)
       strength       — ∈ [0, 1]; from EntryEvent.strength
       armed_date     — original date when status first became ARMED
+      armed_bar      — bar/checkpoint counter value when first ARMED
+                       (used by TTL; bar-anchored not day-anchored;
+                       fixed P1-3 from `.days` semantic mismatch)
       persistence    — count of distinct bars the signal has been
                        re-detected (used for confirm_min_bars gate)
       exit_reason    — populated if an ExitTrigger fired
@@ -70,6 +73,7 @@ class SetupRecord:
     source: str
     strength: float
     armed_date: pd.Timestamp
+    armed_bar: int = 0
     persistence: int = 1
     exit_reason: str = ""
 
@@ -89,8 +93,15 @@ class RuleBasedDecisionPolicy:
     base_position_size : float — base target weight per CONFIRMED
                         symbol (multiplied by strength); default 0.1.
                         §6.4 long-only invariant: must be ≥ 0.
-    ttl_bars       : int — max bars in ARMED state before expiry
-                        (default 5; aligns with PRD §5.1 TTL window)
+    ttl_bars       : int — max bars (checkpoint ticks) in ARMED
+                        state before expiry. **bar-anchored not
+                        day-anchored** (P1-3 fix per auditor): each
+                        step_day call advances a bar counter by 1;
+                        a setup ARMED at bar N expires when current
+                        bar > N + ttl_bars. Cadence-agnostic
+                        (works for daily / weekly / monthly /
+                        intraday — driver controls the step_day
+                        cadence). Default 5.
     """
 
     def __init__(
@@ -118,6 +129,12 @@ class RuleBasedDecisionPolicy:
         # internal state: per-symbol tracker
         self._tracker: Dict[str, SetupRecord] = {}
         self._exited: Dict[str, str] = {}  # symbol → exit reason
+        # P1-3 bar counter (cadence-agnostic TTL anchor); advanced
+        # by step_day when ctx['date'] differs from last_bar_date.
+        # Avoids over-counting when driver calls step_day per-symbol.
+        # armed_bar snapshot stored at detect time.
+        self._bar_counter: int = 0
+        self._last_bar_date: Optional[pd.Timestamp] = None
 
     @property
     def mode(self) -> str:
@@ -152,6 +169,7 @@ class RuleBasedDecisionPolicy:
                 symbol=symbol, date=date,
                 status=SignalStatus.ARMED, source=fired.source,
                 strength=fired.strength, armed_date=date,
+                armed_bar=self._bar_counter,
                 persistence=1)
             self._tracker[symbol] = rec
             return [rec]
@@ -211,14 +229,20 @@ class RuleBasedDecisionPolicy:
                     rec.exit_reason = ev.reason
                     self._exited[symbol] = ev.reason
                     break
-        # 2) expire ARMED setups past TTL (per-symbol)
+        # 2) advance bar counter on date change (P1-3 bar-anchored
+        #    TTL); per-symbol calls within the same bar don't
+        #    multi-count
         date = ctx.get("date")
+        if date is not None and date != self._last_bar_date:
+            self._bar_counter += 1
+            self._last_bar_date = date
+        # 3) expire ARMED setups past TTL (bar-count, not days)
         for sym, r in list(self._tracker.items()):
-            if r.status is SignalStatus.ARMED and date is not None:
-                bars_armed = (date - r.armed_date).days
+            if r.status is SignalStatus.ARMED:
+                bars_armed = self._bar_counter - r.armed_bar
                 if bars_armed > self._ttl_bars:
                     r.status = SignalStatus.EXPIRED
                     r.exit_reason = (
-                        f"TTL expired ({bars_armed} > {self._ttl_bars} "
-                        f"bars)")
+                        f"TTL expired ({bars_armed} > "
+                        f"{self._ttl_bars} bars)")
         return self._tracker

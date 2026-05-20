@@ -76,29 +76,79 @@ class TestModeOffBitIdentical:
 
 
 class TestActiveScheduleFill:
-    def test_enter_full_scheduled(self):
+    def test_enter_full_scheduled_drives_kernel(self):
+        # P1-1 (post-auditor): schedule_fill MUST drive
+        # DeferredExecutionSchedule kernel, not return a dict facade.
         sched = DeferredExecutionSchedule(execution_delay_bars=1)
         a = DeferredExecutionAdapter(sched, mode="active")
         d = _mk_decision(action=ActionType.ENTER_FULL, weight=0.05)
-        res = a.schedule_fill(d, {})
+        # active mode requires bar_idx in ctx (kernel needs integer
+        # bar index for fill_at_bar computation)
+        res = a.schedule_fill(d, {"bar_idx": 10})
         assert res is not None
-        assert res["symbol"] == "SPY"
-        assert res["target_weight"] == 0.05
-        assert res["action"] == "enter_full"
+        # Returned object is ExecutionScheduleEntry (kernel's type),
+        # NOT an audit dict
+        assert res.symbol == "SPY"
+        assert res.target_weight == 0.05
+        # execution_delay_bars=1 → fill_at_bar = confirmed_at_bar + 1
+        assert res.fill_at_bar == 11
+        # And critically — the kernel's pending queue actually
+        # contains the entry (real integration, not facade)
+        assert len(sched._pending) == 1
+        assert sched._pending[0].symbol == "SPY"
+
+    def test_active_mode_requires_bar_idx(self):
+        # P1-1: omitting bar_idx in active mode raises (vs prior
+        # silent dict-return facade behavior).
+        sched = DeferredExecutionSchedule(execution_delay_bars=1)
+        a = DeferredExecutionAdapter(sched, mode="active")
+        d = _mk_decision(action=ActionType.ENTER_FULL, weight=0.05)
+        with pytest.raises(ValueError, match=r"bar_idx"):
+            a.schedule_fill(d, {})
+
+    def test_multi_calls_accumulate_in_kernel(self):
+        # Multiple ActionDecisions schedule multiple kernel entries
+        sched = DeferredExecutionSchedule(execution_delay_bars=1)
+        a = DeferredExecutionAdapter(sched, mode="active")
+        d1 = _mk_decision(action=ActionType.ENTER_FULL,
+                          weight=0.05, symbol="SPY")
+        d2 = _mk_decision(action=ActionType.ADD,
+                          weight=0.03, symbol="QQQ")
+        a.schedule_fill(d1, {"bar_idx": 10})
+        a.schedule_fill(d2, {"bar_idx": 10})
+        assert len(sched._pending) == 2
+        symbols = {e.symbol for e in sched._pending}
+        assert symbols == {"SPY", "QQQ"}
+
+    def test_due_at_returns_kernel_entries(self):
+        # After scheduling at bar 10 with delay=1 → due at bar 11
+        sched = DeferredExecutionSchedule(execution_delay_bars=1)
+        a = DeferredExecutionAdapter(sched, mode="active")
+        d = _mk_decision(action=ActionType.ENTER_FULL, weight=0.05)
+        a.schedule_fill(d, {"bar_idx": 10})
+        # caller polls kernel for due fills
+        due = sched.due_at(11)
+        assert len(due) == 1
+        assert due[0].symbol == "SPY"
+        # consumed
+        assert len(sched._pending) == 0
 
     def test_hold_action_no_fill(self):
         sched = DeferredExecutionSchedule(execution_delay_bars=1)
         a = DeferredExecutionAdapter(sched, mode="active")
         d = _mk_decision(action=ActionType.HOLD, weight=0.0)
-        res = a.schedule_fill(d, {})
+        # HOLD never fills regardless of ctx
+        res = a.schedule_fill(d, {"bar_idx": 10})
         assert res is None
+        assert len(sched._pending) == 0
 
     def test_veto_action_no_fill(self):
         sched = DeferredExecutionSchedule(execution_delay_bars=1)
         a = DeferredExecutionAdapter(sched, mode="active")
         d = _mk_decision(action=ActionType.VETO, weight=0.0)
-        res = a.schedule_fill(d, {})
+        res = a.schedule_fill(d, {"bar_idx": 10})
         assert res is None
+        assert len(sched._pending) == 0
 
 
 class TestActiveShouldDefer:

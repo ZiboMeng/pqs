@@ -250,3 +250,87 @@ class TestSetupRecord:
         assert s.symbol == "SPY"
         assert s.status is SignalStatus.ARMED
         assert s.strength == 0.8
+
+    def test_armed_bar_field_defaults_zero(self):
+        # P1-3: SetupRecord has armed_bar (bar-count anchor) defaulting 0
+        s = SetupRecord(
+            symbol="X", date=pd.Timestamp("2025-04-01"),
+            status=SignalStatus.ARMED, source="t",
+            strength=0.5, armed_date=pd.Timestamp("2025-04-01"))
+        assert s.armed_bar == 0
+
+
+# ── P1-3: TTL is bar-anchored not day-anchored ────────────────────────
+class TestTtlBarAnchored:
+    def test_ttl_expires_after_n_bars_regardless_of_calendar_days(self):
+        # P1-3: ttl_bars=3 should expire after 3 step_day calls (with
+        # distinct dates), NOT after `.days` elapsed.
+        entry = FactorEntryTrigger(entry_threshold=0.5)
+        p = RuleBasedDecisionPolicy(
+            entry_triggers=[entry], exit_triggers=[],
+            mode="active", confirm_min_bars=1, ttl_bars=3)
+        # day 0: detect SPY (ARMED, armed_bar=0)
+        ctx_d0 = {"symbol": "SPY", "date": pd.Timestamp("2025-01-01"),
+                  "factor_score": 0.8}
+        p.detect_setups(state=None, ctx=ctx_d0)
+        # step_day advances to bar 1 (date changed None → d0)
+        p.step_day(state=None, ctx=ctx_d0)
+        assert p._tracker["SPY"].status is SignalStatus.ARMED
+        # advance 2 more bars (different dates): bar 2, bar 3
+        p.step_day(state=None, ctx={"date": pd.Timestamp("2025-01-02")})
+        p.step_day(state=None, ctx={"date": pd.Timestamp("2025-01-03")})
+        # SPY armed_bar=0, current bar_counter=3, bars_armed=3, ttl=3 → still ARMED (3 > 3 False)
+        assert p._tracker["SPY"].status is SignalStatus.ARMED
+        # one more bar → bars_armed=4 > 3 → EXPIRED
+        p.step_day(state=None, ctx={"date": pd.Timestamp("2025-01-04")})
+        assert p._tracker["SPY"].status is SignalStatus.EXPIRED
+
+    def test_per_symbol_step_day_does_not_double_count_bars(self):
+        # P1-3 driver pattern: step_day called per-symbol within
+        # same date should NOT advance bar_counter multiple times.
+        entry = FactorEntryTrigger(entry_threshold=0.5)
+        p = RuleBasedDecisionPolicy(
+            entry_triggers=[entry], exit_triggers=[],
+            mode="active", confirm_min_bars=1, ttl_bars=5)
+        # Detect SPY on day 0
+        ctx_d0 = {"symbol": "SPY", "date": pd.Timestamp("2025-01-01"),
+                  "factor_score": 0.8}
+        p.detect_setups(state=None, ctx=ctx_d0)
+        assert p._bar_counter == 0  # not advanced yet
+        # Multiple step_day calls on SAME date (different symbols) =
+        # should only advance bar_counter once
+        p.step_day(state=None, ctx={"symbol": "SPY",
+                                     "date": pd.Timestamp("2025-01-01")})
+        p.step_day(state=None, ctx={"symbol": "AAPL",
+                                     "date": pd.Timestamp("2025-01-01")})
+        p.step_day(state=None, ctx={"symbol": "QQQ",
+                                     "date": pd.Timestamp("2025-01-01")})
+        assert p._bar_counter == 1
+        # New date advances counter once
+        p.step_day(state=None, ctx={"symbol": "SPY",
+                                     "date": pd.Timestamp("2025-01-02")})
+        p.step_day(state=None, ctx={"symbol": "AAPL",
+                                     "date": pd.Timestamp("2025-01-02")})
+        assert p._bar_counter == 2
+
+    def test_ttl_works_with_weekly_cadence(self):
+        # P1-3 cadence-agnostic: ttl_bars=2 should expire after 2
+        # weekly checkpoint ticks, even though calendar days = 14
+        # (which would have expired old `.days > 2` semantic
+        # immediately on the very first weekly call).
+        entry = FactorEntryTrigger(entry_threshold=0.5)
+        p = RuleBasedDecisionPolicy(
+            entry_triggers=[entry], exit_triggers=[],
+            mode="active", confirm_min_bars=1, ttl_bars=2)
+        # weekly: day 0
+        ctx_w0 = {"symbol": "SPY", "date": pd.Timestamp("2025-01-03"),
+                  "factor_score": 0.8}
+        p.detect_setups(state=None, ctx=ctx_w0)
+        p.step_day(state=None, ctx=ctx_w0)
+        # week 1: 7 days later — under OLD `.days` semantic this
+        # would already be EXPIRED (7 > 2). Under bar-count it's bar 2.
+        p.step_day(state=None, ctx={"date": pd.Timestamp("2025-01-10")})
+        assert p._tracker["SPY"].status is SignalStatus.ARMED  # still
+        # week 2: bar 3 = bars_armed 3 > 2 → EXPIRED
+        p.step_day(state=None, ctx={"date": pd.Timestamp("2025-01-17")})
+        assert p._tracker["SPY"].status is SignalStatus.EXPIRED
