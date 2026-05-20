@@ -49,6 +49,46 @@
 
 ## 轮次日志(每轮 commit 时追加 1 行)
 
+### Round 26(2026-05-20 night) — PRD #4 P4.2:sign classifier scaffold(19 GREEN + §9.0 invariant 守 + binary_classifier_voter wiring)
+
+- **本轮主题**: PRD #4 P4.2 — Stage 2 sign-vote binary classifier scaffold。接 P4.4 通道 + Stage 1 rank model 输出。user directive "走完整个流程不要旁逸斜出",B/C 备份 memo `20260520-prd4_p41_ir_threshold_backlog.md`,直接进 P4.2。
+- **本轮目标**: `core/research/ml/sign_classifier.py` 提供 `SignClassifierProtocol` + `LogisticRegressionSignClassifier`(closed-form-ish IRLS Pareto-floor)+ `XGBSignClassifier`(lazy xgboost wrapper),加 2 helpers(`compute_binary_sign_labels` + `select_top_decile_mask`);**§9.0 invariant** 端到端:`.predict` 永远返 int {0, 1} 不返 float magnitude;与现有 `binary_classifier_voter` integration 测试。
+- **为什么这轮优先**: P4.2 独立 + 解锁 P4.5 acceptance experiment(needs trained classifier_voter);user gate-go to "走完 P4.2/P4.3/P4.5"。
+- **做了什么**:
+  - 新 `core/research/ml/sign_classifier.py`(230 行):
+    - `SignClassifierProtocol`(sklearn-style:`.fit(X, y)` + `.predict(X) → labels`)
+    - `compute_binary_sign_labels(price_df, horizon_days, threshold=0.0)`:forward_return > threshold → 1 winner / ≤ → 0 loser;NaN 保留;horizon ≥ 1 + DatetimeIndex 校验
+    - `select_top_decile_mask(rank_pred, decile=0.9)`:rank ≥ decile → True(per PRD #4 P4.2:Stage 2 trained on entries that PASS Stage 1's top-decile filter);decile ∈ (0, 1) 强校验
+    - `LogisticRegressionSignClassifier` baseline:5-step IRLS(Iteratively Reweighted Least Squares)Newton-Raphson + numerically stable sigmoid + tiny ridge(1e-6)防 singular Hessian + NaN-row mask filter + binary label 校验 + decision_threshold=0.5
+    - `XGBSignClassifier`:wrap `xgboost.XGBClassifier(num_class=2, objective="binary:logistic")` + lazy import(同 XGBRanker pattern);predict_proba 透传 booster_,predict 走 decision_threshold
+    - **§9.0 invariant 硬绑**:both `.predict()` return `(proba[:, 1] >= threshold).astype(int)` ∈ {0, 1};无 float magnitude
+  - 19 TDD tests `tests/unit/research/ml/test_sign_classifier.py`:
+    - `compute_binary_sign_labels` × 5(monotone-up→全 1 / monotone-down→全 0 / threshold 改变分类 / horizon=0 raise / RangeIndex raise)
+    - `select_top_decile_mask` × 3(uniform rank 元素级正确 / decile=0.5 边界正确 / 越界 raise)
+    - LogisticRegression × 6(fit+predict ∈ {0,1} / 线性可分 in-sample acc > 0.85 / unfitted raise / NaN labels filter / 全 NaN raise / non-binary raise)
+    - XGBClassifier × 2(fit+predict ∈ {0,1} / acc > majority+5%)
+    - §9.0 invariant × 2(predict 全 ∈ {0,1} 强守 / binary_classifier_voter wraps to SignVote enum VETO/NO_VOTE)
+    - schema purity × 1(无 core.data / yfinance / bar_store 依赖)
+  - **R3 catch**:初版 `test_top_decile_with_uniform_rank` expected 写错 — A 第 3 行 rank=0.9 应 ≥ 0.9 = True,我 expected 写 False。fix = 修正 expected + 加注释解释边界包含;**non-blanket**:模块逻辑正确,只是测试 expected 错。
+- **改了哪些文件**:
+  - 新:`core/research/ml/sign_classifier.py`(230 行)
+  - 新:`tests/unit/research/ml/test_sign_classifier.py`(19 tests)
+  - 新:`docs/memos/20260520-prd4_p41_ir_threshold_backlog.md`(B/C 备份 memo)
+- **跑了什么测试 + 结果**:
+  - new sign_classifier tests:**19/19 GREEN**(2.18s)
+  - 全 ml/ + promotion/ + decision/ regression:**302/302 GREEN**(28.37s),零 regression
+  - Logistic baseline 线性可分 in-sample acc > 0.85;XGB > majority+5% on quadratic-separable synth
+- **新发现 / 新机会**:
+  - 不用 sklearn 依赖也能跑 IRLS logistic baseline(closed-form-ish);保持 module schema purity
+  - `compute_binary_sign_labels` 用 threshold 参数让 caller 可训 "winners that beat cost basis"(threshold > 0)而非纯 sign;P4.5 可试
+  - `select_top_decile_mask` 用 `decile` 参数 generalize 到任意 percentile cut;PRD 默认 0.9 是 top decile,但可调到 0.5(top half)做 looser entry sets
+- **剩余风险**:
+  - Logistic 用 5-step IRLS;对线性不可分 data 可能未收敛(loop break on singular)— 文档说明非生产 model,Pareto floor 用途
+  - XGB hyperparams(n_estimators=100 / depth=4 / lr=0.1)hand-pick;P4.5 acceptance experiment 应做 hyperparam search(P4.1 backlog 同症)
+  - 现 sign classifier 不和 Stage 1 rank model "硬连"(用户必须串接 Stage 1 → top-decile → Stage 2 fit 三步)— P4.5 acceptance driver 接;sub-step 4 集成 driver 留 P4.5
+  - calibration drift(VETO precision over time)未测;留 P4.5
+- **下一轮建议方向**: **Round 27 = PRD #4 P4.3** multi-TF context features(daily regime + 60m/30m/15m 信号 + overnight gap),feature ablation 加进 rank_model + sign_classifier 训练 panel;然后 **Round 28 = PRD #4 P4.5** acceptance experiment(R-ML-A heuristic / R-ML-B Stage-2-only / R-ML-C full 2-stage / R-ML-D cap_aware 4-path 对比),用 trained classifier_voter 通过 ml_voters 接进 PRD-X overlay 跑 backtest 对比 Sharpe + MaxDD 出 P4.5 binding AC verdict。
+
 ### Round 25(2026-05-20 night) — PRD #4 P4.4 sub-step 3b:real-data driver + 首组真实 P4.1 AC numbers(3 smoke GREEN + 10-fold cycle06 真跑 + 4-config IC ✅ / IR ❌)
 
 - **本轮主题**: PRD #4 P4.4 sub-step 3b — `dev/scripts/ml/walk_forward_rank_sign.py` real-data driver。整合 R22 pipeline + R23 artifact + R24 labels/bar-integrity → 真 cycle06 113-factor research panel + executable universe → 真 walk-forward rank-IC 数字。首次 PRD #4 P4.1 AC verdict 上桌(从 in-sample/synth 离开)。
