@@ -1,0 +1,10 @@
+[2026-05-20T04:26:34.936744Z] R14 P1-2 acceptance — real BacktestEngine main link
+[2026-05-20T04:28:13.096402Z] panel close (4276, 79) open (4276, 79)
+[2026-05-20T04:28:13.096458Z] train 2018-01-01 → 2024-12-31
+[2026-05-20T04:28:13.096485Z] Building decision-stack weight panel (RuleBased + Partial + Sidecar)...
+[2026-05-20T04:28:13.979022Z] daily_weights shape (1761, 79); non-zero rows 1722
+[2026-05-20T04:28:13.979035Z] Path A: hand-rolled NAV (R10 baseline)
+[2026-05-20T04:28:13.983924Z]   hand-rolled: cum=0.5135, Sharpe=0.6052, MaxDD=-0.1895
+[2026-05-20T04:28:13.983972Z] Path B: BacktestEngine.run real main link (P1-2)
+[2026-05-20T04:28:19.199960Z]   engine: cum=0.4869, Sharpe=0.628, MaxDD=-0.1743
+[2026-05-20T04:28:19.200061Z] DIFF (engine - handrolled): {'cum_ret_diff_engine_minus_handrolled': -0.0266, 'sharpe_diff': 0.0228, 'maxdd_diff': 0.0152}
