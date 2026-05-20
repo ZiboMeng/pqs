@@ -77,6 +77,15 @@ def test_backtest_and_promote_expose_universe_flag():
         assert 'default="executable"' in src
     # GAP2 D6-safe: executable keeps the original cfg.universe derivation
     assert "list(uni.seed_pool)" in rb_src and 'if getattr(args, "universe"' in rb_src
-    # GAP4: fingerprint picks the matching universe yaml, default unchanged
-    assert "universe_expanded_v1.yaml" in ps_src
-    assert '"universe": universe_name' in ps_src
+    # GAP4: fingerprint picks the matching universe yaml, default unchanged.
+    # Post PRD #3 P3.5 (2026-05-20): fingerprint computation extracted to
+    # core.research.promotion.fingerprints; the yaml-name literal now lives
+    # in the utility module — promote_strategy.py delegates. Byte-for-byte
+    # behavior is verified by tests/unit/research/promotion/test_fingerprints.py
+    # ::TestBackwardCompatLegacyScript.
+    import core.research.promotion.fingerprints as fp_module
+    fp_src = inspect.getsource(fp_module)
+    assert "universe_expanded_v1.yaml" in fp_src
+    assert '"universe": universe_name' in fp_src
+    # promote_strategy.py still owns the CLI surface + delegate call
+    assert "_compute_fingerprints" in ps_src

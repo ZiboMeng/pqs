@@ -49,6 +49,44 @@
 
 ## 轮次日志(每轮 commit 时追加 1 行)
 
+### Round 21(2026-05-20 night) — PRD #3 P3.5 fingerprint utility(16 GREEN + byte-for-byte D6/P4-A2 守 + 1 seam test 修)
+
+- **本轮主题**: PRD #3 P3.5 — 把 `scripts/promote_strategy.py::_compute_fingerprints` 抽成 `core/research/promotion/fingerprints.py` 可复用 utility。**interleave PRD #3** 切轨(per unified loop script 默认顺序 #3)解锁 P3.6 M2 promote 扩展 trigger-first decision-stack。
+- **本轮目标**: 三个独立 hash 函数(universe / factor_registry / config)+ combined `compute_fingerprints`;支持 research-registry(为 trigger-first canonical 用)+ extra_files extension(为 P3.6 canonical yaml 入 config_hash 用);**byte-for-byte backward-compat** legacy MFS promote 路径(D6/P4-A2 invariant)。
+- **为什么这轮优先**: 解锁 P3.6;PRD #4 P4.1 已 ship 2 model class(Linear+XGB),切 PRD 减少单一 PRD 知识深度风险;无 user gate 依赖(独立可推)。
+- **做了什么**:
+  - 新 `core/research/promotion/__init__.py` + `core/research/promotion/fingerprints.py`(170 行)。4 个 pure 函数:
+    - `compute_universe_hash(universe_name="executable")` — 支持 executable / expanded_v1 / expanded_v2
+    - `compute_factor_registry_hash(registry="production")` — production (`PRODUCTION_FACTORS`) | research (`RESEARCH_FACTORS`)
+    - `compute_config_hash(extra_files=None)` — base 3 yaml(risk/backtest/cost_model)+ 可选 extra files
+    - `compute_fingerprints(...)` — combine all three,output schema 与 legacy 一致
+  - `scripts/promote_strategy.py::_compute_fingerprints` 改为 thin delegate(直接调 `_compute_fingerprints_util(universe_name, registry="production")`);删除 dead `_sha256_str` / `_sha256_file` / `import hashlib`。
+  - `tests/unit/research/promotion/test_fingerprints.py` 16 tests:determinism × 4 + 与 legacy script byte-for-byte 一致 × 1 + universe selection × 2 + registry selection × 2 + drift detection × 2 + extra_files extension × 4 + schema purity(no panel/yfinance/numpy/pandas imports)× 1。
+  - `tests/unit/research/test_universe_propagation.py::test_backtest_and_promote_expose_universe_flag`:source-string seam 现在 grep utility 模块(`universe_expanded_v1.yaml` literal 搬到了 fingerprints.py 后),保留 promote_strategy.py 仍 own CLI surface 的 assert。**behavior coverage 不退化**(byte-for-byte test 守 GAP4 propagation)。
+- **改了哪些文件**:
+  - 新:`core/research/promotion/__init__.py`(re-export)
+  - 新:`core/research/promotion/fingerprints.py`(170 行)
+  - 新:`tests/unit/research/promotion/__init__.py`
+  - 新:`tests/unit/research/promotion/test_fingerprints.py`(16 tests)
+  - 改:`scripts/promote_strategy.py`(`_compute_fingerprints` → delegate;删 dead helpers)
+  - 改:`tests/unit/research/test_universe_propagation.py`(seam 测试随 literal 搬迁更新)
+- **跑了什么测试 + 结果**:
+  - 16 new fingerprint tests:**16/16 GREEN**(1.45s)
+  - Regression sweep(promotion + research_promote_cli + universe_propagation + decision/ + ml/ + integration prdx + config production_strategy + factor_registry × 2):**286/286 GREEN**(14.63s),零 regression
+  - **R3 真实 byte-for-byte 验证**:`git stash` pre-refactor `_compute_fingerprints("executable")` vs post-refactor utility,**3 个 hash 完全一致**:
+    - universe_hash: `45250b4d4cf546884bc7a7e9bd7b7980b653e5a0cf67ff7aada616d04a104aba`
+    - factor_registry_hash: `f9f09bfec4ac86026fe06b755acbc13d117282b82e96f1ab14fce00adae361b9`
+    - config_hash: `056d3ffd1816af95d93fc7f9e10897f3b188f9d65553072d7eaa8cdf605488b7`
+  - D6/P4-A2 invariant 严守。
+- **新发现 / 新机会**:
+  - schema-purity 测试覆盖 5 个 dep blocklist(no `core.data`, no `yfinance`, no `bar_store`, no `pandas`, no `numpy`)— 保证 fingerprint utility 永远是 thin deterministic hasher 不漂移成 data-pipeline 依赖
+  - `extra_files` 参数为 P3.6 trigger-first canonical config 入 config_hash 准备好钩子(canonical yaml 改动会 surface drift,M3 alignment 可 detect)
+- **剩余风险**:
+  - P3.6(M2 promote_strategy.py 扩 trigger-first)还需用户 explicit-go on canonical config selection(P3.1 已有 operator R16 Path A 推荐 + memo,等用户拍板)
+  - utility 未与 `core/research/temporal_split` 接通(temporal_split partition state 不在 fingerprints 范围;若未来 partition 也要 drift-detect,加 `extra_files`)
+  - 现 `compute_config_hash` 只覆盖 3 个 base yaml + 可选 extra;没覆盖 `production_strategy.yaml` 自身(intentional — production_strategy.yaml 自身是 fingerprints 的载体,不自包含)
+- **下一轮建议方向**: 按 unified script #4 = **PRD #4 P4.4 training pipeline + walk-forward driver**(orchestrate Linear + XGB rank model walk-forward over canonical universe + cycle06 113-factor research panel);该 step 解锁 P4.1 AC 的真实 walk-forward rank-IC 数(脱离 R20 in-sample overfit trap)。**或者**切回 PRD #4 P4.2 sign classifier scaffold — 但 P4.4 ROI 更高(让现有 2 model class 真出 numbers)。
+
 ### Round 20(2026-05-20 night) — PRD #4 P4.1 sub-step 2:XGBRankerRankModel(20/20 GREEN, in-sample overfit R3 catch + fix)
 
 - **本轮主题**:PRD #4 P4.1 sub-step 2 — XGBRanker concrete impl(P4.1 第二个 model class,LightGBM 因 env 未装 skip)。
