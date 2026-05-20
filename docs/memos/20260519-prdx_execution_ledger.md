@@ -49,6 +49,47 @@
 
 ## 轮次日志(每轮 commit 时追加 1 行)
 
+### Round 22(2026-05-20 night) — PRD #4 P4.4 sub-step 1:walk-forward pipeline scaffold(21 GREEN + sealed guard HARD + non-blanket fold-failure)
+
+- **本轮主题**: PRD #4 P4.4 sub-step 1 — walk-forward 训练 pipeline scaffold,让 R19/R20 的 LinearBaseline + XGBRanker 真正能跑 strict-chronological 滚动 train/val。这是 P4.1 AC(rank-IC > 0.02 + rank-IR > 0.30)的必经一步,R20 in-sample overfit catch 教训直接落地。
+- **本轮目标**: `core/research/ml/pipeline.py` 提供 `WalkForwardConfig` / `WalkForwardFold` / `FoldMetrics` / `WalkForwardResult` + 三个核心函数(`iter_folds` / `evaluate_fold` / `run_walk_forward`);Protocol 满足任意 `RankModelProtocol`(LinearBaseline + XGBRanker 都接通);**sealed-2026 HARD guard** + **non-blanket fold-failure 记录**。
+- **为什么这轮优先**: 解锁 P4.1 真实 walk-forward rank-IC 数字(不再 in-sample);per unified script #4 next default。
+- **做了什么**:
+  - 新 `core/research/ml/pipeline.py`(252 行):
+    - `WalkForwardConfig`(frozen dataclass):`start_year` / `end_year` / `train_window_years=5` / `val_window_years=1` / `step_years=1`;__post_init__ 验 windows ≥ 1 + end_year 充分远离 start_year
+    - `WalkForwardFold`(frozen):`fold_idx` / `train_start` / `train_end` / `val_start` / `val_end`;__post_init__ HARD strict-chronological(val_start > train_end)
+    - `FoldMetrics`:fold + rank_ic + rank_ir + train_n_obs + val_n_obs + 可选 error 字段
+    - `WalkForwardResult`:per_fold + sealed_years + 4 个 property(mean_rank_ic / mean_rank_ir / n_successful_folds / n_failed_folds)
+    - `_check_sealed_guard`:**HARD raise** if end_year in sealed_years OR sealed ≤ end_year;`DEFAULT_SEALED_YEARS=(2026,)` 来自 `config/temporal_split.yaml::partition.sealed_test_years` snapshot
+    - `iter_folds`:rolling-window 生成器,每 fold 满足 strict-chronological + 不与前 fold val 重叠 + val_end ≤ end_year 停止
+    - `evaluate_fold`:slice 出 fold train + val 切片 → model.fit(train) → model.predict_rank(val) → rank_ic/rank_ir 计算;**try-except 包 fit+predict**,fold 内异常 → 写入 FoldMetrics.error 不 re-raise(per `feedback_no_blanket_failure_verdict`)
+    - `run_walk_forward`:每 fold 调 `model_factory()` 新实例(no warm-start),accumulate FoldMetrics
+  - 21 TDD tests `tests/unit/research/ml/test_pipeline.py`:
+    - WalkForwardConfig 验证 × 5(0 windows raise / 0 step raise / end_year too close raise / valid construct / defaults)
+    - iter_folds shape × 5(default 5y/1y/1y step=1 → 6 folds / strict-chronological / non-overlap / fold_idx 递增 / step=2 跳 folds)
+    - sealed guard × 4(2026 in raise / 2027 past raise / 2025 OK no fold ≥ 2026 / DEFAULT 包含 2026)
+    - evaluate_fold × 2(LinearBaseline 真出 rank-IC > 0.10 on signal_strength=0.8 synth / BrokenModel raises → error 记录不 raise)
+    - WalkForwardFold validation × 1(val_start ≤ train_end raise)
+    - run_walk_forward integration × 3(LinearBaseline 4 folds / XGBRanker 3 folds Protocol 满足 / aggregate properties 一致性)
+    - schema purity × 1(无 core.data / yfinance / bar_store 依赖)
+  - **R3 catch**: 初版 XGB test 用 `seed=` kwarg,但实际 `XGBRankerRankModel.__init__` 参数名是 `random_state`(grep 验证);test fix 同 PR commit。
+- **改了哪些文件**:
+  - 新:`core/research/ml/pipeline.py`(252 行)
+  - 新:`tests/unit/research/ml/test_pipeline.py`(21 tests)
+- **跑了什么测试 + 结果**:
+  - new pipeline tests:**21/21 GREEN**(18.89s,XGB walk-forward 真跑 3 folds + LinearBaseline 4 folds)
+  - 全 ml/ + promotion/ + decision/ regression:**234/234 GREEN**(23.87s),零 regression
+- **新发现 / 新机会**:
+  - `evaluate_fold` 的 try-except 设计让 fold 内异常不会 abort 整个 walk-forward(per `feedback_no_blanket_failure_verdict`)— per-fold 透明度是 verdict 表面,operator R3 自己决定根因
+  - `model_factory: Callable[[], RankModelProtocol]` 模式让 fold 间隔离(无 warm-start state leakage)+ 适配任意 model class(为 P4.4 sub-step 2 artifact 持久化打通接口)
+  - sealed_years 走参数而非全局常量,为未来 `split_name` bump(2027 也 sealed 时)留接口
+- **剩余风险**:
+  - sub-step 1 只覆盖 synth panel;real-data smoke(113-factor research panel + cycle06 universe + 真实 bar-integrity)留 sub-step 3 driver script
+  - 现 pipeline 假设 features panel 与 labels 已 forward-shift 对齐(label[t] = forward_return[t+horizon]);caller 责任 — 该 contract 已在 `run_walk_forward` docstring 留痕
+  - artifact 持久化(spec_id + lineage_tag + pickle)是 sub-step 2;现在 model_factory 创建的实例不可重现到磁盘
+  - PRD #4 P4.1 AC 的 "executable + expanded_v2 BOTH" 与 "on-tradeable mask" 还没接(留 sub-step 3 driver)
+- **下一轮建议方向**: **Round 23 = PRD #4 P4.4 sub-step 2**(artifact.py save/load + 确定性 spec_id + lineage_tag)— 解锁 sub-step 3 driver(real-data walk-forward on cycle06 panel)。**或者** PRD #4 P4.2 sign classifier scaffold(独立可推、不依赖 sub-step 2)— sub-step 2 ROI 更高因为打通整条 P4.4 + 让 P4.5 acceptance 可 wire。
+
 ### Round 21(2026-05-20 night) — PRD #3 P3.5 fingerprint utility(16 GREEN + byte-for-byte D6/P4-A2 守 + 1 seam test 修)
 
 - **本轮主题**: PRD #3 P3.5 — 把 `scripts/promote_strategy.py::_compute_fingerprints` 抽成 `core/research/promotion/fingerprints.py` 可复用 utility。**interleave PRD #3** 切轨(per unified loop script 默认顺序 #3)解锁 P3.6 M2 promote 扩展 trigger-first decision-stack。
