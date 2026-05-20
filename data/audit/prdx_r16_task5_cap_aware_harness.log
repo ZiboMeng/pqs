@@ -1,0 +1,10 @@
+[2026-05-20T04:49:00.314142Z] R16 Task 5 — cap_aware_cross_asset harness replication
+[2026-05-20T04:50:53.084898Z] panel close (4276, 79) factors 113
+[2026-05-20T04:50:53.084957Z] spec: features=('drawup_from_252d_low', 'trend_tstat_20d', 'ret_2d') holding_freq=weekly
+[2026-05-20T04:50:53.084998Z] factor_panel_map keys = ['drawup_from_252d_low', 'trend_tstat_20d', 'ret_2d']
+[2026-05-20T04:50:53.086712Z] === A_cycle06_actual_weekly_cap_aware ===
+[2026-05-20T04:51:18.750485Z]   metrics_full_period: cum=5.790293395381387 sharpe=1.1200129776591368 max_dd=-0.19097825393876022 vs_spy=4.3482303021959625
+[2026-05-20T04:51:18.750572Z] === B_monthly_cap_aware ===
+[2026-05-20T04:51:43.881155Z]   metrics_full_period: cum=4.350047642808351 sharpe=0.940452378333547 max_dd=-0.23392173412884376 vs_spy=2.9079845496229266
+[2026-05-20T04:51:43.881309Z] === C_monthly_global_top_n ===
+[2026-05-20T04:52:09.118769Z]   metrics_full_period: cum=7.204887158205874 sharpe=0.793428289517915 max_dd=-0.2844873279867517 vs_spy=5.76282406502045

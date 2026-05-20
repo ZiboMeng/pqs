@@ -166,6 +166,7 @@ def run_replay(
     from_date:      str,
     to_date:        str = None,
     run_id:         str = None,
+    decision_stack: str = "legacy",
 ) -> None:
     """
     历史数据回放（伪 track record）。
@@ -213,6 +214,23 @@ def run_replay(
             logger.info("Cross-ticker DSL replay stats: %s", ct_stats)
     except Exception as exc:
         logger.warning("Cross-ticker DSL wrapper failed (non-fatal): %s", exc)
+
+    # PRD-X v2 P2-* (2026-05-20): opt-in decision-stack overlay on
+    # paper replay weight panel. Default legacy bit-identical;
+    # trigger-first applies PartialRebalance + MLSidecar between the
+    # constructor-built weights and the per-day PaperTradingEngine
+    # iteration. M11 parity preserved (no change to engine.run_day_*).
+    if decision_stack == "trigger-first":
+        from scripts.run_backtest import _apply_decision_stack_overlay
+        logger.info("paper-replay: applying PRD-X trigger-first "
+                    "decision-stack overlay (PartialRebalance + "
+                    "MLSidecar no-op default)")
+        weights = _apply_decision_stack_overlay(
+            weights, regime, band_base=0.02, use_sidecar=True)
+    elif decision_stack != "legacy":
+        raise ValueError(
+            f"unknown decision_stack={decision_stack!r}; expected "
+            f"'legacy' or 'trigger-first'")
 
     if run_id is None:
         import uuid
@@ -320,6 +338,19 @@ def main():
                              "mode, only use this if you know what you're "
                              "doing — the check is designed to catch silent "
                              "strategy/universe drift.")
+    parser.add_argument(
+        "--decision-stack",
+        choices=["legacy", "trigger-first"],
+        default="legacy",
+        help=("PRD-X v2 opt-in for paper-replay overlay. "
+              "Default legacy = bit-identical paper-backtest "
+              "consistency (M11 path preserved). 'trigger-first' "
+              "applies PartialRebalancePolicy + MLSidecarPolicy "
+              "overlay on the constructor's weight panel before "
+              "the per-day PaperTradingEngine loop. Status flip in "
+              "production_strategy.yaml to 'active' remains a "
+              "directional decision."),
+    )
     parser.add_argument("--use-timing", action="store_true",
                         help="Route per-bar targets through the multi-TF "
                              "timing layer (decide_timing). Loads 60m+30m"
@@ -480,6 +511,7 @@ def main():
             spy_benchmark  = spy_close,
             from_date      = args.from_date,
             to_date        = args.to_date,
+            decision_stack = args.decision_stack,
         )
 
     elif args.mode == "live":

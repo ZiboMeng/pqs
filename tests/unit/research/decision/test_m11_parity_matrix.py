@@ -24,6 +24,9 @@ import pandas as pd
 import pytest
 
 from core.research.decision import GenerateStrategyAdapter
+from core.signals.strategies.confirmation_pattern import (
+    ConfirmationPatternStrategy,
+)
 from core.signals.strategies.cross_asset_rotation import (
     CrossAssetRotationStrategy,
 )
@@ -140,6 +143,24 @@ class TestM11ParityMatrix:
             ctx={"price_df": price_df, "regime_series": regime,
                  "volume_df": volume})
         _assert_panels_equal(direct, via, "MultiFactor")
+
+    def test_confirmation_pattern_bit_identical(self, synth):
+        # 6th strategy — closes auditor F2-extension + post-R11 M11
+        # backlog (the "grep-introspection bug" was a script-level
+        # subprocess invocation issue in initial R12, not a
+        # strategy-level bug; module imports cleanly when loaded
+        # by the test runner directly).
+        # ConfirmationPatternStrategy signature: generate(price_df,
+        # volume_df=None) — no regime_series. Adapter inspect-based
+        # kwarg filter handles this asymmetric signature.
+        price_df, volume, _ = synth
+        strat = ConfirmationPatternStrategy()
+        direct = strat.generate(price_df, volume)
+        adapter = GenerateStrategyAdapter(strat, mode="off")
+        via = adapter.build_target_weights(
+            state=None,
+            ctx={"price_df": price_df, "volume_df": volume})
+        _assert_panels_equal(direct, via, "ConfirmationPattern")
 
 
 # ── 7th strategy: intraday_reversal direct Protocol satisfaction ───

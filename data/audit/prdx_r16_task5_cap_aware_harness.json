@@ -1,0 +1,95 @@
+{
+  "cycle06_reference": {
+    "spec_nav_sharpe": 0.5654,
+    "full_period_sharpe": 1.3663,
+    "full_period_max_dd": -0.196,
+    "caveat": "full_period uses 18yr 2007-2025 + pre-X0 panel; R16 uses 7yr 2018-2024 + post-X0 TR panel \u2014 windows NOT directly comparable"
+  },
+  "R12_path_A_normalized_rank": {
+    "construction": "simple normalized-rank top-N monthly",
+    "sharpe": 0.5792,
+    "max_dd": -0.1732,
+    "cum_ret": 0.4557
+  },
+  "configs": [
+    {
+      "name": "A_cycle06_actual_weekly_cap_aware",
+      "metrics_full_period": {
+        "cum_ret": 5.790293395381387,
+        "sharpe": 1.1200129776591368,
+        "max_dd": -0.19097825393876022,
+        "vs_spy": 4.3482303021959625,
+        "spy_cum_ret": 1.4420630931854248,
+        "vs_qqq": 3.4082674382738434,
+        "qqq_cum_ret": 2.382025957107544
+      },
+      "construction_mode": "cap_aware_cross_asset",
+      "rebalance_cadence": "weekly",
+      "top_n": 10,
+      "cluster_cap": 0.2,
+      "max_single_weight": 0.1
+    },
+    {
+      "name": "B_monthly_cap_aware",
+      "metrics_full_period": {
+        "cum_ret": 4.350047642808351,
+        "sharpe": 0.940452378333547,
+        "max_dd": -0.23392173412884376,
+        "vs_spy": 2.9079845496229266,
+        "spy_cum_ret": 1.4420630931854248,
+        "vs_qqq": 1.9680216857008075,
+        "qqq_cum_ret": 2.382025957107544
+      },
+      "construction_mode": "cap_aware_cross_asset",
+      "rebalance_cadence": "monthly",
+      "top_n": 10,
+      "cluster_cap": 0.2,
+      "max_single_weight": 0.1
+    },
+    {
+      "name": "C_monthly_global_top_n",
+      "metrics_full_period": {
+        "cum_ret": 7.204887158205874,
+        "sharpe": 0.793428289517915,
+        "max_dd": -0.2844873279867517,
+        "vs_spy": 5.76282406502045,
+        "spy_cum_ret": 1.4420630931854248,
+        "vs_qqq": 4.8228612010983305,
+        "qqq_cum_ret": 2.382025957107544
+      },
+      "construction_mode": "global_top_n",
+      "rebalance_cadence": "monthly",
+      "top_n": 10,
+      "cluster_cap": 0.2,
+      "max_single_weight": 0.1
+    }
+  ],
+  "tolerances": {
+    "sharpe": 0.2,
+    "maxdd": 0.05
+  },
+  "verdict": {
+    "A_cycle06_actual_weekly_cap_aware": {
+      "sharpe_vs_a_nav_sharpe_pass": true,
+      "sharpe_vs_b_full_period_pass": false,
+      "maxdd_pass": true,
+      "sharpe_value": 1.1200129776591368,
+      "maxdd_value": -0.19097825393876022
+    },
+    "B_monthly_cap_aware": {
+      "sharpe_vs_a_nav_sharpe_pass": true,
+      "sharpe_vs_b_full_period_pass": false,
+      "maxdd_pass": true,
+      "sharpe_value": 0.940452378333547,
+      "maxdd_value": -0.23392173412884376
+    },
+    "C_monthly_global_top_n": {
+      "sharpe_vs_a_nav_sharpe_pass": true,
+      "sharpe_vs_b_full_period_pass": false,
+      "maxdd_pass": false,
+      "sharpe_value": 0.793428289517915,
+      "maxdd_value": -0.2844873279867517
+    }
+  },
+  "timestamp": "2026-05-20T04:52:09.118929Z"
+}
