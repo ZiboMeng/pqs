@@ -49,6 +49,47 @@
 
 ## 轮次日志(每轮 commit 时追加 1 行)
 
+### Round 23(2026-05-20 night) — PRD #4 P4.4 sub-step 2:artifact persistence(22 GREEN + spec_id determinism + tamper detection + §9.0 invariant)
+
+- **本轮主题**: PRD #4 P4.4 sub-step 2 — model artifact 持久化。让 R22 walk-forward 训完的 model + WalkForwardResult 落盘可复现 + drift-detectable。打通 train → persist → reload → predict 整链路,为 sub-step 3 driver 准备好接口。
+- **本轮目标**: `core/research/ml/artifact.py` 提供 `ArtifactMetadata` / `ModelArtifact` dataclass + `save_artifact` / `load_artifact` / `compute_spec_id` / `compute_lineage_tag` / `make_artifact_metadata`;**spec_id 确定性**(同 spec → 同 hash)+ **tamper detection**(load 时 recompute 与 stored 对比 raise on mismatch)+ **§9.0 invariant**(output_type 必须 "rank",magnitude raise)+ **schema_version 演进保护**(version bump → load raise)。
+- **为什么这轮优先**: 接 R22 pipeline → 完成 P4.4 train+persist 闭环;sub-step 3 driver(real-data walk-forward on cycle06 panel)需要 artifact 接口先就位;独立可推不依赖 user gate。
+- **做了什么**:
+  - 新 `core/research/ml/artifact.py`(380 行):
+    - 3 错误类:`ArtifactError` / `ArtifactSchemaError` / `ArtifactSpecMismatchError`(分离 missing-field、schema bump、tamper 三种失败 mode)
+    - `ArtifactMetadata` dataclass(15 字段)+ `__post_init__` 强守 `output_type=="rank"`(§9.0 HARD)
+    - `ModelArtifact`(model + metadata)+ `SavePaths`(返 .pkl/.json 路径对)
+    - `_SPEC_ID_FIELDS = ("schema_version", "model_class_name", "hyperparams", "train_config", "feature_columns", "sealed_years", "output_type")` — spec_id 只 hash 这 7 字段,**per-fold metrics / timestamp / lineage_tag 是 evidence 不进 spec_id**(同 spec 重训仍同 id)
+    - `compute_spec_id`:tuples → lists 规范化 → sorted-keys / no-whitespace canonical JSON → sha256
+    - `compute_lineage_tag`:readable `<class>_<startY>-<endY>_<UTC>` 格式
+    - `make_artifact_metadata`:从 `WalkForwardResult` 直接构 metadata(用 helper `_fold_to_dict` / `_config_to_dict`)
+    - `save_artifact`:写 .pkl(pickle HIGHEST_PROTOCOL)+ .json(sorted_keys + indent=2);auto-mkdir parent
+    - `load_artifact`:读 → schema 验 → recompute spec_id 比对 → 不一致 raise `ArtifactSpecMismatchError`
+  - 22 TDD tests `tests/unit/research/ml/test_artifact.py`:
+    - spec_id 确定性 × 7(同 spec 同 hash / hyperparams 变 / feature_columns 变 / train_window 变 / sealed_years 变 / tuple==list 同 hash / 缺字段 raise)
+    - §9.0 invariant × 2(rank OK / magnitude raise)
+    - lineage_tag × 2(格式含 class + window / 默认 UTC 时间戳 16 字符 `YYYYMMDDTHHMMSSZ`)
+    - save/load roundtrip × 4(创 .pkl + .json / metadata 保真 / 模型预测保真 — `pd.testing.assert_frame_equal` / suffix 容错)
+    - load failure mode × 5(missing pkl raise / missing json raise / malformed json schema error / schema_version bump raise / tampered feature_columns recompute mismatch raise)
+    - make_artifact_metadata × 2(从真 WalkForwardResult 构 + 同 inputs spec_id 重现 + 不同 hyperparams 不同 spec_id)
+  - **R3 catch**: 初版 `test_different_hyperparams_yield_different_spec_id` 用 `pd.DataFrame()` empty(RangeIndex)passed 给 `run_walk_forward` → `_slice_panel_dict` 的 `panel.index >= start` 触发 `TypeError: '>=' not supported between instances of 'numpy.ndarray' and 'Timestamp'`(`_slice_panel_dict` 隐式假设 DatetimeIndex)。fix = 测试直接构 `WalkForwardResult(per_fold=[])` dataclass,不跑 pipeline;spec_id 是 metadata 函数无需真实训练。**non-blanket note**:这条 surface 一个隐性 pipeline 假设(panel 必须 DatetimeIndex),留 sub-step 3 driver 加 `_validate_panel_index` guard。
+- **改了哪些文件**:
+  - 新:`core/research/ml/artifact.py`(380 行)
+  - 新:`tests/unit/research/ml/test_artifact.py`(22 tests)
+- **跑了什么测试 + 结果**:
+  - new artifact tests:**22/22 GREEN**(3.60s)
+  - 全 ml/ + promotion/ + decision/ + integration prdx:**269/269 GREEN**(32.56s),零 regression
+- **新发现 / 新机会**:
+  - spec_id 设计上区分 **spec(7 字段确定性)vs evidence(per-fold/timestamp/lineage_tag)**,让重训不动 spec_id → M3 alignment 可用 spec_id 做 drift detection(`fingerprints.config_hash` 走类似 pattern)
+  - tamper detection 是 defense-in-depth:edit JSON 不动 pickle 也会 raise,反之亦然
+  - `_validate_panel_index` 在 pipeline 缺,作为 sub-step 3 driver 的 pre-check 任务记入下轮
+- **剩余风险**:
+  - pickle 不安全;`load_artifact` 接受任何 magic bytes 都 unpickle — 生产部署前必须加 trusted-source-only 注释 + checksum verify
+  - artifact 仅记 metadata 不记 raw training features panel(无法离线 reproduce 训练数据);real-data driver 在 sub-step 3 应同步写 `data/ml/<lineage>_training_panel_hash.json` 记录 panel hash
+  - `output_type` 当前只 "rank" 与 §9.0 alignment;若 P4.2 sign classifier 进 artifact 路径,需扩 "sign_vote" enum 与 ml_sidecar VOTER kind 对齐
+  - sub-step 1 surface 的 panel.index 假设隐性,sub-step 3 driver 必须把 datetime-index validation 加进 pipeline 入口
+- **下一轮建议方向**: **Round 24 = PRD #4 P4.4 sub-step 3** real-data walk-forward driver `dev/scripts/ml/walk_forward_rank_sign.py` — 接 cycle06 113-factor research panel + executable/expanded_v2 universe + 真实 forward returns labels;首次产 real walk-forward rank-IC 数字(P4.1 AC 真正可验证起点)。**或者**:P4.2 sign classifier scaffold(独立 + 解锁 P4.5 acceptance)。sub-step 3 ROI 略高(让 P4.1 AC 真出数据)。
+
 ### Round 22(2026-05-20 night) — PRD #4 P4.4 sub-step 1:walk-forward pipeline scaffold(21 GREEN + sealed guard HARD + non-blanket fold-failure)
 
 - **本轮主题**: PRD #4 P4.4 sub-step 1 — walk-forward 训练 pipeline scaffold,让 R19/R20 的 LinearBaseline + XGBRanker 真正能跑 strict-chronological 滚动 train/val。这是 P4.1 AC(rank-IC > 0.02 + rank-IR > 0.30)的必经一步,R20 in-sample overfit catch 教训直接落地。
