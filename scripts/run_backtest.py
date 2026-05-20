@@ -210,6 +210,8 @@ def _apply_decision_stack_overlay(
     use_sidecar: bool = True,
     sidecar_voter=None,
     partial_full_threshold: float = 0.05,
+    price_df: pd.DataFrame = None,
+    vol_window: int = 60,
 ) -> pd.DataFrame:
     """PRD-X v2 P2-1: opt-in thin overlay on a weight panel.
 
@@ -243,9 +245,22 @@ def _apply_decision_stack_overlay(
 
     out = pd.DataFrame(0.0, index=weights.index, columns=weights.columns)
     current: dict = {}
-    # build per-day realized vol on the panel (60d rolling on row-sums
-    # — proxy; per-symbol vol context preferred but row-sum is
-    # cheap-and-correct-direction for the band scaling)
+    # R18 (auditor F5 closure): real per-symbol-per-bar realized vol
+    # when price_df supplied; otherwise fallback to anchor proxy.
+    # The pre-R18 hardcoded 0.15 silently collapsed the vol_multiplier
+    # to 1.0 (== _VOL_ANCHOR) → no vol-conditional band effect in
+    # production. Computing real 60d rolling stddev of pct_change
+    # restores Leland 1999 mechanic.
+    realized_vol_panel = None
+    if price_df is not None:
+        # align price panel to weights index intersection
+        _close_aligned = price_df.reindex(weights.index)
+        # annualized 60d rolling realized vol per symbol
+        _ret = _close_aligned.pct_change()
+        realized_vol_panel = (
+            _ret.rolling(vol_window, min_periods=20).std()
+            * (252.0 ** 0.5)
+        )
     weights_nonzero_count = (weights != 0).sum(axis=1)
     last_rebal_signature = None
     for date in weights.index:
@@ -277,8 +292,23 @@ def _apply_decision_stack_overlay(
                 regime_state = _RegimeState(regime)
             except ValueError:
                 regime_state = _RegimeState.NEUTRAL
-        ctx_partial = {"date": date, "regime": regime_state,
-                       "realized_vol": 0.15}  # anchor proxy
+        # R18: build per-symbol vol-map for this rebal date if panel
+        # available; PartialRebalancePolicy → NoTradeBandCalculator
+        # consults `realized_vol_by_symbol` first (per-symbol), then
+        # `realized_vol` (scalar fallback), then internal _VOL_ANCHOR.
+        vol_by_sym: dict = {}
+        if (realized_vol_panel is not None
+                and date in realized_vol_panel.index):
+            _row = realized_vol_panel.loc[date]
+            for sym in all_syms:
+                v = _row.get(sym) if sym in _row.index else None
+                if v is not None and not pd.isna(v):
+                    vol_by_sym[sym] = float(v)
+        ctx_partial = {
+            "date": date, "regime": regime_state,
+            "realized_vol": 0.15,           # scalar fallback
+            "realized_vol_by_symbol": vol_by_sym,
+        }
         actions = partial.compute_actions(
             target_weights=target_union,
             current_weights=current_union,
@@ -300,16 +330,21 @@ def _apply_decision_stack_overlay_from_config(
     weights: pd.DataFrame,
     regime_series: pd.Series,
     ds_cfg,
+    price_df: pd.DataFrame = None,
 ):
     """R17 (auditor F5/F8 closure): config-driven overlay invocation.
+    R18 (auditor F5-vol closure): thread price_df to enable per-symbol
+    realized-vol band scaling (was silently hardcoded 0.15 anchor).
 
     Reads `decision_stack` section from production_strategy.yaml
     (parsed into DecisionStackConfig) and routes parameters into
     `_apply_decision_stack_overlay()`. Voter selection from
     `ml_sidecar.voter_kind` via `_resolve_voter_from_config()`.
 
-    This is the SoT→runtime bridge. Without it, yaml schema is
-    placebo (auditor F5 finding).
+    Without price_df, vol context falls back to the legacy 0.15
+    proxy and band vol-conditional Leland 1999 mechanic collapses
+    to 1.0 multiplier — same behavior as pre-R18. With price_df,
+    band actually engages.
     """
     voter = _resolve_voter_from_config(ds_cfg.ml_sidecar)
     use_sidecar = ds_cfg.ml_sidecar.enabled and (voter is not None)
@@ -320,6 +355,7 @@ def _apply_decision_stack_overlay_from_config(
         partial_full_threshold=ds_cfg.partial_rebalance.partial_full_threshold,
         use_sidecar=use_sidecar,
         sidecar_voter=voter,
+        price_df=price_df,
     )
 
 
@@ -377,18 +413,21 @@ def run_strategy(
                 "production_strategy.yaml.", name)
             weights = _apply_decision_stack_overlay(
                 weights, regime_series, band_base=0.02,
-                use_sidecar=True)
+                use_sidecar=True, price_df=price_df)
         else:
             logger.info(
                 "%s: applying PRD-X trigger-first overlay from config "
-                "(band_base=%s, sidecar_enabled=%s, voter_kind=%s)",
+                "(band_base=%s, sidecar_enabled=%s, voter_kind=%s, "
+                "per-symbol-vol=%s)",
                 name,
                 decision_stack_cfg.partial_rebalance.band_base,
                 decision_stack_cfg.ml_sidecar.enabled,
                 decision_stack_cfg.ml_sidecar.voter_kind,
+                "yes" if price_df is not None else "no (anchor proxy)",
             )
             weights = _apply_decision_stack_overlay_from_config(
-                weights, regime_series, decision_stack_cfg)
+                weights, regime_series, decision_stack_cfg,
+                price_df=price_df)
     elif decision_stack != "legacy":
         raise ValueError(
             f"unknown decision_stack={decision_stack!r}; "

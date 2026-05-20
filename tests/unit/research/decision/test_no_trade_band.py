@@ -112,6 +112,45 @@ class TestRegimeConditional:
         assert b == b_neu
 
 
+# ── R18 (auditor F5) per-symbol vol map precedence ──────────────────
+class TestPerSymbolVolMap:
+    def test_per_symbol_overrides_scalar(self):
+        # ctx['realized_vol_by_symbol'][symbol] takes precedence over
+        # scalar ctx['realized_vol']. R18 (auditor F5) closure.
+        c = NoTradeBandCalculator(base_band=0.02)
+        # SPY uses per-symbol 0.40 → wide; QQQ uses scalar 0.10 → narrow
+        ctx = {
+            "realized_vol": 0.10,  # scalar fallback
+            "realized_vol_by_symbol": {"SPY": 0.40},
+            "regime": RegimeState.NEUTRAL,
+        }
+        b_spy = c.compute("SPY", ctx)  # uses 0.40
+        b_qqq = c.compute("QQQ", ctx)  # falls back to scalar 0.10
+        assert b_spy.enter > b_qqq.enter, (
+            f"SPY band {b_spy.enter} should be wider than QQQ "
+            f"band {b_qqq.enter} (per-symbol vol should override "
+            f"scalar fallback)")
+
+    def test_empty_map_falls_back_to_scalar(self):
+        c = NoTradeBandCalculator(base_band=0.02)
+        b1 = c.compute("X", {"realized_vol_by_symbol": {},
+                              "realized_vol": 0.40,
+                              "regime": RegimeState.NEUTRAL})
+        b2 = c.compute("X", {"realized_vol": 0.40,
+                              "regime": RegimeState.NEUTRAL})
+        assert b1 == b2
+
+    def test_none_value_in_map_falls_back(self):
+        # NaN/None per-symbol → fallback to scalar
+        c = NoTradeBandCalculator(base_band=0.02)
+        b1 = c.compute("X", {"realized_vol_by_symbol": {"X": None},
+                              "realized_vol": 0.40,
+                              "regime": RegimeState.NEUTRAL})
+        b2 = c.compute("X", {"realized_vol": 0.40,
+                              "regime": RegimeState.NEUTRAL})
+        assert b1 == b2
+
+
 # ── compound: vol + regime stack ─────────────────────────────────────
 class TestStackedMultipliers:
     def test_high_vol_plus_risk_off_widest(self):

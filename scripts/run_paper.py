@@ -231,19 +231,21 @@ def run_replay(
             logger.info(
                 "paper-replay: applying PRD-X trigger-first overlay "
                 "from config (band_base=%s, sidecar.enabled=%s, "
-                "voter_kind=%s)",
+                "voter_kind=%s, per-symbol-vol=yes)",
                 decision_stack_cfg.partial_rebalance.band_base,
                 decision_stack_cfg.ml_sidecar.enabled,
                 decision_stack_cfg.ml_sidecar.voter_kind)
             weights = _apply_decision_stack_overlay_from_config(
-                weights, regime, decision_stack_cfg)
+                weights, regime, decision_stack_cfg,
+                price_df=price_df_1d)
         else:
             logger.warning(
                 "paper-replay: --decision-stack trigger-first BUT "
                 "no decision_stack_cfg — fallback to hardcoded "
                 "defaults (auditor F5: prefer config wiring)")
             weights = _apply_decision_stack_overlay(
-                weights, regime, band_base=0.02, use_sidecar=True)
+                weights, regime, band_base=0.02, use_sidecar=True,
+                price_df=price_df_1d)
     elif decision_stack != "legacy":
         raise ValueError(
             f"unknown decision_stack={decision_stack!r}; expected "

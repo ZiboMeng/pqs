@@ -86,14 +86,22 @@ per-symbol-per-bar.
 - Model artifact at `data/ml/rank_model_<lineage_tag>.pkl`
 - Walk-forward fold metrics: per-fold rank-IC, rank-IR
 
-**AC**:
-- ✅ Mean rank-IC > 0.02 across folds (rank-based, not raw-IC poison)
-- ✅ Rank-IR > 0.30 (Grinold-Kahn-equivalent for ranking)
-- ✅ No leakage: per-bar standardization confirmed; no future data
-   in features
-- ✅ Reproducible: fixed seed + version artifact
-- 🟡 Non-blanket failure: if rank-IC < 0.02, record per-fold
-   verdict + root-cause, don't declare "ML doesn't work"
+**AC (auditor 2026-05-20 F7 closure — 3 binding constraints)**:
+
+| AC | value | binding constraint |
+|---|---|---|
+| Mean rank-IC | > 0.02 across folds | rank-based, not raw-IC poison |
+| Rank-IR | > 0.30 | Grinold-Kahn-equivalent for ranking |
+| **Trading universe** | `config/universe.yaml::executable` AND `config/universe.yaml::expanded_v2` BOTH | Pinned to existing repo universe artifacts; PASS required on BOTH (executable = production live-tradable; expanded_v2 = research depth) |
+| **Label horizon** | matches PRD-2 current candidate holding period (currently `monthly` per cycle06 spec OR `weekly` per cycle06 actual holding_freq) | Horizon MUST be consistent with the canonical config's `holding_freq` from PRD #3 P3.1; not arbitrary research choice |
+| **On-tradeable mask** | `core.factors.base_masks.research_mask_default` applied at training time | Same mask cycle06/Track-A uses; verifies model trained on actual production-eligible names not pooled-only |
+| **Pooled vs on-tradeable** | rank-IC computed BOTH on full pool AND on tradeable mask; both must pass | Pooled training is acceptable IF tradeable-subset rank-IC ≥ 0.02 (the gate that connects to NAV) |
+| No leakage | per-bar standardization confirmed; no future data in features | discipline |
+| Reproducible | fixed seed + version artifact | discipline |
+
+🟡 Non-blanket failure: if rank-IC < 0.02 on EITHER universe OR on
+tradeable-mask subset, record per-fold verdict + root-cause; don't
+declare "ML doesn't work" (per `feedback_no_blanket_failure_verdict`).
 
 **Estimated effort**: 1.5 cycles.
 

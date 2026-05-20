@@ -17,7 +17,19 @@ flip and its multi-cycle prerequisite chain.
 Make `status: "active"` flip for the trigger-first decision stack
 **structurally possible** by satisfying the M2 promote pydantic
 validator gates in
-`core/config/production_strategy.py::_active_requires_source_and_validation`:
+`core/config/production_strategy.py::_active_requires_source_and_validation`.
+
+**SCOPE BOUNDARY (auditor 2026-05-20 F4 closure)**: this PRD's
+"trigger-first canonical" refers ONLY to the **thin-overlay**
+pattern shipped in PRD-X v2 — `MultiFactorStrategy weights →
+PartialRebalancePolicy → MLSidecarPolicy → engine.run`. It does
+NOT include the `RuleBasedDecisionPolicy` 4-method state machine
+or `SignalDrivenBacktest`-routed main link. Promoting the thin
+overlay to active production is the scope. Promoting full
+state-machine-as-primary-alpha is a SEPARATE directional decision
+(not in this PRD).
+
+**Validator gates to be satisfied**:
 
 - `source.mode = "promoted_from_archive"`
 - `source.spec_id` / `lineage_tag` / `promoted_at` non-empty
@@ -185,10 +197,31 @@ Add an acceptance test that:
 
 **Acceptance criteria (AC)**:
 - ✅ flipped yaml loads without validator error
-- ✅ default `run_backtest` invocation produces trigger-first NAV
+- ✅ post-flip `run_backtest` **with `--decision-stack trigger-first`
+   OR with yaml-driven default** (P3.7.x below) produces trigger-first
+   NAV. **Auditor F1 clarification**: this is **NOT** a CLI default
+   change — it is yaml-state-driven via `decision_stack.mode:
+   "trigger-first"` in the promoted config. The CLI flag remains
+   opt-in for non-active configs.
 - ✅ NAV matches the canonical config's expected output
    (regression seam)
 - ✅ all §6.4 invariants honored
+- ✅ overlay scope discipline (auditor F4): post-flip runtime path
+   is still `strategy.generate → PartialRebalance → MLSidecar →
+   engine.run`. Promotion DOES NOT install `RuleBasedDecisionPolicy`
+   as primary alpha source; that decision stays out of scope.
+
+**P3.7.x sub-step — yaml-driven default entry semantic (auditor F1)**:
+When `status: "active"` AND `decision_stack.mode: "trigger-first"`,
+the CLI `--decision-stack` default behavior should consult the
+yaml. If yaml says trigger-first, default to it; if legacy, default
+legacy. This makes promotion "real" without a separate CLI default
+change. Implementation: read `ps_cfg.decision_stack.mode` in
+`scripts/run_backtest.py` main() and use as `args.decision_stack`
+default. Backward-compat: if CLI flag is explicitly passed it
+overrides yaml.
+
+Estimated +0.5 cycle for P3.7.x.
 
 **Estimated effort**: ~0.5 cycle (acceptance test + final docs).
 

@@ -119,9 +119,27 @@ class NoTradeBandCalculator:
         self._exit_m = float(exit_band_mult)
 
     def compute(self, symbol: str, ctx: Dict[str, Any]) -> Bands:
-        """Per-symbol band widths from ctx (realized_vol + regime)."""
+        """Per-symbol band widths from ctx (realized_vol + regime).
+
+        **R18 (auditor F5 closure)**: lookup precedence for
+        realized_vol — per-symbol map FIRST, then scalar fallback:
+
+          1. ctx['realized_vol_by_symbol'][symbol] (per-symbol)
+          2. ctx['realized_vol'] (scalar, was the only path pre-R18)
+          3. _VOL_ANCHOR (0.15, conservative default)
+
+        This is backward-compatible (legacy ctx with just
+        'realized_vol' scalar still works) but enables overlay
+        callers to thread per-symbol vol so the Leland 1999
+        mechanic actually engages instead of collapsing to 1.0 at
+        the anchor.
+        """
         ctx = ctx or {}
-        realized_vol = ctx.get("realized_vol", _VOL_ANCHOR)
+        by_sym = ctx.get("realized_vol_by_symbol") or {}
+        if symbol in by_sym and by_sym[symbol] is not None:
+            realized_vol = by_sym[symbol]
+        else:
+            realized_vol = ctx.get("realized_vol", _VOL_ANCHOR)
         regime: Optional[RegimeState] = ctx.get("regime")
         if regime is None:
             regime = RegimeState.NEUTRAL
