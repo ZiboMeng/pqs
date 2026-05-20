@@ -66,12 +66,48 @@ from core.research.decision.ml_sidecar import (
     MLSidecarPolicy as _MLSidecarPolicy,
     SignVote as _SignVote,
 )
+from core.research.decision.ml_voters import (
+    no_op_voter as _no_op_voter,
+    weak_factor_filter_voter as _weak_factor_filter_voter,
+    classifier_voter as _classifier_voter,
+    binary_classifier_voter as _binary_classifier_voter,
+)
 from core.research.decision.no_trade_band import (
     NoTradeBandCalculator as _NoTradeBandCalculator,
 )
 from core.research.decision.partial_rebalance import (
     PartialRebalancePolicy as _PartialRebalancePolicy,
 )
+
+
+def _resolve_voter_from_config(ml_sidecar_cfg):
+    """P1-3-runtime fix (auditor F5+F8 closure): map config
+    voter_kind → vote_fn factory. Returns None for disabled.
+    Raises ValueError on unknown voter_kind so misconfigured
+    yaml fails fast at startup (not silently no-op).
+    """
+    if not getattr(ml_sidecar_cfg, "enabled", False):
+        return None
+    kind = getattr(ml_sidecar_cfg, "voter_kind", "no_op")
+    params = dict(getattr(ml_sidecar_cfg, "voter_params", {}) or {})
+    if kind == "no_op":
+        return _no_op_voter()
+    if kind == "weak_factor_filter":
+        # voter_params may carry entry_threshold override
+        return _weak_factor_filter_voter(**params)
+    if kind in ("classifier_voter", "binary_classifier_voter"):
+        # classifier wiring requires user-supplied artifact path
+        # + feature extractor — out of scope for default config
+        # consumption; raise with hint so users know what to do.
+        raise ValueError(
+            f"voter_kind={kind!r} requires explicit classifier "
+            f"artifact + feature_extractor wiring; not currently "
+            f"supported via yaml-only config. Use programmatic "
+            f"injection via run_strategy(..., sidecar_voter=...).")
+    raise ValueError(
+        f"unknown voter_kind={kind!r}; expected one of "
+        f"{{no_op, weak_factor_filter, classifier_voter, "
+        f"binary_classifier_voter}}")
 
 setup_logging()
 logger = get_logger("run_backtest")
@@ -173,6 +209,7 @@ def _apply_decision_stack_overlay(
     band_base: float = 0.02,
     use_sidecar: bool = True,
     sidecar_voter=None,
+    partial_full_threshold: float = 0.05,
 ) -> pd.DataFrame:
     """PRD-X v2 P2-1: opt-in thin overlay on a weight panel.
 
@@ -180,6 +217,12 @@ def _apply_decision_stack_overlay(
       - PartialRebalancePolicy(active, vol/regime no-trade band)
       - MLSidecarPolicy(active, default = no-op CONFIRM voter)
     one rebalance row at a time, then re-emits a filtered panel.
+
+    **R17 (auditor F5/F8 closure)**: parameters can be config-driven
+    via `_apply_decision_stack_overlay_from_config()` wrapper which
+    reads them from `production_strategy.yaml::decision_stack`.
+    Direct callers may still pass explicit kwargs; defaults match
+    the prior hardcoded values to preserve R14 acceptance numbers.
 
     Bit-identical to legacy IF all bands are 0 (degenerate);
     materially different IF NoTradeBandCalculator gates small
@@ -192,7 +235,7 @@ def _apply_decision_stack_overlay(
     band = _NoTradeBandCalculator(base_band=band_base)
     partial = _PartialRebalancePolicy(
         no_trade_band=band, mode="active",
-        partial_full_threshold=0.05)
+        partial_full_threshold=partial_full_threshold)
     voter = sidecar_voter or (lambda ctx: _SignVote.NO_VOTE)
     sidecar = _MLSidecarPolicy(
         vote_fn=voter,
@@ -253,6 +296,33 @@ def _apply_decision_stack_overlay(
     return out
 
 
+def _apply_decision_stack_overlay_from_config(
+    weights: pd.DataFrame,
+    regime_series: pd.Series,
+    ds_cfg,
+):
+    """R17 (auditor F5/F8 closure): config-driven overlay invocation.
+
+    Reads `decision_stack` section from production_strategy.yaml
+    (parsed into DecisionStackConfig) and routes parameters into
+    `_apply_decision_stack_overlay()`. Voter selection from
+    `ml_sidecar.voter_kind` via `_resolve_voter_from_config()`.
+
+    This is the SoT→runtime bridge. Without it, yaml schema is
+    placebo (auditor F5 finding).
+    """
+    voter = _resolve_voter_from_config(ds_cfg.ml_sidecar)
+    use_sidecar = ds_cfg.ml_sidecar.enabled and (voter is not None)
+    return _apply_decision_stack_overlay(
+        weights=weights,
+        regime_series=regime_series,
+        band_base=ds_cfg.partial_rebalance.band_base,
+        partial_full_threshold=ds_cfg.partial_rebalance.partial_full_threshold,
+        use_sidecar=use_sidecar,
+        sidecar_voter=voter,
+    )
+
+
 def run_strategy(
     name:             str,
     strategy,
@@ -268,6 +338,7 @@ def run_strategy(
     ohlcv_frames:     Optional[dict] = None,
     enable_cross_ticker_rules: bool = True,
     decision_stack:   str = "legacy",
+    decision_stack_cfg=None,
 ) -> dict:
     """运行单个策略回测，返回结果字典。"""
     logger.info("=== 回测策略: %s ===", name)
@@ -291,15 +362,33 @@ def run_strategy(
             weights, regime_series, ohlcv_frames,
         )
 
-    # PRD-X v2 P2-1 (opt-in,default legacy bit-identical): decision-
+    # PRD-X v2 P2-1 (opt-in, default legacy bit-identical): decision-
     # stack overlay applied AFTER cross-ticker rules and BEFORE
-    # engine.run. M11 main path untouched.
+    # engine.run. M11 main path untouched. R17 (auditor F5/F8):
+    # parameters now config-driven via decision_stack_cfg (parsed
+    # from production_strategy.yaml::decision_stack section).
     if decision_stack == "trigger-first":
-        logger.info("%s: applying PRD-X trigger-first decision-stack "
-                    "overlay (PartialRebalance + MLSidecar)", name)
-        weights = _apply_decision_stack_overlay(
-            weights, regime_series, band_base=0.02,
-            use_sidecar=True)
+        if decision_stack_cfg is None:
+            logger.warning(
+                "%s: --decision-stack trigger-first BUT no "
+                "decision_stack_cfg provided — falling back to "
+                "hardcoded defaults (band_base=0.02, sidecar=NO_VOTE). "
+                "Auditor F5: prefer wiring decision_stack_cfg from "
+                "production_strategy.yaml.", name)
+            weights = _apply_decision_stack_overlay(
+                weights, regime_series, band_base=0.02,
+                use_sidecar=True)
+        else:
+            logger.info(
+                "%s: applying PRD-X trigger-first overlay from config "
+                "(band_base=%s, sidecar_enabled=%s, voter_kind=%s)",
+                name,
+                decision_stack_cfg.partial_rebalance.band_base,
+                decision_stack_cfg.ml_sidecar.enabled,
+                decision_stack_cfg.ml_sidecar.voter_kind,
+            )
+            weights = _apply_decision_stack_overlay_from_config(
+                weights, regime_series, decision_stack_cfg)
     elif decision_stack != "legacy":
         raise ValueError(
             f"unknown decision_stack={decision_stack!r}; "
@@ -492,6 +581,29 @@ def main():
     # outside the per-strategy loop)
     ohlcv_frames = _build_ohlcv_frames(store, all_tradeable)
 
+    # R17 (auditor F5/F8 closure): load production_strategy.yaml
+    # decision_stack section for runtime parameter resolution. Failure
+    # to load → fall back to hardcoded defaults inside overlay (logged
+    # warning, NOT silent — auditor F5 finding was the silent drift).
+    decision_stack_cfg = None
+    if args.decision_stack == "trigger-first":
+        try:
+            _ps_for_ds = load_production_strategy(
+                args.production_strategy)
+            decision_stack_cfg = _ps_for_ds.decision_stack
+            logger.info(
+                "decision_stack config loaded from %s: mode=%s, "
+                "band_base=%s, sidecar.enabled=%s, voter_kind=%s",
+                args.production_strategy,
+                decision_stack_cfg.mode,
+                decision_stack_cfg.partial_rebalance.band_base,
+                decision_stack_cfg.ml_sidecar.enabled,
+                decision_stack_cfg.ml_sidecar.voter_kind)
+        except Exception as exc:
+            logger.warning(
+                "decision_stack config load FAILED (%s); overlay "
+                "will fall back to hardcoded defaults", exc)
+
     # ── 逐策略回测 ────────────────────────────────────────────────────────────
     all_runs = {}
     for name, strategy in strategies.items():
@@ -510,6 +622,7 @@ def main():
             ohlcv_frames     = ohlcv_frames,
             enable_cross_ticker_rules = not args.no_cross_ticker_rules,
             decision_stack   = args.decision_stack,
+            decision_stack_cfg = decision_stack_cfg,
         )
         all_runs[name] = run
 

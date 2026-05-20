@@ -70,6 +70,53 @@ class ProductionStrategyFingerprints(BaseModel):
         return bool(self.universe_hash and self.factor_registry_hash and self.config_hash)
 
 
+class DecisionStackPartialRebalance(BaseModel):
+    band_base: float = 0.02
+    partial_full_threshold: float = 0.05
+
+
+class DecisionStackMLSidecar(BaseModel):
+    enabled: bool = False
+    voter_kind: str = "no_op"          # no_op | weak_factor_filter | classifier_voter
+    voter_params: Dict[str, Any] = Field(default_factory=dict)
+
+
+class DecisionStackRuleBased(BaseModel):
+    entry_threshold: float = 0.7
+    exit_threshold: float = 0.3
+    confirm_min_bars: int = 2
+    base_position_size: float = 0.05
+    ttl_bars: int = 3                  # bar-anchored (P1-3 fix)
+
+
+class DecisionStackDeferredExecution(BaseModel):
+    execution_delay_bars: int = 1
+    enabled: bool = False
+
+
+class DecisionStackConfig(BaseModel):
+    """PRD-X v2 decision-stack overlay config (post-R17 auditor F8 fix).
+
+    mode='off' bit-identical default (R12/T0/sample_weight=None
+    precedent). 'trigger-first' opt-in via CLI flag on run_backtest
+    / run_paper.
+
+    Status flip in parent ProductionStrategyConfig stays directional;
+    decision_stack section here is config-driven RUNTIME parameters
+    only. Auditor F5+F8: closes "schema-but-no-runtime-consumption"
+    drift surfaced post-P2.
+    """
+    mode: str = "off"                   # off | trigger-first
+    partial_rebalance: DecisionStackPartialRebalance = Field(
+        default_factory=DecisionStackPartialRebalance)
+    ml_sidecar: DecisionStackMLSidecar = Field(
+        default_factory=DecisionStackMLSidecar)
+    rule_based: DecisionStackRuleBased = Field(
+        default_factory=DecisionStackRuleBased)
+    deferred_execution: DecisionStackDeferredExecution = Field(
+        default_factory=DecisionStackDeferredExecution)
+
+
 class ProductionStrategyConfig(BaseModel):
     schema_version: str = "1.0"
     status: StatusLiteral
@@ -79,6 +126,8 @@ class ProductionStrategyConfig(BaseModel):
     factor_weights: Dict[str, float] = Field(default_factory=dict)
     validation: ProductionStrategyValidation = Field(default_factory=ProductionStrategyValidation)
     fingerprints: ProductionStrategyFingerprints = Field(default_factory=ProductionStrategyFingerprints)
+    decision_stack: DecisionStackConfig = Field(
+        default_factory=DecisionStackConfig)
 
     @field_validator("factor_weights")
     @classmethod

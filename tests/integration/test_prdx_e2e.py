@@ -214,3 +214,105 @@ class TestRunBacktestCliFlag:
         # both modes must be listed
         assert "legacy" in out.stdout
         assert "trigger-first" in out.stdout
+
+
+# ── R17 auditor F5/F8 closure: config-driven runtime ─────────────────
+class TestConfigDrivenRuntime:
+    """Auditor F5 + F8 closure: scripts must consume
+    `production_strategy.yaml::decision_stack` section at runtime,
+    not hardcode parameters. These tests are the SoT↔runtime
+    consistency seam."""
+
+    def test_pydantic_schema_parses_decision_stack(self):
+        """DecisionStackConfig pydantic model must accept the yaml
+        structure without error."""
+        from core.config.production_strategy import (
+            load_production_strategy,
+        )
+        ps = load_production_strategy("config/production_strategy.yaml")
+        ds = ps.decision_stack
+        assert ds.mode in ("off", "trigger-first")
+        # all 4 nested sections present
+        assert hasattr(ds, "partial_rebalance")
+        assert hasattr(ds, "ml_sidecar")
+        assert hasattr(ds, "rule_based")
+        assert hasattr(ds, "deferred_execution")
+
+    def test_config_driven_overlay_routes_params(self, synth_panel):
+        """The `_apply_decision_stack_overlay_from_config()` wrapper
+        must thread yaml-derived params into the overlay. Use
+        intentionally small-delta panel (0.005) so band ranging from
+        0.001 → 0.02 produces visibly different filter behavior."""
+        from scripts.run_backtest import (
+            _apply_decision_stack_overlay_from_config,
+        )
+        from core.config.production_strategy import (
+            DecisionStackConfig,
+            DecisionStackPartialRebalance,
+            DecisionStackMLSidecar,
+        )
+        close, _ = synth_panel
+        # Build a small-delta target panel: 0.20 → 0.205 each day
+        small_delta_w = pd.DataFrame(
+            0.0, index=close.index, columns=close.columns)
+        small_delta_w.iloc[0, 0] = 0.20
+        small_delta_w.iloc[1:, 0] = 0.205   # delta 0.005 each row
+        regime = pd.Series("NEUTRAL", index=close.index, dtype=str)
+        # tight band 0.001 → 0.005 > add_band ~0.0005 → ADD action
+        cfg_tight = DecisionStackConfig(
+            mode="trigger-first",
+            partial_rebalance=DecisionStackPartialRebalance(
+                band_base=0.001, partial_full_threshold=0.05),
+            ml_sidecar=DecisionStackMLSidecar(
+                enabled=False, voter_kind="no_op"))
+        # wide band 0.02 → 0.005 < add_band 0.01 → HOLD action
+        cfg_wide = DecisionStackConfig(
+            mode="trigger-first",
+            partial_rebalance=DecisionStackPartialRebalance(
+                band_base=0.02, partial_full_threshold=0.05),
+            ml_sidecar=DecisionStackMLSidecar(
+                enabled=False, voter_kind="no_op"))
+        out_tight = _apply_decision_stack_overlay_from_config(
+            small_delta_w, regime, cfg_tight)
+        out_wide = _apply_decision_stack_overlay_from_config(
+            small_delta_w, regime, cfg_wide)
+        # tight band lets 0.005 through (ADD updates weight to 0.205);
+        # wide band HOLDs (keeps weight at 0.20)
+        assert abs(out_tight.iloc[10, 0] - 0.205) < 1e-6, (
+            f"tight band should ADD to 0.205, got {out_tight.iloc[10, 0]}")
+        assert abs(out_wide.iloc[10, 0] - 0.20) < 1e-6, (
+            f"wide band should HOLD at 0.20, got {out_wide.iloc[10, 0]}")
+        assert not out_tight.equals(out_wide)
+
+    def test_voter_kind_unknown_raises(self):
+        from scripts.run_backtest import _resolve_voter_from_config
+        from core.config.production_strategy import (
+            DecisionStackMLSidecar,
+        )
+        cfg = DecisionStackMLSidecar(
+            enabled=True, voter_kind="bogus", voter_params={})
+        with pytest.raises(ValueError, match=r"unknown voter_kind"):
+            _resolve_voter_from_config(cfg)
+
+    def test_voter_kind_classifier_requires_explicit_wiring(self):
+        # classifier_voter needs artifact path + feature_extractor;
+        # not config-yaml-only — should raise hint instead of silent
+        # no-op.
+        from scripts.run_backtest import _resolve_voter_from_config
+        from core.config.production_strategy import (
+            DecisionStackMLSidecar,
+        )
+        cfg = DecisionStackMLSidecar(
+            enabled=True, voter_kind="classifier_voter",
+            voter_params={})
+        with pytest.raises(ValueError, match=r"classifier_voter"):
+            _resolve_voter_from_config(cfg)
+
+    def test_default_config_yields_no_op_voter(self):
+        from scripts.run_backtest import _resolve_voter_from_config
+        from core.config.production_strategy import (
+            DecisionStackMLSidecar,
+        )
+        # default = enabled=False → None (sidecar fully off)
+        cfg = DecisionStackMLSidecar()
+        assert _resolve_voter_from_config(cfg) is None

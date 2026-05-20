@@ -167,6 +167,7 @@ def run_replay(
     to_date:        str = None,
     run_id:         str = None,
     decision_stack: str = "legacy",
+    decision_stack_cfg=None,
 ) -> None:
     """
     历史数据回放（伪 track record）。
@@ -220,13 +221,29 @@ def run_replay(
     # trigger-first applies PartialRebalance + MLSidecar between the
     # constructor-built weights and the per-day PaperTradingEngine
     # iteration. M11 parity preserved (no change to engine.run_day_*).
+    # R17 (auditor F5/F8): config-driven parameters when available.
     if decision_stack == "trigger-first":
-        from scripts.run_backtest import _apply_decision_stack_overlay
-        logger.info("paper-replay: applying PRD-X trigger-first "
-                    "decision-stack overlay (PartialRebalance + "
-                    "MLSidecar no-op default)")
-        weights = _apply_decision_stack_overlay(
-            weights, regime, band_base=0.02, use_sidecar=True)
+        from scripts.run_backtest import (
+            _apply_decision_stack_overlay,
+            _apply_decision_stack_overlay_from_config,
+        )
+        if decision_stack_cfg is not None:
+            logger.info(
+                "paper-replay: applying PRD-X trigger-first overlay "
+                "from config (band_base=%s, sidecar.enabled=%s, "
+                "voter_kind=%s)",
+                decision_stack_cfg.partial_rebalance.band_base,
+                decision_stack_cfg.ml_sidecar.enabled,
+                decision_stack_cfg.ml_sidecar.voter_kind)
+            weights = _apply_decision_stack_overlay_from_config(
+                weights, regime, decision_stack_cfg)
+        else:
+            logger.warning(
+                "paper-replay: --decision-stack trigger-first BUT "
+                "no decision_stack_cfg — fallback to hardcoded "
+                "defaults (auditor F5: prefer config wiring)")
+            weights = _apply_decision_stack_overlay(
+                weights, regime, band_base=0.02, use_sidecar=True)
     elif decision_stack != "legacy":
         raise ValueError(
             f"unknown decision_stack={decision_stack!r}; expected "
@@ -499,6 +516,29 @@ def main():
                 if day_frames:
                     price_df_60m[str(d)] = day_frames
 
+        # R17 (auditor F5/F8 closure): load decision_stack config from
+        # production_strategy.yaml for runtime parameters.
+        decision_stack_cfg = None
+        if args.decision_stack == "trigger-first":
+            try:
+                from core.config.production_strategy import (
+                    load_production_strategy,
+                )
+                _ps = load_production_strategy("config/production_strategy.yaml")
+                decision_stack_cfg = _ps.decision_stack
+                logger.info(
+                    "paper-replay decision_stack config loaded: "
+                    "mode=%s, band_base=%s, sidecar.enabled=%s, "
+                    "voter_kind=%s",
+                    decision_stack_cfg.mode,
+                    decision_stack_cfg.partial_rebalance.band_base,
+                    decision_stack_cfg.ml_sidecar.enabled,
+                    decision_stack_cfg.ml_sidecar.voter_kind)
+            except Exception as exc:
+                logger.warning(
+                    "decision_stack config load FAILED (%s); "
+                    "fallback to hardcoded defaults", exc)
+
         run_replay(
             engine         = engine,
             price_df_1d    = price_df_1d,
@@ -512,6 +552,7 @@ def main():
             from_date      = args.from_date,
             to_date        = args.to_date,
             decision_stack = args.decision_stack,
+            decision_stack_cfg = decision_stack_cfg,
         )
 
     elif args.mode == "live":
