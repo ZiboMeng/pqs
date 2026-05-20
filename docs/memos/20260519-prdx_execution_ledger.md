@@ -20,7 +20,7 @@
 | X1 | Protocol schema + GenerateStrategyAdapter | 2 | TDD build | ✅ Round 4 (18/18 GREEN + 26/26 regression) |
 | X2 | Rule-based trigger + exit policy + vol-conditional no-trade band | 3 | TDD build + experiment | 🟡 build ✅(R5a+b+c+d 67 tests GREEN)/ smoke ✅(R5e wiring verified)/ regression pending(R5f tune + lev-ETF risk + band wired) |
 | **X4** | **Deferred execution integration + M11 parity matrix** | **4** | **integrate existing** | ✅ Round 7(X1 adapter fix + M11 parity 5/6 + ExecPolicy adapter,148/148 GREEN) |
-| **X3** | **Partial rebalance / delta-to-trade policy** | **5** | **true new build + experiment** | ⬜ |
+| **X3** | **Partial rebalance / delta-to-trade policy** | **5** | **true new build + experiment** | 🟡 build ✅(R8 18/18 + 166 cross-check)/ acceptance experiment pending(R9 turnover-reduction integration) |
 | X5 | ML sidecar (sign-vote only, post-fix constrained) | 6 | build + experiment | ⬜ |
 | Post-audit | per-phase AC reconciliation + cycle06 baseline regression + final honest summary | 7 | audit | ⬜ |
 
@@ -48,6 +48,32 @@
 ---
 
 ## 轮次日志(每轮 commit 时追加 1 行)
+
+### Round 8(2026-05-19) — X3 build:PartialRebalancePolicy delta-to-trade(18/18 GREEN one-shot, 166/166 cross-check)
+
+- **目标**: PRD §11 X3 — true-new "partial rebalance / delta-to-trade" 模块。把 NoTradeBandCalculator 接进 rebalance delta gate(R5e smoke 暴露的 missing wire),写 9-route ActionType 精确路由 kernel。
+- **新增模块 + 测试**:
+  - `core/research/decision/partial_rebalance.py` — `PartialRebalancePolicy` 9-route routing matrix:
+    - `(current=0, target>0)` × `target ≤ partial_threshold` → ENTER_PARTIAL;`target > partial_threshold` → ENTER_FULL;`delta ≤ enter_band` → NO_TRADE
+    - `(current>0, target>0)` × `delta > add_band` → ADD;`delta < -trim_band` → TRIM;`|delta| ≤ band` → HOLD(保 current 不动)
+    - `(current>0, target=0)` × `|delta| > exit_band` → EXIT(weight=0);`|delta| ≤ exit_band` → HOLD(避免 churn-out)
+    - `(current=0, target=0)` → NO_TRADE
+  - mode='off' bit-identical default(R12/T0 precedent):每个 non-zero target 直 emit ENTER_FULL,current 忽略;legacy callers' weights 1:1 pass-through
+  - `tests/unit/research/decision/test_partial_rebalance.py` 18 tests one-shot GREEN:
+    - construction(3) + off-mode bit-identical(1) + delta routing(5: ENTER_FULL/ADD/TRIM/EXIT/EXIT-on-missing) + NoTradeBand gating(3: small-delta-HOLD/both-zero-NO_TRADE/vol-conditional) + §6.4 long-only(2: negative target reject / EXIT-to-0 guard) + ENTER_PARTIAL(2: small/large target) + multi-symbol 3-action(1) + schema purity(1)
+- **R3 self-audit**:
+  - 18/18 GREEN **one-shot**(no RED iterations,routing matrix 一次写对)
+  - decision/ 111 → 129 tests;full cross-check decision/ + deferred_execution + signal_driven_runner **166/166 GREEN**,零 regression
+  - Schema-purity AST-verified(无 panel/yfinance/bar_store import)
+  - **vol-conditional 接通 end-to-end** verified by test `test_high_vol_widens_band_gates_more`:同样 delta=0.03,low-vol routes ADD(band ~0.005),high-vol(vol=0.6,4x anchor)routes HOLD(band ~0.04)。Leland 1999 mechanic 在 PartialRebalancePolicy 实测看得见。
+- **§6.4 long-only invariant 4-layer 守(post-X3)**:
+  1. `ActionDecision.__post_init__` 拒 negative target_weight
+  2. `EntryEvent.__post_init__` 拒 strength 出 [0,1]
+  3. `RuleBasedDecisionPolicy.build_target_weights` clip `max(0.0, w)`
+  4. `DeferredExecutionAdapter.schedule_fill` cross-check + `__new__`-bypass test
+  5. **(新)** `PartialRebalancePolicy.compute_actions` 入口拒 negative target/current weight,EXIT 强制 weight=0
+- **诚实留痕 — 不假装完成**:X3 build ✅ ≠ X3 phase ✅。**X3 acceptance experiment** 是下轮 R9 内容:把 PartialRebalancePolicy 接进 R5e driver(或 RuleBasedDecisionPolicy.build_target_weights),实跑同一 cycle06 panel 对比 mode='off' vs mode='active' 的 turnover/MaxDD/Sharpe 三指标差。预期 active mode 应显著降 turnover(band 把小 delta gate 掉),Sharpe 不显著下降(band 把 noise 滤掉而非把信号滤掉)。
+- **下一步**: Round 9 = X3 acceptance experiment driver — 扩 R5e smoke 加 `--use-partial-rebalance` flag,跑 mode='off' baseline + mode='active' band-gated 两路,对比 turnover_per_rebal + final NAV + MaxDD;记 verdict 非 blanket。完后:R10 = X5 ML sidecar(sign-vote / include-veto,post-fix §9.0 constrained)build phase。
 
 ### Round 7(2026-05-19) — X4 build:adapter contract fix + M11 parity + ExecutionPolicy(148/148 GREEN)
 
