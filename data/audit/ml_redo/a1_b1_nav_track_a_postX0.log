@@ -1,0 +1,42 @@
+=== A1 (RA1+RA2 daily-close engineered + shallow XGB) ===
+  A1 walk-forward folds:
+    2018: train_years≤2017 n=1362 val n=423
+    2019: train_years≤2018 n=1362 val n=476
+    2021: train_years≤2020 n=1869 val n=629
+    2023: train_years≤2022 n=2490 val n=660
+    2025: train_years≤2024 n=3105 val n=542
+  A1 verdict=FAIL_recorded_root_cause
+    cum_ret=+3.3202
+    sharpe=+0.7892
+    max_dd=-0.2517
+    vs_spy=-5.6835
+    spy_cum_ret=+9.0037
+    vs_qqq=-2.1567
+    qqq_cum_ret=+5.4770
+    gate vs_spy_hard: {'vs_spy': -5.683451702656992, 'pass': False}
+    gate per_validation_year_maxdd_le_20pct: {'pass': True, 'per_year': {2018: {'max_dd': 0.18798519273687087, 'pass': True}, 2019: {'max_dd': 0.07311060761338226, 'pass': True}, 2021: {'max_dd': 0.09202241280935027, 'pass': True}, 2023: {'max_dd': 0.0694757587813445, 'pass': True}, 2025: {'max_dd': 0.1589156457740883, 'pass': True}}}
+    gate stress_slice_maxdd_le_25pct: {'pass': True, 'per_slice': {'covid_flash': {'max_dd': 0.19994264825320035, 'pass': True}, 'rate_hike_2022': {'max_dd': 0.1778549642878988, 'pass': True}}}
+    gate concentration: {'top1_max': 0.13592494579940742, 'top3_max': 0.35619081873710856, 'pass': True}
+    gate vs_qqq_diagnostic: {'vs_qqq': -2.1567316556599216, 'blocking': False}
+=== B1 (RB2 intraday engineered + shallow XGB) ===
+  B1 walk-forward folds:
+    2018: train_years≤2017 n=360 val n=120
+    2019: train_years≤2018 n=360 val n=120
+    2021: train_years≤2020 n=480 val n=120
+    2023: train_years≤2022 n=600 val n=120
+    2025: train_years≤2024 n=720 val n=109
+  B1 verdict=FAIL_recorded_root_cause
+    cum_ret=+0.5399
+    sharpe=+0.6898
+    max_dd=-0.0745
+    vs_spy=-8.4638
+    spy_cum_ret=+9.0037
+    vs_qqq=-4.9370
+    qqq_cum_ret=+5.4770
+    gate vs_spy_hard: {'vs_spy': -8.463770017246775, 'pass': False}
+    gate per_validation_year_maxdd_le_20pct: {'pass': True, 'per_year': {2018: {'max_dd': 0.06253928148732185, 'pass': True}, 2019: {'max_dd': 0.02604095940250333, 'pass': True}, 2021: {'max_dd': 0.020422284116565933, 'pass': True}, 2023: {'max_dd': 0.02505113674784638, 'pass': True}, 2025: {'max_dd': 0.048188021909166746, 'pass': True}}}
+    gate stress_slice_maxdd_le_25pct: {'pass': True, 'per_slice': {'covid_flash': {'max_dd': 0.0614600630578613, 'pass': True}, 'rate_hike_2022': {'max_dd': 0.04636526145992901, 'pass': True}}}
+    gate concentration: {'top1_max': 0.12407991960443941, 'top3_max': 0.23950573028006603, 'pass': True}
+    gate vs_qqq_diagnostic: {'vs_qqq': -4.9370499702497055, 'blocking': False}
+
+verdict JSON -> data/audit/ml_redo/a1_b1_nav_track_a.json

@@ -16,7 +16,7 @@
 
 | Phase | 名称 | 顺序 | 性质 | 状态 |
 |---|---|---|---|---|
-| X0 | Dividend extension + atr flip | 1 | data work | 🟡 R1 done (data+flip+smoke);R2 re-run baselines |
+| X0 | Dividend extension + atr flip | 1 | data work | ✅ Round 1+2+3 done (data+flip+R3 smoke+TR baseline rerun) |
 | X1 | Protocol schema + GenerateStrategyAdapter | 2 | TDD build | ⬜ |
 | X2 | Rule-based trigger + exit policy + vol-conditional no-trade band | 3 | TDD build + experiment | ⬜ |
 | **X4** | **Deferred execution integration + M11 parity matrix** | **4** | **integrate existing** | ⬜ |
@@ -48,6 +48,21 @@
 ---
 
 ## 轮次日志(每轮 commit 时追加 1 行)
+
+### Round 3(2026-05-19) — X0 phase verdict + 完整收官
+
+- **bg `b2a8swjd7` exit0**:Track-A post-X0 verdict(TR-adjusted SPY/QQQ)。
+- **A1 (post-X0)**:cum +3.32 / Sharpe 0.79 / MaxDD -25.2% / **vs SPY -5.68(pre 3.53,实差 -215pp,**预测 -266pp 估高 51pp**)/ vs QQQ -2.16。
+- **B1 (post-X0)**:cum +0.54 / Sharpe 0.69 / MaxDD -7.5% / vs SPY -8.46(pre -5.81,差 -265pp)/ vs QQQ -4.94。
+- **预测 vs 实际 ROOT CAUSE**:我预测 A1 vs-SPY 变 -619pp(假设 A1 NAV 不变),实际 -568pp。**漏看双边都吃 dividend**:A1 持仓也是 TR-adjusted equities,自身升 +51pp 抵消 SPY 升 +267pp 的 19%。逻辑方向正(gap 更负)但量级偏 25%。
+- **意外 finding**:**A1 2018 MaxDD 20.02%(pre-X0 FAIL 20% gate by 2bps)→ 18.80% PASS post-X0**。panel 索引在 TR cascade 后微变,2018 NAV 路径轻微 reshape。A1 现在 **only failing hard gate = vs_spy**(MaxDD/stress/concentration 全过);"strategy 风控好但不跑赢长牛 TR-SPY" 的经典情形。
+- **A1/B1 verdict 不变 FAIL_recorded_root_cause**;**non-blanket**:long-only + cap-aware + monthly + low-div-yield momentum-leaning strategy 数学上跑不赢 TR-SPY 是 binding-constraint 天花板,与 v2 §1 + post-fix REVISION memo 一致;FAIL scale 在正确 baseline 下更 decisive。
+- **X0 phase 完整收官**:distributions.parquet 876→1342 rows(+SPY/QQQ + 8 ETF/equity)+ cycle06 atr=True flip propagate Track-A + baseline re-run 完成 + 诚实 ROOT CAUSE 我预测 quantitative 偏差。
+- **下一步**:Round 4 = X1 Protocol schema TDD build(`core/research/decision/` 新模块:DecisionPolicy / ExecutionPolicy Protocol + ActionDecision dataclass + GenerateStrategyAdapter)。AC = 新 schema 单测全绿 + 既有 backtest/paper 默认路径 bit-identical(mode='off' precedent 同 cascade_overlay R12 / tier T0)。
+
+### Round 2(2026-05-19) — Track-A TR baseline bg launch
+
+- 跑 `dev/scripts/track_a/a1_b1_nav_track_a.py`(R1 flip 后)。bg `b2a8swjd7` running with TR-adjusted SPY/QQQ panel via cycle06 _load_panel reuse。verdict 落 Round 3。
 
 ### Round 1(2026-05-19) — v2.1 patch + X0 sub-step-1 (data+flip+R3 smoke)
 
