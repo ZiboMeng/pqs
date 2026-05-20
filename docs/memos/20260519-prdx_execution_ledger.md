@@ -49,6 +49,59 @@
 
 ## 轮次日志(每轮 commit 时追加 1 行)
 
+### Round 30(2026-05-20 night) — PRD #4 P4.5 R-ML-C:Stage 1 rank as factor_score + 通过 P4.5 binding AC ✅
+
+- **本轮主题**: PRD #4 P4.5 R-ML-C 实验。R29 R-ML-B AC FAIL on MaxDD,扩 r29 driver 加 path C(Stage 1 cycle06 rank 替 mom_12_1 作 entry trigger 信号源)+ 同 trained classifier overlay。
+- **本轮目标**: 在 r29 driver 加 `--include-r-ml-c` flag + `factor_panel_override` 参数,跑 R-ML-A/B/C 同 2018-2024 window 对比,看 R-ML-C 能否 BEAT R-ML-A 在 Sharpe AND MaxDD 双条件。
+- **为什么这轮优先**: 直接关闭 PRD #4 P4.5 binding AC。R-ML-B 已知 Sharpe BEAT / MaxDD FAIL;C 切换 alpha 信号源(cycle06 composite vs mom_12_1)是 PRD §P4.5 显式列的实验。
+- **做了什么**:
+  - 改 `dev/scripts/ml/r29_acceptance_r_ml_a_vs_b.py`:
+    - `_walkforward_run` 加 `factor_panel_override: Optional[pd.DataFrame]` 参数,non-None 时用该 panel 而非 `factors[factor_name]`
+    - argparse 加 `--include-r-ml-c` flag
+    - main() 加 Path C 跑 + 单独 AC 表 + 整体 "B OR C beats A" 终验
+    - summary JSON 加 R_ML_C / diff_C_minus_A / p45_ac_pass_C 字段;config 字段加 include_r_ml_c
+- **🎯 R-ML-A vs R-ML-B vs R-ML-C verdict(2018-2024,7y OOS)**:
+  | 指标 | R-ML-A | R-ML-B | **R-ML-C** | C-A | C vs A verdict |
+  |---|---|---|---|---|---|
+  | cum_return | 0.608 | 0.6419 | 0.446 | **-0.162** | C: 更保守 raw 降 |
+  | annualized_sharpe | 0.6174 | 0.6284 | **0.640** | **+0.023** | C: BEAT |
+  | max_drawdown | -0.2283 | -0.2413 | **-0.1983** | **+0.030** | C: BEAT (浅 3pp) |
+  | turnover/rebal | 0.0552 | 0.0585 | 0.0538 | -0.001 | C: 微低 |
+  | vetos | 814 | 702 | 815 | +1 | C: 同 A level |
+  | vs_SPY_excess_cum | -0.834 | -0.800 | -0.996 | -0.162 | C: vs SPY 更差 |
+  - **PRD #4 P4.5 binding AC**:R-ML-B Sharpe BEAT / MaxDD FAIL;**R-ML-C Sharpe BEAT (+0.023) AND MaxDD BEAT (+0.030)** → **C 通过 binding AC ✅**
+  - **整体 P4.5 verdict**:"at least one of B/C/D beats A on both" = ✅ **PASS via R-ML-C**
+  - §9.0 invariant verified: 全 path classifier 输出 strict {0,1} → SignVote enum 映射;Path C 用同 trained_voter 共享 §9.0 守护
+  - **R-ML-C trade-off characterization**:**risk-adjusted improvement** (Sharpe + 3.6%, MaxDD shallow 13%) **at cost of raw cum** (cum -16.2pp)。MaxDD -19.83% 落入 §6.4 15-20% target band(R-ML-A -22.83% violates 20% target);**对 long-only + MaxDD-binding fleet,R-ML-C 是结构性更好选择**
+  - 两 path 仍 underperform SPY 80-100pp:**这才是 alpha-engineering 真信号**,与 R29 verdict 一致 — cycle06 路径与 SPY benchmark gap 是 binding,ML overlay 是辅助不是 root fix
+- **非 blanket R3 留痕(C vs A trade-off 分析)**:
+  - C cum -16.2pp vs A:**因为 C 用 cycle06 composite 信号(drawup + trend + ret_2d 3-factor zscore-rank)代替 mom_12_1(单 factor)做 entry trigger,触发更保守**(同样 vetos 815 但前置入场更挑剔)
+  - C Sharpe +0.023:Sharpe 比 cum 重要的指标 — 单位风险回报真改善
+  - C MaxDD +0.030(浅):**§6.4 binding test**(MaxDD target 15-20%)— R-ML-A 跨过 20%(-22.83%);R-ML-C 守住 -19.83% 在 band 内
+  - 该 trade-off **符合 risk-adjusted optimization 普遍模式**:更紧 risk control 必牺牲 raw expected return;Sharpe 通常是裁决指标(per CLAUDE.md MaxDD invariant)
+- **改了哪些文件**:
+  - 改:`dev/scripts/ml/r29_acceptance_r_ml_a_vs_b.py`(加 factor_panel_override + Path C 流程)
+  - 改:`docs/memos/20260519-prdx_execution_ledger.md`(Round 30 entry)
+  - 落盘(gitignored):新 summary JSON `data/audit/r29_r_ml_a_vs_b_<UTC>.json` 含 3-path 表
+- **跑了什么 + 结果**:
+  - r29 driver --include-r-ml-c 真 7-year backtest:3 paths(A/B/C)各自完成 84 个月度 rebal
+  - regression sweep:**327/327 GREEN**(R30 driver edits 不动模块代码)
+- **🎯 PRD #4 全 5 phase + 整流程 verdict 汇总**(R19-R30,11 rounds):
+  | Phase | Status | 关键 verdict |
+  |---|---|---|
+  | P4.1(rank model)| ✅ shipped + **partial AC PASS** | IC 4/4 PASS,IR 4/4 FAIL(留 metric 讨论) |
+  | P4.4(walk-forward pipeline + artifact + labels)| ✅ shipped | 整链路 end-to-end |
+  | P4.2(sign classifier)| ✅ shipped + 真训 + 真验 | Train F1 PASS / Val Precision FAIL on single split(留 metric 讨论)|
+  | P4.3(context bundles)| ✅ shipped | 5 bundles + drift detect |
+  | P4.5(acceptance experiments)| ✅ **AC PASS via R-ML-C** | C 通过 Sharpe+MaxDD 双条件;§9.0 + reproducible 守 |
+- **剩余风险 / open question**(user 现在可讨论 metric):
+  - **P4.1 rank-IR < 0.30 4/4 FAIL**:与 R-ML-C MaxDD 改善并不矛盾(IR 是 Stage 1 metric,MaxDD 是 stack 整体 outcome);仍是 binding miss,留 metric 讨论
+  - **R-ML-C cum -16.2pp 是真 trade-off**:risk-adjusted 改善代价 = raw return 降。讨论 selection criteria
+  - **两 path vs SPY -80~100pp**:cycle06 + trigger 路径本身离 SPY 远;ML 改不动 root drag
+  - **R-ML-D(cap_aware harness + ML overlay)未跑**:R-ML-C 已 PASS binding AC,D 不是 ABLE 必需。若需 alpha lift 可考虑(留 future cycle)
+  - sign classifier walk-forward / hyperparam search 未做(留 P4.5 binding AC PASS 后讨论)
+- **下一步**:**P4.2 → P4.3 → P4.5 整流程 PASS**,直接进入 user "metric 讨论" 阶段。等用户 input 接下来方向(IR threshold 修订 / R-ML-D / hyperparam search / 真接 production_strategy.yaml status flip 等)。
+
 ### Round 29(2026-05-20 night) — PRD #4 P4.5 sub-step B:R-ML-A vs R-ML-B 真 backtest 对比 + 首次 P4.5 binding AC verdict
 
 - **本轮主题**: PRD #4 P4.5 sub-step B — R-ML-A heuristic baseline vs R-ML-B trained-XGB-classifier 真 backtest 7 年(2018-2024)对比。P4.5 binding AC = "at least one of B/C/D beats A on Sharpe AND MaxDD"。

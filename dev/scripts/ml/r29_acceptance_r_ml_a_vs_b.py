@@ -25,7 +25,7 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 
 PROJ = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJ))
@@ -131,18 +131,26 @@ def _walkforward_run(
     panel, factors, train_start, train_end,
     ml_mode: str, vote_fn,
     factor_name: str = "mom_12_1",
+    factor_panel_override: Optional[pd.DataFrame] = None,
     entry_threshold: float = 0.7,
     exit_threshold: float = 0.3,
     band_base: float = 0.02,
     base_position_size: float = 0.05,
     confirm_min_bars: int = 2,
 ) -> dict:
+    """Walk-forward with optional custom factor_panel (overrides
+    ``factor_name`` lookup). R-ML-C uses stage1_rank as the factor
+    signal — pass it via ``factor_panel_override``.
+    """
     close = panel["close"].sort_index()
     close = close.loc[(close.index >= train_start)
                       & (close.index <= train_end)]
-    factor = factors[factor_name].loc[
-        (factors[factor_name].index >= train_start)
-        & (factors[factor_name].index <= train_end)]
+    if factor_panel_override is not None:
+        factor_src = factor_panel_override
+    else:
+        factor_src = factors[factor_name]
+    factor = factor_src.loc[(factor_src.index >= train_start)
+                            & (factor_src.index <= train_end)]
     realized_vol = _realized_vol_60d(close)
 
     policy = RuleBasedDecisionPolicy(
@@ -274,6 +282,9 @@ def main() -> int:
     parser.add_argument("--backtest-end", default="2024-12-31")
     parser.add_argument("--context-bundle", default="regime_state")
     parser.add_argument("--out-dir", default="data/audit")
+    parser.add_argument("--include-r-ml-c", action="store_true",
+                        help="Also run R-ML-C (Stage 1 rank as factor_score "
+                             "instead of mom_12_1) + trained classifier")
     args = parser.parse_args()
 
     print(f"=== R29 P4.5 sub-step B: R-ML-A vs R-ML-B real backtest ===")
@@ -329,10 +340,28 @@ def main() -> int:
     print(f"  vetos={path_b['vote_counts']['VETO']}  "
           f"vs_SPY_excess_cum={path_b['vs_spy_excess_cum']}")
 
+    path_c: Optional[Dict[str, Any]] = None
+    if args.include_r_ml_c:
+        print(f"\nPath C (R-ML-C): Stage 1 rank as factor_score + trained classifier")
+        path_c = _walkforward_run(
+            panel, factors, train_start, train_end,
+            ml_mode="active", vote_fn=trained_voter,
+            factor_panel_override=stage1_rank)
+        print(f"  cum={path_c['cum_return']}  Sharpe={path_c['annualized_sharpe']}  "
+              f"MaxDD={path_c['max_drawdown']}  turnover={path_c['turnover_per_rebal']}")
+        print(f"  vetos={path_c['vote_counts']['VETO']}  "
+              f"vs_SPY_excess_cum={path_c['vs_spy_excess_cum']}")
+
     # AC verdict
     sharpe_beat = path_b["annualized_sharpe"] > path_a["annualized_sharpe"]
     maxdd_beat = path_b["max_drawdown"] > path_a["max_drawdown"]   # less negative = better
     p45_ac_pass = sharpe_beat and maxdd_beat
+
+    c_sharpe_beat = c_maxdd_beat = c_ac_pass = None
+    if path_c is not None:
+        c_sharpe_beat = path_c["annualized_sharpe"] > path_a["annualized_sharpe"]
+        c_maxdd_beat = path_c["max_drawdown"] > path_a["max_drawdown"]
+        c_ac_pass = c_sharpe_beat and c_maxdd_beat
 
     print(f"\n=== Verdict ===")
     print(f"  Sharpe diff (B - A):  {path_b['annualized_sharpe'] - path_a['annualized_sharpe']:+.4f}  "
@@ -342,31 +371,51 @@ def main() -> int:
     print(f"  cum    diff (B - A):  {path_b['cum_return'] - path_a['cum_return']:+.4f}")
     print(f"  PRD #4 P4.5 AC (B beats A on Sharpe AND MaxDD): "
           f"{'✅ PASS' if p45_ac_pass else '❌ FAIL (non-blanket — record root cause)'}")
+    if path_c is not None:
+        print(f"  Sharpe diff (C - A):  {path_c['annualized_sharpe'] - path_a['annualized_sharpe']:+.4f}  "
+              f"{'BEAT' if c_sharpe_beat else 'FAIL'}")
+        print(f"  MaxDD  diff (C - A):  {path_c['max_drawdown'] - path_a['max_drawdown']:+.4f}  "
+              f"{'BEAT (less DD)' if c_maxdd_beat else 'FAIL'}")
+        print(f"  cum    diff (C - A):  {path_c['cum_return'] - path_a['cum_return']:+.4f}")
+        print(f"  PRD #4 P4.5 AC (C beats A on Sharpe AND MaxDD): "
+              f"{'✅ PASS' if c_ac_pass else '❌ FAIL (non-blanket)'}")
+        any_ac_pass = p45_ac_pass or c_ac_pass
+        print(f"\n  P4.5 binding AC (B OR C beats A on both): "
+              f"{'✅ PASS' if any_ac_pass else '❌ FAIL'}")
 
     out_dir = PROJ / args.out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
     trained_at = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    summary = {
+    summary: Dict[str, Any] = {
         "R_ML_A_weak_factor_filter": path_a,
         "R_ML_B_trained_xgb_classifier": path_b,
-        "diff_B_minus_A": {
-            "sharpe": round(path_b["annualized_sharpe"] - path_a["annualized_sharpe"], 4),
-            "max_dd": round(path_b["max_drawdown"] - path_a["max_drawdown"], 4),
-            "cum_return": round(path_b["cum_return"] - path_a["cum_return"], 4),
-            "vs_spy_excess_cum": round(
-                path_b["vs_spy_excess_cum"] - path_a["vs_spy_excess_cum"], 4),
-        },
-        "p45_ac_pass": p45_ac_pass,
-        "config": {
-            "classifier_artifact": str(args.classifier_artifact),
-            "classifier_lineage": artifact.metadata.lineage_tag,
-            "classifier_spec_id": artifact.metadata.spec_id,
-            "backtest_start": args.backtest_start,
-            "backtest_end": args.backtest_end,
-            "context_bundle": args.context_bundle,
-        },
-        "trained_at_utc": trained_at,
     }
+    if path_c is not None:
+        summary["R_ML_C_stage1_rank_factor_plus_classifier"] = path_c
+        summary["diff_C_minus_A"] = {
+            "sharpe": round(path_c["annualized_sharpe"] - path_a["annualized_sharpe"], 4),
+            "max_dd": round(path_c["max_drawdown"] - path_a["max_drawdown"], 4),
+            "cum_return": round(path_c["cum_return"] - path_a["cum_return"], 4),
+        }
+        summary["p45_ac_pass_C"] = c_ac_pass
+    summary["diff_B_minus_A"] = {
+        "sharpe": round(path_b["annualized_sharpe"] - path_a["annualized_sharpe"], 4),
+        "max_dd": round(path_b["max_drawdown"] - path_a["max_drawdown"], 4),
+        "cum_return": round(path_b["cum_return"] - path_a["cum_return"], 4),
+        "vs_spy_excess_cum": round(
+            path_b["vs_spy_excess_cum"] - path_a["vs_spy_excess_cum"], 4),
+    }
+    summary["p45_ac_pass_B"] = p45_ac_pass
+    summary["config"] = {
+        "classifier_artifact": str(args.classifier_artifact),
+        "classifier_lineage": artifact.metadata.lineage_tag,
+        "classifier_spec_id": artifact.metadata.spec_id,
+        "backtest_start": args.backtest_start,
+        "backtest_end": args.backtest_end,
+        "context_bundle": args.context_bundle,
+        "include_r_ml_c": args.include_r_ml_c,
+    }
+    summary["trained_at_utc"] = trained_at
     out_path = out_dir / f"r29_r_ml_a_vs_b_{trained_at}.json"
     out_path.write_text(json.dumps(summary, indent=2))
     print(f"\nsummary → {out_path}")
