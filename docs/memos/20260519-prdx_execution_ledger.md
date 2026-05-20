@@ -49,6 +49,44 @@
 
 ## 轮次日志(每轮 commit 时追加 1 行)
 
+### Round 24(2026-05-20 night) — PRD #4 P4.4 sub-step 3a:labels + bar-integrity smoke + pipeline panel-index guard(24 GREEN + R23 catch closed)
+
+- **本轮主题**: PRD #4 P4.4 sub-step 3 prereq — `core/research/ml/labels.py` 提供 forward-return labels + 4 个 bar-integrity smoke helpers;并把 R23 surface 的 panel.index 隐性假设 fold 进 `run_walk_forward` 入口(`_validate_panel_indices`)。24a 拆 2 sub-sub:24a-1(本轮)就位所有 utility,24a-2(下轮)real-data driver 调用。
+- **本轮目标**:为 sub-step 3 real-data driver 准备好所有 discipline helper,disipline 测试覆盖 → driver 在调用前能 fail-fast on weekend rows / sealed-year leak / RangeIndex / bad mask。
+- **为什么这轮优先**: 防 sub-step 3 driver 在跑真数据时 5 分钟 smoke 失败 → 浪费一轮(per `feedback_bar_level_data_integrity_smoke` SPY off-by-one 跨 5 cycle 教训);R23 panel.index 假设遗留需关闭。
+- **做了什么**:
+  - 新 `core/research/ml/labels.py`(210 行)6 函数:
+    - `make_forward_return_labels(price_df, horizon_days)` — simple-return forward shift,horizon 校验 ≥ 1
+    - `make_forward_log_return_labels(price_df, horizon_days)` — log-return version,negative ratio → NaN
+    - `assert_panel_datetime_index(panel, name)` — 支持 DataFrame + dict,raise on RangeIndex
+    - `assert_bar_integrity(panel)` — HARD:DatetimeIndex / monotone / no dup / no weekend(Sat=5/Sun=6 dayofweek check)
+    - `assert_no_sealed_year(panel, sealed_years)` — last-line-of-defense at data level(pipeline guard at config level)
+    - `apply_tradeable_mask(labels, mask)` — reindex + fillna(False) + .where 应用 boolean mask
+  - 更新 `core/research/ml/pipeline.py::run_walk_forward`:加 `_validate_panel_indices(features, labels)` 入口校验 → DatetimeIndex 不满足 raise(关闭 R23 R3 surface 的隐性假设)
+  - 24 TDD tests `tests/unit/research/ml/test_labels.py`:
+    - forward-return × 5(horizon=1 元素级正确 / horizon=5 / log-return 等于 np.log(ratio) / horizon=0 raise / non-datetime raise)
+    - bar-integrity × 5(干净 bday 过 / weekend 注入 raise / 反序非 monotone raise / 重复日期 raise / RangeIndex raise)
+    - sealed-year × 4(无 overlap 过 / 有 overlap raise / 空 sealed_years no-op / dict panel 每 member 检)
+    - tradeable mask × 5(None 不动 / 全 False → NaN / 部分 mask / mask reindex / non-DataFrame TypeError)
+    - DatetimeIndex helper × 3
+    - pipeline entry validation × 2(labels RangeIndex raise / features RangeIndex raise — **关闭 R23 catch**)
+- **改了哪些文件**:
+  - 新:`core/research/ml/labels.py`(210 行)
+  - 新:`tests/unit/research/ml/test_labels.py`(24 tests)
+  - 改:`core/research/ml/pipeline.py`(加 `_validate_panel_indices` + run_walk_forward 入口调用)
+- **跑了什么测试 + 结果**:
+  - new labels tests:**24/24 GREEN**(0.79s)
+  - 全 ml/ + promotion/ + decision/ + integration prdx regression:**293/293 GREEN**(32.75s),零 regression
+- **新发现 / 新机会**:
+  - R23 `_slice_panel_dict` 隐性 DatetimeIndex 假设现在显性 — driver entry fail-fast 不会让真数据上 TypeError 浪费时间
+  - sealed-year guard 两层(config-level WalkForwardConfig 的 sealed_years guard + data-level assert_no_sealed_year)互为 backstop
+  - holiday-day omission **故意未 check**(NYSE 不规则,pandas_market_calendars 是右工具);该决策 docstring 留痕
+- **剩余风险**:
+  - sub-step 3 driver 还没写;real-data run 还没出 numbers(P4.1 AC 真值待 24a-2 round)
+  - `apply_tradeable_mask` 默认 missing-from-mask → False(treat as not tradeable)— 该 conservative default 可能 over-mask;real-data driver 应 log 多少 cells 被 mask
+  - log-return 处理 negative ratio → NaN,real-data 上 splits/dividends 走 BarStore adjusted=True 应该不出 negative;若出 surface 数据问题
+- **下一轮建议方向**: **Round 25 = PRD #4 P4.4 sub-step 3b** real-data driver `dev/scripts/ml/walk_forward_rank_sign.py` — 调 24a-1 labels + bar-integrity → load cycle06 panel via BarStore.load(adjusted=True, adjusted_total_return=True)+ generate_all_factors → tradeable_mask → run_walk_forward(LinearBaseline + XGBRanker)→ save_artifact → 产 P4.1 AC 真值表(per-fold rank-IC + rank-IR + executable vs expanded_v2 对比 + on-tradeable vs pooled 对比)。
+
 ### Round 23(2026-05-20 night) — PRD #4 P4.4 sub-step 2:artifact persistence(22 GREEN + spec_id determinism + tamper detection + §9.0 invariant)
 
 - **本轮主题**: PRD #4 P4.4 sub-step 2 — model artifact 持久化。让 R22 walk-forward 训完的 model + WalkForwardResult 落盘可复现 + drift-detectable。打通 train → persist → reload → predict 整链路,为 sub-step 3 driver 准备好接口。

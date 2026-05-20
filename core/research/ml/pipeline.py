@@ -252,6 +252,26 @@ def evaluate_fold(
     )
 
 
+def _validate_panel_indices(
+    features: Dict[str, pd.DataFrame], labels: pd.DataFrame,
+) -> None:
+    """Enforce DatetimeIndex on features panels + labels (R23 catch follow-up).
+
+    `_slice_panel_dict` uses `panel.index >= start` which silently fails
+    on RangeIndex with `TypeError`. Validate upstream so the failure
+    surfaces at driver entry with a clear message.
+    """
+    if not isinstance(labels.index, pd.DatetimeIndex):
+        raise ValueError(
+            f"labels must have DatetimeIndex; got "
+            f"{type(labels.index).__name__}")
+    for name, panel in features.items():
+        if not isinstance(panel.index, pd.DatetimeIndex):
+            raise ValueError(
+                f"features[{name!r}] must have DatetimeIndex; got "
+                f"{type(panel.index).__name__}")
+
+
 def run_walk_forward(
     model_factory: Callable[[], RankModelProtocol],
     config: WalkForwardConfig,
@@ -265,18 +285,19 @@ def run_walk_forward(
         model_factory: zero-arg callable producing a fresh model per
             fold (each fold gets a fresh model — no warm-start).
         config: WalkForwardConfig.
-        features: dict[feature_name, panel(date×symbol)].
+        features: dict[feature_name, panel(date×symbol)] with DatetimeIndex.
         labels: DataFrame(date×symbol) of forward returns or rank
-            targets. Per PRD #4 P4.1 AC: horizon MUST match the
-            canonical config's holding_freq (currently weekly/monthly
-            per cycle06 spec); caller is responsible for shifting +
-            aligning the label upstream.
+            targets, with DatetimeIndex. Per PRD #4 P4.1 AC: horizon
+            MUST match the canonical config's holding_freq (currently
+            weekly/monthly per cycle06 spec); caller is responsible
+            for shifting + aligning the label upstream.
         sealed_years: tuple of years off-limits.
 
     Returns:
         WalkForwardResult with per-fold transparency + aggregate
         mean rank-IC / rank-IR.
     """
+    _validate_panel_indices(features, labels)
     sealed_tuple = tuple(sealed_years)
     per_fold: List[FoldMetrics] = []
     for fold in iter_folds(config, sealed_tuple):
