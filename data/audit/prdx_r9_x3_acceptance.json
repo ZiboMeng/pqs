@@ -1,0 +1,303 @@
+{
+  "off_mode": {
+    "mode": "off",
+    "n_rebal": 81,
+    "turnover_total": 3.8186,
+    "turnover_per_rebal": 0.0471,
+    "cum_return": 0.4083,
+    "annualized_sharpe": 0.4964,
+    "max_drawdown": -0.2095,
+    "vs_spy_excess": -1.0338,
+    "vs_qqq_excess": -1.9738,
+    "action_counts": {
+      "ENTER_FULL": 995,
+      "ENTER_PARTIAL": 0,
+      "ADD": 0,
+      "HOLD": 0,
+      "TRIM": 0,
+      "EXIT": 0,
+      "NO_TRADE": 2852
+    },
+    "state_log_first5": [
+      {
+        "date": "2018-01-31",
+        "n_held": 0,
+        "gross": 0,
+        "top": []
+      },
+      {
+        "date": "2018-02-28",
+        "n_held": 17,
+        "gross": 0.5027,
+        "top": [
+          [
+            "SOXL",
+            0.05
+          ],
+          [
+            "TQQQ",
+            0.048
+          ],
+          [
+            "NVDA",
+            0.048
+          ],
+          [
+            "MU",
+            0.043
+          ],
+          [
+            "ISRG",
+            0.04
+          ]
+        ]
+      },
+      {
+        "date": "2018-04-30",
+        "n_held": 22,
+        "gross": 0.6147,
+        "top": [
+          [
+            "NVDA",
+            0.05
+          ],
+          [
+            "SOXL",
+            0.05
+          ],
+          [
+            "TQQQ",
+            0.048
+          ],
+          [
+            "MU",
+            0.045
+          ],
+          [
+            "AMZN",
+            0.043
+          ]
+        ]
+      },
+      {
+        "date": "2018-05-31",
+        "n_held": 24,
+        "gross": 0.6921,
+        "top": [
+          [
+            "MU",
+            0.05
+          ],
+          [
+            "NVDA",
+            0.05
+          ],
+          [
+            "SOXL",
+            0.05
+          ],
+          [
+            "TQQQ",
+            0.048
+          ],
+          [
+            "AMZN",
+            0.045
+          ]
+        ]
+      },
+      {
+        "date": "2018-06-29",
+        "n_held": 26,
+        "gross": 0.7576,
+        "top": [
+          [
+            "MU",
+            0.05
+          ],
+          [
+            "NVDA",
+            0.05
+          ],
+          [
+            "SOXL",
+            0.05
+          ],
+          [
+            "TQQQ",
+            0.048
+          ],
+          [
+            "AMZN",
+            0.045
+          ]
+        ]
+      }
+    ],
+    "policy_config": {
+      "factor_name": "mom_12_1",
+      "entry_threshold": 0.7,
+      "exit_threshold": 0.3,
+      "confirm_min_bars": 2,
+      "base_position_size": 0.05,
+      "ttl_bars": 90,
+      "band_base": 0.02,
+      "partial_full_threshold": 0.05,
+      "regime_placeholder": "NEUTRAL_constant_R9"
+    }
+  },
+  "active_mode": {
+    "mode": "active",
+    "n_rebal": 81,
+    "turnover_total": 3.5165,
+    "turnover_per_rebal": 0.0434,
+    "cum_return": 0.4838,
+    "annualized_sharpe": 0.565,
+    "max_drawdown": -0.2017,
+    "vs_spy_excess": -0.9582,
+    "vs_qqq_excess": -1.8982,
+    "action_counts": {
+      "ENTER_FULL": 0,
+      "ENTER_PARTIAL": 53,
+      "ADD": 32,
+      "HOLD": 925,
+      "TRIM": 0,
+      "EXIT": 49,
+      "NO_TRADE": 2788
+    },
+    "state_log_first5": [
+      {
+        "date": "2018-01-31",
+        "n_held": 0,
+        "gross": 0,
+        "top": []
+      },
+      {
+        "date": "2018-02-28",
+        "n_held": 13,
+        "gross": 0.47,
+        "top": [
+          [
+            "SOXL",
+            0.05
+          ],
+          [
+            "TQQQ",
+            0.048
+          ],
+          [
+            "NVDA",
+            0.048
+          ],
+          [
+            "MU",
+            0.043
+          ],
+          [
+            "ISRG",
+            0.04
+          ]
+        ]
+      },
+      {
+        "date": "2018-04-30",
+        "n_held": 13,
+        "gross": 0.47,
+        "top": [
+          [
+            "SOXL",
+            0.05
+          ],
+          [
+            "TQQQ",
+            0.048
+          ],
+          [
+            "NVDA",
+            0.048
+          ],
+          [
+            "MU",
+            0.043
+          ],
+          [
+            "ISRG",
+            0.04
+          ]
+        ]
+      },
+      {
+        "date": "2018-05-31",
+        "n_held": 17,
+        "gross": 0.5939,
+        "top": [
+          [
+            "SOXL",
+            0.05
+          ],
+          [
+            "TQQQ",
+            0.048
+          ],
+          [
+            "NVDA",
+            0.048
+          ],
+          [
+            "COP",
+            0.043
+          ],
+          [
+            "MU",
+            0.043
+          ]
+        ]
+      },
+      {
+        "date": "2018-06-29",
+        "n_held": 20,
+        "gross": 0.6617,
+        "top": [
+          [
+            "SOXL",
+            0.05
+          ],
+          [
+            "TQQQ",
+            0.048
+          ],
+          [
+            "NVDA",
+            0.048
+          ],
+          [
+            "COP",
+            0.043
+          ],
+          [
+            "MU",
+            0.043
+          ]
+        ]
+      }
+    ],
+    "policy_config": {
+      "factor_name": "mom_12_1",
+      "entry_threshold": 0.7,
+      "exit_threshold": 0.3,
+      "confirm_min_bars": 2,
+      "base_position_size": 0.05,
+      "ttl_bars": 90,
+      "band_base": 0.02,
+      "partial_full_threshold": 0.05,
+      "regime_placeholder": "NEUTRAL_constant_R9"
+    }
+  },
+  "diff": {
+    "turnover_reduction_pct": 7.86,
+    "sharpe_diff": 0.0686,
+    "maxdd_diff": 0.0078,
+    "cum_ret_diff": 0.0755
+  },
+  "timestamp": "2026-05-20T02:24:51.325796Z"
+}

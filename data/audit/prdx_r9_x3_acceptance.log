@@ -1,0 +1,9 @@
+[2026-05-20T02:23:12.358963Z] R9 X3 acceptance — start (off vs active comparison)
+[2026-05-20T02:24:49.507746Z] panel close (4276, 79) factors 113
+[2026-05-20T02:24:49.507823Z] train window 2018-01-01 → 2024-12-31 (strict-chronological; sealed 2026 永不读)
+[2026-05-20T02:24:49.507832Z] Running mode='off' (legacy bit-identical baseline)...
+[2026-05-20T02:24:50.405092Z] OFF: cum_ret=0.4083, Sharpe=0.4964, MaxDD=-0.2095, turnover/rebal=0.0471
+[2026-05-20T02:24:50.405108Z] Running mode='active' (band-gated partial rebalance)...
+[2026-05-20T02:24:51.325703Z] ACTIVE: cum_ret=0.4838, Sharpe=0.565, MaxDD=-0.2017, turnover/rebal=0.0434
+[2026-05-20T02:24:51.325728Z] DIFF: turnover_reduction=7.9%, sharpe_diff=+0.0686, maxdd_diff=+0.0078
+[2026-05-20T02:24:51.326289Z] written /home/zibo/Documents/projects/pqs/data/audit/prdx_r9_x3_acceptance.json
