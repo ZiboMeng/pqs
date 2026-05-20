@@ -49,6 +49,32 @@
 
 ## 轮次日志(每轮 commit 时追加 1 行)
 
+### Round 17(2026-05-20) — auditor 2nd-round F5/F8 closure + PRD #3 / #4 draft
+
+- **触发**: auditor 第二轮 review surface F5 (hardcoded params not from yaml) + F8 (voter_kind config 未 consumed) + 主链/live/RuleBased 等 deeper findings。user "go" 修 #1 + 写 PRD #3 + #4。
+- **F5/F8 closure (commit 5f01a6f)**:
+  - `core/config/production_strategy.py`: 加 `DecisionStackConfig` pydantic model + 4 nested submodels(partial_rebalance / ml_sidecar / rule_based / deferred_execution);挂 `ProductionStrategyConfig.decision_stack` field 与 factory default
+  - `scripts/run_backtest.py`:
+    - `_resolve_voter_from_config(ml_sidecar_cfg)` factory:voter_kind → vote_fn(no_op / weak_factor_filter ok yaml-only;classifier_voter raises with explicit-wiring hint;unknown raises)
+    - `_apply_decision_stack_overlay_from_config(weights, regime, ds_cfg)` wrapper threading DecisionStackConfig → overlay params
+    - `_apply_decision_stack_overlay()` 加 `partial_full_threshold` kwarg(was hardcoded 0.05)
+    - `run_strategy()` 加 `decision_stack_cfg` kwarg;main() loads ps_cfg.decision_stack and passes through
+    - Fallback path 保留(logged WARNING)防 backward-compat broken
+  - `scripts/run_paper.py`: 同 wiring;run_replay() 加 `decision_stack_cfg`;main() loads from production_strategy.yaml
+  - Tests (TestConfigDrivenRuntime, 5 tests):pydantic 解析 / tight vs wide band 实际不同(small-delta panel demonstrates threshold effect end-to-end)/ unknown voter raises / classifier_voter yaml-only raises / default enabled=False yields None。
+  - **187/187 GREEN** post-R17(integration 13 + decision/ 174);零 regression。
+- **PRD #3 draft**: `docs/prd/20260520-prd_trigger_first_canonical_promotion.md` — Task 3 canonical promotion roadmap。7 phases (P3.1-P3.7): canonical config selection (R16 Path A 推荐,directional gate) + OOS WF for trigger-first + paper-backtest M3 alignment + QQQ diagnostic + fingerprints + M2 promote_strategy.py extension + post-flip verification。估 2-3 cycle 总工作。**Captures "remaining 1%" 作为正式 roadmap 而非 ad-hoc flip**。
+- **PRD #4 draft**: `docs/prd/20260520-prd_rank_first_ml_pipeline.md` — rank-first ML model training pipeline。2-stage architecture per auditor 2026-05-20 + Gu-Kelly-Xiu + learning-to-rank lit:
+  - Stage 1 (RANK): cross-sectional percentile prediction(XGBRanker / LightGBM / linear baseline);rank-IC > 0.02 + rank-IR > 0.30 AC
+  - Stage 2 (SIGN): binary classifier {VETO, NO_VOTE} on top-decile;F1(VETO) > baseline + Precision(VETO) > 0.55 AC
+  - 训练 discipline: 严格 walk-forward + 跨 bar standardization + sealed-2026 守
+  - 与现有 `classifier_voter` / `binary_classifier_voter` wiring 对接
+  - 5 phases (P4.1-P4.5);估 3-4 cycle。Production deployment 留 PRD #3 的 M2 promote sequence(non-blanket staging note)
+- **诚实留痕 — 操作员独立判断**:auditor 主要 4 个 code findings 全 verified accurate;F1/F2/F3 + RuleBased-not-main 是 architecture choice not bug(纳入 PRD #3 directional 范围);F4/F5/F6 现 R17 closure。F7 live path overlay 仍 deliberate hold per Task 3 prerequisite discipline。rank-first ML methodology(rank → sign 两层)在文献支持范围(Gu-Kelly-Xiu, learning-to-rank);15m-30m specific cadence 不是 academic standard 文献支持 auditor 判断。
+- **DONE 真 final 状态(post-R17)**:
+  - PRD-X v2 implementation loop **完整 DONE**:5/5 X-phases + §12.0 apples-to-apples PASS + auditor 1st-round 6/6 + 2nd-round F5/F8 closed + 187/187 origin-GREEN + §6.4/§9.0/sealed-2026 全守
+  - Remaining: PRD #3(trigger-first canonical promotion, 2-3 cycle directional)+ PRD #4(rank-first ML, 3-4 cycle alpha-engineering)— **均为 distinct work cycles 不属于本 implementation loop**
+
 ### Round 16(2026-05-20) — 剩 5% 收尾:4/5 closed(Tasks 1/2/4/5),Task 3 directional block honest 留痕
 
 - **触发**: 用户 "剩下的 5% 做掉"。operator R3 audit 实做 4 项 + Task 3 honest declined(see 下方 block 留痕)。
