@@ -106,4 +106,49 @@ diagnostic · [ ] baseline stress slices [ ] per-year MaxDD
 
 ⑪ **commit** — `de7eb38`(主)。
 
-<!-- Round 3 起在此行下方追加 -->
+## Round 3 — R0 第三步:stress-slice 机制核查 — STOPPED, NEEDS USER DECISION
+
+**时间**: 2026-05-21 · **主 commit**: `a23bcf0` · **测试基线**: 3864
+passed(无代码改动,不变)
+
+① **当前阶段** — Round 3 / Workstream R0 / 第三步(机制核查)。
+
+② **本轮目标** — 核查既有 stress-slice MaxDD 机制,确认 sanctioned
+实现后产出 baseline covid_flash / rate_hike stress 行。
+
+③ **为什么先做它** — Round 2 §⑨ 已定:stress-slice 实现前先核查。
+
+④ **做了什么** — 核查 `stress_tester.py`(静态 shock 模型,不适用)、
+`cycle06_track_a_eval.py`(Track-A 用 selector 面板算
+metrics_per_stress_slice)、`temporal_split.py`(slice source 自
+train 年)、`temporal_split_acceptance`(stress_check_only gate)。
+结论写入 `rerisk-pack.md` §1.3。
+
+⑤ **改了哪些文件** — `docs/memos/20260521-rerisk-pack.md`(§1.3)。
+
+⑥ **跑了哪些测试 + 结果** — 机制核查 + 文档轮,无代码改动无测试。
+
+⑦ **当前结果** — 确认:算 baseline 穿越 covid/rate_hike 的 MaxDD,
+189d 动量 warmup 必然吃危机前 ~9 个月(2019/2021 = validation 年)。
+Track-A 用 selector 面板这样做合规;R0 不是 selector 阶段。
+
+⑧ **剩余风险 / 为什么停** — 真实 temporal_split 方法论问题:用户
+决策 ⑤ 授权 "designated stress slice" 但未明确 "warmup 穿 validation"
+子问题。按 `feedback_temporal_split_discipline`(不确定就停)+ 协议
+四 #3 停下问用户 —— PRD 审计 §5 已预标的 directional 点。
+
+⑨ **下一轮建议** — 用户在 §1.3 选项 A/B/C 拍板(operator 推荐 A:
+warmup+slice 标 informational,同 diagnostic 行纪律);拍板后重启
+ralph-loop。
+
+⑩ **TODO** — [x] driver [x] baseline train-only [x] baseline 近期
+diagnostic [x] stress 机制核查 · [ ] baseline stress slices
+(BLOCKED 等用户 A/B/C)[ ] per-year MaxDD [ ] cycle06/08/PEAD
+[ ] R0 收口 · [ ] P0-P6。
+
+⑪ **commit** — `a23bcf0`(主)。
+
+**STOPPED — NEEDS USER DECISION**:rerisk-pack.md §1.3,stress-slice
+warmup 穿越 validation 的方法论选择 A/B/C。
+
+<!-- Round 4 起在此行下方追加 -->
