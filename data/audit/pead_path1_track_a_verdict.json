@@ -7,17 +7,17 @@
       "max_hold": 21,
       "top_n": 10,
       "performance": {
-        "sharpe": 1.055315902920868,
-        "cagr": 0.05475004417787721,
-        "full_period_max_dd": -0.07639633562133072,
-        "final_equity": 16148.789931481335,
-        "n_trades": 454,
+        "sharpe": 0.98604871814793,
+        "cagr": 0.05432529511029993,
+        "full_period_max_dd": -0.07915023430630058,
+        "final_equity": 16090.413559710307,
+        "n_trades": 481,
         "n_signals": 273,
         "cost_2x_remains_positive": true
       },
       "track_a": {
         "overall_passed": false,
-        "n_gates_passed": 14,
+        "n_gates_passed": 16,
         "n_gates_total": 17,
         "gates": [
           {
@@ -57,8 +57,8 @@
           },
           {
             "name": "validation_aggregate_excess_vs_qqq",
-            "passed": false,
-            "notes": ""
+            "passed": true,
+            "notes": "diagnostic_only mode (per QQQ deprecation 2026-05-02); does not block; "
           },
           {
             "name": "stress_slice_covid_flash_maxdd",
@@ -72,8 +72,8 @@
           },
           {
             "name": "role_core__validation__2025__excess_vs_qqq",
-            "passed": false,
-            "notes": ""
+            "passed": true,
+            "notes": "diagnostic_only gate (per QQQ deprecation 2026-05-02): actual_passed=False but does not block candidate"
           },
           {
             "name": "role_core__validation__2025__maxdd",
@@ -110,37 +110,37 @@
       "metrics": {
         "validation": {
           "2018": {
-            "maxdd": -0.060836464248389205,
-            "excess_vs_spy": 0.13185189549308318,
-            "excess_vs_qqq": 0.08834726459173628
+            "maxdd": -0.07915023430630058,
+            "excess_vs_spy": 0.12814528299622782,
+            "excess_vs_qqq": 0.08464065209488092
           },
           "2019": {
-            "maxdd": -0.043477019253749825,
-            "excess_vs_spy": -0.2569169138273927,
-            "excess_vs_qqq": -0.34286111514590756
+            "maxdd": -0.04323112341181195,
+            "excess_vs_spy": -0.255452511161717,
+            "excess_vs_qqq": -0.34139671248023185
           },
           "2021": {
-            "maxdd": -0.04377686532527356,
-            "excess_vs_spy": -0.2123175518474948,
-            "excess_vs_qqq": -0.21003363678303844
+            "maxdd": -0.04377093776378524,
+            "excess_vs_spy": -0.20831060716842098,
+            "excess_vs_qqq": -0.20602669210396463
           },
           "2023": {
-            "maxdd": -0.017274961173932665,
-            "excess_vs_spy": -0.2218630197496867,
-            "excess_vs_qqq": -0.5220276708720162
+            "maxdd": -0.01827408628491775,
+            "excess_vs_spy": -0.223398422968422,
+            "excess_vs_qqq": -0.5235630740907515
           },
           "2025": {
-            "maxdd": -0.022680509247597812,
-            "excess_vs_spy": -0.06842068898075322,
-            "excess_vs_qqq": -0.10607739056588501
+            "maxdd": -0.022690650916173036,
+            "excess_vs_spy": -0.08165904138492457,
+            "excess_vs_qqq": -0.11931574297005636
           }
         },
         "stress_slice": {
           "covid_flash": {
-            "maxdd": -0.017673264705255345
+            "maxdd": -0.017769285550347298
           },
           "rate_hike_2022": {
-            "maxdd": -0.04072204791062035
+            "maxdd": -0.04629444320643931
           }
         },
         "concentration": {
@@ -149,30 +149,30 @@
           "leveraged_etf_dependency": false
         },
         "beta": {
-          "beta_to_qqq": 0.09986158945080449
+          "beta_to_qqq": 0.1076493038902424
         },
         "cost": {
           "multiplier_2x_remains_positive": true
         },
-        "year_2025_vs_spy": -0.06842068898075322,
-        "year_2025_vs_qqq": -0.10607739056588501
+        "year_2025_vs_spy": -0.08165904138492457,
+        "year_2025_vs_qqq": -0.11931574297005636
       },
       "anti_sibling": {
         "alt_a": {
-          "daily_return_pearson": 0.0926004344049863,
-          "nav_level_pearson": 0.7771369949162558,
+          "daily_return_pearson": 0.08171986366745025,
+          "nav_level_pearson": 0.7741276203969466,
           "n_overlap": 2010,
           "verdict": "PASS"
         },
         "t1b_confirmation": {
-          "daily_return_pearson": 0.38423292005780463,
-          "nav_level_pearson": 0.9697459347952326,
+          "daily_return_pearson": 0.3939472969868956,
+          "nav_level_pearson": 0.977193237933918,
           "n_overlap": 2261,
           "verdict": "PASS"
         },
         "cycle11_donchian": {
-          "daily_return_pearson": 0.3694066440422811,
-          "nav_level_pearson": 0.963456791781815,
+          "daily_return_pearson": 0.3702083830617151,
+          "nav_level_pearson": 0.9698681029730166,
           "n_overlap": 2261,
           "verdict": "PASS"
         }
@@ -184,17 +184,17 @@
       "max_hold": 60,
       "top_n": 10,
       "performance": {
-        "sharpe": 1.0630182662546968,
-        "cagr": 0.10391475723817623,
-        "full_period_max_dd": -0.24010900318837186,
-        "final_equity": 24324.15771006898,
-        "n_trades": 448,
+        "sharpe": 1.0223156994654083,
+        "cagr": 0.10728708599109615,
+        "full_period_max_dd": -0.2615090441847212,
+        "final_equity": 25000.47646673503,
+        "n_trades": 478,
         "n_signals": 273,
         "cost_2x_remains_positive": true
       },
       "track_a": {
         "overall_passed": false,
-        "n_gates_passed": 14,
+        "n_gates_passed": 15,
         "n_gates_total": 17,
         "gates": [
           {
@@ -204,7 +204,7 @@
           },
           {
             "name": "validation_year_2018_maxdd",
-            "passed": true,
+            "passed": false,
             "notes": ""
           },
           {
@@ -234,8 +234,8 @@
           },
           {
             "name": "validation_aggregate_excess_vs_qqq",
-            "passed": false,
-            "notes": ""
+            "passed": true,
+            "notes": "diagnostic_only mode (per QQQ deprecation 2026-05-02); does not block; "
           },
           {
             "name": "stress_slice_covid_flash_maxdd",
@@ -249,8 +249,8 @@
           },
           {
             "name": "role_core__validation__2025__excess_vs_qqq",
-            "passed": false,
-            "notes": ""
+            "passed": true,
+            "notes": "diagnostic_only gate (per QQQ deprecation 2026-05-02): actual_passed=False but does not block candidate"
           },
           {
             "name": "role_core__validation__2025__maxdd",
@@ -287,37 +287,37 @@
       "metrics": {
         "validation": {
           "2018": {
-            "maxdd": -0.24010900318837186,
-            "excess_vs_spy": -0.015837020138392263,
-            "excess_vs_qqq": -0.05934165103973917
+            "maxdd": -0.2615090441847212,
+            "excess_vs_spy": -0.013851542280754789,
+            "excess_vs_qqq": -0.0573561731821017
           },
           "2019": {
-            "maxdd": -0.0747631446200944,
-            "excess_vs_spy": -0.07649042882186696,
-            "excess_vs_qqq": -0.16243463014038179
+            "maxdd": -0.07505517577105883,
+            "excess_vs_spy": -0.04335688610200639,
+            "excess_vs_qqq": -0.1293010874205212
           },
           "2021": {
-            "maxdd": -0.04986788718081385,
-            "excess_vs_spy": -0.10154222990271977,
-            "excess_vs_qqq": -0.09925831483826342
+            "maxdd": -0.06585653374213767,
+            "excess_vs_spy": -0.12454656660385136,
+            "excess_vs_qqq": -0.122262651539395
           },
           "2023": {
-            "maxdd": -0.032608410577410686,
-            "excess_vs_spy": -0.1305747718662004,
-            "excess_vs_qqq": -0.43073942298852996
+            "maxdd": -0.049448880896295636,
+            "excess_vs_spy": -0.12465531908239924,
+            "excess_vs_qqq": -0.4248199702047288
           },
           "2025": {
-            "maxdd": -0.06798469217830601,
-            "excess_vs_spy": -0.019693319802223802,
-            "excess_vs_qqq": -0.05735002138735559
+            "maxdd": -0.06855012879351044,
+            "excess_vs_spy": -0.01993082463049084,
+            "excess_vs_qqq": -0.05758752621562263
           }
         },
         "stress_slice": {
           "covid_flash": {
-            "maxdd": -0.044693762435511125
+            "maxdd": -0.0443280870197174
           },
           "rate_hike_2022": {
-            "maxdd": -0.07253757466638203
+            "maxdd": -0.08454003383455402
           }
         },
         "concentration": {
@@ -326,30 +326,30 @@
           "leveraged_etf_dependency": false
         },
         "beta": {
-          "beta_to_qqq": 0.2807132044704476
+          "beta_to_qqq": 0.3075256337549589
         },
         "cost": {
           "multiplier_2x_remains_positive": true
         },
-        "year_2025_vs_spy": -0.019693319802223802,
-        "year_2025_vs_qqq": -0.05735002138735559
+        "year_2025_vs_spy": -0.01993082463049084,
+        "year_2025_vs_qqq": -0.05758752621562263
       },
       "anti_sibling": {
         "alt_a": {
-          "daily_return_pearson": 0.11835811025720305,
-          "nav_level_pearson": 0.7965649380022056,
+          "daily_return_pearson": 0.11110705216889608,
+          "nav_level_pearson": 0.7933482725615962,
           "n_overlap": 2010,
           "verdict": "PASS"
         },
         "t1b_confirmation": {
-          "daily_return_pearson": 0.5396578253625256,
-          "nav_level_pearson": 0.9665167210935848,
+          "daily_return_pearson": 0.5381516382792234,
+          "nav_level_pearson": 0.9595706981673392,
           "n_overlap": 2261,
           "verdict": "PASS"
         },
         "cycle11_donchian": {
-          "daily_return_pearson": 0.5458170401427735,
-          "nav_level_pearson": 0.9639277791740051,
+          "daily_return_pearson": 0.5508711353059507,
+          "nav_level_pearson": 0.9622283107932409,
           "n_overlap": 2261,
           "verdict": "PASS"
         }

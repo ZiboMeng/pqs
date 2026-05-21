@@ -217,7 +217,31 @@
         "frozen_track_a": "PASS post-MaxDD-fix 2026-05-15 (official QQQ-diagnostic governance)"
       },
       "reproduce_cmd": "python dev/scripts/audit/rerisk_composite_candidate.py --candidate cycle06"
+    },
+    {
+      "candidate_id": "pead_sue_trial1_evidence_v1 (trial1_short_hold)",
+      "source": "data/research_candidates/pead_sue_trial1_evidence_v1.yaml + data/audit/pead_path1_track_a_verdict.json",
+      "window": "PEAD Track-A acceptance (independent evidence-only track; run_pead_track_a_acceptance.py)",
+      "partition": "track_a_pead",
+      "metrics": {
+        "sharpe": 0.98604871814793,
+        "cagr_pct": 5.432529511029993,
+        "max_dd_pct": -7.915023430630058,
+        "n_trades": 481,
+        "cost_2x_remains_positive": true
+      },
+      "track_a_passed": false,
+      "track_a_n_gates": "16/17",
+      "track_a_failed_gates": [
+        "validation_aggregate_excess_vs_spy"
+      ],
+      "verdict": "GREEN",
+      "verdict_flags": [
+        "Track-A 16/17 — consistent with frozen evidence (evidence-only candidate; never claimed a full Track-A PASS — fails are aggregate excess vs SPY/QQQ)",
+        "full-period MaxDD 7.9% well within risk caps"
+      ],
+      "reproduce_cmd": "python dev/scripts/pead/run_pead_track_a_acceptance.py && python dev/scripts/audit/rerisk_pead.py"
     }
   ],
-  "updated_utc": "20260521T230743Z"
+  "updated_utc": "20260521T231144Z"
 }
