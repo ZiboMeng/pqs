@@ -101,6 +101,85 @@ def make_forward_log_return_labels(
 
 
 # ---------------------------------------------------------------------------
+# Residualized cross-sectional rank / quantile labels
+# (PRD 20260521 §7.2 — canonical daily-stock-selection label modes)
+# ---------------------------------------------------------------------------
+
+
+def _rolling_market_beta(
+    daily_returns: pd.DataFrame, market_returns: pd.Series, window: int,
+) -> pd.DataFrame:
+    """Trailing rolling OLS beta of each column vs the market.
+
+    beta[t, sym] = Cov(ret_sym, ret_mkt) / Var(ret_mkt) over the trailing
+    ``window`` bars ending at t. Estimated from returns known at t — the
+    label this feeds is itself forward-looking, so beta as a known-at-t
+    quantity needs no extra shift.
+    """
+    min_p = max(window // 2, 2)
+    cov = daily_returns.rolling(window, min_periods=min_p).cov(market_returns)
+    var = market_returns.rolling(window, min_periods=min_p).var()
+    return cov.div(var, axis=0)
+
+
+def make_residualized_rank_labels(
+    price_df: pd.DataFrame, horizon_days: int, market_series: pd.Series,
+    beta_window: int = 252,
+) -> pd.DataFrame:
+    """Per-bar cross-sectional rank of the market-residualized fwd return.
+
+    PRD 20260521 §7.2 ``cross_sectional_residual_rank`` (market component;
+    sector residualization is a separate follow-up)::
+
+        fwd_ret[t,sym]  = price[t+h]/price[t] - 1
+        fwd_mkt[t]      = market[t+h]/market[t] - 1
+        residual[t,sym] = fwd_ret[t,sym] - beta[t,sym] * fwd_mkt[t]
+        label[t,sym]    = cross-sectional rank of residual in bar t, ∈ (0,1]
+
+    Residualization removes the market-beta-driven component so the label
+    scores stock-specific performance — aligned with a long-only top-k
+    book that wants the genuinely strongest names, not the highest-beta
+    names. NaN at the first ``beta_window`` rows (beta unknown) and the
+    last ``horizon_days`` rows (forward price unknown).
+
+    Args:
+        price_df: DataFrame(date × symbol) of adjusted close prices
+        horizon_days: forward window in bar-count units
+        market_series: market benchmark close series (e.g. SPY)
+        beta_window: trailing window for the rolling market beta
+    """
+    if horizon_days < 1:
+        raise ValueError(f"horizon_days must be ≥ 1, got {horizon_days}")
+    if beta_window < 2:
+        raise ValueError(f"beta_window must be ≥ 2, got {beta_window}")
+    assert_panel_datetime_index(price_df, name="price_df")
+    fwd_ret = make_forward_return_labels(price_df, horizon_days)
+    market = market_series.reindex(price_df.index)
+    fwd_mkt = market.shift(-horizon_days).div(market) - 1.0
+    beta = _rolling_market_beta(
+        price_df.pct_change(), market.pct_change(), beta_window)
+    residual = fwd_ret.sub(beta.mul(fwd_mkt, axis=0))
+    return residual.rank(axis=1, pct=True)
+
+
+def make_residualized_quantile_labels(
+    price_df: pd.DataFrame, horizon_days: int, market_series: pd.Series,
+    beta_window: int = 252, quantile_buckets: int = 10,
+) -> pd.DataFrame:
+    """Per-bar cross-sectional quantile bucket of the market-residualized
+    forward return. Bucket 0 = weakest, ``quantile_buckets - 1`` =
+    strongest. NaN policy follows ``make_residualized_rank_labels``.
+    """
+    if quantile_buckets < 2:
+        raise ValueError(
+            f"quantile_buckets must be ≥ 2, got {quantile_buckets}")
+    rank = make_residualized_rank_labels(
+        price_df, horizon_days, market_series, beta_window)
+    bucket = np.floor(rank * quantile_buckets).clip(upper=quantile_buckets - 1)
+    return bucket.where(rank.notna())
+
+
+# ---------------------------------------------------------------------------
 # Bar-integrity smoke
 # ---------------------------------------------------------------------------
 

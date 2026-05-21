@@ -22,6 +22,8 @@ from core.research.ml.labels import (
     assert_panel_datetime_index,
     make_forward_log_return_labels,
     make_forward_return_labels,
+    make_residualized_quantile_labels,
+    make_residualized_rank_labels,
 )
 from core.research.ml.pipeline import (
     WalkForwardConfig,
@@ -244,3 +246,84 @@ class TestPipelineEntryValidation:
                 labels=labels,
                 sealed_years=(),
             )
+
+
+# ---------------------------------------------------------------------------
+# Residualized cross-sectional rank / quantile labels (P1, 2026-05-21)
+# ---------------------------------------------------------------------------
+
+def _resid_panel(n: int = 90, seed: int = 11):
+    """Market series + 3-stock panel: A = pure market (beta 1, no idio),
+    B = market + positive idio drift, C = market + negative idio drift."""
+    rng = np.random.default_rng(seed)
+    idx = pd.bdate_range("2020-01-02", periods=n)
+    mkt_ret = rng.normal(0.0004, 0.011, n)
+    market = pd.Series(100.0 * np.cumprod(1 + mkt_ret), index=idx, name="MKT")
+    cols = {
+        "A": 100.0 * np.cumprod(1 + mkt_ret),                # pure market
+        "B": 100.0 * np.cumprod(1 + mkt_ret + 0.0010),       # +idio drift
+        "C": 100.0 * np.cumprod(1 + mkt_ret - 0.0010),       # -idio drift
+    }
+    return pd.DataFrame(cols, index=idx), market
+
+
+class TestResidualizedRankLabels:
+    def test_rank_in_unit_interval(self):
+        price, market = _resid_panel()
+        lab = make_residualized_rank_labels(price, 5, market, beta_window=20)
+        vals = lab.to_numpy()
+        finite = vals[np.isfinite(vals)]
+        assert ((finite > 0.0) & (finite <= 1.0)).all()
+
+    def test_deterministic(self):
+        price, market = _resid_panel()
+        a = make_residualized_rank_labels(price, 5, market, beta_window=20)
+        b = make_residualized_rank_labels(price, 5, market, beta_window=20)
+        pd.testing.assert_frame_equal(a, b)
+
+    def test_market_residualization_orders_idio(self):
+        """Residualizing removes the market component → the +idio stock
+        ranks above the pure-market stock above the -idio stock."""
+        price, market = _resid_panel()
+        lab = make_residualized_rank_labels(price, 5, market, beta_window=20)
+        usable = lab.dropna(how="any")
+        assert len(usable) > 10
+        # B (+idio) > A (pure market) > C (-idio) on every usable bar
+        assert (usable["B"] > usable["A"]).all()
+        assert (usable["A"] > usable["C"]).all()
+
+    def test_last_horizon_rows_nan(self):
+        price, market = _resid_panel()
+        lab = make_residualized_rank_labels(price, 5, market, beta_window=20)
+        assert lab.iloc[-5:].isna().all().all()
+
+    def test_horizon_and_beta_window_validation(self):
+        price, market = _resid_panel()
+        with pytest.raises(ValueError):
+            make_residualized_rank_labels(price, 0, market)
+        with pytest.raises(ValueError):
+            make_residualized_rank_labels(price, 5, market, beta_window=1)
+
+
+class TestResidualizedQuantileLabels:
+    def test_buckets_in_range(self):
+        price, market = _resid_panel()
+        lab = make_residualized_quantile_labels(
+            price, 5, market, beta_window=20, quantile_buckets=10)
+        vals = lab.to_numpy()
+        finite = vals[np.isfinite(vals)]
+        assert ((finite >= 0) & (finite <= 9)).all()
+
+    def test_bucket_validation(self):
+        price, market = _resid_panel()
+        with pytest.raises(ValueError):
+            make_residualized_quantile_labels(
+                price, 5, market, quantile_buckets=1)
+
+    def test_quantile_orders_idio(self):
+        """+idio stock lands in a >= bucket than -idio stock."""
+        price, market = _resid_panel()
+        lab = make_residualized_quantile_labels(
+            price, 5, market, beta_window=20, quantile_buckets=3)
+        usable = lab.dropna(how="any")
+        assert (usable["B"] >= usable["C"]).all()
