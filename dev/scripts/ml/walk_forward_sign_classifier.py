@@ -240,7 +240,8 @@ def main() -> int:
     cfg = WalkForwardConfig(
         start_year=args.start_year, end_year=args.end_year,
         train_window_years=args.train_window,
-        val_window_years=args.val_window, step_years=args.step)
+        val_window_years=args.val_window, step_years=args.step,
+        embargo_days=args.horizon_days)  # P1 §8.2: purge+embargo = horizon
     per_fold_metrics: List[Dict[str, Any]] = []
     for fold in iter_folds(cfg, DEFAULT_SEALED_YEARS):
         X_train, y_train = _assemble_xy(

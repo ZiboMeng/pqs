@@ -337,3 +337,47 @@ class TestSchemaPurity:
             assert bad not in src, (
                 f"pipeline.py must not import {bad!r} — it is a thin "
                 f"orchestrator over RankModelProtocol")
+
+
+# ---------------------------------------------------------------------------
+# embargo_days — purge + embargo gap (P1 §8.2, 2026-05-21)
+# ---------------------------------------------------------------------------
+
+
+class TestEmbargoDays:
+    def test_default_zero_is_bit_identical(self):
+        """embargo_days defaults to 0 → train_end stays Dec-31."""
+        cfg = WalkForwardConfig(start_year=2010, end_year=2020)
+        assert cfg.embargo_days == 0
+        for fold in iter_folds(cfg, sealed_years=()):
+            assert (fold.train_end.month, fold.train_end.day) == (12, 31)
+
+    def test_embargo_trims_train_end(self):
+        """embargo_days=30 pulls train_end back ~1 month from Dec-31."""
+        cfg = WalkForwardConfig(start_year=2010, end_year=2020,
+                                embargo_days=30)
+        for fold in iter_folds(cfg, sealed_years=()):
+            # train_end is Dec-31 minus 30 days → Dec-01
+            assert fold.train_end < pd.Timestamp(
+                f"{fold.train_end.year}-12-31")
+            gap = (fold.val_start - fold.train_end).days
+            assert gap >= 30, f"embargo gap {gap}d < 30d"
+            # strict-chronological still holds
+            assert fold.val_start > fold.train_end
+
+    def test_negative_embargo_raises(self):
+        with pytest.raises(ValueError, match="embargo_days"):
+            WalkForwardConfig(start_year=2010, end_year=2020,
+                              embargo_days=-1)
+
+    def test_embargo_preserves_fold_count(self):
+        """Embargo trims within-year; it must not change the fold count
+        (val windows are year-resolution)."""
+        base = list(iter_folds(
+            WalkForwardConfig(start_year=2010, end_year=2020),
+            sealed_years=()))
+        emb = list(iter_folds(
+            WalkForwardConfig(start_year=2010, end_year=2020,
+                              embargo_days=30),
+            sealed_years=()))
+        assert len(base) == len(emb)

@@ -72,6 +72,13 @@ class WalkForwardConfig:
     train_window_years: int = 5
     val_window_years: int = 1
     step_years: int = 1
+    embargo_days: int = 0
+    """Purge + embargo gap (calendar days) trimmed off the END of each
+    train window (PRD 20260521 §8.2; user decision 2026-05-21 — applied
+    in the ML pipeline, NOT by editing config/temporal_split*.yaml).
+    Default 0 = bit-identical to the prior behaviour. Daily-horizon ML
+    drivers should pass ``embargo_days = horizon_days`` so a train
+    label's forward window cannot overlap the val window."""
 
     def __post_init__(self) -> None:
         if self.train_window_years < 1:
@@ -80,6 +87,8 @@ class WalkForwardConfig:
             raise ValueError("val_window_years must be ≥ 1")
         if self.step_years < 1:
             raise ValueError("step_years must be ≥ 1")
+        if self.embargo_days < 0:
+            raise ValueError("embargo_days must be ≥ 0")
         if self.end_year < self.start_year + self.train_window_years:
             raise ValueError(
                 f"end_year ({self.end_year}) too close to start_year "
@@ -186,10 +195,15 @@ def iter_folds(
         val_end_year = val_start_year + config.val_window_years - 1
         if val_end_year > config.end_year:
             break
+        # Purge + embargo: trim the last `embargo_days` calendar days off
+        # the train window so a train label's forward (horizon) window
+        # cannot reach into the val window. embargo_days=0 → unchanged.
+        train_end = (pd.Timestamp(f"{train_end_year}-12-31")
+                     - pd.Timedelta(days=config.embargo_days))
         yield WalkForwardFold(
             fold_idx=fold_idx,
             train_start=pd.Timestamp(f"{train_start_year}-01-01"),
-            train_end=pd.Timestamp(f"{train_end_year}-12-31"),
+            train_end=train_end,
             val_start=pd.Timestamp(f"{val_start_year}-01-01"),
             val_end=pd.Timestamp(f"{val_end_year}-12-31"),
         )
