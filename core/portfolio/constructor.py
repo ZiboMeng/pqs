@@ -223,7 +223,12 @@ class PortfolioConstructor:
                 continue
 
             active_vols = vols.reindex(active.index).fillna(0.20)  # 无数据时假设 20% vol
-            port_vol    = float(np.sqrt(((active * active_vols) ** 2).sum()))
+            # 相关性感知的组合波动率。旧实现用对角（零相关）协方差近似
+            # —— sqrt(sum((w·σ)^2)) —— 对集中、高相关的 long-only 股票
+            # 组合系统性低估约 1.5-2x，导致 vol-target 从不缩减敞口、
+            # 实际波动率跑到 target 的 ~2x（2026-05-21 审计：
+            # conservative_default -67% MaxDD 的 root cause）。
+            port_vol = self._portfolio_vol(active, active_vols, returns, date)
 
             if port_vol < _MIN_VOL:
                 continue
@@ -232,6 +237,42 @@ class PortfolioConstructor:
             result.loc[date] = w * scale
 
         return result
+
+    def _portfolio_vol(
+        self,
+        weights: pd.Series,
+        vols:    pd.Series,
+        returns: pd.DataFrame,
+        date,
+    ) -> float:
+        """年化组合波动率 = sqrt(wᵀ Σ w)，Σ = D·R·D。
+
+        D = diag(各标的年化 vol)；R = active 标的在滚动窗口上的相关性
+        矩阵（无 lookahead —— 严格用 `date` 之前的 returns）。缺失的
+        pair 相关性回退到「已观测 off-diagonal 相关性的均值」（对
+        long-only 股票组合偏保守），完全无法估计时回退 0.5。取代旧的
+        对角（R = 单位阵）近似。
+        """
+        syms = list(weights.index)
+        w = weights.to_numpy(dtype=float)
+        d = vols.reindex(syms).fillna(0.20).to_numpy(dtype=float)
+        n = len(syms)
+        if n == 1:
+            return float(abs(w[0]) * d[0])
+        hist = returns.loc[returns.index < date, syms].tail(self._vol_window)
+        corr = hist.corr(min_periods=self._min_history)
+        R = corr.reindex(index=syms, columns=syms).to_numpy(dtype=float)
+        off = R[~np.eye(n, dtype=bool)]
+        finite = off[np.isfinite(off)]
+        fill = float(np.mean(finite)) if finite.size else 0.5
+        R = np.where(np.isfinite(R), R, fill)
+        np.fill_diagonal(R, 1.0)
+        cov = R * np.outer(d, d)
+        var = float(w @ cov @ w)
+        if not np.isfinite(var) or var <= 0.0:
+            # 退化时回退对角估计而非崩溃
+            return float(np.sqrt(np.sum((w * d) ** 2)))
+        return float(np.sqrt(var))
 
     # ── Step 3: Regime 约束 ──────────────────────────────────────────────────
 

@@ -395,3 +395,67 @@ class TestDefaultConfig:
     def test_default_target_vol_is_025(self):
         ctor = PortfolioConstructor()
         assert ctor._target_vol == 0.25
+
+
+# ── TestVolTargetCorrelationAware ──────────────────────────────────────────────
+
+def _make_correlated_prices(n: int, syms: list, common_w: float = 0.9,
+                            seed: int = 7) -> pd.DataFrame:
+    """高度同涨同跌的价格序列（共同因子 + 少量 idiosyncratic）。"""
+    rng = np.random.default_rng(seed)
+    idx = pd.date_range("2018-01-02", periods=n, freq="B")
+    common = rng.normal(0, 0.018, n)
+    data = {}
+    for s in syms:
+        ret = common_w * common + (1 - common_w) * rng.normal(0, 0.018, n)
+        data[s] = 100.0 * np.cumprod(1 + ret)
+    return pd.DataFrame(data, index=idx)
+
+
+class TestVolTargetCorrelationAware:
+    """Audit 2026-05-21: vol-target 必须用相关性感知的组合波动率，
+    不能用旧的对角（零相关）近似 —— 后者把集中股票组合的真实波动率
+    低估约 2x，是 conservative_default -67% MaxDD 的 root cause。"""
+
+    def test_portfolio_vol_matches_realized_for_correlated_book(self):
+        syms = ["A", "B", "C", "D"]
+        prices = _make_correlated_prices(300, syms)
+        returns = prices.pct_change()
+        ctor = PortfolioConstructor(use_vol_parity=False)
+        w = pd.Series({s: 0.25 for s in syms})
+        vols = returns.rolling(60).std().mul(np.sqrt(252)).iloc[-1]
+        date = prices.index[-1]
+
+        cov_vol = ctor._portfolio_vol(w, vols, returns, date)
+        diag_vol = float(np.sqrt(((w * vols.reindex(w.index)) ** 2).sum()))
+        realized = float((returns[syms] @ w.to_numpy()).iloc[-60:].std()
+                         * np.sqrt(252))
+
+        # 相关性感知估计贴近 realized；对角近似显著低估
+        assert abs(cov_vol - realized) / realized < 0.15
+        assert diag_vol < realized * 0.75
+        assert cov_vol > diag_vol * 1.4
+
+    def test_concentrated_correlated_book_is_scaled_down(self):
+        syms = ["A", "B", "C", "D"]
+        prices = _make_correlated_prices(300, syms)
+        signals = _make_signals(300, syms)          # 等权 0.25 each
+        ctor = PortfolioConstructor(use_vol_parity=False, target_vol=0.15)
+        result = ctor.build(signals, prices)
+
+        # warmup 后组合真实（相关性感知）波动率 >> 15% target，
+        # gross 敞口必须被缩减到满仓以下
+        late_gross = float(result.iloc[-1].sum())
+        assert late_gross < 0.85, (
+            f"相关组合 gross={late_gross:.3f} 未被缩减 —— "
+            f"vol-target 没用相关性感知波动率")
+
+    def test_single_name_book_unaffected(self):
+        """单标的组合：port_vol = w·σ，相关性矩阵退化为 [[1]]。"""
+        prices = _make_correlated_prices(200, ["A", "B"])
+        returns = prices.pct_change()
+        ctor = PortfolioConstructor(use_vol_parity=False)
+        w = pd.Series({"A": 0.6})
+        vols = returns.rolling(60).std().mul(np.sqrt(252)).iloc[-1]
+        pv = ctor._portfolio_vol(w, vols, returns, prices.index[-1])
+        assert abs(pv - 0.6 * float(vols["A"])) < 1e-9
