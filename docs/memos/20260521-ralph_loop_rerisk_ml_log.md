@@ -492,4 +492,47 @@ override [ ] P1 收口 · [ ] P2-P6。
 
 ⑪ **commit** — `1043d5c`(主)。
 
-<!-- Round 12 起在此行下方追加 -->
+## Round 12 — P1:residualized cross-sectional rank/quantile label 实现
+
+**时间**: 2026-05-21 · **主 commit**: `8392b67` · **测试基线**: 3864
++ 8 新(labels.py additive,research/ml 131 passed)
+
+① **当前阶段** — Round 12 / Package P1 / label 实现。
+
+② **本轮目标** — 实现 canonical 主 label 模式 cross_sectional_
+residual_rank / _quantile(PRD §7.2)。
+
+③ **为什么先做它** — Round 11 定了 schema;§7.4 指定 residual-rank
+为默认目标 → 先实现主模式。
+
+④ **做了什么** — `core/research/ml/labels.py` 加(additive)
+`_rolling_market_beta` + `make_residualized_rank_labels`(residual =
+fwd_ret − beta·fwd_mkt,per-bar 截面 rank)+
+`make_residualized_quantile_labels`(分桶)。test_labels.py +8 单测。
+
+⑤ **改了哪些文件** — `core/research/ml/labels.py`(+3 函数)/
+`tests/unit/research/ml/test_labels.py`(+8 测试)。
+
+⑥ **跑了哪些测试 + 结果** — test_labels.py 32 passed;research/ml
+全目录 131 passed(labels.py additive 无 sibling 回归);R3 核对:
+「纯market/+idio/-idio」三票断言 residual rank +idio>纯market>-idio
+逐 bar 成立 → 残差化语义正确。
+
+⑦ **当前结果** — P1 canonical 主 label 模式(residual_rank/_quantile,
+market 残差化)已实现 + 测试。
+
+⑧ **剩余风险** — 残差化目前仅 vs market(sector 残差化未实现);
+cost-aware binary label 未做;purge+embargo driver-override 未做;
+P1 §12.3 gate + smoke json 未做。
+
+⑨ **下一轮建议** — Round 13 = cost-aware binary label
+(binary_forward_return_after_cost)+ 单测;后 sector 残差化、
+purge/embargo override、P1 收口。
+
+⑩ **TODO** — [x] R0/P0 CLOSED [x] P1 schema [x] P1 residual-rank/
+quantile label · [ ] cost-aware binary [ ] sector 残差化 +
+purge/embargo override [ ] P1 收口 · [ ] P2-P6。
+
+⑪ **commit** — `8392b67`(主)。
+
+<!-- Round 13 起在此行下方追加 -->
