@@ -246,4 +246,50 @@ designated slice 是窄窗,rate_hike slice 只覆盖 2022 熊市最后一段,
 
 ⑪ **commit** — `4c3708b`(主)。
 
-<!-- Round 6 起在此行下方追加 -->
+## Round 6 — R0:cycle08 re-risk 行(exact frozen-spec replay)
+
+**时间**: 2026-05-21 · **主 commit**: `6d54a31` · **测试基线**: 3864
+(未动 module 代码)
+
+① **当前阶段** — Round 6 / Workstream R0 / cycle08 行。
+
+② **本轮目标** — 按 exact frozen spec 重评 cycle08_3f40e3f4ed1a,产出
+R0 cycle08 re-risk 行。
+
+③ **为什么先做它** — Round 5 排定;cycle08 与 cycle06 同路、不依赖待
+决项。
+
+④ **做了什么** — `rerisk_cycle06.py` git mv → `rerisk_composite_
+candidate.py` 并泛化(`--candidate {cycle06,cycle08}`)。核查 cycle08
+frozen construction 与 `_eval_trial` HarnessConfig 一致。跑
+`--candidate cycle08`(heavy)+ `--candidate cycle06 --reuse-eval`
+(instant,刷新 cycle06 行 reproduce_cmd)。
+
+⑤ **改了哪些文件** — `rerisk_composite_candidate.py`(git mv+泛化)/
+`rerisk_pack_20260521.json` / `rerisk_cycle08_eval.json`(新)/
+`docs/memos/20260521-rerisk-pack.md`。
+
+⑥ **跑了哪些测试 + 结果** — driver exit 0;R3 核对:cycle08
+covid -19.73%(frozen -19.72%)/ rate_hike -11.90%(frozen -11.90%)
+/ 2018 -16.79%(frozen -18.10%)—— frozen evidence 完整复现;
+未动 module 代码。
+
+⑦ **当前结果** — cycle08 exact-frozen-spec verdict **GREEN**:
+Track-A 总判 **PASS 保持**,per-year ≤20% / stress ≤25%,与 frozen
+几乎逐字一致。**对比 cycle06**:cycle06 重评 PASS→FAIL(vs-SPY);
+cycle08 PASS 稳住 —— cycle08 是两个 evidence 候选里更稳健的。
+
+⑧ **剩余风险** — PEAD 行未做;baseline per-year MaxDD 字段未补;
+R0 收口未做。
+
+⑨ **下一轮建议** — Round 7 = PEAD re-risk 行;后 baseline per-year
+MaxDD、R0 收口 → P0-P6。
+
+⑩ **TODO** — [x] driver [x] baseline train-only [x] 近期 diagnostic
+[x] stress 机制核查+裁定 A [x] baseline stress slices [x] cycle06 行
+[x] cycle08 行 · [ ] PEAD 行 [ ] baseline per-year MaxDD [ ] R0 收口
+· [ ] P0-P6。
+
+⑪ **commit** — `6d54a31`(主)。
+
+<!-- Round 7 起在此行下方追加 -->
