@@ -1,0 +1,15 @@
+{
+  "generated_utc": "20260521T231651Z",
+  "python": "3.14.4",
+  "platform": "Linux-6.6.114.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "modules": {
+    "xgboost": "3.2.0",
+    "lightgbm": "4.6.0",
+    "numpy": "2.4.4",
+    "pandas": "3.0.2",
+    "sklearn": "1.8.0",
+    "scipy": "1.17.1"
+  },
+  "gate_xgboost_importable": true,
+  "gate_lightgbm_importable": true
+}

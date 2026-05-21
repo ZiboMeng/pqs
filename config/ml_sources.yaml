@@ -1,0 +1,142 @@
+# ===========================================================================
+# ml_sources.yaml — canonical source-tier + point-in-time contract
+# ===========================================================================
+# PRD: docs/prd/20260521-rerisk-and-ml-training-audit-prd.md §4.5 / §4.6
+# Workstream: P0 (source contracts + environment floor)
+# Created: 2026-05-21 (ralph-loop Round 9)
+#
+# This config is the single source of truth for which information tiers the
+# ML alpha pipeline may consume and the point-in-time (PIT) / provenance
+# rules each tier must satisfy. Every ML training driver MUST declare which
+# `tier` ids it consumes in its artifact metadata (P0 gate: "no training
+# driver remains source-agnostic"). A tier whose `status` is `optional`
+# (tier G) may only enter the production stack through the same PIT +
+# acceptance discipline as the mandatory tiers.
+# ===========================================================================
+
+schema_version: 1
+lineage: rerisk-and-ml-training-audit-2026-05-21
+
+# --- Global PIT rules (PRD §4.6) — apply to every tier --------------------
+pit_rules_global:
+  - every record must be attributable to a source id and a timestamp
+  - every feature must be reproducible from frozen raw inputs
+  - no feature may use post-publication revisions without explicit
+    real-time / vintage handling
+  - no sector / benchmark / membership metadata may use future
+    composition knowledge (membership must itself be point-in-time)
+  - all event features must use the first tradeable timestamp AFTER
+    public availability, never the announcement instant
+
+# --- Source tiers (PRD §4.5) ----------------------------------------------
+# status:  present  — usable today
+#          partial  — partially implemented, gaps noted
+#          optional — tier G; enrichment, enters only via full discipline
+tiers:
+
+  A_market_data:
+    mandatory: true
+    status: present
+    description: daily adjusted OHLCV, benchmarks, sector / factor / macro
+      reference tickers
+    canonical_source_ids: [polygon_1m_daily_agg, splits_parquet, yfinance_etf_fallback]
+    pit_rules:
+      - adjusted prices via BarStore read-time split cascade (CLAUDE.md
+        pricing semantics); raw bars + splits.parquet, never pre-adjusted
+      - benchmark / sector / factor ETF series from the same store
+    freshness: T+1 (daily bars available the morning after the session)
+    provenance: data/ref/bar_provenance.parquet
+
+  B_fundamentals:
+    mandatory: true
+    status: partial
+    description: point-in-time financial statements; quality, profitability,
+      leverage, accrual, asset-growth, revision-sensitive features
+    canonical_source_ids: [fundamentals_pit]
+    pit_rules:
+      - use official or vendor-normalized point-in-time filing availability
+      - SEC EDGAR is a valid canonical source for filings + submissions
+        metadata
+      - no restated / revised figure without vintage handling
+    freshness: as-filed (filing-date gated)
+    gaps: core/factors/fundamental_factors.py exists; PIT filing-availability
+      gating not yet enforced end-to-end — must be closed before tier B
+      features enter a production training panel
+
+  C_macro:
+    mandatory: true
+    status: partial
+    description: macro time series, market regime state, rates, dollar,
+      volatility, credit / liquidity proxies
+    canonical_source_ids: [macro_series, regime_state]
+    pit_rules:
+      - prefer vintage-aware / release-aware handling when the strategy
+        depends on publication timing (FRED / ALFRED real-time periods
+        are the reference model)
+    freshness: release-date gated
+    gaps: core/factors/macro_factors.py exists; release/vintage awareness
+      partial
+
+  D_event_calendar:
+    mandatory: true
+    status: partial
+    description: earnings dates, macro-event windows, split / dividend /
+      corporate-action awareness
+    canonical_source_ids: [earnings_calendar, macro_event_calendar,
+      splits_parquet]
+    pit_rules:
+      - all event features use the first tradeable timestamp after public
+        availability
+    freshness: event-date gated
+    gaps: PEAD + macro-event components present; unified event-calendar
+      contract not yet centralized
+
+  E_execution_liquidity:
+    mandatory: true
+    status: partial
+    description: ADV / dollar volume, spread proxy or observed spread,
+      participation constraints, volatility + turnover burden
+    canonical_source_ids: [adv_dollar_volume, spread_proxy]
+    pit_rules:
+      - liquidity features use only trailing observed volume / spread
+    freshness: T+1
+    gaps: present as scattered inputs; should become a first-class
+      allocation input (PRD §4.5 tier E note)
+
+  F_portfolio_state:
+    mandatory: true
+    status: partial
+    description: current holdings, sector / factor / beta exposures,
+      drawdown state, recent turnover / fill quality
+    canonical_source_ids: [portfolio_state]
+    pit_rules:
+      - portfolio-state features are as-of the decision bar, never
+        forward-looking
+    freshness: as-of decision bar
+    gaps: present in the execution / rebalance stack but not yet wired
+      into ML acceptance
+
+  G_enrichment:
+    mandatory: false
+    status: optional
+    description: text / news / transcript / filing embeddings; options
+      surface / implied-vol / skew; alternative data; intraday microstructure
+    canonical_source_ids: [text_news, options_surface, intraday_micro]
+    pit_rules:
+      - news and text — require publication timestamp, ticker-mapping
+        provenance, and a de-duplication policy
+      - options — require chain timestamp, contract metadata, liquidity
+        filters, stale-quote rules
+      - intraday — require exchange-calendar alignment, regular-session
+        policy, delayed / missing-bar handling
+    note: tier G may enter the production stack ONLY through the same
+      PIT + acceptance discipline as the mandatory tiers (PRD §4.5)
+
+# --- Training-driver contract ---------------------------------------------
+# Every ML training / walk-forward driver must record, in its artifact
+# metadata, the list of tier ids it consumed (e.g. ["A_market_data"]).
+# A driver with no declared source tiers fails the P0 gate.
+driver_contract:
+  artifact_field: source_tiers
+  rule: every training artifact JSON must list the tier ids it consumed;
+    fail-closed on a missing or empty source_tiers field
