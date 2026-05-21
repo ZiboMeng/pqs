@@ -301,6 +301,16 @@ class BacktestEngine:
                     p_f = float(last_valid_close.get(sym, 0.0))
                 portfolio_value += qty * p_f
 
+            # Pre-fill 快照：cash + 持仓在与 portfolio_value 完全相同
+            # 的时点（T-close，T+1-open 成交之前）截取。equity_curve /
+            # cash_curve / positions_df 必须都描述「持有进第 i 天」的
+            # 组合；下方生成的 T+1-open 成交属于 index i+1 的快照。
+            # 旧实现把 cash_records / position_records 放在成交循环之后
+            # append → 同一 index 上 equity 是 pre-fill、cash/positions
+            # 是 post-fill，off-by-one（2026-05-21 审计）。
+            cash_snapshot   = cash
+            shares_snapshot = dict(shares)
+
             # 2. 当日权重快照（市值权重）
             cur_weights: Dict[str, float] = {}
             if portfolio_value > 0:
@@ -349,14 +359,14 @@ class BacktestEngine:
                 # 清除零仓位
                 shares = {s: q for s, q in shares.items() if q > 1e-6}
 
-            # 5. 记录快照
+            # 5. 记录快照（全部用 pre-fill 状态，与 portfolio_value 同时点对齐）
             equity_records.append(portfolio_value)
-            cash_records.append(cash)
+            cash_records.append(cash_snapshot)
 
             # 权重 & 持仓快照
             all_syms = sorted(set(list(cur_weights) + list(tgt_weights)))
             weight_records.append({s: cur_weights.get(s, 0.0) for s in all_syms})
-            position_records.append({s: shares.get(s, 0.0) for s in all_syms})
+            position_records.append({s: shares_snapshot.get(s, 0.0) for s in all_syms})
 
         # ── 结果封装 ──────────────────────────────────────────────────────────
         equity_curve = pd.Series(equity_records, index=dates, name="equity")

@@ -349,3 +349,29 @@ class TestBacktestResultM12Metrics:
             "neighborhood; getting outside this range likely indicates "
             "the metric extractor regressed"
         )
+
+
+# ── Snapshot alignment (audit 2026-05-21) ─────────────────────────────────────
+
+class TestSnapshotAlignment:
+    """equity_curve / cash_curve / positions 必须描述同一个 (pre-fill,
+    T-close) 组合状态。旧实现把 cash/positions 放在 T+1-open 成交循环
+    之后 append → 同 index 上 equity 是 pre-fill、cash/positions 是
+    post-fill，off-by-one。修复后三者满足会计恒等式。"""
+
+    def test_equity_reconciles_with_cash_and_positions(self):
+        price   = _make_price_df(60, syms=("SPY", "QQQ", "IWM"))
+        signals = _make_signals(price)
+        engine  = BacktestEngine(_make_cost_model(), initial_capital=100_000.0)
+        result  = engine.run(signals, price)
+
+        for dt in result.equity_curve.index:
+            mark = sum(
+                result.positions.loc[dt, s] * price.loc[dt, s]
+                for s in price.columns if s in result.positions.columns
+            )
+            recon = result.cash_curve.loc[dt] + mark
+            assert abs(recon - result.equity_curve.loc[dt]) < 1e-6, (
+                f"{dt}: equity={result.equity_curve.loc[dt]:.6f} != "
+                f"cash+positions={recon:.6f} — snapshot off-by-one"
+            )

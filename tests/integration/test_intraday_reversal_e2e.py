@@ -115,10 +115,14 @@ class TestEndToEndPipeline:
         This is the "cash carry during ARMED" semantics — naturally
         handled by the daily-grain signals_df → fill-at-T+1-open flow.
 
-        Note: BT records equity[T=0] as PRE-fill portfolio value (= initial
-        cash, no shares yet), while cash_curve[T=0] is POST-fill (cash
-        committed to T+1 orders has already left the cash bucket — this
-        is cycle04-08 existing BT semantics, not changed here).
+        Snapshot alignment (audit 2026-05-21): equity_curve, cash_curve
+        and positions all record the PRE-fill T-close state. So on day 0
+        — orders armed but not yet filled — cash_curve[0] is still the
+        full initial capital. The cash committed to the day-0 orders
+        becomes visible at cash_curve[1] (day-0 orders fill at day-1
+        open). Pre-fix cash_curve[0] was post-fill while equity_curve[0]
+        was pre-fill — an off-by-one this test previously pinned as
+        "canonical behavior" rather than flagging as a bug.
         """
         price, open_panel, wr, vol, iv, er, dates, syms = smoke_panel
         strat = IntradayReversalStrategy()
@@ -142,14 +146,17 @@ class TestEndToEndPipeline:
         # held at T=0 close before T+1 fills settle).
         assert abs(result.equity_curve.iloc[0] - 10_000.0) < 1e-3
 
-        # cycle04-08 BT semantics: cash_curve[T=0] records cash AFTER T+1
-        # fills are simulated — this is the canonical existing behavior,
-        # NOT a cash-carry semantic. The actual cash-carry visibility is
-        # the gap between equity[T=0] (pre-fill, $10k) and the value of
-        # shares that WILL fill at T+1 open.
-        # Just verify cash went DOWN (some orders generated):
-        assert result.cash_curve.iloc[0] < 10_000.0, (
-            "Expected some cash committed to T+1 orders on day 0"
+        # T=0: cash_curve is now ALSO the pre-fill snapshot — day-0 orders
+        # are armed but not yet filled, so cash is still full capital.
+        assert abs(result.cash_curve.iloc[0] - 10_000.0) < 1e-3, (
+            "day-0 cash should still be full capital — orders armed, "
+            "not yet filled (fill is T+1 open)"
+        )
+
+        # The cash committed to the day-0 orders becomes visible at the
+        # next snapshot: day-0 orders fill at day-1 open.
+        assert result.cash_curve.iloc[1] < 10_000.0, (
+            "Expected day-0 orders' cash commitment visible at cash_curve[1]"
         )
 
 
