@@ -49,6 +49,26 @@
 
 ## 轮次日志(每轮 commit 时追加 1 行)
 
+### Round 32(2026-05-21) — PRD #4 P4.2 audit priority 3:Stage 2 sign classifier walk-forward 重训(10 fold,过拟合确认 non-luck)
+
+- **本轮主题**: PRD #4 P4.2 audit priority 3。R28/R29 单 split 显示 Stage 2 sign classifier 过拟合(train precision 0.80 → val 0.39,-60%)。PRD #4 P4.2 显式要求 "walk-forward retraining cadence",但单 split 先 ship。Round 32 补这个 gap:rolling 5y-train / 1y-val 滚动折,per-fold + aggregate。
+- **为什么这轮优先**: R31 收尾时 operator 推 priority 3 高于 vol-proxy fix。walk-forward 重训能区分「单 split 运气」vs「model/feature 真问题」——决定下一杠杆是 hyperparam search 还是别的。
+- **做了什么 + 改了哪些文件**:
+  - 新增 `dev/scripts/ml/walk_forward_sign_classifier.py`(341 行 driver)。复用 R22 `WalkForwardConfig`/`iter_folds` + R23 artifact 接口 + R24 labels/bar-integrity + R26 `sign_classifier` + R27 `extract_feature_bundle`。每折:Stage 1 cycle06 3-feature zscore-rank → top-decile mask → binary sign label(21d)→ top-decile cell 上 assemble X,y(raw context 值,per R28 R3 catch:Family S regime 因子是 broadcast)→ fit XGB(train 折)→ eval(held-out val 折)。
+  - 跑出 `data/audit/r32_walkforward_sign_xgb_20260520T215758Z.json`(R10 precedent:audit JSON commit 而非 gitignore)。
+- **跑了什么测试 + 结果**:
+  - 10/10 fold 全成功(2010-2024,5y-train/1y-val 滚动,val 折 2015→2024)。
+  - **aggregate**:mean val F1(VETO)=**0.263** / mean val precision(VETO)=**0.382** / weighted val precision=**0.378**。
+  - **P4.2 AC**:F1(VETO) > 0 = ✅ PASS;**Precision(VETO) > 0.55 = ❌ FAIL**(0.382 << 0.55)。
+  - per-fold train precision 0.75-0.89 vs val precision 0.25-0.55 → 10 折一致过拟合 pattern。
+  - **R3 复现**:重跑 bit-identical(`del(.trained_at_utc)` diff 为空,seed=42 确定性)。driver 不动 module 代码,regression sweep 不重跑(R29 precedent)。
+- **non-blanket verdict**(per `feedback_no_blanket_failure_verdict`): 这个 attempt(单组 hand-pick XGB hyperparam + regime_state bundle,walk-forward)val precision FAIL。**walk-forward 10 折一致排除了「单 split 运气」假说 → 是 model/feature 层问题,不是 luck**。不下「sign classifier 不行」blanket verdict;下一杠杆 = hyperparam search(Round 33)。
+- **⚠ temporal_split caveat**: walk-forward val 折覆盖 2015-2024,含 temporal_split.yaml 的 validation 年(2018/2019/2021/2023)。本 run 定位 = **P4.2 walk-forward retraining cadence 的 acceptance-type 度量**(classifier 质量,非 evidence-discovery 阶段);sealed 2026 由 `assert_no_sealed_year`+`DEFAULT_SEALED_YEARS` 守(end-year 2024,2025/2026 全程未读)。引用 0.382 数字时须标此定位。
+- **新发现 / 新机会**: per-fold precision 跨年波动大(2022 fold 0.545 但 veto_count 仅 33;2019 fold 0.246)→ class prior shift + 低 veto 召回交织;hyperparam search 应同时调 `scale_pos_weight` / `max_depth` / `n_estimators` 而非只调 regularization。
+- **剩余风险**: precision AC 仍 FAIL,P4.2 AC 处于 F1-pass/precision-fail 状态;hyperparam search 若仍 < 0.55,则 root cause 升级到 feature bundle(4 feature 太少 / regime broadcast 退化),需换 bundle 而非调参。
+- **下一轮建议方向**: **Round 33 = hyperparam search**(XGB grid/random search,walk-forward 内,目标 val precision 0.382 → 0.55)。
+- **TODO**: R32 ✅ commit;R33 hyperparam search in flight。
+
 ### Round 31(2026-05-20 night) — audit close P1+P2:run_paper.py live parity + R29 audit hygiene(2 AST tests + 381/381 regression)
 
 - **本轮主题**: 外部 auditor review 7 findings,operator 独立 R3 实证后接受 5 完全对 + 1 半对(F5 vol proxy 在 R-ML-C verdict 上影响 zero,但 live 路径担忧成立)+ 1 hygiene。本轮关 priority 1+2(live parity + audit JSON hygiene)。
