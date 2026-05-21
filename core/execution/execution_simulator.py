@@ -108,6 +108,10 @@ class ExecutionSimulator:
     freq         : 'interday' 或 'intraday'（影响滑点档位）
     allow_partial: 若 True，现金不足时按比例缩减买入量；
                    若 False，现金不足时拒绝整笔买入。
+    integer_shares: 若 True，partial-fill 缩减后的数量取整为整数股；
+                    若 False（默认），保持小数股 —— 与上游订单生成的
+                    fractional / integer 语义一致（避免 partial-fill
+                    分支偷偷把 fractional 模式变成整数股）。
     """
 
     def __init__(
@@ -115,10 +119,12 @@ class ExecutionSimulator:
         cost_model:    CostModel,
         freq:          str = "interday",
         allow_partial: bool = True,
+        integer_shares: bool = False,
     ):
         self._cost   = cost_model
         self._freq   = freq
         self._allow_partial = allow_partial
+        self._integer_shares = integer_shares
 
     # ── 主接口 ────────────────────────────────────────────────────────────────
 
@@ -163,9 +169,12 @@ class ExecutionSimulator:
 
             if total_needed > cash:
                 if self._allow_partial and cash > 0:
-                    # 按可用现金等比例缩减
+                    # 按可用现金等比例缩减；只有整数股模式才取整，
+                    # 否则保持小数股以尊重 fractional-share 配置
                     scale = cash / total_needed
-                    qty   = np.floor(qty * scale)   # 整手化（简单取整）
+                    qty   = qty * scale
+                    if self._integer_shares:
+                        qty = np.floor(qty)
                     if qty <= 0:
                         logger.debug("[%s] Not enough cash for even 1 share — skipped", order.symbol)
                         return None

@@ -87,6 +87,22 @@ class TestSimulateFill:
         if fill is not None:
             assert fill.executed_qty < 100.0
 
+    def test_partial_fill_keeps_fractional_by_default(self):
+        """audit 2026-05-21: partial-fill 在 fractional 模式不应偷偷取整。"""
+        sim  = ExecutionSimulator(_make_cost_model(), allow_partial=True)
+        fill = sim.simulate_fill(_order(qty=100), open_price=100.0, vix=15.0, cash=555.0)
+        assert fill is not None
+        # 默认 integer_shares=False → executed_qty 保持小数股
+        assert fill.executed_qty != float(int(fill.executed_qty))
+
+    def test_partial_fill_floors_in_integer_mode(self):
+        """integer_shares=True → partial-fill 缩减后取整。"""
+        sim  = ExecutionSimulator(_make_cost_model(), allow_partial=True,
+                                  integer_shares=True)
+        fill = sim.simulate_fill(_order(qty=100), open_price=100.0, vix=15.0, cash=555.0)
+        assert fill is not None
+        assert fill.executed_qty == float(int(fill.executed_qty))
+
     def test_insufficient_cash_strict_rejects(self):
         """allow_partial=False 时，现金不足应拒绝整笔。"""
         sim  = ExecutionSimulator(_make_cost_model(), allow_partial=False)

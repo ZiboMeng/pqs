@@ -120,7 +120,8 @@ class BacktestEngine:
                 f"got {execution_freq!r}"
             )
         self._cost      = cost_model
-        self._sim       = ExecutionSimulator(cost_model, freq=execution_freq, allow_partial=True)
+        self._sim       = ExecutionSimulator(cost_model, freq=execution_freq, allow_partial=True,
+                                             integer_shares=integer_shares)
         self._exec_freq = execution_freq
         self._capital   = initial_capital
         self._min_trade = min_trade_usd
