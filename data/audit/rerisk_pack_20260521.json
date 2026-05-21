@@ -92,7 +92,55 @@
         "full-period MaxDD 64.0% > 25% stress cap",
         "DIAGNOSTIC WINDOW (validation-spanning, §6.5) — informational regime-fragility evidence, NOT a candidate pass/fail gate"
       ]
+    },
+    {
+      "candidate_id": "cycle06_31af04cf2ff9_evidence_v1",
+      "source": "data/research_candidates/cycle06_31af04cf2ff9_evidence_v1.yaml (exact frozen spec)",
+      "window": "Track-A selector panel (train+validation) — sanctioned for a research candidate's Track-A stage",
+      "partition": "track_a_selector",
+      "metrics": {
+        "cum_ret": 13.874692520536822,
+        "sharpe": 1.3474943405483775,
+        "max_dd": -0.19935278212480761,
+        "vs_spy": 4.871016106047076,
+        "spy_cum_ret": 9.003676414489746,
+        "vs_qqq": 8.397736153044146,
+        "qqq_cum_ret": 5.476956367492676
+      },
+      "per_validation_year_maxdd": {
+        "2018": -0.19935278212480761,
+        "2019": -0.05679014596564733,
+        "2021": -0.0980394798269941,
+        "2023": -0.09316738703882013,
+        "2025": -0.1659486756178755
+      },
+      "stress_slice_maxdd": {
+        "covid_flash": -0.15987055150375534,
+        "rate_hike_2022": -0.09476418208670177
+      },
+      "concentration": {
+        "m12_top1_weight_max": 0.13396596980449582,
+        "m12_top3_weight_max": 0.35125024299508456,
+        "m12_n_dates_with_weights": 4276
+      },
+      "n_observed_days": 4276,
+      "track_a_passed": false,
+      "track_a_failed_gates": [
+        "validation_aggregate_excess_vs_spy"
+      ],
+      "verdict": "RED",
+      "verdict_flags": [
+        "drawdown stable vs frozen evidence — per-year MaxDD ≤20% (worst 19.9%), stress ≤25% (worst 16.0%)",
+        "Track-A re-risk FAIL (validation_aggregate_excess_vs_spy) — contradicts frozen `track_a_acceptance: PASS`; this is an alpha-gate (vs-SPY) failure, NOT a drawdown regression"
+      ],
+      "frozen_evidence_compare": {
+        "frozen_covid_flash_maxdd": -0.1532,
+        "frozen_rate_hike_2022_maxdd": -0.0948,
+        "frozen_per_year_maxdd_max": -0.196,
+        "frozen_track_a": "PASS post-MaxDD-fix 2026-05-15 (official QQQ-diagnostic governance)"
+      },
+      "reproduce_cmd": "python dev/scripts/audit/rerisk_cycle06.py"
     }
   ],
-  "updated_utc": "20260521T223756Z"
+  "updated_utc": "20260521T225517Z"
 }
