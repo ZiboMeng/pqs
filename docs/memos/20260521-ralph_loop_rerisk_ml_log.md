@@ -58,4 +58,52 @@ CAGR +12.59% / Sharpe 0.67 / MaxDD -20.21% / vol 13.16% / Beta 0.28
 
 ⑪ **commit** — `393b570`(主)。
 
-<!-- Round 2 起在此行下方追加 -->
+## Round 2 — R0 第二步:baseline 近期窗口 diagnostic 行 + regime 解析
+
+**时间**: 2026-05-21 · **主 commit**: `de7eb38` · **测试基线**: 3864
+passed(未动 module 代码,不变)
+
+① **当前阶段** — Round 2 / Workstream R0 / 第二步。
+
+② **本轮目标** — 扩驱动解析 regime 分层表;产出 baseline 近期窗口
+diagnostic 行,复现 PRD §2.1 -64% 画像。
+
+③ **为什么先做它** — §2.1 caveat 要求把 -63.95% 落成 checked-in、
+explicit-window、标注 diagnostic 的可复现行;用户决策〇.4 已预授权。
+
+④ **做了什么** — 轮前 bar-integrity smoke(SPY/QQQ 2022-2025 各 1003
+行 0 周末行 CLEAN)。扩 `rerisk_pack.py`:`parse_regime_breakdown` +
+diagnostic-partition verdict 分支。跑 baseline 2022-01-03..2025-12-31
+(partition=diagnostic),更新 pack(2 行)+ memo §1.2/§1.3。
+
+⑤ **改了哪些文件** — `dev/scripts/audit/rerisk_pack.py` /
+`data/audit/rerisk_pack_20260521.json` /
+`docs/memos/20260521-rerisk-pack.md`。
+
+⑥ **跑了哪些测试 + 结果** — driver exit 0;R3 复现:diagnostic 行
+CAGR -4.49% / MaxDD -63.95% / vol 27.72% 与 PRD §2.1 /tmp 数字逐字
+一致 → §2.1 caveat 闭合;regime parser 解析 5 个 regime;仅扩 driver
+未动 module 代码。
+
+⑦ **当前结果** — baseline 2022-2025 diagnostic:CAGR -4.49% / MaxDD
+-63.95% / vol 27.72%,verdict RED(informational)。对照 §1.1
+train-only(+12.59% / -20.21% / 13.16%)→ 印证 baseline regime-
+fragile、高波动期风控翻译失效(diagnostic 窗口 realized vol 27.72%
+越 constructor 25% target)。
+
+⑧ **剩余风险** — stress slices 未做(需先核查既有 stress harness,
+避免重造/误触 holdout);per-year MaxDD 字段未出;cycle06/08/PEAD
+未做;Round-1 train-only 行 regime_breakdown 空(非 load-bearing)。
+
+⑨ **下一轮建议** — Round 3 = R0 第三步:先核查项目既有 stress-slice
+MaxDD 机制(`stress_tester` / cycle06_track_a_eval),确认 sanctioned
+实现后产出 covid_flash / rate_hike stress 行;若需遍历 validation
+且无 sanctioned 封装则按协议四停下问用户。
+
+⑩ **TODO** — [x] driver [x] baseline train-only [x] baseline 近期
+diagnostic · [ ] baseline stress slices [ ] per-year MaxDD
+[ ] cycle06 [ ] cycle08 [ ] PEAD [ ] R0 收口 · [ ] P0-P6。
+
+⑪ **commit** — `de7eb38`(主)。
+
+<!-- Round 3 起在此行下方追加 -->
