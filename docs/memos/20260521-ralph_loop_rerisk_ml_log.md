@@ -414,4 +414,41 @@ declared contract ✅)。
 
 ⑪ **commit** — `75032d1`(主)。
 
-<!-- Round 10 起在此行下方追加 -->
+## Round 10 — P0 收口:ML source-contracts memo + gate 核对
+
+**时间**: 2026-05-21 · **主 commit**: `505798d` · **测试基线**: 3864
+(收口文档轮)
+
+① **当前阶段** — Round 10 / Package P0 / 收口。
+
+② **本轮目标** — 写 P0 source-contracts memo,核对 §12.3 gate,关闭 P0。
+
+③ **为什么先做它** — Round 9 出 P0 两件套;memo 是第三件产物,P0
+须关闭才能进 P1。
+
+④ **做了什么** — 写 `docs/memos/20260521-ml-source-contracts.md`
+(环境 floor / 6+1 tier / PIT rules / gap 表 / driver 契约 / §12.3
+gate 逐条核对)。
+
+⑤ **改了哪些文件** — `docs/memos/20260521-ml-source-contracts.md`(新)。
+
+⑥ **跑了哪些测试 + 结果** — 收口文档轮,无代码无测试;机读产物
+Round 9 在案。
+
+⑦ **当前结果** — **P0 CLOSED**。§12.3 gate 三条全过:① 6/6 mandatory
+tier 有 declared contract;② xgboost+lightgbm importable;③ driver
+source_tiers 契约已建(P2 起强制,当前无 ML 训练 driver 无违规)。
+
+⑧ **剩余风险** — B/C/D/E/F 五 tier status=partial,gap 表已列待闭项
+(随 P2-P4 闭合);tier A 是唯一 present → P2 从 tier A 起步。
+
+⑨ **下一轮建议** — Round 11 = Package P1(canonical labels + split
+discipline):扩 `config/ml_labeling.yaml`(canonical label-mode
+schema);purge+embargo 默认在 ML driver override(§8.2 + 决策 ④,
+不改共享 temporal_split*.yaml)。
+
+⑩ **TODO** — [x] R0 CLOSED [x] P0 CLOSED · [ ] P1 [ ] P2-P6。
+
+⑪ **commit** — `505798d`(主)。
+
+<!-- Round 11 起在此行下方追加 -->
