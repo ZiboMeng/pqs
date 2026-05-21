@@ -1,0 +1,3489 @@
+{
+  "config": {
+    "start_year": 2010,
+    "end_year": 2024,
+    "train_window": 5,
+    "val_window": 1,
+    "step": 1,
+    "horizon_days": 21,
+    "decile": 0.9,
+    "context_bundle": "regime_state",
+    "out_dir": "data/audit",
+    "seed": 42
+  },
+  "grid": {
+    "n_estimators": [
+      50,
+      100,
+      200,
+      400
+    ],
+    "max_depth": [
+      2,
+      3,
+      4,
+      6
+    ],
+    "learning_rate": [
+      0.03,
+      0.1,
+      0.3
+    ],
+    "threshold_sweep": [
+      0.3,
+      0.35,
+      0.4,
+      0.45,
+      0.5,
+      0.55,
+      0.6,
+      0.65,
+      0.7
+    ],
+    "degenerate_veto_rate_floor": 0.1,
+    "ac_precision": 0.55
+  },
+  "per_tree_config": [
+    {
+      "n_estimators": 50,
+      "max_depth": 2,
+      "learning_rate": 0.03,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.03684210526315789,
+          "mean_val_f1_veto": 0.013186813186813187,
+          "mean_veto_rate": 0.008990536277602523,
+          "weighted_val_precision_veto": 0.029243060703401696
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.03314917127071823,
+          "mean_val_f1_veto": 0.017045454545454544,
+          "mean_veto_rate": 0.014274447949526814,
+          "weighted_val_precision_veto": 0.02631183046714912
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.0342042755344418,
+          "mean_val_f1_veto": 0.030508474576271184,
+          "mean_veto_rate": 0.033201892744479496,
+          "weighted_val_precision_veto": 0.02714930915660232
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.10448719641135873,
+          "mean_val_f1_veto": 0.0753228032455662,
+          "mean_veto_rate": 0.08091372360612543,
+          "weighted_val_precision_veto": 0.0729148961769157
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.12475361903168494,
+          "mean_val_f1_veto": 0.09487622675187049,
+          "mean_veto_rate": 0.12173501949754233,
+          "weighted_val_precision_veto": 0.09767544397249343
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.2112539048996696,
+          "mean_val_f1_veto": 0.14962536726095993,
+          "mean_veto_rate": 0.1945396234437078,
+          "weighted_val_precision_veto": 0.18050553130604718
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.27841838745856407,
+          "mean_val_f1_veto": 0.30973690407859666,
+          "mean_veto_rate": 0.43948139470984254,
+          "weighted_val_precision_veto": 0.2575333352985447
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.38179126771108784,
+          "mean_val_f1_veto": 0.5281267098582224,
+          "mean_veto_rate": 0.8896919052726753,
+          "weighted_val_precision_veto": 0.37182959023718015
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3796598844864864,
+          "mean_val_f1_veto": 0.5403882221178274,
+          "mean_veto_rate": 0.977040142390185,
+          "weighted_val_precision_veto": 0.3692527959549412
+        }
+      ]
+    },
+    {
+      "n_estimators": 50,
+      "max_depth": 2,
+      "learning_rate": 0.1,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.06291770573566084,
+          "mean_val_f1_veto": 0.029412943297936284,
+          "mean_veto_rate": 0.03224036922503147,
+          "weighted_val_precision_veto": 0.05662575954479997
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.05921588034752008,
+          "mean_val_f1_veto": 0.032869338125859994,
+          "mean_veto_rate": 0.03673447188077885,
+          "weighted_val_precision_veto": 0.0528385263251737
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.13745459167551669,
+          "mean_val_f1_veto": 0.07011389021336667,
+          "mean_veto_rate": 0.07036459619218785,
+          "weighted_val_precision_veto": 0.1050882353814922
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.23436014980552403,
+          "mean_val_f1_veto": 0.09820484001902521,
+          "mean_veto_rate": 0.10646253464305047,
+          "weighted_val_precision_veto": 0.20390223791900944
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.19064594650517916,
+          "mean_val_f1_veto": 0.12509178863018305,
+          "mean_veto_rate": 0.14820036770063771,
+          "weighted_val_precision_veto": 0.15800711102849968
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.24745562002536087,
+          "mean_val_f1_veto": 0.20239209798662983,
+          "mean_veto_rate": 0.225280399482065,
+          "weighted_val_precision_veto": 0.22058870396083052
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.36316718229438594,
+          "mean_val_f1_veto": 0.33020046885048765,
+          "mean_veto_rate": 0.4359760783381955,
+          "weighted_val_precision_veto": 0.36293145613150696
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.3660395764555571,
+          "mean_val_f1_veto": 0.4671646243092352,
+          "mean_veto_rate": 0.7234696810956116,
+          "weighted_val_precision_veto": 0.3537638066867935
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.37837456220405496,
+          "mean_val_f1_veto": 0.5268538795176008,
+          "mean_veto_rate": 0.9131555362713172,
+          "weighted_val_precision_veto": 0.36784334209093295
+        }
+      ]
+    },
+    {
+      "n_estimators": 50,
+      "max_depth": 2,
+      "learning_rate": 0.3,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.10238570247979724,
+          "mean_val_f1_veto": 0.04505830263033968,
+          "mean_veto_rate": 0.04892281076282171,
+          "weighted_val_precision_veto": 0.07927670899267297
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.14933827798364252,
+          "mean_val_f1_veto": 0.0611592834577183,
+          "mean_veto_rate": 0.06622973752149763,
+          "weighted_val_precision_veto": 0.13019405653753596
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.18265246857361914,
+          "mean_val_f1_veto": 0.0856689818109161,
+          "mean_veto_rate": 0.09227279377973767,
+          "weighted_val_precision_veto": 0.16789902880222815
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.3408869655056933,
+          "mean_val_f1_veto": 0.11791148210625753,
+          "mean_veto_rate": 0.1221619603005073,
+          "weighted_val_precision_veto": 0.34310988606336884
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.36092589655858054,
+          "mean_val_f1_veto": 0.18429907636767678,
+          "mean_veto_rate": 0.1808290697564118,
+          "weighted_val_precision_veto": 0.36002035463424736
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.3682544217240288,
+          "mean_val_f1_veto": 0.2593851519325397,
+          "mean_veto_rate": 0.2667197935832047,
+          "weighted_val_precision_veto": 0.36303031173873634
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3681966604622757,
+          "mean_val_f1_veto": 0.3414689800774226,
+          "mean_veto_rate": 0.4032326871931381,
+          "weighted_val_precision_veto": 0.36201115136682244
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.3729138940372615,
+          "mean_val_f1_veto": 0.4038590437616273,
+          "mean_veto_rate": 0.5384380324705258,
+          "weighted_val_precision_veto": 0.3652490890233416
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3775295707452593,
+          "mean_val_f1_veto": 0.46484540631169,
+          "mean_veto_rate": 0.704020876166269,
+          "weighted_val_precision_veto": 0.3655536354092669
+        }
+      ]
+    },
+    {
+      "n_estimators": 50,
+      "max_depth": 3,
+      "learning_rate": 0.03,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.03229461756373937,
+          "mean_val_f1_veto": 0.02602739726027397,
+          "mean_veto_rate": 0.027839116719242902,
+          "weighted_val_precision_veto": 0.025633536820545557
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.05564208782104392,
+          "mean_val_f1_veto": 0.02789582018278124,
+          "mean_veto_rate": 0.030357956536978613,
+          "weighted_val_precision_veto": 0.03609392783100148
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.151333696177594,
+          "mean_val_f1_veto": 0.06325317609076511,
+          "mean_veto_rate": 0.06105241719199028,
+          "weighted_val_precision_veto": 0.11523595321801779
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.13727919875762762,
+          "mean_val_f1_veto": 0.07940902793888764,
+          "mean_veto_rate": 0.08172216492914983,
+          "weighted_val_precision_veto": 0.10291792249438378
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.19195518835958378,
+          "mean_val_f1_veto": 0.12087022260463956,
+          "mean_veto_rate": 0.14611366251950536,
+          "weighted_val_precision_veto": 0.15953512427834435
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.2122142836924248,
+          "mean_val_f1_veto": 0.1787498275264321,
+          "mean_veto_rate": 0.23226042929601315,
+          "weighted_val_precision_veto": 0.1797869883026932
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3199048001865322,
+          "mean_val_f1_veto": 0.3273982036740641,
+          "mean_veto_rate": 0.46764140617628885,
+          "weighted_val_precision_veto": 0.30590460854511764
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.3763575755131946,
+          "mean_val_f1_veto": 0.502758574730731,
+          "mean_veto_rate": 0.8205520508302346,
+          "weighted_val_precision_veto": 0.3645430679714157
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3776292820303189,
+          "mean_val_f1_veto": 0.5293572058532056,
+          "mean_veto_rate": 0.9453904910180835,
+          "weighted_val_precision_veto": 0.36665206876984807
+        }
+      ]
+    },
+    {
+      "n_estimators": 50,
+      "max_depth": 3,
+      "learning_rate": 0.1,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.13184019388188434,
+          "mean_val_f1_veto": 0.044731761191895925,
+          "mean_veto_rate": 0.042966520990959524,
+          "weighted_val_precision_veto": 0.10272096677585695
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.15500294708240456,
+          "mean_val_f1_veto": 0.05632165361839784,
+          "mean_veto_rate": 0.053592200979840784,
+          "weighted_val_precision_veto": 0.1260663877098783
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.1798634560942621,
+          "mean_val_f1_veto": 0.0775171158654724,
+          "mean_veto_rate": 0.08071176504731087,
+          "weighted_val_precision_veto": 0.14919967604978773
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.2336840863896234,
+          "mean_val_f1_veto": 0.12445154838015518,
+          "mean_veto_rate": 0.12196626953328582,
+          "weighted_val_precision_veto": 0.21091549722308778
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3088918650689238,
+          "mean_val_f1_veto": 0.19334743707721286,
+          "mean_veto_rate": 0.18928932951355265,
+          "weighted_val_precision_veto": 0.3031037379446098
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.39074909281812564,
+          "mean_val_f1_veto": 0.27458988572406673,
+          "mean_veto_rate": 0.28202130224515604,
+          "weighted_val_precision_veto": 0.39171403446098346
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.36743469201269263,
+          "mean_val_f1_veto": 0.34706059429948555,
+          "mean_veto_rate": 0.42787678229934584,
+          "weighted_val_precision_veto": 0.35879036061867964
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.37310544948629526,
+          "mean_val_f1_veto": 0.46131027907279665,
+          "mean_veto_rate": 0.6637710199906203,
+          "weighted_val_precision_veto": 0.3584224394874212
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.37220444611922615,
+          "mean_val_f1_veto": 0.49993078073619246,
+          "mean_veto_rate": 0.8261713974992524,
+          "weighted_val_precision_veto": 0.3589565665627994
+        }
+      ]
+    },
+    {
+      "n_estimators": 50,
+      "max_depth": 3,
+      "learning_rate": 0.3,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.29720884876967707,
+          "mean_val_f1_veto": 0.08318202834075442,
+          "mean_veto_rate": 0.07094302936553457,
+          "weighted_val_precision_veto": 0.2761588413161861
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.30373306836956815,
+          "mean_val_f1_veto": 0.11532494814524372,
+          "mean_veto_rate": 0.09819938781826737,
+          "weighted_val_precision_veto": 0.2840186943359646
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.326528004926519,
+          "mean_val_f1_veto": 0.16920081285678007,
+          "mean_veto_rate": 0.1454259944362379,
+          "weighted_val_precision_veto": 0.30968402141567497
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.3849739569681744,
+          "mean_val_f1_veto": 0.2118588886065354,
+          "mean_veto_rate": 0.1883962633391241,
+          "weighted_val_precision_veto": 0.3801511294503845
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.38186882890986285,
+          "mean_val_f1_veto": 0.25084120532299636,
+          "mean_veto_rate": 0.24160252155668732,
+          "weighted_val_precision_veto": 0.37859823597904957
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.38680854874379295,
+          "mean_val_f1_veto": 0.30244685425919926,
+          "mean_veto_rate": 0.3100997508349771,
+          "weighted_val_precision_veto": 0.3833020929567945
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.38102715744310184,
+          "mean_val_f1_veto": 0.35429559063265054,
+          "mean_veto_rate": 0.39632882617839826,
+          "weighted_val_precision_veto": 0.37494652520360366
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.37724586987481834,
+          "mean_val_f1_veto": 0.42072179497605244,
+          "mean_veto_rate": 0.5293105605938944,
+          "weighted_val_precision_veto": 0.36667100980035355
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.37650531083791783,
+          "mean_val_f1_veto": 0.46835898111470364,
+          "mean_veto_rate": 0.6646479481340056,
+          "weighted_val_precision_veto": 0.36584663930228484
+        }
+      ]
+    },
+    {
+      "n_estimators": 50,
+      "max_depth": 4,
+      "learning_rate": 0.03,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.03300653594771242,
+          "mean_val_f1_veto": 0.024366706875753923,
+          "mean_veto_rate": 0.02413249211356467,
+          "weighted_val_precision_veto": 0.02619861507461618
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.08993245375923237,
+          "mean_val_f1_veto": 0.032429839335916685,
+          "mean_veto_rate": 0.03438414796282195,
+          "weighted_val_precision_veto": 0.0677909874921943
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.14072401194352416,
+          "mean_val_f1_veto": 0.054474481442178126,
+          "mean_veto_rate": 0.050660818776095594,
+          "weighted_val_precision_veto": 0.10526434869959432
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.17348863049836555,
+          "mean_val_f1_veto": 0.07316041290448604,
+          "mean_veto_rate": 0.07780334952798182,
+          "weighted_val_precision_veto": 0.14343475930594346
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.2659625502522583,
+          "mean_val_f1_veto": 0.15885644147360162,
+          "mean_veto_rate": 0.140559977142161,
+          "weighted_val_precision_veto": 0.2452037566651381
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.2612756883903565,
+          "mean_val_f1_veto": 0.21410477614690526,
+          "mean_veto_rate": 0.22014624625526952,
+          "weighted_val_precision_veto": 0.24054236909780813
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.37834328577558446,
+          "mean_val_f1_veto": 0.335076939190735,
+          "mean_veto_rate": 0.4223077631210548,
+          "weighted_val_precision_veto": 0.37061857358006206
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.3725201397089499,
+          "mean_val_f1_veto": 0.47926547148988197,
+          "mean_veto_rate": 0.7385510802451809,
+          "weighted_val_precision_veto": 0.3582677449811852
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3724631670180864,
+          "mean_val_f1_veto": 0.5142968437620978,
+          "mean_veto_rate": 0.9130491118574998,
+          "weighted_val_precision_veto": 0.35967288965073624
+        }
+      ]
+    },
+    {
+      "n_estimators": 50,
+      "max_depth": 4,
+      "learning_rate": 0.1,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.2481737408244112,
+          "mean_val_f1_veto": 0.07012270704611934,
+          "mean_veto_rate": 0.05450590667115993,
+          "weighted_val_precision_veto": 0.22671254441728786
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.2433885957433029,
+          "mean_val_f1_veto": 0.10048813490854533,
+          "mean_veto_rate": 0.07707081961475452,
+          "weighted_val_precision_veto": 0.22383511561692745
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.3195279971663044,
+          "mean_val_f1_veto": 0.14065970992605809,
+          "mean_veto_rate": 0.1156724152232518,
+          "weighted_val_precision_veto": 0.3160564209012822
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.31690071691363064,
+          "mean_val_f1_veto": 0.18258454949858646,
+          "mean_veto_rate": 0.15959486316685562,
+          "weighted_val_precision_veto": 0.3098347534116103
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.41770228130698533,
+          "mean_val_f1_veto": 0.22887553786071507,
+          "mean_veto_rate": 0.2167961906128594,
+          "weighted_val_precision_veto": 0.43122746714541393
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.3823806042367576,
+          "mean_val_f1_veto": 0.2934513433673431,
+          "mean_veto_rate": 0.29770128682802566,
+          "weighted_val_precision_veto": 0.37921504774002635
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3921660970654487,
+          "mean_val_f1_veto": 0.3807816683096773,
+          "mean_veto_rate": 0.4456459026016244,
+          "weighted_val_precision_veto": 0.3837260454329697
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.3759856261969805,
+          "mean_val_f1_veto": 0.44538317223580515,
+          "mean_veto_rate": 0.6154345596072659,
+          "weighted_val_precision_veto": 0.36454461539840105
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3685346327900083,
+          "mean_val_f1_veto": 0.488531612772397,
+          "mean_veto_rate": 0.7932775572623466,
+          "weighted_val_precision_veto": 0.3551014026462839
+        }
+      ]
+    },
+    {
+      "n_estimators": 50,
+      "max_depth": 4,
+      "learning_rate": 0.3,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.44229307336320467,
+          "mean_val_f1_veto": 0.14393342674141793,
+          "mean_veto_rate": 0.10448368486311635,
+          "weighted_val_precision_veto": 0.44911792371796583
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.3741079259320589,
+          "mean_val_f1_veto": 0.17699623847712823,
+          "mean_veto_rate": 0.14209915391890568,
+          "weighted_val_precision_veto": 0.3679182335381231
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.36675736792374825,
+          "mean_val_f1_veto": 0.20343895375147172,
+          "mean_veto_rate": 0.1806384784562159,
+          "weighted_val_precision_veto": 0.36053622637401134
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.3653155275255873,
+          "mean_val_f1_veto": 0.23442664158613497,
+          "mean_veto_rate": 0.22364011664798053,
+          "weighted_val_precision_veto": 0.36027501913561855
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3721879785495401,
+          "mean_val_f1_veto": 0.27309156943376917,
+          "mean_veto_rate": 0.2729763096184945,
+          "weighted_val_precision_veto": 0.3658541032949061
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.38026773443215517,
+          "mean_val_f1_veto": 0.322947309705436,
+          "mean_veto_rate": 0.3385716347013975,
+          "weighted_val_precision_veto": 0.37245942956614325
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.38200106775746867,
+          "mean_val_f1_veto": 0.37834189769390697,
+          "mean_veto_rate": 0.42848347769693473,
+          "weighted_val_precision_veto": 0.3713906518718282
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.3747870641831588,
+          "mean_val_f1_veto": 0.4175298948610722,
+          "mean_veto_rate": 0.5276407413631456,
+          "weighted_val_precision_veto": 0.3614527394207911
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.37395479507170676,
+          "mean_val_f1_veto": 0.45207162962115044,
+          "mean_veto_rate": 0.6307541484719211,
+          "weighted_val_precision_veto": 0.3607984563919773
+        }
+      ]
+    },
+    {
+      "n_estimators": 50,
+      "max_depth": 6,
+      "learning_rate": 0.03,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.15426978818283166,
+          "mean_val_f1_veto": 0.045665298367748776,
+          "mean_veto_rate": 0.040663739242176325,
+          "weighted_val_precision_veto": 0.12009645785028517
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.1582180049739717,
+          "mean_val_f1_veto": 0.05921605735146981,
+          "mean_veto_rate": 0.05677341105081578,
+          "weighted_val_precision_veto": 0.12642765439625797
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.250992050221929,
+          "mean_val_f1_veto": 0.11494655035605954,
+          "mean_veto_rate": 0.09317189834872777,
+          "weighted_val_precision_veto": 0.22116089711743356
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.3345639164269166,
+          "mean_val_f1_veto": 0.1702726597628056,
+          "mean_veto_rate": 0.14015656843509136,
+          "weighted_val_precision_veto": 0.32431395007038677
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.38738972034662517,
+          "mean_val_f1_veto": 0.21953291001254843,
+          "mean_veto_rate": 0.19260519901596834,
+          "weighted_val_precision_veto": 0.3882595530252433
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.3788785155920122,
+          "mean_val_f1_veto": 0.2664170249414558,
+          "mean_veto_rate": 0.2542381428368471,
+          "weighted_val_precision_veto": 0.37937885297211954
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.38304587350916797,
+          "mean_val_f1_veto": 0.3631410022519524,
+          "mean_veto_rate": 0.4127251010219653,
+          "weighted_val_precision_veto": 0.3842034190613448
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.37867804625972357,
+          "mean_val_f1_veto": 0.4663387861621066,
+          "mean_veto_rate": 0.6694474064119647,
+          "weighted_val_precision_veto": 0.36760139959000687
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.37324828599860277,
+          "mean_val_f1_veto": 0.4993459802193433,
+          "mean_veto_rate": 0.8283293282059399,
+          "weighted_val_precision_veto": 0.36096236745963767
+        }
+      ]
+    },
+    {
+      "n_estimators": 50,
+      "max_depth": 6,
+      "learning_rate": 0.1,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.30348189444963636,
+          "mean_val_f1_veto": 0.08434525592844039,
+          "mean_veto_rate": 0.06783700451609363,
+          "weighted_val_precision_veto": 0.2966192081430609
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.32847916806487254,
+          "mean_val_f1_veto": 0.12466543539160153,
+          "mean_veto_rate": 0.09620793299315779,
+          "weighted_val_precision_veto": 0.3219618993203988
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.34239092063302035,
+          "mean_val_f1_veto": 0.15975717074413484,
+          "mean_veto_rate": 0.12903599541965288,
+          "weighted_val_precision_veto": 0.33932695986038114
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.36333460557376984,
+          "mean_val_f1_veto": 0.18996171898198871,
+          "mean_veto_rate": 0.16388186830676432,
+          "weighted_val_precision_veto": 0.361951595716811
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3785773261571321,
+          "mean_val_f1_veto": 0.2470787137013708,
+          "mean_veto_rate": 0.22378000668243675,
+          "weighted_val_precision_veto": 0.37558942049794686
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.37240381350547846,
+          "mean_val_f1_veto": 0.3033069556473485,
+          "mean_veto_rate": 0.30286608532959053,
+          "weighted_val_precision_veto": 0.36790250446437295
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3806689191514786,
+          "mean_val_f1_veto": 0.3648743144466033,
+          "mean_veto_rate": 0.4040434867719833,
+          "weighted_val_precision_veto": 0.37300035316776076
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.37724945459110865,
+          "mean_val_f1_veto": 0.4212195472931087,
+          "mean_veto_rate": 0.5317653026737332,
+          "weighted_val_precision_veto": 0.36566465305655477
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.377920196292146,
+          "mean_val_f1_veto": 0.46868185648003885,
+          "mean_veto_rate": 0.6707119693736189,
+          "weighted_val_precision_veto": 0.3639677847754026
+        }
+      ]
+    },
+    {
+      "n_estimators": 50,
+      "max_depth": 6,
+      "learning_rate": 0.3,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.3717024982738312,
+          "mean_val_f1_veto": 0.16834534102395587,
+          "mean_veto_rate": 0.1177557869376741,
+          "weighted_val_precision_veto": 0.36360003034261157
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.3841366774935209,
+          "mean_val_f1_veto": 0.20914464751691578,
+          "mean_veto_rate": 0.1558740807056288,
+          "weighted_val_precision_veto": 0.3790663868384392
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.3850056336877715,
+          "mean_val_f1_veto": 0.24374197796505515,
+          "mean_veto_rate": 0.19680132198887032,
+          "weighted_val_precision_veto": 0.3814639133606662
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.37390107445341736,
+          "mean_val_f1_veto": 0.274402339317645,
+          "mean_veto_rate": 0.24273727860025515,
+          "weighted_val_precision_veto": 0.36921700064818985
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3707180824953527,
+          "mean_val_f1_veto": 0.30866971757642087,
+          "mean_veto_rate": 0.2972197597352895,
+          "weighted_val_precision_veto": 0.36475696704052696
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.3755947616755668,
+          "mean_val_f1_veto": 0.34706008299944324,
+          "mean_veto_rate": 0.3561942806130908,
+          "weighted_val_precision_veto": 0.3687320248508151
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.37249560158827344,
+          "mean_val_f1_veto": 0.3760077761369587,
+          "mean_veto_rate": 0.42087323209495064,
+          "weighted_val_precision_veto": 0.3648794982278469
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.372485546907256,
+          "mean_val_f1_veto": 0.4047472656546514,
+          "mean_veto_rate": 0.49063576311098644,
+          "weighted_val_precision_veto": 0.3623963648270737
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3787706541634482,
+          "mean_val_f1_veto": 0.44040239199123243,
+          "mean_veto_rate": 0.569816434602512,
+          "weighted_val_precision_veto": 0.36859994615102964
+        }
+      ]
+    },
+    {
+      "n_estimators": 100,
+      "max_depth": 2,
+      "learning_rate": 0.03,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.03237597911227154,
+          "mean_val_f1_veto": 0.027373068432671083,
+          "mean_veto_rate": 0.03020504731861199,
+          "weighted_val_precision_veto": 0.02569811675390317
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.03251231527093596,
+          "mean_val_f1_veto": 0.02841765339074273,
+          "mean_veto_rate": 0.03201892744479495,
+          "weighted_val_precision_veto": 0.025806332246351673
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.09824260589765064,
+          "mean_val_f1_veto": 0.039392578115783075,
+          "mean_veto_rate": 0.04324312278666135,
+          "weighted_val_precision_veto": 0.06948777860346625
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.11173296860200461,
+          "mean_val_f1_veto": 0.07640114660179533,
+          "mean_veto_rate": 0.08396879435696533,
+          "weighted_val_precision_veto": 0.08227888488963604
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.15362117674355635,
+          "mean_val_f1_veto": 0.10392467409235137,
+          "mean_veto_rate": 0.12687410499706966,
+          "weighted_val_precision_veto": 0.12092147510756111
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.2302885741471176,
+          "mean_val_f1_veto": 0.1659797459968325,
+          "mean_veto_rate": 0.20949420378716832,
+          "weighted_val_precision_veto": 0.20268656599370125
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.31207693653892216,
+          "mean_val_f1_veto": 0.3118553244108825,
+          "mean_veto_rate": 0.4407879933976301,
+          "weighted_val_precision_veto": 0.2989686427978654
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.37581900784082534,
+          "mean_val_f1_veto": 0.4935447018711989,
+          "mean_veto_rate": 0.7838435008692237,
+          "weighted_val_precision_veto": 0.36497996138988964
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.377313729416248,
+          "mean_val_f1_veto": 0.533270811562919,
+          "mean_veto_rate": 0.9579980490737039,
+          "weighted_val_precision_veto": 0.36712018602395224
+        }
+      ]
+    },
+    {
+      "n_estimators": 100,
+      "max_depth": 2,
+      "learning_rate": 0.1,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.09639639639639638,
+          "mean_val_f1_veto": 0.0341396452849263,
+          "mean_veto_rate": 0.036651353514319904,
+          "weighted_val_precision_veto": 0.0717043804367748
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.1371931795794753,
+          "mean_val_f1_veto": 0.052193885598733634,
+          "mean_veto_rate": 0.055263636350408284,
+          "weighted_val_precision_veto": 0.10538949284833518
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.15094856686200253,
+          "mean_val_f1_veto": 0.07195363397454033,
+          "mean_veto_rate": 0.08215648766701769,
+          "weighted_val_precision_veto": 0.11732317987813037
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.206084882703859,
+          "mean_val_f1_veto": 0.10109400074942192,
+          "mean_veto_rate": 0.11404489373128061,
+          "weighted_val_precision_veto": 0.17654735387480613
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.32297462367966395,
+          "mean_val_f1_veto": 0.14635168923445055,
+          "mean_veto_rate": 0.1604584945270454,
+          "weighted_val_precision_veto": 0.3162892733949201
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.3682928786588696,
+          "mean_val_f1_veto": 0.23005359015504592,
+          "mean_veto_rate": 0.2466035966786438,
+          "weighted_val_precision_veto": 0.3691285330607417
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3663552612033933,
+          "mean_val_f1_veto": 0.3269159135972534,
+          "mean_veto_rate": 0.40401941419228676,
+          "weighted_val_precision_veto": 0.3593513583055145
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.36629988509807615,
+          "mean_val_f1_veto": 0.4205700990203507,
+          "mean_veto_rate": 0.5916087561875367,
+          "weighted_val_precision_veto": 0.35808359403725587
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3771317299410436,
+          "mean_val_f1_veto": 0.496006134740169,
+          "mean_veto_rate": 0.7956644350564036,
+          "weighted_val_precision_veto": 0.3673275493533882
+        }
+      ]
+    },
+    {
+      "n_estimators": 100,
+      "max_depth": 2,
+      "learning_rate": 0.3,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.13991939011875115,
+          "mean_val_f1_veto": 0.06216521935015623,
+          "mean_veto_rate": 0.06837086823073549,
+          "weighted_val_precision_veto": 0.11728802299586914
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.25188814171779217,
+          "mean_val_f1_veto": 0.08060551491022165,
+          "mean_veto_rate": 0.08884467035298291,
+          "weighted_val_precision_veto": 0.25330317341765674
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.39602465239993545,
+          "mean_val_f1_veto": 0.11088916597625556,
+          "mean_veto_rate": 0.11586393395959822,
+          "weighted_val_precision_veto": 0.4069836014626022
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.33588239119792307,
+          "mean_val_f1_veto": 0.15884141829606055,
+          "mean_veto_rate": 0.158096725129225,
+          "weighted_val_precision_veto": 0.335217452846655
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.36335268183198444,
+          "mean_val_f1_veto": 0.22417645624557264,
+          "mean_veto_rate": 0.22249728292198725,
+          "weighted_val_precision_veto": 0.3565741109453137
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.37406454953961765,
+          "mean_val_f1_veto": 0.28447306509263565,
+          "mean_veto_rate": 0.30106332886300424,
+          "weighted_val_precision_veto": 0.3681203522380059
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.372772037958624,
+          "mean_val_f1_veto": 0.33091307076290943,
+          "mean_veto_rate": 0.3875692233548954,
+          "weighted_val_precision_veto": 0.3655329685854848
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.37346057474630723,
+          "mean_val_f1_veto": 0.38590046899204383,
+          "mean_veto_rate": 0.5082924136823315,
+          "weighted_val_precision_veto": 0.3637955561505848
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.37389371510090413,
+          "mean_val_f1_veto": 0.4361412548234969,
+          "mean_veto_rate": 0.6431414731471492,
+          "weighted_val_precision_veto": 0.3624351188528608
+        }
+      ]
+    },
+    {
+      "n_estimators": 100,
+      "max_depth": 3,
+      "learning_rate": 0.03,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.11271115091804748,
+          "mean_val_f1_veto": 0.037283260953333126,
+          "mean_veto_rate": 0.035994342998017265,
+          "weighted_val_precision_veto": 0.08228672908226091
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.13680607701934716,
+          "mean_val_f1_veto": 0.048311481596727227,
+          "mean_veto_rate": 0.04644126195155929,
+          "weighted_val_precision_veto": 0.10619323864420989
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.14939058681943543,
+          "mean_val_f1_veto": 0.06792074638509665,
+          "mean_veto_rate": 0.06859092273362133,
+          "weighted_val_precision_veto": 0.1175300590259308
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.1932682288688941,
+          "mean_val_f1_veto": 0.0859557815314586,
+          "mean_veto_rate": 0.09162879480281386,
+          "weighted_val_precision_veto": 0.16221810070047368
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.18256247429952957,
+          "mean_val_f1_veto": 0.1247417893119018,
+          "mean_veto_rate": 0.14634486644314065,
+          "weighted_val_precision_veto": 0.15246454581352992
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.2688277339938503,
+          "mean_val_f1_veto": 0.2393742772717637,
+          "mean_veto_rate": 0.2675069192136888,
+          "weighted_val_precision_veto": 0.24702644392050327
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3801033781296907,
+          "mean_val_f1_veto": 0.3318647276436099,
+          "mean_veto_rate": 0.43783312095654503,
+          "weighted_val_precision_veto": 0.3807552103428195
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.3727609169599037,
+          "mean_val_f1_veto": 0.4755035591736161,
+          "mean_veto_rate": 0.7372394085481947,
+          "weighted_val_precision_veto": 0.35717303119670235
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.37147613702049886,
+          "mean_val_f1_veto": 0.507947756572394,
+          "mean_veto_rate": 0.8849030618921926,
+          "weighted_val_precision_veto": 0.35854786299936753
+        }
+      ]
+    },
+    {
+      "n_estimators": 100,
+      "max_depth": 3,
+      "learning_rate": 0.1,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.22587459960599196,
+          "mean_val_f1_veto": 0.05839953603944914,
+          "mean_veto_rate": 0.05131938360545699,
+          "weighted_val_precision_veto": 0.1992576207008705
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.24246487387815957,
+          "mean_val_f1_veto": 0.09473553768450274,
+          "mean_veto_rate": 0.08155469451977734,
+          "weighted_val_precision_veto": 0.2148626970164419
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.3024753120504987,
+          "mean_val_f1_veto": 0.13446512567130986,
+          "mean_veto_rate": 0.11666665302613959,
+          "weighted_val_precision_veto": 0.28397179937380385
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.30362138913605297,
+          "mean_val_f1_veto": 0.1721596650116093,
+          "mean_veto_rate": 0.16016681539638197,
+          "weighted_val_precision_veto": 0.2845089170452565
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3564033518111378,
+          "mean_val_f1_veto": 0.22030037592194546,
+          "mean_veto_rate": 0.21215416002863918,
+          "weighted_val_precision_veto": 0.3490585868045246
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.367503253909235,
+          "mean_val_f1_veto": 0.27803207726923757,
+          "mean_veto_rate": 0.2898722254487416,
+          "weighted_val_precision_veto": 0.3615844965218338
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.37011937731692096,
+          "mean_val_f1_veto": 0.3415886500898854,
+          "mean_veto_rate": 0.3982845841144905,
+          "weighted_val_precision_veto": 0.3633695843729389
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.36748997951515644,
+          "mean_val_f1_veto": 0.4287961659353698,
+          "mean_veto_rate": 0.5731826090957474,
+          "weighted_val_precision_veto": 0.35554888346038327
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3749551928641656,
+          "mean_val_f1_veto": 0.4856958538480141,
+          "mean_veto_rate": 0.7414666431837336,
+          "weighted_val_precision_veto": 0.36297294760986554
+        }
+      ]
+    },
+    {
+      "n_estimators": 100,
+      "max_depth": 3,
+      "learning_rate": 0.3,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.4263247313722358,
+          "mean_val_f1_veto": 0.12592464043555307,
+          "mean_veto_rate": 0.0994359041586366,
+          "weighted_val_precision_veto": 0.4333891536870456
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.3829217978287381,
+          "mean_val_f1_veto": 0.16415643074363045,
+          "mean_veto_rate": 0.1311270345788641,
+          "weighted_val_precision_veto": 0.37840767032050876
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.3728891145189771,
+          "mean_val_f1_veto": 0.19876122228541393,
+          "mean_veto_rate": 0.1714191720976844,
+          "weighted_val_precision_veto": 0.367414513750653
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.37862359652087785,
+          "mean_val_f1_veto": 0.23844664185782505,
+          "mean_veto_rate": 0.21999463465158006,
+          "weighted_val_precision_veto": 0.3722457432248668
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3833421536774587,
+          "mean_val_f1_veto": 0.2796887967444072,
+          "mean_veto_rate": 0.2705302972377619,
+          "weighted_val_precision_veto": 0.3774055258266983
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.37704507385436553,
+          "mean_val_f1_veto": 0.3173998102443143,
+          "mean_veto_rate": 0.33136710760829435,
+          "weighted_val_precision_veto": 0.3712275424967219
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3814581909005305,
+          "mean_val_f1_veto": 0.36564614295725234,
+          "mean_veto_rate": 0.4112455841061514,
+          "weighted_val_precision_veto": 0.37592652920562
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.38082770146549216,
+          "mean_val_f1_veto": 0.406699911179063,
+          "mean_veto_rate": 0.49873796738391274,
+          "weighted_val_precision_veto": 0.3725951038001739
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3765401118662485,
+          "mean_val_f1_veto": 0.44025527539358456,
+          "mean_veto_rate": 0.5933407083115527,
+          "weighted_val_precision_veto": 0.36747160788297756
+        }
+      ]
+    },
+    {
+      "n_estimators": 100,
+      "max_depth": 4,
+      "learning_rate": 0.03,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.1334385736471682,
+          "mean_val_f1_veto": 0.036315525459149255,
+          "mean_veto_rate": 0.032035499214154155,
+          "weighted_val_precision_veto": 0.1054787484636429
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.14164891040506483,
+          "mean_val_f1_veto": 0.053124324148411464,
+          "mean_veto_rate": 0.05113071574673482,
+          "weighted_val_precision_veto": 0.10927658962288984
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.26465853157278907,
+          "mean_val_f1_veto": 0.08457619966926898,
+          "mean_veto_rate": 0.07345366040450835,
+          "weighted_val_precision_veto": 0.24251092628680535
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.24633522983724224,
+          "mean_val_f1_veto": 0.1283331160571891,
+          "mean_veto_rate": 0.11634231570948335,
+          "weighted_val_precision_veto": 0.22635663768626224
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.25124369163055105,
+          "mean_val_f1_veto": 0.1789793178651538,
+          "mean_veto_rate": 0.1708527801897721,
+          "weighted_val_precision_veto": 0.23177004429107897
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.34914892139261694,
+          "mean_val_f1_veto": 0.2416510087651035,
+          "mean_veto_rate": 0.2461417353032608,
+          "weighted_val_precision_veto": 0.3467408711554789
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.37085099653343534,
+          "mean_val_f1_veto": 0.34933140579444,
+          "mean_veto_rate": 0.4138256470916143,
+          "weighted_val_precision_veto": 0.36110680454629357
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.37091820599691006,
+          "mean_val_f1_veto": 0.4545981530971961,
+          "mean_veto_rate": 0.6630992114147716,
+          "weighted_val_precision_veto": 0.35756269897229
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.369598353023989,
+          "mean_val_f1_veto": 0.5004428578735489,
+          "mean_veto_rate": 0.8502339328842318,
+          "weighted_val_precision_veto": 0.35648709481146107
+        }
+      ]
+    },
+    {
+      "n_estimators": 100,
+      "max_depth": 4,
+      "learning_rate": 0.1,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.3164211938346455,
+          "mean_val_f1_veto": 0.08949747412468553,
+          "mean_veto_rate": 0.06454424887199632,
+          "weighted_val_precision_veto": 0.30600873462776806
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.30655197247997823,
+          "mean_val_f1_veto": 0.12972734138970402,
+          "mean_veto_rate": 0.10185151023045655,
+          "weighted_val_precision_veto": 0.2987464316355884
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.3178800337562497,
+          "mean_val_f1_veto": 0.1797134518084511,
+          "mean_veto_rate": 0.14811757028221495,
+          "weighted_val_precision_veto": 0.30743135411343203
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.36091787010554094,
+          "mean_val_f1_veto": 0.22182719769384396,
+          "mean_veto_rate": 0.19370912424258355,
+          "weighted_val_precision_veto": 0.35634156576070114
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3815703445816299,
+          "mean_val_f1_veto": 0.2625623740833171,
+          "mean_veto_rate": 0.24461061224125924,
+          "weighted_val_precision_veto": 0.3782661235159288
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.3773112830525193,
+          "mean_val_f1_veto": 0.31182236579743117,
+          "mean_veto_rate": 0.3152684099004527,
+          "weighted_val_precision_veto": 0.3706159975058636
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.36959747936137266,
+          "mean_val_f1_veto": 0.3644109429481547,
+          "mean_veto_rate": 0.42187498239309174,
+          "weighted_val_precision_veto": 0.3607054002416633
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.3743256491949194,
+          "mean_val_f1_veto": 0.4227555930593576,
+          "mean_veto_rate": 0.5552399024940898,
+          "weighted_val_precision_veto": 0.3626995987983409
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.37259728690359706,
+          "mean_val_f1_veto": 0.46525890774369916,
+          "mean_veto_rate": 0.6896234476273331,
+          "weighted_val_precision_veto": 0.35948572976923693
+        }
+      ]
+    },
+    {
+      "n_estimators": 100,
+      "max_depth": 4,
+      "learning_rate": 0.3,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.362486707904303,
+          "mean_val_f1_veto": 0.17101418370558355,
+          "mean_veto_rate": 0.13820537096283195,
+          "weighted_val_precision_veto": 0.3563056815213406
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.3715042165039648,
+          "mean_val_f1_veto": 0.19306936609596034,
+          "mean_veto_rate": 0.1692789275163244,
+          "weighted_val_precision_veto": 0.3678525869339413
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.35586466271572786,
+          "mean_val_f1_veto": 0.21770167410065033,
+          "mean_veto_rate": 0.20289104581263495,
+          "weighted_val_precision_veto": 0.3485418711641714
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.3533752163081282,
+          "mean_val_f1_veto": 0.24346305395425233,
+          "mean_veto_rate": 0.24204686909934767,
+          "weighted_val_precision_veto": 0.3465547850288873
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3656758886081307,
+          "mean_val_f1_veto": 0.28181424916331543,
+          "mean_veto_rate": 0.28825134386084594,
+          "weighted_val_precision_veto": 0.3573982606922925
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.3671439977137558,
+          "mean_val_f1_veto": 0.31914748979986896,
+          "mean_veto_rate": 0.3406128334726423,
+          "weighted_val_precision_veto": 0.35734274720173453
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.37003117966278876,
+          "mean_val_f1_veto": 0.35612328806833954,
+          "mean_veto_rate": 0.40418422041139407,
+          "weighted_val_precision_veto": 0.3605370758118842
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.3772471357991096,
+          "mean_val_f1_veto": 0.3961558707883094,
+          "mean_veto_rate": 0.4744384438177252,
+          "weighted_val_precision_veto": 0.3676098564711652
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.38268194228691244,
+          "mean_val_f1_veto": 0.436151119549015,
+          "mean_veto_rate": 0.5607728944525123,
+          "weighted_val_precision_veto": 0.371932754970874
+        }
+      ]
+    },
+    {
+      "n_estimators": 100,
+      "max_depth": 6,
+      "learning_rate": 0.03,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.22213797766000098,
+          "mean_val_f1_veto": 0.06661027578285335,
+          "mean_veto_rate": 0.05576633902618751,
+          "weighted_val_precision_veto": 0.19511647229939266
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.2862788101402634,
+          "mean_val_f1_veto": 0.09412313299522458,
+          "mean_veto_rate": 0.07450777400362579,
+          "weighted_val_precision_veto": 0.26978348445628836
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.32502778415840516,
+          "mean_val_f1_veto": 0.1373316413407138,
+          "mean_veto_rate": 0.11195669365519403,
+          "weighted_val_precision_veto": 0.31586141813020774
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.304843183417799,
+          "mean_val_f1_veto": 0.1782476482021665,
+          "mean_veto_rate": 0.15658170995540505,
+          "weighted_val_precision_veto": 0.2922267728177665
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.37185384699617663,
+          "mean_val_f1_veto": 0.2389002573456648,
+          "mean_veto_rate": 0.2181933640943678,
+          "weighted_val_precision_veto": 0.3702197051303735
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.3868390851539251,
+          "mean_val_f1_veto": 0.31176091952206486,
+          "mean_veto_rate": 0.3049678842458433,
+          "weighted_val_precision_veto": 0.38324765778959385
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.39065073329166855,
+          "mean_val_f1_veto": 0.3790028558315006,
+          "mean_veto_rate": 0.42400083923534304,
+          "weighted_val_precision_veto": 0.38433443317381605
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.37580531535763206,
+          "mean_val_f1_veto": 0.4400392651689885,
+          "mean_veto_rate": 0.5933157511749398,
+          "weighted_val_precision_veto": 0.3648372569074807
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.37440186781455176,
+          "mean_val_f1_veto": 0.4877659260831001,
+          "mean_veto_rate": 0.7536070317874666,
+          "weighted_val_precision_veto": 0.362268763170113
+        }
+      ]
+    },
+    {
+      "n_estimators": 100,
+      "max_depth": 6,
+      "learning_rate": 0.1,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.3209534211605095,
+          "mean_val_f1_veto": 0.10880473066996081,
+          "mean_veto_rate": 0.08626012671842816,
+          "weighted_val_precision_veto": 0.30756138197074534
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.3254655945914542,
+          "mean_val_f1_veto": 0.14253151041329384,
+          "mean_veto_rate": 0.11551049396180064,
+          "weighted_val_precision_veto": 0.3190496551685913
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.36625643125457075,
+          "mean_val_f1_veto": 0.18490494918432016,
+          "mean_veto_rate": 0.15395352415287994,
+          "weighted_val_precision_veto": 0.361524956392554
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.3549181331805846,
+          "mean_val_f1_veto": 0.21842891991200314,
+          "mean_veto_rate": 0.19841397552603704,
+          "weighted_val_precision_veto": 0.34763802645692854
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.37102682850480345,
+          "mean_val_f1_veto": 0.2648793872721457,
+          "mean_veto_rate": 0.2514277280098175,
+          "weighted_val_precision_veto": 0.36563645573634107
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.3700787453598631,
+          "mean_val_f1_veto": 0.3044167184080253,
+          "mean_veto_rate": 0.3169071129144836,
+          "weighted_val_precision_veto": 0.3642079844804702
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3701559972112366,
+          "mean_val_f1_veto": 0.34299488084039764,
+          "mean_veto_rate": 0.3905206253265896,
+          "weighted_val_precision_veto": 0.363514103829524
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.37696507657778955,
+          "mean_val_f1_veto": 0.3908372751513657,
+          "mean_veto_rate": 0.48142447623665297,
+          "weighted_val_precision_veto": 0.36884533740071035
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.37825351799533863,
+          "mean_val_f1_veto": 0.4354431342634365,
+          "mean_veto_rate": 0.5868108641465073,
+          "weighted_val_precision_veto": 0.36801648511859775
+        }
+      ]
+    },
+    {
+      "n_estimators": 100,
+      "max_depth": 6,
+      "learning_rate": 0.3,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.3783383086241436,
+          "mean_val_f1_veto": 0.20350896654483402,
+          "mean_veto_rate": 0.15083532321372103,
+          "weighted_val_precision_veto": 0.37257570401156065
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.3815925073881895,
+          "mean_val_f1_veto": 0.23894726592431947,
+          "mean_veto_rate": 0.1872452501439224,
+          "weighted_val_precision_veto": 0.37472239400727825
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.38385122195124366,
+          "mean_val_f1_veto": 0.2721277108633265,
+          "mean_veto_rate": 0.22570024958941975,
+          "weighted_val_precision_veto": 0.37714128355020016
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.3801914181729988,
+          "mean_val_f1_veto": 0.299273499523795,
+          "mean_veto_rate": 0.2688541420825364,
+          "weighted_val_precision_veto": 0.37435614641135595
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.379242336069138,
+          "mean_val_f1_veto": 0.3291948703056561,
+          "mean_veto_rate": 0.3158030214346473,
+          "weighted_val_precision_veto": 0.3715322359339295
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.37709129291081356,
+          "mean_val_f1_veto": 0.3546789671854834,
+          "mean_veto_rate": 0.3652728871548146,
+          "weighted_val_precision_veto": 0.3686875519114306
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3761964660361142,
+          "mean_val_f1_veto": 0.37949566365742393,
+          "mean_veto_rate": 0.41902318818174755,
+          "weighted_val_precision_veto": 0.36646625851642084
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.37906840413171083,
+          "mean_val_f1_veto": 0.4083981673959666,
+          "mean_veto_rate": 0.47993009822781146,
+          "weighted_val_precision_veto": 0.36771346139473127
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3802688130621231,
+          "mean_val_f1_veto": 0.4316100478438723,
+          "mean_veto_rate": 0.5396619729873802,
+          "weighted_val_precision_veto": 0.3693987584749407
+        }
+      ]
+    },
+    {
+      "n_estimators": 200,
+      "max_depth": 2,
+      "learning_rate": 0.03,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.06333333333333332,
+          "mean_val_f1_veto": 0.030057411611577527,
+          "mean_veto_rate": 0.03279241969821759,
+          "weighted_val_precision_veto": 0.05695565988523734
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.09937433269271834,
+          "mean_val_f1_veto": 0.0344925315898487,
+          "mean_veto_rate": 0.03845415291828323,
+          "weighted_val_precision_veto": 0.07099246533845156
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.1531948696041478,
+          "mean_val_f1_veto": 0.0671202051372172,
+          "mean_veto_rate": 0.06587272750651231,
+          "weighted_val_precision_veto": 0.11907695930223726
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.1863763295701631,
+          "mean_val_f1_veto": 0.09344686127211704,
+          "mean_veto_rate": 0.10411565587115641,
+          "weighted_val_precision_veto": 0.1552601364654503
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.2149338141011783,
+          "mean_val_f1_veto": 0.13238808214470343,
+          "mean_veto_rate": 0.1520146922368447,
+          "weighted_val_precision_veto": 0.18502591235809399
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.35955723799234235,
+          "mean_val_f1_veto": 0.213387729417639,
+          "mean_veto_rate": 0.2433527859685372,
+          "weighted_val_precision_veto": 0.3598540185864763
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3444626022719604,
+          "mean_val_f1_veto": 0.3511080309892602,
+          "mean_veto_rate": 0.4526012199950721,
+          "weighted_val_precision_veto": 0.33874013481674536
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.367301621553366,
+          "mean_val_f1_veto": 0.4653226982542355,
+          "mean_veto_rate": 0.7109609396150722,
+          "weighted_val_precision_veto": 0.3550811188725173
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3759132513673734,
+          "mean_val_f1_veto": 0.5176326715934567,
+          "mean_veto_rate": 0.87852591651043,
+          "weighted_val_precision_veto": 0.36609312495505103
+        }
+      ]
+    },
+    {
+      "n_estimators": 200,
+      "max_depth": 2,
+      "learning_rate": 0.1,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.10698897577929836,
+          "mean_val_f1_veto": 0.04980863118567653,
+          "mean_veto_rate": 0.05354251201095146,
+          "weighted_val_precision_veto": 0.08037678288453189
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.12619005001272215,
+          "mean_val_f1_veto": 0.06261562990313657,
+          "mean_veto_rate": 0.07313137413228064,
+          "weighted_val_precision_veto": 0.10434282652233026
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.21156599824028505,
+          "mean_val_f1_veto": 0.08519875733114575,
+          "mean_veto_rate": 0.09257491707002502,
+          "weighted_val_precision_veto": 0.19020112985202264
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.32494924591052343,
+          "mean_val_f1_veto": 0.12549114333930272,
+          "mean_veto_rate": 0.1311300725137579,
+          "weighted_val_precision_veto": 0.31814917033377155
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3556130492613407,
+          "mean_val_f1_veto": 0.18576169146019922,
+          "mean_veto_rate": 0.1902035909391623,
+          "weighted_val_precision_veto": 0.3483550158945712
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.36842860069641337,
+          "mean_val_f1_veto": 0.2558197290308474,
+          "mean_veto_rate": 0.27849384767526053,
+          "weighted_val_precision_veto": 0.36017670369938565
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.37211401478449707,
+          "mean_val_f1_veto": 0.3253995294399429,
+          "mean_veto_rate": 0.3929202633319054,
+          "weighted_val_precision_veto": 0.3651614780040306
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.36221014100397686,
+          "mean_val_f1_veto": 0.39996105775648616,
+          "mean_veto_rate": 0.5505544647425393,
+          "weighted_val_precision_veto": 0.3531986323421969
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.36789101760994675,
+          "mean_val_f1_veto": 0.45111378257284135,
+          "mean_veto_rate": 0.7002733574442651,
+          "weighted_val_precision_veto": 0.3577212048062484
+        }
+      ]
+    },
+    {
+      "n_estimators": 200,
+      "max_depth": 2,
+      "learning_rate": 0.3,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.23943592446453515,
+          "mean_val_f1_veto": 0.10275008306393792,
+          "mean_veto_rate": 0.09877231733297401,
+          "weighted_val_precision_veto": 0.22871980532281008
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.3346742133499874,
+          "mean_val_f1_veto": 0.1263761706473689,
+          "mean_veto_rate": 0.12386393230103201,
+          "weighted_val_precision_veto": 0.33725060901415427
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.3795126821580992,
+          "mean_val_f1_veto": 0.16542545883864992,
+          "mean_veto_rate": 0.15816523057291484,
+          "weighted_val_precision_veto": 0.37080698154892644
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.3514345796506537,
+          "mean_val_f1_veto": 0.2022133664720863,
+          "mean_veto_rate": 0.19759071093161557,
+          "weighted_val_precision_veto": 0.34582918026846676
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.37215944952241065,
+          "mean_val_f1_veto": 0.24618036773454452,
+          "mean_veto_rate": 0.2514331214313611,
+          "weighted_val_precision_veto": 0.3657251908529801
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.36522555698753245,
+          "mean_val_f1_veto": 0.2866943731797441,
+          "mean_veto_rate": 0.31050251837721227,
+          "weighted_val_precision_veto": 0.36162736362306824
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3677738013922439,
+          "mean_val_f1_veto": 0.33247956872492945,
+          "mean_veto_rate": 0.3854891256617474,
+          "weighted_val_precision_veto": 0.36018985549444194
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.37278724943128216,
+          "mean_val_f1_veto": 0.3707054322435118,
+          "mean_veto_rate": 0.47121994954954827,
+          "weighted_val_precision_veto": 0.3626553267746026
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3804589003744822,
+          "mean_val_f1_veto": 0.4147474225988976,
+          "mean_veto_rate": 0.5827893594426713,
+          "weighted_val_precision_veto": 0.36714414319955174
+        }
+      ]
+    },
+    {
+      "n_estimators": 200,
+      "max_depth": 3,
+      "learning_rate": 0.03,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.18023378389313727,
+          "mean_val_f1_veto": 0.051813762009805975,
+          "mean_veto_rate": 0.04597779310121171,
+          "weighted_val_precision_veto": 0.15904702163036757
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.17541658397746485,
+          "mean_val_f1_veto": 0.06644601015398437,
+          "mean_veto_rate": 0.05864272473359722,
+          "weighted_val_precision_veto": 0.15003038742245745
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.20583691005880062,
+          "mean_val_f1_veto": 0.09297904134188202,
+          "mean_veto_rate": 0.09052537886934477,
+          "weighted_val_precision_veto": 0.18055350530278055
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.28743860746504984,
+          "mean_val_f1_veto": 0.13665965439680242,
+          "mean_veto_rate": 0.1340880894776471,
+          "weighted_val_precision_veto": 0.2775417629759186
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.30225246579582093,
+          "mean_val_f1_veto": 0.20336353240310445,
+          "mean_veto_rate": 0.20251470306314948,
+          "weighted_val_precision_veto": 0.2890956280374617
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.3782060149673393,
+          "mean_val_f1_veto": 0.27581943940016423,
+          "mean_veto_rate": 0.2906200469086051,
+          "weighted_val_precision_veto": 0.3744504534774085
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.36607657663061477,
+          "mean_val_f1_veto": 0.3537812996130088,
+          "mean_veto_rate": 0.4306092975529626,
+          "weighted_val_precision_veto": 0.3547244496815388
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.37300680784230766,
+          "mean_val_f1_veto": 0.4578884645851999,
+          "mean_veto_rate": 0.6479498718502696,
+          "weighted_val_precision_veto": 0.358355319898711
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3728946873748308,
+          "mean_val_f1_veto": 0.49842623425058685,
+          "mean_veto_rate": 0.8137579427929118,
+          "weighted_val_precision_veto": 0.35967463624732204
+        }
+      ]
+    },
+    {
+      "n_estimators": 200,
+      "max_depth": 3,
+      "learning_rate": 0.1,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.31159320302478133,
+          "mean_val_f1_veto": 0.08745424492836482,
+          "mean_veto_rate": 0.07148752157918022,
+          "weighted_val_precision_veto": 0.29454157962575583
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.3080469053966097,
+          "mean_val_f1_veto": 0.12605808159639287,
+          "mean_veto_rate": 0.10412473550439975,
+          "weighted_val_precision_veto": 0.2867547011118703
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.3693149858037917,
+          "mean_val_f1_veto": 0.1633332616609755,
+          "mean_veto_rate": 0.14170356751956348,
+          "weighted_val_precision_veto": 0.3619982913277149
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.3670049291320121,
+          "mean_val_f1_veto": 0.2012859080246046,
+          "mean_veto_rate": 0.18669102219516853,
+          "weighted_val_precision_veto": 0.35833436904333255
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3672254531873382,
+          "mean_val_f1_veto": 0.2379768203673557,
+          "mean_veto_rate": 0.23307556357063244,
+          "weighted_val_precision_veto": 0.3587661040635206
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.37452347567220173,
+          "mean_val_f1_veto": 0.2861848058389941,
+          "mean_veto_rate": 0.29600840356264063,
+          "weighted_val_precision_veto": 0.36893781005848436
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.37552416844022113,
+          "mean_val_f1_veto": 0.33778783250263733,
+          "mean_veto_rate": 0.37975870755842434,
+          "weighted_val_precision_veto": 0.3691094981061778
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.36960620593388177,
+          "mean_val_f1_veto": 0.3891180699771556,
+          "mean_veto_rate": 0.49328878170790363,
+          "weighted_val_precision_veto": 0.3617246925255351
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3748600833423853,
+          "mean_val_f1_veto": 0.4461376037187935,
+          "mean_veto_rate": 0.6286465655098574,
+          "weighted_val_precision_veto": 0.3647065752998989
+        }
+      ]
+    },
+    {
+      "n_estimators": 200,
+      "max_depth": 3,
+      "learning_rate": 0.3,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.353758257637356,
+          "mean_val_f1_veto": 0.16703643406238194,
+          "mean_veto_rate": 0.13257470046494513,
+          "weighted_val_precision_veto": 0.3449658828530014
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.36599511520498657,
+          "mean_val_f1_veto": 0.2040235502632147,
+          "mean_veto_rate": 0.1694485401694564,
+          "weighted_val_precision_veto": 0.35787503582805863
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.36933336019456064,
+          "mean_val_f1_veto": 0.23725707937170024,
+          "mean_veto_rate": 0.20682863960114978,
+          "weighted_val_precision_veto": 0.3605195345328872
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.37731943574665916,
+          "mean_val_f1_veto": 0.26669936523185955,
+          "mean_veto_rate": 0.2456395826500763,
+          "weighted_val_precision_veto": 0.3699919316695381
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.37265762081208054,
+          "mean_val_f1_veto": 0.2978807473145765,
+          "mean_veto_rate": 0.2948530019138721,
+          "weighted_val_precision_veto": 0.36407902246367024
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.3757876273347679,
+          "mean_val_f1_veto": 0.3338914805916298,
+          "mean_veto_rate": 0.35150665777717566,
+          "weighted_val_precision_veto": 0.3669216916674615
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3744049808405142,
+          "mean_val_f1_veto": 0.36827773534926095,
+          "mean_veto_rate": 0.41576180262177864,
+          "weighted_val_precision_veto": 0.3652928264984957
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.3730177904645785,
+          "mean_val_f1_veto": 0.3983614828224863,
+          "mean_veto_rate": 0.48525997062101,
+          "weighted_val_precision_veto": 0.36366935694921554
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.37461315461424494,
+          "mean_val_f1_veto": 0.42803232559873816,
+          "mean_veto_rate": 0.5603742073244798,
+          "weighted_val_precision_veto": 0.36508010999276647
+        }
+      ]
+    },
+    {
+      "n_estimators": 200,
+      "max_depth": 4,
+      "learning_rate": 0.03,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.2215967661265137,
+          "mean_val_f1_veto": 0.05740887828116807,
+          "mean_veto_rate": 0.051109536512676655,
+          "weighted_val_precision_veto": 0.19921995188363104
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.30763751838146014,
+          "mean_val_f1_veto": 0.09213432670877571,
+          "mean_veto_rate": 0.0777255427124787,
+          "weighted_val_precision_veto": 0.3022277587948096
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.32036226363838044,
+          "mean_val_f1_veto": 0.13055610137090032,
+          "mean_veto_rate": 0.1093545630919122,
+          "weighted_val_precision_veto": 0.314995462318836
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.31674074408705544,
+          "mean_val_f1_veto": 0.1741938546225338,
+          "mean_veto_rate": 0.15035835071459147,
+          "weighted_val_precision_veto": 0.3100093566896965
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.36302333337034753,
+          "mean_val_f1_veto": 0.2111514167875046,
+          "mean_veto_rate": 0.1993777755980972,
+          "weighted_val_precision_veto": 0.36573373032015954
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.3713032138263277,
+          "mean_val_f1_veto": 0.27117868904868697,
+          "mean_veto_rate": 0.27077975364383644,
+          "weighted_val_precision_veto": 0.36918844061709116
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3781059547777776,
+          "mean_val_f1_veto": 0.35003182959528945,
+          "mean_veto_rate": 0.3968501843634693,
+          "weighted_val_precision_veto": 0.37130004145961426
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.37797971882579334,
+          "mean_val_f1_veto": 0.4364692152747339,
+          "mean_veto_rate": 0.5842911293272681,
+          "weighted_val_precision_veto": 0.36757318401508454
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.37140524544637354,
+          "mean_val_f1_veto": 0.48385400947251256,
+          "mean_veto_rate": 0.7556330405061884,
+          "weighted_val_precision_veto": 0.35958685011825775
+        }
+      ]
+    },
+    {
+      "n_estimators": 200,
+      "max_depth": 4,
+      "learning_rate": 0.1,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.32799415768503126,
+          "mean_val_f1_veto": 0.13001292473232368,
+          "mean_veto_rate": 0.09597501696893546,
+          "weighted_val_precision_veto": 0.31479349761495573
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.348465211682817,
+          "mean_val_f1_veto": 0.17410625738475147,
+          "mean_veto_rate": 0.13834081595302958,
+          "weighted_val_precision_veto": 0.34020977528184965
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.36509191267100444,
+          "mean_val_f1_veto": 0.21400718600785926,
+          "mean_veto_rate": 0.18277685597777452,
+          "weighted_val_precision_veto": 0.35979083365966835
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.3700742538508538,
+          "mean_val_f1_veto": 0.24706156199038798,
+          "mean_veto_rate": 0.22660150769753046,
+          "weighted_val_precision_veto": 0.3660414426274498
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.37142607937220135,
+          "mean_val_f1_veto": 0.28032593459498234,
+          "mean_veto_rate": 0.27683921724937793,
+          "weighted_val_precision_veto": 0.3661578664937445
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.3694294390729924,
+          "mean_val_f1_veto": 0.32156055475712153,
+          "mean_veto_rate": 0.3412635438312995,
+          "weighted_val_precision_veto": 0.3610578458497923
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3710576362426579,
+          "mean_val_f1_veto": 0.36502557702063737,
+          "mean_veto_rate": 0.4243646737322323,
+          "weighted_val_precision_veto": 0.36193727659189695
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.3721919104971422,
+          "mean_val_f1_veto": 0.403969358342545,
+          "mean_veto_rate": 0.5170324325598216,
+          "weighted_val_precision_veto": 0.36136225962772534
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3728625200617518,
+          "mean_val_f1_veto": 0.4430660634573422,
+          "mean_veto_rate": 0.6210234764761239,
+          "weighted_val_precision_veto": 0.36147834220441705
+        }
+      ]
+    },
+    {
+      "n_estimators": 200,
+      "max_depth": 4,
+      "learning_rate": 0.3,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.3789164548640608,
+          "mean_val_f1_veto": 0.20475243083986044,
+          "mean_veto_rate": 0.16445057510270994,
+          "weighted_val_precision_veto": 0.370660040247359
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.36922200099488756,
+          "mean_val_f1_veto": 0.22524805604657158,
+          "mean_veto_rate": 0.19557942225457278,
+          "weighted_val_precision_veto": 0.3597892899015721
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.36097216761480566,
+          "mean_val_f1_veto": 0.2496904819507142,
+          "mean_veto_rate": 0.23036938026974374,
+          "weighted_val_precision_veto": 0.35038918743701236
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.3626456358377582,
+          "mean_val_f1_veto": 0.2785030640559488,
+          "mean_veto_rate": 0.27109716946393114,
+          "weighted_val_precision_veto": 0.3525819100017171
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3644462388661782,
+          "mean_val_f1_veto": 0.308647387609657,
+          "mean_veto_rate": 0.3168897150542692,
+          "weighted_val_precision_veto": 0.35404545138592713
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.36706023420210776,
+          "mean_val_f1_veto": 0.3374998730128368,
+          "mean_veto_rate": 0.3618957579259131,
+          "weighted_val_precision_veto": 0.3574984514839777
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.37369424815944396,
+          "mean_val_f1_veto": 0.36921214720811824,
+          "mean_veto_rate": 0.41538379858943236,
+          "weighted_val_precision_veto": 0.36379838375768475
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.3746085278753542,
+          "mean_val_f1_veto": 0.3941734739232311,
+          "mean_veto_rate": 0.47142578743239155,
+          "weighted_val_precision_veto": 0.36471411840201046
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3763097808034555,
+          "mean_val_f1_veto": 0.4226778858246595,
+          "mean_veto_rate": 0.5383599450439628,
+          "weighted_val_precision_veto": 0.36578643415284423
+        }
+      ]
+    },
+    {
+      "n_estimators": 200,
+      "max_depth": 6,
+      "learning_rate": 0.03,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.28407454818283046,
+          "mean_val_f1_veto": 0.08855555484007563,
+          "mean_veto_rate": 0.06967939041667567,
+          "weighted_val_precision_veto": 0.2651233591784987
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.32331357164338903,
+          "mean_val_f1_veto": 0.11987441547439534,
+          "mean_veto_rate": 0.09795749491124034,
+          "weighted_val_precision_veto": 0.3128001152934707
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.3290747404747056,
+          "mean_val_f1_veto": 0.15642040750754915,
+          "mean_veto_rate": 0.13204644378993607,
+          "weighted_val_precision_veto": 0.31834080802181314
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.36168425791800485,
+          "mean_val_f1_veto": 0.19644283775188712,
+          "mean_veto_rate": 0.17428229630049202,
+          "weighted_val_precision_veto": 0.3571320519693511
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3667603736030451,
+          "mean_val_f1_veto": 0.24521411012590022,
+          "mean_veto_rate": 0.23152241266578938,
+          "weighted_val_precision_veto": 0.36243475445170004
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.38163005148301093,
+          "mean_val_f1_veto": 0.3080949647653301,
+          "mean_veto_rate": 0.30477345221339763,
+          "weighted_val_precision_veto": 0.3775106795821798
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3838040909806463,
+          "mean_val_f1_veto": 0.3674906469724378,
+          "mean_veto_rate": 0.40139346076907395,
+          "weighted_val_precision_veto": 0.3762488661457354
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.3792476212017696,
+          "mean_val_f1_veto": 0.41503717240897864,
+          "mean_veto_rate": 0.5202775402873977,
+          "weighted_val_precision_veto": 0.3700971503555224
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3728098466786648,
+          "mean_val_f1_veto": 0.4528599431190294,
+          "mean_veto_rate": 0.6421311974341231,
+          "weighted_val_precision_veto": 0.36297588595706914
+        }
+      ]
+    },
+    {
+      "n_estimators": 200,
+      "max_depth": 6,
+      "learning_rate": 0.1,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.3509763675463188,
+          "mean_val_f1_veto": 0.14863895956594778,
+          "mean_veto_rate": 0.11469181801907764,
+          "weighted_val_precision_veto": 0.34491144430740356
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.3401958221063351,
+          "mean_val_f1_veto": 0.1801268012157503,
+          "mean_veto_rate": 0.15080209197378341,
+          "weighted_val_precision_veto": 0.3310653577904214
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.347809281633026,
+          "mean_val_f1_veto": 0.2107554510431378,
+          "mean_veto_rate": 0.1875636129363169,
+          "weighted_val_precision_veto": 0.3402033992811876
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.35812336697188235,
+          "mean_val_f1_veto": 0.24703340536366403,
+          "mean_veto_rate": 0.23180866376243592,
+          "weighted_val_precision_veto": 0.35087263630675913
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3697893348155418,
+          "mean_val_f1_veto": 0.2847986588338286,
+          "mean_veto_rate": 0.2830447580233375,
+          "weighted_val_precision_veto": 0.3610008606341621
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.3784329046704714,
+          "mean_val_f1_veto": 0.32238027944469433,
+          "mean_veto_rate": 0.33719056768064604,
+          "weighted_val_precision_veto": 0.3685275586944783
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3741286864702083,
+          "mean_val_f1_veto": 0.3502324849230481,
+          "mean_veto_rate": 0.3945570966733366,
+          "weighted_val_precision_veto": 0.36447891104254637
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.3778593964996439,
+          "mean_val_f1_veto": 0.38857581425036225,
+          "mean_veto_rate": 0.46441941506607654,
+          "weighted_val_precision_veto": 0.36818857549572104
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3775122053027484,
+          "mean_val_f1_veto": 0.4203572678938353,
+          "mean_veto_rate": 0.5447531056903612,
+          "weighted_val_precision_veto": 0.36834811794229294
+        }
+      ]
+    },
+    {
+      "n_estimators": 200,
+      "max_depth": 6,
+      "learning_rate": 0.3,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.37959238783686466,
+          "mean_val_f1_veto": 0.24089814464038609,
+          "mean_veto_rate": 0.18675129254671946,
+          "weighted_val_precision_veto": 0.3698111491557605
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.38593325837207865,
+          "mean_val_f1_veto": 0.2694389650420309,
+          "mean_veto_rate": 0.21784120594908424,
+          "weighted_val_precision_veto": 0.37667208017995824
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.38477477859836307,
+          "mean_val_f1_veto": 0.2955119373185462,
+          "mean_veto_rate": 0.25276144531936545,
+          "weighted_val_precision_veto": 0.3753323732043258
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.3863973496732508,
+          "mean_val_f1_veto": 0.32181133241876636,
+          "mean_veto_rate": 0.2893176639412025,
+          "weighted_val_precision_veto": 0.3762043555148082
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3832319046452245,
+          "mean_val_f1_veto": 0.34254196502766454,
+          "mean_veto_rate": 0.3282166852470667,
+          "weighted_val_precision_veto": 0.3725727548529229
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.38184083243472966,
+          "mean_val_f1_veto": 0.3626082096118473,
+          "mean_veto_rate": 0.36722352981257383,
+          "weighted_val_precision_veto": 0.3706179563356609
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.37818739127956835,
+          "mean_val_f1_veto": 0.38032270550141034,
+          "mean_veto_rate": 0.41035060284497826,
+          "weighted_val_precision_veto": 0.3664259031319258
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.3764509358527034,
+          "mean_val_f1_veto": 0.39805305421624104,
+          "mean_veto_rate": 0.4563018366297841,
+          "weighted_val_precision_veto": 0.3643285549927064
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.37436342037378767,
+          "mean_val_f1_veto": 0.4157486127057994,
+          "mean_veto_rate": 0.5069434787281984,
+          "weighted_val_precision_veto": 0.36222057359297516
+        }
+      ]
+    },
+    {
+      "n_estimators": 400,
+      "max_depth": 2,
+      "learning_rate": 0.03,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.1037142681879524,
+          "mean_val_f1_veto": 0.03523991802705086,
+          "mean_veto_rate": 0.037839375715477096,
+          "weighted_val_precision_veto": 0.07447988850509236
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.10954914653396215,
+          "mean_val_f1_veto": 0.04849750219186058,
+          "mean_veto_rate": 0.05202625007349125,
+          "weighted_val_precision_veto": 0.08445811553589094
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.1641557931095186,
+          "mean_val_f1_veto": 0.0696205772731025,
+          "mean_veto_rate": 0.07966116264887507,
+          "weighted_val_precision_veto": 0.13421682412090694
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.22874447680502397,
+          "mean_val_f1_veto": 0.10049888607593989,
+          "mean_veto_rate": 0.10984039586397949,
+          "weighted_val_precision_veto": 0.20224928302388845
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.344197092873124,
+          "mean_val_f1_veto": 0.1593155550408253,
+          "mean_veto_rate": 0.16780317380188736,
+          "weighted_val_precision_veto": 0.3404942842800452
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.3592808958296541,
+          "mean_val_f1_veto": 0.2340491249386507,
+          "mean_veto_rate": 0.254392506924786,
+          "weighted_val_precision_veto": 0.35793568582435825
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3610301817391526,
+          "mean_val_f1_veto": 0.32131625600583924,
+          "mean_veto_rate": 0.4032570461296291,
+          "weighted_val_precision_veto": 0.35504687004164814
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.36305333008951485,
+          "mean_val_f1_veto": 0.41047464969112796,
+          "mean_veto_rate": 0.5817991516589082,
+          "weighted_val_precision_veto": 0.35421119842106086
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3755277432274462,
+          "mean_val_f1_veto": 0.47932916672070236,
+          "mean_veto_rate": 0.7602786891421012,
+          "weighted_val_precision_veto": 0.364640548141031
+        }
+      ]
+    },
+    {
+      "n_estimators": 400,
+      "max_depth": 2,
+      "learning_rate": 0.1,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.1523751162087755,
+          "mean_val_f1_veto": 0.07189175572015012,
+          "mean_veto_rate": 0.07484399998619248,
+          "weighted_val_precision_veto": 0.12857212042477825
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.2577879530028378,
+          "mean_val_f1_veto": 0.09852179432828644,
+          "mean_veto_rate": 0.10255529037454961,
+          "weighted_val_precision_veto": 0.24273167970681225
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.35328543285976033,
+          "mean_val_f1_veto": 0.13642597581964708,
+          "mean_veto_rate": 0.1365156353185336,
+          "weighted_val_precision_veto": 0.34987919697180636
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.37181538088811167,
+          "mean_val_f1_veto": 0.18137453976673196,
+          "mean_veto_rate": 0.17667513939877472,
+          "weighted_val_precision_veto": 0.36089535243428317
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3663615994237734,
+          "mean_val_f1_veto": 0.22910363384706484,
+          "mean_veto_rate": 0.2327678236893045,
+          "weighted_val_precision_veto": 0.3561761687554053
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.3785674286756802,
+          "mean_val_f1_veto": 0.2734190138915135,
+          "mean_veto_rate": 0.29590995727979236,
+          "weighted_val_precision_veto": 0.37117970035836684
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.38238387795512097,
+          "mean_val_f1_veto": 0.32307690268034,
+          "mean_veto_rate": 0.38026362134662606,
+          "weighted_val_precision_veto": 0.3751398231776116
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.37380675629688426,
+          "mean_val_f1_veto": 0.3784777780077716,
+          "mean_veto_rate": 0.49045079255847013,
+          "weighted_val_precision_veto": 0.36189241310065107
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3692428368410262,
+          "mean_val_f1_veto": 0.42273490012982096,
+          "mean_veto_rate": 0.6172303631258182,
+          "weighted_val_precision_veto": 0.35764994128676647
+        }
+      ]
+    },
+    {
+      "n_estimators": 400,
+      "max_depth": 2,
+      "learning_rate": 0.3,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.36551862091622966,
+          "mean_val_f1_veto": 0.14410273334373785,
+          "mean_veto_rate": 0.12836033450296352,
+          "weighted_val_precision_veto": 0.3574256667838609
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.3816248701535886,
+          "mean_val_f1_veto": 0.17862571911804348,
+          "mean_veto_rate": 0.1587285569453372,
+          "weighted_val_precision_veto": 0.3768213712317912
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.3900924415015926,
+          "mean_val_f1_veto": 0.21514754116943885,
+          "mean_veto_rate": 0.19405327692307664,
+          "weighted_val_precision_veto": 0.3847544044679053
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.3929373467966776,
+          "mean_val_f1_veto": 0.25542969439526064,
+          "mean_veto_rate": 0.23362860891934786,
+          "weighted_val_precision_veto": 0.38835816959633634
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.37838884343887436,
+          "mean_val_f1_veto": 0.2888002787025943,
+          "mean_veto_rate": 0.2824330601323008,
+          "weighted_val_precision_veto": 0.3721150232879304
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.36496187648369044,
+          "mean_val_f1_veto": 0.3206256233069759,
+          "mean_veto_rate": 0.3418048296942981,
+          "weighted_val_precision_veto": 0.3574288180033015
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3666718716339917,
+          "mean_val_f1_veto": 0.35663847274963406,
+          "mean_veto_rate": 0.40862456878497094,
+          "weighted_val_precision_veto": 0.3558492386670025
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.3695712921495885,
+          "mean_val_f1_veto": 0.389101321989772,
+          "mean_veto_rate": 0.4780571690967511,
+          "weighted_val_precision_veto": 0.3579438931095844
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.37207651274224524,
+          "mean_val_f1_veto": 0.4203469194467965,
+          "mean_veto_rate": 0.5578979239378551,
+          "weighted_val_precision_veto": 0.3601736938312923
+        }
+      ]
+    },
+    {
+      "n_estimators": 400,
+      "max_depth": 3,
+      "learning_rate": 0.03,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.19420166709640327,
+          "mean_val_f1_veto": 0.07838308479678638,
+          "mean_veto_rate": 0.06292052414137282,
+          "weighted_val_precision_veto": 0.1598545469025056
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.2191346490893434,
+          "mean_val_f1_veto": 0.10063076296737306,
+          "mean_veto_rate": 0.0882749583878439,
+          "weighted_val_precision_veto": 0.18461226846911344
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.30724459912560603,
+          "mean_val_f1_veto": 0.13489208234412953,
+          "mean_veto_rate": 0.12418844810681362,
+          "weighted_val_precision_veto": 0.29032342040534725
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.3052313648600592,
+          "mean_val_f1_veto": 0.17926765274426243,
+          "mean_veto_rate": 0.1676379340161496,
+          "weighted_val_precision_veto": 0.28715521997017107
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3661530710113423,
+          "mean_val_f1_veto": 0.22946388266021675,
+          "mean_veto_rate": 0.2239555700191774,
+          "weighted_val_precision_veto": 0.3609763461628984
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.37409728943696285,
+          "mean_val_f1_veto": 0.28305504260625713,
+          "mean_veto_rate": 0.2890911728675086,
+          "weighted_val_precision_veto": 0.3676110043387286
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.37734117321066496,
+          "mean_val_f1_veto": 0.34859658709911145,
+          "mean_veto_rate": 0.39551981766827277,
+          "weighted_val_precision_veto": 0.3683321331753782
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.3717124726603444,
+          "mean_val_f1_veto": 0.42553757900938755,
+          "mean_veto_rate": 0.5539066990801583,
+          "weighted_val_precision_veto": 0.3586882070367646
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.37324474235716254,
+          "mean_val_f1_veto": 0.47847842136510266,
+          "mean_veto_rate": 0.723155736914664,
+          "weighted_val_precision_veto": 0.3604936533299833
+        }
+      ]
+    },
+    {
+      "n_estimators": 400,
+      "max_depth": 3,
+      "learning_rate": 0.1,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.42526013517710426,
+          "mean_val_f1_veto": 0.1344277427038662,
+          "mean_veto_rate": 0.10437155391794062,
+          "weighted_val_precision_veto": 0.43099381222102107
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.37521889774637074,
+          "mean_val_f1_veto": 0.1723733226750317,
+          "mean_veto_rate": 0.1384848930896729,
+          "weighted_val_precision_veto": 0.3667939335614852
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.36354488297761584,
+          "mean_val_f1_veto": 0.1978919769204973,
+          "mean_veto_rate": 0.17519985919012182,
+          "weighted_val_precision_veto": 0.35515929008832087
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.36247054495905695,
+          "mean_val_f1_veto": 0.2267146693892471,
+          "mean_veto_rate": 0.21211806210601442,
+          "weighted_val_precision_veto": 0.3529283911349523
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.37223659218680294,
+          "mean_val_f1_veto": 0.26645677164206016,
+          "mean_veto_rate": 0.26359555113982946,
+          "weighted_val_precision_veto": 0.3646629901753708
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.3752432761014667,
+          "mean_val_f1_veto": 0.3073704912879728,
+          "mean_veto_rate": 0.32077031673578854,
+          "weighted_val_precision_veto": 0.3668446565667158
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.37997650624809526,
+          "mean_val_f1_veto": 0.3535056888256535,
+          "mean_veto_rate": 0.3899187116707023,
+          "weighted_val_precision_veto": 0.3701580606428629
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.38186026283849756,
+          "mean_val_f1_veto": 0.39349387907437805,
+          "mean_veto_rate": 0.4722309697289811,
+          "weighted_val_precision_veto": 0.37268725489421123
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.38188636355024425,
+          "mean_val_f1_veto": 0.4312576923104251,
+          "mean_veto_rate": 0.5684952013659796,
+          "weighted_val_precision_veto": 0.3726504457429514
+        }
+      ]
+    },
+    {
+      "n_estimators": 400,
+      "max_depth": 3,
+      "learning_rate": 0.3,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.37537381037202955,
+          "mean_val_f1_veto": 0.20587483236005513,
+          "mean_veto_rate": 0.16001832804645438,
+          "weighted_val_precision_veto": 0.36775708641282107
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.3740955854734159,
+          "mean_val_f1_veto": 0.23237580012434536,
+          "mean_veto_rate": 0.18922733613774373,
+          "weighted_val_precision_veto": 0.36614418854582065
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.3740252013979654,
+          "mean_val_f1_veto": 0.26012463220885007,
+          "mean_veto_rate": 0.22570865600098183,
+          "weighted_val_precision_veto": 0.3657206676703853
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.37197303118832103,
+          "mean_val_f1_veto": 0.2877218667835309,
+          "mean_veto_rate": 0.26424625486995945,
+          "weighted_val_precision_veto": 0.36222006046745925
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3778831473603574,
+          "mean_val_f1_veto": 0.3185179697296767,
+          "mean_veto_rate": 0.3062833031152778,
+          "weighted_val_precision_veto": 0.36917457789644176
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.3763695526753519,
+          "mean_val_f1_veto": 0.3437678819859388,
+          "mean_veto_rate": 0.35328847832894983,
+          "weighted_val_precision_veto": 0.3676596143467105
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.36945448605661285,
+          "mean_val_f1_veto": 0.364597839190777,
+          "mean_veto_rate": 0.4052613452874637,
+          "weighted_val_precision_veto": 0.36046419353964965
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.3698353011717971,
+          "mean_val_f1_veto": 0.3887405783465031,
+          "mean_veto_rate": 0.4598363646148191,
+          "weighted_val_precision_veto": 0.3604650874282668
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3728993387865986,
+          "mean_val_f1_veto": 0.4172135092714623,
+          "mean_veto_rate": 0.525152051013264,
+          "weighted_val_precision_veto": 0.3635967063657984
+        }
+      ]
+    },
+    {
+      "n_estimators": 400,
+      "max_depth": 4,
+      "learning_rate": 0.03,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.3208280007106846,
+          "mean_val_f1_veto": 0.08472947767561063,
+          "mean_veto_rate": 0.0636100877344098,
+          "weighted_val_precision_veto": 0.312193840447643
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.30708719518811417,
+          "mean_val_f1_veto": 0.12433269537147251,
+          "mean_veto_rate": 0.09713479753256343,
+          "weighted_val_precision_veto": 0.2981571283272128
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.35991581799393163,
+          "mean_val_f1_veto": 0.16968902524175947,
+          "mean_veto_rate": 0.14097199959095233,
+          "weighted_val_precision_veto": 0.35807564834556693
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.35772920866465074,
+          "mean_val_f1_veto": 0.21127133186505107,
+          "mean_veto_rate": 0.18756399986250688,
+          "weighted_val_precision_veto": 0.35055122426172675
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3856029111877148,
+          "mean_val_f1_veto": 0.24836955086866283,
+          "mean_veto_rate": 0.23514277700349817,
+          "weighted_val_precision_veto": 0.3829952270716621
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.37318720498058805,
+          "mean_val_f1_veto": 0.29255637393040324,
+          "mean_veto_rate": 0.3008057321278353,
+          "weighted_val_precision_veto": 0.36704569207279647
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3771342571602797,
+          "mean_val_f1_veto": 0.3467949338151837,
+          "mean_veto_rate": 0.391000721316817,
+          "weighted_val_precision_veto": 0.370057354975867
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.37659994296750665,
+          "mean_val_f1_veto": 0.40316009861163665,
+          "mean_veto_rate": 0.5077785176338195,
+          "weighted_val_precision_veto": 0.3669230679522903
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3763291736450059,
+          "mean_val_f1_veto": 0.4554302819959978,
+          "mean_veto_rate": 0.6391802643187511,
+          "weighted_val_precision_veto": 0.3641668027767643
+        }
+      ]
+    },
+    {
+      "n_estimators": 400,
+      "max_depth": 4,
+      "learning_rate": 0.1,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.3438503779579022,
+          "mean_val_f1_veto": 0.1658072535580023,
+          "mean_veto_rate": 0.13068203248569546,
+          "weighted_val_precision_veto": 0.3321191228366243
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.3640348191639331,
+          "mean_val_f1_veto": 0.19908890192253997,
+          "mean_veto_rate": 0.16568528717333142,
+          "weighted_val_precision_veto": 0.3569222452716869
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.3642879873284843,
+          "mean_val_f1_veto": 0.23029005619732645,
+          "mean_veto_rate": 0.20540056543797305,
+          "weighted_val_precision_veto": 0.35786529068727285
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.36512845281840656,
+          "mean_val_f1_veto": 0.26219593204706937,
+          "mean_veto_rate": 0.24940819574267,
+          "weighted_val_precision_veto": 0.3586029619012152
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3678974800694688,
+          "mean_val_f1_veto": 0.2970422174100553,
+          "mean_veto_rate": 0.29933531691536086,
+          "weighted_val_precision_veto": 0.3595176754508386
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.3741409645051773,
+          "mean_val_f1_veto": 0.3338933220763092,
+          "mean_veto_rate": 0.35426825273990986,
+          "weighted_val_precision_veto": 0.36497385855665276
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3737295521301598,
+          "mean_val_f1_veto": 0.36702046701938823,
+          "mean_veto_rate": 0.4194091506647403,
+          "weighted_val_precision_veto": 0.36320681040258845
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.3746599636057336,
+          "mean_val_f1_veto": 0.40094781929890866,
+          "mean_veto_rate": 0.4948712321944327,
+          "weighted_val_precision_veto": 0.3631366307889871
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3766970614940769,
+          "mean_val_f1_veto": 0.43097030665038866,
+          "mean_veto_rate": 0.5746038599036358,
+          "weighted_val_precision_veto": 0.3648139864223497
+        }
+      ]
+    },
+    {
+      "n_estimators": 400,
+      "max_depth": 4,
+      "learning_rate": 0.3,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.37436763437171455,
+          "mean_val_f1_veto": 0.23767123007317542,
+          "mean_veto_rate": 0.1966436712201523,
+          "weighted_val_precision_veto": 0.3642056618991722
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.3705592269495622,
+          "mean_val_f1_veto": 0.2598204131177645,
+          "mean_veto_rate": 0.22726719915898697,
+          "weighted_val_precision_veto": 0.3603288081550197
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.3685508027227625,
+          "mean_val_f1_veto": 0.28537710575951447,
+          "mean_veto_rate": 0.2635512432017322,
+          "weighted_val_precision_veto": 0.3579430386430106
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.3706091078344619,
+          "mean_val_f1_veto": 0.3097867417259915,
+          "mean_veto_rate": 0.2996842711402177,
+          "weighted_val_precision_veto": 0.35992305120642265
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.37330624843061616,
+          "mean_val_f1_veto": 0.33402744680269525,
+          "mean_veto_rate": 0.3371800643850794,
+          "weighted_val_precision_veto": 0.3634470473512294
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.3729293410126834,
+          "mean_val_f1_veto": 0.35700410468835597,
+          "mean_veto_rate": 0.3776370217530154,
+          "weighted_val_precision_veto": 0.36271008634122304
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.37294190716251163,
+          "mean_val_f1_veto": 0.3771914202520811,
+          "mean_veto_rate": 0.42008560621212554,
+          "weighted_val_precision_veto": 0.36297010926191287
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.3714178006150809,
+          "mean_val_f1_veto": 0.39382885567003023,
+          "mean_veto_rate": 0.46521699166790764,
+          "weighted_val_precision_veto": 0.36189275729392695
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3720104521548114,
+          "mean_val_f1_veto": 0.41394037545588247,
+          "mean_veto_rate": 0.5147800938000215,
+          "weighted_val_precision_veto": 0.3620567286143579
+        }
+      ]
+    },
+    {
+      "n_estimators": 400,
+      "max_depth": 6,
+      "learning_rate": 0.03,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.3656644553282832,
+          "mean_val_f1_veto": 0.10945215583887655,
+          "mean_veto_rate": 0.08055002321758598,
+          "weighted_val_precision_veto": 0.3621446441929036
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.3680322023279026,
+          "mean_val_f1_veto": 0.14989540577179908,
+          "mean_veto_rate": 0.11757719803904872,
+          "weighted_val_precision_veto": 0.3631259905686359
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.3607116307926575,
+          "mean_val_f1_veto": 0.18522231893699406,
+          "mean_veto_rate": 0.15602868245119259,
+          "weighted_val_precision_veto": 0.35422855506097295
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.3617094848850464,
+          "mean_val_f1_veto": 0.22198148043186078,
+          "mean_veto_rate": 0.19814217071097204,
+          "weighted_val_precision_veto": 0.35613824786962683
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3699813522958543,
+          "mean_val_f1_veto": 0.26269174961040653,
+          "mean_veto_rate": 0.24949890231577077,
+          "weighted_val_precision_veto": 0.36542318562810255
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.3780122211137715,
+          "mean_val_f1_veto": 0.3096242872093843,
+          "mean_veto_rate": 0.3111503088813106,
+          "weighted_val_precision_veto": 0.3720184387637951
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3794620396517785,
+          "mean_val_f1_veto": 0.35712391194243115,
+          "mean_veto_rate": 0.3914765664073698,
+          "weighted_val_precision_veto": 0.3715559038739267
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.37929437894700724,
+          "mean_val_f1_veto": 0.40229289895602544,
+          "mean_veto_rate": 0.48615728880320164,
+          "weighted_val_precision_veto": 0.37063748002576774
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.38205482290075915,
+          "mean_val_f1_veto": 0.44333145024054843,
+          "mean_veto_rate": 0.588752604196394,
+          "weighted_val_precision_veto": 0.37286911218131247
+        }
+      ]
+    },
+    {
+      "n_estimators": 400,
+      "max_depth": 6,
+      "learning_rate": 0.1,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.3538322419125339,
+          "mean_val_f1_veto": 0.18915107789398386,
+          "mean_veto_rate": 0.1542176030242407,
+          "weighted_val_precision_veto": 0.3447045796102617
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.35845529704788354,
+          "mean_val_f1_veto": 0.2195585258221197,
+          "mean_veto_rate": 0.1899318912577671,
+          "weighted_val_precision_veto": 0.3486414378274104
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.3663315701148468,
+          "mean_val_f1_veto": 0.24980554949022787,
+          "mean_veto_rate": 0.22388891330291233,
+          "weighted_val_precision_veto": 0.355196055275234
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.3676653948516242,
+          "mean_val_f1_veto": 0.2764037090611798,
+          "mean_veto_rate": 0.25934895515378165,
+          "weighted_val_precision_veto": 0.35638495953307353
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3721833691429326,
+          "mean_val_f1_veto": 0.3105991329841322,
+          "mean_veto_rate": 0.30718776347366467,
+          "weighted_val_precision_veto": 0.36095497195590415
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.37486068671883205,
+          "mean_val_f1_veto": 0.3375722494967348,
+          "mean_veto_rate": 0.3515807752308055,
+          "weighted_val_precision_veto": 0.364196362965235
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.37667850080350573,
+          "mean_val_f1_veto": 0.36352448979532137,
+          "mean_veto_rate": 0.4002514134647795,
+          "weighted_val_precision_veto": 0.36712508698858504
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.3747465820189614,
+          "mean_val_f1_veto": 0.387505568401333,
+          "mean_veto_rate": 0.45612409653901426,
+          "weighted_val_precision_veto": 0.3639092101475517
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.37370662785421305,
+          "mean_val_f1_veto": 0.41112149973189094,
+          "mean_veto_rate": 0.521927629738858,
+          "weighted_val_precision_veto": 0.3635771170752884
+        }
+      ]
+    },
+    {
+      "n_estimators": 400,
+      "max_depth": 6,
+      "learning_rate": 0.3,
+      "error": null,
+      "per_threshold": [
+        {
+          "threshold": 0.3,
+          "mean_val_precision_veto": 0.3844539467902672,
+          "mean_val_f1_veto": 0.274257321068457,
+          "mean_veto_rate": 0.22088527694055352,
+          "weighted_val_precision_veto": 0.3758359851121375
+        },
+        {
+          "threshold": 0.35,
+          "mean_val_precision_veto": 0.38100192105091046,
+          "mean_val_f1_veto": 0.29230963108378816,
+          "mean_veto_rate": 0.2486256475738234,
+          "weighted_val_precision_veto": 0.37179874098081805
+        },
+        {
+          "threshold": 0.4,
+          "mean_val_precision_veto": 0.37995172724714366,
+          "mean_val_f1_veto": 0.3103070962498734,
+          "mean_veto_rate": 0.2772300802985085,
+          "weighted_val_precision_veto": 0.37066093277775175
+        },
+        {
+          "threshold": 0.45,
+          "mean_val_precision_veto": 0.3796115573725201,
+          "mean_val_f1_veto": 0.3277605001243197,
+          "mean_veto_rate": 0.30465615998840295,
+          "weighted_val_precision_veto": 0.36982536753210965
+        },
+        {
+          "threshold": 0.5,
+          "mean_val_precision_veto": 0.3799907652809444,
+          "mean_val_f1_veto": 0.34447720451412833,
+          "mean_veto_rate": 0.3340194680840865,
+          "weighted_val_precision_veto": 0.37057875110580407
+        },
+        {
+          "threshold": 0.55,
+          "mean_val_precision_veto": 0.37806326960811026,
+          "mean_val_f1_veto": 0.3604978242138607,
+          "mean_veto_rate": 0.36849438853758787,
+          "weighted_val_precision_veto": 0.3675042009132486
+        },
+        {
+          "threshold": 0.6,
+          "mean_val_precision_veto": 0.3791105507392719,
+          "mean_val_f1_veto": 0.3785304699152298,
+          "mean_veto_rate": 0.40262590632837475,
+          "weighted_val_precision_veto": 0.3676139886876261
+        },
+        {
+          "threshold": 0.65,
+          "mean_val_precision_veto": 0.37711368027470216,
+          "mean_val_f1_veto": 0.3917064203892103,
+          "mean_veto_rate": 0.4375900612549867,
+          "weighted_val_precision_veto": 0.36575641781637624
+        },
+        {
+          "threshold": 0.7,
+          "mean_val_precision_veto": 0.3764453979996153,
+          "mean_val_f1_veto": 0.4064683843920382,
+          "mean_veto_rate": 0.4764116498836996,
+          "weighted_val_precision_veto": 0.36442768185680713
+        }
+      ]
+    }
+  ],
+  "aggregate": {
+    "n_configs_total": 432,
+    "n_configs_non_degenerate": 354,
+    "n_configs_cross_ac_all": 0,
+    "n_configs_cross_ac_non_degenerate": 0,
+    "best_overall": {
+      "n_estimators": 50,
+      "max_depth": 4,
+      "learning_rate": 0.3,
+      "threshold": 0.3,
+      "mean_val_precision_veto": 0.44229307336320467,
+      "mean_val_f1_veto": 0.14393342674141793,
+      "mean_veto_rate": 0.10448368486311635,
+      "weighted_val_precision_veto": 0.44911792371796583
+    },
+    "best_non_degenerate": {
+      "n_estimators": 50,
+      "max_depth": 4,
+      "learning_rate": 0.3,
+      "threshold": 0.3,
+      "mean_val_precision_veto": 0.44229307336320467,
+      "mean_val_f1_veto": 0.14393342674141793,
+      "mean_veto_rate": 0.10448368486311635,
+      "weighted_val_precision_veto": 0.44911792371796583
+    },
+    "p42_ac_precision_pass_best_non_degenerate": false
+  },
+  "caveats": {
+    "search_overfit": "best config selected on the same 10 val folds it is scored on; reported precision is optimistic",
+    "temporal_split": "val folds span validation years 2018/2019/2021/2023; acceptance-type cadence measurement, not evidence-discovery",
+    "sealed_2026": "end-year 2024; sealed 2026 never read"
+  },
+  "trained_at_utc": "20260521T180956Z"
+}

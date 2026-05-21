@@ -49,6 +49,25 @@
 
 ## 轮次日志(每轮 commit 时追加 1 行)
 
+### Round 33(2026-05-21) — PRD #4 P4.2 hyperparam search:432 config 全部 < 0.55,root cause 升级到 feature bundle
+
+- **本轮主题**: R32 walk-forward 确认 Stage 2 sign classifier 过拟合是 model/feature 问题非 luck;R32 script 点名下一杠杆 = hyperparam search。Round 33 执行。
+- **为什么这轮优先**: 用户直接指示「收尾 R32 然后做 hyperparam search」;且这是 P4.1 IR-threshold backlog memo 列的 Option-B 头号杠杆。
+- **做了什么 + 改了哪些文件**:
+  - 新增 `dev/scripts/ml/hyperparam_search_sign_classifier.py`(~300 行)。复用 R32 的 panel/Stage-1-rank/label/context helper。grid:n_estimators∈{50,100,200,400} × max_depth∈{2,3,4,6} × learning_rate∈{0.03,0.1,0.3} = 48 tree-config;每 (config,fold) fit 一次 cache `predict_proba`,再 sweep decision_threshold∈{0.30..0.70} 9 档(threshold 是 prediction-side precision/recall 杠杆,不重 fit)→ 48×9 = **432 候选 config**。
+  - 跑出 `data/audit/r33_hyperparam_search_sign_xgb_20260521T180956Z.json`。
+- **跑了什么测试 + 结果**:
+  - 10/10 fold usable,432 config 全部成功。
+  - **非退化 config(mean veto_rate ≥ 0.10)= 354 个;precision(VETO) 分布 max=0.442 / min=0.125**。
+  - **跨 0.55 AC 的 config = 0/432**(退化集也 0)。
+  - best 非退化 config:n_est=50 / depth=4 / lr=0.3 / threshold=0.30,mean val precision=**0.442**,但 veto_rate 0.104(贴退化下限)+ F1 仅 0.144 → 几乎不 veto。
+- **non-blanket verdict**(per `feedback_no_blanket_failure_verdict`): 这个 attempt —— XGB 在 (n_estimators, max_depth, learning_rate, decision_threshold) 全网格 + regime_state bundle + walk-forward —— val precision 顶到 ~0.44,**仍 < 0.55 AC**。**root cause 从「hyperparams」升级到「feature bundle / 信号本身」**:cycle06 3-feature rank + 4-因子 regime_state context 在 top-decile cell 上不携带足够 sign-预测信号。**不下「sign classifier 不行」blanket verdict**。
+- **诚实 caveat**:best config 在它被打分的同一 10 val 折上选出 → 0.442 是 search-overfit 偏乐观值,真实 held-out 数字更低。
+- **新发现 / metric 关联**: 0.442 vs loser base-rate(class-0 prior ≈ 0.30-0.40,R28/R29 实测 winner prior 0.57-0.73)→ 分类器**有弱信号**(0.44 > ~0.35 随机 veto precision),只是不到 0.55-强。**这正是 P4.1 IR-threshold backlog memo Option C 要讨论的:0.55 阈值相对 loser base-rate ≈ 0.35 是否过严** —— directional,留 metric 讨论。
+- **剩余风险**: P4.2 AC 仍处 F1-pass / precision-fail;hyperparam 杠杆已耗尽。下一可行杠杆 = 换 feature bundle(drop-high-nan 开 113-factor / drawdown_context / overnight)或 directional 改阈值。
+- **下一轮建议方向**: **进入 metric 讨论**(directional)—— operator 摆齐 P4.1 rank-IR + P4.2 precision 两条线 Option-B 结果,用户定 Option C(阈值改不改)。
+- **TODO**: R32 ✅ / R33 ✅ commit;metric 讨论 pending 用户。
+
 ### Round 32(2026-05-21) — PRD #4 P4.2 audit priority 3:Stage 2 sign classifier walk-forward 重训(10 fold,过拟合确认 non-luck)
 
 - **本轮主题**: PRD #4 P4.2 audit priority 3。R28/R29 单 split 显示 Stage 2 sign classifier 过拟合(train precision 0.80 → val 0.39,-60%)。PRD #4 P4.2 显式要求 "walk-forward retraining cadence",但单 split 先 ship。Round 32 补这个 gap:rolling 5y-train / 1y-val 滚动折,per-fold + aggregate。
