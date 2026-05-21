@@ -151,4 +151,52 @@ diagnostic [x] stress 机制核查 · [ ] baseline stress slices
 **STOPPED — NEEDS USER DECISION**:rerisk-pack.md §1.3,stress-slice
 warmup 穿越 validation 的方法论选择 A/B/C。
 
-<!-- Round 4 起在此行下方追加 -->
+## Round 4 — R0:cycle06 re-risk 行(exact frozen-spec replay)
+
+**时间**: 2026-05-21 · **主 commit**: `d3cf26d` · **测试基线**: 3864
+passed(未动 module 代码)
+
+① **当前阶段** — Round 4 / Workstream R0 / cycle06 行。
+
+② **本轮目标** — 按 exact frozen spec 重评 cycle06_31af04cf2ff9,产出
+R0 cycle06 re-risk 行。
+
+③ **为什么先做它** — baseline stress 行 block 于 Round 3 的 A/B/C
+决策;cycle06 不被它 block。用户沉默多轮 → 推进不依赖该决策的工作而
+非空转。(用户本轮中途回「走 A」,已落账 §1.3。)
+
+④ **做了什么** — 新建 `rerisk_cycle06.py`(载 frozen yaml 3-feature
+composite verbatim,复用 cycle06 Track-A `_eval_trial`,selector
+面板对 research 候选 Track-A 阶段合规)+ `--reuse-eval` 缓存。跑重评,
+写 cycle06 行 + eval artifact。memo §2 + §1.3 决策落账。
+
+⑤ **改了哪些文件** — `dev/scripts/audit/rerisk_cycle06.py`(新)/
+`data/audit/rerisk_pack_20260521.json` / `rerisk_cycle06_eval.json`
+(新)/ `docs/memos/20260521-rerisk-pack.md`。
+
+⑥ **跑了哪些测试 + 结果** — driver exit 0;R3 核对:covid -15.99%
+(frozen -15.32%)/ rate_hike -9.48%(frozen -9.48%)/ 2018 -19.94%
+(frozen -19.60%)—— 风险面 ≈ frozen ±<0.7pp,复现可信;未动 module
+代码不重跑回归。
+
+⑦ **当前结果** — cycle06 exact-frozen-spec verdict **RED**,
+non-blanket:① 风险面稳定(per-year ≤20% / stress ≤25%,与 frozen
+一致);② Track-A 总判 **PASS→FAIL**(`validation_aggregate_excess_
+vs_spy`)。frozen yaml 的 `track_a_acceptance: PASS` 当前不复现 ——
+alpha-gate 失败,非风控回归。
+
+⑧ **剩余风险** — cycle06 Track-A PASS→FAIL 是 R0 实质发现(留收口
++ 用户讨论);cycle08/PEAD 行未做;baseline stress 行 + per-year
+字段待 Round 5。
+
+⑨ **下一轮建议** — Round 5 = baseline stress slices via Option A
+(用户已批);后 cycle08 / PEAD / R0 收口。
+
+⑩ **TODO** — [x] driver [x] baseline train-only [x] baseline 近期
+diagnostic [x] stress 机制核查+裁定 A [x] cycle06 行 ·
+[ ] baseline stress(Option A)[ ] cycle08 [ ] PEAD [ ] per-year
+MaxDD [ ] R0 收口 · [ ] P0-P6。
+
+⑪ **commit** — `d3cf26d`(主)。
+
+<!-- Round 5 起在此行下方追加 -->
