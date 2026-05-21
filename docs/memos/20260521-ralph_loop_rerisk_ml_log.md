@@ -575,4 +575,46 @@ binary · [ ] purge/embargo override + smoke json [ ] P1 收口 ·
 
 ⑪ **commit** — `6511748`(主)。
 
-<!-- Round 14 起在此行下方追加 -->
+## Round 14 — P1:purge+embargo in the ML walk-forward path
+
+**时间**: 2026-05-21 · **主 commit**: `94701cb` · **测试基线**: 3864
++ 17 新(research/ml 140 passed)
+
+① **当前阶段** — Round 14 / Package P1 / purge+embargo override。
+
+② **本轮目标** — ML walk-forward 路径加 purge+embargo gap(§8.2 +
+决策 ④:pipeline 内做,不改共享 temporal_split*.yaml)。
+
+③ **为什么先做它** — iter_folds 现无 embargo gap → train 末尾 21d
+label 伸进 val 年 = overlapping-label 泄漏。
+
+④ **做了什么** — `pipeline.py`:`WalkForwardConfig` 加 `embargo_days`
+(默认 0 = bit-identical);`iter_folds` 把 train_end 回拉
+embargo_days 日历日。接两个 sign-classifier walk-forward driver 传
+`embargo_days=horizon_days`。test_pipeline +4 单测。
+
+⑤ **改了哪些文件** — `core/research/ml/pipeline.py` /
+`dev/scripts/ml/walk_forward_sign_classifier.py` /
+`dev/scripts/ml/hyperparam_search_sign_classifier.py` /
+`tests/unit/research/ml/test_pipeline.py`。
+
+⑥ **跑了哪些测试 + 结果** — test_pipeline 25 passed;R3:embargo=0
+→ train_end 仍 Dec-31(bit-identical),embargo=30 → 回拉、gap≥30d、
+strict-chrono 成立、fold 数不变;research/ml 全目录 140 passed 无回归。
+
+⑦ **当前结果** — ML walk-forward 支持 purge+embargo gap;两 driver
+默认 embargo=horizon;共享 temporal_split*.yaml 未动(决策 ④)。
+
+⑧ **剩余风险** — embargo 按日历日回拉(传 horizon_days 作日历日偏
+保守,不偏泄漏);label smoke json + P1 §12.3 gate + P1 收口未做;
+sector 残差化未做。
+
+⑨ **下一轮建议** — Round 15 = label deterministic smoke json + P1
+§12.3 gate 核对 + P1 收口。
+
+⑩ **TODO** — [x] R0/P0 CLOSED [x] P1 schema/labels/purge-embargo ·
+[ ] P1 smoke json + 收口 · [ ] P2-P6。
+
+⑪ **commit** — `94701cb`(主)。
+
+<!-- Round 15 起在此行下方追加 -->
