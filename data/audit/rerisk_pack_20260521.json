@@ -23,7 +23,76 @@
         "full-period MaxDD 20.2% > 20% hard cap",
         "PROVISIONAL — stress-slice + per-validation-year MaxDD pending (round 2+)"
       ]
+    },
+    {
+      "candidate_id": "production_baseline (multi_factor conservative_default)",
+      "source": "config/production_strategy.yaml",
+      "window": "2022-01-03..2025-12-31",
+      "partition": "diagnostic",
+      "metrics": {
+        "total_return_pct": -16.71,
+        "cagr_pct": -4.49,
+        "sharpe": -0.16,
+        "max_dd_pct": -63.95,
+        "ann_vol_pct": 27.72,
+        "n_trades": 1459.0,
+        "beta": 0.43,
+        "ir": -0.38
+      },
+      "regime_breakdown": [
+        {
+          "regime": "BULL",
+          "days": 203,
+          "cagr_pct": -39.93,
+          "sharpe": -0.75,
+          "max_dd_pct": -60.49,
+          "vs_spy_pct": -78.22,
+          "vs_qqq_pct": -88.77
+        },
+        {
+          "regime": "RISK_ON",
+          "days": 239,
+          "cagr_pct": 42.0,
+          "sharpe": 1.7,
+          "max_dd_pct": -9.13,
+          "vs_spy_pct": 14.35,
+          "vs_qqq_pct": 7.84
+        },
+        {
+          "regime": "NEUTRAL",
+          "days": 106,
+          "cagr_pct": 26.88,
+          "sharpe": 0.95,
+          "max_dd_pct": -13.46,
+          "vs_spy_pct": 34.03,
+          "vs_qqq_pct": 37.17
+        },
+        {
+          "regime": "CAUTIOUS",
+          "days": 293,
+          "cagr_pct": -9.54,
+          "sharpe": -0.96,
+          "max_dd_pct": -18.49,
+          "vs_spy_pct": -4.45,
+          "vs_qqq_pct": 2.37
+        },
+        {
+          "regime": "RISK_OFF",
+          "days": 143,
+          "cagr_pct": -0.51,
+          "sharpe": -0.56,
+          "max_dd_pct": -6.28,
+          "vs_spy_pct": -4.08,
+          "vs_qqq_pct": -23.02
+        }
+      ],
+      "reproduce_cmd": "python scripts/run_backtest.py --strategy multi_factor --start 2022-01-03 --end 2025-12-31 --no-walk-forward",
+      "verdict": "RED",
+      "verdict_flags": [
+        "full-period MaxDD 64.0% > 25% stress cap",
+        "DIAGNOSTIC WINDOW (validation-spanning, §6.5) — informational regime-fragility evidence, NOT a candidate pass/fail gate"
+      ]
     }
   ],
-  "updated_utc": "20260521T223252Z"
+  "updated_utc": "20260521T223756Z"
 }

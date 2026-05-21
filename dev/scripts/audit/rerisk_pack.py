@@ -49,9 +49,36 @@ def _num(text: str) -> float:
     return float(t)
 
 
-def parse_master_report(path: Path) -> dict:
+REGIME_NAMES = {"BULL", "RISK_ON", "NEUTRAL", "CAUTIOUS", "RISK_OFF"}
+
+
+def parse_regime_breakdown(txt: str) -> list[dict]:
+    """Parse the §2 Regime 分层表现 table from a master_report.md."""
+    m = re.search(r"## 2\. Regime.*?(?=\n## )", txt, re.S)
+    if not m:
+        return []
+    rows: list[dict] = []
+    for line in m.group(0).splitlines():
+        cells = [c.strip() for c in line.split("|")[1:-1]]
+        if len(cells) != 7 or cells[0] not in REGIME_NAMES:
+            continue
+        try:
+            rows.append({
+                "regime": cells[0],
+                "days": int(_num(cells[1])),
+                "cagr_pct": _num(cells[2]),
+                "sharpe": _num(cells[3]),
+                "max_dd_pct": _num(cells[4]),
+                "vs_spy_pct": _num(cells[5]),
+                "vs_qqq_pct": _num(cells[6]),
+            })
+        except ValueError:
+            continue
+    return rows
+
+
+def parse_master_report(txt: str) -> dict:
     """Extract the §1 strategy + benchmark metrics from a master_report.md."""
-    txt = path.read_text()
     out: dict = {}
     row_re = re.compile(r"^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*$", re.M)
     label_map = {
@@ -72,8 +99,12 @@ def parse_master_report(path: Path) -> dict:
 
 
 def _verdict(row: dict) -> tuple[str, list[str]]:
-    """PRD §6.3 verdict. Round-1 provisional: full-period MaxDD only;
-    upgraded once stress-slice + per-validation-year rows land."""
+    """PRD §6.3 verdict. Provisional: full-period MaxDD only;
+    upgraded once stress-slice + per-validation-year rows land.
+
+    A `diagnostic`-partition row is a validation-spanning sanity window
+    (PRD §6.5) — its verdict is informational (it documents regime
+    fragility), not a candidate pass/fail gate."""
     flags: list[str] = []
     max_dd = abs(row["metrics"].get("max_dd_pct", 0.0)) / 100.0
     if max_dd > MAXDD_STRESS_CAP:
@@ -84,7 +115,13 @@ def _verdict(row: dict) -> tuple[str, list[str]]:
         verdict = "YELLOW"
     else:
         verdict = "GREEN"
-    flags.append("PROVISIONAL — stress-slice + per-validation-year MaxDD pending (round 2+)")
+    if row.get("partition") == "diagnostic":
+        flags.append("DIAGNOSTIC WINDOW (validation-spanning, §6.5) — "
+                     "informational regime-fragility evidence, NOT a "
+                     "candidate pass/fail gate")
+    else:
+        flags.append("PROVISIONAL — stress-slice + per-validation-year "
+                     "MaxDD pending (later round)")
     return verdict, flags
 
 
@@ -107,13 +144,16 @@ def run_baseline(start: str, end: str, partition: str) -> dict:
         reports = sorted(Path(tmp).glob("backtest/runs/*/master_report.md"))
         if not reports:
             raise RuntimeError("run_backtest produced no master_report.md")
-        metrics = parse_master_report(reports[-1])
+        report_txt = reports[-1].read_text()
+        metrics = parse_master_report(report_txt)
+        regime = parse_regime_breakdown(report_txt)
     return {
         "candidate_id": "production_baseline (multi_factor conservative_default)",
         "source": "config/production_strategy.yaml",
         "window": f"{start}..{end}",
         "partition": partition,
         "metrics": metrics,
+        "regime_breakdown": regime,
         "reproduce_cmd": (
             f"python scripts/run_backtest.py --strategy multi_factor "
             f"--start {start} --end {end} --no-walk-forward"),
