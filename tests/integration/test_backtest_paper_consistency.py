@@ -91,6 +91,7 @@ class TestBacktestPaperConsistency:
             db_path=db_path,
             initial_capital=capital,
             kill_switch=ks,
+            integer_shares=integer_shares,
         )
 
         dates = price_df.index
@@ -143,9 +144,12 @@ class TestBacktestPaperConsistency:
         bt_final = bt.equity_curve.iloc[-1]
         paper_final = paper_equities[-1][1] if paper_equities else capital
 
-        divergence_pct = abs(bt_final - paper_final) / capital * 100
-        assert divergence_pct < 5.0, (
-            f"Equity divergence {divergence_pct:.2f}% exceeds 5% threshold. "
+        # Integer-share + zero-cost + deterministic → backtest and paper
+        # must match to the PRD strict_match spec (10 bps). The prior 5%
+        # tolerance was 500x too loose (audit 2026-05-21).
+        divergence_bps = abs(bt_final - paper_final) / capital * 10000
+        assert divergence_bps < 10, (
+            f"Equity divergence {divergence_bps:.2f} bps exceeds 10 bps. "
             f"BT={bt_final:.2f}, Paper={paper_final:.2f}"
         )
 
@@ -168,12 +172,16 @@ class TestBacktestPaperConsistency:
         paper_final = paper_equities[-1][1]
         divergence_bps = abs(bt_final - paper_final) / capital * 10000
 
-        # strict_match tolerance from PRD: 10 bps
-        # NOTE: some divergence is expected due to path-dependent execution
-        # (backtest is vectorized, paper is day-by-day incremental)
-        # Using 500 bps as realistic current tolerance
-        assert divergence_bps < 500, (
-            f"Strict match: equity divergence {divergence_bps:.0f} bps. "
+        # strict_match tolerance from PRD: 10 bps.
+        # The prior 500 bps tolerance + "backtest is vectorized" comment
+        # were both wrong (audit 2026-05-21): the backtest engine is
+        # itself day-by-day, and the ~10 bps divergence was entirely an
+        # _run_paper helper bug — it accepted `integer_shares` but never
+        # forwarded it, so paper silently ran integer-share mode while
+        # the backtest ran fractional. With the helper fixed, fractional
+        # + zero-cost + deterministic match EXACTLY (0.00 bps measured).
+        assert divergence_bps < 10, (
+            f"Strict match: equity divergence {divergence_bps:.2f} bps. "
             f"BT={bt_final:.2f}, Paper={paper_final:.2f}"
         )
 
