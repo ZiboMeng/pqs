@@ -1,0 +1,29 @@
+{
+  "prd": "docs/prd/20260521-rerisk-and-ml-training-audit-prd.md",
+  "workstream": "R0 — re-risk pack",
+  "rows": [
+    {
+      "candidate_id": "production_baseline (multi_factor conservative_default)",
+      "source": "config/production_strategy.yaml",
+      "window": "2009-01-02..2017-12-31",
+      "partition": "train_only",
+      "metrics": {
+        "total_return_pct": 190.35,
+        "cagr_pct": 12.59,
+        "sharpe": 0.67,
+        "max_dd_pct": -20.21,
+        "ann_vol_pct": 13.16,
+        "n_trades": 1629.0,
+        "beta": 0.28,
+        "ir": -0.02
+      },
+      "reproduce_cmd": "python scripts/run_backtest.py --strategy multi_factor --start 2009-01-02 --end 2017-12-31 --no-walk-forward",
+      "verdict": "YELLOW",
+      "verdict_flags": [
+        "full-period MaxDD 20.2% > 20% hard cap",
+        "PROVISIONAL — stress-slice + per-validation-year MaxDD pending (round 2+)"
+      ]
+    }
+  ],
+  "updated_utc": "20260521T223252Z"
+}
