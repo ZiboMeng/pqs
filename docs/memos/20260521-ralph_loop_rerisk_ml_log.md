@@ -292,4 +292,46 @@ MaxDD、R0 收口 → P0-P6。
 
 ⑪ **commit** — `6d54a31`(主)。
 
-<!-- Round 7 起在此行下方追加 -->
+## Round 7 — R0:PEAD re-risk 行(post-fix Track-A acceptance)
+
+**时间**: 2026-05-21 · **主 commit**: `de2a55e` · **测试基线**: 3864
+(未动 module 代码)
+
+① **当前阶段** — Round 7 / Workstream R0 / PEAD 行。
+
+② **本轮目标** — post-fix 重评 PEAD 候选 pead_sue_trial1_evidence_v1,
+产出 R0 PEAD 行。
+
+③ **为什么先做它** — Round 6 排定;PEAD 现有 verdict 是 May-14 stale,
+需 post-fix 重跑。
+
+④ **做了什么** — 重跑 sanctioned 的 `run_pead_track_a_acceptance.py`
+(刷新 verdict json + NAV)。新建 `rerisk_pead.py`(读 verdict json
+trial1_short_hold,折进 pack)。memo §4 + 进度表。
+
+⑤ **改了哪些文件** — `dev/scripts/audit/rerisk_pead.py`(新)/
+`pead_path1_track_a_verdict.json`(重跑覆写)/ 2 NAV parquet /
+`rerisk_pack_20260521.json` / `docs/memos/20260521-rerisk-pack.md`。
+
+⑥ **跑了哪些测试 + 结果** — 两 driver exit 0;R3 对比 pre-fix:
+Sharpe 1.055→0.986 / CAGR 5.48%→5.43% / MaxDD -7.64%→-7.92% /
+Track-A 14/17→16/17 —— 风险面稳健,Track-A 改善;未动 module 代码。
+
+⑦ **当前结果** — PEAD post-fix verdict **GREEN**:MaxDD -7.92%(远在
+风险上限内),2x-cost robust,Track-A 16/17(pre-fix 14/17,修复后
+改善 +2 gate)。overall 仍 FAIL 但 PEAD 本就 evidence-only、frozen
+即 14/17;失败 gate 是 aggregate excess vs SPY/QQQ(alpha 非风控)。
+
+⑧ **剩余风险** — baseline per-validation-year MaxDD 字段未补;R0 收口
+(verdict 汇总 + §6.4 核对)未做。
+
+⑨ **下一轮建议** — Round 8 = R0 收口:补 baseline per-year MaxDD,
+写 R0 收口节(4 候选 verdict 汇总 + §6.4 acceptance),关闭 R0 → P0。
+
+⑩ **TODO** — [x] driver [x] baseline train-only/diagnostic/stress
+[x] cycle06 [x] cycle08 [x] PEAD · [ ] baseline per-year MaxDD
+[ ] R0 收口 · [ ] P0-P6。
+
+⑪ **commit** — `de2a55e`(主)。
+
+<!-- Round 8 起在此行下方追加 -->
