@@ -1,0 +1,41 @@
+{
+  "prd": "docs/prd/20260521-rerisk-and-ml-training-audit-prd.md \u00a712.3 P1",
+  "panel_shape": [
+    400,
+    8
+  ],
+  "modes": {
+    "cross_sectional_residual_rank": {
+      "deterministic": true,
+      "n_non_nan": 2792,
+      "checksum": 1570.5,
+      "horizon_days": 21
+    },
+    "cross_sectional_residual_quantile": {
+      "deterministic": true,
+      "n_non_nan": 2792,
+      "checksum": 14309.0,
+      "horizon_days": 21
+    },
+    "binary_forward_return": {
+      "deterministic": true,
+      "n_non_nan": 3032,
+      "checksum": 1762.0,
+      "horizon_days": 21
+    },
+    "binary_forward_return_after_cost": {
+      "deterministic": true,
+      "n_non_nan": 3032,
+      "checksum": 1684.0,
+      "horizon_days": 21
+    },
+    "triple_barrier": {
+      "deterministic": true,
+      "n_non_nan": 390,
+      "checksum": -14.0,
+      "horizon_days": 21
+    }
+  },
+  "p1_gate_all_modes_deterministic": true,
+  "generated_utc": "20260521T233959Z"
+}

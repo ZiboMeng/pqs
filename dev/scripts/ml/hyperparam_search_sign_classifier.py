@@ -278,7 +278,7 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     trained_at = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     summary = {
-        "config": {k: v for k, v in vars(args).items()},
+        "config": {**vars(args), "embargo_days": args.horizon_days},
         "grid": {
             "n_estimators": list(GRID_N_ESTIMATORS),
             "max_depth": list(GRID_MAX_DEPTH),

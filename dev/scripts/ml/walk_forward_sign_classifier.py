@@ -317,7 +317,9 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     trained_at = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     summary = {
-        "config": vars(args),
+        # embargo_days recorded explicitly (P1 §12.3 gate: walk-forward
+        # drivers must record purge/embargo params) — = horizon_days.
+        "config": {**vars(args), "embargo_days": args.horizon_days},
         "per_fold": per_fold_metrics,
         "aggregate": {
             "n_successful_folds": len(ok_folds),
