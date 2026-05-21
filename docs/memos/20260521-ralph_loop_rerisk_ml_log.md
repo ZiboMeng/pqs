@@ -199,4 +199,51 @@ MaxDD [ ] R0 收口 · [ ] P0-P6。
 
 ⑪ **commit** — `d3cf26d`(主)。
 
-<!-- Round 5 起在此行下方追加 -->
+## Round 5 — R0:baseline stress slices via Option A
+
+**时间**: 2026-05-21 · **主 commit**: `4c3708b` · **测试基线**: 3864
+(run_backtest 改动纯附加,不受影响)
+
+① **当前阶段** — Round 5 / Workstream R0 / baseline stress 行。
+
+② **本轮目标** — 按用户裁定 Option A 产出 baseline 在 covid_flash /
+rate_hike_2022 designated stress slice 上的 MaxDD 行。
+
+③ **为什么先做它** — Round 3 决策用户已回「走 A」;Round 4 排定。
+
+④ **做了什么** — 轮前 bar-integrity smoke(CLEAN)。`run_backtest.py`
+加附加 equity_curve.csv dump(try/except,不改回测行为)。
+`rerisk_pack.py` 加 `_maxdd` + `run_baseline_stress`(warmup+slice
+回测→读 equity csv→按 designated slice 日期算 MaxDD)+ `_verdict`
+stress 分支 + `--candidate baseline-stress`。跑 covid + rate_hike。
+
+⑤ **改了哪些文件** — `scripts/run_backtest.py` /
+`dev/scripts/audit/rerisk_pack.py` /
+`data/audit/rerisk_pack_20260521.json` /
+`docs/memos/20260521-rerisk-pack.md`。
+
+⑥ **跑了哪些测试 + 结果** — driver exit 0;2 次 run_backtest 子进程
+成功产 master_report + 新 equity_curve.csv 并被解析 → run_backtest
+附加改动端到端验证(R3);改动纯附加不触 engine.run。
+
+⑦ **当前结果** — covid_flash slice(2020-02-15..04-30)MaxDD
+**-13.66%** GREEN;rate_hike_2022 slice(2022-08-15..10-15)MaxDD
+**-3.51%** GREEN;均 ≤25% Black-Swan 上限。
+
+⑧ **剩余风险 / 诚实 caveat** — **stress GREEN ≠ baseline 抗危机**:
+designated slice 是窄窗,rate_hike slice 只覆盖 2022 熊市最后一段,
+故 -3.51% 很小 —— baseline 整个 2022 真实创伤是 §1.2 diagnostic 行
+的 -63.95%。不可误读。cycle08/PEAD 行未做;baseline per-year MaxDD
+未补。
+
+⑨ **下一轮建议** — Round 6 = cycle08 re-risk 行(exact frozen spec,
+与 cycle06 同路);后 PEAD、baseline per-year MaxDD、R0 收口。
+
+⑩ **TODO** — [x] driver [x] baseline train-only [x] 近期 diagnostic
+[x] stress 机制核查+裁定 A [x] cycle06 行 [x] baseline stress slices ·
+[ ] cycle08 [ ] PEAD [ ] baseline per-year MaxDD [ ] R0 收口 ·
+[ ] P0-P6。
+
+⑪ **commit** — `4c3708b`(主)。
+
+<!-- Round 6 起在此行下方追加 -->
