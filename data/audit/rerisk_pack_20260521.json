@@ -140,7 +140,39 @@
         "frozen_track_a": "PASS post-MaxDD-fix 2026-05-15 (official QQQ-diagnostic governance)"
       },
       "reproduce_cmd": "python dev/scripts/audit/rerisk_cycle06.py"
+    },
+    {
+      "candidate_id": "production_baseline (multi_factor conservative_default)",
+      "source": "config/production_strategy.yaml",
+      "window": "stress slice 2020-02-15..2020-04-30 (backtest warmup from 2019-01-02)",
+      "partition": "stress_slice:covid_flash (warmup 2019-01-02..2020-02-15 spans validation)",
+      "metrics": {
+        "slice_max_dd_pct": -13.657164232584563,
+        "slice_n_days": 52
+      },
+      "reproduce_cmd": "python dev/scripts/audit/rerisk_pack.py --candidate baseline-stress",
+      "verdict": "GREEN",
+      "verdict_flags": [
+        "stress-slice MaxDD 13.7% <= 25% Black-Swan cap",
+        "STRESS-SLICE (Option A) — warmup+slice backtest, warmup spans a validation year; informational MaxDD-sanity, NOT a candidate pass/fail gate"
+      ]
+    },
+    {
+      "candidate_id": "production_baseline (multi_factor conservative_default)",
+      "source": "config/production_strategy.yaml",
+      "window": "stress slice 2022-08-15..2022-10-15 (backtest warmup from 2021-07-01)",
+      "partition": "stress_slice:rate_hike_2022 (warmup 2021-07-01..2022-08-15 spans validation)",
+      "metrics": {
+        "slice_max_dd_pct": -3.5143452433413325,
+        "slice_n_days": 44
+      },
+      "reproduce_cmd": "python dev/scripts/audit/rerisk_pack.py --candidate baseline-stress",
+      "verdict": "GREEN",
+      "verdict_flags": [
+        "stress-slice MaxDD 3.5% <= 25% Black-Swan cap",
+        "STRESS-SLICE (Option A) — warmup+slice backtest, warmup spans a validation year; informational MaxDD-sanity, NOT a candidate pass/fail gate"
+      ]
     }
   ],
-  "updated_utc": "20260521T225517Z"
+  "updated_utc": "20260521T230107Z"
 }

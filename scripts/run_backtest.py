@@ -719,6 +719,17 @@ def main():
     report.save(str(report_path))
     logger.info("报告已保存: %s", report_path)
 
+    # Additive: dump the primary equity curve so downstream tooling
+    # (e.g. the R0 re-risk pack stress-slice MaxDD) can compute
+    # date-restricted metrics. Pure side artifact — does not affect
+    # backtest behaviour or the report.
+    try:
+        if not primary_result.equity_curve.empty:
+            eq_path = run_ctx.path("equity_curve.csv")
+            primary_result.equity_curve.to_csv(str(eq_path), header=True)
+    except Exception as exc:  # never block on a side artifact
+        logger.warning("Could not write equity_curve.csv: %s", exc)
+
     # 输出所有策略对比摘要
     logger.info("\n=== 策略对比摘要 ===")
     for name, run in all_runs.items():

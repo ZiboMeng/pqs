@@ -34,6 +34,8 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pandas as pd
+
 PROJ = Path(__file__).resolve().parents[3]
 PYTHON = sys.executable
 PACK_PATH = PROJ / "data/audit/rerisk_pack_20260521.json"
@@ -98,15 +100,39 @@ def parse_master_report(txt: str) -> dict:
     return out
 
 
-def _verdict(row: dict) -> tuple[str, list[str]]:
-    """PRD §6.3 verdict. Provisional: full-period MaxDD only;
-    upgraded once stress-slice + per-validation-year rows land.
+def _maxdd(equity: pd.Series) -> float:
+    """Max drawdown of an equity series (negative fraction)."""
+    if equity.empty:
+        return 0.0
+    return float((equity / equity.cummax() - 1.0).min())
 
-    A `diagnostic`-partition row is a validation-spanning sanity window
-    (PRD §6.5) — its verdict is informational (it documents regime
-    fragility), not a candidate pass/fail gate."""
+
+def _verdict(row: dict) -> tuple[str, list[str]]:
+    """PRD §6.3 verdict.
+
+    - `train_only`: provisional full-period MaxDD vs the 20%/25% caps.
+    - `diagnostic`: validation-spanning sanity window (§6.5) —
+      informational, NOT a candidate pass/fail gate.
+    - `stress_slice:*`: designated stress-slice MaxDD vs the 25% cap
+      (PRD Black Swan Quantification). Per Option A (user 2026-05-21)
+      the slice is computed on a warmup+slice backtest whose warmup
+      spans a validation year — informational stress-check, recorded
+      with that caveat."""
     flags: list[str] = []
-    max_dd = abs(row["metrics"].get("max_dd_pct", 0.0)) / 100.0
+    m = row["metrics"]
+    max_dd = abs(m.get("max_dd_pct", m.get("slice_max_dd_pct", 0.0))) / 100.0
+    partition = row.get("partition", "")
+
+    if partition.startswith("stress_slice:"):
+        verdict = "RED" if max_dd > MAXDD_STRESS_CAP else "GREEN"
+        cmp = ">" if max_dd > MAXDD_STRESS_CAP else "<="
+        flags.append(f"stress-slice MaxDD {max_dd:.1%} {cmp} "
+                     f"{MAXDD_STRESS_CAP:.0%} Black-Swan cap")
+        flags.append("STRESS-SLICE (Option A) — warmup+slice backtest, "
+                     "warmup spans a validation year; informational "
+                     "MaxDD-sanity, NOT a candidate pass/fail gate")
+        return verdict, flags
+
     if max_dd > MAXDD_STRESS_CAP:
         flags.append(f"full-period MaxDD {max_dd:.1%} > {MAXDD_STRESS_CAP:.0%} stress cap")
         verdict = "RED"
@@ -115,13 +141,13 @@ def _verdict(row: dict) -> tuple[str, list[str]]:
         verdict = "YELLOW"
     else:
         verdict = "GREEN"
-    if row.get("partition") == "diagnostic":
+    if partition == "diagnostic":
         flags.append("DIAGNOSTIC WINDOW (validation-spanning, §6.5) — "
                      "informational regime-fragility evidence, NOT a "
                      "candidate pass/fail gate")
     else:
-        flags.append("PROVISIONAL — stress-slice + per-validation-year "
-                     "MaxDD pending (later round)")
+        flags.append("PROVISIONAL — per-validation-year MaxDD pending "
+                     "(later round)")
     return verdict, flags
 
 
@@ -160,6 +186,52 @@ def run_baseline(start: str, end: str, partition: str) -> dict:
     }
 
 
+# Designated stress slices (config/temporal_split.yaml). `warmup` is
+# ~280 trading days before the slice start (>= the 189d momentum
+# lookback) so the strategy is fully positioned entering the slice.
+STRESS_SLICES = {
+    "covid_flash":    {"slice": ("2020-02-15", "2020-04-30"), "warmup": "2019-01-02"},
+    "rate_hike_2022": {"slice": ("2022-08-15", "2022-10-15"), "warmup": "2021-07-01"},
+}
+
+
+def run_baseline_stress(name: str) -> dict:
+    """Re-risk the baseline on a designated stress slice (Option A,
+    user 2026-05-21): run a warmup+slice backtest, then compute MaxDD
+    restricted to the slice dates from the dumped equity_curve.csv."""
+    cfg = STRESS_SLICES[name]
+    (s_start, s_end), warmup = cfg["slice"], cfg["warmup"]
+    with tempfile.TemporaryDirectory(prefix="rerisk_") as tmp:
+        cmd = [
+            PYTHON, str(PROJ / "scripts/run_backtest.py"),
+            "--strategy", "multi_factor",
+            "--start", warmup, "--end", s_end,
+            "--no-walk-forward", "--output-dir", tmp,
+        ]
+        proc = subprocess.run(cmd, cwd=PROJ, capture_output=True, text=True)
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"run_backtest failed (exit {proc.returncode}):\n"
+                f"{proc.stdout[-2000:]}\n{proc.stderr[-2000:]}")
+        eqs = sorted(Path(tmp).glob("backtest/runs/*/equity_curve.csv"))
+        if not eqs:
+            raise RuntimeError("run_backtest produced no equity_curve.csv")
+        eq = pd.read_csv(eqs[-1], index_col=0, parse_dates=True).iloc[:, 0]
+    sl = eq.loc[s_start:s_end]
+    slice_dd = _maxdd(sl)
+    return {
+        "candidate_id": "production_baseline (multi_factor conservative_default)",
+        "source": "config/production_strategy.yaml",
+        "window": f"stress slice {s_start}..{s_end} (backtest warmup from {warmup})",
+        "partition": f"stress_slice:{name} (warmup {warmup}..{s_start} spans validation)",
+        "metrics": {
+            "slice_max_dd_pct": slice_dd * 100.0,
+            "slice_n_days": int(len(sl)),
+        },
+        "reproduce_cmd": "python dev/scripts/audit/rerisk_pack.py --candidate baseline-stress",
+    }
+
+
 def _load_pack() -> dict:
     if PACK_PATH.exists():
         return json.loads(PACK_PATH.read_text())
@@ -182,34 +254,45 @@ def _upsert_row(pack: dict, row: dict) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description="R0 re-risk pack driver")
     ap.add_argument("--candidate", required=True,
-                    choices=["baseline", "cycle06", "cycle08", "pead"])
+                    choices=["baseline", "baseline-stress",
+                             "cycle06", "cycle08", "pead"])
     ap.add_argument("--start", default="2009-01-02")
     ap.add_argument("--end", default="2017-12-31")
     ap.add_argument("--partition", default="train_only",
                     help="temporal_split partition this window touches")
     args = ap.parse_args()
 
-    if args.candidate != "baseline":
-        print(f"[{args.candidate}] not wired yet — added in a later "
-              f"ralph-loop round (R0 §6.1 candidates 2-4).")
+    if args.candidate in ("cycle06", "cycle08", "pead"):
+        print(f"[{args.candidate}] not handled by this driver — cycle06 "
+              f"uses rerisk_cycle06.py; cycle08/pead added in later rounds.")
         return 0
 
-    print(f"=== R0 re-risk: baseline  window={args.start}..{args.end}  "
-          f"partition={args.partition} ===")
-    row = run_baseline(args.start, args.end, args.partition)
-    row["verdict"], row["verdict_flags"] = _verdict(row)
+    rows: list[dict] = []
+    if args.candidate == "baseline":
+        print(f"=== R0 re-risk: baseline  window={args.start}..{args.end}  "
+              f"partition={args.partition} ===")
+        rows.append(run_baseline(args.start, args.end, args.partition))
+    else:  # baseline-stress
+        for name in STRESS_SLICES:
+            print(f"=== R0 re-risk: baseline stress slice '{name}' ===")
+            rows.append(run_baseline_stress(name))
 
     pack = _load_pack()
-    _upsert_row(pack, row)
+    for row in rows:
+        row["verdict"], row["verdict_flags"] = _verdict(row)
+        _upsert_row(pack, row)
+        m = row["metrics"]
+        if "slice_max_dd_pct" in m:
+            print(f"  slice MaxDD={m['slice_max_dd_pct']:.2f}%  "
+                  f"n_days={m['slice_n_days']}  verdict={row['verdict']}")
+        else:
+            print(f"  CAGR={m.get('cagr_pct')}%  MaxDD={m.get('max_dd_pct')}%"
+                  f"  vol={m.get('ann_vol_pct')}%  verdict={row['verdict']}")
+        for f in row["verdict_flags"]:
+            print(f"    - {f}")
     pack["updated_utc"] = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     PACK_PATH.parent.mkdir(parents=True, exist_ok=True)
     PACK_PATH.write_text(json.dumps(pack, indent=2, ensure_ascii=False))
-
-    m = row["metrics"]
-    print(f"  CAGR={m.get('cagr_pct')}%  Sharpe={m.get('sharpe')}  "
-          f"MaxDD={m.get('max_dd_pct')}%  vol={m.get('ann_vol_pct')}%  "
-          f"trades={m.get('n_trades')}")
-    print(f"  verdict={row['verdict']}  flags={row['verdict_flags']}")
     print(f"  → {PACK_PATH}")
     return 0
 
