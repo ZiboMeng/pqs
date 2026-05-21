@@ -145,10 +145,24 @@ Binding reconciliation rules for this PRD:
    This PRD's ranking baseline therefore must state its explicit
    differentiator vs P4.1: residualized-rank labels + uniqueness
    weighting + cost-aware thresholds + **portfolio-level** acceptance
-   (§9), not another bare rank-IR run. The unresolved directional
-   question — whether the 0.30 rank-IR AC is itself appropriate for an
-   individual-scale book — is carried into R3/Package P4 and must be
-   resolved with the user, not silently re-litigated.
+   (§9), not another bare rank-IR run.
+
+   **rank-IR-0.30 threshold — held open by user decision (2026-05-21).**
+   Whether the 0.30 rank-IR AC is itself appropriate for an
+   individual-scale long-only book is an **open question carried into
+   development**, not a pre-condition. The directive is explicit:
+   - do **not** treat rank-IR ≥ 0.30 as a hard upfront gate that
+     blocks building the hardened ranking baseline;
+   - do **not** pre-emptively lower or rewrite the 0.30 AC either;
+   - build the hardened-stack ranker, **report its actual rank-IR and
+     ICIR alongside portfolio-level results**, and let that evidence
+     (what IR the hardened stack truly reaches, and whether
+     portfolio-level acceptance passes regardless of IR) inform the
+     threshold decision **after** R0–R4 produce numbers.
+   This is evidence-gated, not pre-decided in either direction (per
+   `feedback_promotion_only_falsification_evidence_gated`). The
+   threshold is revisited with the user once development has produced
+   the evidence — see §9.5.
 
 ## 2. Evidence Collected In This Audit
 
@@ -418,14 +432,24 @@ This review adds one more weighting requirement:
 - sample-weight design should support at least:
   - uniqueness / concurrency correction
   - liquidity-aware weighting
+  - inverse-volatility weighting (`AUDIT-2026-05-21`)
   - optional freshness decay
   - optional event emphasis
 
 The canonical path should default to:
 
-- `sample_weight = uniqueness_weight * liquidity_weight * freshness_weight`
+- `sample_weight = uniqueness_weight * liquidity_weight * volatility_weight * freshness_weight`
 
 with `event_weight` available but opt-in and fully recorded in artifacts.
+
+`volatility_weight` note (`AUDIT-2026-05-21`): set
+`volatility_weight ∝ 1 / realized_vol`, **winsorized / capped** at both
+ends, so that high-volatility names do not dominate the training loss
+and low-volatility names do not get an unbounded weight. This is a
+standard inverse-volatility correction; it is added to — never a
+replacement for — `uniqueness_weight`, which remains mandatory because
+overlapping-horizon concurrency, not volatility, is the dominant
+effective-sample-size distortion here.
 
 ## 3.4 Main gap C — the classifier optimizes entry correctness, not portfolio usefulness
 
@@ -665,6 +689,14 @@ Task 1 — daily cross-sectional stock selection:
 
 - target: relative ranking of names for next `h` days
 - default model family: `XGBoost ranker` first, `LightGBM ranker` parity second
+- default training objective (`AUDIT-2026-05-21`): learning-to-rank
+  `rank:ndcg` (LambdaMART) — its NDCG surrogate up-weights the top of
+  the ranking, which matches a top-k long-only book; `rank:pairwise`
+  is the fallback for small per-date groups. The repo's existing
+  `core/ml/xgb_ranking.py::LambdaRankICModel` (objective optimizes
+  Rank-IC directly) is an A/B candidate against `rank:ndcg`, not a
+  separate parallel path. Plain `reg:squarederror` "regress-then-rank"
+  is **not** the canonical objective for this task.
 - role in stack: primary alpha engine
 
 Task 2 — event filters / sidecars:
@@ -725,6 +757,29 @@ The default production allocation path should support at least three mapping mod
 
 It should also support a `cash / no-trade` outcome when predicted edge is below the net cost hurdle.
 
+### Long-only guardrail on borrowed designs — `AUDIT-2026-05-21`
+
+Most external ML-quant references (including the design report this
+PRD was cross-checked against) assume a **long-short** book —
+"long top decile / short bottom decile", market/beta-neutral, with
+single-name caps around 1–2% across a 100+ name portfolio. **This
+project is long-only, no-margin, no-short — a hard CLAUDE.md
+invariant.** Therefore:
+
+- the **ranking model** transfers directly (rank the cross-section,
+  then take the top names long-only);
+- the **short leg does not** — bottom-decile shorting is prohibited and
+  must never be reintroduced through a borrowed allocation recipe;
+- external single-name / sector caps do **not** transfer verbatim —
+  position limits come from this project's own `config/risk.yaml`
+  and the M12 concentration rules (top1 ≤ 40%, top3 ≤ 70%), which
+  describe a far more concentrated long-only book than a 100-name
+  long-short one;
+- any external claim of the form "learning-to-rank multiplies Sharpe"
+  is measured on the long-short spread; a long-only top-k truncation
+  captures only part of it, and acceptance (§9) must be judged on the
+  long-only realisation, not the long-short reference number.
+
 ## 4.9 Exit and holding policy
 
 The master PRD must specify exits explicitly.
@@ -771,6 +826,38 @@ Both lanes belong in the master architecture, but their first production role sh
 not:
 
 - separate, weaker research standards
+
+## 4.11 Model ensembling and stacking policy — `AUDIT-2026-05-21`
+
+The model-family roadmap (§1.3, §12.6) is sequential — GBDT baseline,
+then sequence models, etc. — but the PRD must also state **how those
+models combine**, because in production an ensemble is usually more
+robust than any single model, and the combination step has a sharp
+leakage trap.
+
+Policy:
+
+- The single-model GBDT ranking baseline must pass §9 acceptance
+  **on its own first**. Ensembling is a later additive step, never a
+  way to rescue a baseline that failed acceptance.
+- Two combination modes are allowed:
+  - fixed-weight blend of normalised per-model scores;
+  - stacking — a shallow meta-model (ridge / logistic / shallow GBDT)
+    over base-model scores.
+- **Stacking leakage rule (hard).** The stacking meta-model may be
+  trained **only on out-of-fold / out-of-sample base-model
+  predictions**. Training a meta-model on base-model in-sample
+  predictions is a severe leakage and is prohibited. The walk-forward
+  schedule that produces base-model predictions and the schedule that
+  trains the meta-model must be the same purged/embargoed schedule
+  used everywhere else in this PRD.
+- Every ensemble artifact records the component models, their
+  weights or the meta-model spec, and the fold schedule used to
+  generate the base predictions.
+
+The ensemble itself is **deferred** (it belongs after the baseline
+passes), but this leakage rule is stated now so it is not violated
+when the ensemble is eventually built.
 
 ## 5. Scope
 
@@ -971,6 +1058,7 @@ Make overlapping-label correction mandatory in the main ML path.
 - Add canonical multiplicative sample-weight schema with:
   - `uniqueness_weight`
   - `liquidity_weight`
+  - `volatility_weight` (inverse-vol, winsorized — `AUDIT-2026-05-21`, per §3.3)
   - `freshness_weight`
   - optional `event_weight`
 - Thread `sample_weight` through:
@@ -1106,6 +1194,16 @@ A model is not useful to this project unless it survives both:
 - rank IC / ICIR
 - calibration
 - stability across folds / years / regimes
+
+> **rank-IR threshold is open (`AUDIT-2026-05-21`, user decision).**
+> rank-IC / ICIR are **reported and tracked** at forecast acceptance,
+> but the prior 0.30 rank-IR bar (PRD #4 P4.1 AC) is **not** applied
+> as a hard pass/fail gate here. Per the §1.5 directive, development
+> proceeds carrying the threshold as an open question: the hardened
+> ranker's actual IR is measured, and whether a model is "useful" is
+> decided by **allocation acceptance** (below) plus §9.6 overfit
+> control — not by clearing 0.30 IR upfront. The threshold itself is
+> revisited with the user once R0–R4 have produced real numbers.
 
 `allocation acceptance` covers:
 
@@ -1347,8 +1445,13 @@ Required work:
 
 - implement `train_ranker.py`
 - implement `walk_forward_ranker.py`
-- wire `XGBoost` ranker as the first-class default
+- wire `XGBoost` ranker as the first-class default, objective
+  `rank:ndcg` (LambdaMART) per §4.7 Task 1; A/B against the existing
+  `LambdaRankICModel` (`AUDIT-2026-05-21`)
 - wire `LightGBM` ranker as parity path
+- early-stopping / hyperparameter selection must monitor **rank-IC /
+  cost-adjusted top-bottom spread / bucket monotonicity**, never raw
+  training loss (`AUDIT-2026-05-21`)
 - add ranker artifact schema:
   - task family
   - label mode
@@ -1357,6 +1460,7 @@ Required work:
   - objective
   - split params
   - weighting mode
+  - early-stopping monitor metric
 
 Expected outputs:
 
