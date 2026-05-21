@@ -94,6 +94,83 @@
       ]
     },
     {
+      "candidate_id": "production_baseline (multi_factor conservative_default)",
+      "source": "config/production_strategy.yaml",
+      "window": "stress slice 2020-02-15..2020-04-30 (backtest warmup from 2019-01-02)",
+      "partition": "stress_slice:covid_flash (warmup 2019-01-02..2020-02-15 spans validation)",
+      "metrics": {
+        "slice_max_dd_pct": -13.657164232584563,
+        "slice_n_days": 52
+      },
+      "reproduce_cmd": "python dev/scripts/audit/rerisk_pack.py --candidate baseline-stress",
+      "verdict": "GREEN",
+      "verdict_flags": [
+        "stress-slice MaxDD 13.7% <= 25% Black-Swan cap",
+        "STRESS-SLICE (Option A) — warmup+slice backtest, warmup spans a validation year; informational MaxDD-sanity, NOT a candidate pass/fail gate"
+      ]
+    },
+    {
+      "candidate_id": "production_baseline (multi_factor conservative_default)",
+      "source": "config/production_strategy.yaml",
+      "window": "stress slice 2022-08-15..2022-10-15 (backtest warmup from 2021-07-01)",
+      "partition": "stress_slice:rate_hike_2022 (warmup 2021-07-01..2022-08-15 spans validation)",
+      "metrics": {
+        "slice_max_dd_pct": -3.5143452433413325,
+        "slice_n_days": 44
+      },
+      "reproduce_cmd": "python dev/scripts/audit/rerisk_pack.py --candidate baseline-stress",
+      "verdict": "GREEN",
+      "verdict_flags": [
+        "stress-slice MaxDD 3.5% <= 25% Black-Swan cap",
+        "STRESS-SLICE (Option A) — warmup+slice backtest, warmup spans a validation year; informational MaxDD-sanity, NOT a candidate pass/fail gate"
+      ]
+    },
+    {
+      "candidate_id": "cycle08_3f40e3f4ed1a_evidence_v1",
+      "source": "data/research_candidates/cycle08_3f40e3f4ed1a_evidence_v1.yaml (exact frozen spec)",
+      "window": "Track-A selector panel (train+validation) — sanctioned for a research candidate's Track-A stage",
+      "partition": "track_a_selector",
+      "metrics": {
+        "cum_ret": 11.206995039531284,
+        "sharpe": 1.1643084384863993,
+        "max_dd": -0.19725769223852319,
+        "vs_spy": 2.203318625041538,
+        "spy_cum_ret": 9.003676414489746,
+        "vs_qqq": 5.730038672038608,
+        "qqq_cum_ret": 5.476956367492676
+      },
+      "per_validation_year_maxdd": {
+        "2018": -0.1679000213598439,
+        "2019": -0.07229258713180922,
+        "2021": -0.07769468574580614,
+        "2023": -0.12210151532286237,
+        "2025": -0.10522444892882793
+      },
+      "stress_slice_maxdd": {
+        "covid_flash": -0.19725769223852319,
+        "rate_hike_2022": -0.11903981532649979
+      },
+      "concentration": {
+        "m12_top1_weight_max": 0.13267253571977497,
+        "m12_top3_weight_max": 0.36117209153418794,
+        "m12_n_dates_with_weights": 4276
+      },
+      "n_observed_days": 4276,
+      "track_a_passed": true,
+      "track_a_failed_gates": [],
+      "verdict": "GREEN",
+      "verdict_flags": [
+        "drawdown stable vs frozen evidence — per-year MaxDD ≤20% (worst 16.8%), stress ≤25% (worst 19.7%)"
+      ],
+      "frozen_evidence_compare": {
+        "frozen_covid_flash_maxdd": -0.1972,
+        "frozen_rate_hike_2022_maxdd": -0.119,
+        "frozen_per_year_maxdd_max": -0.181,
+        "frozen_track_a": "PASS post-MaxDD-fix 2026-05-15 (v1-strict QQQ-HARD + v3)"
+      },
+      "reproduce_cmd": "python dev/scripts/audit/rerisk_composite_candidate.py --candidate cycle08"
+    },
+    {
       "candidate_id": "cycle06_31af04cf2ff9_evidence_v1",
       "source": "data/research_candidates/cycle06_31af04cf2ff9_evidence_v1.yaml (exact frozen spec)",
       "window": "Track-A selector panel (train+validation) — sanctioned for a research candidate's Track-A stage",
@@ -139,40 +216,8 @@
         "frozen_per_year_maxdd_max": -0.196,
         "frozen_track_a": "PASS post-MaxDD-fix 2026-05-15 (official QQQ-diagnostic governance)"
       },
-      "reproduce_cmd": "python dev/scripts/audit/rerisk_cycle06.py"
-    },
-    {
-      "candidate_id": "production_baseline (multi_factor conservative_default)",
-      "source": "config/production_strategy.yaml",
-      "window": "stress slice 2020-02-15..2020-04-30 (backtest warmup from 2019-01-02)",
-      "partition": "stress_slice:covid_flash (warmup 2019-01-02..2020-02-15 spans validation)",
-      "metrics": {
-        "slice_max_dd_pct": -13.657164232584563,
-        "slice_n_days": 52
-      },
-      "reproduce_cmd": "python dev/scripts/audit/rerisk_pack.py --candidate baseline-stress",
-      "verdict": "GREEN",
-      "verdict_flags": [
-        "stress-slice MaxDD 13.7% <= 25% Black-Swan cap",
-        "STRESS-SLICE (Option A) — warmup+slice backtest, warmup spans a validation year; informational MaxDD-sanity, NOT a candidate pass/fail gate"
-      ]
-    },
-    {
-      "candidate_id": "production_baseline (multi_factor conservative_default)",
-      "source": "config/production_strategy.yaml",
-      "window": "stress slice 2022-08-15..2022-10-15 (backtest warmup from 2021-07-01)",
-      "partition": "stress_slice:rate_hike_2022 (warmup 2021-07-01..2022-08-15 spans validation)",
-      "metrics": {
-        "slice_max_dd_pct": -3.5143452433413325,
-        "slice_n_days": 44
-      },
-      "reproduce_cmd": "python dev/scripts/audit/rerisk_pack.py --candidate baseline-stress",
-      "verdict": "GREEN",
-      "verdict_flags": [
-        "stress-slice MaxDD 3.5% <= 25% Black-Swan cap",
-        "STRESS-SLICE (Option A) — warmup+slice backtest, warmup spans a validation year; informational MaxDD-sanity, NOT a candidate pass/fail gate"
-      ]
+      "reproduce_cmd": "python dev/scripts/audit/rerisk_composite_candidate.py --candidate cycle06"
     }
   ],
-  "updated_utc": "20260521T230107Z"
+  "updated_utc": "20260521T230743Z"
 }
