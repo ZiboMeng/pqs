@@ -617,4 +617,44 @@ sector 残差化未做。
 
 ⑪ **commit** — `94701cb`(主)。
 
-<!-- Round 15 起在此行下方追加 -->
+## Round 15 — P1 收口:label-contract smoke + §12.3 gate(P1 CLOSED)
+
+**时间**: 2026-05-21 · **主 commit**: `f0884aa` · **测试基线**: 3864
++ 17 新(P1 累计)
+
+① **当前阶段** — Round 15 / Package P1 / 收口。
+
+② **本轮目标** — 出 label deterministic smoke,核对 P1 §12.3 gate,
+关闭 P1。
+
+③ **为什么先做它** — P1 schema/实现/purge-embargo 已就位;smoke 是
+§12.3 第二件产物,P1 须关闭才进 P2。
+
+④ **做了什么** — 新建 `label_contract_smoke.py`(5 canonical 模式各
+跑两次验 deterministic → `ml_label_contract_smoke_*.json`);两个
+walk-forward driver artifact 显式记 `embargo_days`。
+
+⑤ **改了哪些文件** — `dev/scripts/ml/label_contract_smoke.py`(新)/
+`data/audit/ml_label_contract_smoke_20260521T233959Z.json`(新)/
+`walk_forward_sign_classifier.py` / `hyperparam_search_sign_classifier.py`。
+
+⑥ **跑了哪些测试 + 结果** — smoke exit 0:5/5 模式
+deterministic=True;driver 编辑是 1-line additive 无行为改动。
+
+⑦ **当前结果** — **P1 CLOSED**。§12.3 gate:① label 模式
+deterministic ✅(5/5);② walk-forward driver 记 purge/embargo ✅
+(artifact 含 embargo_days);③ 禁用 purge 需显式代码改动 ✅,
+weighting 半项诚实标注 carry-forward(sample-weight 属后续 package)。
+
+⑧ **剩余风险** — gate 3 weighting 半项延后;sector 残差化未实现
+(P1 外 follow-up)。
+
+⑨ **下一轮建议** — Round 16 = Package P2:先核查三套既有 rank-model,
+选一套 canonical(不造第四套,§1.5)。
+
+⑩ **TODO** — [x] R0/P0/P1 CLOSED · [ ] P2 ranker baseline
+[ ] P3-P6。
+
+⑪ **commit** — `f0884aa`(主)。
+
+<!-- Round 16 起在此行下方追加 -->
