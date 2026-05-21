@@ -451,4 +451,45 @@ schema);purge+embargo 默认在 ML driver override(§8.2 + 决策 ④,
 
 ⑪ **commit** — `505798d`(主)。
 
-<!-- Round 11 起在此行下方追加 -->
+## Round 11 — P1:expand ml_labeling.yaml canonical label-mode schema
+
+**时间**: 2026-05-21 · **主 commit**: `1043d5c` · **测试基线**: 3864
+(纯 config 扩展)
+
+① **当前阶段** — Round 11 / Package P1 / 第一步。
+
+② **本轮目标** — 把 `config/ml_labeling.yaml` 扩成 canonical task +
+label-mode 契约(PRD §7.2)。
+
+③ **为什么先做它** — P0 CLOSED;P1 label 契约 schema 须先定,后续
+实现/测试/wiring 依赖它。
+
+④ **做了什么** — 扩 `ml_labeling.yaml`:保留 4 legacy key verbatim
+(不破 reader),additive 加 `default_task` + `label_modes`(5 模式:
+residual_rank/_quantile = PRIMARY,binary/binary_after_cost/
+triple_barrier = SECONDARY,各带 source_tiers 对接 P0)+
+`default_label_mode` + §7.4 产品规则。
+
+⑤ **改了哪些文件** — `config/ml_labeling.yaml`(schema_version 1→2)。
+
+⑥ **跑了哪些测试 + 结果** — yaml safe_load 通过;R3 核对 4 legacy
+key 字节级完好 → 现有 reader 无回归;纯 config 无 module 改动。
+
+⑦ **当前结果** — P1 canonical label-mode 契约 schema 就位(5 模式 +
+产品规则:residual-rank 默认,binary 降级 sidecar-only)。
+
+⑧ **剩余风险** — label 模式的**实现**(residualized-rank 计算、
+cost-aware binary helper)未做;purge/embargo driver-override 未做;
+P1 §12.3 gate + smoke json + 单测待后续轮。
+
+⑨ **下一轮建议** — Round 12 = 实现 residualized-rank/quantile label
+(canonical 主模式,复用既有 labeling 原语)+ deterministic smoke +
+单测。
+
+⑩ **TODO** — [x] R0/P0 CLOSED [x] P1 label-mode schema ·
+[ ] P1 label 实现+单测 [ ] P1 cost-aware binary + purge/embargo
+override [ ] P1 收口 · [ ] P2-P6。
+
+⑪ **commit** — `1043d5c`(主)。
+
+<!-- Round 12 起在此行下方追加 -->
