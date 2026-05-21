@@ -19,6 +19,25 @@
 
 ---
 
+## 〇、用户决策记录(2026-05-21 锁定 — loop 不得自行推翻)
+
+为支持"一口气跑",用户于 2026-05-21 预先裁定以下 directional 点,
+loop 据此**不停**:
+
+1. **rank-IR 0.30** — open question,carry into development。不当
+   gate、不预改,只报告实测 IR。→ 不是停点。
+2. **package §12.3 gate** — machine-checkable 的 gate(能否 import、
+   run 是否端到端跑通、artifact 字段是否齐等),loop 自证通过即继续,
+   无需用户逐个签核。→ 不是停点(除非某 gate 含真正的判断题)。
+3. **embargo 补救** — 只在 ML 训练 driver 内 override embargo,
+   **不改** `config/temporal_split*.yaml` 共享文件。→ 不是停点。
+4. **R0 baseline 窗口** — 默认 train-only + designated stress slice;
+   §2.1 那个近期 ~4 年窗口只作"显式标注 diagnostic"复现一次。
+   → 不是停点。
+
+仍保留的停点见"四、早退" —— R5、P4 ML 未赢 baseline、未预见
+hard blocker。这三类**必须**停,不得冲过。
+
 ## 一、执行顺序(PRD §4.2 + §12.4)
 
 ```
@@ -104,7 +123,9 @@ R0 (re-risk pack, §6)  →  P0 → P1 → P2 → P3 → P4 → P5 → P6  (§12
    discipline`):任何 backtest / 训练默认只用 train 年
    (2009-2017+2020+2022+2024);validation(2018/19/21/23/25)与
    sealed(2026)是 holdout;跨边界要 explicit 标 diagnostic;
-   crisis MaxDD 用 designated stress slice。
+   crisis MaxDD 用 designated stress slice。**embargo 补救只在 ML
+   训练 driver 内 override,不改 `config/temporal_split*.yaml`
+   共享文件(用户决定 2026-05-21,见〇)。**
 5. **§9.6 过拟合控制**:任何跨 fold / 跨 config 的模型选择必须过
    DSR / PBO / CPCV(复用 `core/research/dsr_trial_accounting.py` /
    `mining_pbo.py` / `cpcv.py`,不重造)。
@@ -120,20 +141,28 @@ R0 (re-risk pack, §6)  →  P0 → P1 → P2 → P3 → P4 → P5 → P6  (§12
 
 ## 四、早退 / 停下问用户(命中即停,不硬推)
 
-ralph-loop 自身只认 `<promise>` 与 `--max-iterations`。命中下列任一
-**directional** 情形:写清问题 + 选项 + 建议 → 在日志与本轮报告里
-标 **"STOPPED — NEEDS USER DECISION"** → 输出
-`<promise>RERISK-ML-PRD-DONE</promise>` 把 loop 停掉,等用户拍板后
+ralph-loop 自身只认 `<promise>` 与 `--max-iterations`。用户 2026-05-21
+已清掉其余 directional 停点(见〇),**只剩下列三类必须停**。命中即
+写清问题 + 选项 + 建议 → 日志与本轮报告头标
+**"STOPPED — NEEDS USER DECISION"** → 输出
+`<promise>RERISK-ML-PRD-DONE</promise>` 停 loop,等用户拍板后
 重新 `/ralph-loop` 启动。
 
-- rank-IR 0.30 阈值到了"该不该改 / 改成多少"的取舍点(硬规则 #3)。
-- 某 package 的 §12.3 gate 需要用户签核才能宣布关闭。
-- 需要新 schema / 新 config section / 新外部依赖 / 新 model family
-  超出 PRD §1.3 roadmap。
-- R5 fresh mining 启动(PRD §11)—— 永远等用户 explicit-go。
-- 即将违反"三、硬规则"任一条。
-- 本轮 package 依赖另一个未完成 package → 不换 package,停下报告。
-- 出现需要改 CLAUDE.md invariant / PRD `AUDIT-2026-05-21` 块的情况。
+1. **R5 fresh mining 启动**(PRD §11)。R0-P6 全跑完即停在 R5 之前 ——
+   这是 one-go run 的干净终点;R5 永远等用户 explicit-go,loop 不进。
+2. **P4 的 ML-vs-baseline 结局为 FAIL**(ML 路径没赢 / 没平 baseline)。
+   按 `feedback_no_blanket_failure_verdict` 不许冲过:写"这个 attempt
+   失败 + 用了什么 + root cause",停下让用户定(多做实验 / non-ML
+   路线)。既不自行宣判 ML 不行,也不反应式 promote。
+3. **未预见的 hard blocker**:即将违反"三、硬规则"任一条;需要新
+   schema / config section / 外部依赖 / model family **超出 PRD
+   §12.1 已列 + §1.3 roadmap**(§12.1 已列的 config 与模块属预授权,
+   建它们不算超出、不停);需要改 CLAUDE.md invariant 或 PRD
+   `AUDIT-2026-05-21` 块;`git status` 不干净;测试基线跌破阈值且
+   修不回来。
+
+package 依赖顺序错乱(earlier gate 还红却想跳下一个)**不是**停点 ——
+loop 自己回到正确 package,按"一"的顺序继续。
 
 ## 五、完成标志
 
@@ -160,8 +189,10 @@ ralph-loop 自身只认 `<promise>` 与 `--max-iterations`。命中下列任一
 - 已 ship 的相关基础:correlation-aware vol-target、parity 测试修复、
   PRD #4 P4.1-P4.5、`core/research/` 下 cpcv/pbo/dsr 模块、
   `core/ml/labeling.py`(uniqueness/triple-barrier 原语)。
-- 下一轮预期:**Round 1 = Workstream R0** 第一步(re-risk pack:
-  baseline 行,按 §6.5 用 explicit train-only 窗口复现 §2.1 数字)。
+- 下一轮预期:**Round 1 = Workstream R0** 第一步(re-risk pack
+  baseline 行):默认 train-only 窗口 + designated stress slice 出
+  MaxDD;§2.1 的近期 ~4 年窗口作显式标注的 diagnostic 复现一次;
+  按 §6.5 每行声明窗口 + temporal_split partition。
 
 ---
 
