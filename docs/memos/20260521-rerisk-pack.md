@@ -100,13 +100,47 @@ realized vol 27.72% 已越 constructor 25% target —— correlation-aware
 vol-target(P0-1)在此 regime 起作用但 0.25 target 本身就高于 15-20%
 MaxDD 不变量的隐含预算(PRD §1.5 / §2.1 标的 directional 项)。
 
-### 1.3 stress slices
+### 1.3 stress slices — ⏸ STOPPED, NEEDS USER DECISION(Round 3)
 
-⬜ 待后续轮。covid_flash 2020-Q1 / rate_hike 2022-Q3 作 MaxDD
-sanity。**注**:stress-slice MaxDD 需 strategy 持仓进入 slice(动量
-lookback warmup),实现方式需先查项目既有 stress harness
-(`core/risk/stress_tester.py` / Track-A eval 的 stress-slice 路径),
-避免重造或误触 holdout —— 该轮先做机制核查。
+**机制核查结论(Round 3):**
+
+- `core/risk/stress_tester.py` = 静态权重 **shock 模型**(对固定持仓施
+  加 ±% 冲击),不是"策略穿越危机窗口"的 MaxDD,不适用。
+- 真正 sanctioned 的 stress-slice MaxDD 在 Track-A:
+  `cycle06_track_a_eval.py:88` 用
+  `partition_for_role(panel, split_cfg, role="selector")` →
+  面板 = **train + validation**;harness 产 `metrics_per_stress_slice`;
+  `temporal_split_acceptance._eval_stress_slice_gates` 据此 gate
+  (`mode: stress_check_only`,不参与 alpha selection)。
+- `temporal_split.py`:stress slice `source_year` 必须是 train 年
+  (covid 2020 / rate_hike 2022 都是),slice 日期落在该年内。
+
+**问题**:计算 baseline 穿越 covid_flash(2020-02-15..04-30)/
+rate_hike_2022 的 MaxDD,strategy 必须持仓进入该窗口 → 189 天动量
+lookback warmup 必然吃到危机前 ~9 个月(covid 要 2019、rate_hike 要
+2021)—— **而 2019/2021 是 validation 年**。Track-A 这样做合规
+(selector 阶段允许 access validation);但 R0 re-risk **不是**
+selector 阶段。用户决策 ⑤ 授权了"designated stress slice",未明确
+涉及"warmup 穿过 validation"这个子问题。
+
+**需用户拍板的选项:**
+
+- **A(推荐)**:用 warmup+slice 回测算 stress-window MaxDD,定位与
+  Round-2 diagnostic 行一致 —— 显式标 `partition: stress_slice
+  (warmup spans validation 20XX)`、informational、不作 candidate
+  pass/fail。理由:stress slice 是 temporal_split.yaml 明列的
+  `stress_check_only`、不喂 selection;warmup 只在 factor lookback
+  里用 validation 年价格(非 label/评估目标);且选项 B 同样吃
+  validation。
+- **B**:复用 Track-A harness 的 stress-slice 计算 —— canonical
+  但 harness 为 cycle 候选 NAV 而建,适配 multi_factor baseline 需
+  额外工作,且**同样**用 validation-inclusive 面板。
+- **C**:R0 不单算 baseline 的 per-slice MaxDD,靠 §1.2 的 2022-2025
+  diagnostic 行(已含 2022 rate-hike 熊市)+ 注记 covid_flash 未单测。
+  零 validation-warmup 问题,但相对 §6.2 不完整。
+
+operator 推荐 **A**(与已授权的 diagnostic 行同一纪律姿态)。待用户
+explicit-go 后由后续 ralph-loop 轮执行。
 
 ---
 
