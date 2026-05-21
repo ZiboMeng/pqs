@@ -304,16 +304,29 @@ def run_replay(
                     if not pd.isna(o):
                         exec_open[sym] = float(o)
                 if next_date in price_df_1d.index:
-                    if sym not in exec_open:
-                        # Fallback for exec_open: same-day close (no lookahead).
-                        c = price_df_1d.loc[next_date, sym]
-                        if not pd.isna(c):
-                            exec_open[sym] = float(c)
+                    # NOTE (audit 2026-05-21): no exec_open fallback to
+                    # T+1 close. A missing T+1 open = no execution bar;
+                    # per CLAUDE.md pricing spec ("Symbol has no bar
+                    # today → Do NOT generate new orders") the symbol
+                    # must be skipped (fail-closed), not filled at a
+                    # substitute price. _generate_orders' NaN guard
+                    # already drops symbols absent from exec_open; the
+                    # position is held and marked at last valid close.
                     c = price_df_1d.loc[next_date, sym]
                     if not pd.isna(c):
                         eod_close[sym] = float(c)
             if not prev_close or not exec_open:
                 continue
+            # Diagnostic: surface (do not silently absorb) any target
+            # symbol whose T+1 open is missing — its order is skipped.
+            missing_open = sorted(s for s in target if s not in exec_open)
+            if missing_open:
+                logger.warning(
+                    "[%s] T+1 open missing for %d target symbol(s): %s — "
+                    "orders skipped (fail-closed per pricing spec; "
+                    "positions held + marked at last valid close)",
+                    next_date.date(), len(missing_open), missing_open,
+                )
             try:
                 result = engine.run_day_daily(
                     exec_date=next_date,
