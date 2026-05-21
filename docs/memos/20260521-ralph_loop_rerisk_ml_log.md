@@ -373,4 +373,45 @@ floor):confirm xgboost/lightgbm import、建 `config/ml_sources.yaml`
 
 ⑪ **commit** — `62ace66`(主)。
 
-<!-- Round 9 起在此行下方追加 -->
+## Round 9 — P0:环境 floor + ml_sources.yaml source-tier 契约
+
+**时间**: 2026-05-21 · **主 commit**: `75032d1` · **测试基线**: 3864
+(纯 config,无代码改动)
+
+① **当前阶段** — Round 9 / Package P0 / 第一步。
+
+② **本轮目标** — 确认 xgboost/lightgbm 可 import;建
+`config/ml_sources.yaml`(6 mandatory + 1 optional source tier +
+PIT 契约 + driver-contract)。
+
+③ **为什么先做它** — R0 CLOSED;§12.4 P0 是 P1-P6 硬前置。
+
+④ **做了什么** — 环境 floor:xgboost 3.2.0 / lightgbm 4.6.0 / numpy
+2.4.4 / pandas 3.0.2 / sklearn 1.8.0 / scipy 1.17.1 全 importable
+→ `data/audit/ml_env_floor_20260521.json`。建 `config/ml_sources.yaml`
+(全局 PIT rules + 7 tier A-G + driver_contract)。
+
+⑤ **改了哪些文件** — `config/ml_sources.yaml`(新)/
+`data/audit/ml_env_floor_20260521.json`(新)。
+
+⑥ **跑了哪些测试 + 结果** — ml_sources.yaml safe_load 通过(7 tier,
+6 mandatory/1 optional);环境 import 检查 exit 0;纯 config 无回归。
+
+⑦ **当前结果** — P0 三件套出两件:env_floor json(gate xgboost+
+lightgbm importable ✅)+ ml_sources.yaml(6 mandatory tier 全有
+declared contract ✅)。
+
+⑧ **剩余风险** — P0 memo 未写;P0 gate "no driver source-agnostic"
+是前瞻条款(P2+ driver 落实);B/C/D/E/F tier status=partial(gaps
+已标注)。
+
+⑨ **下一轮建议** — Round 10 = P0 收口:写
+`docs/memos/20260521-ml-source-contracts.md`,核对 P0 §12.3 gate
+三条,关闭 P0 → P1。
+
+⑩ **TODO** — [x] R0 CLOSED [x] P0 环境 floor + ml_sources.yaml ·
+[ ] P0 memo + 收口 [ ] P1 [ ] P2-P6。
+
+⑪ **commit** — `75032d1`(主)。
+
+<!-- Round 10 起在此行下方追加 -->
