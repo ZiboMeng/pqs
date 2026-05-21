@@ -334,4 +334,43 @@ Track-A 14/17→16/17 —— 风险面稳健,Track-A 改善;未动 module 代码
 
 ⑪ **commit** — `de2a55e`(主)。
 
-<!-- Round 8 起在此行下方追加 -->
+## Round 8 — R0 收口:re-risk pack 4 候选交付 + acceptance
+
+**时间**: 2026-05-21 · **主 commit**: `62ace66` · **测试基线**: 3864
+(收口文档轮,无代码改动)
+
+① **当前阶段** — Round 8 / Workstream R0 / 收口。
+
+② **本轮目标** — 关闭 R0:写收口节(verdict 汇总 + §6.4 acceptance
++ R0-level 发现)。
+
+③ **为什么先做它** — R0 四候选 Round 1-7 已全交付;§12.4 R0 是
+P0-P6 硬前置,须正式关闭。
+
+④ **做了什么** — 写 `rerisk-pack.md` §5(5.1 七行 verdict 汇总 / 5.2
+§6.4 acceptance 8 条全 ✅ / 5.3 R0-level 4 发现 / 5.4 baseline per-year
+不单列的决定 / 5.5 R0 CLOSED)+ 更新进度表。
+
+⑤ **改了哪些文件** — `docs/memos/20260521-rerisk-pack.md`。
+
+⑥ **跑了哪些测试 + 结果** — 收口文档轮,无代码无测试;机读 pack
+已含全 7 行(Round 1-7 driver 产出)。
+
+⑦ **当前结果** — **R0 CLOSED**。R0-level 发现:① baseline regime-
+fragile 非全局损坏;② 风险面 post-fix 稳定无新回归;③ 所有 RED/FAIL
+落在 alpha gate(vs-SPY)非风控 → binding bottleneck = alpha/
+construction;④ cycle08 最稳健、cycle06 frozen PASS 不复现。
+
+⑧ **剩余风险** — cycle06 Track-A PASS→FAIL 的 forward 候选地位含义
+留 R0 外用户复核;baseline per-year MaxDD 未单列(§5.4 决定)。
+
+⑨ **下一轮建议** — Round 9 = Package P0(source contracts + 环境
+floor):confirm xgboost/lightgbm import、建 `config/ml_sources.yaml`
++ PIT 契约、写 ml-source-contracts memo + ml_env_floor json。
+
+⑩ **TODO** — [x] R0 全 7 行 [x] R0 收口 → **R0 CLOSED** ·
+[ ] P0 [ ] P1 [ ] P2 [ ] P3 [ ] P4 [ ] P5 [ ] P6。
+
+⑪ **commit** — `62ace66`(主)。
+
+<!-- Round 9 起在此行下方追加 -->
