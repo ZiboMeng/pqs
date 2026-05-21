@@ -21,17 +21,23 @@ literature 经 websearch 核对，并把"需要做的"全部修掉。
 | 5 | 未验证策略进默认生产路径 | 🟡 事实真，"做成注释而非制度"错（见 §3） | — |
 | 6 | baseline n_oos_pass=0 | ✅ 真（项目自报状态，非隐藏） | — |
 | 7 | cost_model 静态 bps | ✅ 真（前瞻性，无 live 执行） | — |
-| 8/9 | multi_factor -67% MaxDD / BULL 差 | 🟠 真，且 review **低估**：是 invariant 违反，root cause = §2 | `d056652` |
+| 8/9 | multi_factor -67% MaxDD / BULL 差 | 🟠 真；机制 bug 已修，但 -67% 端到端归因**未验证**（见 §2 + §6） | `d056652` |
 
 ---
 
-## 2. P0：conservative_default -67% MaxDD 的 root cause
+## 2. P0：vol-target 对角协方差机制 bug（-67% 的 likely contributor，未端到端验证）
 
 **`PortfolioConstructor._apply_vol_target` 用对角（零相关）协方差估计组合
 波动率** —— `sqrt(sum((w·σ)^2))`。对集中、高相关的 long-only 股票组合，
 这系统性低估真实波动率约 1.5-2x，于是 `scale = min(1, target_vol/port_vol)`
-长期 = 1.0、敞口从不被缩减，实际波动率跑到 target 的 ~2x，多年回撤复利
-成 -67% MaxDD，直接违反「MaxDD 15-20%」硬不变量。
+在高波动期该缩不缩、敞口不被压降。
+
+**⚠ 自纠 overclaim**：初版本节 + commit `d056652` message 把这个机制 bug
+直接称作「-67% MaxDD 的 root cause」。§6 的 train-only 验证表明该归因
+**未被证实**——机制 bug 是真的、但「它导致 -67%」这一步缺端到端证据。
+准确表述：这是一个真实缺陷，会在 vol > target 的相关性危机中令 vol-target
+失效，是 -67%（2022-2025 相关性熊市）的 **likely major contributor**，
+但非已验证的唯一 root cause。
 
 **R3 实证**（4 个同涨同跌标的等权）：
 - 对角(旧) port_vol = 0.166
@@ -107,5 +113,40 @@ helper 接了 `integer_shares` 参数**从不转发**给 `PaperTradingEngine`
 - **conservative_default 在未来 live 路径是否放行** = 设计选择。
 - **cost_model TCA 升级 / robustness 模块 wiring 完整性** = 前瞻性，
   按既有 backlog 排期。
-- **multi_factor 修复后 MaxDD 端到端重测**：建议在 train-only 窗口
-  （2010-2017，避免消耗 validation）实测新 MaxDD，确认从 -67% 下降。
+- **P0-1 端到端验证仍缺**：§6 的 train-only 窗口无相关性危机、verdict
+  inconclusive。要确证修复对 -67% 的作用，需在含 2022 相关性熊市的
+  窗口验证 —— rate_hike_2022 stress slice（temporal_split.yaml 明列
+  "MaxDD sanity ONLY"，sanctioned）或 2022 train 年回测（warmup 用
+  2021 = validation，触 holdout 边界，需用户拍板），或合成 portfolio-DD
+  模拟（完全 clean）。
+
+---
+
+## 6. P0-1 端到端验证（2009-2017 train-only）— INCONCLUSIVE
+
+跑 `run_backtest.py --strategy multi_factor --start 2009-01-02
+--end 2017-12-31 --no-walk-forward`，conservative_default 配置，
+pre-fix（对角）vs post-fix（真协方差）对比：
+
+| | 年化波动率 | MaxDD | CAGR | Sharpe |
+|---|---|---|---|---|
+| before（对角协方差） | 13.36% | **-20.04%** | 13.20% | 0.70 |
+| after（真协方差，HEAD） | 13.16% | **-20.21%** | 12.59% | 0.67 |
+
+**结果：before/after 几乎一致。** root cause = 2009-2017 是低波动
+regime，conservative_default 实际波动率全程 ~13% **远低于 target_vol
+25%** → `scale = min(1, 0.25/port_vol)` 恒 = 1.0 → **vol-target 从未
+触发** → 对角 vs 真协方差无差别（无东西可缩）。
+
+**这不是"修复无效"，是"该窗口测不出修复"**：协方差 bug 只在
+port_vol > target_vol（即相关性危机致波动率冲高）时起作用。2009-2017
+（含 2011 欧债、2015-16 回调）该策略都只 ~13% vol，未进入 bug 起作用
+的区间。-67% 是 2022-2025（相关性熊市）现象，而该窗口跨 validation
+（2023/2025）不能干净复跑。
+
+**诚实 verdict**：机制 bug 已证（R3：低估 1.99x）；修复正确且应保留；
+但「修复把 -67% 降到多少」**未验证**——train-only 窗口结构上测不到。
+非 blanket、非 overclaim：fix is correct but its end-to-end MaxDD
+impact on the -67% regime remains unverified（per
+`feedback_no_blanket_failure_verdict` +
+`feedback_promotion_only_falsification_evidence_gated`）。
