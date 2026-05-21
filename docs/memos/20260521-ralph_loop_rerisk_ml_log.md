@@ -535,4 +535,44 @@ purge/embargo override [ ] P1 收口 · [ ] P2-P6。
 
 ⑪ **commit** — `8392b67`(主)。
 
-<!-- Round 13 起在此行下方追加 -->
+## Round 13 — P1:cost-aware binary label
+
+**时间**: 2026-05-21 · **主 commit**: `6511748` · **测试基线**: 3864
++ 13 新(P1 additive,test_sign_classifier 24 passed)
+
+① **当前阶段** — Round 13 / Package P1 / cost-aware binary label。
+
+② **本轮目标** — 实现 binary_forward_return_after_cost(§3.5/§7.2)。
+
+③ **为什么先做它** — §3.5 明确点名:bare-0.0 threshold 把"略正但低于
+交易成本"误算 winner。
+
+④ **做了什么** — `sign_classifier.py` 加 `compute_cost_aware_binary_
+labels`(threshold=(cost_hurdle+min_edge)/10000,薄封装复用
+compute_binary_sign_labels)。+5 单测。
+
+⑤ **改了哪些文件** — `core/research/ml/sign_classifier.py`(+1 函数)/
+`tests/unit/research/ml/test_sign_classifier.py`(+5 测试)。
+
+⑥ **跑了哪些测试 + 结果** — test_sign_classifier 24 passed;R3 核对:
+X +20bps→0 / Y +60bps→1(40bps hurdle),对照 bare-0.0 X 会是 1 →
+§3.5 gap 闭合;additive 无回归。
+
+⑦ **当前结果** — P1 的 5 个 canonical label 模式全部有实现支撑:
+residual_rank/_quantile(R12)+ binary(既有)+ binary_after_cost
+(本轮)+ triple_barrier(既有 labeling.py)。
+
+⑧ **剩余风险** — sector 残差化未实现;purge+embargo driver-override
+未做;P1 §12.3 gate + smoke json 未做。
+
+⑨ **下一轮建议** — Round 14 = purge+embargo driver-override(§8.2 +
+决策 ④,不改共享 temporal_split)+ label smoke json;后 P1 §12.3
+gate 核对 + P1 收口。
+
+⑩ **TODO** — [x] R0/P0 CLOSED [x] P1 schema/residual-rank/cost-aware
+binary · [ ] purge/embargo override + smoke json [ ] P1 收口 ·
+[ ] P2-P6。
+
+⑪ **commit** — `6511748`(主)。
+
+<!-- Round 14 起在此行下方追加 -->
