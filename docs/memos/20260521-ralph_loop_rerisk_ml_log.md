@@ -657,4 +657,45 @@ weighting 半项诚实标注 carry-forward(sample-weight 属后续 package)。
 
 ⑪ **commit** — `f0884aa`(主)。
 
-<!-- Round 16 起在此行下方追加 -->
+## Round 16 — P2:canonical rank-model 决策(不造第四套)
+
+**时间**: 2026-05-21 · **主 commit**: `4b277ce` · **测试基线**: 3864
+(核查 + 决策文档)
+
+① **当前阶段** — Round 16 / Package P2 / 第一步。
+
+② **本轮目标** — 核查 §1.5 列的三套 rank-model,选一套 canonical。
+
+③ **为什么先做它** — §1.5 把"选 canonical"列为 P2 §12.3 gate;后续
+driver 须建在 canonical 上。
+
+④ **做了什么** — 核查三套:`core/research/ml/{rank_model,xgb_rank_
+model}.py`(PRD#4 P4.1,Protocol,§9.0,20 测试,pipeline 全面 import)
+/ `core/ml/xgb_ranking.py`(Phase-1.6,near-orphan,只 1 处 import)
+/ `core/ml/xgb_alpha.py`(legacy)。核到 `XGBRankerRankModel` 已暴露
+`objective`(支持 rank:ndcg)。写决策 memo。
+
+⑤ **改了哪些文件** — `docs/memos/20260521-p2-canonical-rank-model-
+decision.md`(新)。
+
+⑥ **跑了哪些测试 + 结果** — 核查+决策文档轮,无代码无测试。
+
+⑦ **当前结果** — **canonical = `core/research/ml/{rank_model,
+xgb_rank_model}.py`**(零迁移);`xgb_ranking.py::LambdaRankICModel`
+降为 §4.7 A/B 候选;`xgb_alpha.py` legacy 不动。P2 §12.3 gate
+"canonical 选定、不造第四套" 满足。
+
+⑧ **剩余风险** — train_ranker/walk_forward_ranker 未建;LightGBM
+parity 未建;DSR/PBO 接 ranker selection 未做。
+
+⑨ **下一轮建议** — Round 17 = 建 `train_ranker.py`(canonical
+`XGBRankerRankModel(rank:ndcg)` + Linear Pareto-floor;residual-rank
+label;walk-forward+embargo;§10.2 artifact 字段)+ smoke。
+
+⑩ **TODO** — [x] R0/P0/P1 CLOSED [x] P2 canonical 决策 ·
+[ ] P2 train_ranker/walk_forward_ranker [ ] P2 LightGBM/DSR-PBO/收口
+· [ ] P3-P6。
+
+⑪ **commit** — `4b277ce`(主)。
+
+<!-- Round 17 起在此行下方追加 -->
