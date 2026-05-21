@@ -21,6 +21,7 @@ from core.research.ml.sign_classifier import (
     LogisticRegressionSignClassifier,
     XGBSignClassifier,
     compute_binary_sign_labels,
+    compute_cost_aware_binary_labels,
     select_top_decile_mask,
 )
 
@@ -272,3 +273,57 @@ class TestSchemaPurity:
                     "from core.factors.bar_store"):
             assert bad not in src, (
                 f"sign_classifier.py must not import {bad!r}")
+
+
+# ---------------------------------------------------------------------------
+# compute_cost_aware_binary_labels (P1, 2026-05-21)
+# ---------------------------------------------------------------------------
+
+
+class TestCostAwareBinaryLabels:
+    def _price_with_known_fwd_returns(self):
+        """horizon-1 panel: X fwd return = +0.0020 (20bps, below the
+        40bps hurdle), Y fwd return = +0.0060 (60bps, above it)."""
+        idx = pd.bdate_range("2020-01-01", periods=6)
+        x = [100.0 * (1.0020 ** i) for i in range(6)]
+        y = [100.0 * (1.0060 ** i) for i in range(6)]
+        return pd.DataFrame({"X": x, "Y": y}, index=idx)
+
+    def test_below_hurdle_is_class_0_above_is_class_1(self):
+        price = self._price_with_known_fwd_returns()
+        # 30 + 10 = 40 bps hurdle
+        lab = compute_cost_aware_binary_labels(
+            price, horizon_days=1,
+            cost_hurdle_bps=30.0, min_expected_edge_bps=10.0)
+        # rows 0..4 have a defined forward return
+        assert (lab["X"].iloc[:5] == 0.0).all()   # +20bps < 40bps hurdle
+        assert (lab["Y"].iloc[:5] == 1.0).all()   # +60bps > 40bps hurdle
+
+    def test_bare_threshold_would_pass_both(self):
+        """Sanity: with the bare 0.0 threshold X (a positive return)
+        would be class 1 — the cost hurdle is what flips it to 0."""
+        price = self._price_with_known_fwd_returns()
+        bare = compute_binary_sign_labels(price, horizon_days=1, threshold=0.0)
+        assert (bare["X"].iloc[:5] == 1.0).all()
+
+    def test_threshold_math(self):
+        price = self._price_with_known_fwd_returns()
+        # hurdle 55 + edge 10 = 65bps → Y (+60bps) now falls below
+        lab = compute_cost_aware_binary_labels(
+            price, horizon_days=1,
+            cost_hurdle_bps=55.0, min_expected_edge_bps=10.0)
+        assert (lab["Y"].iloc[:5] == 0.0).all()
+
+    def test_last_horizon_row_nan(self):
+        price = self._price_with_known_fwd_returns()
+        lab = compute_cost_aware_binary_labels(price, horizon_days=1)
+        assert lab.iloc[-1].isna().all()
+
+    def test_negative_bps_raise(self):
+        price = self._price_with_known_fwd_returns()
+        with pytest.raises(ValueError):
+            compute_cost_aware_binary_labels(
+                price, horizon_days=1, cost_hurdle_bps=-1.0)
+        with pytest.raises(ValueError):
+            compute_cost_aware_binary_labels(
+                price, horizon_days=1, min_expected_edge_bps=-1.0)

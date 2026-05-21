@@ -38,6 +38,7 @@ __all__ = [
     "LogisticRegressionSignClassifier",
     "XGBSignClassifier",
     "compute_binary_sign_labels",
+    "compute_cost_aware_binary_labels",
     "select_top_decile_mask",
 ]
 
@@ -95,6 +96,41 @@ def compute_binary_sign_labels(
     labels = (forward_return > threshold).astype(float)
     labels = labels.where(forward_return.notna())  # preserve NaN
     return labels
+
+
+def compute_cost_aware_binary_labels(
+    price_df: pd.DataFrame, horizon_days: int,
+    cost_hurdle_bps: float = 30.0, min_expected_edge_bps: float = 10.0,
+) -> pd.DataFrame:
+    """Cost-aware binary winner/loser label.
+
+    PRD 20260521 §3.5 / §7.2 ``binary_forward_return_after_cost``: a name
+    is class 1 only if its forward return clears the expected round-trip
+    cost hurdle PLUS a minimum edge::
+
+        threshold = (cost_hurdle_bps + min_expected_edge_bps) / 10_000
+        label     = 1 if forward_return > threshold else 0
+
+    This closes the §3.5 gap that the bare ``threshold=0.0`` of
+    ``compute_binary_sign_labels`` left open — "slightly positive but
+    below realistic trading cost + slippage" no longer counts as a
+    winner. Thin wrapper over ``compute_binary_sign_labels`` (single
+    label definition; cost-awareness is purely the threshold).
+
+    Args:
+        price_df: (date × symbol) adjusted close panel
+        horizon_days: forward window in bar-count units
+        cost_hurdle_bps: expected round-trip cost + slippage, in bps
+        min_expected_edge_bps: extra edge required above the cost hurdle
+    """
+    if cost_hurdle_bps < 0.0:
+        raise ValueError(f"cost_hurdle_bps must be ≥ 0, got {cost_hurdle_bps}")
+    if min_expected_edge_bps < 0.0:
+        raise ValueError(
+            f"min_expected_edge_bps must be ≥ 0, got {min_expected_edge_bps}")
+    threshold = (cost_hurdle_bps + min_expected_edge_bps) / 10_000.0
+    return compute_binary_sign_labels(
+        price_df, horizon_days, threshold=threshold)
 
 
 def select_top_decile_mask(
