@@ -1,5 +1,20 @@
-# R1 labeling layer config (supplementary PRD §4). No hardcoded knobs.
+# ===========================================================================
+# ml_labeling.yaml — canonical task + label-mode contract
+# ===========================================================================
+# PRD: docs/prd/20260521-rerisk-and-ml-training-audit-prd.md §7 (Workstream P1)
+#
+# EXPANDED 2026-05-21 (ralph-loop Round 11) from the original R1 labeling
+# config. The four legacy top-level keys (`horizon_days`,
+# `concurrency_weighting`, `triple_barrier`, `control_label`) are kept
+# verbatim for backward compatibility — existing readers are unaffected.
+# The new `default_task` / `label_modes` / `default_label_mode` sections
+# are additive and are the canonical contract for P1+ ML drivers.
+# ===========================================================================
 
+schema_version: 2
+lineage: rerisk-and-ml-training-audit-2026-05-21
+
+# --- Legacy keys (R1 labeling layer — kept verbatim, do not remove) -------
 horizon_days: 21            # vertical barrier / control fwd-return horizon
 
 concurrency_weighting:
@@ -13,3 +28,66 @@ triple_barrier:
 
 control_label:
   bare_fwd_return: true     # retained for A/B (compute_forward_returns)
+
+# --- Canonical task (PRD §3.0 / §4.7 Task 1) ------------------------------
+# The first-class ML task for this project is daily cross-sectional stock
+# ranking under realistic cost + portfolio constraints — NOT bare binary
+# direction prediction.
+default_task: daily_cross_sectional_ranking
+
+# --- Canonical label modes (PRD §7.2) -------------------------------------
+# Each mode declares the source tiers it depends on (ids from
+# config/ml_sources.yaml). A label artifact must record which mode it used;
+# artifacts are NOT comparable across modes without an explicit note.
+label_modes:
+
+  cross_sectional_residual_rank:
+    description: per-bar cross-sectional rank of the residual forward
+      return (raw fwd return minus market + sector beta components)
+    horizon_days: 21
+    residualize_vs_market: true
+    residualize_vs_sector: true
+    source_tiers: [A_market_data]   # + optional sector metadata
+    role: PRIMARY — default for daily cross-sectional stock selection
+
+  cross_sectional_residual_quantile:
+    description: per-bar cross-sectional quantile bucket of the residual
+      forward return
+    horizon_days: 21
+    residualize_vs_market: true
+    residualize_vs_sector: true
+    quantile_buckets: 10
+    source_tiers: [A_market_data]
+    role: PRIMARY — alternative to residual_rank for bucketed objectives
+
+  binary_forward_return:
+    description: 1 if forward return > 0 else 0 (bare sign)
+    horizon_days: 21
+    source_tiers: [A_market_data]
+    role: SECONDARY — sidecar / event filter only; NOT the canonical
+      daily-selection objective
+
+  binary_forward_return_after_cost:
+    description: 1 if forward return net of expected cost hurdle > 0
+    horizon_days: 21
+    cost_hurdle_bps: 30          # round-trip cost + slippage hurdle
+    min_expected_edge_bps: 10    # extra edge required above the hurdle
+    source_tiers: [A_market_data]
+    role: SECONDARY — cost-aware veto / execution-support classifier
+
+  triple_barrier:
+    description: Lopez de Prado triple-barrier label (pt / sl / vertical)
+    horizon_days: 21
+    pt_mult: 2.0
+    sl_mult: 2.0
+    vol_lookback: 21
+    source_tiers: [A_market_data]
+    role: SECONDARY — barrier-aware label for sidecars / event strategies
+
+# --- Product rule (PRD §7.4) ----------------------------------------------
+# The default research baseline for daily cross-sectional stock selection
+# MUST use a residual-rank / residual-quantile label. Binary sign labels
+# remain in the repo only as sidecar filters, event-specific classifiers,
+# or execution-support tasks — never as the sole canonical ML objective.
+default_label_mode: cross_sectional_residual_rank
+binary_label_role: sidecar_event_execution_support_only
