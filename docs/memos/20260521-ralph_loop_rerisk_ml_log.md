@@ -1321,4 +1321,40 @@ interfaces ·(R5 fresh mining = 协议四 mandatory stop,P6 后)。
 
 ⑪ **commit** — `aef4b2f`(主)。
 
-<!-- Round 32 起在此行下方追加 -->
+## Round 32 — P6:ML expansion interfaces memo(P6 CLOSED)
+
+**时间**: 2026-05-22 · **主 commit**: `b953840` · **测试基线**: 3864
+(纯接口文档)
+
+① **当前阶段** — Round 32 / Package P6 / 收口。
+
+② **本轮目标** — 写 expansion interfaces memo,关闭 P6。
+
+③ **为什么先做它** — P5 CLOSED;P6 是 P0-P6 最后一个 package。
+
+④ **做了什么** — 写 `ml-expansion-interfaces.md`:4 类 enrichment
+(text/filing、options、intraday、sequence-model embeddings)各自的
+additive 扩展钩子,映射到 P0-P5 的 4 契约 + model Protocol + freeze
+bundle;§3 列明 supplement 继承、不可 override 的不变量。
+
+⑤ **改了哪些文件** — `docs/memos/20260521-ml-expansion-interfaces.md`
+(新)。
+
+⑥ **跑了哪些测试** — 纯文档,无代码,基线不变。
+
+⑦ **当前结果** — **P6 CLOSED**。§12.3 gate:① 新 source family 可
+additive 接入不改 core promotion logic ✅ ② supplement 比 master
+PRD 窄、不 override hard controls ✅。
+
+⑧ **剩余风险** — P6 是接口文档;具体 enrichment 实现属未来
+supplement PRD(本 PRD scope 外 by design)。
+
+⑨ **下一轮建议** — Round 33 = R0+P0-P6 整体完成审计 + §13 五条核对;
+全绿则达 §四 #1 干净终点,输出 promise。
+
+⑩ **TODO** — [x] R0/P0/P1/P2/P3/P4/P5/**P6 CLOSED** · [ ] R0-P6
+完成审计 ·(R5 = 协议四 #1 mandatory stop)。
+
+⑪ **commit** — `b953840`(主)。
+
+<!-- Round 33 起在此行下方追加 -->
