@@ -316,6 +316,7 @@ def make_artifact_metadata(
     feature_columns: Tuple[str, ...],
     output_type: str = "rank",
     trained_at_utc: Optional[str] = None,
+    governance: Optional[ArtifactGovernance] = None,
 ) -> ArtifactMetadata:
     """Build ArtifactMetadata from a completed WalkForwardResult.
 
@@ -362,6 +363,7 @@ def make_artifact_metadata(
         trained_at_utc=trained_at_utc,
         lineage_tag=lineage_tag,
         spec_id=spec_id,
+        governance=governance,
     )
 
 

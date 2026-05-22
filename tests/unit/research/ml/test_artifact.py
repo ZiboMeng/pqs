@@ -381,6 +381,29 @@ class TestMakeArtifactMetadata:
         )
         assert m1.spec_id != m2.spec_id
 
+    def test_governance_param_flows_through(self):
+        """S2: make_artifact_metadata threads a governance block onto the
+        produced ArtifactMetadata; a complete block passes the validator."""
+        from core.research.ml.pipeline import WalkForwardResult
+        cfg = WalkForwardConfig(start_year=2010, end_year=2017)
+        result = WalkForwardResult(config=cfg, per_fold=[], sealed_years=())
+        gov = _complete_governance()
+        meta = make_artifact_metadata(
+            result=result, model_class_name="X", hyperparams={},
+            feature_columns=("f1",), governance=gov)
+        assert meta.governance is gov
+        validate_artifact_governance(meta)        # complete → no raise
+
+    def test_governance_defaults_none(self):
+        """Legacy callers omitting governance still build (non-breaking)."""
+        from core.research.ml.pipeline import WalkForwardResult
+        cfg = WalkForwardConfig(start_year=2010, end_year=2017)
+        result = WalkForwardResult(config=cfg, per_fold=[], sealed_years=())
+        meta = make_artifact_metadata(
+            result=result, model_class_name="X", hyperparams={},
+            feature_columns=("f1",))
+        assert meta.governance is None
+
 
 # ── S2 (supplement PRD 2026-05-22) — §10.2 governance schema ──────────
 def _complete_governance(**overrides):
