@@ -631,4 +631,39 @@ S5 收口。
 
 ⑪ **commit** — `add8ff4`(主)。
 
-<!-- Round 17 起在此行下方追加 -->
+## Round 17 — S5:PBO sweep 改 model-diverse
+
+**时间**: 2026-05-22 · **主 commit**: `ff80503` · **测试基线**: 3978
+(R3 实跑)
+
+① **当前阶段** — Round 17 / S5 / PBO sweep。
+
+② **本轮目标** — 修 O1 #3:PBO sweep 4 个 XGB-mapping 换皮共线。
+
+③ **为什么先做它** — S5 三子问题最后一个;PBO 偏乐观放过过拟合。
+
+④ **做了什么** — harness fold loop 改训 3 个真不同 model family
+(XGB/Linear/LGBM)per fold;`_overfit_control` PBO sweep 改成
+{A_composite + D_xgb + D_linear + D_lgbm}(model-diverse)。
+
+⑤ **改了哪些文件** — `portfolio_acceptance.py` / 新 acceptance json。
+
+⑥ **跑了哪些测试 + 结果** — R3 harness:**PBO 0.135 → 0.333** ——
+共线 sweep 确实给 optimistically-low 0.135,model-diverse sweep 给
+诚实 0.333(仍 <0.5 无红旗);n_trials=10、DSR 0.806;verdict PASS。
+
+⑦ **当前结果** — PBO 跑在 model-diverse sweep(3 真不同模型族),
+0.333 是诚实数(原 0.135 偏乐观已证)。
+
+⑧ **剩余风险 / S5 未尽** — trial-ledger memo 待写;S5 §9.6 gate
+核对 + 收口待 Round 18。
+
+⑨ **下一轮建议** — Round 18 = trial-ledger memo + S5 §9.6 gate 核对
++ S5 收口。
+
+⑩ **TODO** — [x] S1/S2/S4 CLOSED · S5 O1-fix/n_trials-ledger/PBO-diverse
+· [ ] S5 memo+收口 · [ ] S3/S7/S6。
+
+⑪ **commit** — `ff80503`(主)。
+
+<!-- Round 18 起在此行下方追加 -->
