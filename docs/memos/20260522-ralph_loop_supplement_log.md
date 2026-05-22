@@ -595,4 +595,40 @@ ledger 取。
 
 ⑪ **commit** — `cbdb00c`(主)。
 
-<!-- Round 16 起在此行下方追加 -->
+## Round 16 — S5:n_trials 从 persisted trial ledger 取
+
+**时间**: 2026-05-22 · **主 commit**: `add8ff4` · **测试基线**: 3978
+(R3 实跑;仅 driver + 新 ledger)
+
+① **当前阶段** — Round 16 / S5 / n_trials ledger。
+
+② **本轮目标** — 修 O1 #2:`--n-trials` 硬编码 5 → 从 trial ledger 取。
+
+③ **为什么先做它** — DSR 反通缩靠 n_trials;硬编码 5 低估 → DSR 偏松。
+
+④ **做了什么** — 新建 `data/audit/ml_trial_ledger.json`(诚实枚举
+path-D 选择中实际 examine 的 10 个 distinct config:baseline / 3
+model family / 2 objective / 3 mapping / 2 vol-target);
+`portfolio_acceptance.py` `--n-trials` default None → `len(ledger)`。
+
+⑤ **改了哪些文件** — `data/audit/ml_trial_ledger.json`(新)/
+`portfolio_acceptance.py` / 新 acceptance json。
+
+⑥ **跑了哪些测试 + 结果** — R3 harness:`n_trials=10`(原 5),
+**DSR 0.893→0.806**(诚实更多反通缩);verdict 仍 PASS。
+
+⑦ **当前结果** — DSR n_trials 来自 persisted 可审计 ledger,按真实
+10-trial 广度反通缩。
+
+⑧ **剩余风险 / S5 未尽** — O1 #3:PBO 5-config sweep 共线偏乐观;
+trial-ledger memo 待写。
+
+⑨ **下一轮建议** — Round 17 = S5 #3(PBO 独立 config)+ memo +
+S5 收口。
+
+⑩ **TODO** — [x] S1/S2/S4 CLOSED · S5 O1-fix/n_trials-ledger ·
+[ ] S5 PBO+memo+收口 · [ ] S3/S7/S6。
+
+⑪ **commit** — `add8ff4`(主)。
+
+<!-- Round 17 起在此行下方追加 -->
