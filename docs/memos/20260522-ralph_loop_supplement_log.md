@@ -90,4 +90,43 @@ Sharpe **1.176**(buggy 1.29 消失,= leak-quant correct 值),MaxDD
 
 ⑪ **commit** — `0bb581b`(主)。
 
-<!-- Round 3 起在此行下方追加 -->
+## Round 3 — S2:§10.2 ArtifactGovernance schema + fail-closed validator
+
+**时间**: 2026-05-22 · **主 commit**: `e4e68fd` · **测试基线**: 3929
+→ 3938(+9;research/ml 171 passed)
+
+① **当前阶段** — Round 3 / S2 / §10.2 artifact schema。
+
+② **本轮目标** — artifact schema 扩到 §10.2 全字段 + fail-closed
+validator。
+
+③ **为什么先做它** — S1 CLOSED;S2 第二顺位;R4 §10.2 缺字段是
+audit CRITICAL。
+
+④ **做了什么** — `artifact.py` 新增 `ArtifactGovernance` dataclass
+(§10.2 always-required 11 + §9.6 dsr/pbo + conditional + portfolio-tier
+5,required 无 default 强制构造)+ `ArtifactMetadata.governance` 可选
+字段(默认 None 非破坏)+ `validate_artifact_governance` fail-closed
++ `_metadata_from_json` 重建。
+
+⑤ **改了哪些文件** — `core/research/ml/artifact.py` /
+`tests/unit/research/ml/test_artifact.py`(+9 测试)。
+
+⑥ **跑了哪些测试 + 结果** — test_artifact 31 passed(+9);research/ml
+171 passed 无回归。
+
+⑦ **当前结果** — §10.2 schema + validator 就位;spec_id 不含
+governance(非破坏)。
+
+⑧ **剩余风险** — `make_artifact_metadata` 未接 governance 参数;
+driver 未 populate;validator 未接 freeze gate。
+
+⑨ **下一轮建议** — Round 4 = `make_artifact_metadata` 加 governance
+参数 + 4 driver populate §10.2 真值。
+
+⑩ **TODO** — [x] S1 CLOSED · [x] S2 schema+validator · [ ] S2
+driver populate + freeze 接线 + 收口 · [ ] S4/S5/S3/S7/S6。
+
+⑪ **commit** — `e4e68fd`(主)。
+
+<!-- Round 4 起在此行下方追加 -->
