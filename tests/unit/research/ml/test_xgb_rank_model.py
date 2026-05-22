@@ -179,3 +179,39 @@ class TestInsufficientData:
         with pytest.raises(ValueError,
                            match=r"insufficient training data"):
             m.fit({"feat": feat}, label)
+
+
+# ── rank:ndcg objective at cross-sectional scale (P2, 2026-05-21) ─────
+class TestNdcgObjectiveLargeGroups:
+    """XGBoost's exponential NDCG gain caps relevance at 31; a
+    cross-sectional universe has 79+ names per query group → within-
+    group integer ranks exceed 31. XGBRankerRankModel must set
+    ndcg_exp_gain=False for objective='rank:ndcg' so any group size
+    fits. Pins the P2 rank:ndcg-smoke fix."""
+
+    def _big_panel(self, k=79, n=120, seed=3):
+        rng = np.random.default_rng(seed)
+        dates = pd.date_range("2020-01-01", periods=n, freq="B")
+        syms = [f"S{i:02d}" for i in range(k)]
+        label = pd.DataFrame(rng.normal(0, 0.02, (n, k)),
+                             index=dates, columns=syms)
+        feat = label + rng.normal(0, 0.006, (n, k))
+        return {"f": pd.DataFrame(feat, index=dates, columns=syms)}, label
+
+    def test_ndcg_fits_on_79_symbol_groups(self):
+        feats, label = self._big_panel(k=79)
+        m = XGBRankerRankModel(objective="rank:ndcg",
+                               n_estimators=20, max_depth=3)
+        m.fit(feats, label)          # must NOT raise (relevance > 31)
+        assert m.fitted
+        pred = m.predict_rank(feats)
+        vals = pred.to_numpy()
+        finite = vals[np.isfinite(vals)]
+        assert ((finite >= 0.0) & (finite <= 1.0)).all()
+
+    def test_pairwise_still_fits(self):
+        feats, label = self._big_panel(k=79)
+        m = XGBRankerRankModel(objective="rank:pairwise",
+                               n_estimators=20, max_depth=3)
+        m.fit(feats, label)
+        assert m.fitted

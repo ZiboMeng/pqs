@@ -175,15 +175,23 @@ def _filter_factors_to_panel(
     return out
 
 
-def _build_xgb_factory(seed: int = 42) -> Callable:
-    """Lazy import to avoid xgboost dep at module load."""
+def _build_xgb_factory(seed: int = 42,
+                       objective: str = "rank:ndcg") -> Callable:
+    """Lazy import to avoid xgboost dep at module load.
+
+    Default objective rank:ndcg (LambdaMART) per the P2 canonical
+    decision (docs/memos/20260521-p2-canonical-rank-model-decision.md
+    + PRD §4.7) — its NDCG surrogate up-weights the top of the ranking,
+    matching a top-k long-only book. rank:pairwise stays available via
+    --objective for the §4.7 A/B.
+    """
     from core.research.ml.xgb_rank_model import XGBRankerRankModel
 
     def _factory() -> XGBRankerRankModel:
         # Tight tree budget — keep walk-forward fold under ~5s
         return XGBRankerRankModel(
             n_estimators=50, max_depth=4, learning_rate=0.1,
-            random_state=seed,
+            random_state=seed, objective=objective,
         )
     return _factory
 
@@ -217,6 +225,10 @@ def main() -> int:
     parser.add_argument("--no-save", action="store_true",
                         help="Skip artifact saving (smoke / dry-run)")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--objective", default="rank:ndcg",
+                        choices=["rank:ndcg", "rank:pairwise", "rank:map"],
+                        help="XGBRanker LTR objective (P2 default rank:ndcg "
+                             "per §4.7; rank:pairwise for the A/B)")
     args = parser.parse_args()
 
     if args.universe != "executable":
@@ -288,6 +300,7 @@ def main() -> int:
         train_window_years=args.train_window,
         val_window_years=args.val_window,
         step_years=args.step,
+        embargo_days=args.horizon_days,  # P1 §8.2: purge+embargo = horizon
     )
 
     # Pick models
@@ -298,7 +311,8 @@ def main() -> int:
         ))
     if args.model in ("xgb", "both"):
         factories.append((
-            "XGBRankerRankModel", _build_xgb_factory(args.seed),
+            "XGBRankerRankModel",
+            _build_xgb_factory(args.seed, args.objective),
             {"n_estimators": 50, "max_depth": 4, "learning_rate": 0.1,
              "random_state": args.seed},
         ))

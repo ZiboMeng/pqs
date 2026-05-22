@@ -128,7 +128,7 @@ class XGBRankerRankModel:
         y_grouped_rank = self._within_group_rank(y, group_sizes)
         # train XGBRanker
         import xgboost as xgb
-        self._model = xgb.XGBRanker(
+        xgb_kwargs = dict(
             objective=self.objective,
             n_estimators=self.n_estimators,
             max_depth=self.max_depth,
@@ -136,6 +136,14 @@ class XGBRankerRankModel:
             random_state=self.random_state,
             verbosity=0,
         )
+        if self.objective == "rank:ndcg":
+            # Cross-sectional query groups carry many names (a 79-symbol
+            # universe → within-group integer ranks up to 79). XGBoost's
+            # default exponential NDCG gain (2^rel - 1) caps relevance at
+            # 31; use the linear/custom DCG gain so any group size is
+            # valid. (Surfaced by the P2 rank:ndcg smoke, 2026-05-21.)
+            xgb_kwargs["ndcg_exp_gain"] = False
+        self._model = xgb.XGBRanker(**xgb_kwargs)
         self._model.fit(X, y_grouped_rank, group=group_sizes)
         self.feature_columns = tuple(feat_names)
         self.fitted = True
