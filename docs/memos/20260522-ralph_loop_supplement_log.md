@@ -855,4 +855,42 @@ freeze_bundle model hash(M9)。
 
 ⑪ **commit** — `2212b6c`(主)。
 
-<!-- Round 23 起在此行下方追加 -->
+## Round 23 — S7:evaluate_fold 代码-bug 区分(M6)+ freeze model hash(M9)
+
+**时间**: 2026-05-22 · **主 commit**: `701b4d0` · **测试基线**: 4001
+→ 4009(+8;research/ml 204 passed)
+
+① **当前阶段** — Round 23 / S7 / M6+M9。
+
+② **本轮目标** — 修 M6(evaluate_fold 静默把代码 bug 当数据-fold)+
+M9(freeze 不哈希模型)。
+
+③ **为什么先做它** — audit MED 卫生项,具体可验证。
+
+④ **做了什么** — M6:`evaluate_fold` `except` 拆 `ValueError`→
+`data_fold:` / 其他→`CODE_BUG:`+`warnings.warn`。M9:`build_freeze_bundle`
+强制 `model_artifact_path`(None/不存在→FreezeBundleError);
+`freeze_ml_bundle.py` 加 `--model-artifact`;model hash 不再 None。
+
+⑤ **改了哪些文件** — `pipeline.py` / `freeze_bundle.py` /
+`freeze_ml_bundle.py` / `test_pipeline.py`(+2)/ `test_freeze_bundle.py`
+(_build wrapper + 4 M9 测试)。
+
+⑥ **跑了哪些测试 + 结果** — test_pipeline 33 / test_freeze_bundle 16;
+research/ml 204 passed 无回归。
+
+⑦ **当前结果** — M6 代码 bug 显式区分(CODE_BUG+warn);M9 freeze
+强制哈希模型,model drift 可检出。
+
+⑧ **剩余风险 / S7 未尽** — P2/P4 命名产物;4-path 统一;§〇#5 PRD
+措辞 fold-in。
+
+⑨ **下一轮建议** — Round 24 = §〇#5 PRD 措辞 fold-in(master §9.3/
+§12.3 放宽 MaxDD gate)+ portfolio-acceptance-pack.md memo。
+
+⑩ **TODO** — [x] S1/S2/S4/S5/S3 CLOSED · S7 M1/M6/M9 · [ ] S7 §〇#5
++命名产物+4-path+收口 · [ ] S6。
+
+⑪ **commit** — `701b4d0`(主)。
+
+<!-- Round 24 起在此行下方追加 -->
