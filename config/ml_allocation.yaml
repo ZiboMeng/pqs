@@ -125,7 +125,7 @@ enforcement_status:
   concentration_cap_top1:   enforced     # == max_single_name_weight cap (top-1)
   concentration_cap_top3:   roadmap      # top-3 cap not enforced by score_to_weight
   target_vol:               enforced     # vol_target.apply_vol_target_overlay
-  turnover_cap_daily:       pending_S4   # implement in S4
+  turnover_cap_daily:       enforced     # constraints.apply_turnover_cap (S4 R10)
   min_edge_to_trade:        pending_S4   # implement in S4
   exit_policy:              pending_S4   # implement in S4
   max_sector_weight:        roadmap      # sector control — roadmap (§〇#1)

@@ -12,6 +12,7 @@ import pandas as pd
 import pytest
 import yaml
 
+from core.research.allocation.constraints import apply_turnover_cap
 from core.research.allocation.score_to_weight import score_to_weight
 from core.research.allocation.vol_target import apply_vol_target_overlay
 
@@ -69,6 +70,18 @@ class TestEnforcedControlsHaveRealCodePath:
                              max_single_weight=cap)
         assert w.max() <= cap + 1e-9
 
+    def test_turnover_cap_enforced(self):
+        if _STATUS.get("turnover_cap_daily") != "enforced":
+            pytest.skip("turnover_cap_daily not marked enforced")
+        cap = float(_ALLOC["constraints"]["turnover_cap_daily"])
+        idx = pd.bdate_range("2022-01-03", periods=3)
+        # a full reshuffle (turnover 2.0) on bar 1+2
+        w = pd.DataFrame([[1.0, 0.0], [0.0, 1.0], [1.0, 0.0]],
+                         index=idx, columns=["A", "B"])
+        out = apply_turnover_cap(w, cap)
+        per_bar = out.diff().abs().sum(axis=1).iloc[1:]
+        assert (per_bar <= cap + 1e-9).all()
+
     def test_target_vol_enforced(self):
         if _STATUS.get("target_vol") != "enforced":
             pytest.skip("target_vol not marked enforced")
@@ -88,5 +101,4 @@ class TestPendingControlsAreExplicit:
         """The controls S4 still owes (user 2026-05-22 §〇#1: implement
         min-edge / turnover / exit_policy)."""
         pending = {k for k, v in _STATUS.items() if v == "pending_S4"}
-        assert pending == {"turnover_cap_daily", "min_edge_to_trade",
-                           "exit_policy"}
+        assert pending == {"min_edge_to_trade", "exit_policy"}

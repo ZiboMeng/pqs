@@ -1,0 +1,148 @@
+{
+  "prd": "docs/prd/20260521-rerisk-and-ml-training-audit-prd.md \u00a79 P4",
+  "window": "2012-2017 (train-only)",
+  "n_walk_forward_folds": 3,
+  "concatenated_oos": "2015-01-02..2017-12-29",
+  "mode_a": "top_k_capped",
+  "mode_d": "top_k_capped",
+  "top_k": 10,
+  "single_name_cap": 0.4,
+  "rebalance_days": 21,
+  "path_d_vol_target": 0.0,
+  "cost_levels_bps": [
+    0,
+    30,
+    60
+  ],
+  "paths": {
+    "path_A_non_ml_composite": {
+      "cost_0bps": {
+        "cum_return": 0.5467,
+        "annualized_sharpe": 1.0121,
+        "annualized_vol": 0.1559,
+        "max_drawdown": -0.1229,
+        "turnover_mean": 0.0575,
+        "n_periods": 755,
+        "cost_bps": 0.0,
+        "vs_benchmark_excess_cum": 0.1661
+      },
+      "cost_30bps": {
+        "cum_return": 0.3578,
+        "annualized_sharpe": 0.7322,
+        "annualized_vol": 0.1561,
+        "max_drawdown": -0.1229,
+        "turnover_mean": 0.0575,
+        "n_periods": 755,
+        "cost_bps": 30.0,
+        "vs_benchmark_excess_cum": -0.0229
+      },
+      "cost_60bps": {
+        "cum_return": 0.1917,
+        "annualized_sharpe": 0.4523,
+        "annualized_vol": 0.1567,
+        "max_drawdown": -0.1592,
+        "turnover_mean": 0.0575,
+        "n_periods": 755,
+        "cost_bps": 60.0,
+        "vs_benchmark_excess_cum": -0.1889
+      }
+    },
+    "path_D_xgb_ranker_ndcg": {
+      "cost_0bps": {
+        "cum_return": 0.9162,
+        "annualized_sharpe": 1.3825,
+        "annualized_vol": 0.1672,
+        "max_drawdown": -0.1948,
+        "turnover_mean": 0.054,
+        "n_periods": 755,
+        "cost_bps": 0.0,
+        "vs_benchmark_excess_cum": 0.5356
+      },
+      "cost_30bps": {
+        "cum_return": 0.6953,
+        "annualized_sharpe": 1.1359,
+        "annualized_vol": 0.1675,
+        "max_drawdown": -0.2084,
+        "turnover_mean": 0.054,
+        "n_periods": 755,
+        "cost_bps": 30.0,
+        "vs_benchmark_excess_cum": 0.3147
+      },
+      "cost_60bps": {
+        "cum_return": 0.4996,
+        "annualized_sharpe": 0.889,
+        "annualized_vol": 0.1681,
+        "max_drawdown": -0.23,
+        "turnover_mean": 0.054,
+        "n_periods": 755,
+        "cost_bps": 60.0,
+        "vs_benchmark_excess_cum": 0.119
+      }
+    }
+  },
+  "overfit_control": {
+    "n_trials": 5,
+    "sweep_configs": [
+      "A_composite",
+      "D_plain",
+      "D_volscaled",
+      "D_vt010",
+      "D_vt015"
+    ],
+    "selection": "P4 acceptance config sweep \u2192 promoted = D_plain",
+    "dsr_promoted_D_plain": {
+      "deflated_sharpe": 0.8794378915344983,
+      "sharpe": 0.08708700817567193,
+      "sr0": 0.043402939635519416,
+      "skew": -0.4480757934237995,
+      "kurtosis": 5.311124798096779,
+      "n_trials": 5,
+      "T": 755
+    },
+    "pbo": {
+      "pbo": 0.1746031746031746,
+      "red_flag": false,
+      "n_combinations": 252,
+      "S": 10,
+      "mean_logit": -0.9226688614423633,
+      "threshold": 0.5,
+      "auto_kill": false,
+      "note": "diagnostic red-flag only; human adjudicates (PRD G2-A3). forward-only: past cycles not retro-computable (scalar-only archive)."
+    }
+  },
+  "verdict": "FAIL",
+  "verdict_basis": "path D beats baseline on net Sharpe AND path D MaxDD within the 15-20% invariant (gate per user 2026-05-22, prompt \u00a7\u3007 #5). Multi-fold walk-forward, train-only window, 30bps cost.",
+  "sharpe_beat": true,
+  "maxdd_within_invariant": false,
+  "generated_utc": "20260522T041626Z",
+  "governance": {
+    "task_family": "rank_to_portfolio",
+    "source_tiers": [
+      "A_market_data"
+    ],
+    "label_mode": "forward_return",
+    "sample_weight_mode": "uniform",
+    "purge_embargo": {
+      "embargo_days": 21,
+      "unit": "trading_bars"
+    },
+    "context_bundle": "none",
+    "training_universe": "executable",
+    "model_family": "XGBRankerRankModel",
+    "objective": "rank:ndcg",
+    "config_hash": "a422106157b9e435",
+    "trial_count": 5,
+    "dsr": 0.8794378915344983,
+    "pbo": 0.1746031746031746,
+    "score_to_weight_mode": "top_k_capped",
+    "exit_policy_mode": "none",
+    "reused_native_components": true,
+    "benchmark_relative_eval": null,
+    "portfolio_acceptance_path": "data/audit/ml_rank_portfolio_acceptance_20260522T041626Z.json",
+    "target_weight_mode": "top_k_capped",
+    "risk_scaling_mode": "none",
+    "constraint_set_id": "ml_allocation.yaml",
+    "cost_model_id": "per_unit_turnover_bps",
+    "execution_assumption_id": "tplus1_close_shift"
+  }
+}

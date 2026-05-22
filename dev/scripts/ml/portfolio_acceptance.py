@@ -56,6 +56,9 @@ from core.research.allocation.score_to_weight import (  # noqa: E402
 from core.research.allocation.portfolio_metrics import (  # noqa: E402
     portfolio_metrics,
 )
+from core.research.allocation.constraints import (  # noqa: E402
+    apply_turnover_cap,
+)
 from core.research.ml.artifact import (  # noqa: E402
     ArtifactGovernance,
     validate_artifact_governance,
@@ -190,6 +193,7 @@ def main() -> int:
     mode_d = args.mode_d or default_mode
     top_k = int(alloc["mapping_modes"][default_mode]["top_k"])
     cap = float(alloc["constraints"]["max_single_name_weight"])
+    turnover_cap = float(alloc["constraints"]["turnover_cap_daily"])
 
     print(f"=== P4 portfolio acceptance  {args.start_year}-{args.end_year}"
           f"  mode_a={mode_a} mode_d={mode_d} top_k={top_k} ===")
@@ -246,6 +250,8 @@ def main() -> int:
         w = _rebalance(score_panel_to_weights(
             rank, mode=m, top_k=top_k, max_single_weight=cap, vol_df=vd),
             args.rebalance_days)
+        # S4: turnover cap (ml_allocation.yaml constraints.turnover_cap_daily)
+        w = apply_turnover_cap(w, turnover_cap)
         if vt > 0.0:
             w = apply_vol_target_overlay(w, close, target_vol=vt)
         return w
