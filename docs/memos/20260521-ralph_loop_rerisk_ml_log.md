@@ -785,4 +785,43 @@ LightGBM parity 模型 · [ ] LightGBM 接驱动+smoke/DSR-PBO/P2 收口
 
 ⑪ **commit** — `8ae92c8`(主)。
 
-<!-- Round 19 起在此行下方追加 -->
+## Round 19 — P2:接 LGBMRankerRankModel 进 rank walk-forward 驱动
+
+**时间**: 2026-05-21 · **主 commit**: `418d50c` · **测试基线**: 3864
+（仅改 driver）
+
+① **当前阶段** — Round 19 / Package P2 / LightGBM 接驱动。
+
+② **本轮目标** — `LGBMRankerRankModel` 接进 walk_forward_rank_sign.py
+`--model` 选项 + LightGBM parity smoke。
+
+③ **为什么先做它** — R18 交付了 LightGBM 模型;P2 §12.3 含 LightGBM
+parity smoke。
+
+④ **做了什么** — `--model` 加 `lgbm` + `all`（`both`=linear+xgb 向后
+兼容,`all`=三者）;`_build_lgbm_factory`;factories 块加 lgbm 分支。
+跑 LightGBM parity smoke。
+
+⑤ **改了哪些文件** — `dev/scripts/ml/walk_forward_rank_sign.py`。
+
+⑥ **跑了哪些测试 + 结果** — `--model lgbm` smoke(2010-2016)exit 0:
+LGBMRankerRankModel pooled+tradeable **2/2 folds OK**,embargo 生效;
+仅改 driver 不重跑回归(LGBM 模型 R18 已测 7 单测)。
+
+⑦ **当前结果** — P2 §12.3 gate 三项满足:① canonical 选定 ② XGBoost
+ranker 端到端 ③ LightGBM parity smoke 端到端。
+
+⑧ **剩余风险** — §12.3 余下:cross-fold 选择须记 trial count + 过
+DSR/PBO(§9.6);residual-rank label 接 rank walk-forward 未做;
+P2 收口未做。
+
+⑨ **下一轮建议** — Round 20 = P2 §9.6 过拟合控制:ranker 跨
+fold/model-family 选择接 DSR/PBO(复用既有 dsr_trial_accounting +
+mining_pbo)+ P2 收口。
+
+⑩ **TODO** — [x] R0/P0/P1 CLOSED · P2 canonical/rank-wf/LightGBM ·
+[ ] P2 §9.6 DSR/PBO + 收口 · [ ] P3-P6。
+
+⑪ **commit** — `418d50c`(主)。
+
+<!-- Round 20 起在此行下方追加 -->
