@@ -1239,4 +1239,42 @@ governance [ ] P6 expansion interfaces。
 
 ⑪ **commit** — `9b10edf`(主)。
 
-<!-- Round 30 起在此行下方追加 -->
+## Round 30 — P5:ML promotion governance memo
+
+**时间**: 2026-05-22 · **主 commit**: `e5f3e8e` · **测试基线**: 3864
+(纯 governance 文档)
+
+① **当前阶段** — Round 30 / Package P5 / 第一步。
+
+② **本轮目标** — 写 `docs/memos/20260521-ml-promotion-governance.md`。
+
+③ **为什么先做它** — P4 CLOSED;P5 把 ML stack 接既有 forward 治理,
+governance 文档须先定义。
+
+④ **做了什么** — §9.2 核查既有 promotion 机制(production_strategy
+/factor_registry/forward/research_candidates)→ 不另造。写 memo:
+freeze bundle(6 层 artifact SHA-256 合成可复现 JSON,仅 PASS+§9.6
+方可冻结)、drift 检测(6 类 flag)、4 类降级触发器(forward
+drift/data-contract breach/allocation instability/cost blowout,
+evidence-gated 非 auto-kill)、接既有治理(挂 research_candidates、
+daily ritual observe 跑 drift、Track-A gate 不变)。
+
+⑤ **改了哪些文件** — `docs/memos/20260521-ml-promotion-governance.md`
+(新)。
+
+⑥ **跑了哪些测试** — 纯文档,无代码,基线不变。
+
+⑦ **当前结果** — P5 governance 定义就位。
+
+⑧ **剩余风险** — freeze bundle builder + drift-check 未实现(gate
+要可跑佐证非 placeholder);§12.3 gate 未核对。
+
+⑨ **下一轮建议** — Round 31 = 实现 `freeze_ml_bundle.py`(6-component
+SHA-256 → bundle JSON)+ drift-check + smoke。
+
+⑩ **TODO** — [x] R0/P0/P1/P2/P3/P4 CLOSED · P5 governance memo ·
+[ ] P5 freeze builder+drift+收口 · [ ] P6。
+
+⑪ **commit** — `e5f3e8e`(主)。
+
+<!-- Round 31 起在此行下方追加 -->
