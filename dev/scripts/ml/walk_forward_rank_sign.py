@@ -211,12 +211,41 @@ def _build_lgbm_factory(seed: int = 42) -> Callable:
     return _factory
 
 
+def _rank_ic_significance(ic_list: list, n_trials: int) -> Dict:
+    """Significance of a per-fold rank-IC series — the t-stat of the
+    mean IC. Supplement S5 / audit O1 fix: ``deflated_sharpe_ratio``
+    expects a per-period RETURN series; feeding it rank-IC (bounded
+    [-1,1], not a return) is a misuse. The mean-IC t-stat is the correct
+    test. ``n_trials`` configs were compared to pick this model, so the
+    |t| bar should rise for multiple comparisons (Bonferroni) — recorded
+    here so a downstream gate can apply it."""
+    ic = np.asarray([x for x in ic_list if x == x], dtype=float)
+    n = int(len(ic))
+    if n < 2:
+        return {"n": n, "note": "n<2 — rank-IC t-stat N/A"}
+    mean = float(ic.mean())
+    std = float(ic.std(ddof=1))
+    tstat = (mean / (std / np.sqrt(n))) if std > 0 else float("nan")
+    return {
+        "n": n,
+        "mean_ic": round(mean, 5),
+        "ic_std": round(std, 5),
+        "ic_tstat": round(float(tstat), 4),
+        "n_trials": int(n_trials),
+        "significant_uncorrected_2sigma": bool(abs(tstat) >= 2.0),
+        "note": ("rank-IC t-stat (NOT deflated_sharpe_ratio — that "
+                 "expects a return series; supplement S5 / audit O1 "
+                 f"fix). {n_trials} configs compared — raise the |t| bar "
+                 "for multiple comparisons before calling it significant."),
+    }
+
+
 def _overfit_control(per_model_fold_ic: Dict[str, list]) -> Dict:
     """PRD §9.6 overfit-significance control for the cross-model
     selection. Records the trial count (number of model configs
-    compared) and runs the selected (best mean rank-IC) model through
-    DSR + the per-fold rank-IC matrix through PBO. Reuses the project's
-    existing overfit-control modules — never re-implements (per §9.6).
+    compared), the selected model's rank-IC t-stat (supplement S5 fix —
+    NOT a misused DSR), and the per-fold rank-IC matrix's PBO. Reuses
+    the project's overfit-control modules — never re-implements.
     """
     models = [m for m, ic in per_model_fold_ic.items() if ic]
     n_trials = len(models)
@@ -226,19 +255,18 @@ def _overfit_control(per_model_fold_ic: Dict[str, list]) -> Dict:
     }
     if n_trials < 2:
         out["note"] = ("single model — no cross-config selection; "
-                       "DSR/PBO N/A (need ≥2 configs)")
+                       "IC-tstat/PBO N/A (need ≥2 configs)")
         return out
     means = {m: float(np.mean(per_model_fold_ic[m])) for m in models}
     best = max(means, key=means.get)
     out["per_model_mean_rank_ic"] = means
     out["selected_model"] = best
-    # DSR — deflate the selected model's per-fold rank-IC by n_trials.
-    from core.research.overfit_metrics import deflated_sharpe_ratio
-    try:
-        out["dsr"] = deflated_sharpe_ratio(
-            per_model_fold_ic[best], n_trials=n_trials)
-    except Exception as exc:  # noqa: BLE001
-        out["dsr"] = {"error": f"{type(exc).__name__}: {exc}"}
+    # Rank-IC significance (audit O1 / supplement S5 fix): the previous
+    # code fed per-fold rank-IC to deflated_sharpe_ratio, which expects a
+    # per-period RETURN series — rank-IC ∈ [-1,1] is not a return, so the
+    # "DSR" was numerology. The t-stat of the mean IC is the correct test.
+    out["rank_ic_significance"] = _rank_ic_significance(
+        per_model_fold_ic[best], n_trials)
     # PBO — (folds × models) per-fold rank-IC matrix via CSCV.
     from core.research.mining_pbo import compute_mining_pbo
     fold_counts = {len(ic) for ic in per_model_fold_ic.values()}
