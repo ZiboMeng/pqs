@@ -242,4 +242,45 @@ governance。
 
 ⑪ **commit** — `b652e7a`(主)。
 
-<!-- Round 7 起在此行下方追加 -->
+## Round 7 — S2 收口:sign driver §10.2 governance(S2 CLOSED)
+
+**时间**: 2026-05-22 · **主 commit**: `cbd6d18` · **测试基线**: 3940
+(test_artifact+pipeline 64 passed)
+
+① **当前阶段** — Round 7 / S2 / 收口。
+
+② **本轮目标** — sign driver §10.2 + rank-driver fail-closed validate
+补 + S2 收口。
+
+③ **为什么先做它** — S2 required-work 含 sign driver。
+
+④ **做了什么** — `walk_forward_sign_classifier.py` 加
+`_sign_artifact_governance`(§10.2 真值)+ summary 写前 fail-closed
+validate + `summary["governance"]`;`walk_forward_rank_sign.py` 补
+`validate_artifact_governance` 在 save 前(三 driver 一致 fail-closed)。
+
+⑤ **改了哪些文件** — `walk_forward_sign_classifier.py` /
+`walk_forward_rank_sign.py`。
+
+⑥ **跑了哪些测试 + 结果** — test_artifact+pipeline 64 passed;R3:
+`_sign_artifact_governance` 对 xgb/logreg 产出 governance 均过
+validator。
+
+⑦ **当前结果** — **S2 CLOSED**。§12.3 gate:① 三 model-artifact
+driver(rank/acceptance/sign)写文件前 fail-closed validate、带全
+§10.2 字段 ② 缺字段 validator raise 测试(R3)。
+
+⑧ **剩余风险 / 诚实标注** — hyperparam_search 出 search log 非单个
+可晋升 artifact(§10.2 适用于 model artifact,已覆盖 3 个);freeze
+gate validator 接线交 S7(与 M9 freeze-model-hash 耦合);spec_id
+不含 governance(非破坏,留痕)。
+
+⑨ **下一轮建议** — Round 8 = S4(config-vs-code drift):
+ml_allocation/ml_labeling 声明的 cap/exit/residualize 要么实现要么标
+enabled:false(决策〇#1)。
+
+⑩ **TODO** — [x] S1 CLOSED · **S2 CLOSED** · [ ] S4/S5/S3/S7/S6。
+
+⑪ **commit** — `cbd6d18`(主)。
+
+<!-- Round 8 起在此行下方追加 -->
