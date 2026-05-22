@@ -323,4 +323,42 @@ turnover/min_edge/exit + 收口 · [ ] S5/S3/S7/S6。
 
 ⑪ **commit** — `ee18390`(主)。
 
-<!-- Round 9 起在此行下方追加 -->
+## Round 9 — S4:constraints.py — apply_turnover_cap 实现
+
+**时间**: 2026-05-22 · **主 commit**: `a504d49` · **测试基线**: 3947
+→ 3954(+7;test_constraints 7 passed)
+
+① **当前阶段** — Round 9 / S4 / turnover cap。
+
+② **本轮目标** — 实现 `turnover_cap_daily` enforcing 代码。
+
+③ **为什么先做它** — 用户〇#1 要实现 turnover;它是三个 pending 里
+最干净的(纯 weight-panel 变换)。
+
+④ **做了什么** — 新建 `core/research/allocation/constraints.py`(填补
+audit 指出的 constraints.py 缺口)+ `apply_turnover_cap`(per-bar
+partial-rebalance throttle:超 cap 只走 cap/turnover 比例,余量带下
+bar;bar 0 默认完整 initial entry)+7 单测。
+
+⑤ **改了哪些文件** — `core/research/allocation/constraints.py`(新)/
+`tests/unit/research/allocation/test_constraints.py`(新)。
+
+⑥ **跑了哪些测试 + 结果** — test_constraints 7 passed(empty/
+under-cap 不变/over-cap throttle/收敛/initial-entry/long-only/
+determinism);新模块无回归。
+
+⑦ **当前结果** — turnover cap enforcing 代码 + 测试就位;
+constraints.py 模块建立。
+
+⑧ **剩余风险** — 未接 harness → `turnover_cap_daily` 仍 pending_S4
+(诚实);min_edge/exit_policy 仍 pending。
+
+⑨ **下一轮建议** — Round 10 = `apply_turnover_cap` 接进
+portfolio_acceptance harness + 翻 enforced + cross-check 功能验证。
+
+⑩ **TODO** — [x] S1/S2 CLOSED · S4 config-honesty/turnover-impl ·
+[ ] S4 wire+min_edge+exit+收口 · [ ] S5/S3/S7/S6。
+
+⑪ **commit** — `a504d49`(主)。
+
+<!-- Round 10 起在此行下方追加 -->
