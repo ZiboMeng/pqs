@@ -1024,4 +1024,45 @@ walk-forward+embargo,小窗 smoke。
 
 ⑪ **commit** — `1196065`(主)。
 
-<!-- Round 25 起在此行下方追加 -->
+## Round 25 — P4:portfolio acceptance harness path A + path D(smoke)
+
+**时间**: 2026-05-22 · **主 commit**: `18414e3` · **测试基线**: 3864
+(仅新增 driver)
+
+① **当前阶段** — Round 25 / Package P4 / harness 主体。
+
+② **本轮目标** — 建 `portfolio_acceptance.py`:path A(non-ML
+composite)+ path D(XGBRanker ranker-to-portfolio)端到端。
+
+③ **为什么先做它** — R24 定了 P4 新建 harness;path D 是 P4 新核心。
+
+④ **做了什么** — 新建 `portfolio_acceptance.py`:复用 `_load_panel`
++ `score_panel_to_weights` + `portfolio_metrics` + `XGBRankerRankModel`。
+path A = cycle06 composite rank → 权重 → metrics;path D = XGBRanker
+(rank:ndcg)train 60%/predict 40% → 权重 → metrics;verdict = D 是否
+Sharpe+MaxDD 双 beat A。输出 `ml_rank_portfolio_acceptance_*.json`。
+
+⑤ **改了哪些文件** — `dev/scripts/ml/portfolio_acceptance.py`(新)/
+`data/audit/ml_rank_portfolio_acceptance_20260522T003729Z.json`(新)。
+
+⑥ **跑了哪些测试 + 结果** — harness smoke(2012-2017 train-only)
+exit 0 端到端:path A Sharpe 1.72/MaxDD -17.9%,path D Sharpe 2.16/
+MaxDD -13.1%,smoke verdict PASS。
+
+⑦ **当前结果** — P4 harness 端到端跑通,产出 A-vs-D 对比。
+
+⑧ **剩余风险 / 诚实 caveat** — smoke PASS **不是真验收**:single
+train/test split、train-only 窗、gross 收益无交易成本、未跑
+DSR/PBO、仅 cycle06 features。数字是 gross,encouraging 但不可当
+verdict。非协议四停点(smoke 是 PASS 非 ML-fail)。
+
+⑨ **下一轮建议** — Round 26 = harness 升级 full multi-fold
+walk-forward + 2x cost + §9.6 DSR/PBO + §12.3 gate + P4 收口;若
+path D 不再双 beat A 则按协议四 #2 停。
+
+⑩ **TODO** — [x] R0/P0/P1/P2/P3 CLOSED · P4 metrics/harness-smoke ·
+[ ] P4 full+cost+DSR/PBO+收口 · [ ] P5/P6。
+
+⑪ **commit** — `18414e3`(主)。
+
+<!-- Round 26 起在此行下方追加 -->
