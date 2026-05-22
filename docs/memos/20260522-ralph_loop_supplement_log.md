@@ -519,4 +519,42 @@ harness + exit_policy→enforced + S4 收口。
 
 ⑪ **commit** — `fa57098`(主)。
 
-<!-- Round 14 起在此行下方追加 -->
+## Round 14 — S4 收口:exit_policy 接进 harness(S4 CLOSED)
+
+**时间**: 2026-05-22 · **主 commit**: `c8d2935` · **测试基线**: 3971
++ 1(allocation 58 passed)
+
+① **当前阶段** — Round 14 / S4 / 收口。
+
+② **本轮目标** — exit_policy 接 harness,翻 enforced,关 S4。
+
+③ **为什么先做它** — exit_policy 是最后一个 pending_S4。
+
+④ **做了什么** — `portfolio_acceptance._weights` 加
+`apply_signal_decay_exit` + `apply_turnover_band`;`ml_allocation.yaml`
+exit_policy→enforced(+子规则注释);test_enforcement_status 加
+exit_policy 功能验证 + pending 集断言为空。
+
+⑤ **改了哪些文件** — `portfolio_acceptance.py` / `ml_allocation.yaml`
+/ `test_enforcement_status.py` / 新 acceptance json。
+
+⑥ **跑了哪些测试 + 结果** — allocation 58 passed;**R3 harness 全
+约束集实跑**:path D Sharpe 0.81 / MaxDD **-19.17%** / verdict PASS
+—— signal_decay 把 MaxDD -20.84%→-19.17% 拉回 20% 内。
+
+⑦ **当前结果** — **S4 CLOSED**。§12.3 gate 满足:cross-check 测试守
+住、master P3「no silent unenforced control」literally true。最终
+状态:enforced 8 / roadmap 6 / disabled 1 / pending 0。
+
+⑧ **剩余风险 / 诚实标注** — min_edge_to_trade=roadmap(R12 whipsaw
+root-caused);exit_policy 实现 2/5 class(time_based auto、
+risk_off/reentry roadmap,显式);全约束集 path D Sharpe 1.29→0.81、
+MaxDD -19.17% 贴 20% 线 → S6 真 OOS 仍有 FAIL 风险。
+
+⑨ **下一轮建议** — Round 15 = S5(§9.6 overfit-control 修正)。
+
+⑩ **TODO** — [x] S1/S2/**S4 CLOSED** · [ ] S5/S3/S7/S6。
+
+⑪ **commit** — `c8d2935`(主)。
+
+<!-- Round 15 起在此行下方追加 -->
