@@ -202,4 +202,44 @@ governance(含 portfolio-tier 字段)。
 
 ⑪ **commit** — `0d51854`(主)。
 
-<!-- Round 6 起在此行下方追加 -->
+## Round 6 — S2:portfolio_acceptance harness 嵌 §10.2 governance
+
+**时间**: 2026-05-22 · **主 commit**: `b652e7a` · **测试基线**: 3940
+（test_artifact 33;R3 实跑)
+
+① **当前阶段** — Round 6 / S2 / acceptance harness governance。
+
+② **本轮目标** — `portfolio_acceptance.py` 输出嵌 §10.2 governance
+(portfolio-tier)+ 写前 fail-closed 校验。
+
+③ **为什么先做它** — S2 required-work 含 acceptance harness;它是
+promote-decision artifact。
+
+④ **做了什么** — `validate_artifact_governance` 改 polymorphic(也接
+bare ArtifactGovernance);`portfolio_acceptance.py` 加
+`_acceptance_governance`(always 11 + portfolio-tier 7,dsr/pbo 取
+真值)+ 写前 `validate(is_portfolio=True)` fail-closed +
+`out["governance"]`。
+
+⑤ **改了哪些文件** — `core/research/ml/artifact.py` /
+`dev/scripts/ml/portfolio_acceptance.py` / 新 acceptance json。
+
+⑥ **跑了哪些测试 + 结果** — test_artifact 33 passed;R3 实跑
+portfolio_acceptance exit 0、verdict PASS、输出带 governance(
+portfolio-tier 全填、dsr 0.893/pbo 0.135)、写前 fail-closed 通过。
+
+⑦ **当前结果** — acceptance harness 产出带全 §10.2 portfolio-tier
+governance。
+
+⑧ **剩余风险 / S2 未尽** — sign driver 未 populate §10.2;freeze gate
+未调 validator(S7 耦合)。
+
+⑨ **下一轮建议** — Round 7 = sign driver §10.2 + S2 §12.3 gate 核对
++ S2 收口。
+
+⑩ **TODO** — [x] S1 CLOSED · S2 schema/validator/工厂/rank/acceptance
+· [ ] S2 sign-driver+收口 · [ ] S4/S5/S3/S7/S6。
+
+⑪ **commit** — `b652e7a`(主)。
+
+<!-- Round 7 起在此行下方追加 -->
