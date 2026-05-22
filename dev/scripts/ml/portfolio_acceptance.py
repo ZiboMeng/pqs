@@ -35,6 +35,7 @@ PROJ = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJ))
 sys.path.insert(0, str(PROJ / "dev/scripts/ml"))
 
+import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import yaml  # noqa: E402
 
@@ -52,6 +53,10 @@ from core.research.ml.pipeline import (  # noqa: E402
 )
 from core.research.ml.xgb_rank_model import XGBRankerRankModel  # noqa: E402
 from core.research.ml.lgbm_rank_model import LGBMRankerRankModel  # noqa: E402
+from core.research.ml.sign_classifier import (  # noqa: E402
+    XGBSignClassifier,
+    compute_binary_sign_labels,
+)
 from core.research.allocation.score_to_weight import (  # noqa: E402
     score_panel_to_weights,
 )
@@ -91,6 +96,33 @@ def _rebalance(w: pd.DataFrame, step: int) -> pd.DataFrame:
     if step <= 1:
         return w
     return w.iloc[::step].reindex(w.index).ffill().fillna(0.0)
+
+
+def _stack_for_sign(feats: dict, label_panel: pd.DataFrame):
+    """Stack (date,symbol) cells that have every feature + a label, for
+    sign-classifier fit/predict. Returns (X, y, row_index) where
+    row_index is the list of (date,symbol) so a flat prediction can be
+    un-stacked back into a panel (S7 — path B sign-veto sidecar)."""
+    fnames = sorted(feats.keys())
+    X, y, idx = [], [], []
+    for d in label_panel.index:
+        for s in label_panel.columns:
+            lv = label_panel.at[d, s]
+            if pd.isna(lv):
+                continue
+            vec, ok = [], True
+            for fn in fnames:
+                p = feats[fn]
+                if (d not in p.index or s not in p.columns
+                        or pd.isna(p.at[d, s])):
+                    ok = False
+                    break
+                vec.append(float(p.at[d, s]))
+            if ok:
+                X.append(vec)
+                y.append(int(lv))
+                idx.append((d, s))
+    return np.asarray(X, float), np.asarray(y, float), idx
 
 
 def _port_ret(weights: pd.DataFrame, close: pd.DataFrame) -> pd.Series:
@@ -261,6 +293,10 @@ def main() -> int:
                                         random_state=args.seed),
         }
     rank_parts: dict = {k: [] for k in _rankers()}
+    # S7 path B — sign-veto sidecar: a sign classifier trained per fold,
+    # its negative-prediction names vetoed out of the path-A book.
+    sign_labels = compute_binary_sign_labels(close, args.horizon_days)
+    sign_parts: list = []
     for fold in iter_folds(wf, DEFAULT_SEALED_YEARS,
                            trading_index=close.index):  # audit C1: exact embargo
         tr_feats = {f: p.loc[(p.index >= fold.train_start)
@@ -274,10 +310,31 @@ def main() -> int:
         for name, model in _rankers().items():
             model.fit(tr_feats, tr_labels)
             rank_parts[name].append(model.predict_rank(va_feats))
+        # path B: sign classifier on the SAME fold (cycle06 features →
+        # binary forward-return sign). Predicts a per-(date,symbol) sign
+        # over the val period; negative → vetoed.
+        va_dates = next(iter(va_feats.values())).index
+        sign_fold = pd.DataFrame(np.nan, index=va_dates,
+                                 columns=close.columns)
+        tr_sign = sign_labels.loc[(sign_labels.index >= fold.train_start)
+                                  & (sign_labels.index <= fold.train_end)]
+        Xs, ys, _ = _stack_for_sign(tr_feats, tr_sign)
+        if len(ys) > 50 and len(set(ys.tolist())) > 1:
+            sm = XGBSignClassifier(n_estimators=50, max_depth=3,
+                                   random_state=args.seed)
+            sm.fit(Xs, ys)
+            dummy = pd.DataFrame(0, index=va_dates, columns=close.columns)
+            Xv, _, idxv = _stack_for_sign(va_feats, dummy)
+            if len(Xv):
+                pv = sm.predict(Xv)
+                for (d, s), p in zip(idxv, pv):
+                    sign_fold.at[d, s] = int(p)
+        sign_parts.append(sign_fold)
     if not rank_parts["xgb"]:
         raise RuntimeError("no walk-forward folds — widen the window")
     ranks = {k: pd.concat(v).sort_index() for k, v in rank_parts.items()}
     rank_d = ranks["xgb"]               # the promoted ranker
+    sign_pred = pd.concat(sign_parts).sort_index()   # path B veto signal
     n_folds = len(rank_parts["xgb"])
 
     # path A composite over the SAME concatenated OOS dates (apples-to-apples)
@@ -306,6 +363,14 @@ def main() -> int:
 
     weights_a = _weights(rank_a, mode_a)
     weights_d = _weights(rank_d, mode_d, args.vol_target)
+    # S7 path B/C — sign-veto sidecar: the path-A book with names the
+    # per-fold sign classifier predicts negative vetoed to cash. The
+    # harness applies the same constraint set (incl. partial-rebalance
+    # turnover cap) to every path, so "B" (sidecar) and "C" (sidecar +
+    # partial rebalance) collapse to one panel — reported as path B/C.
+    veto_keep = sign_pred.reindex(index=weights_a.index,
+                                  columns=weights_a.columns) != 0
+    weights_bc = weights_a.where(veto_keep, 0.0)
     # §9.6 PBO needs the full config sweep explored to land on path D
     # S5: model-DIVERSE PBO sweep — composite + 3 genuinely-different
     # model families (not 4 cosmetic XGB-mapping re-skins).
@@ -316,9 +381,12 @@ def main() -> int:
         "D_lgbm": _weights(ranks["lgbm"], "top_k_capped"),
     }
 
-    # cost-sensitivity: 0 / 30 / 60 bps per-unit-turnover
+    # cost-sensitivity: 0 / 30 / 60 bps per-unit-turnover. All 4 paths
+    # (A non-ML / B-C sign-veto sidecar / D ranker) on the SAME
+    # walk-forward slices (S7 — master §9.2 4-path on identical slices).
     paths = {}
     for label, w in (("path_A_non_ml_composite", weights_a),
+                     ("path_BC_sign_veto_sidecar", weights_bc),
                      ("path_D_xgb_ranker_ndcg", weights_d)):
         paths[label] = {
             f"cost_{c}bps": portfolio_metrics(
@@ -367,7 +435,8 @@ def main() -> int:
     validate_artifact_governance(governance, is_portfolio=True)
     out["governance"] = asdict(governance)
     out_path.write_text(json.dumps(out, indent=2))
-    for label in ("path_A_non_ml_composite", "path_D_xgb_ranker_ndcg"):
+    for label in ("path_A_non_ml_composite", "path_BC_sign_veto_sidecar",
+                  "path_D_xgb_ranker_ndcg"):
         m = paths[label]["cost_30bps"]
         print(f"  {label} @30bps: Sharpe={m['annualized_sharpe']} "
               f"MaxDD={m['max_drawdown']} cum={m['cum_return']} "
