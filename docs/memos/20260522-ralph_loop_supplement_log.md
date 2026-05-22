@@ -163,4 +163,43 @@ driver populate + freeze 接线 + 收口 · [ ] S4/S5/S3/S7/S6。
 
 ⑪ **commit** — `bde105e`(主)。
 
-<!-- Round 5 起在此行下方追加 -->
+## Round 5 — S2:walk_forward_rank_sign 组装 §10.2 ArtifactGovernance
+
+**时间**: 2026-05-22 · **主 commit**: `0d51854` · **测试基线**: 3940
+（仅改 driver；R3 实跑验证)
+
+① **当前阶段** — Round 5 / S2 / driver populate。
+
+② **本轮目标** — rank driver 组装 + 传 ArtifactGovernance。
+
+③ **为什么先做它** — schema/validator/工厂参数就位,让真 driver
+populate 真值。
+
+④ **做了什么** — 新增 `_rank_artifact_governance` helper 组装 §10.2
+真值(source_tiers=A_market_data 诚实只记实际消费的、label_mode=
+forward_return、sample_weight_mode=uniform 诚实标 S3 前、purge_embargo
+trading_bars、config_hash、objective per-model、trial_count);
+make_artifact_metadata 调用传 governance。
+
+⑤ **改了哪些文件** — `dev/scripts/ml/walk_forward_rank_sign.py`。
+
+⑥ **跑了哪些测试 + 结果** — R3 实跑:`--model xgb --save` 跑
+2010-2016 → `load_artifact` 重载 governance present=True、11 字段
+全真值、`validate_artifact_governance` PASS。
+
+⑦ **当前结果** — rank driver artifact 带全 §10.2 governance 且过
+validator。
+
+⑧ **剩余风险 / S2 未尽** — sign driver + portfolio_acceptance harness
+未 populate §10.2;freeze gate 未在 promote 时调 validator(与 S7
+freeze-model-hash 耦合)。
+
+⑨ **下一轮建议** — Round 6 = portfolio_acceptance harness 嵌 §10.2
+governance(含 portfolio-tier 字段)。
+
+⑩ **TODO** — [x] S1 CLOSED · S2 schema/validator/工厂/rank-driver ·
+[ ] S2 portfolio_acceptance+sign-driver+收口 · [ ] S4/S5/S3/S7/S6。
+
+⑪ **commit** — `0d51854`(主)。
+
+<!-- Round 6 起在此行下方追加 -->
