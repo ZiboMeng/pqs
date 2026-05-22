@@ -1,0 +1,34 @@
+{
+  "prd": "docs/prd/20260521-rerisk-and-ml-training-audit-prd.md \u00a712.3 P3",
+  "allocation_config": "config/ml_allocation.yaml",
+  "panel_shape": [
+    40,
+    30
+  ],
+  "single_name_cap": 0.4,
+  "modes": {
+    "top_k_capped": {
+      "deterministic": true,
+      "long_only": true,
+      "cap_respected": true,
+      "max_single_weight": 0.1,
+      "max_gross": 1.0
+    },
+    "score_proportional_clipped": {
+      "deterministic": true,
+      "long_only": true,
+      "cap_respected": true,
+      "max_single_weight": 0.132598,
+      "max_gross": 1.0
+    },
+    "score_vol_scaled": {
+      "deterministic": true,
+      "long_only": true,
+      "cap_respected": true,
+      "max_single_weight": 0.251612,
+      "max_gross": 1.0
+    }
+  },
+  "p3_gate_all_modes_deterministic_and_cap_safe": true,
+  "generated_utc": "20260522T002854Z"
+}
