@@ -71,3 +71,34 @@ class TestPortfolioMetrics:
         close, idx, syms = _panel()
         w = pd.DataFrame(1.0 / 3, index=idx, columns=syms)
         assert portfolio_metrics(w, close) == portfolio_metrics(w, close)
+
+
+class TestCostSensitivity:
+    def test_zero_cost_is_bit_identical(self):
+        close, idx, syms = _panel()
+        w = pd.DataFrame(1.0 / 3, index=idx, columns=syms)
+        gross = portfolio_metrics(w, close)
+        cost0 = portfolio_metrics(w, close, cost_bps=0.0)
+        assert gross["cum_return"] == cost0["cum_return"]
+        assert gross["annualized_sharpe"] == cost0["annualized_sharpe"]
+
+    def test_cost_reduces_return(self):
+        """A turning-over portfolio earns less net of cost."""
+        close, idx, syms = _panel()
+        w = pd.DataFrame(0.0, index=idx, columns=syms)
+        # alternate the held name every 5 bars → real turnover
+        for i, d in enumerate(idx):
+            w.loc[d, syms[(i // 5) % len(syms)]] = 1.0
+        gross = portfolio_metrics(w, close, cost_bps=0.0)
+        net = portfolio_metrics(w, close, cost_bps=60.0)
+        assert net["cum_return"] < gross["cum_return"]
+        assert net["cost_bps"] == 60.0
+
+    def test_no_turnover_cost_free(self):
+        """A static (zero-turnover) book is unaffected by cost_bps."""
+        close, idx, syms = _panel()
+        w = pd.DataFrame(0.0, index=idx, columns=syms)
+        w["S0"] = 1.0                       # held the whole window, no churn
+        gross = portfolio_metrics(w, close, cost_bps=0.0)
+        net = portfolio_metrics(w, close, cost_bps=100.0)
+        assert net["cum_return"] == pytest.approx(gross["cum_return"], abs=1e-9)

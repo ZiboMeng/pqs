@@ -23,6 +23,7 @@ def portfolio_metrics(
     daily_weights: pd.DataFrame,
     close: pd.DataFrame,
     benchmark: pd.Series | None = None,
+    cost_bps: float = 0.0,
 ) -> dict:
     """Acceptance metrics from a daily target-weight panel.
 
@@ -30,20 +31,28 @@ def portfolio_metrics(
         daily_weights: (date × symbol) long-only target weights
         close: (date × symbol) adjusted close, covering the weight span
         benchmark: optional benchmark close series for vs-bench excess
+        cost_bps: per-unit-turnover transaction cost in bps. 0.0 (default)
+            = gross returns, bit-identical to the pre-cost behaviour;
+            > 0 subtracts `turnover_t * cost_bps/1e4` from each bar's
+            return (cost-sensitivity for P4 acceptance).
 
     Returns dict: cum_return / annualized_sharpe / annualized_vol /
-    max_drawdown / turnover_mean / n_periods (+ vs_benchmark_excess_cum
-    when a benchmark is given).
+    max_drawdown / turnover_mean / n_periods / cost_bps
+    (+ vs_benchmark_excess_cum when a benchmark is given).
     """
     if daily_weights.empty:
         return {"cum_return": 0.0, "annualized_sharpe": 0.0,
                 "annualized_vol": 0.0, "max_drawdown": 0.0,
-                "turnover_mean": 0.0, "n_periods": 0}
+                "turnover_mean": 0.0, "n_periods": 0,
+                "cost_bps": float(cost_bps)}
     cols = [c for c in daily_weights.columns if c in close.columns]
     rets = close[cols].reindex(daily_weights.index).pct_change().fillna(0.0)
     # shift weights by one bar — weight set at T earned over T+1 (no lookahead)
     shifted = daily_weights[cols].shift(1).fillna(0.0)
     port_ret = (shifted * rets).sum(axis=1)
+    turnover_bar = daily_weights[cols].fillna(0.0).diff().abs().sum(axis=1)
+    if cost_bps > 0.0:
+        port_ret = port_ret - turnover_bar * (cost_bps / 10_000.0)
     nav = (1.0 + port_ret).cumprod()
     ann_ret = float(port_ret.mean()) * 252.0
     ann_vol = float(port_ret.std()) * np.sqrt(252.0)
@@ -51,8 +60,7 @@ def portfolio_metrics(
     cum = float(nav.iloc[-1] - 1.0)
     dd = (nav - nav.cummax()) / nav.cummax()
     max_dd = float(dd.min())
-    turnover = float(
-        daily_weights[cols].fillna(0.0).diff().abs().sum(axis=1).mean())
+    turnover = float(turnover_bar.mean())
     out = {
         "cum_return": round(cum, 4),
         "annualized_sharpe": round(sharpe, 4),
@@ -60,6 +68,7 @@ def portfolio_metrics(
         "max_drawdown": round(max_dd, 4),
         "turnover_mean": round(turnover, 4),
         "n_periods": int(len(port_ret)),
+        "cost_bps": float(cost_bps),
     }
     if benchmark is not None:
         b = benchmark.reindex(daily_weights.index).dropna()
