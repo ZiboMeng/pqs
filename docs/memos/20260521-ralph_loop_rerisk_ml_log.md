@@ -1112,4 +1112,46 @@ operator 推荐 B。
 
 **STOPPED — NEEDS USER DECISION**:P4 path D vs baseline FAIL on MaxDD。
 
-<!-- Round 27 起在此行下方追加 -->
+## Round 27 — P4 Option B attempt 1:vol-scaled path D(不够)
+
+**时间**: 2026-05-22 · **主 commit**: `42f7e5e` · **测试基线**: 3864
+
+① **当前阶段** — Round 27 / Package P4 / Option B(用户「按推荐走」授权)。
+
+② **本轮目标** — Option B 第一招:path D 用 score_vol_scaled mapping
+重跑,看能否压 MaxDD 过 strict gate。
+
+③ **为什么先做它** — 用户回「按推荐走」= Option B;vol-scaled mapping
+是最便宜第一招。
+
+④ **做了什么** — harness 加 `--mode-a/--mode-d` + realized-vol panel
++ score_vol_scaled 传 vol_df;跑 `--mode-d score_vol_scaled`。删 R26
+daily-rebalance buggy 中间产物。
+
+⑤ **改了哪些文件** — `dev/scripts/ml/portfolio_acceptance.py` /
+`data/audit/ml_rank_portfolio_acceptance_20260522T005355Z.json`(新)。
+
+⑥ **跑了哪些测试 + 结果** — harness run:path A Sharpe 0.70/MaxDD
+-12.3%;path D vol-scaled Sharpe 1.11/MaxDD -18.0%/cum +56%(vs D
+plain 1.29/-18.9%/+84%)。
+
+⑦ **当前结果(non-blanket)** — Option B 第一招**不够**:vol-scaled
+mapping 把 MaxDD -18.9%→-18.0%(几乎没动),却掉 Sharpe/cum。
+root cause:score_vol_scaled 是 top-k 内部 inverse-vol 调权,不削
+系统性回撤;真杠杆 = `risk_scaling.target_vol` 敞口 overlay(config
+有、score_to_weight.py 未实现)。
+
+⑧ **剩余风险** — Option B 未尽;exposure overlay 是 B 的下一招;
+非新 user 停点(B 已授权,这是 B 内迭代)。
+
+⑨ **下一轮建议** — Round 28 = 实现 `risk_scaling` target_vol 敞口
+overlay(组合 vol>target 缩 gross 留 cash)+ 单测;Round 29 接 harness
+re-test。
+
+⑩ **TODO** — [x] R0/P0/P1/P2/P3 CLOSED · P4 verdict 决策=B · P4 B
+attempt 1 · [ ] P4 B attempt 2(target_vol overlay)[ ] P4 DSR/PBO+
+收口 · [ ] P5/P6。
+
+⑪ **commit** — `42f7e5e`(主)。
+
+<!-- Round 28 起在此行下方追加 -->
