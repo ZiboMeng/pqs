@@ -40,6 +40,7 @@ import yaml  # noqa: E402
 
 from walk_forward_rank_sign import _load_panel  # noqa: E402
 from core.research.ml.rank_model import (  # noqa: E402
+    LinearBaselineRankModel,
     _cross_sectional_rank,
     _cross_sectional_standardize,
 )
@@ -50,6 +51,7 @@ from core.research.ml.pipeline import (  # noqa: E402
     iter_folds,
 )
 from core.research.ml.xgb_rank_model import XGBRankerRankModel  # noqa: E402
+from core.research.ml.lgbm_rank_model import LGBMRankerRankModel  # noqa: E402
 from core.research.allocation.score_to_weight import (  # noqa: E402
     score_panel_to_weights,
 )
@@ -110,12 +112,13 @@ def _port_ret(weights: pd.DataFrame, close: pd.DataFrame) -> pd.Series:
 
 def _overfit_control(sweep: dict, close: pd.DataFrame,
                      n_trials: int) -> dict:
-    """PRD §9.6 — DSR-deflate the promoted path (D_plain) OOS return for
+    """PRD §9.6 — DSR-deflate the promoted path (D_xgb) OOS return for
     the acceptance trial count, plus a PBO check over the FULL config
     sweep. PBO via CSCV needs a genuine multi-config sweep — feeding it
-    just 2 paths is degenerate; `sweep` therefore carries every config
-    explored (A baseline + the 4 path-D variants). Reuses the project's
-    overfit-control modules — never re-implements."""
+    just 2 paths is degenerate; `sweep` carries the composite baseline +
+    3 genuinely-different model families (XGB / Linear / LGBM), so the
+    PBO matrix is model-DIVERSE, not cosmetic re-skins (supplement S5).
+    Reuses the project's overfit-control modules — never re-implements."""
     from core.research.overfit_metrics import deflated_sharpe_ratio
     from core.research.mining_pbo import compute_mining_pbo
     daily = {name: _port_ret(w, close) for name, w in sweep.items()}
@@ -123,12 +126,12 @@ def _overfit_control(sweep: dict, close: pd.DataFrame,
                for name, r in daily.items()}
     out = {"n_trials": int(n_trials),
            "sweep_configs": list(sweep.keys()),
-           "selection": "P4 acceptance config sweep → promoted = D_plain"}
+           "selection": "P4 acceptance config sweep → promoted = D_xgb"}
     try:
-        out["dsr_promoted_D_plain"] = deflated_sharpe_ratio(
-            daily["D_plain"].tolist(), n_trials=int(n_trials))
+        out["dsr_promoted_D_xgb"] = deflated_sharpe_ratio(
+            daily["D_xgb"].tolist(), n_trials=int(n_trials))
     except Exception as exc:  # noqa: BLE001
-        out["dsr_promoted_D_plain"] = {"error": f"{type(exc).__name__}: {exc}"}
+        out["dsr_promoted_D_xgb"] = {"error": f"{type(exc).__name__}: {exc}"}
     # PBO — (months × n_configs) monthly-return matrix via CSCV
     M = pd.concat([monthly[n] for n in sweep], axis=1).dropna().to_numpy()
     out["pbo"] = compute_mining_pbo(M)
@@ -146,7 +149,7 @@ def _acceptance_governance(args, mode_d, top_k, cap, overfit,
     for rel in ("config/ml_sources.yaml", "config/ml_labeling.yaml",
                 "config/ml_allocation.yaml", "config/temporal_split.yaml"):
         h.update((PROJ / rel).read_bytes())
-    dsr = (overfit.get("dsr_promoted_D_plain") or {}).get("deflated_sharpe")
+    dsr = (overfit.get("dsr_promoted_D_xgb") or {}).get("deflated_sharpe")
     pbo = (overfit.get("pbo") or {}).get("pbo")
     vt = args.vol_target
     return ArtifactGovernance(
@@ -244,7 +247,20 @@ def main() -> int:
         start_year=args.start_year, end_year=args.end_year,
         train_window_years=3, val_window_years=1, step_years=1,
         embargo_days=args.horizon_days)   # P1 §8.2 purge+embargo
-    rank_d_parts = []
+    # S5: train 3 genuinely-different model families per fold — XGB is
+    # the promoted ranker; Linear + LGBM make the §9.6 PBO sweep
+    # model-DIVERSE (the prior sweep was 4 cosmetic XGB-mapping re-skins
+    # → collinear → optimistic PBO).
+    def _rankers():
+        return {
+            "xgb": XGBRankerRankModel(objective="rank:ndcg",
+                                      n_estimators=50, max_depth=4,
+                                      random_state=args.seed),
+            "linear": LinearBaselineRankModel(),
+            "lgbm": LGBMRankerRankModel(n_estimators=50, max_depth=4,
+                                        random_state=args.seed),
+        }
+    rank_parts: dict = {k: [] for k in _rankers()}
     for fold in iter_folds(wf, DEFAULT_SEALED_YEARS,
                            trading_index=close.index):  # audit C1: exact embargo
         tr_feats = {f: p.loc[(p.index >= fold.train_start)
@@ -255,14 +271,14 @@ def main() -> int:
         va_feats = {f: p.loc[(p.index >= fold.val_start)
                              & (p.index <= fold.val_end)]
                     for f, p in feats.items()}
-        model = XGBRankerRankModel(objective="rank:ndcg", n_estimators=50,
-                                   max_depth=4, random_state=args.seed)
-        model.fit(tr_feats, tr_labels)
-        rank_d_parts.append(model.predict_rank(va_feats))
-    if not rank_d_parts:
+        for name, model in _rankers().items():
+            model.fit(tr_feats, tr_labels)
+            rank_parts[name].append(model.predict_rank(va_feats))
+    if not rank_parts["xgb"]:
         raise RuntimeError("no walk-forward folds — widen the window")
-    rank_d = pd.concat(rank_d_parts).sort_index()
-    n_folds = len(rank_d_parts)
+    ranks = {k: pd.concat(v).sort_index() for k, v in rank_parts.items()}
+    rank_d = ranks["xgb"]               # the promoted ranker
+    n_folds = len(rank_parts["xgb"])
 
     # path A composite over the SAME concatenated OOS dates (apples-to-apples)
     rank_a = _stage1_composite_rank(factors, CYCLE06).reindex(rank_d.index)
@@ -291,12 +307,13 @@ def main() -> int:
     weights_a = _weights(rank_a, mode_a)
     weights_d = _weights(rank_d, mode_d, args.vol_target)
     # §9.6 PBO needs the full config sweep explored to land on path D
+    # S5: model-DIVERSE PBO sweep — composite + 3 genuinely-different
+    # model families (not 4 cosmetic XGB-mapping re-skins).
     sweep = {
         "A_composite": _weights(rank_a, "top_k_capped"),
-        "D_plain": _weights(rank_d, "top_k_capped"),
-        "D_volscaled": _weights(rank_d, "score_vol_scaled"),
-        "D_vt010": _weights(rank_d, "top_k_capped", 0.10),
-        "D_vt015": _weights(rank_d, "top_k_capped", 0.15),
+        "D_xgb": _weights(ranks["xgb"], "top_k_capped"),
+        "D_linear": _weights(ranks["linear"], "top_k_capped"),
+        "D_lgbm": _weights(ranks["lgbm"], "top_k_capped"),
     }
 
     # cost-sensitivity: 0 / 30 / 60 bps per-unit-turnover
@@ -355,11 +372,11 @@ def main() -> int:
         print(f"  {label} @30bps: Sharpe={m['annualized_sharpe']} "
               f"MaxDD={m['max_drawdown']} cum={m['cum_return']} "
               f"turnover={m['turnover_mean']}")
-    dsr = overfit.get("dsr_promoted_D_plain", {})
+    dsr = overfit.get("dsr_promoted_D_xgb", {})
     print(f"  verdict={verdict} (sharpe_beat={sharpe_beat} "
           f"maxdd_within_invariant={maxdd_within_invariant})")
     print(f"  §9.6: n_trials={overfit['n_trials']} "
-          f"dsr(D_plain)={dsr.get('deflated_sharpe')} "
+          f"dsr(D_xgb)={dsr.get('deflated_sharpe')} "
           f"pbo(sweep×{len(overfit['sweep_configs'])})="
           f"{overfit['pbo'].get('pbo')}")
     print(f"  → {out_path}")
