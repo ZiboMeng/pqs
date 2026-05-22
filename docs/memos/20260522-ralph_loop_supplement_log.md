@@ -666,4 +666,43 @@ S5 收口。
 
 ⑪ **commit** — `ff80503`(主)。
 
-<!-- Round 18 起在此行下方追加 -->
+## Round 18 — S5 收口:trial-ledger memo + freeze-gate overfit-validity
+
+**时间**: 2026-05-22 · **主 commit**: `cc98537` · **测试基线**: 3978
++ 5(test_freeze_bundle 12 passed)
+
+① **当前阶段** — Round 18 / S5 / 收口。
+
+② **本轮目标** — trial-ledger memo + freeze gate overfit-validity 检查,
+关 S5。
+
+③ **为什么先做它** — R15-17 修了 O1 三子问题;余下 = memo +
+freeze-gate validity。
+
+④ **做了什么** — 新建 `20260522-ml-trial-ledger.md`(记录 ledger /
+n_trials 喂 DSR / 维护规则 / caveat);`freeze_bundle.py` 加
+`_overfit_control_valid`(n_trials≥2+finite DSR+finite PBO),
+`build_freeze_bundle` degenerate 块不得过 gate;test_freeze_bundle
++5 validity 测试。
+
+⑤ **改了哪些文件** — `20260522-ml-trial-ledger.md`(新)/
+`freeze_bundle.py` / `test_freeze_bundle.py`。
+
+⑥ **跑了哪些测试 + 结果** — test_freeze_bundle 12 passed(+5)、
+test_artifact 33 passed 无回归。
+
+⑦ **当前结果** — **S5 CLOSED**。§9.6 gate 三项:① DSR/PBO inputs
+valid(DSR 喂真收益/n_trials ledger/PBO model-diverse)② memo 记录
+ledger ③ freeze gate 检 overfit valid 非仅存在。
+
+⑧ **剩余风险 / 诚实标注** — trial ledger 手工 curate(caveat 已写
+memo);rank-IC t-stat 不做 n_trials 反通缩(t-stat 正确,Bonferroni
+留下游)。
+
+⑨ **下一轮建议** — Round 19 = Package S3(P2/P4 命名产物 + 4-path)。
+
+⑩ **TODO** — [x] S1/S2/S4/**S5 CLOSED** · [ ] S3/S7/S6。
+
+⑪ **commit** — `cc98537`(主)。
+
+<!-- Round 19 起在此行下方追加 -->
