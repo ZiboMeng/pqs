@@ -705,4 +705,40 @@ memo);rank-IC t-stat 不做 n_trials 反通缩(t-stat 正确,Bonferroni
 
 ⑪ **commit** — `cc98537`(主)。
 
-<!-- Round 19 起在此行下方追加 -->
+## Round 19 — S3/R2:sample_weight.py — 4-component 乘性加权实现
+
+**时间**: 2026-05-22 · **主 commit**: `60a0777` · **测试基线**: 3983
+→ 3993(+10;test_sample_weight 10 passed)
+
+① **当前阶段** — Round 19 / S3(R2 sample-weighting)。
+
+② **本轮目标** — 实现 master §8.2 canonical multiplicative sample
+weight。
+
+③ **为什么先做它** — S5 后是 S3;R2 是 audit HIGH 遗漏(prior 0 加权)。
+
+④ **做了什么** — 新建 `core/research/ml/sample_weight.py`:
+`uniqueness × liquidity × volatility × freshness`(uniqueness 复用
+concurrency_weights;liquidity 截面归一成交量;volatility inverse-vol
+winsorized §3.3;freshness 指数 recency)。`COMPONENT_FORMULAS` 供
+§8.4 auditability。+10 单测。
+
+⑤ **改了哪些文件** — `core/research/ml/sample_weight.py`(新)/
+`test_sample_weight.py`(新)。
+
+⑥ **跑了哪些测试 + 结果** — test_sample_weight 10 passed;新模块无回归。
+
+⑦ **当前结果** — 4-component 乘性样本加权代码+测试就位。
+
+⑧ **剩余风险** — 未接训练 driver(R20);§8.3 default-on + flag、
+§8.4 artifact 记录待 R20 接线落实。
+
+⑨ **下一轮建议** — Round 20 = sample_weight 接进 sign classifier
+训练(默认开,`--no-sample-weight` flag,artifact 记 weight 统计)。
+
+⑩ **TODO** — [x] S1/S2/S4/S5 CLOSED · S3 sample_weight 模块 ·
+[ ] S3 接 driver+收口 · [ ] S7/S6。
+
+⑪ **commit** — `60a0777`(主)。
+
+<!-- Round 20 起在此行下方追加 -->
