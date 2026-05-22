@@ -824,4 +824,47 @@ mining_pbo)+ P2 收口。
 
 ⑪ **commit** — `418d50c`(主)。
 
-<!-- Round 20 起在此行下方追加 -->
+## Round 20 — P2 收口:§9.6 overfit control(DSR/PBO)— P2 CLOSED
+
+**时间**: 2026-05-21 · **主 commit**: `975b17d` · **测试基线**: 3864
+(仅改 driver)
+
+① **当前阶段** — Round 20 / Package P2 / §9.6 + 收口。
+
+② **本轮目标** — 跨 model 选择接 §9.6(记 trial count + DSR/PBO),
+关闭 P2。
+
+③ **为什么先做它** — P2 §12.3 gate 余下一项 = cross-config 选择过
+DSR/PBO。
+
+④ **做了什么** — `walk_forward_rank_sign.py` 加
+`_overfit_control`:记 n_trials,选 best-IC model 跑
+`deflated_sharpe_ratio`,(folds×models) rank-IC 矩阵跑
+`compute_mining_pbo`;复用既有 overfit 模块不重造。
+
+⑤ **改了哪些文件** — `dev/scripts/ml/walk_forward_rank_sign.py`。
+
+⑥ **跑了哪些测试 + 结果** — `--model all` smoke exit 0:
+`_overfit_control` 块产出 n_trials=3、per-model mean rank-IC、
+DSR + PBO 均被调用。诚实标注:2-fold smoke 下 DSR=NaN / PBO
+"insufficient — NOT a pass" 是模块对周期过少的诚实正确输出,§9.6
+机器已接通,meaningful 数需 full 10-fold run。
+
+⑦ **当前结果** — **P2 CLOSED**。§12.3 gate 五项全满足:① canonical
+选定 ② XGBoost ranker 端到端 ③ LightGBM parity smoke ④ artifacts
+可比 ⑤ cross-config 选择记 trial count + DSR/PBO。
+
+⑧ **剩余风险** — DSR/PBO meaningful 数需 full 10-fold run(P4 范畴);
+residual-rank label 接 rank walk-forward 留 P4 一并接入(P2 外
+follow-up 留痕)。
+
+⑨ **下一轮建议** — Round 21 = Package P3(score-to-weight):建
+`config/ml_allocation.yaml`(score 归一化 / top-k / clipped / vol
+scaling / sector-beta neutralize / min-edge-to-trade)。
+
+⑩ **TODO** — [x] R0/P0/P1/**P2 CLOSED** · [ ] P3 score-to-weight
+[ ] P4 acceptance harness [ ] P5/P6。
+
+⑪ **commit** — `975b17d`(主)。
+
+<!-- Round 21 起在此行下方追加 -->
