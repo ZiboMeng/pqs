@@ -1198,4 +1198,45 @@ P4 收口。
 
 ⑪ **commit** — `5aee416`(主)。
 
-<!-- Round 29 起在此行下方追加 -->
+## Round 29 — P4 收口:§9.6 DSR/PBO(sweep 修正)— P4 CLOSED
+
+**时间**: 2026-05-22 · **主 commit**: `9b10edf` · **测试基线**: 3864
+
+① **当前阶段** — Round 29 / Package P4 / §9.6 + 收口。
+
+② **本轮目标** — §9.6 DSR/PBO 接 harness,核对 §12.3 gate,关闭 P4。
+
+③ **为什么先做它** — P4 verdict 已 PASS(R28);余下 gate = edge 过
+DSR/PBO。
+
+④ **做了什么** — harness 加 `_overfit_control` + `--n-trials`:DSR
+反通缩 D_plain OOS 日收益;PBO 跑 CSCV。**同轮抓+修误用**:首版
+PBO 只喂 2 path → pbo=1.0 退化无意义;修正为对真实 5-config sweep
+(A/D_plain/D_volscaled/D_vt010/D_vt015)跑 PBO。verdict gate 按
+用户 2026-05-22 更新(maxdd 在 20% 带内)。
+
+⑤ **改了哪些文件** — `portfolio_acceptance.py` /
+`ml_rank_portfolio_acceptance_20260522T014502Z.json`(新);删
+014045Z 退化中间产物。
+
+⑥ **跑了哪些测试 + 结果** — harness exit 0:verdict PASS;§9.6
+**DSR(D_plain,5 trials)= 0.926**(survives);**PBO(5-config
+sweep)= 0.067、red_flag False**(无过拟合红旗)。
+
+⑦ **当前结果** — **P4 CLOSED**。§12.3 gate 四项全满足:① ranker
+path 完成 full walk-forward acceptance ② artifact 含 mapping+cost
+③ promoted path PASS baseline gate ④ edge 过 DSR(0.926)+ PBO
+(0.067)。
+
+⑧ **剩余风险 / 待讨论项** — prompt §〇 #5 两待讨论项不阻塞;
+train-only 窗 + cycle06 features;DSR/PBO 基于 3-fold smoke 窗。
+
+⑨ **下一轮建议** — Round 30 = Package P5(promotion governance):
+先核查既有 promotion gate / production registry,不另造一套。
+
+⑩ **TODO** — [x] R0/P0/P1/P2/P3/**P4 CLOSED** · [ ] P5 promotion
+governance [ ] P6 expansion interfaces。
+
+⑪ **commit** — `9b10edf`(主)。
+
+<!-- Round 30 起在此行下方追加 -->
