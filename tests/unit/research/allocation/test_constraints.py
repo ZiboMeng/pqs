@@ -55,3 +55,43 @@ class TestApplyTurnoverCap:
         a = apply_turnover_cap(w, 0.3)
         b = apply_turnover_cap(w, 0.3)
         pd.testing.assert_frame_equal(a, b)
+
+
+from core.research.allocation.constraints import apply_min_edge_gate
+
+
+class TestApplyMinEdgeGate:
+    def test_empty_passthrough(self):
+        assert apply_min_edge_gate(pd.DataFrame(), pd.Series(dtype=float),
+                                   40.0).empty
+
+    def test_all_above_hurdle_unchanged(self):
+        w = _panel([[0.5, 0.5, 0.0], [0.4, 0.3, 0.3]])
+        edge = pd.Series([50.0, 60.0], index=w.index)
+        pd.testing.assert_frame_equal(apply_min_edge_gate(w, edge, 40.0), w)
+
+    def test_below_hurdle_bar_is_cash(self):
+        w = _panel([[0.5, 0.5, 0.0], [0.4, 0.3, 0.3], [1.0, 0.0, 0.0]])
+        edge = pd.Series([50.0, 20.0, 45.0], index=w.index)  # bar 1 < 40
+        out = apply_min_edge_gate(w, edge, 40.0)
+        assert out.iloc[1].sum() == 0.0          # bar 1 → cash
+        assert out.iloc[0].sum() > 0 and out.iloc[2].sum() > 0
+
+    def test_nan_edge_is_cash_fail_closed(self):
+        w = _panel([[0.5, 0.5, 0.0], [0.4, 0.3, 0.3]])
+        edge = pd.Series([float("nan"), 60.0], index=w.index)
+        out = apply_min_edge_gate(w, edge, 40.0)
+        assert out.iloc[0].sum() == 0.0          # NaN edge → cash
+        assert out.iloc[1].sum() > 0
+
+    def test_long_only_preserved(self):
+        w = _panel([[0.5, 0.5, 0.0], [0.4, 0.3, 0.3]])
+        edge = pd.Series([50.0, 50.0], index=w.index)
+        out = apply_min_edge_gate(w, edge, 40.0)
+        assert (out.to_numpy() >= -1e-12).all()
+
+    def test_deterministic(self):
+        w = _panel([[0.5, 0.5, 0.0], [0.4, 0.3, 0.3]])
+        edge = pd.Series([50.0, 20.0], index=w.index)
+        pd.testing.assert_frame_equal(apply_min_edge_gate(w, edge, 40.0),
+                                      apply_min_edge_gate(w, edge, 40.0))
