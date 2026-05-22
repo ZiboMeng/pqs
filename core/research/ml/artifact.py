@@ -50,6 +50,8 @@ __all__ = [
     "ArtifactSchemaError",
     "ArtifactSpecMismatchError",
     "SCHEMA_VERSION",
+    "ArtifactGovernance",
+    "validate_artifact_governance",
     "compute_spec_id",
     "compute_lineage_tag",
     "make_artifact_metadata",
@@ -74,6 +76,90 @@ class ArtifactSpecMismatchError(ArtifactError):
     This is tamper / corruption detection. Either the pickle was modified
     or the metadata was edited; the pair is no longer trustworthy.
     """
+
+
+@dataclass
+class ArtifactGovernance:
+    """PRD §10.2 governance metadata — mandated on every ML artifact
+    (supplement S2 / master §10.3 "no ML artifact can be promoted
+    without these fields").
+
+    Required fields have no default — an `ArtifactGovernance` cannot be
+    constructed without them. `validate_artifact_governance` additionally
+    fail-closes on empty values and on missing portfolio-tier fields.
+    """
+    # ── always required (§10.2) ──────────────────────────────────────
+    task_family: str
+    source_tiers: Tuple[str, ...]
+    label_mode: str
+    sample_weight_mode: str
+    purge_embargo: Dict[str, Any]
+    context_bundle: str
+    training_universe: str
+    model_family: str
+    objective: str
+    config_hash: str
+    trial_count: int
+    # ── §9.6 selection outcome — present once a cross-config select ran
+    dsr: Optional[float] = None
+    pbo: Optional[float] = None
+    # ── §10.2 conditional ────────────────────────────────────────────
+    score_to_weight_mode: Optional[str] = None
+    exit_policy_mode: Optional[str] = None
+    reused_native_components: bool = False
+    benchmark_relative_eval: Optional[Dict[str, Any]] = None
+    portfolio_acceptance_path: Optional[str] = None
+    # ── portfolio-level extras (§10.2) — required when is_portfolio ──
+    target_weight_mode: Optional[str] = None
+    risk_scaling_mode: Optional[str] = None
+    constraint_set_id: Optional[str] = None
+    cost_model_id: Optional[str] = None
+    execution_assumption_id: Optional[str] = None
+
+
+_REQUIRED_GOVERNANCE: Tuple[str, ...] = (
+    "task_family", "source_tiers", "label_mode", "sample_weight_mode",
+    "purge_embargo", "context_bundle", "training_universe", "model_family",
+    "objective", "config_hash", "trial_count",
+)
+_PORTFOLIO_GOVERNANCE: Tuple[str, ...] = (
+    "score_to_weight_mode", "target_weight_mode", "risk_scaling_mode",
+    "constraint_set_id", "cost_model_id", "execution_assumption_id",
+    "portfolio_acceptance_path",
+)
+
+
+def _gov_is_empty(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, (str, tuple, list, dict)):
+        return len(value) == 0
+    return False
+
+
+def validate_artifact_governance(
+    metadata: "ArtifactMetadata", *, is_portfolio: bool = False,
+) -> None:
+    """Fail-closed §10.2 check (supplement S2). Raises ArtifactSchemaError
+    if the governance block is absent or any mandated field is empty.
+
+    Call at promote / freeze time — an artifact missing §10.2 metadata
+    must NOT be promotable (master §10.3)."""
+    g = metadata.governance
+    if g is None:
+        raise ArtifactSchemaError(
+            "artifact has no §10.2 governance block; ML artifacts cannot "
+            "be promoted without it (supplement S2 / master §10.3).")
+    missing = [f for f in _REQUIRED_GOVERNANCE if _gov_is_empty(getattr(g, f))]
+    if not isinstance(g.trial_count, int) or g.trial_count < 1:
+        missing.append("trial_count(<1)")
+    if is_portfolio:
+        missing += [f for f in _PORTFOLIO_GOVERNANCE
+                    if _gov_is_empty(getattr(g, f))]
+    if missing:
+        raise ArtifactSchemaError(
+            f"§10.2 governance incomplete — empty/missing fields: "
+            f"{sorted(set(missing))} (is_portfolio={is_portfolio}).")
 
 
 @dataclass
@@ -104,6 +190,10 @@ class ArtifactMetadata:
     trained_at_utc: str
     lineage_tag: str
     spec_id: str
+    # §10.2 governance block (supplement S2). Optional at the dataclass
+    # level so legacy constructions don't break; `validate_artifact_
+    # governance` fail-closes on None at promote time.
+    governance: Optional[ArtifactGovernance] = None
 
     def __post_init__(self) -> None:
         # §9.0 invariant: output_type must be discrete (rank percentile
@@ -352,6 +442,9 @@ def _metadata_from_json(payload: Dict[str, Any]) -> ArtifactMetadata:
         trained_at_utc=payload["trained_at_utc"],
         lineage_tag=payload["lineage_tag"],
         spec_id=payload["spec_id"],
+        governance=(
+            ArtifactGovernance(**payload["governance"])
+            if payload.get("governance") is not None else None),
     )
 
 

@@ -25,6 +25,7 @@ import pytest
 from core.research.ml.artifact import (
     SCHEMA_VERSION,
     ArtifactError,
+    ArtifactGovernance,
     ArtifactMetadata,
     ArtifactSchemaError,
     ArtifactSpecMismatchError,
@@ -34,6 +35,7 @@ from core.research.ml.artifact import (
     load_artifact,
     make_artifact_metadata,
     save_artifact,
+    validate_artifact_governance,
 )
 from core.research.ml.pipeline import (
     WalkForwardConfig,
@@ -378,3 +380,92 @@ class TestMakeArtifactMetadata:
             feature_columns=("f1",),
         )
         assert m1.spec_id != m2.spec_id
+
+
+# ── S2 (supplement PRD 2026-05-22) — §10.2 governance schema ──────────
+def _complete_governance(**overrides):
+    """A fully-populated ArtifactGovernance for the always-required tier."""
+    base = dict(
+        task_family="cross_sectional_rank",
+        source_tiers=("price_volume", "corporate_actions"),
+        label_mode="cross_sectional_residual_rank",
+        sample_weight_mode="uniform",
+        purge_embargo={"embargo_days": 21, "unit": "trading_bars"},
+        context_bundle="regime_state",
+        training_universe="executable",
+        model_family="XGBRanker",
+        objective="rank:ndcg",
+        config_hash="abc123",
+        trial_count=5,
+    )
+    base.update(overrides)
+    return ArtifactGovernance(**base)
+
+
+def _metadata_with_governance(governance):
+    """A minimal ArtifactMetadata carrying the given governance block."""
+    return ArtifactMetadata(
+        schema_version=SCHEMA_VERSION,
+        model_class_name="XGBRankerRankModel", hyperparams={},
+        train_config={}, feature_columns=("f1",), sealed_years=(2026,),
+        output_type="rank", per_fold_metrics=[], mean_rank_ic=0.0,
+        mean_rank_ir=0.0, n_successful_folds=1, n_failed_folds=0,
+        trained_at_utc="20260522T000000Z", lineage_tag="x",
+        spec_id="0" * 64, governance=governance,
+    )
+
+
+class TestArtifactGovernance:
+    def test_required_fields_have_no_default(self):
+        # cannot construct without a required field
+        with pytest.raises(TypeError):
+            ArtifactGovernance(task_family="x")  # missing the rest
+
+    def test_validate_passes_on_complete(self):
+        meta = _metadata_with_governance(_complete_governance())
+        validate_artifact_governance(meta)            # must not raise
+
+    def test_validate_raises_on_missing_governance(self):
+        meta = _metadata_with_governance(None)
+        with pytest.raises(ArtifactSchemaError, match="no §10.2 governance"):
+            validate_artifact_governance(meta)
+
+    def test_validate_raises_on_empty_required_field(self):
+        meta = _metadata_with_governance(
+            _complete_governance(label_mode=""))
+        with pytest.raises(ArtifactSchemaError, match="label_mode"):
+            validate_artifact_governance(meta)
+
+    def test_validate_raises_on_empty_source_tiers(self):
+        meta = _metadata_with_governance(
+            _complete_governance(source_tiers=()))
+        with pytest.raises(ArtifactSchemaError, match="source_tiers"):
+            validate_artifact_governance(meta)
+
+    def test_validate_raises_on_trial_count_below_one(self):
+        meta = _metadata_with_governance(
+            _complete_governance(trial_count=0))
+        with pytest.raises(ArtifactSchemaError, match="trial_count"):
+            validate_artifact_governance(meta)
+
+    def test_portfolio_tier_requires_extra_fields(self):
+        meta = _metadata_with_governance(_complete_governance())
+        # always-tier passes, portfolio-tier does not
+        validate_artifact_governance(meta, is_portfolio=False)
+        with pytest.raises(ArtifactSchemaError, match="target_weight_mode"):
+            validate_artifact_governance(meta, is_portfolio=True)
+
+    def test_portfolio_tier_passes_when_complete(self):
+        meta = _metadata_with_governance(_complete_governance(
+            score_to_weight_mode="top_k_capped",
+            target_weight_mode="top_k_capped",
+            risk_scaling_mode="vol_target_0.15",
+            constraint_set_id="ml_allocation_v1",
+            cost_model_id="cost_30bps",
+            execution_assumption_id="tplus1_open",
+            portfolio_acceptance_path="data/audit/x.json"))
+        validate_artifact_governance(meta, is_portfolio=True)
+
+    def test_legacy_metadata_without_governance_still_constructs(self):
+        meta = _metadata_with_governance(None)
+        assert meta.governance is None        # non-breaking default
