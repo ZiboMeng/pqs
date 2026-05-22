@@ -34,8 +34,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -60,6 +62,10 @@ from core.research.ml.pipeline import (  # noqa: E402
     DEFAULT_SEALED_YEARS,
     WalkForwardConfig,
     iter_folds,
+)
+from core.research.ml.artifact import (  # noqa: E402
+    ArtifactGovernance,
+    validate_artifact_governance,
 )
 from core.research.ml.rank_model import _cross_sectional_rank, _cross_sectional_standardize  # noqa: E402
 from core.research.ml.sign_classifier import (  # noqa: E402
@@ -184,6 +190,37 @@ def _classifier_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, flo
         "f1_veto": f1_veto,
         "veto_count": int(veto_pred.sum()),
     }
+
+
+def _sign_artifact_governance(args) -> ArtifactGovernance:
+    """PRD §10.2 ArtifactGovernance for the sign-classifier artifact
+    (supplement S2). Not a portfolio-level artifact — the sign sidecar
+    is a veto stage, not an allocator, so portfolio-tier fields stay
+    None."""
+    h = hashlib.sha256()
+    for rel in ("config/ml_sources.yaml", "config/ml_labeling.yaml",
+                "config/temporal_split.yaml"):
+        h.update((PROJ / rel).read_bytes())
+    model_family = {"xgb": "XGBClassifier",
+                    "logreg": "LogisticRegressionSignClassifier"}.get(
+                        args.model, args.model)
+    objective = {"xgb": "binary:logistic",
+                 "logreg": "logloss"}.get(args.model, "unknown")
+    return ArtifactGovernance(
+        task_family="sign_classification",
+        source_tiers=("A_market_data",),
+        label_mode="binary_forward_return",
+        sample_weight_mode="uniform",
+        purge_embargo={"embargo_days": args.horizon_days,
+                       "unit": "trading_bars"},
+        context_bundle=args.context_bundle,
+        training_universe="executable",
+        model_family=model_family,
+        objective=objective,
+        config_hash=h.hexdigest()[:16],
+        trial_count=1,
+        reused_native_components=True,
+    )
 
 
 def main() -> int:
@@ -334,6 +371,10 @@ def main() -> int:
         },
         "trained_at_utc": trained_at,
     }
+    # §10.2 governance (supplement S2) — fail-closed before write.
+    _governance = _sign_artifact_governance(args)
+    validate_artifact_governance(_governance, is_portfolio=False)
+    summary["governance"] = asdict(_governance)
     out_path = out_dir / f"r32_walkforward_sign_{args.model}_{trained_at}.json"
     out_path.write_text(json.dumps(summary, indent=2, default=str))
     print(f"\nsummary → {out_path}")

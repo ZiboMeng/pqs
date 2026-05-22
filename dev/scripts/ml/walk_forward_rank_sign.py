@@ -51,6 +51,7 @@ from core.research.ml.artifact import (  # noqa: E402
     ModelArtifact,
     make_artifact_metadata,
     save_artifact,
+    validate_artifact_governance,
 )
 from core.research.ml.labels import (  # noqa: E402
     apply_tradeable_mask,
@@ -475,6 +476,8 @@ def main() -> int:
                                 governance=_rank_artifact_governance(
                                     model_name, args, cfg, len(factories)),
                             )
+                            # §10.2 fail-closed before persisting (S2)
+                            validate_artifact_governance(metadata)
                             artifact = ModelArtifact(
                                 model=final_model, metadata=metadata)
                             base = (save_dir
