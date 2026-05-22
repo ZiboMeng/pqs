@@ -86,15 +86,22 @@ def main() -> int:
                          "monthly); 1 = daily (unrealistic cost)")
     ap.add_argument("--out-dir", default="data/audit")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--mode-a", default=None,
+                    help="path-A mapping mode (default = config default)")
+    ap.add_argument("--mode-d", default=None,
+                    help="path-D mapping mode; score_vol_scaled tames "
+                         "drawdown (P4 verdict Option B, user 2026-05-22)")
     args = ap.parse_args()
 
     alloc = yaml.safe_load((PROJ / "config/ml_allocation.yaml").read_text())
-    mode = alloc["default_mapping_mode"]
-    top_k = int(alloc["mapping_modes"][mode]["top_k"])
+    default_mode = alloc["default_mapping_mode"]
+    mode_a = args.mode_a or default_mode
+    mode_d = args.mode_d or default_mode
+    top_k = int(alloc["mapping_modes"][default_mode]["top_k"])
     cap = float(alloc["constraints"]["max_single_name_weight"])
 
     print(f"=== P4 portfolio acceptance  {args.start_year}-{args.end_year}"
-          f"  mode={mode} top_k={top_k} ===")
+          f"  mode_a={mode_a} mode_d={mode_d} top_k={top_k} ===")
     panel, factors, _ = _load_panel()
     start = pd.Timestamp(f"{args.start_year}-01-01")
     end = pd.Timestamp(f"{args.end_year}-12-31")
@@ -139,12 +146,17 @@ def main() -> int:
     oos = f"{rank_d.index[0].date()}..{rank_d.index[-1].date()}"
     print(f"  {n_folds} walk-forward folds; concatenated OOS {oos}")
 
-    weights_a = _rebalance(score_panel_to_weights(
-        rank_a, mode=mode, top_k=top_k, max_single_weight=cap),
-        args.rebalance_days)
-    weights_d = _rebalance(score_panel_to_weights(
-        rank_d, mode=mode, top_k=top_k, max_single_weight=cap),
-        args.rebalance_days)
+    # realized-vol panel (annualized 60d) — needed by score_vol_scaled
+    vol_df = close.pct_change().rolling(60, min_periods=20).std() * (252 ** 0.5)
+
+    def _weights(rank, m):
+        vd = vol_df if m == "score_vol_scaled" else None
+        return _rebalance(score_panel_to_weights(
+            rank, mode=m, top_k=top_k, max_single_weight=cap, vol_df=vd),
+            args.rebalance_days)
+
+    weights_a = _weights(rank_a, mode_a)
+    weights_d = _weights(rank_d, mode_d)
 
     # cost-sensitivity: 0 / 30 / 60 bps per-unit-turnover
     paths = {}
@@ -167,7 +179,8 @@ def main() -> int:
         "window": f"{args.start_year}-{args.end_year} (train-only)",
         "n_walk_forward_folds": n_folds,
         "concatenated_oos": oos,
-        "allocation_mode": mode, "top_k": top_k, "single_name_cap": cap,
+        "mode_a": mode_a, "mode_d": mode_d,
+        "top_k": top_k, "single_name_cap": cap,
         "rebalance_days": args.rebalance_days,
         "cost_levels_bps": [0, 30, 60],
         "paths": paths,
