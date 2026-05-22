@@ -778,4 +778,44 @@ driver 接线+收口 · [ ] S7/S6。
 
 ⑪ **commit** — `775f054`(主)。
 
-<!-- Round 21 起在此行下方追加 -->
+## Round 21 — S3 收口:sample_weight 接进 sign 训练 driver(S3 CLOSED)
+
+**时间**: 2026-05-22 · **主 commit**: `a3d5b03` · **测试基线**: 3997
+(R3 双路径 smoke)
+
+① **当前阶段** — Round 21 / S3 / 收口。
+
+② **本轮目标** — sample_weight 接进 sign driver,default-on + flag +
+artifact,关 S3。
+
+③ **为什么先做它** — R19-20 备好模块+模型 .fit;driver 接线收口。
+
+④ **做了什么** — `_assemble_xy` 加 weight_panel 收 per-row 权重返回
+(X,y,w);driver `--no-sample-weight` flag(default ON)+ 算 sw_panel
++ fold fit threads w_train;summary 加 §8.3/§8.4 `sample_weighting`
+块;governance sample_weight_mode 真值。修兄弟 driver
+hyperparam_search 的 3-tuple 解包。
+
+⑤ **改了哪些文件** — `walk_forward_sign_classifier.py` /
+`hyperparam_search_sign_classifier.py`。
+
+⑥ **跑了哪些测试 + 结果** — R3 双路径 smoke:default → 加权
+(mean=1.000,summary 带全 §8.3/§8.4 块);`--no-sample-weight` →
+DISABLED。两 driver syntax OK;模型层 R20 已测 28 passed。
+
+⑦ **当前结果** — **S3 CLOSED**。§8.3 gate:① 加权 default-on ②
+disable 需显式 flag ③ artifact 记 weight 统计+component 公式 —— 三项
+双路径实证。
+
+⑧ **剩余风险 / 诚实标注** — hyperparam_search 搜索 log 不加权(最终
+模型走 walk_forward 加权);rank 训练(XGBRanker)未加 sample_weight
+(supplement S3 "where appropriate";ranker weighted fit 是更大改动,
+留 follow-up,留痕)。
+
+⑨ **下一轮建议** — Round 22 = Package S7(P2/P4 命名产物 + 4-path)。
+
+⑩ **TODO** — [x] S1/S2/S4/S5/**S3 CLOSED** · [ ] S7/S6。
+
+⑪ **commit** — `a3d5b03`(主)。
+
+<!-- Round 22 起在此行下方追加 -->
