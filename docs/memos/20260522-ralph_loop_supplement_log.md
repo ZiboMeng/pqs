@@ -930,4 +930,40 @@ gate+收口 · [ ] S6。
 
 ⑪ **commit** — `b217858`(主)。
 
-<!-- Round 25 起在此行下方追加 -->
+## Round 25 — S7:4-path 统一(path B/C sign-veto sidecar 接进统一 harness)
+
+**时间**: 2026-05-22 · **主 commit**: `845601c` · **测试基线**: 4009
+(R3 实跑)
+
+① **当前阶段** — Round 25 / S7 / 4-path 统一。
+
+② **本轮目标** — path B/C(sign-veto sidecar)接进统一 harness,
+A/B/C/D 同一 slices(master §9.2)。
+
+③ **为什么先做它** — audit A1:B/C 从未和 A/D 同 fold schedule 跑;
+honest-closure 不许 relabel,必须真做。
+
+④ **做了什么** — `_stack_for_sign` helper(保留 row_index);fold loop
+加 per-fold `XGBSignClassifier` 训+预测 → `sign_pred` panel;path B/C
+`weights_bc` = path-A 权重 veto sign-负名。诚实标注 B≡C(harness 统一
+施加 partial-rebalance,二者 collapse)。
+
+⑤ **改了哪些文件** — `portfolio_acceptance.py` / 新 acceptance json。
+
+⑥ **跑了哪些测试 + 结果** — R3 harness 4-path 同一 slices:path A
+Sharpe 0.25 / path B-C 0.25 / path D 0.81;verdict PASS。sign-veto
+sidecar ≈ A(否决稀疏);ranker D 明显最佳。
+
+⑦ **当前结果** — 4 path 在统一 harness 同一 slices 跑,master §9.2
+"identical slices" 满足。
+
+⑧ **剩余风险** — S7 §12.3 gate 核对 + 收口待 Round 26。
+
+⑨ **下一轮建议** — Round 26 = S7 §12.3 gate 核对 + S7 收口。
+
+⑩ **TODO** — [x] S1/S2/S4/S5/S3 CLOSED · S7 M1/M6/M9/§〇#5/4-path ·
+[ ] S7 收口 · [ ] S6。
+
+⑪ **commit** — `845601c`(主)。
+
+<!-- Round 26 起在此行下方追加 -->
