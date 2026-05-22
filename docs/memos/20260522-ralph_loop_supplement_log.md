@@ -361,4 +361,44 @@ portfolio_acceptance harness + 翻 enforced + cross-check 功能验证。
 
 ⑪ **commit** — `a504d49`(主)。
 
-<!-- Round 10 起在此行下方追加 -->
+## Round 10 — S4:turnover cap 接进 harness(turnover_cap_daily ENFORCED)
+
+**时间**: 2026-05-22 · **主 commit**: `708fc5a` · **测试基线**: 3954
++ 1(allocation 41 passed)
+
+① **当前阶段** — Round 10 / S4 / turnover cap 接线。
+
+② **本轮目标** — `apply_turnover_cap` 接 harness,turnover_cap_daily
+翻 enforced。
+
+③ **为什么先做它** — Round 9 实现了函数,要在用 ml_allocation.yaml
+的路径生效才算 enforced。
+
+④ **做了什么** — `portfolio_acceptance._weights` 加 `apply_turnover_cap`
+(rebalance 后);`ml_allocation.yaml` turnover_cap_daily→enforced;
+cross-check 加 turnover 功能验证。
+
+⑤ **改了哪些文件** — `portfolio_acceptance.py` / `ml_allocation.yaml`
+/ `test_enforcement_status.py` / 新 acceptance json。
+
+⑥ **跑了哪些测试 + 结果** — allocation 41 passed;**R3 harness 实跑
+(turnover cap 生效)**:path A Sharpe 0.73,path D Sharpe 1.14 /
+MaxDD **-20.84%** / verdict **FAIL**。
+
+⑦ **当前结果(non-blanket)** — turnover_cap_daily ENFORCED。**但接
+turnover cap 后 path D MaxDD -19.85%→-20.84% 破 20% 不变量、verdict
+FAIL** —— root cause:turnover cap 限速调仓→撤出回撤名变慢→回撤加深;
+真实约束暴露真实风险,非 bug。
+
+⑧ **剩余风险 / 重要 flag** — 这是 train-only smoke 非 S6 gate(协议
+四非停点);**但响亮 flag**:leak-free+全约束下 path D MaxDD 已贴/破
+20% → S6 真 OOS(含 2018 bear)有实打实 FAIL 风险。
+
+⑨ **下一轮建议** — Round 11 = 实现 min_edge_to_trade enforcement。
+
+⑩ **TODO** — [x] S1/S2 CLOSED · S4 config-honesty/turnover-enforced ·
+[ ] S4 min_edge/exit+收口 · [ ] S5/S3/S7/S6(S6 MaxDD 风险已 flag)。
+
+⑪ **commit** — `708fc5a`(主)。
+
+<!-- Round 11 起在此行下方追加 -->
