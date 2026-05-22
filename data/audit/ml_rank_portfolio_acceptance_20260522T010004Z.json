@@ -1,0 +1,88 @@
+{
+  "prd": "docs/prd/20260521-rerisk-and-ml-training-audit-prd.md \u00a79 P4",
+  "window": "2012-2017 (train-only)",
+  "n_walk_forward_folds": 3,
+  "concatenated_oos": "2015-01-02..2017-12-29",
+  "mode_a": "top_k_capped",
+  "mode_d": "top_k_capped",
+  "top_k": 10,
+  "single_name_cap": 0.4,
+  "rebalance_days": 21,
+  "path_d_vol_target": 0.15,
+  "cost_levels_bps": [
+    0,
+    30,
+    60
+  ],
+  "paths": {
+    "path_A_non_ml_composite": {
+      "cost_0bps": {
+        "cum_return": 0.5262,
+        "annualized_sharpe": 0.9813,
+        "annualized_vol": 0.1563,
+        "max_drawdown": -0.1229,
+        "turnover_mean": 0.0575,
+        "n_periods": 755,
+        "cost_bps": 0.0,
+        "vs_benchmark_excess_cum": 0.1456
+      },
+      "cost_30bps": {
+        "cum_return": 0.3394,
+        "annualized_sharpe": 0.699,
+        "annualized_vol": 0.1573,
+        "max_drawdown": -0.1229,
+        "turnover_mean": 0.0575,
+        "n_periods": 755,
+        "cost_bps": 30.0,
+        "vs_benchmark_excess_cum": -0.0413
+      },
+      "cost_60bps": {
+        "cum_return": 0.1747,
+        "annualized_sharpe": 0.4172,
+        "annualized_vol": 0.1593,
+        "max_drawdown": -0.1505,
+        "turnover_mean": 0.0575,
+        "n_periods": 755,
+        "cost_bps": 60.0,
+        "vs_benchmark_excess_cum": -0.2059
+      }
+    },
+    "path_D_xgb_ranker_ndcg": {
+      "cost_0bps": {
+        "cum_return": 0.8271,
+        "annualized_sharpe": 1.4826,
+        "annualized_vol": 0.1426,
+        "max_drawdown": -0.1565,
+        "turnover_mean": 0.0534,
+        "n_periods": 755,
+        "cost_bps": 0.0,
+        "vs_benchmark_excess_cum": 0.4465
+      },
+      "cost_30bps": {
+        "cum_return": 0.6184,
+        "annualized_sharpe": 1.1911,
+        "annualized_vol": 0.1436,
+        "max_drawdown": -0.1774,
+        "turnover_mean": 0.0534,
+        "n_periods": 755,
+        "cost_bps": 30.0,
+        "vs_benchmark_excess_cum": 0.2377
+      },
+      "cost_60bps": {
+        "cum_return": 0.4329,
+        "annualized_sharpe": 0.8984,
+        "annualized_vol": 0.1455,
+        "max_drawdown": -0.1978,
+        "turnover_mean": 0.0534,
+        "n_periods": 755,
+        "cost_bps": 60.0,
+        "vs_benchmark_excess_cum": 0.0523
+      }
+    }
+  },
+  "verdict": "FAIL",
+  "verdict_basis": "path D vs A on net Sharpe AND MaxDD at 30bps cost. Multi-fold walk-forward, train-only window. \u00a79.6 DSR/PBO is the next step.",
+  "sharpe_beat": true,
+  "maxdd_beat": false,
+  "generated_utc": "20260522T010004Z"
+}

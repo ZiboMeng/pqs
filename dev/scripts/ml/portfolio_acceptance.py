@@ -54,6 +54,9 @@ from core.research.allocation.score_to_weight import (  # noqa: E402
 from core.research.allocation.portfolio_metrics import (  # noqa: E402
     portfolio_metrics,
 )
+from core.research.allocation.vol_target import (  # noqa: E402
+    apply_vol_target_overlay,
+)
 
 CYCLE06 = ("drawup_from_252d_low", "trend_tstat_20d", "ret_2d")
 
@@ -91,6 +94,10 @@ def main() -> int:
     ap.add_argument("--mode-d", default=None,
                     help="path-D mapping mode; score_vol_scaled tames "
                          "drawdown (P4 verdict Option B, user 2026-05-22)")
+    ap.add_argument("--vol-target", type=float, default=0.0,
+                    help="annualized vol-target exposure overlay on path D "
+                         "(0 = off; P4 Option B attempt 2 — the systematic-"
+                         "drawdown lever)")
     args = ap.parse_args()
 
     alloc = yaml.safe_load((PROJ / "config/ml_allocation.yaml").read_text())
@@ -157,6 +164,10 @@ def main() -> int:
 
     weights_a = _weights(rank_a, mode_a)
     weights_d = _weights(rank_d, mode_d)
+    # P4 Option B attempt 2 — vol-target exposure overlay on path D
+    if args.vol_target > 0.0:
+        weights_d = apply_vol_target_overlay(
+            weights_d, close, target_vol=args.vol_target)
 
     # cost-sensitivity: 0 / 30 / 60 bps per-unit-turnover
     paths = {}
@@ -182,6 +193,7 @@ def main() -> int:
         "mode_a": mode_a, "mode_d": mode_d,
         "top_k": top_k, "single_name_cap": cap,
         "rebalance_days": args.rebalance_days,
+        "path_d_vol_target": args.vol_target,
         "cost_levels_bps": [0, 30, 60],
         "paths": paths,
         "verdict": verdict,

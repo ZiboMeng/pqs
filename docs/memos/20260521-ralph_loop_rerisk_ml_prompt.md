@@ -35,8 +35,24 @@ loop 据此**不停**:
    §2.1 那个近期 ~4 年窗口只作"显式标注 diagnostic"复现一次。
    → 不是停点。
 
-仍保留的停点见"四、早退" —— R5、P4 ML 未赢 baseline、未预见
-hard blocker。这三类**必须**停,不得冲过。
+**2026-05-22 追加裁定(P4 verdict 停点已解决):**
+
+5. **P4 path D verdict** — Round 26 触发 P4 停点(path D 在 net
+   Sharpe 决定性赢 baseline、但 MaxDD 输 strict「双 beat」gate)。
+   用户 2026-05-22 裁定:**「按推荐走」**(Option B:迭代 D 压
+   MaxDD),随后 Round 28 frontier 出齐后裁定 **「MaxDD < 20% 可
+   接受」** —— strict gate 的「MaxDD 必须 beat baseline」一项**放宽
+   为「MaxDD 在 15-20% 不变量带内即可」**。据此 **path D
+   PASS**(D 在每个配置 net Sharpe 1.08-1.29 决定性 > baseline
+   0.70,MaxDD 全 < 20%)。→ P4 verdict 停点**已解决**,loop 继续。
+   **待讨论项**(用户「先做为待讨论项记下来」):① P4 acceptance
+   gate 的精确措辞(strict「双 beat」vs「Sharpe beat + MaxDD 内
+   不变量」)是否正式写进 PRD §12.3;② path D 的 promoted 配置选哪个
+   (plain 最高 Sharpe/-18.9% MaxDD vs vol-target 0.10 风险匹配
+   /-14.3% MaxDD)。这两项**不阻塞 loop**,留待用户后续讨论。
+
+仍保留的停点见"四、早退" —— R5、未预见 hard blocker。
+(P4 ML-未赢-baseline 停点已于 2026-05-22 解决,见上 #5。)
 
 ## 一、执行顺序(PRD §4.2 + §12.4)
 
