@@ -121,10 +121,14 @@ def _prep_folds(args) -> List[Dict[str, Any]]:
     folds: List[Dict[str, Any]] = []
     for fold in iter_folds(cfg, DEFAULT_SEALED_YEARS,
                            trading_index=sign_labels.index):  # audit C1
-        X_train, y_train = _assemble_xy(
+        # S3: _assemble_xy now returns (X, y, w); the hyperparam SEARCH
+        # is a search log, not the promoted artifact — it ignores the
+        # weight column (the final model is trained, weighted, by
+        # walk_forward_sign_classifier.py).
+        X_train, y_train, _ = _assemble_xy(
             stage1_rank, sign_labels, context, args.decile,
             fold.train_start, fold.train_end)
-        X_val, y_val = _assemble_xy(
+        X_val, y_val, _ = _assemble_xy(
             stage1_rank, sign_labels, context, args.decile,
             fold.val_start, fold.val_end)
         folds.append({

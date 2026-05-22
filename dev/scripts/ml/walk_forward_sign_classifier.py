@@ -68,6 +68,10 @@ from core.research.ml.artifact import (  # noqa: E402
     validate_artifact_governance,
 )
 from core.research.ml.rank_model import _cross_sectional_rank, _cross_sectional_standardize  # noqa: E402
+from core.research.ml.sample_weight import (  # noqa: E402
+    COMPONENT_FORMULAS,
+    sample_weight,
+)
 from core.research.ml.sign_classifier import (  # noqa: E402
     LogisticRegressionSignClassifier,
     XGBSignClassifier,
@@ -130,15 +134,20 @@ def _assemble_xy(
     stage1_rank: pd.DataFrame, sign_labels: pd.DataFrame,
     context: Dict[str, pd.DataFrame], decile: float,
     start: pd.Timestamp, end: pd.Timestamp,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Assemble (X, y) from top-decile cells within [start, end]."""
+    weight_panel: pd.DataFrame | None = None,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Assemble (X, y, w) from top-decile cells within [start, end].
+
+    ``weight_panel`` (S3) is a (date × symbol) sample-weight panel; the
+    returned ``w`` is the per-row weight aligned with X/y. None ⇒ all
+    1.0 (uniform)."""
     rank_slice = stage1_rank.loc[(stage1_rank.index >= start)
                                  & (stage1_rank.index <= end)]
     label_slice = sign_labels.loc[(sign_labels.index >= start)
                                   & (sign_labels.index <= end)]
     mask = select_top_decile_mask(rank_slice, decile=decile)
     ctx_names = sorted(context.keys())
-    X_rows, y_rows = [], []
+    X_rows, y_rows, w_rows = [], [], []
     for date in rank_slice.index:
         row_mask = mask.loc[date]
         eligible = row_mask[row_mask].index
@@ -163,7 +172,15 @@ def _assemble_xy(
             if ok:
                 X_rows.append(vec)
                 y_rows.append(int(y))
-    return np.asarray(X_rows), np.asarray(y_rows)
+                if (weight_panel is not None
+                        and date in weight_panel.index
+                        and sym in weight_panel.columns):
+                    wv = weight_panel.at[date, sym]
+                    w_rows.append(float(wv) if pd.notna(wv) else 1.0)
+                else:
+                    w_rows.append(1.0)
+    return (np.asarray(X_rows), np.asarray(y_rows),
+            np.asarray(w_rows, dtype=float))
 
 
 def _classifier_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
@@ -192,7 +209,28 @@ def _classifier_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, flo
     }
 
 
-def _sign_artifact_governance(args) -> ArtifactGovernance:
+def _sample_weighting_summary(args, sw_panel) -> Dict[str, Any]:
+    """S3 §8.3/§8.4 — sample-weighting auditability block."""
+    if sw_panel is None:
+        return {"mode": "uniform", "enabled": False,
+                "note": "disabled via --no-sample-weight"}
+    sw = sw_panel.to_numpy()
+    sw = sw[np.isfinite(sw)]
+    return {
+        "mode": "uniqueness×liquidity×volatility×freshness",
+        "enabled": True,
+        "normalized": True,
+        "mean": round(float(sw.mean()), 4),
+        "min": round(float(sw.min()), 4),
+        "max": round(float(sw.max()), 4),
+        "component_formulas": COMPONENT_FORMULAS,
+        "liquidity_proxy": "21d mean share volume",
+        "freshness_half_life_bars": 252,
+    }
+
+
+def _sign_artifact_governance(args, sample_weight_mode: str
+                              ) -> ArtifactGovernance:
     """PRD §10.2 ArtifactGovernance for the sign-classifier artifact
     (supplement S2). Not a portfolio-level artifact — the sign sidecar
     is a veto stage, not an allocator, so portfolio-tier fields stay
@@ -210,7 +248,7 @@ def _sign_artifact_governance(args) -> ArtifactGovernance:
         task_family="sign_classification",
         source_tiers=("A_market_data",),
         label_mode="binary_forward_return",
-        sample_weight_mode="uniform",
+        sample_weight_mode=sample_weight_mode,
         purge_embargo={"embargo_days": args.horizon_days,
                        "unit": "trading_bars"},
         context_bundle=args.context_bundle,
@@ -239,6 +277,10 @@ def main() -> int:
     parser.add_argument("--context-bundle", default="regime_state")
     parser.add_argument("--out-dir", default="data/audit")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--no-sample-weight", action="store_true",
+                        help="disable the §8.2 multiplicative sample "
+                             "weighting (default ON — disabling needs "
+                             "this explicit flag, per master §8.3)")
     args = parser.parse_args()
 
     print(f"=== PRD #4 P4.2 walk-forward sign classifier ===")
@@ -273,6 +315,20 @@ def main() -> int:
     print(f"  stage1_rank {stage1_rank.shape}  labels non-NaN "
           f"{int(sign_labels.notna().sum().sum())}  context {len(context)} bundles")
 
+    # S3 (supplement 20260522): multiplicative sample weighting, default
+    # ON — disabling requires the explicit --no-sample-weight flag (§8.3).
+    if args.no_sample_weight:
+        sw_panel = None
+        print("  sample weighting: DISABLED (--no-sample-weight)")
+    else:
+        sw_panel = sample_weight(panel["close"], panel["volume"],
+                                 args.horizon_days)
+        _sw = sw_panel.to_numpy()
+        _sw = _sw[np.isfinite(_sw)]
+        print(f"  sample weighting: uniqueness×liquidity×volatility×"
+              f"freshness  mean={_sw.mean():.3f} "
+              f"min={_sw.min():.3f} max={_sw.max():.3f}")
+
     print(f"\n[3/4] Walk-forward train+eval per fold...")
     cfg = WalkForwardConfig(
         start_year=args.start_year, end_year=args.end_year,
@@ -282,10 +338,10 @@ def main() -> int:
     per_fold_metrics: List[Dict[str, Any]] = []
     for fold in iter_folds(cfg, DEFAULT_SEALED_YEARS,
                            trading_index=sign_labels.index):  # audit C1
-        X_train, y_train = _assemble_xy(
+        X_train, y_train, w_train = _assemble_xy(
             stage1_rank, sign_labels, context, args.decile,
-            fold.train_start, fold.train_end)
-        X_val, y_val = _assemble_xy(
+            fold.train_start, fold.train_end, weight_panel=sw_panel)
+        X_val, y_val, _ = _assemble_xy(
             stage1_rank, sign_labels, context, args.decile,
             fold.val_start, fold.val_end)
         fold_record: Dict[str, Any] = {
@@ -308,7 +364,7 @@ def main() -> int:
                 model = XGBSignClassifier(
                     n_estimators=100, max_depth=4,
                     learning_rate=0.1, random_state=args.seed)
-            model.fit(X_train, y_train)
+            model.fit(X_train, y_train, sample_weight=w_train)
             pred_train = model.predict(X_train)
             pred_val = model.predict(X_val)
             train_m = _classifier_metrics(y_train, pred_train)
@@ -369,10 +425,14 @@ def main() -> int:
             "p42_ac_f1_pass": p42_ac_f1,
             "p42_ac_precision_pass": p42_ac_prec,
         },
+        # S3 §8.3/§8.4 — sample-weighting auditability.
+        "sample_weighting": _sample_weighting_summary(args, sw_panel),
         "trained_at_utc": trained_at,
     }
     # §10.2 governance (supplement S2) — fail-closed before write.
-    _governance = _sign_artifact_governance(args)
+    _sw_mode = ("uniform" if sw_panel is None
+                else "uniqueness×liquidity×volatility×freshness")
+    _governance = _sign_artifact_governance(args, _sw_mode)
     validate_artifact_governance(_governance, is_portfolio=False)
     summary["governance"] = asdict(_governance)
     out_path = out_dir / f"r32_walkforward_sign_{args.model}_{trained_at}.json"
