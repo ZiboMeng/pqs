@@ -893,4 +893,41 @@ research/ml 204 passed 无回归。
 
 ⑪ **commit** — `701b4d0`(主)。
 
-<!-- Round 24 起在此行下方追加 -->
+## Round 24 — S7:§〇#5 PRD 措辞 fold-in + portfolio-acceptance-pack memo
+
+**时间**: 2026-05-22 · **主 commit**: `b217858` · **测试基线**: 4009
+(纯 doc fold-in)
+
+① **当前阶段** — Round 24 / S7 / §〇#5 + acceptance-pack。
+
+② **本轮目标** — §〇#5 放宽的 MaxDD gate 措辞 fold 进 master §9.3/
+§12.3;写 portfolio-acceptance-pack.md。
+
+③ **为什么先做它** — master §9.3 仍写 strict "non-inferior MaxDD",
+与用户 2026-05-22 放宽决定文字冲突。
+
+④ **做了什么** — master §9.3 `non-inferior MaxDD` → `MaxDD within
+15-20% invariant`(SUPPLEMENT-2026-05-22 标记);§12.3 P4 gate 加
+SUPPLEMENT 指针;新建 `portfolio-acceptance-pack.md`(§12.3 P4 命名
+产物:4-path 说明 + 诚实 scoping B/C 在 r29 + §9.6 控制 + verdict
+PASS+caveat + **promoted-config 决定 DEFER 到 S6**)。
+
+⑤ **改了哪些文件** — `20260521-...-prd.md`(§9.3+§12.3 fold-in)/
+`docs/memos/20260522-portfolio-acceptance-pack.md`(新)。
+
+⑥ **跑了哪些测试** — 纯 doc fold-in,无代码,基线不变。
+
+⑦ **当前结果** — master PRD MaxDD gate 措辞与 shipped verdict 一致;
+§12.3 P4 命名产物 acceptance-pack 就位。
+
+⑧ **剩余风险 / S7 未尽** — 4-path 统一(B/C 仍 r29,acceptance-pack
+§1 诚实 scoping 留痕);§12.3 gate 核对 + S7 收口待 Round 25。
+
+⑨ **下一轮建议** — Round 25 = S7 §12.3 gate 核对 + S7 收口。
+
+⑩ **TODO** — [x] S1/S2/S4/S5/S3 CLOSED · S7 M1/M6/M9/§〇#5 · [ ] S7
+gate+收口 · [ ] S6。
+
+⑪ **commit** — `b217858`(主)。
+
+<!-- Round 25 起在此行下方追加 -->
