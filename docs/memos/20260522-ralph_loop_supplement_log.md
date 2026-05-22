@@ -557,4 +557,42 @@ MaxDD -19.17% 贴 20% 线 → S6 真 OOS 仍有 FAIL 风险。
 
 ⑪ **commit** — `c8d2935`(主)。
 
-<!-- Round 15 起在此行下方追加 -->
+## Round 15 — S5:修 DSR-喂-rank-IC 误用(rank-IC t-stat)
+
+**时间**: 2026-05-22 · **主 commit**: `cbdb00c` · **测试基线**: 3972
+→ 3978(+6;test_rank_ic_significance 6 passed)
+
+① **当前阶段** — Round 15 / S5 / 第一刀。
+
+② **本轮目标** — 修 audit O1:`_overfit_control` 把 rank-IC 喂给
+`deflated_sharpe_ratio`。
+
+③ **为什么先做它** — S5 首位;DSR-喂-rank-IC 是无意义数。
+
+④ **做了什么** — 新增 `_rank_ic_significance`(mean-IC t-stat,记
+n_trials 供 Bonferroni);`_overfit_control` 把 DSR 块换成
+rank_ic_significance。PBO 保留(rank-IC 作 per-period perf 喂 PBO
+合法,错的只是 DSR)。+6 单测。
+
+⑤ **改了哪些文件** — `dev/scripts/ml/walk_forward_rank_sign.py` /
+`tests/unit/research/ml/test_rank_ic_significance.py`(新)。
+
+⑥ **跑了哪些测试 + 结果** — test_rank_ic_significance 6 passed(含
+"结果无 dsr key" 钉子);无回归。
+
+⑦ **当前结果** — O1(DSR-喂-rank-IC)修复:rank 走 forward 报正确
+IC t-stat。
+
+⑧ **剩余风险 / S5 未尽** — ② n_trials 硬编码(应来自 trial ledger);
+③ PBO 5-config sweep 共线偏乐观。P4 harness `_overfit_control` 用真
+收益喂 DSR — 那个没问题。
+
+⑨ **下一轮建议** — Round 16 = S5 #2:n_trials 从 persisted trial
+ledger 取。
+
+⑩ **TODO** — [x] S1/S2/S4 CLOSED · S5 O1-fix · [ ] S5 ledger+PBO+收口
+· [ ] S3/S7/S6。
+
+⑪ **commit** — `cbdb00c`(主)。
+
+<!-- Round 16 起在此行下方追加 -->
