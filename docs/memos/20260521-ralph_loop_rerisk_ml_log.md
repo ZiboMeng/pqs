@@ -698,4 +698,49 @@ label;walk-forward+embargo;§10.2 artifact 字段)+ smoke。
 
 ⑪ **commit** — `4b277ce`(主)。
 
-<!-- Round 17 起在此行下方追加 -->
+## Round 17 — P2:rank walk-forward 驱动(rank:ndcg + embargo + ndcg-gain 修)
+
+**时间**: 2026-05-21 · **主 commit**: `29402d1` · **测试基线**: 3864
++ 21 新(research/ml 142 passed)
+
+① **当前阶段** — Round 17 / Package P2 / ranker 驱动。
+
+② **本轮目标** — §1.5 核查既有 walk_forward_rank_sign.py;对齐 R16
+(rank:ndcg)+ P1(embargo)。
+
+③ **为什么先做它** — R16 选定 canonical;P2 §12.3 要 ≥1 XGBoost
+ranker run 端到端。
+
+④ **做了什么** — §1.5 核查:`walk_forward_rank_sign.py` 已是 rank
+walk-forward 驱动 → 不另建 `walk_forward_ranker.py`,增强它(objective
+默认 rank:ndcg + `--objective` flag + `embargo_days=horizon`)。**smoke
+抓出真 bug 并同轮修**:rank:ndcg 在 79-symbol 截面 fold 全 FAIL
+(XGBoost 指数 NDCG gain relevance ≤31 上限,within-group rank 到 79
+超限)→ 修 `xgb_rank_model.py`:rank:ndcg 时传 `ndcg_exp_gain=False`。
+
+⑤ **改了哪些文件** — `core/research/ml/xgb_rank_model.py` /
+`dev/scripts/ml/walk_forward_rank_sign.py` /
+`tests/unit/research/ml/test_xgb_rank_model.py`(+2)。
+
+⑥ **跑了哪些测试 + 结果** — test_xgb_rank_model 12 passed;research/ml
+142 passed(ndcg_exp_gain 是条件分支,默认 rank:pairwise bit-identical
+无回归);R3 smoke:rank walk-forward 2010-2016 → Linear + XGBRanker
+both pooled+tradeable **2/2 folds OK**(修复前 0/2);embargo 生效
+(train_end 2014-12-26)。
+
+⑦ **当前结果** — canonical rank walk-forward 跑通 rank:ndcg+embargo;
+P2 §12.3 "≥1 XGBoost ranker run 端到端" 满足。
+
+⑧ **剩余风险** — LightGBM parity 未建;DSR/PBO 接 ranker selection
+未做;residual-rank label 接 rank walk-forward 未做;P2 收口未做。
+
+⑨ **下一轮建议** — Round 18 = LightGBM parity(`LGBMRankerRankModel`
+实现同一 RankModelProtocol,接进驱动 model 选项)。
+
+⑩ **TODO** — [x] R0/P0/P1 CLOSED · P2 canonical 决策 [x] P2 rank
+walk-forward · [ ] LightGBM parity [ ] DSR-PBO/residual-label/P2 收口
+· [ ] P3-P6。
+
+⑪ **commit** — `29402d1`(主)。
+
+<!-- Round 18 起在此行下方追加 -->
