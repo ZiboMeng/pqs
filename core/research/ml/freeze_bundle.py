@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -52,6 +53,33 @@ def _feature_set_hash(factor_names) -> str:
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()
 
 
+def _overfit_control_valid(oc) -> tuple[bool, str]:
+    """S5 — an overfit_control block is VALID (not merely present) when
+    it has n_trials >= 2, a finite DSR, and a finite PBO. A degenerate
+    block (single trial, NaN DSR/PBO) must NOT pass the freeze gate.
+    Returns (ok, reason)."""
+    if not isinstance(oc, dict):
+        return False, "overfit_control is not a dict"
+    if int(oc.get("n_trials", 0)) < 2:
+        return False, f"n_trials={oc.get('n_trials')} < 2"
+    dsr_keys = [k for k in oc if k.startswith("dsr_promoted")]
+    if not dsr_keys:
+        return False, "no dsr_promoted* block"
+    dsr = (oc[dsr_keys[0]] or {}).get("deflated_sharpe")
+    try:
+        if dsr is None or not math.isfinite(float(dsr)):
+            return False, "DSR deflated_sharpe not finite"
+    except (TypeError, ValueError):
+        return False, "DSR deflated_sharpe not numeric"
+    pbo = (oc.get("pbo") or {}).get("pbo")
+    try:
+        if pbo is None or not math.isfinite(float(pbo)):
+            return False, "PBO not finite"
+    except (TypeError, ValueError):
+        return False, "PBO not numeric"
+    return True, "ok"
+
+
 def build_freeze_bundle(
     proj_root: Path,
     acceptance_json: Path,
@@ -74,6 +102,13 @@ def build_freeze_bundle(
         raise FreezeBundleError(
             "cannot freeze: acceptance artifact has no §9.6 overfit_control "
             "(DSR + PBO) record (governance memo §2)")
+    # S5: the freeze gate checks the overfit_control is VALID, not merely
+    # present — a degenerate (n_trials<2, NaN DSR/PBO) block must not pass.
+    _ok, _why = _overfit_control_valid(acc["overfit_control"])
+    if not _ok:
+        raise FreezeBundleError(
+            f"cannot freeze: §9.6 overfit_control is present but invalid "
+            f"— {_why} (supplement S5).")
 
     bundle = {
         "lineage": lineage,

@@ -19,10 +19,15 @@ def _proj(tmp_path):
     return tmp_path
 
 
-def _acceptance(tmp_path, verdict="PASS", overfit=True):
+def _acceptance(tmp_path, verdict="PASS", overfit=True,
+                overfit_block=None):
     acc = {"verdict": verdict}
     if overfit:
-        acc["overfit_control"] = {"n_trials": 5, "pbo": {"pbo": 0.07}}
+        # a VALID §9.6 overfit_control (S5): n_trials>=2, finite DSR + PBO
+        acc["overfit_control"] = overfit_block if overfit_block is not None \
+            else {"n_trials": 10,
+                  "dsr_promoted_D_xgb": {"deflated_sharpe": 0.81},
+                  "pbo": {"pbo": 0.33}}
     p = tmp_path / "acceptance.json"
     p.write_text(json.dumps(acc))
     return p
@@ -86,3 +91,49 @@ class TestCheckDrift:
         flags = check_drift(b, proj, factor_names=["fa", "fb", "fc_new"])
         assert len(flags) == 1
         assert flags[0]["drift_class"] == "factor drift"
+
+
+# ── S5 (supplement PRD 2026-05-22) — freeze gate checks overfit VALIDITY
+class TestOverfitControlValidity:
+    """S5: build_freeze_bundle must reject an overfit_control block that
+    is present but degenerate (not merely check the key exists)."""
+
+    def test_valid_block_builds(self, tmp_path):
+        proj = _proj(tmp_path)
+        b = build_freeze_bundle(proj, _acceptance(tmp_path),
+                                "cycle06", ["fa", "fb"])
+        assert b["acceptance_verdict"] == "PASS"
+
+    def test_n_trials_below_2_refused(self, tmp_path):
+        proj = _proj(tmp_path)
+        acc = _acceptance(tmp_path, overfit_block={
+            "n_trials": 1,
+            "dsr_promoted_D_xgb": {"deflated_sharpe": 0.8},
+            "pbo": {"pbo": 0.3}})
+        with pytest.raises(FreezeBundleError, match="n_trials"):
+            build_freeze_bundle(proj, acc, "cycle06", ["fa"])
+
+    def test_nan_dsr_refused(self, tmp_path):
+        proj = _proj(tmp_path)
+        acc = _acceptance(tmp_path, overfit_block={
+            "n_trials": 10,
+            "dsr_promoted_D_xgb": {"deflated_sharpe": float("nan")},
+            "pbo": {"pbo": 0.3}})
+        with pytest.raises(FreezeBundleError, match="DSR"):
+            build_freeze_bundle(proj, acc, "cycle06", ["fa"])
+
+    def test_missing_dsr_block_refused(self, tmp_path):
+        proj = _proj(tmp_path)
+        acc = _acceptance(tmp_path, overfit_block={
+            "n_trials": 10, "pbo": {"pbo": 0.3}})
+        with pytest.raises(FreezeBundleError, match="dsr"):
+            build_freeze_bundle(proj, acc, "cycle06", ["fa"])
+
+    def test_nan_pbo_refused(self, tmp_path):
+        proj = _proj(tmp_path)
+        acc = _acceptance(tmp_path, overfit_block={
+            "n_trials": 10,
+            "dsr_promoted_D_xgb": {"deflated_sharpe": 0.8},
+            "pbo": {"pbo": float("nan")}})
+        with pytest.raises(FreezeBundleError, match="PBO"):
+            build_freeze_bundle(proj, acc, "cycle06", ["fa"])
