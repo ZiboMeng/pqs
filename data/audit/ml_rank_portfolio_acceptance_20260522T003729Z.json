@@ -1,0 +1,31 @@
+{
+  "prd": "docs/prd/20260521-rerisk-and-ml-training-audit-prd.md \u00a79 P4",
+  "window": "2012-2017 (train-only)",
+  "test_window": "2015-08-10..2017-12-29",
+  "allocation_mode": "top_k_capped",
+  "top_k": 10,
+  "single_name_cap": 0.4,
+  "path_A_non_ml_composite": {
+    "cum_return": 0.9258,
+    "annualized_sharpe": 1.722,
+    "annualized_vol": 0.1673,
+    "max_drawdown": -0.1794,
+    "turnover_mean": 0.5818,
+    "n_periods": 603,
+    "vs_benchmark_excess_cum": 0.5792
+  },
+  "path_D_xgb_ranker_ndcg": {
+    "cum_return": 1.2111,
+    "annualized_sharpe": 2.1583,
+    "annualized_vol": 0.1597,
+    "max_drawdown": -0.1309,
+    "turnover_mean": 0.726,
+    "n_periods": 603,
+    "vs_benchmark_excess_cum": 0.8645
+  },
+  "verdict": "PASS",
+  "verdict_basis": "path D vs A on Sharpe AND MaxDD \u2014 single train/test split smoke; full multi-fold walk-forward + DSR/PBO is the next step",
+  "sharpe_beat": true,
+  "maxdd_beat": true,
+  "generated_utc": "20260522T003729Z"
+}
