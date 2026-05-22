@@ -1001,4 +1001,46 @@ gate;FAIL=停点)。
 
 ⑪ **commit** — `6bb3b22`(主,empty gate-核对轮)。
 
-<!-- Round 27 起在此行下方追加 -->
+## Round 27 — S6:ranking-baseline 真 OOS 验证 — path-D plain FAIL on MaxDD
+
+**时间**: 2026-05-22 · **主 commit**: `f2f765b` · **测试基线**: 4009
+
+① **当前阶段** — Round 27 / S6 / §12.6 解锁 gate。
+
+② **本轮目标** — 建 S6 真 OOS 验证驱动,在 validation partition
+(2018/19/21/23/25)验 ranking baseline。
+
+③ **为什么先做它** — S6 是最后一个 package、§12.6 解锁 gate;之前
+P4 全是 train-only smoke。
+
+④ **做了什么** — 新建 `s6_oos_validation.py`(per-vy:XGBRanker 只在
+vy 前的 train_years 训、predict vy、全约束集 portfolio_metrics;
+sealed 2026 不碰)。同轮抓+修 PBO bug(2-column 退化 1.0 → model-
+diverse 4-config sweep → 0.0)。
+
+⑤ **改了哪些文件** — `s6_oos_validation.py`(新)/ S6 json(新);删
+degenerate 首跑。
+
+⑥ **跑了哪些测试 + 结果** — R3 S6 真 OOS:per-year path-D MaxDD
+2018 -21.8% / 2019 -15.8% / 2021 -17.0% / 2023 -21.5% / 2025 -26.1%;
+mean path-D Sharpe **0.97** vs path-A **0.43**;DSR 0.886 PBO 0.0。
+**VERDICT FAIL**。
+
+⑦ **当前结果(non-blanket)** — path-D plain S6 真 OOS FAIL:ranking
+baseline mean Sharpe 0.97 决定性赢 baseline 0.43、每年都赢(信号真),
+但 3/5 验证年 MaxDD 破 20%(worst -26% 2025)。不是"ML 不行" ——
+ranker 交付真 alpha,plain 配置压不住回撤。
+
+⑧ **剩余风险 / S6 未尽** — S6 只评了 plain;§〇 把 promoted-config
+(plain vs vt-0.10)选择 defer 到 S6,故须评 vt-0.10。本轮不停(S6
+未评完)。
+
+⑨ **下一轮建议** — Round 28 = S6 加 `--vol-target` 跑 vt-0.10 → 定
+S6 verdict(两 config 皆 FAIL → 协议四#1 停点)。
+
+⑩ **TODO** — [x] S1/S2/S4/S5/S3/S7 CLOSED · S6 plain(FAIL)·
+[ ] S6 vt-0.10 → verdict。
+
+⑪ **commit** — `f2f765b`(主)。
+
+<!-- Round 28 起在此行下方追加 -->
