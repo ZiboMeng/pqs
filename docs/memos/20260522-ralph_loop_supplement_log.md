@@ -438,4 +438,47 @@ enforced + cross-check。
 
 ⑪ **commit** — `7b86d84`(主)。
 
-<!-- Round 12 起在此行下方追加 -->
+## Round 12 — S4:min-edge 接线 attempt 失败 — revert + min_edge→roadmap
+
+**时间**: 2026-05-22 · **主 commit**: `acb3028` · **测试基线**: 3961
+(allocation 47 passed)
+
+① **当前阶段** — Round 12 / S4 / min-edge 接线。
+
+② **本轮目标** — `apply_min_edge_gate` 接 harness,min_edge 翻 enforced。
+
+③ **为什么先做它** — Round 11 实现了函数,要接路径生效。
+
+④ **做了什么 + 失败 root-cause** — 接线 attempt:`_trailing_edge_bps`
+(trailing-63d realized excess)per-bar 喂 gate。**R3 harness 实跑
+严重劣化**:path A Sharpe **+0.73→-0.46**、path D 1.14→0.70。
+**root cause**:trailing-realized edge 滞后;滞后 proxy + 硬 gate =
+edge 上追涨杀跌 whipsaw。诚实处理:**revert** 接线、`apply_min_edge_gate`
+函数保留(test_constraints 6 测试)、`min_edge_to_trade → roadmap`
+(§9.0 禁 ML 出 magnitude → 无现成非-whipsaw edge proxy,是研究子
+问题)、portfolio_acceptance.py 留 NOTE。
+
+⑤ **改了哪些文件** — `portfolio_acceptance.py`(revert+NOTE)/
+`ml_allocation.yaml`(min_edge→roadmap)/`test_enforcement_status.py`。
+
+⑥ **跑了哪些测试 + 结果** — allocation 47 passed(gate 函数+6 测试
+仍在;harness 无接线数值回退正常)。
+
+⑦ **当前结果(non-blanket)** — min_edge 接线 attempt 失败已 revert+
+root-caused;gate 函数保留;min_edge 诚实标 roadmap。**用户〇#1 期望
+实现 min_edge —— 诚实结果:gate 函数实现了,production edge-proxy
+比预期难(naive proxy whipsaw),是研究子问题。**
+
+⑧ **剩余风险 / flag** — min_edge 未 production-enforced(roadmap);
+S4 gate "no silent unenforced control" 不破(roadmap=显式声明);
+exit_policy 仍 pending。
+
+⑨ **下一轮建议** — Round 13 = exit_policy(最后一个 pending_S4)。
+
+⑩ **TODO** — [x] S1/S2 CLOSED · S4 config-honesty/turnover · S4
+min_edge(失败 root-caused→roadmap)· [ ] S4 exit_policy+收口 ·
+[ ] S5/S3/S7/S6。
+
+⑪ **commit** — `acb3028`(主)。
+
+<!-- Round 13 起在此行下方追加 -->
