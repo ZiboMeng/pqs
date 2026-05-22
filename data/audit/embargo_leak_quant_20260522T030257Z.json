@@ -1,0 +1,40 @@
+{
+  "audit": "C1 embargo-leak quantification",
+  "horizon_days": 21,
+  "buggy_calendar_embargo": {
+    "folds": [
+      "2012-01-01..2014-12-10 -> 2015-01-01..2015-12-31",
+      "2013-01-01..2015-12-10 -> 2016-01-01..2016-12-31",
+      "2014-01-01..2016-12-10 -> 2017-01-01..2017-12-31"
+    ],
+    "metrics_30bps": {
+      "cum_return": 0.8444,
+      "annualized_sharpe": 1.2886,
+      "annualized_vol": 0.1698,
+      "max_drawdown": -0.1893,
+      "turnover_mean": 0.0559,
+      "n_periods": 755,
+      "cost_bps": 30.0,
+      "vs_benchmark_excess_cum": 0.4638
+    }
+  },
+  "correct_trading_embargo": {
+    "folds": [
+      "2012-01-01..2014-12-01 -> 2015-01-01..2015-12-31",
+      "2013-01-01..2015-12-01 -> 2016-01-01..2016-12-31",
+      "2014-01-01..2016-11-30 -> 2017-01-01..2017-12-31"
+    ],
+    "metrics_30bps": {
+      "cum_return": 0.7381,
+      "annualized_sharpe": 1.1759,
+      "annualized_vol": 0.1692,
+      "max_drawdown": -0.1985,
+      "turnover_mean": 0.054,
+      "n_periods": 755,
+      "cost_bps": 30.0,
+      "vs_benchmark_excess_cum": 0.3575
+    }
+  },
+  "sharpe_leak_delta": 0.1127,
+  "generated_utc": "20260522T030257Z"
+}
