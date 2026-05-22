@@ -209,6 +209,46 @@ def _build_lgbm_factory(seed: int = 42) -> Callable:
     return _factory
 
 
+def _overfit_control(per_model_fold_ic: Dict[str, list]) -> Dict:
+    """PRD §9.6 overfit-significance control for the cross-model
+    selection. Records the trial count (number of model configs
+    compared) and runs the selected (best mean rank-IC) model through
+    DSR + the per-fold rank-IC matrix through PBO. Reuses the project's
+    existing overfit-control modules — never re-implements (per §9.6).
+    """
+    models = [m for m, ic in per_model_fold_ic.items() if ic]
+    n_trials = len(models)
+    out: Dict = {
+        "n_trials": n_trials,
+        "selection": "cross-model (linear/xgb/lgbm) by mean rank-IC",
+    }
+    if n_trials < 2:
+        out["note"] = ("single model — no cross-config selection; "
+                       "DSR/PBO N/A (need ≥2 configs)")
+        return out
+    means = {m: float(np.mean(per_model_fold_ic[m])) for m in models}
+    best = max(means, key=means.get)
+    out["per_model_mean_rank_ic"] = means
+    out["selected_model"] = best
+    # DSR — deflate the selected model's per-fold rank-IC by n_trials.
+    from core.research.overfit_metrics import deflated_sharpe_ratio
+    try:
+        out["dsr"] = deflated_sharpe_ratio(
+            per_model_fold_ic[best], n_trials=n_trials)
+    except Exception as exc:  # noqa: BLE001
+        out["dsr"] = {"error": f"{type(exc).__name__}: {exc}"}
+    # PBO — (folds × models) per-fold rank-IC matrix via CSCV.
+    from core.research.mining_pbo import compute_mining_pbo
+    fold_counts = {len(ic) for ic in per_model_fold_ic.values()}
+    if len(fold_counts) == 1:
+        M = np.column_stack([per_model_fold_ic[m] for m in models])
+        out["pbo"] = compute_mining_pbo(M)
+    else:
+        out["pbo"] = {"note": "uneven fold counts across models — "
+                              "PBO matrix not formable"}
+    return out
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="PRD #4 P4.4 sub-step 3b: real-data walk-forward driver",
@@ -343,6 +383,7 @@ def main() -> int:
     if not args.no_save:
         save_dir.mkdir(parents=True, exist_ok=True)
     summary: Dict[str, Dict] = {}
+    per_model_pooled_ic: Dict[str, list] = {}  # §9.6 overfit control
     trained_at = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
     for model_name, factory, hyperparams in factories:
@@ -363,6 +404,9 @@ def main() -> int:
                 "n_successful_folds": result.n_successful_folds,
                 "n_failed_folds": result.n_failed_folds,
             }
+            if variant_name == "pooled":
+                per_model_pooled_ic[model_name] = [
+                    f.rank_ic for f in result.per_fold if f.error is None]
 
             if not args.no_save:
                 # Train a final model on the LAST fold's train slice for
@@ -405,6 +449,9 @@ def main() -> int:
                         except Exception as exc:
                             print(f"  ⚠ final-model fit failed: {exc}",
                                   file=sys.stderr)
+
+    # §9.6 — cross-model selection overfit control (trial count + DSR/PBO)
+    summary["_overfit_control"] = _overfit_control(per_model_pooled_ic)
 
     print(f"\n=== Summary ===")
     print(json.dumps(summary, indent=2))
