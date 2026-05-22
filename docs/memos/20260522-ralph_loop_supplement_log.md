@@ -741,4 +741,41 @@ winsorized §3.3;freshness 指数 recency)。`COMPONENT_FORMULAS` 供
 
 ⑪ **commit** — `60a0777`(主)。
 
-<!-- Round 20 起在此行下方追加 -->
+## Round 20 — S3:sign classifier .fit 接 sample_weight
+
+**时间**: 2026-05-22 · **主 commit**: `775f054` · **测试基线**: 3993
+→ 3997(+4;test_sign_classifier 28 passed)
+
+① **当前阶段** — Round 20 / S3 / sign classifier 接 sample_weight。
+
+② **本轮目标** — 两个 sign 模型 `.fit` 接受 `sample_weight`。
+
+③ **为什么先做它** — R19 实现了模块;模型 .fit 须先能接。
+
+④ **做了什么** — `LogisticRegressionSignClassifier.fit` 加 weighted
+IRLS(sample_weight 进 grad+Hessian,finite_mask 对齐,None→uniform
+bit-identical);`XGBSignClassifier.fit` passthrough 给 XGBClassifier。
++4 单测。
+
+⑤ **改了哪些文件** — `core/research/ml/sign_classifier.py` /
+`test_sign_classifier.py`(+4)。
+
+⑥ **跑了哪些测试 + 结果** — test_sign_classifier 28 passed(+4 含
+sample_weight=None bit-identical 钉子);additive 可选参数无回归。
+
+⑦ **当前结果** — 两个 sign 模型 .fit 接 sample_weight;None=uniform
+非破坏。
+
+⑧ **剩余风险** — driver 未算 weight panel 未 thread;§8.3 flag /
+§8.4 artifact 待 R21。
+
+⑨ **下一轮建议** — Round 21 = `walk_forward_sign_classifier.py` 算
+weight panel + `_assemble_xy` 收权重 + thread fit + `--no-sample-weight`
+flag + artifact 记 weight 统计。
+
+⑩ **TODO** — [x] S1/S2/S4/S5 CLOSED · S3 模块/sign-fit · [ ] S3
+driver 接线+收口 · [ ] S7/S6。
+
+⑪ **commit** — `775f054`(主)。
+
+<!-- Round 21 起在此行下方追加 -->
