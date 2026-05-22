@@ -1043,4 +1043,46 @@ S6 verdict(两 config 皆 FAIL → 协议四#1 停点)。
 
 ⑪ **commit** — `f2f765b`(主)。
 
-<!-- Round 28 起在此行下方追加 -->
+## Round 28 — S6:STOPPED — NEEDS USER DECISION(两 config 皆 FAIL)
+
+**时间**: 2026-05-22 · **主 commit**: `bdab4eb` · **测试基线**: 4009 ·
+**协议四 #1 停点命中**
+
+① **当前阶段** — Round 28 / S6 / §四#1 停点。
+
+② **本轮目标** — 评 promoted-config 第二候选 vt-0.10,定 S6 verdict。
+
+③ **为什么先做它** — R27 只评了 plain;S6 须评完两候选。
+
+④ **做了什么** — S6 driver 加 `--vol-target`;自纠 R27 verdict 公式
+overclaim(漏 §9.6 DSR+PBO,补全);加 sweep 共线诊断;两 config
+完整-verdict 重跑。
+
+⑤ **改了哪些文件** — `s6_oos_validation.py` / 2 个终版 S6 json;删
+superseded 中间产物。
+
+⑥ **跑了哪些测试 + 结果** — R3 S6 真 OOS:plain mean Sharpe 0.97 /
+worst MaxDD -26.1% / PBO 0.0 → FAIL(MaxDD);vt-0.10 mean Sharpe
+0.85 / worst MaxDD -13.8% / PBO 0.968 → FAIL(§9.6 PBO)。
+
+⑦ **当前结果(non-blanket)** — **S6 FAIL**(两 config 皆未过完整
+gate)。非"ML 不行":ranking baseline 真 OOS 每个验证年都赢 baseline,
+alpha 真。plain 回撤破 20%;vt-0.10 回撤治好+alpha 在,卡在 §9.6 PBO。
+
+⑧ **root cause** — plain:ranker high-return-high-drawdown,S4 约束压
+不住 bear 年回撤。vt-0.10 PBO 0.968:大概率是 **4-config CSCV PBO
+工具太粗**(同 setup 3 跑得 {0.333,0.0,0.968},非共线退化 = config
+数太少)—— "PBO 做出来没做透" 的 audit 发现。
+
+⑨ **选项** — A(推荐):认 vt-0.10 为 promoted config,把 §9.6 PBO
+工具做透(大 CSCV 网格)再重跑 S6 定 §12.6;B:PBO 按面值当真过拟合;
+C:plain+接受 MaxDD 破 —— 否决(硬不变量)。§12.6 保持锁定。
+
+⑩ **TODO** — [x] S1-S5/S7 CLOSED · [x] S6 plain+vt-0.10 真 OOS 跑完 ·
+[ ] **S6 verdict FAIL → §四#1 停点等用户** · [ ](待用户)PBO 工具
+做透 / §12.6 决定。
+
+⑪ **commit** — `bdab4eb`;loop 按协议四输出
+`<promise>RERISK-ML-SUPPLEMENT-DONE</promise>` 停,等用户拍板重启。
+
+<!-- Round 29 起在此行下方追加 -->
