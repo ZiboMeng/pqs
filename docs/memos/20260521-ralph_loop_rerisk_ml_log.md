@@ -1357,4 +1357,47 @@ supplement PRD(本 PRD scope 外 by design)。
 
 ⑪ **commit** — `b953840`(主)。
 
-<!-- Round 33 起在此行下方追加 -->
+## Round 33 — R0+P0-P6 整体完成审计(loop 干净终点)
+
+**时间**: 2026-05-22 · **主 commit**: `ccec1fa` · **测试基线**: 3923
+passed / 2 skipped(3864 → 3923,+59,未回归)
+
+① **当前阶段** — Round 33 / R0-P6 完成审计 / loop 终点。
+
+② **本轮目标** — 逐 package 复核 §12.3 gate + §13 五条 + 全量基线。
+
+③ **为什么先做它** — R0+P0-P6 八 workstream 全关;发 promise 前
+必须整体核实。
+
+④ **做了什么 / 审计结果** — 全量 `pytest tests/unit` = **3923
+passed / 2 skipped**(未回归)。R0+P0-P6 八 package §12.3 hard gate
+逐项核 = 全绿(R0 re-risk pack / P0 source contracts / P1 label
+modes+purge-embargo / P2 canonical rank stack+LightGBM parity /
+P3 score-to-weight / P4 acceptance verdict PASS+DSR0.926+PBO0.067 /
+P5 freeze bundle+drift / P6 expansion interfaces)。§13 auditability
+五条逐条满足(machine-readable artifact / config provenance / 可复现
+命令 / negative verdict 保留 / 无 notebook 态)。
+
+⑤ **改了哪些文件** — 纯审计轮,无代码改动。
+
+⑥ **跑了哪些测试 + 结果** — pytest tests/unit 全量 3923 passed /
+2 skipped(1303s)。
+
+⑦ **当前结果** — **PRD §五 完成标志达成**:R0+P0-P6 全 §12.3 gate
+绿 + §13 五条满足 + 基线未回归。协议四 #1 干净终点(R5 前)→
+**输出 `<promise>RERISK-ML-PRD-DONE</promise>`**。
+
+⑧ **剩余风险 / 诚实标注** — PRD §12.5 明示这是 first implementation
+slice(P4 基于 train-only 窗 + cycle06 + 3-fold,是 scope 非 gate
+缺陷);prompt §〇 #5 两待讨论项(P4 gate 措辞 / promoted 配置)
+等用户讨论,不阻塞;R5 fresh mining = 协议四 #1 stop,等用户
+explicit-go。
+
+⑨ **下一轮建议** — loop 结束。R5 + 两待讨论项在 loop 外等用户。
+
+⑩ **TODO** — [x] R0-P6 全 CLOSED + 完成审计 · [ ] R5(等用户)·
+[ ] 2 待讨论项(等用户)。
+
+⑪ **commit** — `ccec1fa`(主)。
+
+**=== Ralph-loop 结束:R0+P0-P6 全部交付,33 轮 ===**
