@@ -78,6 +78,40 @@ def _rebalance(w: pd.DataFrame, step: int) -> pd.DataFrame:
     return w.iloc[::step].reindex(w.index).ffill().fillna(0.0)
 
 
+def _port_ret(weights: pd.DataFrame, close: pd.DataFrame) -> pd.Series:
+    """Daily portfolio return (weight set at T earned over T+1)."""
+    cols = [c for c in weights.columns if c in close.columns]
+    rets = close[cols].reindex(weights.index).pct_change().fillna(0.0)
+    return (weights[cols].shift(1).fillna(0.0) * rets).sum(axis=1)
+
+
+def _overfit_control(sweep: dict, close: pd.DataFrame,
+                     n_trials: int) -> dict:
+    """PRD §9.6 — DSR-deflate the promoted path (D_plain) OOS return for
+    the acceptance trial count, plus a PBO check over the FULL config
+    sweep. PBO via CSCV needs a genuine multi-config sweep — feeding it
+    just 2 paths is degenerate; `sweep` therefore carries every config
+    explored (A baseline + the 4 path-D variants). Reuses the project's
+    overfit-control modules — never re-implements."""
+    from core.research.overfit_metrics import deflated_sharpe_ratio
+    from core.research.mining_pbo import compute_mining_pbo
+    daily = {name: _port_ret(w, close) for name, w in sweep.items()}
+    monthly = {name: (1 + r).resample("ME").prod() - 1
+               for name, r in daily.items()}
+    out = {"n_trials": int(n_trials),
+           "sweep_configs": list(sweep.keys()),
+           "selection": "P4 acceptance config sweep → promoted = D_plain"}
+    try:
+        out["dsr_promoted_D_plain"] = deflated_sharpe_ratio(
+            daily["D_plain"].tolist(), n_trials=int(n_trials))
+    except Exception as exc:  # noqa: BLE001
+        out["dsr_promoted_D_plain"] = {"error": f"{type(exc).__name__}: {exc}"}
+    # PBO — (months × n_configs) monthly-return matrix via CSCV
+    M = pd.concat([monthly[n] for n in sweep], axis=1).dropna().to_numpy()
+    out["pbo"] = compute_mining_pbo(M)
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="P4 portfolio acceptance harness")
     ap.add_argument("--start-year", type=int, default=2012)
@@ -98,6 +132,10 @@ def main() -> int:
                     help="annualized vol-target exposure overlay on path D "
                          "(0 = off; P4 Option B attempt 2 — the systematic-"
                          "drawdown lever)")
+    ap.add_argument("--n-trials", type=int, default=5,
+                    help="acceptance configs explored to land on path D "
+                         "(§9.6 DSR trial count; default 5 = path A + D "
+                         "plain + D vol-scaled + D vol-target 0.15/0.10)")
     args = ap.parse_args()
 
     alloc = yaml.safe_load((PROJ / "config/ml_allocation.yaml").read_text())
@@ -156,18 +194,25 @@ def main() -> int:
     # realized-vol panel (annualized 60d) — needed by score_vol_scaled
     vol_df = close.pct_change().rolling(60, min_periods=20).std() * (252 ** 0.5)
 
-    def _weights(rank, m):
+    def _weights(rank, m, vt=0.0):
         vd = vol_df if m == "score_vol_scaled" else None
-        return _rebalance(score_panel_to_weights(
+        w = _rebalance(score_panel_to_weights(
             rank, mode=m, top_k=top_k, max_single_weight=cap, vol_df=vd),
             args.rebalance_days)
+        if vt > 0.0:
+            w = apply_vol_target_overlay(w, close, target_vol=vt)
+        return w
 
     weights_a = _weights(rank_a, mode_a)
-    weights_d = _weights(rank_d, mode_d)
-    # P4 Option B attempt 2 — vol-target exposure overlay on path D
-    if args.vol_target > 0.0:
-        weights_d = apply_vol_target_overlay(
-            weights_d, close, target_vol=args.vol_target)
+    weights_d = _weights(rank_d, mode_d, args.vol_target)
+    # §9.6 PBO needs the full config sweep explored to land on path D
+    sweep = {
+        "A_composite": _weights(rank_a, "top_k_capped"),
+        "D_plain": _weights(rank_d, "top_k_capped"),
+        "D_volscaled": _weights(rank_d, "score_vol_scaled"),
+        "D_vt010": _weights(rank_d, "top_k_capped", 0.10),
+        "D_vt015": _weights(rank_d, "top_k_capped", 0.15),
+    }
 
     # cost-sensitivity: 0 / 30 / 60 bps per-unit-turnover
     paths = {}
@@ -178,12 +223,16 @@ def main() -> int:
                 w, close, benchmark=spy, cost_bps=float(c))
             for c in (0, 30, 60)}
 
-    # verdict at the realistic 30bps cost — net Sharpe AND MaxDD
+    # verdict at the realistic 30bps cost.
+    # Gate (user 2026-05-22, prompt §〇 #5): path D beats baseline on net
+    # Sharpe AND path D's MaxDD is within the 15-20% invariant band —
+    # the strict "MaxDD beats baseline" half was relaxed to "MaxDD < 20%".
     a30 = paths["path_A_non_ml_composite"]["cost_30bps"]
     d30 = paths["path_D_xgb_ranker_ndcg"]["cost_30bps"]
     sharpe_beat = d30["annualized_sharpe"] >= a30["annualized_sharpe"]
-    maxdd_beat = abs(d30["max_drawdown"]) <= abs(a30["max_drawdown"])
-    verdict = "PASS" if (sharpe_beat and maxdd_beat) else "FAIL"
+    maxdd_within_invariant = abs(d30["max_drawdown"]) <= 0.20
+    verdict = "PASS" if (sharpe_beat and maxdd_within_invariant) else "FAIL"
+    overfit = _overfit_control(sweep, close, args.n_trials)
 
     out = {
         "prd": "docs/prd/20260521-rerisk-and-ml-training-audit-prd.md §9 P4",
@@ -196,11 +245,14 @@ def main() -> int:
         "path_d_vol_target": args.vol_target,
         "cost_levels_bps": [0, 30, 60],
         "paths": paths,
+        "overfit_control": overfit,
         "verdict": verdict,
-        "verdict_basis": ("path D vs A on net Sharpe AND MaxDD at 30bps "
-                          "cost. Multi-fold walk-forward, train-only "
-                          "window. §9.6 DSR/PBO is the next step."),
-        "sharpe_beat": bool(sharpe_beat), "maxdd_beat": bool(maxdd_beat),
+        "verdict_basis": ("path D beats baseline on net Sharpe AND path "
+                          "D MaxDD within the 15-20% invariant (gate per "
+                          "user 2026-05-22, prompt §〇 #5). Multi-fold "
+                          "walk-forward, train-only window, 30bps cost."),
+        "sharpe_beat": bool(sharpe_beat),
+        "maxdd_within_invariant": bool(maxdd_within_invariant),
         "generated_utc": datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"),
     }
     out_path = (PROJ / args.out_dir
@@ -212,8 +264,13 @@ def main() -> int:
         print(f"  {label} @30bps: Sharpe={m['annualized_sharpe']} "
               f"MaxDD={m['max_drawdown']} cum={m['cum_return']} "
               f"turnover={m['turnover_mean']}")
+    dsr = overfit.get("dsr_promoted_D_plain", {})
     print(f"  verdict={verdict} (sharpe_beat={sharpe_beat} "
-          f"maxdd_beat={maxdd_beat})")
+          f"maxdd_within_invariant={maxdd_within_invariant})")
+    print(f"  §9.6: n_trials={overfit['n_trials']} "
+          f"dsr(D_plain)={dsr.get('deflated_sharpe')} "
+          f"pbo(sweep×{len(overfit['sweep_configs'])})="
+          f"{overfit['pbo'].get('pbo')}")
     print(f"  → {out_path}")
     return 0
 
