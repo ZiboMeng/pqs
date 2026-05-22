@@ -51,4 +51,43 @@ embargo_leak_quant re-run 确认 delta 归零 → 关 S1。
 
 ⑪ **commit** — `167c55b`(主)。
 
-<!-- Round 2 起在此行下方追加 -->
+## Round 2 — S1 收口:driver 接线 trading_index(S1 CLOSED)
+
+**时间**: 2026-05-22 · **主 commit**: `0bb581b` · **测试基线**: 3929
+（research/ml 162 passed）
+
+① **当前阶段** — Round 2 / S1 / 收口。
+
+② **本轮目标** — 4 driver 接 trading_index,re-run P4 确认 C1 修复
+进生产路径。
+
+③ **为什么先做它** — Round 1 修核心;gate 第二条要生产路径实际用上。
+
+④ **做了什么** — `run_walk_forward` 从 `labels.index` 自动派生
+trading_index(零 driver 改动覆盖 walk_forward_rank_sign);
+portfolio_acceptance + 2 sign driver 显式传 trading_index。
+
+⑤ **改了哪些文件** — `pipeline.py` / `portfolio_acceptance.py` /
+`walk_forward_sign_classifier.py` / `hyperparam_search_sign_classifier.py`
+/ 新 acceptance json。
+
+⑥ **跑了哪些测试 + 结果** — test_pipeline+xgb 43 passed;research/ml
+162 passed 无回归。R3 生产复跑 `portfolio_acceptance.py`:path-D
+Sharpe **1.176**(buggy 1.29 消失,= leak-quant correct 值),MaxDD
+-19.85%,DSR 0.893,PBO 0.135,verdict PASS。
+
+⑦ **当前结果** — **S1 CLOSED**。gate ①回归证零泄漏 ②生产路径实跑
+用 trading-bar purge。
+
+⑧ **剩余风险** — leak-free 真实数:path-D Sharpe 1.18 / MaxDD
+**-19.85%**(贴 20% 线)/ DSR 0.89 / PBO 0.135 —— S6 真 OOS 须用
+此 leak-free 基线判读。
+
+⑨ **下一轮建议** — Round 3 = S2(R4 §10.2 artifact schema 16 字段
++ fail-closed validator)。
+
+⑩ **TODO** — [x] S1 CLOSED · [ ] S2/S4/S5/S3/S7/S6。
+
+⑪ **commit** — `0bb581b`(主)。
+
+<!-- Round 3 起在此行下方追加 -->
