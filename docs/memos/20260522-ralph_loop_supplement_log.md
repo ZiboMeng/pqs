@@ -401,4 +401,41 @@ FAIL** —— root cause:turnover cap 限速调仓→撤出回撤名变慢→回
 
 ⑪ **commit** — `708fc5a`(主)。
 
-<!-- Round 11 起在此行下方追加 -->
+## Round 11 — S4:constraints.py — apply_min_edge_gate 实现
+
+**时间**: 2026-05-22 · **主 commit**: `7b86d84` · **测试基线**: 3955
+→ 3961(+6;test_constraints 13 passed)
+
+① **当前阶段** — Round 11 / S4 / min-edge gate。
+
+② **本轮目标** — 实现 `min_edge_to_trade` enforcing 代码。
+
+③ **为什么先做它** — 用户〇#1 要实现 min_edge;turnover 已 enforced。
+
+④ **做了什么** — `constraints.py` 加 `apply_min_edge_gate(weights,
+edge_bps, hurdle_bps)`:edge_bps<hurdle 的 bar 清零(cash);NaN edge
+→cash fail-closed。**§9.0 纪律**:edge_bps 必须 caller 供非-forecast
+proxy(§9.0 禁 ML 出 magnitude),docstring 明写。+6 单测。
+
+⑤ **改了哪些文件** — `core/research/allocation/constraints.py` /
+`tests/unit/research/allocation/test_constraints.py`(+6)。
+
+⑥ **跑了哪些测试 + 结果** — test_constraints 13 passed(7 turnover
++ 6 min-edge);additive 无回归。
+
+⑦ **当前结果** — min_edge gate enforcing 代码 + 测试就位。
+
+⑧ **剩余风险** — 未接 harness → min_edge_to_trade 仍 pending_S4;
+edge_bps 来源(§9.0-clean trailing-realized proxy)接 harness 时设计;
+exit_policy 仍 pending。
+
+⑨ **下一轮建议** — Round 12 = 接 apply_min_edge_gate 进 harness
+(trailing-realized book-vs-universe excess 作 edge proxy)+ 翻
+enforced + cross-check。
+
+⑩ **TODO** — [x] S1/S2 CLOSED · S4 config-honesty/turnover/min-edge-impl
+· [ ] S4 wire min_edge+exit_policy+收口 · [ ] S5/S3/S7/S6。
+
+⑪ **commit** — `7b86d84`(主)。
+
+<!-- Round 12 起在此行下方追加 -->
