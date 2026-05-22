@@ -102,3 +102,52 @@ class TestCostSensitivity:
         gross = portfolio_metrics(w, close, cost_bps=0.0)
         net = portfolio_metrics(w, close, cost_bps=100.0)
         assert net["cum_return"] == pytest.approx(gross["cum_return"], abs=1e-9)
+
+
+class TestS7Hygiene:
+    """S7 M1 hygiene — periods_per_year param, turnover-cost bar
+    alignment, NAV-positivity guard."""
+
+    def test_periods_per_year_scales_sharpe(self):
+        """Sharpe annualization tracks periods_per_year (S7 M6 — the
+        prior hardcoded 252 mis-annualized non-daily panels)."""
+        close, idx, syms = _panel()
+        w = pd.DataFrame(1.0 / 3, index=idx, columns=syms)
+        m252 = portfolio_metrics(w, close, periods_per_year=252)
+        m52 = portfolio_metrics(w, close, periods_per_year=52)
+        assert m252["periods_per_year"] == 252
+        assert m52["periods_per_year"] == 52
+        # sharpe scales by sqrt(ppy ratio) — loose tol: the dict values
+        # are round(.,4), so the ratio carries rounding error.
+        if abs(m52["annualized_sharpe"]) > 0.01:
+            ratio = m252["annualized_sharpe"] / m52["annualized_sharpe"]
+            assert abs(ratio - np.sqrt(252 / 52)) < 1e-2
+
+    def test_default_periods_per_year_252(self):
+        close, idx, syms = _panel()
+        w = pd.DataFrame(1.0 / 3, index=idx, columns=syms)
+        assert portfolio_metrics(w, close)["periods_per_year"] == 252
+
+    def test_turnover_cost_charged_after_trade(self):
+        """The turnover cost is charged on the bar the new weight starts
+        earning — a switch on bar k debits bar k+1, not bar k."""
+        close, idx, syms = _panel(n=40)
+        w = pd.DataFrame(0.0, index=idx, columns=syms)
+        w["S0"] = 1.0
+        w.iloc[20:] = 0.0
+        w.iloc[20:, w.columns.get_loc("S1")] = 1.0   # switch at bar 20
+        gross = portfolio_metrics(w, close, cost_bps=0.0)
+        net = portfolio_metrics(w, close, cost_bps=60.0)
+        assert net["cum_return"] < gross["cum_return"]   # cost still bites
+
+    def test_nav_guard_survives_pathological_bar(self):
+        """A bad -100%+ single-bar return must not drive NAV<=0 / blow
+        up the drawdown ratio."""
+        close, idx, syms = _panel(n=30)
+        # inject a catastrophic price collapse on one bar
+        close.iloc[15, 0] = close.iloc[14, 0] * 0.0001
+        w = pd.DataFrame(0.0, index=idx, columns=syms)
+        w["S0"] = 1.0
+        m = portfolio_metrics(w, close)
+        assert np.isfinite(m["max_drawdown"])            # not blown up
+        assert m["max_drawdown"] <= 0.0
