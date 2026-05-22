@@ -1277,4 +1277,48 @@ SHA-256 → bundle JSON)+ drift-check + smoke。
 
 ⑪ **commit** — `e5f3e8e`(主)。
 
-<!-- Round 31 起在此行下方追加 -->
+## Round 31 — P5 收口:freeze-bundle builder + drift-check(P5 CLOSED)
+
+**时间**: 2026-05-22 · **主 commit**: `aef4b2f` · **测试基线**: 3864
++ 7 新(research/ml 156 passed)
+
+① **当前阶段** — Round 31 / Package P5 / 收口。
+
+② **本轮目标** — 实现 governance memo 的 freeze bundle builder +
+drift-check,核 §12.3 gate,关 P5。
+
+③ **为什么先做它** — R30 memo 定义机制;gate 须有实跑佐证非
+placeholder。
+
+④ **做了什么** — 新建 `core/research/ml/freeze_bundle.py`
+(`build_freeze_bundle` 6 层 SHA-256 合 bundle,仅 PASS+§9.6 方可
+冻结;`check_drift` 产 6 类 drift flag)+ driver
+`freeze_ml_bundle.py`(build/--check)+7 单测。freeze bundle 写
+tracked 的 `data/audit/`(原 `data/ml/freeze/` 被 gitignore,改正)。
+
+⑤ **改了哪些文件** — `freeze_bundle.py`(新)/`test_freeze_bundle.py`
+(新)/`freeze_ml_bundle.py`(新)/`ml-promotion-governance.md`(路径
+改正)/`ml_freeze_bundle_3fd34e98d2093bd1.json`(新)。
+
+⑥ **跑了哪些测试 + 结果** — test_freeze_bundle 7 passed;research/ml
+156 passed 无回归;driver smoke:build bundle_id 3fd34e98 verdict
+PASS self-check 0 drift;`--check` clean → no drift;改 ml_allocation
+后 → 正确 flag "allocation drift"。
+
+⑦ **当前结果** — **P5 CLOSED**。§12.3 gate:① ML candidate 可冻结为
+可复现 bundle ✅ ② forward run 可检出 drift ✅。
+
+⑧ **剩余风险** — model_artifact_hash 本 smoke 为 None(P4 harness
+未持久化 .pkl,bundle 已支持该字段);drift-check 接 daily ritual
+是后续运营接线。
+
+⑨ **下一轮建议** — Round 32 = Package P6(expansion interfaces):
+核查 ml_sources.yaml source-tier 结构,确认新 source/模型可 additive
+接入不改 core promotion logic。
+
+⑩ **TODO** — [x] R0/P0/P1/P2/P3/P4/**P5 CLOSED** · [ ] P6 expansion
+interfaces ·(R5 fresh mining = 协议四 mandatory stop,P6 后)。
+
+⑪ **commit** — `aef4b2f`(主)。
+
+<!-- Round 32 起在此行下方追加 -->
