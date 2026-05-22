@@ -30,6 +30,8 @@ PRD: docs/prd/20260520-prd_rank_first_ml_pipeline.md §P4.4
 """
 from __future__ import annotations
 
+import math
+import warnings
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Iterable, Iterator, List, Optional, Tuple
 
@@ -175,15 +177,58 @@ def _check_sealed_guard(
                 f"{min(sealed_set) - 1} or bump split_name.")
 
 
+def _embargo_train_end(
+    train_end_year: int,
+    val_start: pd.Timestamp,
+    embargo_days: int,
+    trading_index: Optional[pd.DatetimeIndex],
+) -> pd.Timestamp:
+    """Last train date whose forward (``embargo_days``-bar) label window
+    ends strictly BEFORE ``val_start`` — i.e. zero train→val leakage.
+
+    Audit C1 (2026-05-22): the label horizon is counted in TRADING
+    days, but the previous code trimmed ``Timedelta(days=embargo_days)``
+    CALENDAR days — ~30 % too short (a 21-trading-day label spans ~29-31
+    calendar days). With ``trading_index`` the purge is exact: drop the
+    last ``embargo_days`` trading bars before ``val_start``. Without one
+    (legacy callers) a conservative ``ceil(embargo_days * 1.6)``
+    calendar gap over-covers the ~1.4 calendar-per-trading-day ratio.
+    """
+    nominal_end = pd.Timestamp(f"{train_end_year}-12-31")
+    if embargo_days <= 0:
+        return nominal_end
+    if trading_index is not None:
+        pre_val = trading_index[trading_index < val_start]
+        if len(pre_val) > embargo_days:
+            # the (embargo_days+1)-th bar from the end: exactly
+            # embargo_days bars later == pre_val[-1] < val_start.
+            return min(nominal_end, pre_val[-(embargo_days + 1)])
+    else:
+        warnings.warn(
+            "iter_folds: embargo_days>0 without trading_index — using a "
+            "conservative calendar fallback; pass trading_index for an "
+            "exact trading-bar purge (audit C1).",
+            stacklevel=3,
+        )
+    return nominal_end - pd.Timedelta(days=math.ceil(embargo_days * 1.6))
+
+
 def iter_folds(
     config: WalkForwardConfig,
     sealed_years: Iterable[int] = DEFAULT_SEALED_YEARS,
+    trading_index: Optional[pd.DatetimeIndex] = None,
 ) -> Iterator[WalkForwardFold]:
     """Yield strict-chronological train/val folds.
 
     Each fold's val window is non-overlapping with prior folds' val
     windows (rolling, not expanding). Stops when val_end_year would
     exceed config.end_year.
+
+    ``trading_index`` (the actual price/bar DatetimeIndex) makes the
+    purge+embargo exact: the train window is trimmed so the last train
+    label's ``embargo_days``-trading-bar forward window ends strictly
+    before val_start (audit C1 fix). Omit it only for legacy callers —
+    a conservative calendar fallback is used and a warning is raised.
     """
     _check_sealed_guard(config.end_year, sealed_years)
     fold_idx = 0
@@ -195,11 +240,15 @@ def iter_folds(
         val_end_year = val_start_year + config.val_window_years - 1
         if val_end_year > config.end_year:
             break
-        # Purge + embargo: trim the last `embargo_days` calendar days off
-        # the train window so a train label's forward (horizon) window
-        # cannot reach into the val window. embargo_days=0 → unchanged.
-        train_end = (pd.Timestamp(f"{train_end_year}-12-31")
-                     - pd.Timedelta(days=config.embargo_days))
+        # Purge + embargo: trim the train window so a train label's
+        # forward (horizon) window cannot reach into the val window.
+        # Trading-bar exact when trading_index is supplied (audit C1).
+        train_end = _embargo_train_end(
+            train_end_year,
+            pd.Timestamp(f"{val_start_year}-01-01"),
+            config.embargo_days,
+            trading_index,
+        )
         yield WalkForwardFold(
             fold_idx=fold_idx,
             train_start=pd.Timestamp(f"{train_start_year}-01-01"),

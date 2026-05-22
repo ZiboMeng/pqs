@@ -381,3 +381,70 @@ class TestEmbargoDays:
                               embargo_days=30),
             sealed_years=()))
         assert len(base) == len(emb)
+
+
+# ── S1 (supplement PRD 2026-05-22) — embargo trading-bar purge ────────
+class TestEmbargoTradingBarPurge:
+    """Audit C1: the embargo must purge by TRADING-bar position, not
+    calendar days. With a trading_index the last train label's
+    horizon-bar forward window must end strictly before val_start —
+    zero train→val leakage."""
+
+    @staticmethod
+    def _bdays():
+        return pd.bdate_range("2010-01-01", "2018-12-31")
+
+    @pytest.mark.parametrize("horizon", [5, 10, 21])
+    def test_zero_overlap_with_trading_index(self, horizon):
+        idx = self._bdays()
+        cfg = WalkForwardConfig(
+            start_year=2012, end_year=2017,
+            train_window_years=3, val_window_years=1, step_years=1,
+            embargo_days=horizon)
+        n_folds = 0
+        for fold in iter_folds(cfg, trading_index=idx):
+            n_folds += 1
+            # train_end must be an actual trading bar
+            assert fold.train_end in idx
+            pos = idx.get_loc(fold.train_end)
+            # the train_end label's forward window ends `horizon` bars later
+            label_end = idx[pos + horizon]
+            assert label_end < fold.val_start, (
+                f"horizon={horizon}: train_end {fold.train_end.date()} "
+                f"label window ends {label_end.date()} >= val_start "
+                f"{fold.val_start.date()} — LEAK")
+        assert n_folds == 3
+
+    def test_buggy_calendar_trim_would_have_leaked(self):
+        """Confirms the pre-fix behaviour leaked: a plain horizon-
+        calendar-day trim leaves the label window inside val."""
+        idx = self._bdays()
+        horizon = 21
+        val_start = pd.Timestamp("2015-01-01")
+        buggy_train_end = pd.Timestamp("2014-12-31") - pd.Timedelta(days=horizon)
+        # snap to the nearest prior trading bar
+        pos = idx.get_indexer([buggy_train_end], method="ffill")[0]
+        label_end = idx[pos + horizon]
+        assert label_end >= val_start  # the bug this S1 fix removes
+
+    def test_legacy_no_index_warns_and_is_conservative(self):
+        cfg = WalkForwardConfig(
+            start_year=2012, end_year=2017,
+            train_window_years=3, val_window_years=1, step_years=1,
+            embargo_days=21)
+        with pytest.warns(UserWarning, match="trading_index"):
+            folds = list(iter_folds(cfg))
+        # conservative fallback trims more than the buggy 21 calendar days
+        first = folds[0]
+        buggy = pd.Timestamp("2014-12-31") - pd.Timedelta(days=21)
+        assert first.train_end < buggy
+
+    def test_embargo_zero_unchanged(self):
+        idx = self._bdays()
+        cfg = WalkForwardConfig(
+            start_year=2012, end_year=2017,
+            train_window_years=3, val_window_years=1, step_years=1,
+            embargo_days=0)
+        for fold in iter_folds(cfg, trading_index=idx):
+            assert fold.train_end == pd.Timestamp(
+                f"{fold.train_start.year + 2}-12-31")
