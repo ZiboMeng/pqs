@@ -743,4 +743,46 @@ walk-forward · [ ] LightGBM parity [ ] DSR-PBO/residual-label/P2 收口
 
 ⑪ **commit** — `29402d1`(主)。
 
-<!-- Round 18 起在此行下方追加 -->
+## Round 18 — P2:LGBMRankerRankModel(LightGBM parity path)
+
+**时间**: 2026-05-21 · **主 commit**: `8ae92c8` · **测试基线**: 3864
++ 28 新(lgbm+xgb+rank_model 29 passed)
+
+① **当前阶段** — Round 18 / Package P2 / LightGBM parity。
+
+② **本轮目标** — 建 `LGBMRankerRankModel`,实现与 XGBRankerRankModel
+同一 `RankModelProtocol`。
+
+③ **为什么先做它** — canonical 决策 memo §4:LightGBM = 同一 Protocol
+实现非第四套;P2 §12.3 含 LightGBM parity smoke。
+
+④ **做了什么** — 新建 `core/research/ml/lgbm_rank_model.py`(镜像
+XGB 的 fit/predict_rank,`LGBMRanker(objective="lambdarank")`,§9.0
+rank∈[0,1])。预解决 group-size>31:0-based 整数 rank + 线性
+`label_gain=range(max_group+1)`。scoped 抑制 LightGBM feature-name
+warning storm。+7 单测。
+
+⑤ **改了哪些文件** — `core/research/ml/lgbm_rank_model.py`(新)/
+`tests/unit/research/ml/test_lgbm_rank_model.py`(新)。
+
+⑥ **跑了哪些测试 + 结果** — test_lgbm_rank_model 7 passed(含
+79-symbol large-group lambdarank fit);lgbm+xgb+rank_model 29
+passed 无回归;warning storm 已消。
+
+⑦ **当前结果** — LightGBM parity 模型实现+测试就位,与 XGB 同一
+Protocol。
+
+⑧ **剩余风险** — 未接进 driver `--model` 选项;LightGBM parity
+端到端 smoke 未跑;per-bar glue 与 XGB 重复 ~35 行(共享 helper
+后续 refactor)。
+
+⑨ **下一轮建议** — Round 19 = 接 LGBMRankerRankModel 进
+walk_forward_rank_sign.py(`--model lgbm`)+ LightGBM parity smoke。
+
+⑩ **TODO** — [x] R0/P0/P1 CLOSED · P2 canonical/rank-wf [x] P2
+LightGBM parity 模型 · [ ] LightGBM 接驱动+smoke/DSR-PBO/P2 收口
+· [ ] P3-P6。
+
+⑪ **commit** — `8ae92c8`(主)。
+
+<!-- Round 19 起在此行下方追加 -->
