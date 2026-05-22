@@ -47,6 +47,7 @@ from core.data.bar_store import BarStore  # noqa: E402
 from core.factors.base_masks import research_mask_default  # noqa: E402
 from core.factors.factor_generator import generate_all_factors  # noqa: E402
 from core.research.ml.artifact import (  # noqa: E402
+    ArtifactGovernance,
     ModelArtifact,
     make_artifact_metadata,
     save_artifact,
@@ -249,6 +250,41 @@ def _overfit_control(per_model_fold_ic: Dict[str, list]) -> Dict:
     return out
 
 
+def _rank_artifact_governance(model_name, args, cfg, n_models):
+    """PRD §10.2 ArtifactGovernance for a rank artifact (supplement S2).
+
+    Values are accurate to what this driver actually consumes: cycle06
+    features are price/volume-derived → source tier A only; labels are
+    raw forward returns the ranker orders; sample weighting is still
+    uniform (S3 will add the real scheme). dsr/pbo are left None — they
+    are a post-loop cross-model statistic, not a per-artifact value."""
+    import hashlib
+    h = hashlib.sha256()
+    for rel in ("config/ml_sources.yaml", "config/ml_labeling.yaml",
+                "config/temporal_split.yaml"):
+        h.update((PROJ / rel).read_bytes())
+    objective = {
+        "XGBRankerRankModel": getattr(args, "objective", "rank:ndcg"),
+        "LGBMRankerRankModel": "lambdarank",
+        "LinearBaselineRankModel": "least_squares_rank",
+    }.get(model_name, "unknown")
+    return ArtifactGovernance(
+        task_family="cross_sectional_rank",
+        source_tiers=("A_market_data",),
+        label_mode="forward_return",
+        sample_weight_mode="uniform",
+        purge_embargo={"embargo_days": cfg.embargo_days,
+                       "unit": "trading_bars"},
+        context_bundle="none",
+        training_universe=args.universe,
+        model_family=model_name,
+        objective=objective,
+        config_hash=h.hexdigest()[:16],
+        trial_count=int(n_models),
+        reused_native_components=True,
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="PRD #4 P4.4 sub-step 3b: real-data walk-forward driver",
@@ -436,6 +472,8 @@ def main() -> int:
                                 hyperparams=hyperparams,
                                 feature_columns=feature_names,
                                 trained_at_utc=trained_at,
+                                governance=_rank_artifact_governance(
+                                    model_name, args, cfg, len(factories)),
                             )
                             artifact = ModelArtifact(
                                 model=final_model, metadata=metadata)
