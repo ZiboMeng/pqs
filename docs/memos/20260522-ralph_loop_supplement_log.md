@@ -129,4 +129,38 @@ driver populate + freeze 接线 + 收口 · [ ] S4/S5/S3/S7/S6。
 
 ⑪ **commit** — `e4e68fd`(主)。
 
-<!-- Round 4 起在此行下方追加 -->
+## Round 4 — S2:make_artifact_metadata 接 governance 参数
+
+**时间**: 2026-05-22 · **主 commit**: `bde105e` · **测试基线**: 3938
+→ 3940(+2;test_artifact 33 passed)
+
+① **当前阶段** — Round 4 / S2 / governance 透传。
+
+② **本轮目标** — `make_artifact_metadata` 加 governance 参数透传。
+
+③ **为什么先做它** — Round 3 建好 schema+validator;工厂须能接收
+governance。
+
+④ **做了什么** — `make_artifact_metadata` 加 `governance` 可选参数,
+透传进 `ArtifactMetadata`。保持最小步,driver 真值组装留 Round 5。
+
+⑤ **改了哪些文件** — `core/research/ml/artifact.py` /
+`tests/unit/research/ml/test_artifact.py`(+2 测试)。
+
+⑥ **跑了哪些测试 + 结果** — test_artifact 33 passed(+2:透传 +
+legacy 默认 None);纯 additive 无回归。
+
+⑦ **当前结果** — artifact 工厂可接收并透传 governance。
+
+⑧ **剩余风险** — `walk_forward_rank_sign.py` 未组装 ArtifactGovernance
+(产出仍 governance=None);validator 未接 freeze gate。
+
+⑨ **下一轮建议** — Round 5 = `walk_forward_rank_sign.py` 组装
+`ArtifactGovernance` 真值 + 传 make_artifact_metadata。
+
+⑩ **TODO** — [x] S1 CLOSED · S2 schema/validator/工厂参数 · [ ] S2
+driver populate + freeze 接线 + 收口 · [ ] S4/S5/S3/S7/S6。
+
+⑪ **commit** — `bde105e`(主)。
+
+<!-- Round 5 起在此行下方追加 -->
