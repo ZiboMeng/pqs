@@ -119,7 +119,8 @@ def _prep_folds(args) -> List[Dict[str, Any]]:
         val_window_years=args.val_window, step_years=args.step,
         embargo_days=args.horizon_days)  # P1 §8.2: purge+embargo = horizon
     folds: List[Dict[str, Any]] = []
-    for fold in iter_folds(cfg, DEFAULT_SEALED_YEARS):
+    for fold in iter_folds(cfg, DEFAULT_SEALED_YEARS,
+                           trading_index=sign_labels.index):  # audit C1
         X_train, y_train = _assemble_xy(
             stage1_rank, sign_labels, context, args.decile,
             fold.train_start, fold.train_end)

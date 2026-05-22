@@ -1,0 +1,118 @@
+{
+  "prd": "docs/prd/20260521-rerisk-and-ml-training-audit-prd.md \u00a79 P4",
+  "window": "2012-2017 (train-only)",
+  "n_walk_forward_folds": 3,
+  "concatenated_oos": "2015-01-02..2017-12-29",
+  "mode_a": "top_k_capped",
+  "mode_d": "top_k_capped",
+  "top_k": 10,
+  "single_name_cap": 0.4,
+  "rebalance_days": 21,
+  "path_d_vol_target": 0.0,
+  "cost_levels_bps": [
+    0,
+    30,
+    60
+  ],
+  "paths": {
+    "path_A_non_ml_composite": {
+      "cost_0bps": {
+        "cum_return": 0.5262,
+        "annualized_sharpe": 0.9813,
+        "annualized_vol": 0.1563,
+        "max_drawdown": -0.1229,
+        "turnover_mean": 0.0575,
+        "n_periods": 755,
+        "cost_bps": 0.0,
+        "vs_benchmark_excess_cum": 0.1456
+      },
+      "cost_30bps": {
+        "cum_return": 0.3394,
+        "annualized_sharpe": 0.699,
+        "annualized_vol": 0.1573,
+        "max_drawdown": -0.1229,
+        "turnover_mean": 0.0575,
+        "n_periods": 755,
+        "cost_bps": 30.0,
+        "vs_benchmark_excess_cum": -0.0413
+      },
+      "cost_60bps": {
+        "cum_return": 0.1747,
+        "annualized_sharpe": 0.4172,
+        "annualized_vol": 0.1593,
+        "max_drawdown": -0.1505,
+        "turnover_mean": 0.0575,
+        "n_periods": 755,
+        "cost_bps": 60.0,
+        "vs_benchmark_excess_cum": -0.2059
+      }
+    },
+    "path_D_xgb_ranker_ndcg": {
+      "cost_0bps": {
+        "cum_return": 0.9651,
+        "annualized_sharpe": 1.4244,
+        "annualized_vol": 0.1683,
+        "max_drawdown": -0.1916,
+        "turnover_mean": 0.054,
+        "n_periods": 755,
+        "cost_bps": 0.0,
+        "vs_benchmark_excess_cum": 0.5845
+      },
+      "cost_30bps": {
+        "cum_return": 0.7381,
+        "annualized_sharpe": 1.1759,
+        "annualized_vol": 0.1692,
+        "max_drawdown": -0.1985,
+        "turnover_mean": 0.054,
+        "n_periods": 755,
+        "cost_bps": 30.0,
+        "vs_benchmark_excess_cum": 0.3575
+      },
+      "cost_60bps": {
+        "cum_return": 0.5366,
+        "annualized_sharpe": 0.9247,
+        "annualized_vol": 0.1709,
+        "max_drawdown": -0.2145,
+        "turnover_mean": 0.054,
+        "n_periods": 755,
+        "cost_bps": 60.0,
+        "vs_benchmark_excess_cum": 0.1559
+      }
+    }
+  },
+  "overfit_control": {
+    "n_trials": 5,
+    "sweep_configs": [
+      "A_composite",
+      "D_plain",
+      "D_volscaled",
+      "D_vt010",
+      "D_vt015"
+    ],
+    "selection": "P4 acceptance config sweep \u2192 promoted = D_plain",
+    "dsr_promoted_D_plain": {
+      "deflated_sharpe": 0.8933898640978432,
+      "sharpe": 0.08973167342800709,
+      "sr0": 0.043402939635519416,
+      "skew": -0.4032528434565295,
+      "kurtosis": 5.122700175478336,
+      "n_trials": 5,
+      "T": 755
+    },
+    "pbo": {
+      "pbo": 0.1349206349206349,
+      "red_flag": false,
+      "n_combinations": 252,
+      "S": 10,
+      "mean_logit": -0.6906478569417444,
+      "threshold": 0.5,
+      "auto_kill": false,
+      "note": "diagnostic red-flag only; human adjudicates (PRD G2-A3). forward-only: past cycles not retro-computable (scalar-only archive)."
+    }
+  },
+  "verdict": "PASS",
+  "verdict_basis": "path D beats baseline on net Sharpe AND path D MaxDD within the 15-20% invariant (gate per user 2026-05-22, prompt \u00a7\u3007 #5). Multi-fold walk-forward, train-only window, 30bps cost.",
+  "sharpe_beat": true,
+  "maxdd_within_invariant": true,
+  "generated_utc": "20260522T033134Z"
+}

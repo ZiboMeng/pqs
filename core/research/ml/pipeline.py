@@ -363,7 +363,12 @@ def run_walk_forward(
     _validate_panel_indices(features, labels)
     sealed_tuple = tuple(sealed_years)
     per_fold: List[FoldMetrics] = []
-    for fold in iter_folds(config, sealed_tuple):
+    # Audit C1 fix: derive the trading calendar from the label panel so
+    # iter_folds can purge the embargo by trading-bar position (exact),
+    # not calendar days. No caller change needed — every run_walk_forward
+    # caller already supplies a DatetimeIndexed label panel.
+    for fold in iter_folds(config, sealed_tuple,
+                           trading_index=labels.index):
         model = model_factory()
         metrics = evaluate_fold(model, fold, features, labels)
         per_fold.append(metrics)

@@ -168,7 +168,8 @@ def main() -> int:
         train_window_years=3, val_window_years=1, step_years=1,
         embargo_days=args.horizon_days)   # P1 §8.2 purge+embargo
     rank_d_parts = []
-    for fold in iter_folds(wf, DEFAULT_SEALED_YEARS):
+    for fold in iter_folds(wf, DEFAULT_SEALED_YEARS,
+                           trading_index=close.index):  # audit C1: exact embargo
         tr_feats = {f: p.loc[(p.index >= fold.train_start)
                              & (p.index <= fold.train_end)]
                     for f, p in feats.items()}
