@@ -867,4 +867,42 @@ scaling / sector-beta neutralize / min-edge-to-trade)。
 
 ⑪ **commit** — `975b17d`(主)。
 
-<!-- Round 21 起在此行下方追加 -->
+## Round 21 — P3:config/ml_allocation.yaml score-to-weight 契约
+
+**时间**: 2026-05-21 · **主 commit**: `ed1571b` · **测试基线**: 3864
+(纯 config)
+
+① **当前阶段** — Round 21 / Package P3 / 第一步。
+
+② **本轮目标** — 建 `config/ml_allocation.yaml`(score-to-weight +
+约束 + 退出契约,§4.8/§4.9)。
+
+③ **为什么先做它** — P2 CLOSED;P3 allocation 契约 schema 须先定。
+
+④ **做了什么** — 新建 `config/ml_allocation.yaml`:score_normalization
+/ 3 mapping_modes(top_k_capped 默认 / score_proportional_clipped /
+score_vol_scaled,全 long_only)/ risk_scaling(target_vol 0.15,
+correlation-aware vol)/ constraints(long_only/no_short/no_margin 硬,
+单票 0.40)/ min_edge_to_trade(cash/no-trade gate)/ exit_policy
+(5 类)。long-only guardrail 写进头部。
+
+⑤ **改了哪些文件** — `config/ml_allocation.yaml`(新)。
+
+⑥ **跑了哪些测试 + 结果** — yaml safe_load 通过(3 mapping_modes,
+long_only/no_short 硬约束,5 类 exit_policy);纯 config 无回归。
+
+⑦ **当前结果** — P3 score-to-weight + 约束 + 退出契约 schema 就位。
+
+⑧ **剩余风险** — allocation 模块(score_to_weight/constraints/
+exit_policy)未实现;score_to_weight smoke 未做。
+
+⑨ **下一轮建议** — Round 22 = 实现
+`core/research/allocation/score_to_weight.py`(3 mapping mode + risk
+scaling + 约束 enforcement,long-only,risk cap 不可静默绕过)+ 单测。
+
+⑩ **TODO** — [x] R0/P0/P1/P2 CLOSED [x] P3 ml_allocation.yaml ·
+[ ] P3 allocation 模块+smoke [ ] P3 收口 · [ ] P4/P5/P6。
+
+⑪ **commit** — `ed1571b`(主)。
+
+<!-- Round 22 起在此行下方追加 -->
