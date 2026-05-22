@@ -905,4 +905,44 @@ scaling + 约束 enforcement,long-only,risk cap 不可静默绕过)+ 单测。
 
 ⑪ **commit** — `ed1571b`(主)。
 
-<!-- Round 22 起在此行下方追加 -->
+## Round 22 — P3:score_to_weight mapping 模块
+
+**时间**: 2026-05-21 · **主 commit**: `e9bc2bd` · **测试基线**: 3864
++ 10 新(allocation additive)
+
+① **当前阶段** — Round 22 / Package P3 / score-to-weight 实现。
+
+② **本轮目标** — 实现 `core/research/allocation/score_to_weight.py`。
+
+③ **为什么先做它** — Round 21 定了 ml_allocation.yaml 契约;P3 核心
+= score→权重映射可执行 + 约束不可绕过。
+
+④ **做了什么** — 新建 `core/research/allocation/`:`score_to_weight`
+(3 mode:top_k_capped / score_proportional_clipped / score_vol_scaled,
+long-only)+ `_apply_single_name_cap`(cap+pro-rata 重分配,全触顶
+则残差 cash,risk cap 不被静默绕过)+ `score_panel_to_weights`。
++10 单测。
+
+⑤ **改了哪些文件** — `core/research/allocation/{__init__,score_to_weight}.py`
+(新)/ `tests/unit/research/allocation/{__init__,test_score_to_weight}.py`
+(新)。
+
+⑥ **跑了哪些测试 + 结果** — test_score_to_weight 10 passed(top-k /
+long-only / 单票 cap enforced / all-NaN→cash / determinism / 3 mode
+单调性 / panel 包装);新模块 additive 无回归。
+
+⑦ **当前结果** — P3 score-to-weight 核心实现+测试就位;long-only +
+单票 cap 硬 enforce。
+
+⑧ **剩余风险** — risk_scaling/constraints/exit_policy 可执行模块未做
+(config 里有,代码待补);score_to_weight smoke json 未做。
+
+⑨ **下一轮建议** — Round 23 = score_to_weight deterministic smoke
+json + P3 §12.3 gate 核对 + P3 收口。
+
+⑩ **TODO** — [x] R0/P0/P1/P2 CLOSED · P3 yaml/score_to_weight ·
+[ ] P3 smoke+收口 · [ ] P4/P5/P6。
+
+⑪ **commit** — `e9bc2bd`(主)。
+
+<!-- Round 23 起在此行下方追加 -->
