@@ -481,4 +481,42 @@ min_edge(失败 root-caused→roadmap)· [ ] S4 exit_policy+收口 ·
 
 ⑪ **commit** — `acb3028`(主)。
 
-<!-- Round 13 起在此行下方追加 -->
+## Round 13 — S4:exit_policy.py — signal_decay + turnover_band 实现
+
+**时间**: 2026-05-22 · **主 commit**: `fa57098` · **测试基线**: 3961
+→ 3971(+10;test_exit_policy 10 passed)
+
+① **当前阶段** — Round 13 / S4 / exit_policy。
+
+② **本轮目标** — 实现 exit_policy enforcing 代码。
+
+③ **为什么先做它** — exit_policy 是最后一个 pending_S4;§4.9 要完整
+退出策略。
+
+④ **做了什么** — 新建 `core/research/allocation/exit_policy.py`:
+实现 5 class 里 contemporaneous + 非-whipsaw 的两个(吸取 R12 教训)
+—— `apply_signal_decay_exit`(held name rank 跌破阈值→退出,用 model
+当前 rank 非滞后统计)+ `apply_turnover_band`(no-trade band)。诚实
+标另外 3 个:time_based auto-满足、risk_off drawdown-exit whipsaw-prone
+→roadmap、reentry cooldown=0 no-op。+10 单测。
+
+⑤ **改了哪些文件** — `core/research/allocation/exit_policy.py`(新)/
+`test_exit_policy.py`(新);删 R12 whipsaw 中间产物 json。
+
+⑥ **跑了哪些测试 + 结果** — test_exit_policy 10 passed;新模块无回归。
+
+⑦ **当前结果** — exit_policy 两个安全 exit 规则代码+测试就位;
+exit_policy.py 模块建立。
+
+⑧ **剩余风险** — 未接 harness → exit_policy 仍 pending_S4;risk_off
+/reentry 诚实标 roadmap(非全 5 class —— drawdown-exit whipsaw-prone)。
+
+⑨ **下一轮建议** — Round 14 = 接 signal_decay+turnover_band 进
+harness + exit_policy→enforced + S4 收口。
+
+⑩ **TODO** — [x] S1/S2 CLOSED · S4 config-honesty/turnover/min_edge
+(roadmap)/exit_policy 实现 · [ ] S4 wire exit+收口 · [ ] S5/S3/S7/S6。
+
+⑪ **commit** — `fa57098`(主)。
+
+<!-- Round 14 起在此行下方追加 -->
