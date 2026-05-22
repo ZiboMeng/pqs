@@ -283,4 +283,44 @@ enabled:false(决策〇#1)。
 
 ⑪ **commit** — `cbd6d18`(主)。
 
-<!-- Round 8 起在此行下方追加 -->
+## Round 8 — S4:config honesty(enforcement_status 登记 + cross-check)
+
+**时间**: 2026-05-22 · **主 commit**: `ee18390` · **测试基线**: 3940
+→ 3947(+7;allocation 33 passed)
+
+① **当前阶段** — Round 8 / S4 / config honesty。
+
+② **本轮目标** — 消除 config 撒谎:enforcement_status 登记 +
+cross-check 测试。
+
+③ **为什么先做它** — S4 首步;先让 drift 显式可见再逐个实现。
+
+④ **做了什么** — `ml_labeling.yaml` residualize_vs_sector→false(代码
+只 market 残差化);`ml_allocation.yaml` 加 `enforcement_status` 登记
+(15 控制:enforced 6 / pending_S4 3 / roadmap 5 / disabled 1);
+新建 `test_enforcement_status.py`(7 测试:status 合法 / 每个声明的
+控制必须登记 / enforced 控制有实证代码 / pending_S4 文档化)。
+
+⑤ **改了哪些文件** — `config/ml_labeling.yaml` /
+`config/ml_allocation.yaml` / `tests/unit/research/allocation/
+test_enforcement_status.py`(新)。
+
+⑥ **跑了哪些测试 + 结果** — test_enforcement_status 7 passed(首跑
+抓出 concentration_cap_top1/top3 漏登记 → 补 → 全绿);allocation
+33 passed 无回归。
+
+⑦ **当前结果** — config-vs-code 撒谎消除:每个控制状态显式,
+cross-check 测试守住;drift 已修。
+
+⑧ **剩余风险** — turnover/min_edge/exit_policy 仍 pending_S4(用户
+〇#1 要实现,Round 9-11)。
+
+⑨ **下一轮建议** — Round 9 = 实现 `turnover_cap_daily` enforcement
++ 翻 enforced + 测试。
+
+⑩ **TODO** — [x] S1/S2 CLOSED · S4 config honesty · [ ] S4 实现
+turnover/min_edge/exit + 收口 · [ ] S5/S3/S7/S6。
+
+⑪ **commit** — `ee18390`(主)。
+
+<!-- Round 9 起在此行下方追加 -->
