@@ -8,11 +8,11 @@
   "start_date": "2026-05-14",
   "current_status": "in_progress",
   "initial_nav_usd": 10000.0,
-  "current_nav_usd": 10000.0,
+  "current_nav_usd": 9917.7002,
   "high_water_nav_usd": 10000.0,
   "current_cash_usd": 346.0802,
-  "n_observe_days": 1,
-  "last_observe_date": "2026-05-13",
+  "n_observe_days": 2,
+  "last_observe_date": "2026-05-21",
   "target_weights": {
     "MTUM": 0.7,
     "TQQQ": 0.3,
@@ -24,8 +24,8 @@
     "BIL": 0
   },
   "regime": "risk_on",
-  "vix_close": 17.87,
-  "qqq_close": 714.71,
+  "vix_close": 16.76,
+  "qqq_close": 714.51,
   "qqq_above_sma200": true,
   "forward_runs": [
     {
@@ -57,6 +57,37 @@
         "qqq_sma200": 608.3467,
         "qqq_above_sma200": true,
         "spy_close": 742.31
+      }
+    },
+    {
+      "td_number": 2,
+      "observation_date": "2026-05-21",
+      "observed_at_utc": "2026-05-22T03:15:12.618700+00:00",
+      "nav_usd": 9917.7002,
+      "cash_usd": 346.0802,
+      "is_rebalance_day": true,
+      "positions_shares": {
+        "MTUM": 22,
+        "TQQQ": 38,
+        "BIL": 0
+      },
+      "sleeve_values_usd": {
+        "MTUM": 6647.5201,
+        "TQQQ": 2924.0999,
+        "BIL": 0.0
+      },
+      "target_weights": {
+        "MTUM": 0.7,
+        "TQQQ": 0.3,
+        "BIL": 0.0
+      },
+      "regime": "risk_on",
+      "diagnostics": {
+        "vix_close": 16.76,
+        "qqq_close": 714.51,
+        "qqq_sma200": 612.8355,
+        "qqq_above_sma200": true,
+        "spy_close": 742.72
       }
     }
   ]

@@ -1,2 +1,3 @@
 date,td_number,nav_usd,cash_usd,mtum_value,tqqq_value,bil_value,regime,vix_close,qqq_close,qqq_above_sma200
 2026-05-13,1,10000.0,346.0802,6718.7999,2935.1199,0.0,risk_on,17.87,714.71,True
+2026-05-21,2,9917.7002,346.0802,6647.5201,2924.0999,0.0,risk_on,16.76,714.51,True

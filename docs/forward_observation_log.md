@@ -74,3 +74,14 @@ First ritual since the 2026-04-26 baseline. RCMv1 + Cand-2 aborted
 - spy_8otm_bull_put_v1(options):✅ **TD008**,SPY $738.65/VIX 17.82,NAV $10,000,DD 0%,0 仓,cum_pnl $0,events=[]
 - cumulative_vrp_scan:已跑
 - 状态:全候选 healthy;无 fail-closed/无 drift;torch2.12+pandas3.0 下 forward 路径验证正常(加固 60-测回归信心)
+
+## 2026-05-21 daily ritual(收盘后,审计会话内并行)
+- fetch_data: ✅ 243 更新(daily + 60m/30m/15m,收盘后)
+- **pre-observe smoke**:cycle06/08 先 `observe --dry-run` 验 runtime canonical hash → 无 drift / 无 halt / 无 fail-closed(ralph-loop ML 工作未触 factor registry / universe,canonical hash 稳定,符合预期)
+- cycle06_31af04cf2ff9_evidence_v1:✅ **TD001-003**(2026-05-19/20/21),cum_ret **+3.22%**,vs_spy **+1.99%**,vs_qqq +1.37%,max_dd 0.00%
+- cycle08_3f40e3f4ed1a_evidence_v1:✅ **TD001-003**,cum_ret **-0.74%**,vs_spy -1.96%,vs_qqq -2.59%,max_dd -0.74%
+- pead_sue_trial1_evidence_v1(standalone track):✅ 4 TDs,forward Sharpe +10.03(年化;tiny-NAV evidence 轨,数值放大正常),forward MaxDD -0.18%(60d -0.18%),lifetime 287 signals / 504 trades
+- spy_8otm_bull_put_v1(options):✅ **TD009**,SPY $742.72 / VIX 16.76,NAV $10,000,DD 0%,0 仓,cum_pnl $0,events=[]
+- simple_baseline_v1:✅ **TD002**(2026-05-21),NAV $9,917.70,regime=risk_on(MTUM $6,648 / TQQQ $2,924 / cash $346)
+- chart_native_s1_evidence_v1:⚠ **observe FAILED** —— `observe_chart_native_evidence.py` import `_frozen_imagenet_features` 失败(`run_chart_native_l3_track_a` 已无该符号)。**pre-existing 断裂,非本审计/ralph-loop 造成**(ML 工作未触 chart_native 路径);该候选本就带 leakage caveat、evidence_only。observe 脚本 stale import 需单独修,记入 TODO。
+- 状态:5/6 候选 healthy 推进、无 drift / 无 halt;chart_native observe 脚本 stale-import 待修。
