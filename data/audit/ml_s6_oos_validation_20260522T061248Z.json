@@ -1,0 +1,245 @@
+{
+  "prd": "supplement 20260522 \u00a72 S6 \u2014 ranking-baseline OOS validation",
+  "path_d_config": "vol_target_0.1",
+  "path_d_vol_target": 0.1,
+  "train_years": [
+    2009,
+    2010,
+    2011,
+    2012,
+    2013,
+    2014,
+    2015,
+    2016,
+    2017,
+    2020,
+    2022,
+    2024
+  ],
+  "validation_years": [
+    2018,
+    2019,
+    2021,
+    2023,
+    2025
+  ],
+  "per_validation_year": {
+    "2018": {
+      "train_years_used": [
+        2009,
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2017
+      ],
+      "path_D": {
+        "cum_return": -0.0476,
+        "annualized_sharpe": -0.3617,
+        "annualized_vol": 0.1167,
+        "max_drawdown": -0.138,
+        "turnover_mean": 0.0616,
+        "n_periods": 251,
+        "cost_bps": 30.0,
+        "periods_per_year": 252,
+        "vs_benchmark_excess_cum": 0.0048
+      },
+      "path_A": {
+        "cum_return": -0.2376,
+        "annualized_sharpe": -1.0233,
+        "annualized_vol": 0.2382,
+        "max_drawdown": -0.3446,
+        "turnover_mean": 0.1554,
+        "n_periods": 251,
+        "cost_bps": 30.0,
+        "periods_per_year": 252,
+        "vs_benchmark_excess_cum": -0.1851
+      }
+    },
+    "2019": {
+      "train_years_used": [
+        2009,
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2017
+      ],
+      "path_D": {
+        "cum_return": 0.0874,
+        "annualized_sharpe": 0.7112,
+        "annualized_vol": 0.1296,
+        "max_drawdown": -0.1258,
+        "turnover_mean": 0.0834,
+        "n_periods": 252,
+        "cost_bps": 30.0,
+        "periods_per_year": 252,
+        "vs_benchmark_excess_cum": -0.2235
+      },
+      "path_A": {
+        "cum_return": 0.0515,
+        "annualized_sharpe": 0.4297,
+        "annualized_vol": 0.1396,
+        "max_drawdown": -0.1152,
+        "turnover_mean": 0.1592,
+        "n_periods": 252,
+        "cost_bps": 30.0,
+        "periods_per_year": 252,
+        "vs_benchmark_excess_cum": -0.2594
+      }
+    },
+    "2021": {
+      "train_years_used": [
+        2009,
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2017,
+        2020
+      ],
+      "path_D": {
+        "cum_return": 0.1331,
+        "annualized_sharpe": 0.9691,
+        "annualized_vol": 0.1388,
+        "max_drawdown": -0.0938,
+        "turnover_mean": 0.0317,
+        "n_periods": 252,
+        "cost_bps": 30.0,
+        "periods_per_year": 252,
+        "vs_benchmark_excess_cum": -0.172
+      },
+      "path_A": {
+        "cum_return": 0.0704,
+        "annualized_sharpe": 0.4372,
+        "annualized_vol": 0.202,
+        "max_drawdown": -0.1513,
+        "turnover_mean": 0.1616,
+        "n_periods": 252,
+        "cost_bps": 30.0,
+        "periods_per_year": 252,
+        "vs_benchmark_excess_cum": -0.2347
+      }
+    },
+    "2023": {
+      "train_years_used": [
+        2009,
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2017,
+        2020,
+        2022
+      ],
+      "path_D": {
+        "cum_return": 0.2001,
+        "annualized_sharpe": 1.7146,
+        "annualized_vol": 0.1108,
+        "max_drawdown": -0.0815,
+        "turnover_mean": 0.0267,
+        "n_periods": 250,
+        "cost_bps": 30.0,
+        "periods_per_year": 252,
+        "vs_benchmark_excess_cum": -0.067
+      },
+      "path_A": {
+        "cum_return": 0.1718,
+        "annualized_sharpe": 0.9679,
+        "annualized_vol": 0.1823,
+        "max_drawdown": -0.1663,
+        "turnover_mean": 0.1351,
+        "n_periods": 250,
+        "cost_bps": 30.0,
+        "periods_per_year": 252,
+        "vs_benchmark_excess_cum": -0.0953
+      }
+    },
+    "2025": {
+      "train_years_used": [
+        2009,
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2017,
+        2020,
+        2022,
+        2024
+      ],
+      "path_D": {
+        "cum_return": 0.166,
+        "annualized_sharpe": 1.2089,
+        "annualized_vol": 0.1357,
+        "max_drawdown": -0.1255,
+        "turnover_mean": 0.0282,
+        "n_periods": 250,
+        "cost_bps": 30.0,
+        "periods_per_year": 252,
+        "vs_benchmark_excess_cum": -0.0141
+      },
+      "path_A": {
+        "cum_return": 0.2874,
+        "annualized_sharpe": 1.3133,
+        "annualized_vol": 0.2109,
+        "max_drawdown": -0.1658,
+        "turnover_mean": 0.1191,
+        "n_periods": 250,
+        "cost_bps": 30.0,
+        "periods_per_year": 252,
+        "vs_benchmark_excess_cum": 0.1073
+      }
+    }
+  },
+  "aggregate": {
+    "mean_path_D_sharpe": 0.8484,
+    "mean_path_A_sharpe": 0.425,
+    "worst_path_D_maxdd": -0.138,
+    "per_year_maxdd_all_within_20pct": true
+  },
+  "overfit_control": {
+    "n_trials": 10,
+    "dsr": {
+      "deflated_sharpe": 0.8223989917562582,
+      "sharpe": 0.07085171980296624,
+      "sr0": 0.04444755907508069,
+      "skew": -0.1857596445746561,
+      "kurtosis": 8.6695787535578,
+      "n_trials": 10,
+      "T": 1255
+    },
+    "pbo": {
+      "pbo": 0.9682539682539683,
+      "red_flag": true,
+      "n_combinations": 252,
+      "S": 10,
+      "mean_logit": -2.8327235553976946,
+      "threshold": 0.5,
+      "auto_kill": false,
+      "note": "diagnostic red-flag only; human adjudicates (PRD G2-A3). forward-only: past cycles not retro-computable (scalar-only archive)."
+    },
+    "sweep_mean_offdiag_corr": 0.8754,
+    "pbo_reliability_note": "sweep configs sufficiently distinct \u2014 PBO meaningful"
+  },
+  "verdict": "FAIL",
+  "verdict_basis": "path-D mean net Sharpe \u2265 path-A AND every validation-year MaxDD \u2264 20% invariant AND the edge survives \u00a79.6 (DSR > 0 AND PBO \u2264 0.5).",
+  "sharpe_beat": true,
+  "maxdd_within_invariant": true,
+  "overfit_control_ok": false,
+  "generated_utc": "20260522T061248Z"
+}
