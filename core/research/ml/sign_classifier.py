@@ -196,7 +196,13 @@ class LogisticRegressionSignClassifier:
         result[~positive] = e / (1.0 + e)
         return result
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "LogisticRegressionSignClassifier":
+    def fit(self, X: np.ndarray, y: np.ndarray,
+            sample_weight: np.ndarray | None = None,
+            ) -> "LogisticRegressionSignClassifier":
+        """Weighted IRLS logistic fit (S3 — supplement 20260522).
+        ``sample_weight`` (per-row, non-negative) scales each
+        observation's contribution to the gradient and Hessian; None
+        ⇒ uniform 1.0 — bit-identical to the pre-S3 fit."""
         X = np.asarray(X, dtype=float)
         y = np.asarray(y, dtype=float)
         if X.ndim != 2:
@@ -215,6 +221,12 @@ class LogisticRegressionSignClassifier:
         if len(y_f) == 0:
             raise ValueError(
                 "no valid training observations (all NaN after mask)")
+        if sample_weight is None:
+            sw = np.ones(len(y_f))
+        else:
+            sw = np.clip(
+                np.asarray(sample_weight, dtype=float)[finite_mask],
+                0.0, None)
         n, p = X_f.shape
         if self.fit_intercept:
             X_aug = np.hstack([np.ones((n, 1)), X_f])
@@ -227,8 +239,8 @@ class LogisticRegressionSignClassifier:
             W = mu * (1.0 - mu)
             # avoid division by zero on perfectly separable
             W = np.clip(W, 1e-6, None)
-            grad = X_aug.T @ (mu - y_f)
-            hess = X_aug.T @ (W[:, None] * X_aug)
+            grad = X_aug.T @ (sw * (mu - y_f))
+            hess = X_aug.T @ ((sw * W)[:, None] * X_aug)
             # ridge for numerical stability
             hess = hess + 1e-6 * np.eye(hess.shape[0])
             try:
@@ -275,7 +287,11 @@ class XGBSignClassifier:
     booster_: object = field(default=None)
     fitted_: bool = field(default=False)
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "XGBSignClassifier":
+    def fit(self, X: np.ndarray, y: np.ndarray,
+            sample_weight: np.ndarray | None = None,
+            ) -> "XGBSignClassifier":
+        """S3 (supplement 20260522): ``sample_weight`` (per-row) is
+        passed through to xgboost.XGBClassifier.fit; None ⇒ uniform."""
         try:
             from xgboost import XGBClassifier
         except ImportError as exc:
@@ -295,6 +311,9 @@ class XGBSignClassifier:
         if len(y_f) == 0:
             raise ValueError(
                 "no valid training observations (all NaN after mask)")
+        sw_f = (np.clip(np.asarray(sample_weight, dtype=float)[finite_mask],
+                        0.0, None)
+                if sample_weight is not None else None)
         self.booster_ = XGBClassifier(
             n_estimators=self.n_estimators,
             max_depth=self.max_depth,
@@ -305,7 +324,7 @@ class XGBSignClassifier:
             tree_method="hist",
             verbosity=0,
         )
-        self.booster_.fit(X_f, y_f)
+        self.booster_.fit(X_f, y_f, sample_weight=sw_f)
         self.fitted_ = True
         return self
 

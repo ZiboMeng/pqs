@@ -327,3 +327,48 @@ class TestCostAwareBinaryLabels:
         with pytest.raises(ValueError):
             compute_cost_aware_binary_labels(
                 price, horizon_days=1, min_expected_edge_bps=-1.0)
+
+
+# ── S3 (supplement PRD 2026-05-22) — weighted fit ─────────────────────
+class TestSampleWeightedFit:
+    @staticmethod
+    def _xy(seed=4, n=200):
+        rng = np.random.default_rng(seed)
+        X = rng.standard_normal((n, 3))
+        # separable-ish signal on feature 0
+        y = (X[:, 0] + 0.3 * rng.standard_normal(n) > 0).astype(int)
+        return X.astype(float), y.astype(float)
+
+    def test_logreg_none_weight_bit_identical(self):
+        """sample_weight=None must reproduce the unweighted fit exactly."""
+        X, y = self._xy()
+        a = LogisticRegressionSignClassifier().fit(X, y)
+        b = LogisticRegressionSignClassifier().fit(X, y, sample_weight=None)
+        assert np.allclose(a.coefficients_, b.coefficients_)
+        assert a.intercept_ == b.intercept_
+
+    def test_logreg_weight_changes_fit(self):
+        """Non-uniform weights move the fitted coefficients."""
+        X, y = self._xy()
+        rng = np.random.default_rng(9)
+        w = rng.uniform(0.1, 3.0, len(y))
+        base = LogisticRegressionSignClassifier().fit(X, y)
+        wt = LogisticRegressionSignClassifier().fit(X, y, sample_weight=w)
+        assert not np.allclose(base.coefficients_, wt.coefficients_)
+
+    def test_logreg_weight_nan_row_aligned(self):
+        """sample_weight is masked by the same finite_mask as X/y."""
+        X, y = self._xy(n=120)
+        X[5] = np.nan                       # one bad row
+        w = np.ones(len(y))
+        m = LogisticRegressionSignClassifier().fit(X, y, sample_weight=w)
+        assert m.fitted_                    # no shape error from the mask
+
+    def test_xgb_weight_passthrough(self):
+        pytest.importorskip("xgboost")
+        X, y = self._xy()
+        w = np.linspace(0.5, 1.5, len(y))
+        m = XGBSignClassifier(n_estimators=10).fit(X, y, sample_weight=w)
+        assert m.fitted_
+        preds = m.predict(X)
+        assert set(np.unique(preds)).issubset({0, 1})
