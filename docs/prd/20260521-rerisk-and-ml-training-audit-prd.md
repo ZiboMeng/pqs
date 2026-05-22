@@ -1,9 +1,24 @@
 # PRD — Re-Risk First, Then ML Training Framework Hardening
 
-Status: DRAFT (audited + revised 2026-05-21)  
+Status: DRAFT (audited + revised 2026-05-21) — **R0+P0-P6 implemented
+2026-05-22; see SUPPLEMENT below for post-implementation audit findings**  
 Date: 2026-05-21  
 Owner: audit / quant-research  
 Lineage: `rerisk-and-ml-training-audit-2026-05-21`
+
+> **SUPPLEMENT (2026-05-22) — audit remediation + ranking-baseline OOS
+> validation.** R0+P0-P6 were implemented via a 33-round ralph-loop and
+> self-declared complete, but a post-implementation exhaustive audit
+> found the completion claim overclaimed: one real lookahead-leak bug
+> (embargo measured in calendar days vs trading-day label horizon),
+> workstreams R2 (sample-weighting) and R4 (§10.2 artifact schema)
+> effectively dropped, config-vs-code drift in `ml_allocation.yaml` /
+> `ml_labeling.yaml`, and a statistically-invalid §9.6 overfit control.
+> Remediation + the real out-of-sample validation that §12.6 keys off
+> are scoped in the supplement PRD:
+> **`docs/prd/20260522-rerisk-ml-audit-remediation-supplement-prd.md`**.
+> §12.6 (deferred model families) stays roadmap-only until that
+> supplement's S1-S6 gates are green.
 
 > **Revision note (2026-05-21, dev-lead audit pass).** This PRD was
 > independently re-audited against the live codebase. Four issues were
