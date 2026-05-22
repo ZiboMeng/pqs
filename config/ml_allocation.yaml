@@ -1,0 +1,105 @@
+# ===========================================================================
+# ml_allocation.yaml — canonical score-to-weight + constraint + exit contract
+# ===========================================================================
+# PRD: docs/prd/20260521-rerisk-and-ml-training-audit-prd.md §4.8 / §4.9 /
+#      §12.3 Package P3
+# Created: 2026-05-21 (ralph-loop Round 21)
+#
+# Capital allocation is a SEPARATE layer from forecasting (PRD §4.8): a
+# rank/score model produces a cross-sectional score; this config governs
+# how that score becomes target weights. Every portfolio acceptance run
+# (P4) must reference one allocation config id from this file.
+#
+# LONG-ONLY GUARDRAIL (PRD §4.8 AUDIT-2026-05-21): this project is
+# long-only / no-margin / no-short — a hard CLAUDE.md invariant. There is
+# NO short leg. External ML-quant "long top / short bottom decile"
+# recipes do NOT transfer; only the long (top-k) side is taken. Position
+# caps are this project's own (config/risk.yaml + M12), NOT the 1-2%
+# single-name caps of a 100-name long-short book.
+# ===========================================================================
+
+schema_version: 1
+lineage: rerisk-and-ml-training-audit-2026-05-21
+
+# --- Score normalization (PRD §4.8 step 1-2) ------------------------------
+score_normalization:
+  method: cross_sectional_rank        # per-bar rank ∈ [0,1] (§9.0: rank,
+                                      # never raw magnitude as size weight)
+  residualize_vs_market: false        # optional neutralization, off by
+  residualize_vs_sector: false        # default — labels already residualized
+
+# --- Score-to-weight mapping modes (PRD §4.8) -----------------------------
+# A portfolio acceptance run picks ONE mapping mode by id.
+mapping_modes:
+
+  top_k_capped:
+    description: long the top-k ranked names, equal weight, capped
+    top_k: 10
+    weight: equal                     # equal | capped
+    long_only: true                   # HARD — no short leg
+
+  score_proportional_clipped:
+    description: weight ∝ clipped score among the top-k names
+    top_k: 10
+    clip_quantile: 0.95               # winsorize score before sizing
+    long_only: true
+
+  score_vol_scaled:
+    description: weight ∝ score / realized-vol among the top-k names
+    top_k: 10
+    vol_lookback: 60
+    long_only: true
+
+default_mapping_mode: top_k_capped
+
+# --- Risk scaling (PRD §4.8 step 4) ---------------------------------------
+risk_scaling:
+  target_vol: 0.15                    # annualized; see note
+  liquidity_cap_adv_pct: 0.05         # max participation = 5% of ADV
+  concentration_cap_top1: 0.40        # M12 top1 ≤ 40%
+  concentration_cap_top3: 0.70        # M12 top3 ≤ 70%
+  drawdown_regime_overlay: true       # scale down in risk-off regimes
+  note: >-
+    target_vol here is the allocation-layer target. The audit
+    (docs/audit/20260521-execution_kernel_audit_findings.md §2) showed
+    the production constructor's 0.25 default is in tension with the
+    15-20% MaxDD invariant; this layer defaults to 0.15. The realized
+    vol estimate MUST be correlation-aware (the P0-1 fix), not diagonal.
+
+# --- Portfolio constraints (PRD §4.8 step 5) ------------------------------
+constraints:
+  long_only: true                    # HARD invariant
+  no_short: true                     # HARD invariant
+  no_margin: true                    # HARD invariant
+  max_single_name_weight: 0.40       # from config/risk.yaml + M12
+  max_sector_weight: 0.50
+  beta_neutral: false                # optional; long-only book cannot be
+                                     # fully beta-neutral without a short
+                                     # leg — off by default
+  turnover_cap_daily: 0.40
+  participation_cap_adv_pct: 0.05
+
+# --- Min-edge-to-trade gate (PRD §4.8 step "cash / no-trade") -------------
+# If the predicted edge of even the top name is below the net cost
+# hurdle, the allocation produces a cash / no-trade outcome.
+min_edge_to_trade:
+  enabled: true
+  cost_hurdle_bps: 30                 # round-trip cost + slippage
+  min_expected_edge_bps: 10           # ties to ml_labeling.yaml
+                                      # binary_forward_return_after_cost
+
+# --- Exit and holding policy (PRD §4.9) -----------------------------------
+# "Rebalance every N days" is NOT a complete exit policy (§4.9).
+exit_policy:
+  time_based:
+    max_holding_days: 21
+  signal_decay:
+    exit_when_rank_below: 0.50        # name dropped out of the top half
+  risk_off:
+    drawdown_exit_threshold: 0.15     # portfolio drawdown → de-risk
+    regime_risk_off_exit: true
+  turnover_band:
+    rebalance_band: 0.02              # no-trade band — skip tiny deltas
+  reentry:
+    cooldown_days: 0                  # bars to wait before re-entering a
+                                      # name after a signal-decay exit
