@@ -966,4 +966,39 @@ sidecar ≈ A(否决稀疏);ranker D 明显最佳。
 
 ⑪ **commit** — `845601c`(主)。
 
-<!-- Round 26 起在此行下方追加 -->
+## Round 26 — S7 收口:§12.3 gate 核对(S7 CLOSED)
+
+**时间**: 2026-05-22 · **主 commit**: `6bb3b22` · **测试基线**: 4009
+(allocation+research/ml 266 passed)
+
+① **当前阶段** — Round 26 / S7 / 收口。
+
+② **本轮目标** — 核 S7 §12.3 gate,跑回归,关 S7。
+
+③ **为什么先做它** — S7 各项已做完,收口。
+
+④ **做了什么** — 跑 allocation+research/ml 266 passed(S7 全部改动
+无回归);核对命名产物。
+
+⑤ **改了哪些文件** — gate 核对轮,无代码(仅日志)。
+
+⑥ **跑了哪些测试 + 结果** — allocation+research/ml 266 passed。
+
+⑦ **当前结果** — **S7 CLOSED**。§12.3 gate:① P2/P4 命名产物存在+
+checked in（portfolio-acceptance-pack.md / ml_rank_portfolio_
+acceptance_*.json 含 4-path / freeze bundle;per-run ranker model
+artifact 落 gitignored data/ml 按项目约定,durable 记录=freeze
+bundle — 诚实留痕)② 4-path 同一 slices(R25)。
+
+⑧ **剩余风险** — B≡C collapse 已留痕;M1/path-B 让 P4 数微调,S6
+重跑用最新 harness。
+
+⑨ **下一轮建议** — Round 27 = Package S6(ranking-baseline 真 OOS
+验证 / §12.6 解锁 gate)。**S6 verdict FAIL = 协议四 #1 停点。**
+
+⑩ **TODO** — [x] S1/S2/S4/S5/S3/**S7 CLOSED** · [ ] S6(§12.6 解锁
+gate;FAIL=停点)。
+
+⑪ **commit** — `6bb3b22`(主,empty gate-核对轮)。
+
+<!-- Round 27 起在此行下方追加 -->
