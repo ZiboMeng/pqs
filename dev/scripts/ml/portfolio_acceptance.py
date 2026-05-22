@@ -59,6 +59,10 @@ from core.research.allocation.portfolio_metrics import (  # noqa: E402
 from core.research.allocation.constraints import (  # noqa: E402
     apply_turnover_cap,
 )
+from core.research.allocation.exit_policy import (  # noqa: E402
+    apply_signal_decay_exit,
+    apply_turnover_band,
+)
 from core.research.ml.artifact import (  # noqa: E402
     ArtifactGovernance,
     validate_artifact_governance,
@@ -204,6 +208,9 @@ def main() -> int:
     top_k = int(alloc["mapping_modes"][default_mode]["top_k"])
     cap = float(alloc["constraints"]["max_single_name_weight"])
     turnover_cap = float(alloc["constraints"]["turnover_cap_daily"])
+    _ep = alloc["exit_policy"]
+    decay_thr = float(_ep["signal_decay"]["exit_when_rank_below"])
+    rebal_band = float(_ep["turnover_band"]["rebalance_band"])
 
     print(f"=== P4 portfolio acceptance  {args.start_year}-{args.end_year}"
           f"  mode_a={mode_a} mode_d={mode_d} top_k={top_k} ===")
@@ -262,6 +269,10 @@ def main() -> int:
             args.rebalance_days)
         # S4: turnover cap (ml_allocation.yaml constraints.turnover_cap_daily)
         w = apply_turnover_cap(w, turnover_cap)
+        # S4: exit_policy — signal-decay exit (held name's rank decays
+        # below the threshold) + turnover no-trade band.
+        w = apply_signal_decay_exit(w, rank, exit_threshold=decay_thr)
+        w = apply_turnover_band(w, rebal_band)
         # min-edge gate intentionally NOT wired — see NOTE above.
         if vt > 0.0:
             w = apply_vol_target_overlay(w, close, target_vol=vt)

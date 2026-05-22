@@ -13,6 +13,7 @@ import pytest
 import yaml
 
 from core.research.allocation.constraints import apply_turnover_cap
+from core.research.allocation.exit_policy import apply_signal_decay_exit
 from core.research.allocation.score_to_weight import score_to_weight
 from core.research.allocation.vol_target import apply_vol_target_overlay
 
@@ -82,6 +83,17 @@ class TestEnforcedControlsHaveRealCodePath:
         per_bar = out.diff().abs().sum(axis=1).iloc[1:]
         assert (per_bar <= cap + 1e-9).all()
 
+    def test_exit_policy_enforced(self):
+        if _STATUS.get("exit_policy") != "enforced":
+            pytest.skip("exit_policy not marked enforced")
+        thr = float(_ALLOC["exit_policy"]["signal_decay"]["exit_when_rank_below"])
+        idx = pd.bdate_range("2022-01-03", periods=1)
+        w = pd.DataFrame([[0.5, 0.5]], index=idx, columns=["A", "B"])
+        rank = pd.DataFrame([[0.9, thr - 0.1]], index=idx, columns=["A", "B"])
+        out = apply_signal_decay_exit(w, rank, exit_threshold=thr)
+        assert out.iloc[0]["A"] == 0.5        # A above threshold — held
+        assert out.iloc[0]["B"] == 0.0        # B decayed — exited
+
     def test_target_vol_enforced(self):
         if _STATUS.get("target_vol") != "enforced":
             pytest.skip("target_vol not marked enforced")
@@ -97,8 +109,10 @@ class TestEnforcedControlsHaveRealCodePath:
 
 
 class TestPendingControlsAreExplicit:
-    def test_s4_pending_set_documented(self):
-        """The controls S4 still owes (user 2026-05-22 §〇#1: implement
-        min-edge / turnover / exit_policy)."""
+    def test_s4_pending_set_resolved(self):
+        """S4 closeout: no control may remain `pending_S4`. turnover +
+        exit_policy were implemented & enforced; min_edge_to_trade was
+        attempted, root-caused as whipsaw-prone, and moved to `roadmap`
+        (S4 R12) — every control now has a terminal status."""
         pending = {k for k, v in _STATUS.items() if v == "pending_S4"}
-        assert pending == {"exit_policy"}
+        assert pending == set()

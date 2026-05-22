@@ -129,7 +129,11 @@ enforcement_status:
   min_edge_to_trade:        roadmap      # gate fn apply_min_edge_gate done+tested;
                                          # trailing-edge proxy whipsawed (S4 R12) —
                                          # non-whipsaw production proxy = roadmap
-  exit_policy:              pending_S4   # implement in S4
+  exit_policy:              enforced     # exit_policy.apply_signal_decay_exit
+                                         # + apply_turnover_band (S4 R14).
+                                         # sub-rules: time_based auto-satisfied
+                                         # by 21d cadence; risk_off drawdown-exit
+                                         # + reentry cooldown = roadmap
   max_sector_weight:        roadmap      # sector control — roadmap (§〇#1)
   beta_neutral:             disabled     # config beta_neutral:false; long-only book
   participation_cap_adv_pct: roadmap     # needs ADV liquidity data (not wired)
