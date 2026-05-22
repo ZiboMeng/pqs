@@ -90,9 +90,20 @@ def build_freeze_bundle(
 ) -> dict:
     """Freeze a validated ML candidate into one reproducible bundle.
 
-    Raises FreezeBundleError if the acceptance artifact's verdict is not
-    PASS or its §9.6 overfit control is missing (governance memo §2).
+    Raises FreezeBundleError if the acceptance verdict is not PASS, its
+    §9.6 overfit control is missing/invalid, or ``model_artifact_path``
+    is not supplied (S7 M9 — a bundle that does not hash the trained
+    model is not reproducible; the freeze gate now requires it).
     """
+    if model_artifact_path is None:
+        raise FreezeBundleError(
+            "cannot freeze: model_artifact_path is required — a freeze "
+            "bundle that does not hash the trained model is not "
+            "reproducible (audit M9 / supplement S7).")
+    if not Path(model_artifact_path).exists():
+        raise FreezeBundleError(
+            f"cannot freeze: model artifact not found at "
+            f"{model_artifact_path}")
     acc = json.loads(Path(acceptance_json).read_text())
     if acc.get("verdict") != "PASS":
         raise FreezeBundleError(
@@ -122,9 +133,7 @@ def build_freeze_bundle(
     }
     for field, rel in _CONFIG_LAYERS.items():
         bundle[field] = _sha256_file(proj_root / rel)
-    bundle["model_artifact_hash"] = (
-        _sha256_file(Path(model_artifact_path))
-        if model_artifact_path is not None else None)
+    bundle["model_artifact_hash"] = _sha256_file(Path(model_artifact_path))
     bundle["bundle_id"] = hashlib.sha256(
         json.dumps({k: bundle[k] for k in sorted(bundle)
                     if k.endswith("_hash")}, sort_keys=True).encode()

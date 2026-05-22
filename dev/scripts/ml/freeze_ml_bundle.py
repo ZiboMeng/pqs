@@ -45,6 +45,11 @@ def main() -> int:
     ap.add_argument("--acceptance", default=None,
                     help="P4 acceptance json (default = latest)")
     ap.add_argument("--feature-set", default="cycle06")
+    ap.add_argument("--model-artifact", default=None,
+                    help="path to the trained model .pkl to pin into the "
+                         "bundle (S7 M9 — required for build mode; a "
+                         "freeze that does not hash the model is not "
+                         "reproducible)")
     ap.add_argument("--check", default=None,
                     help="drift-check an existing bundle json instead of "
                          "building a new one")
@@ -63,9 +68,15 @@ def main() -> int:
         return 0
 
     acc = Path(args.acceptance) if args.acceptance else _latest_acceptance()
+    if not args.model_artifact:
+        print("error: --model-artifact is required for build mode "
+              "(S7 M9 — the bundle must hash the trained model).",
+              file=sys.stderr)
+        return 2
     print(f"=== freeze ML bundle  acceptance={acc.name} ===")
     bundle = build_freeze_bundle(
-        PROJ, acc, args.feature_set, CYCLE06)
+        PROJ, acc, args.feature_set, CYCLE06,
+        model_artifact_path=Path(args.model_artifact))
     # data/audit is version-controlled — a freeze bundle is a durable
     # promotion record and must be tracked (data/ml is gitignored).
     out_dir = PROJ / "data/audit"

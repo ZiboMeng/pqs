@@ -301,12 +301,30 @@ def evaluate_fold(
         pred_rank = model.predict_rank(val_features)
         ic = rank_ic(pred_rank, val_labels)
         ir = rank_ir(pred_rank, val_labels)
-    except Exception as exc:
-        # non-blanket: record the failure, do not abort run
+    except ValueError as exc:
+        # ValueError = a data-driven fold failure (the rank models raise
+        # it for insufficient symbols / data after the group-size
+        # filter). Record + continue (non-blanket run).
         return FoldMetrics(
             fold=fold, rank_ic=0.0, rank_ir=0.0,
             train_n_obs=train_n, val_n_obs=val_n,
-            error=f"{type(exc).__name__}: {exc}",
+            error=f"data_fold: {type(exc).__name__}: {exc}",
+        )
+    except Exception as exc:
+        # S7 M6: a non-ValueError exception (KeyError, TypeError, …) is
+        # most likely a CODE BUG, not a data-fold failure. The prior
+        # blanket `except Exception` silently masked it as a failed data
+        # fold — so a systematic bug could hide behind a mean rank-IC
+        # over the few surviving folds. Surface it loudly + tag CODE_BUG;
+        # still record + continue (the run stays non-blanket).
+        warnings.warn(
+            f"evaluate_fold fold {fold.fold_idx}: non-ValueError "
+            f"exception — likely a CODE BUG, not a data-fold failure: "
+            f"{type(exc).__name__}: {exc}", stacklevel=2)
+        return FoldMetrics(
+            fold=fold, rank_ic=0.0, rank_ir=0.0,
+            train_n_obs=train_n, val_n_obs=val_n,
+            error=f"CODE_BUG: {type(exc).__name__}: {exc}",
         )
 
     return FoldMetrics(

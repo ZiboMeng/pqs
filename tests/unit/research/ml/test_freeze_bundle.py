@@ -11,12 +11,22 @@ from core.research.ml.freeze_bundle import (
 
 
 def _proj(tmp_path):
-    """A minimal fake project root with the 4 config layers."""
+    """A minimal fake project root with the 4 config layers + a dummy
+    model artifact (S7 M9 — build_freeze_bundle now requires one)."""
     (tmp_path / "config").mkdir()
     for name in ("ml_sources.yaml", "ml_labeling.yaml",
                  "ml_allocation.yaml", "temporal_split.yaml"):
         (tmp_path / "config" / name).write_text(f"# {name}\nkey: v\n")
+    (tmp_path / "model.pkl").write_bytes(b"dummy-model-bytes")
     return tmp_path
+
+
+def _build(proj, *args, model_artifact_path=None, **kw):
+    """build_freeze_bundle with the dummy model path defaulted (S7 M9)."""
+    if model_artifact_path is None:
+        model_artifact_path = proj / "model.pkl"
+    return build_freeze_bundle(proj, *args,
+                               model_artifact_path=model_artifact_path, **kw)
 
 
 def _acceptance(tmp_path, verdict="PASS", overfit=True,
@@ -36,33 +46,32 @@ def _acceptance(tmp_path, verdict="PASS", overfit=True,
 class TestBuildFreezeBundle:
     def test_builds_with_pass_verdict(self, tmp_path):
         proj = _proj(tmp_path)
-        b = build_freeze_bundle(proj, _acceptance(tmp_path),
+        b = _build(proj, _acceptance(tmp_path),
                                 "cycle06", ["fa", "fb", "fc"])
         assert b["acceptance_verdict"] == "PASS"
         assert len(b["bundle_id"]) == 16
         for f in ("source_contract_hash", "label_config_hash",
                   "allocation_config_hash", "temporal_split_hash",
-                  "feature_set_hash"):
-            assert len(b[f]) == 64          # sha256 hexdigest
-        assert b["model_artifact_hash"] is None
+                  "feature_set_hash", "model_artifact_hash"):
+            assert len(b[f]) == 64          # sha256 hexdigest (S7 M9)
 
     def test_fail_verdict_refused(self, tmp_path):
         proj = _proj(tmp_path)
         with pytest.raises(FreezeBundleError, match="not PASS"):
-            build_freeze_bundle(proj, _acceptance(tmp_path, verdict="FAIL"),
+            _build(proj, _acceptance(tmp_path, verdict="FAIL"),
                                 "cycle06", ["fa"])
 
     def test_missing_overfit_control_refused(self, tmp_path):
         proj = _proj(tmp_path)
         with pytest.raises(FreezeBundleError, match="overfit_control"):
-            build_freeze_bundle(proj, _acceptance(tmp_path, overfit=False),
+            _build(proj, _acceptance(tmp_path, overfit=False),
                                 "cycle06", ["fa"])
 
     def test_feature_set_hash_order_independent(self, tmp_path):
         proj = _proj(tmp_path)
-        b1 = build_freeze_bundle(proj, _acceptance(tmp_path),
+        b1 = _build(proj, _acceptance(tmp_path),
                                  "cycle06", ["fa", "fb", "fc"])
-        b2 = build_freeze_bundle(proj, _acceptance(tmp_path),
+        b2 = _build(proj, _acceptance(tmp_path),
                                  "cycle06", ["fc", "fa", "fb"])
         assert b1["feature_set_hash"] == b2["feature_set_hash"]
 
@@ -70,13 +79,13 @@ class TestBuildFreezeBundle:
 class TestCheckDrift:
     def test_no_drift_when_unchanged(self, tmp_path):
         proj = _proj(tmp_path)
-        b = build_freeze_bundle(proj, _acceptance(tmp_path),
+        b = _build(proj, _acceptance(tmp_path),
                                 "cycle06", ["fa", "fb"])
         assert check_drift(b, proj, factor_names=["fa", "fb"]) == []
 
     def test_config_drift_detected(self, tmp_path):
         proj = _proj(tmp_path)
-        b = build_freeze_bundle(proj, _acceptance(tmp_path),
+        b = _build(proj, _acceptance(tmp_path),
                                 "cycle06", ["fa"])
         (proj / "config" / "ml_allocation.yaml").write_text("key: CHANGED\n")
         flags = check_drift(b, proj)
@@ -86,7 +95,7 @@ class TestCheckDrift:
 
     def test_feature_drift_detected(self, tmp_path):
         proj = _proj(tmp_path)
-        b = build_freeze_bundle(proj, _acceptance(tmp_path),
+        b = _build(proj, _acceptance(tmp_path),
                                 "cycle06", ["fa", "fb"])
         flags = check_drift(b, proj, factor_names=["fa", "fb", "fc_new"])
         assert len(flags) == 1
@@ -100,7 +109,7 @@ class TestOverfitControlValidity:
 
     def test_valid_block_builds(self, tmp_path):
         proj = _proj(tmp_path)
-        b = build_freeze_bundle(proj, _acceptance(tmp_path),
+        b = _build(proj, _acceptance(tmp_path),
                                 "cycle06", ["fa", "fb"])
         assert b["acceptance_verdict"] == "PASS"
 
@@ -111,7 +120,7 @@ class TestOverfitControlValidity:
             "dsr_promoted_D_xgb": {"deflated_sharpe": 0.8},
             "pbo": {"pbo": 0.3}})
         with pytest.raises(FreezeBundleError, match="n_trials"):
-            build_freeze_bundle(proj, acc, "cycle06", ["fa"])
+            _build(proj, acc, "cycle06", ["fa"])
 
     def test_nan_dsr_refused(self, tmp_path):
         proj = _proj(tmp_path)
@@ -120,14 +129,14 @@ class TestOverfitControlValidity:
             "dsr_promoted_D_xgb": {"deflated_sharpe": float("nan")},
             "pbo": {"pbo": 0.3}})
         with pytest.raises(FreezeBundleError, match="DSR"):
-            build_freeze_bundle(proj, acc, "cycle06", ["fa"])
+            _build(proj, acc, "cycle06", ["fa"])
 
     def test_missing_dsr_block_refused(self, tmp_path):
         proj = _proj(tmp_path)
         acc = _acceptance(tmp_path, overfit_block={
             "n_trials": 10, "pbo": {"pbo": 0.3}})
         with pytest.raises(FreezeBundleError, match="dsr"):
-            build_freeze_bundle(proj, acc, "cycle06", ["fa"])
+            _build(proj, acc, "cycle06", ["fa"])
 
     def test_nan_pbo_refused(self, tmp_path):
         proj = _proj(tmp_path)
@@ -136,4 +145,38 @@ class TestOverfitControlValidity:
             "dsr_promoted_D_xgb": {"deflated_sharpe": 0.8},
             "pbo": {"pbo": float("nan")}})
         with pytest.raises(FreezeBundleError, match="PBO"):
-            build_freeze_bundle(proj, acc, "cycle06", ["fa"])
+            _build(proj, acc, "cycle06", ["fa"])
+
+
+# ── S7 (supplement PRD 2026-05-22) — freeze must hash the model (M9) ──
+class TestModelArtifactRequired:
+    """S7 M9: a freeze bundle that does not hash the trained model is not
+    reproducible — build_freeze_bundle now requires the model path."""
+
+    def test_missing_model_path_refused(self, tmp_path):
+        proj = _proj(tmp_path)
+        with pytest.raises(FreezeBundleError, match="model_artifact_path"):
+            build_freeze_bundle(proj, _acceptance(tmp_path),
+                                "cycle06", ["fa"])  # no model_artifact_path
+
+    def test_nonexistent_model_refused(self, tmp_path):
+        proj = _proj(tmp_path)
+        with pytest.raises(FreezeBundleError, match="not found"):
+            build_freeze_bundle(proj, _acceptance(tmp_path),
+                                "cycle06", ["fa"],
+                                model_artifact_path=proj / "missing.pkl")
+
+    def test_model_hash_in_bundle(self, tmp_path):
+        proj = _proj(tmp_path)
+        b = _build(proj, _acceptance(tmp_path), "cycle06", ["fa"])
+        assert len(b["model_artifact_hash"]) == 64
+
+    def test_model_drift_detected(self, tmp_path):
+        """check_drift catches a changed model artifact (M9 — model
+        drift was previously undetectable because the hash was None)."""
+        proj = _proj(tmp_path)
+        b = _build(proj, _acceptance(tmp_path), "cycle06", ["fa"])
+        (proj / "model.pkl").write_bytes(b"RETRAINED-different-bytes")
+        flags = check_drift(b, proj, factor_names=["fa"],
+                            model_artifact_path=proj / "model.pkl")
+        assert any(f["field"] == "model_artifact_hash" for f in flags)

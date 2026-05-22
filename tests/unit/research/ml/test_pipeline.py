@@ -448,3 +448,42 @@ class TestEmbargoTradingBarPurge:
         for fold in iter_folds(cfg, trading_index=idx):
             assert fold.train_end == pd.Timestamp(
                 f"{fold.train_start.year + 2}-12-31")
+
+
+# ── S7 M6 (supplement 2026-05-22) — evaluate_fold error classification
+class TestEvaluateFoldErrorClass:
+    """S7 M6: a non-ValueError exception in a fold is most likely a CODE
+    BUG; evaluate_fold must tag it CODE_BUG + warn, not silently mask it
+    as a data-fold failure."""
+
+    @staticmethod
+    def _fold():
+        return WalkForwardFold(
+            fold_idx=0,
+            train_start=pd.Timestamp("2012-01-01"),
+            train_end=pd.Timestamp("2014-12-31"),
+            val_start=pd.Timestamp("2015-01-01"),
+            val_end=pd.Timestamp("2015-12-31"))
+
+    @staticmethod
+    def _panel():
+        idx = pd.bdate_range("2012-01-01", "2015-12-31")
+        df = pd.DataFrame(1.0, index=idx, columns=["A", "B"])
+        return {"f": df}, df
+
+    def test_value_error_is_data_fold(self):
+        class _DataFail:
+            def fit(self, f, l): raise ValueError("insufficient data")
+            def predict_rank(self, f): return pd.DataFrame()
+        feats, labels = self._panel()
+        m = evaluate_fold(_DataFail(), self._fold(), feats, labels)
+        assert m.error.startswith("data_fold:")
+
+    def test_non_value_error_is_code_bug_and_warns(self):
+        class _Bug:
+            def fit(self, f, l): raise KeyError("typo_in_feature_name")
+            def predict_rank(self, f): return pd.DataFrame()
+        feats, labels = self._panel()
+        with pytest.warns(UserWarning, match="CODE BUG"):
+            m = evaluate_fold(_Bug(), self._fold(), feats, labels)
+        assert m.error.startswith("CODE_BUG:")
