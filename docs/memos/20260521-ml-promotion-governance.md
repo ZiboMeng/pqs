@@ -49,7 +49,8 @@ Freezing rule: a bundle may be frozen **only** when the P4 acceptance
 verdict is PASS *and* the §9.6 overfit control is recorded (DSR + PBO
 in the acceptance artifact). The builder is
 `dev/scripts/ml/freeze_ml_bundle.py` (P5 sub-step); it writes
-`data/ml/freeze/ml_freeze_bundle_<id>.json`.
+`data/audit/ml_freeze_bundle_<id>.json` — a version-controlled path,
+since a frozen bundle is a durable promotion record.
 
 Reproducibility: any future run can re-hash the six components and
 compare to the bundle — identical hashes ⇒ the validated spec is

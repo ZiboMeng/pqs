@@ -1,0 +1,21 @@
+{
+  "lineage": "rerisk-and-ml-training-audit-2026-05-21",
+  "frozen_utc": "20260522T015154Z",
+  "feature_set": {
+    "name": "cycle06",
+    "factor_names": [
+      "drawup_from_252d_low",
+      "ret_2d",
+      "trend_tstat_20d"
+    ]
+  },
+  "feature_set_hash": "c66783e59288c42a21c8afa8f7058de0b1580069b56d244909279db309d346f2",
+  "acceptance_ref": "data/audit/ml_rank_portfolio_acceptance_20260522T014502Z.json",
+  "acceptance_verdict": "PASS",
+  "source_contract_hash": "4558942a00cc4a56a0a59f022ad148bcce1b8d341c8ae7f9ada834a720b3f10e",
+  "label_config_hash": "6d520d116f1b204ebeb4a6ecb96e7f2a8650188f234ba46f8eaafece39e5c90b",
+  "allocation_config_hash": "5b00240cf358bd957868f5c87cceb5385ea5c5b515247db8ca26560a81a782aa",
+  "temporal_split_hash": "602cf826c902f1be01d802d045627420ee60d9957a6f0e50fcd6911d5e3a4f94",
+  "model_artifact_hash": null,
+  "bundle_id": "3fd34e98d2093bd1"
+}
