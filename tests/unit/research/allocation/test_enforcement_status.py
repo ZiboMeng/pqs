@@ -101,4 +101,4 @@ class TestPendingControlsAreExplicit:
         """The controls S4 still owes (user 2026-05-22 §〇#1: implement
         min-edge / turnover / exit_policy)."""
         pending = {k for k, v in _STATUS.items() if v == "pending_S4"}
-        assert pending == {"min_edge_to_trade", "exit_policy"}
+        assert pending == {"exit_policy"}

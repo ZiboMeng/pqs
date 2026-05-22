@@ -126,7 +126,9 @@ enforcement_status:
   concentration_cap_top3:   roadmap      # top-3 cap not enforced by score_to_weight
   target_vol:               enforced     # vol_target.apply_vol_target_overlay
   turnover_cap_daily:       enforced     # constraints.apply_turnover_cap (S4 R10)
-  min_edge_to_trade:        pending_S4   # implement in S4
+  min_edge_to_trade:        roadmap      # gate fn apply_min_edge_gate done+tested;
+                                         # trailing-edge proxy whipsawed (S4 R12) —
+                                         # non-whipsaw production proxy = roadmap
   exit_policy:              pending_S4   # implement in S4
   max_sector_weight:        roadmap      # sector control — roadmap (§〇#1)
   beta_neutral:             disabled     # config beta_neutral:false; long-only book

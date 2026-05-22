@@ -94,6 +94,16 @@ def _port_ret(weights: pd.DataFrame, close: pd.DataFrame) -> pd.Series:
     return (weights[cols].shift(1).fillna(0.0) * rets).sum(axis=1)
 
 
+# NOTE — min-edge gate (S4 R12, 2026-05-22): a per-bar gate driven by a
+# trailing-realized edge proxy was prototyped and REVERTED — a lagging
+# proxy + hard cash/no-trade gate whipsaws (it cashes out *after* a weak
+# stretch and re-enters *after* a strong one), turning path A Sharpe
+# +0.73 → -0.46 on the 2015-2017 smoke. The gate FUNCTION
+# (constraints.apply_min_edge_gate) is correct and kept; a non-whipsaw
+# production edge proxy is a research sub-problem → `min_edge_to_trade`
+# is marked `roadmap` in ml_allocation.yaml, not wired here.
+
+
 def _overfit_control(sweep: dict, close: pd.DataFrame,
                      n_trials: int) -> dict:
     """PRD §9.6 — DSR-deflate the promoted path (D_plain) OOS return for
@@ -252,6 +262,7 @@ def main() -> int:
             args.rebalance_days)
         # S4: turnover cap (ml_allocation.yaml constraints.turnover_cap_daily)
         w = apply_turnover_cap(w, turnover_cap)
+        # min-edge gate intentionally NOT wired — see NOTE above.
         if vt > 0.0:
             w = apply_vol_target_overlay(w, close, target_vol=vt)
         return w
