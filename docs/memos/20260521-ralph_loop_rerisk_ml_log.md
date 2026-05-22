@@ -1065,4 +1065,51 @@ path D 不再双 beat A 则按协议四 #2 停。
 
 ⑪ **commit** — `18414e3`(主)。
 
-<!-- Round 26 起在此行下方追加 -->
+## Round 26 — P4:multi-fold + cost-aware — STOPPED, P4 verdict FAIL on MaxDD
+
+**时间**: 2026-05-22 · **主 commit**: `6186ef3` · **测试基线**: 3864
++ 20 新(allocation 累计)
+
+① **当前阶段** — Round 26 / Package P4 / harness 升级。
+
+② **本轮目标** — harness 升级 full multi-fold walk-forward + cost-aware。
+
+③ **为什么先做它** — R25 single-split 不是真验收;§12.3 要 full
+walk-forward + cost。
+
+④ **做了什么** — `portfolio_metrics` 加 `cost_bps`(+3 单测);
+`portfolio_acceptance.py` path D 改 3-fold walk-forward + path A 同
+OOS 窗 + 0/30/60bps cost。**同轮抓 bug+修**:首跑 Sharpe 双 -0.9 =
+harness 隐含每日 rebalance(37%/yr 成本 artifact)→ 加 `_rebalance`
++ `--rebalance-days`(月度),turnover 0.50→0.057 数字归正。
+
+⑤ **改了哪些文件** — `portfolio_metrics.py` / `test_portfolio_metrics.py`
+/ `portfolio_acceptance.py` / `ml_rank_portfolio_acceptance_*.json`(新)。
+
+⑥ **跑了哪些测试 + 结果** — allocation 20 passed;harness multi-fold
+(2012-2017 train-only,3 fold,OOS 2015-2017,月度 rebalance):
+path A net Sharpe@30bps 0.70 / MaxDD -12.3% / cum +34%;path D 1.29 /
+-18.9% / +84%。
+
+⑦ **当前结果 / 为什么停** — **P4 verdict FAIL**(non-blanket):
+path D 在 net Sharpe(1.29 vs 0.70)+ cum(+84% vs +34%)决定性赢
+baseline,但 MaxDD 输(-18.9% vs -12.3%)。strict「Sharpe AND MaxDD
+双 beat」gate → FAIL on MaxDD。不是"ML 不行" —— ranker 交付更高风险
+调整后收益,只是 drawdown 更大(D -18.9% 仍在 15-20% 不变量带内)。
+按协议四 #2 停下问用户。
+
+⑧ **剩余风险** — train-only 窗、仅 cycle06 features、§9.6 DSR/PBO
+未跑 —— 待用户对 verdict gate 拍板后再做。
+
+⑨ **下一轮建议** — 等用户 P4-verdict 决策(A 接受高-Sharpe-高-MaxDD
+并改 gate / B 用 vol-scaling 压 D 的 MaxDD 再 re-test / C 更多证据);
+operator 推荐 B。
+
+⑩ **TODO** — [x] R0/P0/P1/P2/P3 CLOSED · P4 multi-fold+cost ·
+[ ] P4 verdict 决策(BLOCKED 等用户)[ ] P4 DSR/PBO+收口 · [ ] P5/P6。
+
+⑪ **commit** — `6186ef3`(主)。
+
+**STOPPED — NEEDS USER DECISION**:P4 path D vs baseline FAIL on MaxDD。
+
+<!-- Round 27 起在此行下方追加 -->
