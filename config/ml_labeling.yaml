@@ -46,7 +46,9 @@ label_modes:
       return (raw fwd return minus market + sector beta components)
     horizon_days: 21
     residualize_vs_market: true
-    residualize_vs_sector: true
+    residualize_vs_sector: false   # S4 2026-05-22: code does market
+                                   # residualization only; sector =
+                                   # roadmap (labels.py has no sector beta)
     source_tiers: [A_market_data]   # + optional sector metadata
     role: PRIMARY — default for daily cross-sectional stock selection
 
@@ -55,7 +57,9 @@ label_modes:
       forward return
     horizon_days: 21
     residualize_vs_market: true
-    residualize_vs_sector: true
+    residualize_vs_sector: false   # S4 2026-05-22: code does market
+                                   # residualization only; sector =
+                                   # roadmap (labels.py has no sector beta)
     quantile_buckets: 10
     source_tiers: [A_market_data]
     role: PRIMARY — alternative to residual_rank for bucketed objectives

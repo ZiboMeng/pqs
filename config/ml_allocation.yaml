@@ -103,3 +103,33 @@ exit_policy:
   reentry:
     cooldown_days: 0                  # bars to wait before re-entering a
                                       # name after a signal-decay exit
+
+# --- Enforcement status registry (S4, supplement 2026-05-22) --------------
+# Audit finding D1: this config declared controls (sector cap, turnover
+# cap, min-edge-to-trade, exit_policy) that no code path enforced — a
+# config that "looks like it has risk controls" but does not. S4 makes
+# every control's enforcement status EXPLICIT. The S4 cross-check test
+# (tests/unit/research/allocation/test_enforcement_status.py) asserts
+# every control appears here and that `enforced` controls have a real
+# code path. No control may be silently declared-but-unenforced.
+#
+#   enforced    — a code path enforces it now (cited)
+#   pending_S4  — to be implemented within S4 (user 2026-05-22 §〇#1)
+#   roadmap     — explicitly deferred; NOT claimed as active
+#   disabled    — declared but turned off (config value already off)
+enforcement_status:
+  long_only:                enforced     # score_to_weight: weights >= 0
+  no_short:                 enforced     # long-only ⇒ no short leg
+  no_margin:                enforced     # score_to_weight sum<=1; vol_target cap<=1
+  max_single_name_weight:   enforced     # score_to_weight._apply_single_name_cap
+  concentration_cap_top1:   enforced     # == max_single_name_weight cap (top-1)
+  concentration_cap_top3:   roadmap      # top-3 cap not enforced by score_to_weight
+  target_vol:               enforced     # vol_target.apply_vol_target_overlay
+  turnover_cap_daily:       pending_S4   # implement in S4
+  min_edge_to_trade:        pending_S4   # implement in S4
+  exit_policy:              pending_S4   # implement in S4
+  max_sector_weight:        roadmap      # sector control — roadmap (§〇#1)
+  beta_neutral:             disabled     # config beta_neutral:false; long-only book
+  participation_cap_adv_pct: roadmap     # needs ADV liquidity data (not wired)
+  liquidity_cap_adv_pct:    roadmap      # needs ADV liquidity data (not wired)
+  drawdown_regime_overlay:  roadmap      # folded into exit_policy.risk_off
