@@ -196,6 +196,19 @@ def _build_xgb_factory(seed: int = 42,
     return _factory
 
 
+def _build_lgbm_factory(seed: int = 42) -> Callable:
+    """Lazy import to avoid lightgbm dep at module load. LightGBM
+    lambdarank parity path (P2 canonical decision §4)."""
+    from core.research.ml.lgbm_rank_model import LGBMRankerRankModel
+
+    def _factory() -> LGBMRankerRankModel:
+        return LGBMRankerRankModel(
+            n_estimators=50, max_depth=4, learning_rate=0.1,
+            random_state=seed,
+        )
+    return _factory
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="PRD #4 P4.4 sub-step 3b: real-data walk-forward driver",
@@ -216,7 +229,9 @@ def main() -> int:
     parser.add_argument("--step", type=int, default=1,
                         help="walk-forward step in years (default 1)")
     parser.add_argument("--model", default="both",
-                        choices=["linear", "xgb", "both"])
+                        choices=["linear", "xgb", "lgbm", "both", "all"],
+                        help="'both' = linear+xgb (back-compat); "
+                             "'all' = linear+xgb+lgbm")
     parser.add_argument("--features", default="cycle06",
                         choices=["cycle06", "all"],
                         help="cycle06 = 3-factor composite (drawup_from_252d_low + "
@@ -305,14 +320,21 @@ def main() -> int:
 
     # Pick models
     factories: List[Tuple[str, Callable, Dict]] = []
-    if args.model in ("linear", "both"):
+    if args.model in ("linear", "both", "all"):
         factories.append((
             "LinearBaselineRankModel", LinearBaselineRankModel, {},
         ))
-    if args.model in ("xgb", "both"):
+    if args.model in ("xgb", "both", "all"):
         factories.append((
             "XGBRankerRankModel",
             _build_xgb_factory(args.seed, args.objective),
+            {"n_estimators": 50, "max_depth": 4, "learning_rate": 0.1,
+             "random_state": args.seed},
+        ))
+    if args.model in ("lgbm", "all"):
+        factories.append((
+            "LGBMRankerRankModel",
+            _build_lgbm_factory(args.seed),
             {"n_estimators": 50, "max_depth": 4, "learning_rate": 0.1,
              "random_state": args.seed},
         ))
