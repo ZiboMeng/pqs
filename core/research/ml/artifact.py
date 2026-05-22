@@ -138,14 +138,21 @@ def _gov_is_empty(value: Any) -> bool:
 
 
 def validate_artifact_governance(
-    metadata: "ArtifactMetadata", *, is_portfolio: bool = False,
+    metadata_or_governance: "ArtifactMetadata | ArtifactGovernance",
+    *, is_portfolio: bool = False,
 ) -> None:
     """Fail-closed §10.2 check (supplement S2). Raises ArtifactSchemaError
     if the governance block is absent or any mandated field is empty.
 
+    Accepts either an `ArtifactMetadata` (uses its `.governance`) or a
+    bare `ArtifactGovernance` — so harnesses that emit ad-hoc artifact
+    JSON (e.g. the portfolio acceptance harness) can validate directly.
+
     Call at promote / freeze time — an artifact missing §10.2 metadata
     must NOT be promotable (master §10.3)."""
-    g = metadata.governance
+    g = (metadata_or_governance
+         if isinstance(metadata_or_governance, ArtifactGovernance)
+         else metadata_or_governance.governance)
     if g is None:
         raise ArtifactSchemaError(
             "artifact has no §10.2 governance block; ML artifacts cannot "

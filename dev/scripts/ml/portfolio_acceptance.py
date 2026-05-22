@@ -24,8 +24,10 @@ Usage: python dev/scripts/ml/portfolio_acceptance.py
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -53,6 +55,10 @@ from core.research.allocation.score_to_weight import (  # noqa: E402
 )
 from core.research.allocation.portfolio_metrics import (  # noqa: E402
     portfolio_metrics,
+)
+from core.research.ml.artifact import (  # noqa: E402
+    ArtifactGovernance,
+    validate_artifact_governance,
 )
 from core.research.allocation.vol_target import (  # noqa: E402
     apply_vol_target_overlay,
@@ -110,6 +116,46 @@ def _overfit_control(sweep: dict, close: pd.DataFrame,
     M = pd.concat([monthly[n] for n in sweep], axis=1).dropna().to_numpy()
     out["pbo"] = compute_mining_pbo(M)
     return out
+
+
+def _acceptance_governance(args, mode_d, top_k, cap, overfit,
+                           acceptance_path) -> ArtifactGovernance:
+    """PRD §10.2 ArtifactGovernance for the portfolio-acceptance artifact
+    (supplement S2). Portfolio-tier fields populated — this IS a
+    portfolio-level artifact, so target-weight / risk-scaling /
+    constraint-set / cost-model / execution-assumption ids are required.
+    """
+    h = hashlib.sha256()
+    for rel in ("config/ml_sources.yaml", "config/ml_labeling.yaml",
+                "config/ml_allocation.yaml", "config/temporal_split.yaml"):
+        h.update((PROJ / rel).read_bytes())
+    dsr = (overfit.get("dsr_promoted_D_plain") or {}).get("deflated_sharpe")
+    pbo = (overfit.get("pbo") or {}).get("pbo")
+    vt = args.vol_target
+    return ArtifactGovernance(
+        task_family="rank_to_portfolio",
+        source_tiers=("A_market_data",),
+        label_mode="forward_return",
+        sample_weight_mode="uniform",
+        purge_embargo={"embargo_days": args.horizon_days,
+                       "unit": "trading_bars"},
+        context_bundle="none",
+        training_universe="executable",
+        model_family="XGBRankerRankModel",
+        objective="rank:ndcg",
+        config_hash=h.hexdigest()[:16],
+        trial_count=int(args.n_trials),
+        dsr=dsr, pbo=pbo,
+        score_to_weight_mode=mode_d,
+        exit_policy_mode="none",
+        reused_native_components=True,
+        portfolio_acceptance_path=acceptance_path,
+        target_weight_mode=mode_d,
+        risk_scaling_mode=(f"vol_target_{vt}" if vt > 0 else "none"),
+        constraint_set_id="ml_allocation.yaml",
+        cost_model_id="per_unit_turnover_bps",
+        execution_assumption_id="tplus1_close_shift",
+    )
 
 
 def main() -> int:
@@ -259,6 +305,12 @@ def main() -> int:
     out_path = (PROJ / args.out_dir
                 / f"ml_rank_portfolio_acceptance_{out['generated_utc']}.json")
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    # §10.2 governance (supplement S2) — portfolio-tier; fail-closed.
+    governance = _acceptance_governance(
+        args, mode_d, top_k, cap, overfit,
+        str(out_path.relative_to(PROJ)))
+    validate_artifact_governance(governance, is_portfolio=True)
+    out["governance"] = asdict(governance)
     out_path.write_text(json.dumps(out, indent=2))
     for label in ("path_A_non_ml_composite", "path_D_xgb_ranker_ndcg"):
         m = paths[label]["cost_30bps"]
