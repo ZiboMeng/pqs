@@ -1154,4 +1154,48 @@ attempt 1 · [ ] P4 B attempt 2(target_vol overlay)[ ] P4 DSR/PBO+
 
 ⑪ **commit** — `42f7e5e`(主)。
 
-<!-- Round 28 起在此行下方追加 -->
+## Round 28 — P4:vol-target overlay + P4 verdict 解决(path D PASS)
+
+**时间**: 2026-05-22 · **主 commit**: `5aee416` · **测试基线**: 3864
++ 26 新(allocation 累计)
+
+① **当前阶段** — Round 28 / Package P4 / Option B attempt 2 + verdict 解决。
+
+② **本轮目标** — 实现 target_vol 敞口 overlay,跑 frontier,解 P4
+verdict 停点。
+
+③ **为什么先做它** — R27 vol-scaled mapping 不够;exposure overlay
+是对口 systematic drawdown 的真杠杆。
+
+④ **做了什么** — 新建 `vol_target.py::apply_vol_target_overlay`(按
+组合 trailing vol 缩 gross,scale≤1 只 de-risk,no-margin,无
+lookahead)+6 单测;harness `--vol-target`。frontier(2015-2017 OOS,
+@30bps):D plain 1.29/-18.9% · vol-target 0.15 1.19/-17.7% ·
+vol-target 0.10 1.08/-14.3% · A baseline 0.70/-12.3%。**用户
+2026-05-22 裁定「按推荐走」+「MaxDD<20% 可接受」** → strict gate
+放宽,**path D PASS**(每配置 Sharpe 决定性赢、MaxDD 全<20%)。
+prompt §〇 追加裁定 #5 + 2 待讨论项。
+
+⑤ **改了哪些文件** — `vol_target.py`(新)/`test_vol_target.py`(新)
+/`portfolio_acceptance.py`/`ralph_loop_rerisk_ml_prompt.md`(§〇)/
+2 个 acceptance json(新)。
+
+⑥ **跑了哪些测试 + 结果** — test_vol_target 6 passed;allocation
+全目录 26 passed;harness frontier run 全 exit 0。
+
+⑦ **当前结果** — P4 verdict 停点解决:**path D PASS**(决定性赢
+baseline net Sharpe,MaxDD 在 15-20% 不变量带内)。
+
+⑧ **剩余风险 / 待讨论项** — prompt §〇 #5 两待讨论项(P4 gate 精确
+措辞 / promoted 配置)不阻塞 loop;P4 §9.6 DSR/PBO + §12.3 gate +
+收口未做。
+
+⑨ **下一轮建议** — Round 29 = P4 §9.6 DSR/PBO + §12.3 gate 核对 +
+P4 收口。
+
+⑩ **TODO** — [x] R0/P0/P1/P2/P3 CLOSED · P4 verdict=PASS/Option B ·
+[ ] P4 DSR/PBO+§12.3+收口 · [ ] P5/P6。
+
+⑪ **commit** — `5aee416`(主)。
+
+<!-- Round 29 起在此行下方追加 -->
