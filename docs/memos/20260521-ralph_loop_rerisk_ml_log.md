@@ -945,4 +945,43 @@ json + P3 §12.3 gate 核对 + P3 收口。
 
 ⑪ **commit** — `e9bc2bd`(主)。
 
-<!-- Round 23 起在此行下方追加 -->
+## Round 23 — P3 收口:score-to-weight smoke + §12.3 gate(P3 CLOSED)
+
+**时间**: 2026-05-22 · **主 commit**: `16e83b3` · **测试基线**: 3864
++ 10 新(P3 累计)
+
+① **当前阶段** — Round 23 / Package P3 / 收口。
+
+② **本轮目标** — score-to-weight deterministic smoke,核对 §12.3 gate,
+关闭 P3。
+
+③ **为什么先做它** — ml_allocation.yaml(R21)+ score_to_weight 模块
+(R22)就位;smoke 是 §12.3 第二件产物。
+
+④ **做了什么** — 新建 `score_to_weight_smoke.py`(3 mode 各跑两次验
+deterministic + long-only + cap 不被绕过 → `score_to_weight_smoke_*.json`)。
+
+⑤ **改了哪些文件** — `dev/scripts/ml/score_to_weight_smoke.py`(新)/
+`data/audit/score_to_weight_smoke_20260522T002854Z.json`(新)。
+
+⑥ **跑了哪些测试 + 结果** — smoke exit 0:3 mode 全 deterministic +
+long-only + cap_respected(max_w 0.10/0.13/0.25 ≤ 0.40)。
+
+⑦ **当前结果** — **P3 CLOSED**。§12.3 gate:① acceptance 引用 config
+id → P4 落实(forward-coupled);② score-to-weight deterministic ✅;
+③ risk cap 不被静默绕过 ✅。
+
+⑧ **剩余风险 / 收口决定** — §12.1 的 constraints.py/exit_policy.py
+独立模块本 loop 不单建(score_to_weight.py 已 enforce long-only +
+单票 cap;其余约束/exit 在 P4 harness 才有 consumer,按"无 consumer=
+死代码"纪律延到 P4 — 留痕非遗漏)。
+
+⑨ **下一轮建议** — Round 24 = Package P4:先核查既有
+`r29_acceptance_r_ml_a_vs_b.py`(§9.2:先扩既有再决定新建)。
+
+⑩ **TODO** — [x] R0/P0/P1/P2/**P3 CLOSED** · [ ] P4 acceptance
+harness [ ] P5/P6。
+
+⑪ **commit** — `16e83b3`(主)。
+
+<!-- Round 24 起在此行下方追加 -->
