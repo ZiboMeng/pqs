@@ -1179,7 +1179,14 @@ Metrics:
 
 ML path passes only if all are true:
 
-- non-inferior MaxDD
+- **MaxDD within the 15-20 % invariant band** — `SUPPLEMENT-2026-05-22`:
+  the original wording was "non-inferior MaxDD" (≤ baseline MaxDD).
+  User decision 2026-05-22 (supplement PRD
+  `20260522-rerisk-ml-audit-remediation-supplement-prd.md` §〇#5)
+  relaxed this: a higher-return ML path may carry a somewhat larger
+  MaxDD provided it stays inside the project's 15-20 % MaxDD invariant.
+  The binding test is therefore `path-D MaxDD ≤ 20 %`, not
+  `path-D MaxDD ≤ baseline MaxDD`.
 - non-inferior turnover after cost adjustment
 - improved or equal net Sharpe
 - no regression in stress slices beyond tolerance
@@ -1548,7 +1555,11 @@ Gate:
 
 - at least one ranker path completes full walk-forward portfolio acceptance
 - all acceptance artifacts include score-to-weight mapping and cost assumptions
-- any promoted ML path beats or ties the relevant baseline under stated gates
+- any promoted ML path beats or ties the relevant baseline under the
+  §9.3 stated gates — `SUPPLEMENT-2026-05-22`: §9.3's MaxDD criterion
+  was relaxed from "non-inferior MaxDD" to "MaxDD ≤ 20 % invariant"
+  (supplement PRD §〇#5); the promoted-config decision is recorded in
+  `docs/memos/20260522-portfolio-acceptance-pack.md`
 - the promoted path's edge survives DSR deflation at the true trial
   count and records PBO below the stated threshold (§9.6)
   (`AUDIT-2026-05-21`)
