@@ -1,0 +1,18 @@
+{
+  "purpose": "S5 (supplement 20260522) trial ledger. Audit O1: portfolio_acceptance.py hardcoded DSR n_trials=5; the true number of distinct model/config variations examined to land on the promoted rank-to-portfolio path (path D) was understated, so DSR under-deflated. This ledger is the persisted, honest enumeration of those trials; DSR n_trials = len(trials).",
+  "lineage": "rerisk-ml-audit-remediation-2026-05-22",
+  "promoted_path": "path_D_xgb_ranker_ndcg",
+  "trials": [
+    {"id": "path_A_non_ml_composite", "kind": "baseline", "desc": "cycle06 equal-weight zscore composite — non-ML baseline reference", "round": "R25"},
+    {"id": "rank_LinearBaselineRankModel", "kind": "model_family", "desc": "Linear rank model — examined in rank walk-forward, not promoted", "round": "R16-R19"},
+    {"id": "rank_XGBRanker_pairwise", "kind": "objective", "desc": "XGBRanker objective rank:pairwise — examined", "round": "R17"},
+    {"id": "rank_XGBRanker_ndcg", "kind": "objective", "desc": "XGBRanker objective rank:ndcg — the promoted ranker", "round": "R17"},
+    {"id": "rank_LGBMRankerRankModel", "kind": "model_family", "desc": "LightGBM lambdarank parity model — examined, not promoted", "round": "R18-R19"},
+    {"id": "pathD_map_top_k_capped", "kind": "mapping_mode", "desc": "score-to-weight top_k_capped — the promoted mapping", "round": "R25-R26"},
+    {"id": "pathD_map_score_proportional_clipped", "kind": "mapping_mode", "desc": "score_proportional_clipped mapping — examined", "round": "R20"},
+    {"id": "pathD_map_score_vol_scaled", "kind": "mapping_mode", "desc": "score_vol_scaled mapping — examined (Option B attempt 1)", "round": "R27"},
+    {"id": "pathD_risk_vol_target_0.15", "kind": "risk_scaling", "desc": "vol-target overlay 0.15 — examined (Option B attempt 2)", "round": "R28"},
+    {"id": "pathD_risk_vol_target_0.10", "kind": "risk_scaling", "desc": "vol-target overlay 0.10 — examined (Option B frontier)", "round": "R28"}
+  ],
+  "n_trials_note": "10 distinct configs. Adding a config that informed the path-D selection (a new model family / objective / mapping / risk overlay actually run) MUST append a trial here so DSR keeps deflating honestly."
+}

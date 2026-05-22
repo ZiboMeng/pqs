@@ -161,7 +161,7 @@ def _acceptance_governance(args, mode_d, top_k, cap, overfit,
         model_family="XGBRankerRankModel",
         objective="rank:ndcg",
         config_hash=h.hexdigest()[:16],
-        trial_count=int(args.n_trials),
+        trial_count=int(overfit["n_trials"]),  # S5: from trial ledger
         dsr=dsr, pbo=pbo,
         score_to_weight_mode=mode_d,
         exit_policy_mode="none",
@@ -195,11 +195,21 @@ def main() -> int:
                     help="annualized vol-target exposure overlay on path D "
                          "(0 = off; P4 Option B attempt 2 — the systematic-"
                          "drawdown lever)")
-    ap.add_argument("--n-trials", type=int, default=5,
-                    help="acceptance configs explored to land on path D "
-                         "(§9.6 DSR trial count; default 5 = path A + D "
-                         "plain + D vol-scaled + D vol-target 0.15/0.10)")
+    ap.add_argument("--n-trials", type=int, default=None,
+                    help="§9.6 DSR trial count. Default None → sourced "
+                         "from the persisted trial ledger "
+                         "data/audit/ml_trial_ledger.json (supplement S5 "
+                         "fix — no longer a hardcoded CLI default).")
     args = ap.parse_args()
+
+    # S5: n_trials sourced from the persisted trial ledger, not a CLI
+    # default — the ledger is the honest record of configs examined.
+    if args.n_trials is not None:
+        n_trials = int(args.n_trials)
+    else:
+        _ledger = json.loads(
+            (PROJ / "data/audit/ml_trial_ledger.json").read_text())
+        n_trials = len(_ledger["trials"])
 
     alloc = yaml.safe_load((PROJ / "config/ml_allocation.yaml").read_text())
     default_mode = alloc["default_mapping_mode"]
@@ -307,7 +317,7 @@ def main() -> int:
     sharpe_beat = d30["annualized_sharpe"] >= a30["annualized_sharpe"]
     maxdd_within_invariant = abs(d30["max_drawdown"]) <= 0.20
     verdict = "PASS" if (sharpe_beat and maxdd_within_invariant) else "FAIL"
-    overfit = _overfit_control(sweep, close, args.n_trials)
+    overfit = _overfit_control(sweep, close, n_trials)
 
     out = {
         "prd": "docs/prd/20260521-rerisk-and-ml-training-audit-prd.md §9 P4",
