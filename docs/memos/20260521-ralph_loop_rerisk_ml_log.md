@@ -984,4 +984,44 @@ harness [ ] P5/P6。
 
 ⑪ **commit** — `16e83b3`(主)。
 
-<!-- Round 24 起在此行下方追加 -->
+## Round 24 — P4:reusable portfolio_metrics + harness extend-vs-new 决策
+
+**时间**: 2026-05-22 · **主 commit**: `1196065` · **测试基线**: 3864
++ 17 新(allocation 累计)
+
+① **当前阶段** — Round 24 / Package P4 / 第一步。
+
+② **本轮目标** — §9.2 核查既有 r29_acceptance,抽公共 metric 模块。
+
+③ **为什么先做它** — P3 CLOSED;§9.2 明令先核查再决定。
+
+④ **做了什么** — §9.2 核查:`r29_acceptance` 是 PRD#4-P4.5 的
+sign-voter A/B/C 验收;P4 要 path D(ranker→score_to_weight→portfolio)
+是新机制 → 决策**新建 P4 harness**,但先抽公共代码。抽
+`core/research/allocation/portfolio_metrics.py`(daily_weights+close
+→ cum/Sharpe/vol/MaxDD/turnover/vs-bench,定价镜像 r29)。+7 单测。
+
+⑤ **改了哪些文件** — `core/research/allocation/portfolio_metrics.py`
+(新)/ `tests/unit/research/allocation/test_portfolio_metrics.py`(新)。
+
+⑥ **跑了哪些测试 + 结果** — allocation 全目录 17 passed。R3 bug
+自纠:首跑 test_full_invest 失败 = 我的测试断言写错(期望
+close[-1]/close[1],应 /close[0] — shift 使 day-0 权重捕获完整路径);
+**metric 对、测试断言错**,已修。新模块 additive 无回归。
+
+⑦ **当前结果** — P4 可复用 metric block 就位;extend-vs-new 决策定:
+新建 harness 复用 portfolio_metrics + score_to_weight。
+
+⑧ **剩余风险** — P4 harness 本体(4 path A/B/C/D + DSR/PBO + 报告)
+未建;path D ML 若没赢 baseline = 协议四 directional 停点。
+
+⑨ **下一轮建议** — Round 25 = 建 `portfolio_acceptance.py`:path A
+(non-ML composite)+ path D(ranker→portfolio),复用 portfolio_metrics,
+walk-forward+embargo,小窗 smoke。
+
+⑩ **TODO** — [x] R0/P0/P1/P2/P3 CLOSED [x] P4 portfolio_metrics+决策 ·
+[ ] P4 harness/收口 · [ ] P5/P6。
+
+⑪ **commit** — `1196065`(主)。
+
+<!-- Round 25 起在此行下方追加 -->
