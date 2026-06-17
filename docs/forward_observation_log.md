@@ -99,4 +99,14 @@ First ritual since the 2026-04-26 baseline. RCMv1 + Cand-2 aborted
 - cumulative_vrp_scan:✅ N=10 快照;NVDA mean +5.87±5.18(high-but-noisy→avoid),COIN/TSLA neutral,AAPL/MSFT/GOOG/META/AMD structurally cheap(don't sell);无可操作信号
 - chart_native_s1_evidence_v1:⏭ 跳过(observe 脚本 stale-import 未修,见 05-21 条;evidence_only + leakage caveat)
 - trial9_diversifier_002:⏭ 跳过(completed_fail / RETIRED,仅 forensic)
-- 状态:pead / simple_baseline / options / VRP = 4 健康推进;**cycle06 + cycle08 = data-revision halt 待用户决策**(benign 除息修正,materiality gate 正确 fail-closed)。
+- 状态:pead / simple_baseline / options / VRP = 4 健康推进;**cycle06 + cycle08 = data-revision halt 待用户决策**(materiality gate 正确 fail-closed)。
+
+### 2026-06-17 cycle06/08 halt RESOLUTION(同日,用户 go A)
+- **诚实纠正**:上方"benign 除息修正"措辞**错**。逐 cell 验证(option 2)实测:只有 **05-21 最后一根 frontier bar** 变动(05-19/05-20 byte-stable,0 cell);05-21 open+close 按同一 per-symbol 因子等比缩放;无 split;幅度 -0.08%~-0.57%(GS/VLUE/BKNG/OXY/UNH)。除息会动 ex-date 前所有日 → **排除除息**。本质 = **raw frontier 最后一根 bar 的 preliminary→final 精修**(CLAUDE.md 明确 dividends 不入 adjustment,仅 split read-time cascade)。良性、非损坏。
+- **机制纠正**:原拟"decide/recover 清 halt"路径不存在 —— recover() 仅在 drift 在当前 policy 下不再 invalidated 时清,但本 drift 仍 >E1(实测 recover raise);contract 无"接受良性修正后继续"按钮(有意设计)。
+- **resolution = option A(用户 explicit-go 2026-06-17)**:程序化 `runner.init(overwrite=True, candidate_role=CandidateRole.core_alpha, start_date='2026-05-19')` 重锚到 final 数据 → re-observe。**metadata 全保住**:role=core_alpha、evidence_class=forward_oos、cadence[10,20,40,60]/weekly、SPY/QQQ、universe=主 yaml。旧 manifest 备份 /tmp + git-tracked 可回溯。
+- **cycle06**:✅ TD001-**TD021**(2026-05-19→06-17),TD021 cum_ret **+19.86%** / vs SPY **+18.87%** / vs QQQ +16.87% / MaxDD **-9.18%**(峰值 TD019 +23% 后回落 → 高 beta 高波动,记录非 verdict)
+- **cycle08**:✅ TD001-**TD021**,TD021 cum_ret **+4.98%** / vs SPY **+3.99%** / vs QQQ +1.98% / MaxDD **-11.05%**
+- 重锚后验证:两候选 status=in_progress、**data_revision_events=none**、dry-run observe = 真幂等 no-op(明天不会再 halt)。
+- **TD20 milestone**:n_runs=21 跨过 TD20。attention_check.py = diversifier-scoped(residual-corr vs anchors / 非股暴露 / diversifier maxdd soft-warn),对 core_alpha cycle06/08 不适用(默认 anchors 是 retired RCMv1/Cand-2,强跑产 mismatched 噪声;TD60 verdict 需 n≥60)→ **未强跑误导报告**;core_alpha TD20 读数 = 上述 forward 指标。
+- 全程 sealed 2026 未读;无 silent invariant change。
