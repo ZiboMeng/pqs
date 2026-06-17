@@ -85,3 +85,18 @@ First ritual since the 2026-04-26 baseline. RCMv1 + Cand-2 aborted
 - simple_baseline_v1:✅ **TD002**(2026-05-21),NAV $9,917.70,regime=risk_on(MTUM $6,648 / TQQQ $2,924 / cash $346)
 - chart_native_s1_evidence_v1:⚠ **observe FAILED** —— `observe_chart_native_evidence.py` import `_frozen_imagenet_features` 失败(`run_chart_native_l3_track_a` 已无该符号)。**pre-existing 断裂,非本审计/ralph-loop 造成**(ML 工作未触 chart_native 路径);该候选本就带 leakage caveat、evidence_only。observe 脚本 stale import 需单独修,记入 TODO。
 - 状态:5/6 候选 healthy 推进、无 drift / 无 halt;chart_native observe 脚本 stale-import 待修。
+
+## 2026-06-17 daily ritual(收盘后,会话内手动触发;距上次 05-21 隔 ~4 周)
+- fetch_data: ✅ NYSE 17:39 EDT 收盘后,243 更新(daily + 60m/30m/15m);bar-level 完整性 smoke 通过(SPY/QQQ/MTUM/TQQQ 均到 2026-06-17,无周末行)
+- ⚠ **cycle06 / cycle08 = requires_data_review HALT(data-revision invalidated)** —— observe `--dry-run` CLI 误报 "no new bars",实为 revalidate fail-closed(已实测确认:`_resolve_dates_to_observe` 返回 18 个新 TD 但被 reval halt 拦在前面)。根因:05-21→06-17 期间 yfinance 对已记录 TD(05-19/20/21)做**回溯修正**(几乎确定为除息):
+  - cycle06:TD003 invalidated,E1 NAV 16.05 bps(>10bps),raw drift 0.44%;修正符号 AAPL/COST/GS/LRCX/TQQQ/TXN/VLUE
+  - cycle08:TD003 invalidated,E1 NAV 26.09 bps + E5 raw drift 0.568%(>0.5%);修正符号 AMZN/BKNG/COST/MSFT/OXY/TQQQ/TXN/UNH
+  - **未写盘(dry-run),manifest 仍 in_progress,未污染。** 是否 `decide()` 清 halt + 重 observe 18 TD = 留给用户决策(pause-before-commit 纪律),本轮不自动清。
+  - 附带发现(记 TODO):dry-run 模式下 reval halt 被 CLI 打印成 "no new bars (idempotent no-op)",reporting 误导,应区分 halt vs 真 no-op。
+- pead_sue_trial1_evidence_v1(standalone track,不经 v2.1 materiality gate):✅ **TD004**(forward day 23),cum_ret **+5.32%**,vs SPY **+5.08%**(SPY +0.24%),vs QQQ +3.40%,Sharpe +7.86(年化;tiny-NAV evidence 轨放大正常),MaxDD -0.34%(60d -0.34%),lifetime 287 signals / 514 trades
+- simple_baseline_v1:✅ **TD003**(2026-06-17),NAV **$10,514.46**(+5.1%),regime=risk_on(MTUM $7,222 / TQQQ $3,102 / BIL $0 / cash $191;VIX 18.44,QQQ 722.51 > SMA200 626.87)
+- spy_8otm_bull_put_v1(options):✅ **TD010**,SPY $740.96 / VIX 18.44,NAV $10,000,DD 0%,0 仓,cum_pnl $0,events=[](无 qualifying entry,与历史一致)
+- cumulative_vrp_scan:✅ N=10 快照;NVDA mean +5.87±5.18(high-but-noisy→avoid),COIN/TSLA neutral,AAPL/MSFT/GOOG/META/AMD structurally cheap(don't sell);无可操作信号
+- chart_native_s1_evidence_v1:⏭ 跳过(observe 脚本 stale-import 未修,见 05-21 条;evidence_only + leakage caveat)
+- trial9_diversifier_002:⏭ 跳过(completed_fail / RETIRED,仅 forensic)
+- 状态:pead / simple_baseline / options / VRP = 4 健康推进;**cycle06 + cycle08 = data-revision halt 待用户决策**(benign 除息修正,materiality gate 正确 fail-closed)。

@@ -106,7 +106,26 @@
       "n_trades_lifetime": 504,
       "sue_triggers_total_lifetime": 338,
       "observed_at": "2026-05-22T03:15:09.949068+00:00"
+    },
+    {
+      "td_id": "TD004",
+      "td_phase": "forward_observation",
+      "observation_date": "2026-06-17",
+      "strat_equity": 17121.54392184978,
+      "forward_cum_ret": 0.05317395786078527,
+      "forward_cum_ret_spy": 0.00242168797960729,
+      "forward_cum_ret_qqq": 0.019155653209969925,
+      "forward_excess_vs_spy": 0.05075226988117798,
+      "forward_excess_vs_qqq": 0.034018304650815345,
+      "forward_sharpe_annualized": 7.862090072352027,
+      "forward_max_dd_full": -0.003433718184258624,
+      "forward_rolling_max_dd_60d": -0.003433718184258624,
+      "n_forward_trading_days": 23,
+      "n_signals_total_lifetime": 287,
+      "n_trades_lifetime": 514,
+      "sue_triggers_total_lifetime": 338,
+      "observed_at": "2026-06-17T21:55:42.582725+00:00"
     }
   ],
-  "td_count": 4
+  "td_count": 5
 }
