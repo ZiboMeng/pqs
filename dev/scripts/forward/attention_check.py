@@ -5,9 +5,16 @@ manifests, computes derived metrics (residual corr, combo NAV, rolling
 maxdd, non-equity exposure), classifies TD60 verdict (PRD §7.1) when
 n_observed >= 60.
 
-Default targets:
-  - candidate: trial9_diversifier_001
-  - anchors:   rcm_v1_defensive_composite_01, candidate_2_orthogonal_01
+DIVERSIFIER-SCOPED: the derived metrics (residual NAV correlation vs
+anchors, non-equity exposure, diversifier MaxDD soft-warn) are only
+meaningful for role=diversifier candidates. ``--candidate`` is REQUIRED
+(no default) so the tool never silently runs against a retired/stale
+candidate — there are currently no active diversifier candidates, so
+the caller must name the intended target explicitly.
+
+Anchors default to the (aborted) RCMv1 / Cand-2 manifests, whose
+TD001-003 NAV history is still valid as read-only diversifier-NAV
+anchors; override with --anchors when appropriate.
 
 Output:
   - JSON report at data/ml/forward_attention/<candidate_id>_<TDxxx>_<UTC>.json
@@ -17,9 +24,8 @@ Idempotent: re-running with same TD label produces same numbers (modulo
 generated_at_utc + benchmark price drift if BarStore was updated between runs).
 
 Usage:
-    python dev/scripts/forward/attention_check.py
-    python dev/scripts/forward/attention_check.py --candidate trial9_diversifier_001
-    python dev/scripts/forward/attention_check.py --output-dir /tmp/foo
+    python dev/scripts/forward/attention_check.py --candidate <diversifier_id>
+    python dev/scripts/forward/attention_check.py --candidate <id> --output-dir /tmp/foo
 """
 from __future__ import annotations
 
@@ -37,7 +43,6 @@ from core.research.forward.attention_report import (
     generate_attention_report,
 )
 
-DEFAULT_CANDIDATE = "trial9_diversifier_001"
 DEFAULT_ANCHORS = [
     "rcm_v1_defensive_composite_01",
     "candidate_2_orthogonal_01",
@@ -150,8 +155,10 @@ def _format_markdown(report: AttentionReport) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--candidate", default=DEFAULT_CANDIDATE,
-                    help=f"target candidate id (default: {DEFAULT_CANDIDATE})")
+    ap.add_argument("--candidate", required=True,
+                    help="target candidate id (REQUIRED; diversifier-scoped "
+                         "tool — no default to avoid running against a "
+                         "retired/stale candidate)")
     ap.add_argument("--anchors", nargs="*", default=DEFAULT_ANCHORS,
                     help=f"anchor candidate ids (default: {DEFAULT_ANCHORS})")
     ap.add_argument("--td-label", default=None,

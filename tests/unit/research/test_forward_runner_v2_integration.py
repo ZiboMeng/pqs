@@ -188,12 +188,21 @@ def test_observe_marks_pre_v2_td_legacy_unhashed_inputs(tmp_path: Path):
     assert td1_post.signal_input_hash is None
 
 
-def test_flagged_only_event_persists_when_no_new_bars(tmp_path: Path):
-    """PRD §4.6: revalidate detects revisions on every observe()
-    call. When events are flagged_only (sub-threshold) AND there
-    are no new bars to append, the events MUST still be saved to
-    disk — early-return on no-new-dates would otherwise silently
-    drop them. Bug-fix regression test (audit round 2)."""
+def test_revision_event_persisted_and_halts_when_no_new_bars(tmp_path: Path):
+    """PRD §4.6 + §4.4: revalidate detects revisions on every observe()
+    call, even on a no-new-bars day. The detected event MUST be saved
+    to disk (early-return on no-new-dates would otherwise silently drop
+    it — audit round 2 bug-fix), AND when the revision escalates to
+    requires_data_review the call MUST raise ForwardHaltError rather
+    than return [] (2026-06-17 fix: the silent [] was printed by the CLI
+    as "no new bars (idempotent no-op)", masking the halt).
+
+    Note: corrupting a stored signal_input_hash is a *bound_only* diff
+    (empty per_cell_digest → cannot prove the NAV impact is bounded) so
+    PRD §4.4's conservative policy escalates it to invalidated /
+    requires_data_review regardless of the (here ~0) actual NAV impact.
+    """
+    from core.research.forward import ForwardHaltError
     from core.research.forward.manifest_io import save_manifest
 
     cand = "rcm_v1_defensive_composite_01"
@@ -210,8 +219,8 @@ def test_flagged_only_event_persists_when_no_new_bars(tmp_path: Path):
     assert len(appended) > 0
 
     # Mutate ONE TD's stored signal_input_hash to a known-different
-    # value. revalidate will detect divergence; since the actual
-    # store hasn't changed, NAV impact = 0 → flagged_only.
+    # value → bound_only diff → conservative escalation to
+    # requires_data_review.
     m = load_manifest(out / f"{cand}_forward_manifest.json")
     target = m.runs[-1]
     corrupted = target.model_copy(update={
@@ -222,21 +231,22 @@ def test_flagged_only_event_persists_when_no_new_bars(tmp_path: Path):
     save_manifest(m.model_copy(update={"runs": new_runs}),
                   out / f"{cand}_forward_manifest.json")
 
-    # Same up_to → no new bars to append. Revalidate-detected
-    # event MUST be persisted on the corrupted entry.
-    second_call = observe(
-        candidate_id=cand, output_dir=out,
-        cost_model_path="config/cost_model.yaml",
-        top_n=10, up_to="2025-01-08",
-    )
-    assert second_call == [], "no new bars expected"
+    # Same up_to → no new bars to append. observe() must (a) raise on
+    # the requires_data_review escalation, and (b) have persisted the
+    # detected event + flipped status BEFORE raising.
+    with pytest.raises(ForwardHaltError):
+        observe(
+            candidate_id=cand, output_dir=out,
+            cost_model_path="config/cost_model.yaml",
+            top_n=10, up_to="2025-01-08",
+        )
     m_after = load_manifest(out / f"{cand}_forward_manifest.json")
     target_after = m_after.runs[-1]
     assert target_after.data_revision_event is not None, (
-        "revalidate-detected flagged_only event was lost on early "
-        "return — observe() must save before returning even when "
-        "no new TDs are appended"
+        "revalidate-detected event was lost — observe() must save "
+        "before raising even when no new TDs are appended"
     )
+    assert m_after.current_status == ForwardRunStatus.requires_data_review
 
 
 def test_observe_revalidates_when_no_new_bars(tmp_path: Path):
@@ -278,14 +288,17 @@ def test_observe_revalidates_when_no_new_bars(tmp_path: Path):
     m_corrupted = m.model_copy(update={"runs": new_runs})
     save_manifest(m_corrupted, out / f"{cand}_forward_manifest.json")
 
-    # No new bars (same up_to) — observe must STILL run revalidate
-    # and surface the divergence on the corrupted entry.
-    appended_second = observe(
-        candidate_id=cand, output_dir=out,
-        cost_model_path="config/cost_model.yaml",
-        top_n=10, up_to="2025-01-15",
-    )
-    assert appended_second == []
+    # No new bars (same up_to) — observe must STILL run revalidate and
+    # surface the divergence. The bound_only signal_input diff escalates
+    # to requires_data_review, so observe() raises (2026-06-17 fix) after
+    # persisting the event on the corrupted entry.
+    from core.research.forward import ForwardHaltError
+    with pytest.raises(ForwardHaltError):
+        observe(
+            candidate_id=cand, output_dir=out,
+            cost_model_path="config/cost_model.yaml",
+            top_n=10, up_to="2025-01-15",
+        )
     m_after = load_manifest(out / f"{cand}_forward_manifest.json")
     target_after = m_after.runs[target_idx]
     assert target_after.data_revision_event is not None, (
@@ -390,3 +403,82 @@ def test_observe_idempotent_under_v2(tmp_path: Path):
             continue
         assert entry.bar_hash is not None
         assert entry.signal_input_hash is not None
+
+
+# ── requires_data_review halt: observe() must RAISE, not return [] ──
+
+
+def _fake_review_summary(cand: str):
+    """A RevalidationSummary that escalates to requires_data_review with
+    no per-event detail (config-drift-style halt). Used to drive the
+    halt branch deterministically without constructing real price drift."""
+    from core.research.forward.revalidate import RevalidationSummary
+    return RevalidationSummary(
+        candidate_id=cand,
+        n_runs_checked=1,
+        n_legacy_skipped=0,
+        n_no_hash_skipped=0,
+        events=[],
+        requires_data_review=True,
+    )
+
+
+def test_observe_raises_forwardhalterror_on_requires_data_review(
+    tmp_path: Path, monkeypatch
+):
+    """Regression (2026-06-17): a requires_data_review revalidate verdict
+    must surface as a ForwardHaltError, not a silent ``[]`` return that
+    the CLI prints as "no new bars (idempotent no-op)". Non-dry-run must
+    also persist the requires_data_review status (absorbing state)."""
+    from core.research.forward import runner as _runner
+    from core.research.forward.runner import ForwardHaltError
+
+    cand = "rcm_v1_defensive_composite_01"
+    out = _setup_repo(tmp_path, cand)
+    init(candidate_id=cand, start_date="2025-01-02", output_dir=out,
+         cost_model_path="config/cost_model.yaml")
+    first = observe(candidate_id=cand, output_dir=out,
+                    cost_model_path="config/cost_model.yaml",
+                    top_n=10, up_to="2025-01-08")
+    assert len(first) > 0
+
+    monkeypatch.setattr(
+        _runner, "revalidate_manifest",
+        lambda *a, **k: _fake_review_summary(cand),
+    )
+    with pytest.raises(ForwardHaltError):
+        observe(candidate_id=cand, output_dir=out,
+                cost_model_path="config/cost_model.yaml",
+                top_n=10, up_to="2025-01-15")
+    # Non-dry-run halt persists the absorbing status.
+    reloaded = load_manifest(out / f"{cand}_forward_manifest.json")
+    assert reloaded.current_status == ForwardRunStatus.requires_data_review
+
+
+def test_observe_dry_run_raises_but_does_not_persist_review_status(
+    tmp_path: Path, monkeypatch
+):
+    """dry_run=True must STILL raise on requires_data_review (so a
+    --dry-run smoke surfaces the halt) but must NOT persist the status
+    flip — this is exactly the case the old ``return []`` masked."""
+    from core.research.forward import runner as _runner
+    from core.research.forward.runner import ForwardHaltError
+
+    cand = "rcm_v1_defensive_composite_01"
+    out = _setup_repo(tmp_path, cand)
+    init(candidate_id=cand, start_date="2025-01-02", output_dir=out,
+         cost_model_path="config/cost_model.yaml")
+    observe(candidate_id=cand, output_dir=out,
+            cost_model_path="config/cost_model.yaml",
+            top_n=10, up_to="2025-01-08")
+
+    monkeypatch.setattr(
+        _runner, "revalidate_manifest",
+        lambda *a, **k: _fake_review_summary(cand),
+    )
+    with pytest.raises(ForwardHaltError):
+        observe(candidate_id=cand, output_dir=out,
+                cost_model_path="config/cost_model.yaml",
+                top_n=10, up_to="2025-01-15", dry_run=True)
+    reloaded = load_manifest(out / f"{cand}_forward_manifest.json")
+    assert reloaded.current_status == ForwardRunStatus.in_progress

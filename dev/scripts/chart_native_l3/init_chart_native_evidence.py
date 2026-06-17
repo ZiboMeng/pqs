@@ -71,9 +71,28 @@ from core.research.temporal_split import (
 )
 # Reuse the EXACT frozen-backbone feature path (zero divergence risk)
 from dev.scripts.chart_native_l3.run_chart_native_l3_track_a import (
-    _frozen_imagenet_features,
+    _build_frozen_net,
+    _encode_batch,
     _H,
 )
+
+
+def _frozen_imagenet_features(imgs, device, batch=64):
+    """Whole-array frozen ImageNet ResNet18 features, batch-looped.
+
+    track_a's 2026-05-18 streaming refactor replaced the old
+    ``_frozen_imagenet_features`` whole-array helper with the per-batch
+    primitives ``_build_frozen_net`` + ``_encode_batch``. This thin
+    wrapper rebuilds the original whole-array call contract on top of
+    those canonical primitives (eval-mode ResNet18 is per-sample, so
+    batch-looped output is numerically bit-identical to the pre-refactor
+    path — see track_a `_encode_batch` docstring). Call sites unchanged.
+    """
+    import numpy as _np
+    net = _build_frozen_net(device)
+    out = [_encode_batch(net, imgs[i:i + batch], device)
+           for i in range(0, len(imgs), batch)]
+    return _np.concatenate(out, 0)
 
 CANDIDATE_ID = "chart_native_s1_evidence_v1"
 RC = PROJ / "data" / "research_candidates"

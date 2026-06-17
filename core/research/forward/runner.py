@@ -951,14 +951,38 @@ def observe(
         manifest_dirty_from_revalidate = True
 
     if reval.requires_data_review:
-        # Halt — save the events + flipped status, then return without
-        # appending. Next observe() call will halt at the top-of-function
-        # status guard until decide() clears it. Halt is triggered by
-        # EITHER an invalidated DataRevisionEvent OR a halt-class
-        # ConfigDriftEvent.
+        # Halt — save the events + flipped status (non-dry-run), then
+        # RAISE so the caller learns of the halt. Returning [] here was
+        # indistinguishable from a genuine no-new-bars no-op (the CLI
+        # printed "no new bars (idempotent no-op)" and masked the halt,
+        # most visibly in --dry-run where the status flip is NOT
+        # persisted). Raising mirrors the top-of-function status guard,
+        # which already raises ForwardHaltError once the manifest is in
+        # requires_data_review. Halt is triggered by EITHER an
+        # invalidated DataRevisionEvent OR a halt-class ConfigDriftEvent.
         if not dry_run:
             save_manifest(manifest, out_path)
-        return []
+        _inv_syms = sorted({
+            s
+            for (_entry, ev) in reval.events
+            if ev.policy_decision == "invalidated"
+            for s in (ev.revised_symbols or [])
+        })
+        _drift = (
+            "; config drift halt-class active"
+            if (reval.config_drift_event is not None
+                and getattr(reval.config_drift_event, "severity", None) == "halt")
+            else ""
+        )
+        raise ForwardHaltError(
+            f"observe: candidate {candidate_id} halted "
+            f"(requires_data_review): data revision invalidated on an "
+            f"existing TD; revised_symbols={_inv_syms or 'n/a'}{_drift}. "
+            f"{'(dry-run: status NOT persisted) ' if dry_run else ''}"
+            f"Review the revision, then either recover() (clears ONLY if "
+            f"the drift no longer exceeds materiality policy) or re-init / "
+            f"decide() per the absorbing-state contract."
+        )
     # Non-invalidated events (flagged_only) + warn-class config drift
     # both stay on the rebound `manifest` variable. They get persisted
     # by either the no-new-dates path below OR the bottom save_manifest
