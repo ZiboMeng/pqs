@@ -1356,3 +1356,65 @@ def test_observe_config_dir_kwarg_routes_to_revalidate(tmp_path: Path):
         "observe(config_dir=...) default must be _DEFAULT_CONFIG_DIR "
         "for backward-compat — explicit caller override is the new path"
     )
+
+
+# ── construction-aware forward weights (2026-06-17 consistency fix) ──
+
+
+def test_build_forward_target_weights_respects_caps_and_falls_back():
+    """forward weight builder must honor a frozen spec's cap_aware_cross_asset
+    construction (≤70% equity etc.) so forward NAV matches Track-A, while
+    candidates with NO construction block fall back BIT-IDENTICAL to the
+    legacy naive top-N builder (RCMv1 / Cand-2 / trial9 path)."""
+    from core.research.forward.runner import (
+        _build_forward_target_weights,
+        _composite_to_target_weights,
+    )
+    from core.research.frozen_spec import FrozenStrategySpec
+    from core.research.risk_cluster_map import (
+        ASSET_CLASS_BY_CLUSTER,
+        make_unified_cluster_map,
+    )
+
+    cmap = make_unified_cluster_map(include_cross_asset=True)
+    equities = [s for s in cmap if ASSET_CLASS_BY_CLUSTER[cmap[s]] == "equities"][:12]
+    nonequity = [s for s in cmap if ASSET_CLASS_BY_CLUSTER[cmap[s]] != "equities"][:3]
+    assert len(equities) >= 12 and len(nonequity) >= 3
+    syms = equities + nonequity
+
+    # Equities score highest → naive top-10 would pick 10 equities (100%).
+    dates = pd.date_range("2024-01-31", periods=3, freq="ME")
+    data = {s: [(100 - i) if s in equities else 1.0] * len(dates)
+            for i, s in enumerate(syms)}
+    composite = pd.DataFrame(data, index=dates)
+
+    base_spec = {
+        "candidate_id": "t_capfix", "strategy_version": "capfix-test-2026",
+        "source_trial_id": "deadbeef0001",
+        "feature_set": [{"name": "f", "weight": 1.0, "family": "X",
+                         "source": "s"}],
+        "benchmark_relative_summary": {"x": 1},
+        "oos_holdout_summary": {"x": 1},
+        "robustness_summary": {"x": 1},
+        "decision_memo": "m",
+    }
+
+    # cap_aware_cross_asset → equity cap binds at 0.70 (cluster_cap=1.0 so
+    # only the asset-class layer is under test).
+    cap_spec = FrozenStrategySpec.from_dict({**base_spec, "construction": {
+        "mode": "cap_aware_cross_asset", "top_n": 10, "cluster_cap": 1.0,
+        "max_single_weight": 0.10, "rebalance_cadence": "monthly",
+        "asset_class_caps": {"equities_max": 0.70, "bonds_max": 0.40,
+                             "commodities_max": 0.20, "cash_anchor_max": 0.30},
+    }})
+    w_cap = _build_forward_target_weights(cap_spec, composite, default_top_n=10)
+    last = w_cap.iloc[-1]
+    eq_w = sum(v for s, v in last.items() if s in equities)
+    assert eq_w <= 0.70 + 1e-9, f"equity weight {eq_w} exceeds 70% cap"
+    assert last.sum() > 0.70, "cap-aware should still fill beyond equities"
+
+    # No construction block → bit-identical to naive builder.
+    naive_spec = FrozenStrategySpec.from_dict(base_spec)
+    w_naive = _build_forward_target_weights(naive_spec, composite, default_top_n=10)
+    w_ref = _composite_to_target_weights(composite, top_n=10)
+    pd.testing.assert_frame_equal(w_naive, w_ref)

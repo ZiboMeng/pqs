@@ -110,3 +110,19 @@ First ritual since the 2026-04-26 baseline. RCMv1 + Cand-2 aborted
 - 重锚后验证:两候选 status=in_progress、**data_revision_events=none**、dry-run observe = 真幂等 no-op(明天不会再 halt)。
 - **TD20 milestone**:n_runs=21 跨过 TD20。attention_check.py = diversifier-scoped(residual-corr vs anchors / 非股暴露 / diversifier maxdd soft-warn),对 core_alpha cycle06/08 不适用(默认 anchors 是 retired RCMv1/Cand-2,强跑产 mismatched 噪声;TD60 verdict 需 n≥60)→ **未强跑误导报告**;core_alpha TD20 读数 = 上述 forward 指标。
 - 全程 sealed 2026 未读;无 silent invariant change。
+
+### 2026-06-17 forward 构建一致性修复(cap-aware;cycle06/08 第二次 re-init)
+- **发现(实测铁证)**:forward observe 一直用 naive top-N 等权(`runner.py` `_composite_to_target_weights(top_n)`),**不读候选 spec 的 `construction` 块** —— 而 cycle06/08 的 frozen spec 声明 `cap_aware_cross_asset`(equities≤70%,cycle06 weekly / cycle08 monthly),Track-A 验的也是 cap-aware(`cycle06_track_a_eval.py:121-139`)。铁证:上一次 re-init 后 cycle06 持仓 = 10 股 ×0.10 = **100% 股票**,违反 70% cap。→ **Track-A↔forward 构建不一致,违反 backtest-execution consistency 不变量**。
+- **修复**:`runner.py` 新增 `_build_forward_target_weights(spec, composite)`,读 `spec.extras["construction"]`:cap_aware/cap_aware_cross_asset → 复刻 Track-A 的 `topn_signals_with_caps`(同 cluster_map / caps / cadence);无 construction 块 → naive 退回(RCMv1/Cand-2/trial9 **bit-identical**)。单测 `test_build_forward_target_weights_respects_caps_and_falls_back` + TODO-1 套件全绿。
+- **cycle06/08 第二次 re-init + re-observe(cap-aware,metadata 全保住)**,对比 naive→cap-aware:
+
+  | | naive(旧/错) | cap-aware(新/对) |
+  |---|---|---|
+  | cycle06 TD21 vs SPY | +18.87% | **+2.63%** |
+  | cycle06 MaxDD | -9.18% | **-3.53%** |
+  | cycle08 TD21 vs SPY | +3.99% | **+1.20%** |
+  | cycle08 MaxDD | -11.05% | **-5.01%** |
+
+- 验证 held weights 现尊重 cap:cycle06 TD21 = 70% 股 + 10% 债(TLT)+ 20% 现金(BIL/SHV),**无杠杆 ETF**(TQQQ/SOXL 不在 cluster_map,与 Track-A 一致);cycle08 = 70% 股 + 10% 金(GLD)+ 20% 债(TLT/SHY)。两者 in_progress。
+- **诚实结论**:naive 的 +18.87% vs SPY 是杠杆 ETF 超配 artifact,非被验证策略的成色;cap-aware 后收益/回撤大降但**仍正向跑赢 SPY**(信号在受约束构建下温和有效)。这才是与 Track-A 一致的诚实主线证据。
+- 旧(naive)manifest 备份 /tmp `*_pre_capfix_20260617.json.bak`;sealed 2026 未读。

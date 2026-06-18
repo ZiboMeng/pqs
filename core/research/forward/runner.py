@@ -53,6 +53,11 @@ from core.research.sr_signal_filter import (
     SRDeferConfig,
     apply_sr_defer_filter,
 )
+from core.research.harness import rebalance_mask, topn_signals_with_caps
+from core.research.risk_cluster_map import (
+    ASSET_CLASS_BY_CLUSTER,
+    make_unified_cluster_map,
+)
 
 from .bar_hash import (
     DEFAULT_BAR_REVISION,
@@ -575,6 +580,78 @@ def _resolve_dates_to_observe(
     return new
 
 
+def _build_forward_target_weights(
+    spec: FrozenStrategySpec,
+    composite: pd.DataFrame,
+    *,
+    default_top_n: int,
+) -> pd.DataFrame:
+    """Build forward target weights honoring the frozen spec's ``construction``
+    block, so forward NAV reflects the SAME construction Track-A validated
+    (backtest-execution consistency invariant).
+
+    Pre-fix, observe() always used a naive top-N equal-weight builder
+    (``_composite_to_target_weights``), ignoring the spec's construction
+    block. For cap-aware candidates this silently diverged from Track-A:
+    cycle06/08 declare ``cap_aware_cross_asset`` (equities ≤ 70%, weekly/
+    monthly rebal) yet observed 100%-equity daily-rebal forward NAV.
+
+    Routing:
+      - No ``construction`` block, or ``mode`` not in {cap_aware,
+        cap_aware_cross_asset} → naive top-N fallback, BIT-IDENTICAL to
+        pre-fix (RCMv1 / Cand-2 / trial9 carry no construction block).
+      - cap_aware / cap_aware_cross_asset → the same cluster + asset-class
+        cap-aware selection (``topn_signals_with_caps``) Track-A used, with
+        the spec's caps + rebalance cadence. Mirrors
+        ``cycle06_track_a_eval.py`` HarnessConfig.
+    """
+    construction = (
+        spec.extras.get("construction")
+        if isinstance(getattr(spec, "extras", None), dict)
+        else None
+    )
+    mode = (construction or {}).get("mode")
+    if not construction or mode not in ("cap_aware", "cap_aware_cross_asset"):
+        return _composite_to_target_weights(composite, top_n=default_top_n)
+
+    cross_asset = mode == "cap_aware_cross_asset"
+    cluster_map = make_unified_cluster_map(include_cross_asset=cross_asset)
+    top_n = int(construction.get("top_n", default_top_n))
+    cluster_cap = float(construction.get("cluster_cap", 0.20))
+    max_single_weight = float(construction.get("max_single_weight", 0.10))
+    min_holding_days = int(construction.get("min_holding_days", 1))
+    cadence = construction.get("rebalance_cadence", "monthly")
+    rebal_mask = rebalance_mask(composite.index, cadence)
+
+    asset_class_map = None
+    asset_class_caps = None
+    if cross_asset:
+        asset_class_map = {
+            s: ASSET_CLASS_BY_CLUSTER[cluster_map[s]]
+            for s in composite.columns
+            if s in cluster_map
+        }
+        # frozen-spec keys are '<class>_max'; topn_signals_with_caps wants
+        # the bare asset-class name (matches Track-A HarnessConfig).
+        raw_caps = construction.get("asset_class_caps", {}) or {}
+        asset_class_caps = {
+            (k[:-4] if k.endswith("_max") else k): float(v)
+            for k, v in raw_caps.items()
+        }
+
+    return topn_signals_with_caps(
+        composite,
+        rebal_mask,
+        target_n_picks=top_n,
+        cluster_map=cluster_map,
+        cluster_cap=cluster_cap,
+        max_single_weight=max_single_weight,
+        min_holding_days=min_holding_days,
+        asset_class_map=asset_class_map,
+        asset_class_caps=asset_class_caps,
+    )
+
+
 # ── public API ───────────────────────────────────────────────────────────
 
 
@@ -1003,7 +1080,7 @@ def observe(
         return []
 
     composite, _all_factors = _compute_composite(spec, panel)
-    target_wts = _composite_to_target_weights(composite, top_n=top_n)
+    target_wts = _build_forward_target_weights(spec, composite, default_top_n=top_n)
 
     # PRD 20260505 Step 6.1-min: optional Path A SR defer filter.
     # No-op when execution_policy is absent or enable_sr_defer is false
