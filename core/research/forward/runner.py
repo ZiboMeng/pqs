@@ -824,6 +824,28 @@ def status(
     }
 
 
+def _load_forward_panel(cfg, store, candidate_id, output_dir, *, start, end):
+    """Forward-OOS panel load — split + total-return adjusted prices with
+    the candidate's declared ``panel_contract.drop_symbols`` applied, so
+    forward factor / composite / NAV uses the SAME price basis the
+    Track-A gate validated on.
+
+    Verified 2026-06-19: with adjusted + adjusted_total_return + the
+    candidate's drop_symbols, the forward composite matches Track-A
+    bit-for-bit (close diff 0, top-N overlap 10/10). The dominant gap
+    was total-return (dividends), not splits. Pre-fix, observe() read
+    RAW split-unadjusted prices (the legacy `_load_panel` default),
+    silently diverging from Track-A.
+    """
+    spec = FrozenStrategySpec.from_yaml_file(
+        Path(output_dir) / f"{candidate_id}.yaml")
+    drop = (spec.panel_contract or {}).get("drop_symbols")
+    return _load_panel(
+        cfg, store, start=start, end=end,
+        adjusted=True, adjusted_total_return=True, drop_symbols=drop,
+    )
+
+
 def observe(
     candidate_id: str,
     *,
@@ -912,8 +934,8 @@ def observe(
 
     # Load full panel from start_date onward — the runner needs enough
     # history to compute composite (factors require lookback).
-    panel = _load_panel(
-        cfg, store,
+    panel = _load_forward_panel(
+        cfg, store, candidate_id, output_dir,
         start=pd.Timestamp("1900-01-01"),
         end=pd.Timestamp(up_to) + pd.Timedelta(days=1) if up_to else pd.Timestamp("2100-01-01"),
     )
@@ -1431,8 +1453,8 @@ def recover(
     if store is None:
         store = create_default_store(cfg)
 
-    panel = _load_panel(
-        cfg, store,
+    panel = _load_forward_panel(
+        cfg, store, candidate_id, output_dir,
         start=pd.Timestamp("1900-01-01"),
         end=pd.Timestamp("2100-01-01"),
     )

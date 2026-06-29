@@ -32,6 +32,7 @@ import yaml
 
 from core.config.loader import load_config
 from core.data.factory import PriceStore, create_default_store
+from core.data.price_access import load_adjusted
 from core.execution.cost_model import CostModel
 from core.factors.base_masks import apply_research_mask, research_mask_default
 from core.factors.factor_generator import generate_all_factors
@@ -179,18 +180,46 @@ def _carve_window(
     )
 
 
-def _load_panel(cfg, store: PriceStore, start: pd.Timestamp, end: pd.Timestamp) -> dict:
+def _load_panel(cfg, store: PriceStore, start: pd.Timestamp, end: pd.Timestamp,
+                *, adjusted: bool = False,
+                adjusted_total_return: bool = False,
+                drop_symbols: Optional[list] = None) -> dict:
+    """Load the daily OHLCV panel for the research universe.
+
+    Default (``adjusted=False``) reads RAW unadjusted bars via
+    ``store.read`` — preserved BIT-IDENTICAL for the robustness /
+    selection callers (their semantics are unchanged; the broader
+    raw→adjusted migration for those is P0-A F1-A2 scope).
+
+    The FORWARD path passes ``adjusted=True, adjusted_total_return=True``
+    so its factor / composite / NAV computation uses the SAME split +
+    total-return adjusted prices the Track-A gate validated on (the
+    canonical ``BarStore.load`` contract), and ``drop_symbols`` applies
+    the candidate's declared ``panel_contract.drop_symbols`` so the
+    cross-section matches Track-A. Verified 2026-06-19: with these three
+    (adjusted + total-return + drop_symbols) the forward composite ==
+    Track-A bit-for-bit (close diff 0, top-N overlap 10/10). Without the
+    total-return layer the divergence was ~3/10 holdings — dividends,
+    not splits, were the dominant gap.
+    """
     uni = cfg.universe
+    _drop = set(drop_symbols or [])
     syms = [
         s for s in dict.fromkeys(
             list(uni.seed_pool) + list(uni.sector_etfs)
             + list(uni.factor_etfs) + list(uni.cross_asset)
         )
         if s not in uni.blacklist and s not in uni.macro_reference
+        and s not in _drop
     ]
+    _root = cfg.system.paths.data_dir
     frames: dict = {k: {} for k in ("close", "open", "high", "low", "volume")}
     for sym in syms:
-        df = store.read(sym, "1d")
+        if adjusted:
+            df = load_adjusted(sym, _root, "1d",
+                               adjusted_total_return=adjusted_total_return)
+        else:
+            df = store.read(sym, "1d")
         if df is None or df.empty or "close" not in df.columns:
             continue
         frames["close"][sym] = df["close"]
