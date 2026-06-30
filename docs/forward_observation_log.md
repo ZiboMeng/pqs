@@ -126,3 +126,28 @@ First ritual since the 2026-04-26 baseline. RCMv1 + Cand-2 aborted
 - 验证 held weights 现尊重 cap:cycle06 TD21 = 70% 股 + 10% 债(TLT)+ 20% 现金(BIL/SHV),**无杠杆 ETF**(TQQQ/SOXL 不在 cluster_map,与 Track-A 一致);cycle08 = 70% 股 + 10% 金(GLD)+ 20% 债(TLT/SHY)。两者 in_progress。
 - **诚实结论**:naive 的 +18.87% vs SPY 是杠杆 ETF 超配 artifact,非被验证策略的成色;cap-aware 后收益/回撤大降但**仍正向跑赢 SPY**(信号在受约束构建下温和有效)。这才是与 Track-A 一致的诚实主线证据。
 - 旧(naive)manifest 备份 /tmp `*_pre_capfix_20260617.json.bak`;sealed 2026 未读。
+
+### 2026-06-29 cycle06/08 第三次 re-init —— halt 循环根因修复(track_per_cell=True)+ total-return basis
+- **背景**:06-25 daily ritual,cycle06/08 又 HALT(requires_data_review),recover() 清不掉。这是 06-17 re-init 后**第二次**同类 halt → 怀疑 re-init 是治标跑步机,做只读诊断。
+- **根因(已量化,非数据损坏)**:halt 由 `track_signal_input_per_cell=False`(spec 默认)的 **Blocker-2 fail-closed** 驱动 —— per_cell_digest 为空 → revalidate **证不了** signal_input diff 在 execution_nav 锚定 cell 内 → 不管漂移多小都保守 invalidate。实测全部 21 run **n_revised_cells=0、最大 close 漂移 0.00158%**(亚 bp,yfinance 尾部 bar preliminary→final 末位精修)、NAV impact=null、无 sign flip。**re-init 只把 baseline hash 清零,下次 fetch yfinance 再改末位 → 必再 halt(06-17→06-25 已 empirically 验证循环)**。
+- **修复(用户 explicit-go 2026-06-29)**:给 cycle06/08 spec 加 `evidence_config.track_signal_input_per_cell: true`(观察期配置,非策略定义字段;feature_set/transforms/composite_rule/construction 全不变)。开启后 observe 在 TD-write 时写 per_cell_digest → revalidate 能 per-attribute 归因,亚 bp in-ring 修订降级 flagged_only 而非 invalidated。**这是打破 halt 循环的根因修复,非放松 policy**(给引擎它需要的 per-cell 数据做精确判定;Blocker-2 对其它候选保护不动)。
+- **同时**:本次 re-init 落在已提交的 `6a8448a`(forward observe/recover 改用 adjusted+total-return+drop_symbols,与 Track-A 逐位一致)basis 上 —— forward NAV 现与 Track-A 价格基准一致(此前 raw split-unadjusted 默默偏离)。
+- **re-init #3 + re-observe(metadata 全保住:role=core_alpha、evidence_class=forward_oos、start=2026-05-19、SPY/QQQ、cadence[10,20,40,60]/weekly)**,窗口 TD001-**TD028**(05-19→06-29,较 06-17 多 7 TD):
+
+  | | cap-aware(06-17, raw basis, TD21) | 本次(06-29, total-return basis, TD28) |
+  |---|---|---|
+  | cycle06 vs SPY | +2.63% | **+4.64%** (cum_ret +5.63%, MaxDD -3.99%, Sharpe 1.93) |
+  | cycle08 vs SPY | +1.20% | **+6.15%** (cum_ret +7.14%, MaxDD -6.87%, Sharpe 2.00) |
+
+  (差异 = +7 TD 窗口 + total-return 复权;两者仍正向跑赢 SPY,vs QQQ 诊断 +2.42%/+3.93%。)
+- **验证**:两候选 status=in_progress、**per_cell_digest 已写入(79 cells/TD)**、**data_revision_events=0**(无 halt)、role=core_alpha。source_mix=True(yfinance frontier vs polygon canonical,readiness 已 flag,预期)。
+- 旧(cap-aware/raw)manifest 备份 `*_forward_manifest.preReinit_2026-06-29.json`(git-tracked 可回溯);sealed 2026 未读;无 silent invariant change。
+- **预期**:下次新数据来,亚 bp 尾部修订将走 flagged_only 而非 halt(track_per_cell=True 生效)。若仍有 `out-of-ring revision (no anchor)` 类触发(另一路径),再据实判读。
+
+#### 2026-06-30 补:per-cell digest 存储 offload(sidecar parquet)—— track_per_cell 的可持续化
+- **发现的阻断问题**:track_per_cell=True 开启后,signal_input 的 per_cell_digest 是 79×252 全网格(~20K cells/TD),且 revalidate 对**每个**历史 TD 重比对(不能只留最近),28-TD inline 进 JSON → cycle06 **47MB** / cycle08 **69MB**。GitHub 单文件 >100MB 硬拒绝,60-TD soak 必撞墙;每次 observe 重写整文件 → git 历史爆。**未 push,先停。**
+- **根因量化**:膨胀 99.7% 来自 signal_input;exec_nav(~800 cells 总)/benchmark(~60)极小。digest 值本身已最优(8-char close-only)。
+- **修复(用户 go,sidecar 方案)**:新增 `core/research/forward/digest_sidecar.py` + 改 `manifest_io.py` 序列化层 —— save 时把 signal_input per_cell_digest offload 进 zstd parquet sidecar(`*_forward_manifest.digests.parquet`)、JSON 写精简版;load 时回填。**in-memory 模型 + revalidate/runner 逻辑零改动**。exec/bench digest 保持 inline(小)→ **track_per_cell=False 的 legacy 候选(RCMv1/Cand-2/trial9/pead)与旧代码逐位一致、不产生 sidecar**。
+- **效果**:cycle06 47MB→**2.6MB json + 1.2MB parquet**;cycle08 69MB→**2.0MB + 1.8MB**(~20x)。sidecar = revision 检测快照(不可由当前数据复现)故 **git-track**。
+- **验证**:① round-trip full model_dump 逐位相等(569,604 cells);② legacy 新 save == 旧代码 dump 逐位一致、无 sidecar;③ `observe --dry-run` 两候选 no-op 不 halt(load 回填 → revalidate 正常);④ forward 测试套件 **83 passed**(runner 54 / recover 7 / readiness 4 / backfill 8 / v2_integration 10)。
+- 转换后 cycle06/08 NAV 与上节一致(转换仅动序列化,不动数据)。

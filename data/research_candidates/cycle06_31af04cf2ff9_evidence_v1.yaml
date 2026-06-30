@@ -118,3 +118,16 @@ notes: >-
   Forward-observation evidence candidate. Sealed gate PASSED before
   forward-init per corrected pipeline ordering (sealed → forward).
   vs_qqq is diagnostic-only per CLAUDE.md QQQ deprecation 2026-05-02.
+
+# ── Observation-time config (NOT a strategy-definition field) ───────────
+# Added 2026-06-29 (user explicit-go). Orthogonal to the frozen strategy
+# definition (feature_set / transforms / composite_rule / construction
+# unchanged) — only controls how the forward observer hashes signal_input
+# at TD-write time. Enables per-cell digest so revalidate can attribute
+# sub-bp yfinance trailing-bar revisions cell-by-cell and keep immaterial
+# in-ring revisions flagged_only instead of fail-closed bound_only
+# (codex Round-10 Blocker 2). Root-cause fix for the recurring
+# requires_data_review halt loop (re-init alone is symptom-resetting).
+# NOTE: adding this changes the file's spec_hash; re-init re-anchors it.
+evidence_config:
+  track_signal_input_per_cell: true
