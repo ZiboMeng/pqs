@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from .digest_sidecar import hydrate_digests, offload_digests, sidecar_path
 from .manifest_schema import ForwardRunManifest
 
 
@@ -26,8 +27,15 @@ def load_manifest(path: Path) -> ForwardRunManifest:
 
     Raises ``FileNotFoundError`` if the path doesn't exist;
     ``ValidationError`` if the on-disk JSON fails schema validation.
+
+    Per-cell digest grids (track_per_cell=True candidates) live in a
+    parquet sidecar and are hydrated back into the payload before
+    validation, so the in-memory model is identical to the pre-offload
+    manifest (see ``digest_sidecar``). Legacy manifests have no sidecar
+    and load unchanged.
     """
     payload = json.loads(Path(path).read_text())
+    hydrate_digests(payload, sidecar_path(path))
     return ForwardRunManifest.model_validate(payload)
 
 
@@ -41,10 +49,17 @@ def save_manifest(manifest: ForwardRunManifest, path: Path) -> Path:
     """
     payload = manifest.model_dump(mode="json")
     # Round-trip validate — guarantees the disk artifact passes the
-    # same checks any reader would apply on load.
+    # same checks any reader would apply on load. Validate the FULL
+    # payload (digests still inline) so the check matches the hydrated
+    # load-time model exactly.
     ForwardRunManifest.model_validate(payload)
 
     p = Path(path)
+    # Offload per-cell digest grids to a parquet sidecar (empties them in
+    # `payload` so the manifest JSON stays lean). No-op + byte-identical
+    # payload for legacy / track_per_cell=False candidates.
+    offload_digests(payload, sidecar_path(p))
+
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_suffix(p.suffix + ".tmp")
     tmp.write_text(json.dumps(payload, indent=2, default=str, sort_keys=False))
