@@ -151,3 +151,14 @@ First ritual since the 2026-04-26 baseline. RCMv1 + Cand-2 aborted
 - **效果**:cycle06 47MB→**2.6MB json + 1.2MB parquet**;cycle08 69MB→**2.0MB + 1.8MB**(~20x)。sidecar = revision 检测快照(不可由当前数据复现)故 **git-track**。
 - **验证**:① round-trip full model_dump 逐位相等(569,604 cells);② legacy 新 save == 旧代码 dump 逐位一致、无 sidecar;③ `observe --dry-run` 两候选 no-op 不 halt(load 回填 → revalidate 正常);④ forward 测试套件 **83 passed**(runner 54 / recover 7 / readiness 4 / backfill 8 / v2_integration 10)。
 - 转换后 cycle06/08 NAV 与上节一致(转换仅动序列化,不动数据)。
+
+### 2026-07-08 cycle06/08 observe → settle-window 根因修复(track_per_cell 生效但暴露第二路径)+ re-init #4
+- **daily ritual**:fetch(243 更新,frontier 07-08)后 observe cycle06/08 → **又 HALT**(requires_data_review)。但与 06-25 不同:`revised_symbols` 是具体 18/17 个 symbol(非空),`affected_scopes` 含 execution_nav,**E1 NAV 实际影响 cycle06 22.4 / cycle08 20.9 bps**、n_revised_cells 32/29。**track_per_cell=True 生效**——精确归因,不再是空 digest 假 halt。
+- **只读诊断(决定性)**:recover 枚举的 revised cell **全部日期 = 2026-06-29**(= re-init#3 的 frontier 尾 bar)。distributions.parquet 未动(mtime 05-19)、06-29 raw==total_return → **不是分红/total-return artifact,是 yfinance 直接改了 06-29 raw bar**(单 cell max 0.368%,组合 ~22bps)。
+- **根本洞察**:修订全在**上次尾 bar** = yfinance「最新几根 preliminary,几天后终化」规律 → **每次 observe 必 halt**(本次新 frontier 07-08 过几天必被修订)。re-init 是跑步机(06-17→07-08 已印证)。
+- **根因修复(用户 go 1,memo `docs/memos/20260708-forward_settle_window_decision.md`)= settle-window**:最近 N 交易日的 TD 为 **provisional**,每次 observe 从 manifest **drop 掉 → 由 append loop 从当前数据重算**(NAV+hash 刷新),**不参与 revision 判定**;settled(≥N TD 老)历史仍严格 fail-closed。改 `CheckpointCadence.settle_window_trading_days`(schema 默认 0=legacy;RECOMMENDED 10)+ `_drop_provisional_tail` helper + observe() drop-before-revalidate + CLI `--settle-window`。**revalidate 内部零改动**;init 默认 0 → 现有 manifest/测试 byte-identical。11 新单测 + runner 54 + recover 7 + v2 halt 2 全绿。
+- **re-init #4(settle_window=10,metadata 全保住)+ observe → 无 halt**,TD001-**TD034**(05-19→07-08),status=in_progress,revision_events=0,`observe --dry-run` exit 0 no-op。
+- **历史 NAV 稳定性核实**:05-26/06-15 逐位 == re-init#3;06-29 微调 +5.63%→+5.53%(~10bps = 那次 finalized 修订被吸收,不再 halt)→ re-derivation 未污染历史。
+- **⚠ 市场结果(如实记录,非 artifact)**:cycle06/08 早 7 月给回全部超额并转跑输 SPY。frontier 轨迹 cycle06:06-30 见顶 +6.42%(vs SPY +4.64%)→ 07-08 **+0.06%(vs SPY -1.54%)**,MaxDD -7.27%;cycle08:06-30 +8.65% → 07-08 **-0.18%(vs SPY -1.77%)**,MaxDD -8.13%。属 forward evidence 如实反映(防御/rotation sleeve 早 7 月跑输市场反弹),TD60 verdict 前继续观察。
+- 旧 manifest 备份 `*.preReinit_2026-07-08.json`;sealed 2026 未读;无 silent invariant change。
+- **预期**:settle-window 生效后,frontier 尾 bar 的 preliminary→final 修订将被 re-derive 吸收,不再 halt。若修订落在 >10 TD 的 settled 历史(罕见),仍会严格 halt(正确)。
