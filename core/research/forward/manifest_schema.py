@@ -189,6 +189,22 @@ class CheckpointCadence(BaseModel):
 
     weekly: bool = True
     decision_days: list[int] = Field(default_factory=lambda: [10, 20, 40, 60])
+    settle_window_trading_days: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Settle-window (trading days). The most-recent N trading days of "
+            "observation are PROVISIONAL: yfinance frontier bars are "
+            "preliminary and revise (preliminary→final) within days. observe() "
+            "re-derives provisional TD entries from current data each run "
+            "(NAV + hashes refreshed) and does NOT run revision-detection on "
+            "them, so benign trailing-bar revisions no longer halt the run. "
+            "Entries older than N are FROZEN — strict revision detection is "
+            "preserved for settled history. 0 = disabled (legacy pre-2026-07-08 "
+            "contract: every entry frozen at first observe). See "
+            "docs/memos/20260708-forward_settle_window_decision.md."
+        ),
+    )
 
     @model_validator(mode="after")
     def _check_decision_days_positive_and_sorted(self) -> "CheckpointCadence":

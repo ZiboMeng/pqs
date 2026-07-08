@@ -100,6 +100,16 @@ DEFAULT_COST_MODEL_PATH = "config/cost_model.yaml"
 DEFAULT_BASELINE_PATH = "data/baseline/latest.json"
 DEFAULT_INITIAL_CAPITAL = 100_000.0
 DEFAULT_TOP_N = 10
+# RECOMMENDED settle-window (trading days) for yfinance-frontier forward
+# candidates. The most-recent N observation TDs are provisional (yfinance
+# frontier bars are preliminary and revise within days) → re-derived each
+# observe, not revision-checked. Chosen to exceed observed yfinance
+# finalization lag (2026-07-08 instance: a 06-29 bar revised ~6 trading days
+# later). This is the value the operator should pass at init for new
+# candidates; init()'s OWN default is 0 (opt-in) so existing manifests and
+# tests keep the exact legacy strict contract byte-for-byte.
+# See docs/memos/20260708-forward_settle_window_decision.md.
+RECOMMENDED_SETTLE_WINDOW_TRADING_DAYS = 10
 
 
 # ── halt / decide enum guards ────────────────────────────────────────────
@@ -555,6 +565,42 @@ def _maybe_apply_sr_defer(
     return filtered
 
 
+def _drop_provisional_tail(
+    runs: list,
+    available_index: "pd.DatetimeIndex",
+    settle_n: int,
+) -> tuple:
+    """Partition forward runs by the settle-window; drop the provisional tail.
+
+    A ``TD`` entry is PROVISIONAL when fewer than ``settle_n`` trading days lie
+    between its ``as_of_date`` and the data frontier (``available_index.max()``)
+    — i.e. its bars may still be preliminary and revise. Provisional entries
+    are dropped so ``observe()`` re-derives them from current data (NAV +
+    hashes refreshed) instead of halting on benign trailing-bar revisions.
+    Settled entries (``>= settle_n`` TDs old) and non-TD entries (DECIDE, etc.)
+    are kept, preserving strict revision detection for settled history.
+
+    ``settle_n <= 0`` → everything kept (legacy pre-2026-07-08 contract).
+    Returns ``(kept_runs, n_dropped_provisional)``.
+    """
+    if settle_n <= 0 or not len(runs) or available_index is None or not len(available_index):
+        return list(runs), 0
+    frontier_ts = available_index.max()
+    kept: list = []
+    dropped = 0
+    for r in runs:
+        if str(r.checkpoint_label).startswith("TD"):
+            tds_after = int(len(available_index[
+                (available_index > pd.Timestamp(r.as_of_date))
+                & (available_index <= frontier_ts)
+            ]))
+            if tds_after < settle_n:
+                dropped += 1
+                continue  # provisional → re-derived by observe()'s append loop
+        kept.append(r)
+    return kept, dropped
+
+
 def _resolve_dates_to_observe(
     manifest: ForwardRunManifest,
     available_index: pd.DatetimeIndex,
@@ -673,6 +719,7 @@ def init(
     candidate_role: Optional["CandidateRole"] = None,
     soft_warn_flags: Optional[list] = None,
     universe_yaml_override: Optional[Path] = None,
+    settle_window_trading_days: int = 0,
 ) -> ForwardRunManifest:
     """Create a forward_run_manifest.json for ``candidate_id``.
 
@@ -749,6 +796,7 @@ def init(
     cadence = CheckpointCadence(
         weekly=weekly,
         decision_days=list(decision_days) if decision_days else [10, 20, 40, 60],
+        settle_window_trading_days=int(settle_window_trading_days),
     )
 
     snapshot = _build_data_integrity_snapshot(
@@ -949,6 +997,30 @@ def observe(
 
     spec_path = Path(output_dir) / f"{candidate_id}.yaml"
     spec = FrozenStrategySpec.from_yaml_file(spec_path)
+
+    # ── Settle-window (memo 20260708): drop provisional trailing TDs ──
+    # The most-recent N trading days are PROVISIONAL — yfinance frontier
+    # bars are preliminary and revise (preliminary→final) within days, so
+    # freezing their revision-detection hash at first observe guarantees a
+    # spurious `requires_data_review` halt on the next observe. Drop the
+    # provisional TD entries here so (1) revalidate below runs ONLY on
+    # settled entries (strict detection preserved for settled history) and
+    # (2) the append loop re-derives the dropped dates from current data —
+    # NAV + hashes refreshed, so decision-point checkpoints near the
+    # frontier reflect the latest bars. N=0 (legacy manifests) → no drop,
+    # exact pre-2026-07-08 behavior. Non-TD entries (DECIDE, etc.) kept.
+    settle_n = int(getattr(
+        manifest.checkpoint_cadence, "settle_window_trading_days", 0) or 0)
+    _kept_runs, _dropped_provisional = _drop_provisional_tail(
+        manifest.runs, available_index, settle_n)
+    if _dropped_provisional:
+        manifest = manifest.model_copy(update={"runs": _kept_runs})
+        _log.info(
+            "settle-window: %s dropped %d provisional TD(s) (< %d TD from "
+            "frontier %s) for re-derivation from current data",
+            candidate_id, _dropped_provisional, settle_n,
+            available_index.max().date().isoformat(),
+        )
 
     # ── PRD v2.1 §4.6: revalidate runs FIRST, regardless of whether ─
     # any new TD bars are available. This catches retroactive yfinance

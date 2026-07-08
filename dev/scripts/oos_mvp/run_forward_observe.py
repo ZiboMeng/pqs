@@ -34,7 +34,7 @@ from core.research.forward import (  # noqa: E402
 
 
 def _cmd_init(args: argparse.Namespace) -> int:
-    manifest = init(
+    _init_kwargs = dict(
         candidate_id=args.candidate_id,
         start_date=args.start_date,
         benchmark=args.benchmark,
@@ -45,7 +45,11 @@ def _cmd_init(args: argparse.Namespace) -> int:
         config_dir=Path(args.config_dir),
         overwrite=args.overwrite,
     )
+    if args.settle_window is not None:
+        _init_kwargs["settle_window_trading_days"] = args.settle_window
+    manifest = init(**_init_kwargs)
     print(f"[forward] init OK for {args.candidate_id}")
+    print(f"  settle_window: {manifest.checkpoint_cadence.settle_window_trading_days} TD")
     print(f"  start_date: {manifest.start_date.isoformat()}")
     print(f"  spec_hash:  {manifest.spec_hash[:16]}...")
     print(f"  cost_hash:  {manifest.cost_assumptions.config_hash[:16]}...")
@@ -146,6 +150,16 @@ def main() -> int:
         help="Comma-separated TDs (e.g. 10,20,40,60). Default: 10,20,40,60",
     )
     p_init.add_argument("--no-weekly", action="store_true")
+    p_init.add_argument(
+        "--settle-window", type=int, default=None,
+        help=(
+            "Settle-window in trading days: the most-recent N TDs are "
+            "provisional (re-derived each observe, not revision-checked) so "
+            "benign yfinance preliminary→final frontier revisions don't halt. "
+            "init default 0 = disabled (legacy strict contract); RECOMMENDED "
+            "10 for yfinance-frontier candidates. See memo 20260708."
+        ),
+    )
     p_init.add_argument("--cost-model-path", default="config/cost_model.yaml")
     p_init.add_argument(
         "--config-dir", default="config",
