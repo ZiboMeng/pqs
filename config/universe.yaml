@@ -197,9 +197,21 @@ data_sensitivity:
     - pre_breakout_volume_decay
   rationale: "volume semantics unverified for trades_backfill tickers"
 
+# Blacklist = symbols never tradable in ANY resolved universe. Inverse
+# (short-equivalent) leveraged ETFs are ALL blacklisted because holding an
+# inverse ETF is economically a short position → violates the long-only /
+# no-short invariant. Leveraged-LONG ETFs (TQQQ/SOXL/SPXL/UPRO) are NOT here
+# — they are allowed under stricter per-symbol risk caps (see config/risk.yaml
+# symbol_caps). Enforced at the single choke point core/universe/
+# universe_resolver.py (applied to expanded_v1/v2 additions too — audit
+# 20260708 P0-1: previously SQQQ leaked via --universe expanded_*).
 blacklist:
-  - SQQQ
-  - SOXS
+  - SQQQ   # -3x Nasdaq-100 (inverse)
+  - SOXS   # -3x semiconductors (inverse)
+  - SPXU   # -3x S&P 500 (inverse)
+  - SPXS   # -3x S&P 500 (inverse)
+  - SDS    # -2x S&P 500 (inverse)
+  - TZA    # -3x small-cap (inverse)
 
 # Point-in-time: first trade dates for survivorship bias prevention
 # Symbols only enter candidate pool after first_trade_date + min_history_days

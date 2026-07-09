@@ -570,6 +570,11 @@ def main():
         factors = list(uni.factor_etfs)
         cross   = list(uni.cross_asset)
         all_tradeable = list(dict.fromkeys(seed + sectors + factors + cross))
+    # Defense-in-depth: enforce the blacklist on WHATEVER path built
+    # all_tradeable (base pools happen to be clean today, but a future
+    # inverse-ETF added to seed_pool must never reach a backtest — the
+    # resolve_universe path already filters; audit 20260708 P0-1).
+    all_tradeable = [s for s in all_tradeable if s not in set(uni.blacklist)]
     def_syms  = [s for s in ["TLT", "IEF", "GLD", "SHY"] if s in all_tradeable]
     risk_syms = [s for s in all_tradeable if s not in def_syms and s not in ["TQQQ", "SOXL"]]
 

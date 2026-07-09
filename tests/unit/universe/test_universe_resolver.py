@@ -67,3 +67,35 @@ def test_universe_names_constant():
     # expanded_v2 added by supplementary PRD R-P4ext (data-driven ~1k);
     # executable + expanded_v1 contract unchanged (additive, D6/P4-A2).
     assert UNIVERSE_NAMES == ("executable", "expanded_v1", "expanded_v2")
+
+
+# ── audit 20260708 P0-1: blacklist must NOT be bypassable via expanded_* ──
+_INVERSE_BLACKLISTED = {"SQQQ", "SOXS", "SPXU", "SPXS", "SDS", "TZA"}
+
+
+@pytest.mark.parametrize("name", ["expanded_v1", "expanded_v2"])
+def test_expanded_universe_never_leaks_blacklisted(name):
+    """Regression: expanded_v1/v2 additions used to bypass the blacklist, so
+    SQQQ (−3x inverse, permanently blacklisted) leaked into a tradable set.
+    The resolver now filters the expanded additions through the same
+    exclusion set as the base."""
+    yaml_name = f"universe_{name}.yaml"
+    if not (_CONFIG / yaml_name).exists():
+        pytest.skip(f"{yaml_name} not built")
+    syms = set(resolve_universe(name))
+    uni = load_config(_CONFIG).universe
+    leaked = (set(uni.blacklist) | _INVERSE_BLACKLISTED) & syms
+    assert not leaked, f"{name} leaked blacklisted symbols: {sorted(leaked)}"
+
+
+def test_expanded_keeps_leveraged_long_not_blacklisted():
+    """Sanity: the fix drops INVERSE ETFs (short-equivalent) but must NOT drop
+    leveraged-LONG ETFs (TQQQ/SOXL/SPXL/UPRO) — those are allowed under
+    stricter risk caps, not blacklisted."""
+    if not (_CONFIG / "universe_expanded_v2.yaml").exists():
+        pytest.skip("expanded_v2 not built")
+    doc = yaml.safe_load((_CONFIG / "universe_expanded_v2.yaml").read_text()) or {}
+    listed = set(doc.get("symbols", []))
+    syms = set(resolve_universe("expanded_v2"))
+    for lev in {"TQQQ", "SOXL", "SPXL", "UPRO"} & listed:
+        assert lev in syms, f"leveraged-long {lev} was wrongly dropped"

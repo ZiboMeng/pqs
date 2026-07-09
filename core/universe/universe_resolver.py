@@ -39,6 +39,18 @@ _CYCLE_DROP = {"BRK-B", "USO", "SLV"}
 _PROJ = Path(__file__).resolve().parents[2]
 
 
+def _exclusion_set(uni) -> set:
+    """Symbols never allowed in ANY resolved universe.
+
+    Hard blacklist (inverse leveraged ETFs → short-equivalent, violate the
+    no-short invariant; incl. SQQQ), macro-reference (features-only, not
+    tradable), and cycle-drop (data-integrity). Applied to the expanded_v1/v2
+    additions too, so the blacklist cannot be bypassed via
+    ``--universe expanded_*`` (audit 20260708 P0-1).
+    """
+    return set(uni.blacklist) | set(uni.macro_reference) | set(_CYCLE_DROP)
+
+
 def _executable_base(config_dir: Path) -> List[str]:
     """The canonical 79-symbol construction (excludes benchmarks append)."""
     cfg = load_config(config_dir)
@@ -47,10 +59,8 @@ def _executable_base(config_dir: Path) -> List[str]:
         list(uni.seed_pool) + list(uni.sector_etfs)
         + list(uni.factor_etfs) + list(uni.cross_asset)
     ))
-    return [s for s in base
-            if s not in uni.blacklist
-            and s not in uni.macro_reference
-            and s not in _CYCLE_DROP]
+    excl = _exclusion_set(uni)
+    return [s for s in base if s not in excl]
 
 
 def resolve_universe(
@@ -73,6 +83,7 @@ def resolve_universe(
     cdir = Path(config_dir) if config_dir is not None else (_PROJ / "config")
 
     base = _executable_base(cdir)
+    excl = _exclusion_set(load_config(cdir).universe)
     if name == "executable":
         syms = list(base)
     elif name == "expanded_v1":
@@ -82,8 +93,11 @@ def resolve_universe(
                 f"{exp_path} not found — the expanded_v1 universe has not "
                 f"been built yet (chart-structure Phase 4 / P4·R2).")
         doc = yaml.safe_load(exp_path.read_text()) or {}
-        extra = list(doc.get("expanded_symbols", []))
-        # additive: original executable 79 first, then new symbols, deduped
+        # additive: original executable 79 first, then new symbols, deduped.
+        # extra MUST pass the same exclusion set (blacklist/macro/cycle-drop)
+        # as base — else --universe expanded_* bypasses the SQQQ blacklist
+        # (audit 20260708 P0-1).
+        extra = [s for s in doc.get("expanded_symbols", []) if s not in excl]
         syms = list(dict.fromkeys(base + extra))
     else:  # expanded_v2 (R-P4ext: data-driven ~1k, supplementary PRD §8.5)
         exp_path = cdir / "universe_expanded_v2.yaml"
@@ -93,10 +107,9 @@ def resolve_universe(
                 f"(supplementary PRD R-P4ext; run "
                 f"dev/scripts/ml_redo/universe_v2_coverage_audit.py).")
         doc = yaml.safe_load(exp_path.read_text()) or {}
-        extra = list(doc.get("symbols", []))
-        # additive (same D6 semantics as v1): executable base first, then
-        # the coverage-audit-selected ~1k, deduped. executable/expanded_v1
-        # outputs are byte-identical (this branch never runs for them).
+        # additive (same D6 semantics as v1); extra filtered by the exclusion
+        # set (blacklist/macro/cycle-drop) — see expanded_v1 note above.
+        extra = [s for s in doc.get("symbols", []) if s not in excl]
         syms = list(dict.fromkeys(base + extra))
 
     if include_benchmarks:
