@@ -187,9 +187,12 @@ def _load_panel(cfg, store: PriceStore, start: pd.Timestamp, end: pd.Timestamp,
     """Load the daily OHLCV panel for the research universe.
 
     Default (``adjusted=False``) reads RAW unadjusted bars via
-    ``store.read`` — preserved BIT-IDENTICAL for the robustness /
-    selection callers (their semantics are unchanged; the broader
-    raw→adjusted migration for those is P0-A F1-A2 scope).
+    ``store.read``. As of audit 20260708 P0-3 the robustness / pseudo-OOS
+    ``evaluate()`` callers no longer use this default — they pass
+    ``adjusted=True, adjusted_total_return=True`` + candidate drop_symbols
+    (same basis as forward / Track-A), because the raw path injected fake
+    split-date returns into selection-tier evidence. The raw default remains
+    only for any residual caller that explicitly wants unadjusted bars.
 
     The FORWARD path passes ``adjusted=True, adjusted_total_return=True``
     so its factor / composite / NAV computation uses the SAME split +
@@ -502,10 +505,19 @@ def evaluate(
     if store is None:
         store = create_default_store(cfg)
 
+    # audit 20260708 P0-3: robustness / pseudo-OOS evidence MUST use the SAME
+    # split + total-return adjusted basis + candidate drop_symbols the Track-A
+    # gate validated on. Previously these two calls used the raw default
+    # (store.read, no split cascade), so any window spanning a split date
+    # (NVDA 10:1, AVGO, WMT, CMG… 13 symbols since 2024) injected a fake
+    # -50~-90% return → corrupted cross-sectional z-scores + NAV in the
+    # SELECTION-tier evidence numbers. Now converged to the forward basis.
+    _drop = (spec.panel_contract or {}).get("drop_symbols")
     full_panel = _load_panel(
         cfg, store,
         start=pd.Timestamp("1900-01-01"),
         end=pd.Timestamp(fdate) + pd.Timedelta(days=1),
+        adjusted=True, adjusted_total_return=True, drop_symbols=_drop,
     )
     close_full = full_panel["close"]
     if close_full.empty:
@@ -519,6 +531,7 @@ def evaluate(
         cfg, store,
         start=pd.Timestamp(carve.start),
         end=pd.Timestamp(carve.end),
+        adjusted=True, adjusted_total_return=True, drop_symbols=_drop,
     )
     composite, all_factors = _compute_composite(spec, panel)
     target_wts = _composite_to_target_weights(composite, top_n=top_n)
