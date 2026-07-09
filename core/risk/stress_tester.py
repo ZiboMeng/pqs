@@ -1,6 +1,16 @@
 """
 StressTester: 历史情景压力测试 + Bootstrap Monte Carlo 模拟。
 
+⚠️ STATUS (audit 20260708 P0-3): DIAGNOSTIC / NOT a promotion gate. Not wired
+into any acceptance path; `apply_scenario` returns a single terminal
+`portfolio_return` (Σ w·shock), NOT a drawdown PATH — so it cannot itself
+produce a MaxDD for the 25% ceiling. The BINDING 2008-style "stress-slice
+MaxDD ≤ 25%" invariant is enforced by core/research/temporal_split_acceptance
+.py::_eval_stress_slice_gates over REAL train-year NAV drawdown paths
+(covid_flash 2020 + rate_hike_2022, threshold 0.25 — stricter/more realistic
+than these synthetic per-asset shocks). Use this only as an exploratory
+scenario tool. (2008 is pre-train-panel, hence the covid/rate-hike proxies.)
+
 内置四个经典情景（针对长仓 ETF 组合设计）：
   gfc_2008         — 2008 全球金融危机（SPY -57%，持续 ~350 天）
   covid_2020       — 2020 COVID 闪崩（SPY -34%，约 23 交易日）

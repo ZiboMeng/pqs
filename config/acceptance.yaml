@@ -26,6 +26,13 @@ walk_forward:
   auto_fail_single_period_contribution: 0.50
   auto_fail_single_asset_contribution: 0.40
   auto_fail_crisis_vs_benchmark_multiplier: 2.0
+  # INFORMATIONAL / not the enforcement SoT. The 2008-style "stress-slice
+  # MaxDD <= 25%" invariant is ENFORCED (binding, fail-closed) by the Track-A
+  # gate core/research/temporal_split_acceptance.py::_eval_stress_slice_gates,
+  # which reads the per-slice threshold from config/temporal_split_v3.yaml
+  # partition.stress_slices[].maxdd_threshold (currently 0.25 for covid_flash
+  # + rate_hike_2022). This key is a redundant global mirror; see audit
+  # docs/audit/20260708-comprehensive_project_audit.md (P0-3 correction).
   max_crisis_drawdown_abs: 0.25
 
 factor_tiers:
