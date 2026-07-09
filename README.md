@@ -207,7 +207,7 @@
 
 - **生产策略**: `config/production_strategy.yaml` 为单一真源（PRD M1）。当前 `status: conservative_default` — post-fix validated best 尚未存在
 - **Universe**: **79 交易标的**（executable mining universe 单一真源 = `config/executable_universe.yaml`）= 59 seed_pool + 11 sector ETFs + 5 factor ETFs + 4 cross-asset；另 3 个 macro_reference（^VIX / ^TNX / DX-Y.NYB）只作 features 不交易；`SQQQ` + `SOXS` 在 blacklist
-- **Factor registry**: **7 PRODUCTION + 175 RESEARCH**（post-2026-05-15 +Family R 图形因子 10 +Family S regime-ML 因子 3；families A-S）；单一真源 `core/factors/factor_registry.py`，通过 `test_factor_registry.py` 强一致
+- **Factor registry**: **7 PRODUCTION + 187 RESEARCH**（families A-T；含 Family R 图形 / Family S regime-ML / Family T swing-structure）；单一真源 `core/factors/factor_registry.py`（计数以 `len(RESEARCH_FACTORS)` 为准，勿硬编码），通过 `test_factor_registry.py` 强一致
 - **数据**: 日线 2007-2026 / 60m intraday 2015-2026 / 1m 2015-2026（部分覆盖）
 - **Cross-ticker DSL**: `config/cross_ticker_rules.yaml` 5 条规则，`enabled: true`，启动时默认应用；`--no-cross-ticker-rules` 可关闭
 - **Pricing semantics**: 详见 `CLAUDE.md` §"Pricing and Valuation Semantics"（raw bars + splits.parquet 读时 cascade；T+1 open-fill 执行）。**2026-05-18 P0-A 根因修复**：价格**消费层** loader（mining 搜索 / factor screen / paper）统一经 `core/data/price_access` 走 BarStore **除权价**（此前误用 `MarketDataStore` 读未除权 raw，污染搜索层数值）；loader 层价基回归测试上锁。审计 + 修复 + 影响 scope 详 `docs/audit/20260518-grand_stocktaking_audit.md`
@@ -278,7 +278,7 @@ QQQ gate / MaxDD 硬顶），用扩 universe / 加数据源 / 找新 alpha 源�
                        ▼
 ┌──────────────────────────────────────────────────────┐
 │              Factors Layer                           │
-│  RESEARCH_FACTORS (175, families A-S):               │
+│  RESEARCH_FACTORS (187, families A-T):               │
 │    OHLCV  → generate_all_factors                     │
 │    Fund.  → compute_fundamental_factors_full         │
 │    Sector → compute_sector_factors                   │
@@ -714,7 +714,7 @@ python scripts/run_paper.py --mode live --use-timing
 **目的**: 筛选新因子；XGBoost 特征重要性；LLM 候选 funnel。
 
 ```bash
-# IC 筛选（全 175 个 RESEARCH_FACTORS × 多 horizon）
+# IC 筛选（全 187 个 RESEARCH_FACTORS × 多 horizon）
 python scripts/run_factor_screen.py --top 15 --horizon 5 10 21
 
 # XGBoost 特征重要性（permutation + OOS）
@@ -1529,8 +1529,8 @@ implementation:      core/factors/base_masks.py::research_mask_default
 ### 10.1 Factor
 
 **Factor** = 对每 (date, symbol) 打分的 DataFrame。
-- **RESEARCH_FACTORS** (175; baseline 64; post-2026-05-15 +Family R
-  chart-pattern +Family S regime-ML; families A-S): 4 source paths —
+- **RESEARCH_FACTORS** (187; baseline 64; +Family R chart-pattern
+  +Family S regime-ML +Family T swing-structure; families A-T): 4 source paths —
   `core/factors/factor_generator.generate_all_factors` (OHLCV) +
   `core/factors/fundamental_factors.compute_fundamental_factors_full`
   (EDGAR-derived) +
