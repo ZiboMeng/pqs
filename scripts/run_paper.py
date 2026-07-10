@@ -495,7 +495,12 @@ def main():
     risk_syms = [s for s in all_tradeable if s not in def_syms
                  and s not in ["TQQQ", "SOXL"] and s not in uni.blacklist]
 
-    constructor = PortfolioConstructor(use_vol_parity=False)
+    # symbol_caps from risk.yaml (audit 20260708 P0-2): TQQQ/SOXL etc. get
+    # their stricter per-symbol cap instead of the uniform max_single_position.
+    constructor = PortfolioConstructor(
+        use_vol_parity=False,
+        symbol_caps=cfg.risk.position_limits.symbol_caps,
+    )
     # PRD M1: strategy loaded from config/production_strategy.yaml (single
     # source of truth). Paper trading does NOT accept --override-production
     # — if the artifact is misconfigured, fail loud rather than fall back

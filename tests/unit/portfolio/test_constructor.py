@@ -459,3 +459,56 @@ class TestVolTargetCorrelationAware:
         vols = returns.rolling(60).std().mul(np.sqrt(252)).iloc[-1]
         pv = ctor._portfolio_vol(w, vols, returns, prices.index[-1])
         assert abs(pv - 0.6 * float(vols["A"])) < 1e-9
+
+
+class TestSymbolCaps:
+    """Per-symbol hard caps from risk.yaml (audit 20260708 P0-2)."""
+
+    def _prices_signals(self, n=120):
+        syms = ["SPY", "TQQQ"]
+        prices = _make_prices(n, syms)
+        # constant equal signal weight 0.5 each (use_vol_parity=False keeps them)
+        signals = pd.DataFrame(0.5, index=prices.index, columns=syms)
+        return prices, signals
+
+    def test_symbol_cap_binds_below_uniform(self):
+        prices, signals = self._prices_signals()
+        ctor = PortfolioConstructor(
+            use_vol_parity=False, max_single_pos=0.35,
+            symbol_caps={"TQQQ": 0.10},
+        )
+        w = ctor.build(signals, prices)
+        last = w.iloc[-1]
+        assert last["TQQQ"] <= 0.10 + 1e-9, f"TQQQ not capped: {last['TQQQ']}"
+        # SPY (no per-symbol cap) still allowed up to the uniform 0.35
+        assert last["SPY"] <= 0.35 + 1e-9
+        assert last["SPY"] > 0.10, "SPY wrongly capped at the TQQQ level"
+
+    def test_absent_symbol_uses_uniform_cap(self):
+        prices, signals = self._prices_signals()
+        # cap only a symbol NOT present → behaves like uniform for SPY/TQQQ
+        ctor = PortfolioConstructor(
+            use_vol_parity=False, max_single_pos=0.35,
+            symbol_caps={"NVDA": 0.05},
+        )
+        w = ctor.build(signals, prices).iloc[-1]
+        assert w["TQQQ"] <= 0.35 + 1e-9 and w["SPY"] <= 0.35 + 1e-9
+
+    def test_none_symbol_caps_backward_identical(self):
+        prices, signals = self._prices_signals()
+        base = PortfolioConstructor(use_vol_parity=False, max_single_pos=0.35)
+        explicit_none = PortfolioConstructor(
+            use_vol_parity=False, max_single_pos=0.35, symbol_caps=None)
+        pd.testing.assert_frame_equal(
+            base.build(signals, prices), explicit_none.build(signals, prices))
+
+    def test_cap_tighter_than_uniform_wins_min(self):
+        """symbol_cap looser than a tighter uniform max → uniform (min) binds."""
+        prices, signals = self._prices_signals()
+        ctor = PortfolioConstructor(
+            use_vol_parity=False, max_single_pos=0.08,  # tighter global
+            symbol_caps={"TQQQ": 0.30},                 # looser symbol cap
+        )
+        w = ctor.build(signals, prices).iloc[-1]
+        # min(0.08, 0.30) = 0.08 binds for TQQQ
+        assert w["TQQQ"] <= 0.08 + 1e-9

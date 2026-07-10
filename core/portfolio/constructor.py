@@ -86,12 +86,19 @@ class PortfolioConstructor:
         use_vol_parity: bool  = True,
         max_single_pos: float = _DEFAULT_MAX_SINGLE,
         min_history:    int   = 30,
+        symbol_caps:    Optional[dict] = None,
     ) -> None:
         self._vol_window    = vol_window
         self._target_vol    = target_vol
         self._use_vol_parity = use_vol_parity
         self._max_single    = max_single_pos
         self._min_history   = min_history
+        # Per-symbol hard caps (audit 20260708 P0-2): risk.yaml
+        # position_limits.symbol_caps, e.g. TQQQ/SOXL=0.10. Applied in Step 4
+        # as min(effective_regime_max, symbol_cap). None/empty → uniform
+        # behavior (backward compatible). Enforces "TQQQ/SOXL require stricter
+        # risk thresholds" + "thresholds configurable, never hardcoded".
+        self._symbol_caps   = dict(symbol_caps or {})
 
     # ── 主接口 ────────────────────────────────────────────────────────────────
 
@@ -140,8 +147,18 @@ class PortfolioConstructor:
         if regime_series is not None:
             weights = self._apply_regime_caps(weights, regime_series, regime_config)
 
-        # Step 4: 单标的硬上限
-        weights = weights.clip(upper=self._effective_max_single(regime_series, regime_config))
+        # Step 4: 单标的硬上限（全局/regime 有效上限 ∩ per-symbol cap）
+        eff_max = self._effective_max_single(regime_series, regime_config)
+        if self._symbol_caps:
+            # per-column upper = min(regime/global effective max, symbol_cap).
+            # symbols absent from symbol_caps keep the uniform eff_max.
+            upper = pd.Series(
+                {c: min(eff_max, self._symbol_caps.get(c, eff_max))
+                 for c in weights.columns}
+            )
+            weights = weights.clip(upper=upper, axis=1)
+        else:
+            weights = weights.clip(upper=eff_max)
 
         # Step 5: 最终归一化（权重和 ≤ 1，超出则按比例缩放）
         weights = self._normalize(weights)

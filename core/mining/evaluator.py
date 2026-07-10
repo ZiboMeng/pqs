@@ -438,6 +438,12 @@ class MiningEvaluator:
         strategy_type:  str = "",
     ) -> pd.DataFrame:
         use_vp = strategy_type not in self._NO_VOL_PARITY_TYPES
+        # NOTE (audit 20260708 P0-2): mining uses the UNIFORM cap deliberately —
+        # it is an exploratory pre-screen with no cfg handle. The per-symbol
+        # risk.yaml caps (TQQQ/SOXL=0.10 …) BIND at the authoritative layers
+        # (run_backtest / run_paper / Track-A), so a leverage-ETF-heavy trial
+        # is corrected there. Wiring caps here (would need cfg threading) is a
+        # tracked follow-up; it only affects mining-stage optimism, not live risk.
         constructor = PortfolioConstructor(use_vol_parity=use_vp)
         return constructor.build(
             raw_signals   = signals,

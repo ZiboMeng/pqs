@@ -404,7 +404,9 @@ def run_strategy(
 
     signals = strategy.generate(price_df, regime_series)
     use_vp = not isinstance(strategy, MultiFactorStrategy)
-    actual_constructor = constructor if use_vp else PortfolioConstructor(use_vol_parity=False)
+    actual_constructor = constructor if use_vp else PortfolioConstructor(
+        use_vol_parity=False,
+        symbol_caps=cfg.risk.position_limits.symbol_caps)
     weights = actual_constructor.build(
         raw_signals   = signals,
         price_df      = price_df,
@@ -634,7 +636,10 @@ def main():
         initial_capital = cfg.system.account.initial_capital_usd,
         integer_shares  = integer_shares,
     )
-    constructor = PortfolioConstructor()
+    # symbol_caps from risk.yaml (audit 20260708 P0-2): per-symbol hard caps
+    # (TQQQ/SOXL=0.10 …) enforced in sizing, not just the uniform 0.35.
+    constructor = PortfolioConstructor(
+        symbol_caps=cfg.risk.position_limits.symbol_caps)
 
     # ── 策略集合 ──────────────────────────────────────────────────────────────
     strategies = build_strategies(
