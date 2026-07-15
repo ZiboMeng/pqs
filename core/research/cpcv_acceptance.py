@@ -82,9 +82,18 @@ def cpcv_acceptance_distribution(
     a = np.array(fold_ic)
     w = np.array(fold_w, float)
     wmean = float(np.sum(a * w) / np.sum(w))   # sample-size-weighted IC
-    dsr = deflated_sharpe_ratio(a, honest_n_trials)
     M = np.vstack([c for c in per_period_cols]).T   # (period × fold)
     pbo = compute_mining_pbo(np.nan_to_num(M, nan=0.0))
+    # DSR expects a per-PERIOD returns series (skew/kurtosis-corrected P(SR>0)),
+    # NOT the fold-IC array (audit 20260708 P1-E — feeding `a`, T=n_folds, made
+    # skew/kurtosis meaningless). Collapse the per-period perf-proxy matrix
+    # `sign(pred)*fwd` across folds covering each period (mean), mirroring the
+    # strat-returns input at temporal_split_acceptance.py:732.
+    with np.errstate(invalid="ignore"):
+        per_period_ret = np.nanmean(M, axis=1)
+    per_period_ret = per_period_ret[np.isfinite(per_period_ret)]
+    dsr = (deflated_sharpe_ratio(per_period_ret, honest_n_trials)
+           if len(per_period_ret) >= 2 else {"deflated_sharpe": None})
     return {"insufficient": False,
             "n_folds": len(fold_ic),
             "ic_mean": float(a.mean()),

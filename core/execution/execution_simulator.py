@@ -191,7 +191,11 @@ class ExecutionSimulator:
         else:
             cash_delta = notional - bd.commission_usd
 
-        fill_date = order.signal_date + pd.tseries.offsets.BDay(1)
+        # Holiday-aware next NYSE session (audit 20260708 P2): BDay(1) mislabels
+        # fills across Good Friday / Jul-4 etc. Price/NAV are unaffected (fill uses
+        # the passed-in real next-bar open); this corrects only the fill_date label.
+        from core.data.calendar import next_trading_day
+        fill_date = next_trading_day(order.signal_date)
 
         return Fill(
             order          = order,

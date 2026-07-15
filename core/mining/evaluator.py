@@ -969,7 +969,15 @@ class MiningEvaluator:
     def _assign_tier(self, r: EvalResult) -> str:
         if not r.passed_oos:
             return "D"
-        if not np.isnan(r.oos_is_sharpe_ratio) and r.oos_is_sharpe_ratio < self._min_oos_is_ratio:
+        # Overfit gate (OOS/IS Sharpe ratio). Fail-CLOSED (audit 20260708 P2):
+        # when the gate is ACTIVE (_min_oos_is_ratio > 0), an uncomputable (NaN)
+        # ratio — quick_sharpe≈0 or oos_sharpe NaN — cannot demonstrate the
+        # strategy is not overfit, so it must NOT silently pass. Previously NaN
+        # skipped the gate (fail-open). Gate-disabled (ratio ≤ 0) keeps NaN benign.
+        if self._min_oos_is_ratio > 0 and (
+            np.isnan(r.oos_is_sharpe_ratio)
+            or r.oos_is_sharpe_ratio < self._min_oos_is_ratio
+        ):
             return "D"
         # QQQ tier-kill (legacy P0.4). DEPRECATED 2026-05-02: when
         # config/evaluation_policy.yaml qqq_governance.mining_evaluator_qqq_disabled

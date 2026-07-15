@@ -78,6 +78,26 @@ def is_trading_day(dt: str | date | pd.Timestamp) -> bool:
     return len(days) > 0
 
 
+@lru_cache(maxsize=8192)
+def _next_trading_day_cached(ts_norm: pd.Timestamp) -> pd.Timestamp:
+    # Look ahead a small window (covers the longest NYSE holiday gap, e.g.
+    # a weekend adjacent to a holiday); take the first session strictly after.
+    days = get_trading_days(ts_norm + pd.Timedelta(days=1),
+                            ts_norm + pd.Timedelta(days=10))
+    if len(days) == 0:  # fallback if calendar unavailable / degenerate
+        return (ts_norm + pd.tseries.offsets.BDay(1)).normalize()
+    return days[0]
+
+
+def next_trading_day(dt: str | date | pd.Timestamp) -> pd.Timestamp:
+    """First NYSE session strictly AFTER dt (holiday-aware, memoized).
+
+    Replaces `dt + BDay(1)`, which is holiday-unaware and mislabels the
+    fill date across Good Friday / Jul-4 / etc. (audit 20260708 P2).
+    """
+    return _next_trading_day_cached(pd.Timestamp(dt).normalize())
+
+
 def get_session_close_et(
     target_date: str | date | pd.Timestamp,
 ) -> Optional[pd.Timestamp]:
