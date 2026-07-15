@@ -95,7 +95,7 @@ Replaced by:
 | Factor research (IC, screening) | Adjusted (split + dividend) | Factors measure return-based signals; adjusted prices give correct returns |
 | Backtest execution (order fill) | Adjusted close/open | T+1 open is adjusted; consistent with factor signals |
 | Portfolio mark-to-market | Adjusted close | Consistent with execution price basis |
-| Corporate actions | Splits via `data/ref/splits.parquet`; dividends not currently applied | Splits handled deterministically at read time |
+| Corporate actions | Splits via `data/ref/splits.parquet` (always); dividends applied **only when `adjusted_total_return=True`** (forward/Track-A path; see basis note below) | Splits handled deterministically at read time |
 
 **Current implementation (post-round-3 step-3b, 2026-04-25):**
 - Canonical source = polygon 1m → daily aggregation
@@ -104,9 +104,19 @@ Replaced by:
 - Splits applied at **read time** via
   `BarStore.load(..., adjusted=True)` using `data/ref/splits.parquet`
   cascade.
-- Dividends are NOT currently applied in adjustment (deferred).
-  Strategy returns therefore exclude dividend yield component until a
-  dividends sidecar is added.
+- Dividend adjustment is **basis-dependent** (3 coexisting bases as of
+  2026-07, per audit 20260708 P1-F — reconcile before any vendor swap):
+  - **Forward observe / Track-A acceptance**: total-return ON —
+    `BarStore.load(..., adjusted=True, adjusted_total_return=True)`
+    (splits + reinvested dividends). Strategy NAV + benchmark both
+    include dividend yield. This is the load-bearing evidence path.
+  - **Robustness / pseudo-OOS selection**: converged to
+    `adjusted=True, adjusted_total_return=True` 2026-07-09 (commit
+    ce2d056; previously read raw — audit P0-3).
+  - **XGB feature importance**: split-only (dividends not applied).
+  The legacy "dividends fully deferred" statement is superseded on the
+  forward/Track-A path; `adjusted_total_return` gates the dividend
+  component.
 - yfinance is **fallback only** for ETF 2024+ daily gaps where polygon
   1m did not cover (round-3 close memo §parking-lot). Stocks-only
   paths never touch yfinance post round-3.
@@ -154,10 +164,11 @@ kill switch with auto-recovery, separate slippage/commission cost
 accounting, integer-share mode, regime-aware walk-forward OOS,
 expanding-window validation, 252d forward-block holdout, 4-period
 stress + subperiod + 2x-cost + ±20% param + 6-regime robustness
-gates, OOS/IS Sharpe overfit gate, 5-stage mining pipeline, **143
-research factors** across **16 mining families A-P** (post-PRD 20260512
-Bucket A/B/C/Macro expansion; +76 factors from 67 baseline), 7
-production, see factor_registry), XGBoost 3.2.0
+gates, OOS/IS Sharpe overfit gate, 5-stage mining pipeline, **187
+research factors / 7 production** (SoT = `core/factors/factor_registry.py`
+`RESEARCH_FACTORS`/`PRODUCTION_FACTORS`; families extended past the
+2026-05-12 Bucket A/B/C/Macro expansion — do NOT hardcode the count,
+`len(RESEARCH_FACTORS)`), XGBoost 3.2.0
 feature importance, MultiFactorStrategy (16 tests), left-side trading,
 SPY+QQQ master report, PIT universe rebalance, 4-detector diagnostics,
 target_vol=0.25 constructor. Full feature table moved to
@@ -412,7 +423,7 @@ CLAUDE.md 是 context 入口,**仅留项目级**(不变量/纪律/架构/概括/
 ## Active State(2026-05-19,精简;细节见上表 CONTEXT.md)
 
 **活跃 forward 候选**(daily ritual 见 `docs/forward_observation_log.md`;细节 `core/research/forward/CONTEXT.md`):
-- `cycle06_31af04cf2ff9_evidence_v1` / `cycle08_3f40e3f4ed1a_evidence_v1` — core_alpha,re-init start 2026-05-19,Track-A PASS + sealed 2/2;**leakage 不受影响**(factor-composite,grounded+C-lite 双确认)。
+- `cycle06_31af04cf2ff9_evidence_v1` / `cycle08_3f40e3f4ed1a_evidence_v1` — core_alpha,re-init start 2026-05-19,Track-A PASS + sealed 2/2;**leakage 不受影响**(factor-composite,grounded+C-lite 双确认)。**⚠ 前向状态(2026-07-08 TD034,更新见 `docs/forward_observation_log.md`)**:经 **4 次 re-init**(cap-aware 构建修正 → total-return basis → track_per_cell=True → settle_window=10 halt 根因链,均 metadata 保住、非策略变更),现 **settle_window=10** 稳定不再 halt。**市场结果如实**:6 月底见顶(cycle06 +6.42% / cycle08 +8.65% vs SPY)后早 7 月**转跑输 SPY**(cycle06 +0.06% vs SPY −1.54%;cycle08 −0.18% vs SPY −1.77%)——in-sample edge 未在 forward 存活,与 construction-bound/high-beta-reversion 一致(audit 20260708 P1-B)。**不在峰值/低点拍板,TD60 verdict 前继续观察**。此外这两候选是老 `cycle06_track_a_eval` per-year gate 晋升,**未过 DSR/PBO/CPCV SOTA 面板**(audit P1-A,资本投入前需过 cycle13b harness)。
 - `chart_native_s1_evidence_v1` — evidence_only,start 2026-05-19。**⚠ LEAKAGE CAVEAT**:原 17/17 Track-A PASS 是 leakage-inflated,leakage-correct 后 FAIL;Option A 保留+caveat,β 不 refit。见 `data/research_candidates/chart_native_s1_evidence_v1_CAVEAT.md` + `docs/memos/20260518-chart_native_s1_evidence_leakage_caveat_decision.md`。所有 forward 判读/TD60 必引此 caveat。
 - `pead_sue_trial1_evidence_v1`(evidence_only,独立轨)/ `spy_8otm_bull_put_v1`(options sleeve)/ `simple_baseline_v1`(baseline soak)— 见 forward/options CONTEXT.md。
 - `trial9_diversifier_001/002` — **RETIRED**(completed_fail),仅 forensic。

@@ -1,6 +1,8 @@
 # docs/ Index
 
-Navigation across ~138 docs by category. **Existing files** are kept flat
+Navigation across ~310 docs (48 PRDs, 168 memos + others) by category — this index
+does NOT enumerate every file (many memos are unindexed; count via `find docs -name '*.md' | wc -l`).
+**Existing files** are kept flat
 (no subdirectories) so cross-references stay intact; this index is the
 fast path. **New files going forward** land in the per-category subdirs
 defined at the bottom of this file. Within each category section,
@@ -11,7 +13,7 @@ If you want chronological order, sort by filename — the
 
 ---
 
-## 1. PRDs (specs, mandates, governing docs) — 38
+## 1. PRDs (specs, mandates, governing docs) — 48 (`ls docs/prd/*.md | wc -l`)
 
 Prescriptive documents that define what to build / what to constrain.
 
