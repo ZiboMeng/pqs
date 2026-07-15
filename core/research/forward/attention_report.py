@@ -452,10 +452,18 @@ def _benchmark_daily_returns(
 
     Uses adjusted_total_return=True for like-with-like comparison
     against forward NAVs (which include splits + reinvested dividends).
+
+    fallback="local" (NOT the BarStore "auto" default) so a forward
+    observe is deterministic and basis-consistent: "auto" can silently
+    hit yfinance mid-observe and tail-fill the benchmark on a different
+    adjustment basis than the strategy NAV (_load_panel uses "local"),
+    and network I/O during observe is a sealed-data-hygiene hazard.
+    Audit 2026-07-08 P1-C.
     """
     from core.data.bar_store import BarStore
     bs = BarStore()
-    bars = bs.load(benchmark_symbol, "1d", adjusted=True, adjusted_total_return=True)
+    bars = bs.load(benchmark_symbol, "1d", adjusted=True,
+                   adjusted_total_return=True, fallback="local")
     if not isinstance(bars.index, pd.DatetimeIndex):
         bars = bars.set_index(pd.to_datetime(bars.index))
     bars = bars.loc[(bars.index >= pd.Timestamp(start_date)) &
