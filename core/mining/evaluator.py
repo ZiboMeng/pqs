@@ -971,9 +971,12 @@ class MiningEvaluator:
             return "D"
         if not np.isnan(r.oos_is_sharpe_ratio) and r.oos_is_sharpe_ratio < self._min_oos_is_ratio:
             return "D"
-        # QQQ hard gate (P0.4): strategy that doesn't beat QQQ on full
-        # period + holdout + OOS-proxy is unpromotable regardless of
-        # other metrics. See CLAUDE.md "QQQ Outperformance Rule".
+        # QQQ tier-kill (legacy P0.4). DEPRECATED 2026-05-02: when
+        # config/evaluation_policy.yaml qqq_governance.mining_evaluator_qqq_disabled
+        # is true (default), `passed_qqq_gate` is forced True at the eval callsite
+        # (see :409 is_mining_qqq_disabled) so this branch is DEAD — QQQ is
+        # diagnostic, not a gate. Retained only so a deliberate policy re-enable
+        # restores the legacy behavior. See docs/memos/20260502-qqq_benchmark_deprecation.md.
         if not r.passed_qqq_gate:
             return "D"
         if not r.passed_holdout:

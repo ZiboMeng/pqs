@@ -156,10 +156,21 @@ def test_active_requires_filled_source_fields(_base_yaml):
 
 
 def test_active_requires_all_validation_passed(_active_yaml):
-    _active_yaml["validation"]["passed_qqq_gate"] = False
+    # A real hard gate (SPY/OOS) failing must block status=active.
+    _active_yaml["validation"]["passed_oos_gate"] = False
     with pytest.raises(Exception) as exc_info:
         ProductionStrategyConfig(**_active_yaml)
     assert "validation" in str(exc_info.value).lower()
+
+
+def test_qqq_gate_is_diagnostic_not_required(_active_yaml):
+    # QQQ deprecated as a HARD gate 2026-05-02 (docs/memos/20260502-qqq_benchmark_deprecation.md).
+    # passed_qqq_gate=False must NOT block promotion when all real gates pass.
+    _active_yaml["validation"]["passed_qqq_gate"] = False
+    cfg = ProductionStrategyConfig(**_active_yaml)
+    assert cfg.status == "active"
+    assert cfg.validation.all_passed
+    assert cfg.validation.passed_qqq_gate is False  # recorded as diagnostic
 
 
 def test_active_requires_all_fingerprints(_active_yaml):

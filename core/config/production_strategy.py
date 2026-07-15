@@ -46,16 +46,20 @@ class ProductionStrategySource(BaseModel):
 class ProductionStrategyValidation(BaseModel):
     post_fix_validated: bool = False
     passed_oos_gate: bool = False
-    passed_qqq_gate: bool = False
+    passed_qqq_gate: bool = False  # DIAGNOSTIC ONLY (2026-05-02 QQQ deprecation) — recorded, NOT gated
     passed_paper_backtest_alignment: bool = False
     notes: str = ""
 
     @property
     def all_passed(self) -> bool:
+        # QQQ deprecated as a HARD gate 2026-05-02 (docs/memos/20260502-qqq_benchmark_deprecation.md;
+        # CLAUDE.md Invariant + Benchmark Outperformance Rule). `passed_qqq_gate` is retained as a
+        # recorded DIAGNOSTIC field but MUST NOT block promotion — a SPY-beating strategy that lags
+        # QQQ (an active sector-tilt bet, not an invariant) is promotable. SPY hard-gate lives in the
+        # Track-A/temporal-split acceptance path (post_fix_validated + passed_oos_gate).
         return (
             self.post_fix_validated
             and self.passed_oos_gate
-            and self.passed_qqq_gate
             and self.passed_paper_backtest_alignment
         )
 
@@ -169,7 +173,8 @@ class ProductionStrategyConfig(BaseModel):
             if not self.validation.all_passed:
                 raise ValueError(
                     "status=active requires validation.{post_fix_validated, passed_oos_gate, "
-                    "passed_qqq_gate, passed_paper_backtest_alignment} all true"
+                    "passed_paper_backtest_alignment} all true "
+                    "(passed_qqq_gate is DIAGNOSTIC only per 2026-05-02 QQQ deprecation, not gated)"
                 )
             if not self.fingerprints.all_filled:
                 raise ValueError(

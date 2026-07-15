@@ -199,17 +199,19 @@ class MasterReport:
                 f"| IR | {_fmt_f2(a.get('ir'))} | > 0.3 |",
                 f"| DD 倍数 | {_fmt_f2(a.get('dd_ratio'))}x | ≤ 1.5x |",
             ]
-            # QQQ hard gate row (closeout 2026-04-20). Only shown when
-            # acceptance was computed with a qqq_benchmark.
+            # QQQ diagnostic row (QQQ deprecated as a HARD gate 2026-05-02,
+            # docs/memos/20260502-qqq_benchmark_deprecation.md). Shown as an
+            # informational sector-tilt reference — does NOT block promotion.
+            # Only rendered when acceptance was computed with a qqq_benchmark.
             import math
             qqq_ex = a.get("qqq_excess_return")
             if qqq_ex is not None and not (
                 isinstance(qqq_ex, float) and math.isnan(qqq_ex)
             ):
-                qqq_badge = "✅" if a.get("passed_qqq_gate", True) else "❌"
+                qqq_badge = "ℹ️" if qqq_ex >= 0 else "⚠️"
                 lines.append(
                     f"| 超额收益 (vs QQQ) {qqq_badge} | "
-                    f"{_fmt_pct(qqq_ex)} | ≥ 0% (hard gate) |"
+                    f"{_fmt_pct(qqq_ex)} | 诊断参考 (非 hard gate) |"
                 )
             lines.append("")
             if a.get("failed_criteria"):
