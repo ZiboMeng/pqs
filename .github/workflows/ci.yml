@@ -1,0 +1,34 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install project and verification tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,research]" pip-audit
+      - name: Validate dependency graph and vulnerabilities
+        run: |
+          python -m pip check
+          pip-audit --progress-spinner off
+      - name: Validate configuration and safety-critical static checks
+        run: |
+          python -m core.config.loader --validate
+          ruff check core scripts tests --select E9,F63,F7,F82
+          mypy core/trading core/runtime --no-error-summary
+      - name: Run complete test suite
+        run: pytest -q
