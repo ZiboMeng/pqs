@@ -207,12 +207,17 @@ def _mtm_per_share(spec: StrategySpec, pos: OpenPosition,
     expiry = datetime.strptime(pos.expiry_date, "%Y-%m-%d")
     t_years = max((expiry - today).days / 365.0, 1e-6)
     if pos.structure == "bull_put_spread":
+        if pos.k_short_put is None or pos.k_long_put is None:
+            raise ValueError("bull_put_spread position is missing put strikes")
         bp = BullPutSpread(spot_at_open=pos.spot_at_open, k_short_put=pos.k_short_put,
                            k_long_put=pos.k_long_put, t_years=t_years,
                            sigma=iv_put, r=spec.pricing.risk_free_rate)
         return bull_put_spread_mtm(bp, spot, iv_put, t_years, spec.pricing.risk_free_rate)
     elif pos.structure == "iron_condor":
         from core.options.strategies.spreads import BearCallSpread, bear_call_spread_mtm
+        if (pos.k_short_put is None or pos.k_long_put is None
+                or pos.k_short_call is None or pos.k_long_call is None):
+            raise ValueError("iron_condor position is missing one or more strikes")
         bp = BullPutSpread(spot_at_open=pos.spot_at_open, k_short_put=pos.k_short_put,
                            k_long_put=pos.k_long_put, t_years=t_years,
                            sigma=iv_put, r=spec.pricing.risk_free_rate)
@@ -226,8 +231,13 @@ def _mtm_per_share(spec: StrategySpec, pos: OpenPosition,
 
 def _expiry_payoff_per_share(pos: OpenPosition, spot_expiry: float) -> float:
     if pos.structure == "bull_put_spread":
+        if pos.k_short_put is None or pos.k_long_put is None:
+            raise ValueError("bull_put_spread position is missing put strikes")
         return bull_put_spread_expiry_payoff(pos.k_short_put, pos.k_long_put, spot_expiry)
     if pos.structure == "iron_condor":
+        if (pos.k_short_put is None or pos.k_long_put is None
+                or pos.k_short_call is None or pos.k_long_call is None):
+            raise ValueError("iron_condor position is missing one or more strikes")
         return iron_condor_expiry_payoff(
             pos.k_long_put, pos.k_short_put, pos.k_short_call, pos.k_long_call, spot_expiry,
         )
@@ -513,20 +523,28 @@ def _observe_locked(spec: StrategySpec, today_dt: datetime, spot: float, vix: fl
     if _is_last_bday_of_month(today_dt) and not state.open_positions:
         if vix < spec.overlay.vix_halt_hard and rolling_dd <= spec.overlay.dd_halt_pct:
             if _vol_regime_go(spec, vix, spy_history_close):
-                pos = _open_position(spec, today_dt, spot, vix, iv_put, iv_call,
-                                     nav_today, state.cash)
-                if pos is not None:
-                    state.cash -= pos.cash_collateral
-                    state.cash += pos.credit_per_share * 100.0 * pos.contracts
-                    state.open_positions.append(pos)
+                new_position = _open_position(
+                    spec, today_dt, spot, vix, iv_put, iv_call, nav_today, state.cash,
+                )
+                if new_position is not None:
+                    state.cash -= new_position.cash_collateral
+                    state.cash += (
+                        new_position.credit_per_share * 100.0 * new_position.contracts
+                    )
+                    state.open_positions.append(new_position)
                     opened = True
                     _upsert_csv(run_dir / "trade_log.csv", {
-                        "date": today_str, "event": "open", "structure": pos.structure,
-                        "reason": "monthly_entry", "contracts": pos.contracts,
-                        "credit_per_share": pos.credit_per_share, "close_value": None,
+                        "date": today_str, "event": "open",
+                        "structure": new_position.structure,
+                        "reason": "monthly_entry", "contracts": new_position.contracts,
+                        "credit_per_share": new_position.credit_per_share, "close_value": None,
                         "pnl_total": None,
                     }, key_columns=("date", "event", "structure", "reason"))
-                    events.append(f"opened:{pos.structure}:credit=${pos.credit_per_share:.2f}/sh×{pos.contracts}")
+                    events.append(
+                        f"opened:{new_position.structure}:"
+                        f"credit=${new_position.credit_per_share:.2f}/sh"
+                        f"×{new_position.contracts}"
+                    )
 
                     # Opening changes cash/collateral/liability atomically.
                     # Re-mark before persistence so the opening row satisfies
