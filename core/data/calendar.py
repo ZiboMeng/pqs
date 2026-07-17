@@ -6,6 +6,7 @@ Provides:
 - get_trading_days()
 - get_session_close_et()         (handles half-day early closes)
 - is_session_complete()          (refuses pre-close fetches)
+- latest_completed_session()     (freshness watermark for trading entrypoints)
 - filter_to_market_hours()
 - localize_to_eastern()
 """
@@ -31,6 +32,10 @@ _HALF_DAY_CLOSE = pd.Timedelta(hours=13, minutes=0)
 # vendor lag. Codex round 20 operational note: 15-30 min after 16:00 ET
 # is the safest fetch window. We use 15 as the minimum.
 _DEFAULT_POST_CLOSE_BUFFER_MIN = 15
+
+
+class StaleSessionError(RuntimeError):
+    """Raised when execution data does not reach the required session."""
 
 
 @lru_cache(maxsize=4)
@@ -183,6 +188,68 @@ def is_session_complete(
         return True
     deadline = close_et + pd.Timedelta(minutes=buffer_minutes)
     return now_utc >= deadline.tz_convert("UTC")
+
+
+def latest_completed_session(
+    *,
+    now_utc: Optional[pd.Timestamp] = None,
+    buffer_minutes: int = _DEFAULT_POST_CLOSE_BUFFER_MIN,
+) -> pd.Timestamp:
+    """Return the most recent NYSE session whose close buffer has elapsed.
+
+    This is the fail-closed watermark for PAPER/LIVE execution.  Before the
+    current session closes it returns the prior session; after close plus the
+    vendor-settlement buffer it returns today.  Weekends and holidays always
+    resolve to the preceding real session.
+
+    The result is a timezone-naive, normalized trading date.  A calendar that
+    cannot produce a session in the bounded lookback is treated as an
+    operational failure instead of silently accepting stale data.
+    """
+    now = now_utc if now_utc is not None else pd.Timestamp.now(tz="UTC")
+    if now.tz is None:
+        now = now.tz_localize("UTC")
+    else:
+        now = now.tz_convert("UTC")
+
+    today_et = now.tz_convert(_ET).normalize().tz_localize(None)
+    if is_trading_day(today_et) and is_session_complete(
+        today_et,
+        now_utc=now,
+        buffer_minutes=buffer_minutes,
+    ):
+        return today_et
+
+    sessions = get_trading_days(
+        today_et - pd.Timedelta(days=14),
+        today_et - pd.Timedelta(days=1),
+    )
+    if len(sessions) == 0:
+        raise RuntimeError(
+            f"NYSE calendar returned no completed session before {today_et.date()}"
+        )
+    return pd.Timestamp(sessions[-1]).normalize().tz_localize(None)
+
+
+def require_fresh_session(
+    actual_latest: str | date | pd.Timestamp,
+    *,
+    now_utc: Optional[pd.Timestamp] = None,
+    buffer_minutes: int = _DEFAULT_POST_CLOSE_BUFFER_MIN,
+) -> pd.Timestamp:
+    """Fail unless ``actual_latest`` is exactly the execution watermark."""
+    actual = pd.Timestamp(actual_latest).normalize()
+    if actual.tz is not None:
+        actual = actual.tz_localize(None)
+    expected = latest_completed_session(
+        now_utc=now_utc,
+        buffer_minutes=buffer_minutes,
+    )
+    if actual != expected:
+        raise StaleSessionError(
+            f"latest market-data session is {actual.date()}, expected {expected.date()}"
+        )
+    return expected
 
 
 def get_missing_trading_days(

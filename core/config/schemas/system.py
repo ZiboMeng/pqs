@@ -1,6 +1,7 @@
 """Top-level system configuration schema."""
 
 from pathlib import Path
+
 from pydantic import BaseModel, Field
 
 
@@ -63,6 +64,17 @@ class AlignmentConfig(BaseModel):
     live_only_fail: bool = True
 
 
+class RuntimeConfig(BaseModel):
+    """Independent mode gate; LIVE stays disabled in repository defaults."""
+
+    default_mode: str = Field(default="PAPER", pattern="^(BACKTEST|PAPER|LIVE)$")
+    live_enabled: bool = False
+    live_approval_env: str = Field(
+        default="PQS_LIVE_APPROVAL_TOKEN",
+        pattern=r"^[A-Z][A-Z0-9_]*$",
+    )
+
+
 class SystemConfig(BaseModel):
     """Global system settings."""
 
@@ -74,3 +86,4 @@ class SystemConfig(BaseModel):
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     account: AccountConfig = Field(default_factory=AccountConfig)
     alignment: AlignmentConfig = Field(default_factory=AlignmentConfig)
+    runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)

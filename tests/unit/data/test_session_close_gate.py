@@ -5,14 +5,15 @@ to refresh stale partial bars on next post-close run.
 """
 from __future__ import annotations
 
-from pathlib import Path
-
 import pandas as pd
 import pytest
 
 from core.data.calendar import (
+    StaleSessionError,
     get_session_close_et,
     is_session_complete,
+    latest_completed_session,
+    require_fresh_session,
 )
 from core.data.fetch_session_log import (
     clear_log,
@@ -20,7 +21,6 @@ from core.data.fetch_session_log import (
     record_fetch,
     was_fetched_pre_close,
 )
-
 
 # ---------------------------------------------------------------------------
 # get_session_close_et — handles regular days + early closes + non-trading
@@ -119,6 +119,45 @@ def test_weekend_today_returns_complete():
     saturday_utc = pd.Timestamp("2026-04-25 18:00:00", tz="UTC")
     target = pd.Timestamp("2026-04-25")
     assert is_session_complete(target, now_utc=saturday_utc)
+
+
+# ---------------------------------------------------------------------------
+# latest_completed_session — execution freshness watermark
+# ---------------------------------------------------------------------------
+
+
+def test_latest_completed_session_before_regular_close_is_prior_session():
+    now = pd.Timestamp("2026-04-27 18:00:00", tz="UTC")  # Monday 14:00 ET
+    assert latest_completed_session(now_utc=now) == pd.Timestamp("2026-04-24")
+
+
+def test_latest_completed_session_after_close_buffer_is_today():
+    now = pd.Timestamp("2026-04-27 20:30:00", tz="UTC")  # Monday 16:30 ET
+    assert latest_completed_session(now_utc=now) == pd.Timestamp("2026-04-27")
+
+
+def test_latest_completed_session_on_weekend_is_friday():
+    now = pd.Timestamp("2026-04-25 18:00:00", tz="UTC")  # Saturday
+    assert latest_completed_session(now_utc=now) == pd.Timestamp("2026-04-24")
+
+
+def test_latest_completed_session_on_holiday_is_prior_session():
+    pytest.importorskip("pandas_market_calendars")
+    now = pd.Timestamp("2026-07-03 21:00:00", tz="UTC")  # observed Jul-4 holiday
+    assert latest_completed_session(now_utc=now) == pd.Timestamp("2026-07-02")
+
+
+def test_require_fresh_session_accepts_exact_watermark():
+    now = pd.Timestamp("2026-04-27 20:30:00", tz="UTC")
+    assert require_fresh_session("2026-04-27", now_utc=now) == pd.Timestamp(
+        "2026-04-27"
+    )
+
+
+def test_require_fresh_session_rejects_stale_cache():
+    now = pd.Timestamp("2026-04-27 20:30:00", tz="UTC")
+    with pytest.raises(StaleSessionError, match="2026-04-24.*2026-04-27"):
+        require_fresh_session("2026-04-24", now_utc=now)
 
 
 # ---------------------------------------------------------------------------

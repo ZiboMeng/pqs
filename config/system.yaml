@@ -30,6 +30,13 @@ alignment:
   mode: warn
   live_only_fail: true
 
+# Real-capital execution is an independent runtime mode. The existing
+# `run_paper.py --mode live` command remains PAPER and cannot bypass this gate.
+runtime:
+  default_mode: PAPER
+  live_enabled: false
+  live_approval_env: PQS_LIVE_APPROVAL_TOKEN
+
 account:
   initial_capital_usd: 100000.0   # raised from 10_000 (2026-04-20):
                                    # $10k + integer_shares + $700 SPY =

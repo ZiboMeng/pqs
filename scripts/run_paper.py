@@ -4,7 +4,7 @@ scripts/run_paper.py — 内部模拟盘（Paper Trading）日常运行入口。
 
 模式
 ----
-  live    : 运行当日（需要已有当日行情数据）
+  live    : 运行最近已完成交易日的内部模拟盘（拒绝陈旧行情）
   replay  : 从历史日期开始回放（构建伪 track record，会附加 bias 警告）
   status  : 查看当前持仓、权益曲线、risk 状态
 
@@ -32,14 +32,14 @@ import pandas as pd
 
 from core.config.loader import load_config
 from core.data.factory import create_default_store
+from core.diagnostics.detectors import DiagnosticSuite
 from core.execution.cost_model import CostModel
-from core.regime.regime_detector import RegimeDetector
-from core.portfolio.constructor import PortfolioConstructor
+from core.logging_setup import get_logger, setup_logging
 from core.paper_trading.paper_trading_engine import PaperTradingEngine
 from core.paper_trading.pnl_tracker import PnLTracker
+from core.portfolio.constructor import PortfolioConstructor
+from core.regime.regime_detector import RegimeDetector
 from core.risk.kill_switch import KillSwitch, KillSwitchConfig
-from core.diagnostics.detectors import DiagnosticSuite
-from core.logging_setup import setup_logging, get_logger
 
 setup_logging()
 logger = get_logger("run_paper")
@@ -394,10 +394,21 @@ def main():
     cfg   = load_config(Path(args.config_dir))
     store = create_default_store(cfg)
 
+    # The legacy CLI word "live" means current-session paper simulation, not
+    # real-capital execution. A future broker runner must request LIVE here.
+    from core.runtime import RuntimeMode, authorize_runtime
+
+    runtime_mode = authorize_runtime(
+        RuntimeMode.PAPER,
+        live_enabled=cfg.system.runtime.live_enabled,
+        live_approval_env=cfg.system.runtime.live_approval_env,
+    )
+    logger.info("Authorized runtime mode: %s", runtime_mode.value)
+
     # PRD M3/M13: runtime alignment check (mode from config/system.yaml;
     # FAIL mode in paper live blocks startup on hash mismatch)
     if args.mode != "status":
-        from core.alignment import check_alignment, write_alignment_report, AlignmentMode
+        from core.alignment import AlignmentMode, check_alignment, write_alignment_report
         ac = cfg.system.alignment
         # Paper trading (live + replay) respects fail mode directly
         mode = AlignmentMode.FAIL if ac.mode == "fail" else AlignmentMode.WARN
@@ -475,7 +486,7 @@ def main():
     # fail-closed if VIX is missing (trading against a 20.0 stub in a
     # black-swan day would mis-size catastrophically); replay/status
     # can stay lenient (historical gaps are bounded and diagnostic).
-    from core.data.vix_loader import load_vix_series, VixDataMissingError
+    from core.data.vix_loader import VixDataMissingError, load_vix_series
     vix_mode = "strict" if args.mode == "live" else "lenient"
     spy_close = price_df_1d.get("SPY", pd.Series(dtype=float))
     detector  = RegimeDetector(cfg.regime)
@@ -505,7 +516,7 @@ def main():
     # source of truth). Paper trading does NOT accept --override-production
     # — if the artifact is misconfigured, fail loud rather than fall back
     # to a hardcoded default (which was exactly the drift M1 fixes).
-    from core.config.production_strategy import load_production_strategy, build_strategy_from_config
+    from core.config.production_strategy import build_strategy_from_config, load_production_strategy
     ps_cfg = load_production_strategy()
     strategy = build_strategy_from_config(ps_cfg, cfg.risk, risk_syms)
     diagnostics = DiagnosticSuite()
@@ -594,21 +605,34 @@ def main():
             show_status(engine)
             return
 
-        # Determine the "live day" — latest date present in intraday data
-        # that is ≤ today. In production this will be today as of each
-        # call. Using the store's latest date lets live run on cached
-        # historical EOD data until a real-time feed arrives.
+        # Determine the paper-live session from cached bars, then require it
+        # to equal the most recent fully completed NYSE session.  Running a
+        # stale historical day under a "live" label is unsafe because all
+        # downstream VIX/alignment checks would otherwise compare against the
+        # same stale price index and pass.
         all_dates = set()
         for df in intraday_by_sym.values():
             all_dates.update(df.index.normalize().unique())
-        today = pd.Timestamp.today().normalize()
+        from core.data.calendar import StaleSessionError, require_fresh_session
+
+        today = pd.Timestamp.now(tz="America/New_York").normalize().tz_localize(None)
         live_date_candidates = sorted(d for d in all_dates if d <= today)
         if not live_date_candidates:
             logger.error("无 today≤ 的 intraday bars")
             show_status(engine)
             return
         live_date = live_date_candidates[-1]
-        logger.info("Live day resolved to %s", live_date.date())
+        live_date = pd.Timestamp(live_date).normalize().tz_localize(None)
+        try:
+            require_fresh_session(live_date)
+        except StaleSessionError as exc:
+            logger.error(
+                "Refusing paper-live startup: %s. Refresh market data before retrying.",
+                exc,
+            )
+            show_status(engine)
+            return
+        logger.info("Paper-live session freshness verified: %s", live_date.date())
 
         # Target weights come from the daily MFS decided on the PRIOR close
         # (no look-ahead: bars closing today use signals generated at the
@@ -705,8 +729,9 @@ def main():
         timing_provider = None
         if args.use_timing:
             from core.intraday.multi_timescale import (
-                load_multi_timescale_bars, make_timing_target_provider,
                 TimingThresholds,
+                load_multi_timescale_bars,
+                make_timing_target_provider,
             )
             # Timing needs bars across TFs for the full live day.
             mt_bars = load_multi_timescale_bars(
