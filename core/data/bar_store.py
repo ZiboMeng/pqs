@@ -57,7 +57,16 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-DEFAULT_ROOT = Path(os.path.expanduser("~/Documents/projects/pqs/data"))
+
+def resolve_default_root() -> Path:
+    """Resolve data root without embedding a developer-specific home path."""
+    configured = os.environ.get("PQS_DATA_DIR")
+    if configured:
+        return Path(configured).expanduser().resolve()
+    return Path(__file__).resolve().parents[2] / "data"
+
+
+DEFAULT_ROOT = resolve_default_root()
 
 _VALID_FREQS = {"1m", "5m", "15m", "30m", "60m", "daily", "1d"}
 
@@ -79,8 +88,8 @@ def _safe_symbol(sym: str) -> str:
 
 
 class BarStore:
-    def __init__(self, root: Path | str = DEFAULT_ROOT):
-        self.root = Path(root)
+    def __init__(self, root: Path | str | None = None):
+        self.root = resolve_default_root() if root is None else Path(root)
         self._splits: Optional[pd.DataFrame] = None
         self._distributions: Optional[pd.DataFrame] = None
 
