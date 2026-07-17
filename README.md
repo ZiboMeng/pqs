@@ -614,7 +614,7 @@ python scripts/run_mining.py --leaderboard --lineage-filter my_first_run
 
 # Step 6 — 跑一次模拟盘（当日 EOD 后跑；需当日 60m bars 已更新）
 python scripts/run_paper.py --mode status      # 先看当前状态
-python scripts/run_paper.py --mode live        # 真正跑一天
+python scripts/run_paper.py --mode live        # 最近已完成交易日的内部 PAPER（不连接券商）
 
 # Step 7 — 一键跑研究全套（包含上面所有 + universe + factor screen + xgb）
 bash scripts/run_all.sh research
@@ -680,14 +680,16 @@ python scripts/run_mining.py --leaderboard --lineage-filter 'post-2026-04%'
 
 ### 7.3 模拟盘 (Paper Trading)
 
-**目的**: 每日/实时模拟下单，跟踪 P&L，触发 kill switch。
+**目的**: 本地模拟下单、跟踪 P&L、触发 kill switch。这里的 `live` 是历史遗留的
+CLI 名称，运行模式仍严格为 **PAPER**，不连接券商、不发送真实订单，也不是实时行情。
 
-**CLI mode 只有三个**：`live` / `replay` / `status`。Engine 内部会按当日
-是否有 intraday bars 自动选择 `run_day_intraday`（bar-by-bar，idempotent
-断点续传）或 `run_day_daily`（日线 fallback）。
+**CLI mode 只有三个**：`live` / `replay` / `status`。`live` 必须具有最近已完成
+NYSE session 的 60m bars；陈旧缓存、UNKNOWN/低置信度 regime、VIX 缺失、未对账订单
+或 global/strategy/symbol pause 都会 fail closed。该路径使用 `run_day_intraday`
+（bar-by-bar、幂等断点续传），不会静默退回日线执行。
 
 ```bash
-# Live 模式（当日 EOD 后跑，需当日 60m bars 已更新）
+# Paper-live 模式（EOD + vendor buffer 后跑，需最新完成 session 的 60m bars）
 python scripts/run_paper.py --mode live
 
 # Replay 模式（历史回放，带 bias 警告；仅 diagnostic 用）
@@ -703,11 +705,16 @@ python scripts/run_paper.py --mode status
 python scripts/run_paper.py --mode live --use-timing
 ```
 
-**产出**: `data/paper_trading/paper_trading.db` 里
+**产出**: 默认 `data/paper_trading/pt.db` 里
 - pt_state (当前持仓 + 现金)
 - pt_history (每日 equity / P&L / 交易笔数)
 - intraday_{orders,fills,positions,equity} (intraday 模式)
 - bar_checkpoints (断点续传)
+- orders / order_events（canonical order lifecycle + durable idempotency）
+- trading_controls / trading_control_events（持久 pause control 与审计事件）
+
+运维暂停/恢复使用 `scripts/trading_control.py`，详 `docs/OPERATIONS.md`。真实资金 LIVE
+保持 `config/system.yaml::runtime.live_enabled=false`；仓库当前没有真实 Broker entrypoint。
 
 ### 7.4 因子研究 (Factor Research)
 
@@ -2421,4 +2428,3 @@ df = store.load("SPY", freq="1m", fallback="auto")  # 自动尾部补全
 ### 我看不懂某个术语 / 缩写 ……
 
 → §0 术语速查表
-

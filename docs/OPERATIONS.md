@@ -2,8 +2,9 @@
 
 ## 当前安全状态
 
-真实 LIVE 不可用。`scripts/run_paper.py --mode live` 是旧命名的内部 PAPER 当日执行。
-在新的 runtime gate 完成前，不应向该入口接入真实 Broker。
+真实 LIVE 不可用。`scripts/run_paper.py --mode live` 是旧命名的内部 PAPER 当日执行，
+并由 runtime 双钥匙边界固定为 PAPER。仓库配置 `runtime.live_enabled: false`；不得向该
+入口接入真实 Broker。
 
 ## 基线检查
 
@@ -14,9 +15,12 @@
 .venv/bin/mypy core
 .venv/bin/python scripts/run_backtest.py --help
 .venv/bin/python scripts/run_paper.py --help
+.venv/bin/python scripts/health_check.py --config-dir config
+.venv/bin/pip-audit --progress-spinner off
 ```
 
-当前审计时 ruff/mypy 预期失败，详 `AUDIT.md`；不得把历史失败误报为新回归。
+全仓历史 ruff/mypy 仍有存量债务；CI 当前强制 fatal Ruff、`core/trading`、
+`core/runtime` 和完整 pytest。不得把已记录的非 fatal 历史债务误报为新回归。
 
 ## Paper 启动前检查
 
@@ -43,8 +47,19 @@
 
 ## Kill switch 操作原则
 
-当前旧 KillSwitch 仅供 paper；新 control-plane CLI 落地前，不提供可能被误解为 production
-的解除命令。解除 HALT 必须记录操作者、时间、原因、旧/新状态和 evidence link。
+旧 KillSwitch 与新持久 pause control 均只供内部 paper。暂停示例：
+
+```bash
+.venv/bin/python scripts/trading_control.py pause \
+  --scope GLOBAL --reason "reconciliation mismatch" --operator "oncall-name"
+.venv/bin/python scripts/trading_control.py status
+.venv/bin/python scripts/trading_control.py resume \
+  --scope GLOBAL --reason "broker ledger reconciled" --operator "reviewer-name"
+```
+
+`STRATEGY --key paper-runtime` 和 `SYMBOL --key SPY` 提供更窄作用域。解除必须记录操作者、
+时间和原因；CLI/SQLite event table 自动保留版本化事件。UNKNOWN order 未完成人工对账前，
+新订单仍会被 risk veto。
 
 ## Backup/restore
 

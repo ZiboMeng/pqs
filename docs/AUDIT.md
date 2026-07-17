@@ -329,3 +329,34 @@ README 将内部 paper live 描述为“真正跑一天”；旧文档同时使�
 
 本文件会随修复更新 finding 状态；已修复不等于删除历史 finding，而是在条目中记录
 修复 commit、测试与残余风险。
+
+## 8. 接管后修复状态（2026-07-17）
+
+| Finding | 状态 | 证据 |
+|---|---|---|
+| P0-1 陈旧 paper-live 行情 | FIXED | `778d429`；completed-session/周末/节假日/陈旧缓存测试 |
+| P0-2 缺少独立 pre-trade veto | FIXED for internal paper | `fd8daf2`, `6e58a7c`；拒绝发生在 simulator 前 |
+| P0-3 无 durable lifecycle/idempotency | PARTIAL | `fd8daf2`, `583720e`；SQLite event ledger、状态机、重启 UNKNOWN 隔离和 mismatch 自动全局暂停已完成；真实 Broker 对账仍外部阻塞 |
+| P0-4 无显式 runtime mode | FIXED | `778d429`；LIVE 双钥匙且默认禁用 |
+| P1-1 options credit 重复计入 | FIXED | `a3d7d91`；NAV 会计恒等式与次日 mark 测试 |
+| P1-2 options 非原子持久化 | FIXED locally | `86f42f5`；文件锁、原子替换、故障注入重跑 |
+| P1-4 regime 无 UNKNOWN/confidence | FIXED for current detector | `1f203b6`；live 低置信度拒绝 |
+| P1-5 开发者固定数据路径 | FIXED | `f61c535`；配置/项目相对解析 |
+| P2-1 F821 未定义符号 | FIXED | `a3135c2`；全仓 `ruff --select F821` 通过 |
+| P2-2 CI/container/health 缺失 | PARTIAL | `92669a2`；CI、非 root image、read-only health；IaC/metrics 仍待实现 |
+| P2-3 options domain/risk 边界缺失 | PARTIAL | `7f2de48`, `7efb368`, `8c76490`；严格 quote/chain、defined-risk combo、legging、Greeks/max-loss veto；真实 chain/assignment/OCC 仍外部阻塞 |
+| 依赖漏洞基线 | FIXED at audit date | `63ae300`；16 findings → 0，CI 持续 pip-audit |
+
+第一轮全量测试结果为 4 failed / 4,077 passed / 21 skipped / 1 xfailed；四个失败均为
+当前虚拟环境漏装项目已声明的 `research` extra 中 LightGBM。安装 `lightgbm 4.6.0`
+后该模块 7/7 通过。第二轮全量为 4,115 passed / 23 skipped / 1 xfailed / 0 failed，
+耗时 2,076.92 秒；回归启动后新增的安全边界另由 195 passed / 2 skipped 覆盖。
+
+Fresh no-walk-forward 回测进一步确认“系统代码可跑”不等于“策略可晋升”：4 个策略的
+IR 全为负；dual momentum MaxDD -35.7%，multi-factor MaxDD -55.2%，均超过配置的 25%
+halt 阈值。trend-following 和 cross-asset 虽回撤较低，但 Sharpe/IR 为负。本轮不调参、
+不选择最好窗口、不推动任何策略进入 paper/live；完整数值记录在 `CODEX_PROGRESS.md`。
+
+报告曾同时显示历史 MaxDD 超限但末尾 `Kill Switch: 正常`。`dd0dc51` 已将纯回测报告的
+live switch state 改为 `N/A`，同时保留 historical policy breach；这两个概念不能互相
+替代，防止运维误读。
