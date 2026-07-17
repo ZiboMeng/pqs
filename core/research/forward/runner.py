@@ -32,7 +32,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timezone
 from zoneinfo import ZoneInfo
 from pathlib import Path
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -84,6 +84,9 @@ from .manifest_schema import (
 )
 from .revalidate import revalidate_manifest
 from .source_layer import classify_as_of, classify_window
+
+if TYPE_CHECKING:
+    from .manifest_schema import CandidateRole
 
 
 _log = logging.getLogger(__name__)

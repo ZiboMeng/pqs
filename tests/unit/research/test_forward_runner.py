@@ -16,6 +16,7 @@ import json
 import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -39,6 +40,9 @@ from core.research.forward.runner import (
     _resolve_dates_to_observe,
     _verify_cost_hash_or_halt,
 )
+
+if TYPE_CHECKING:
+    from core.research.forward.manifest_schema import ConfigSnapshot, ForwardRun
 
 
 # ── manifest IO ─────────────────────────────────────────────────────────
@@ -669,7 +673,7 @@ def test_runner_module_imports_schema():
 # synthetic trading days per case.
 
 
-def _make_td_run(n_td: int, *, label: str = None) -> "ForwardRun":  # type: ignore[name-defined]
+def _make_td_run(n_td: int, *, label: str = None) -> "ForwardRun":
     from core.research.forward.manifest_schema import ForwardRun
     return ForwardRun(
         checkpoint_label=label or f"TD{n_td:03d}",
@@ -819,7 +823,7 @@ def _config_snapshot(
     risk_config="r" * 16,
     system_config="s" * 16,
     snapshot_at_utc=None,
-) -> "ConfigSnapshot":  # type: ignore[name-defined]
+) -> "ConfigSnapshot":
     from core.research.forward.manifest_schema import ConfigSnapshot
     return ConfigSnapshot(
         universe_hash=universe,

@@ -16,9 +16,12 @@ Frozen (raise NotImplementedError("frozen") until explicit-go):
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from core.fleet.manifest_schema import FleetConfig
+
+if TYPE_CHECKING:
+    from core.fleet.manifest_schema import CorrelationBudgetStatus
 
 
 class FleetAllocator:

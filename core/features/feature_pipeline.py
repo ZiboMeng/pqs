@@ -33,7 +33,7 @@ Usage
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -43,6 +43,9 @@ from core.features.indicators import (
     compute_intraday_features,
 )
 from core.logging_setup import get_logger
+
+if TYPE_CHECKING:
+    from core.features.timeframe_optimizer import TimeframeOptimizer
 
 logger = get_logger(__name__)
 

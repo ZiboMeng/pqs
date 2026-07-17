@@ -14,11 +14,14 @@ import json
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 import pandas as pd
 
 from core.logging_setup import get_logger
+
+if TYPE_CHECKING:
+    from core.mining.evaluator import EvalResult
 
 logger = get_logger(__name__)
 
@@ -132,7 +135,7 @@ class MiningArchive:
 
     # ── Write ─────────────────────────────────────────────────────────────────
 
-    def save_eval(self, result: "EvalResult") -> None:  # type: ignore[name-defined]
+    def save_eval(self, result: "EvalResult") -> None:
         """保存或更新单次评估结果。"""
         import json as _json
         stress_json = _json.dumps(result.stress_results) if hasattr(result, 'stress_results') else None
@@ -200,7 +203,7 @@ class MiningArchive:
 
     def promote(
         self,
-        result: "EvalResult",  # type: ignore[name-defined]
+        result: "EvalResult",
         equity_curve: Optional[pd.Series] = None,
     ) -> None:
         """将策略晋升到活跃池。"""

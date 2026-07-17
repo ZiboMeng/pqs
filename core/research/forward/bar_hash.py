@@ -44,7 +44,10 @@ from core.research.frozen_spec import FrozenStrategySpec
 # test_forward_runner_writes_go_through_schema_validation):
 # any forward-package module that mentions manifests must import
 # ForwardRunManifest so the schema validator stays reachable.
-from .manifest_schema import ForwardRunManifest as _ForwardRunManifest  # noqa: F401
+from .manifest_schema import (
+    ForwardRunManifest as _ForwardRunManifest,  # noqa: F401
+    PerScopeHashInputs,
+)
 
 
 # ── factor input contract resolver ─────────────────────────────────
