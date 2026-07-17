@@ -162,3 +162,27 @@ First ritual since the 2026-04-26 baseline. RCMv1 + Cand-2 aborted
 - **⚠ 市场结果(如实记录,非 artifact)**:cycle06/08 早 7 月给回全部超额并转跑输 SPY。frontier 轨迹 cycle06:06-30 见顶 +6.42%(vs SPY +4.64%)→ 07-08 **+0.06%(vs SPY -1.54%)**,MaxDD -7.27%;cycle08:06-30 +8.65% → 07-08 **-0.18%(vs SPY -1.77%)**,MaxDD -8.13%。属 forward evidence 如实反映(防御/rotation sleeve 早 7 月跑输市场反弹),TD60 verdict 前继续观察。
 - 旧 manifest 备份 `*.preReinit_2026-07-08.json`;sealed 2026 未读;无 silent invariant change。
 - **预期**:settle-window 生效后,frontier 尾 bar 的 preliminary→final 修订将被 re-derive 吸收,不再 halt。若修订落在 >10 TD 的 settled 历史(罕见),仍会严格 halt(正确)。
+
+## 2026-07-17 daily ritual(距上次 07-08 隔 ~9 天)
+- **时点纪律**:触发时 NYSE 未收盘(14:58 EDT),`fetch_data.py` 按设计整体拒绝(避免今日 partial bar 落盘)。起后台任务 sleep 到 16:17 EDT 收盘后自动 fetch → 243 更新,daily/60m/30m/15m 全到 **2026-07-17**;bar-level smoke 通过(SPY/QQQ/MTUM/TQQQ/AAPL/GLD/TLT 均到 07-17,无周末尾行)。未 override,未落 partial。
+- **pead_sue_trial1_evidence_v1**(独立轨):✅ **TD006**(forward day 43),cum_ret **+5.28%**,vs SPY **+4.73%**(SPY +0.56%),vs QQQ +7.20%,Sharpe +5.39,MaxDD -0.34%。lifetime 287 signals / 514 trades。健康。
+- **simple_baseline_v1**:✅ **TD004**(2026-07-17),NAV **$9,538.04**(自 06-17 $10,514 回落 ~9.3%,MTUM $6,646 / TQQQ $2,836 拖累),regime=risk_on(VIX 18.80,QQQ 695.33 > SMA200 639.53)。
+- **spy_8otm_bull_put_v1**(options):✅ **TD012**,SPY $743.29 / VIX 18.80,NAV $10,000,DD 0%,0 仓,cum_pnl $0,events=[](无 qualifying entry,与历史一致)。
+- **cumulative_vrp_scan**:✅ N=12 快照;COIN +5.94±7.76 / NVDA +4.50±6.13 = high-but-noisy(avoid);AAPL/MSFT/GOOG/META/AMD structurally cheap(don't sell);无可操作信号。
+- **chart_native_s1_evidence_v1**:⏭ 跳过(observe 脚本 stale-import 未修 + evidence_only + leakage caveat)。
+- **trial9_diversifier_002**:⏭ 跳过(completed_fail / RETIRED,仅 forensic)。
+
+### 2026-07-17 ⚠ cycle06/08 = config_drift HALT(pause-before-commit,未 auto-resolve)
+- **现象**:cycle06/08 observe 均 HALT `requires_data_review`,message 带 "config drift halt-class active"。readiness 显示 7 个新 TD(07-09→07-17)可 append,但被 config-drift 拦在 append 前。
+- **诊断(只读,决定性)**:
+  - halt message `revised_symbols=n/a` → **无 data revision 被 invalidate**;settle_window=10 正确吸收了尾 bar preliminary→final 修订(第二根因路径已闭环,本次未触发)。
+  - halt **纯由 config_drift(severity=halt)触发**。逐 source 比对冻结(2026-07-08T22:07)vs 当前 hash:**仅 `universe_hash` 漂移**(4ba86629 vs 7a02437a);factor_registry / research_mask / risk_config / system 四项 **hash 全 same**。
+  - **根因 = 本人 audit 收口 commit `e287201`(P0-1 SQQQ blacklist)改了 `config/universe.yaml`**:往 blacklist 加了 inverse ETF(SPXU/SPXS/SDS/TZA)+ 注释。该 commit 自验 "executable unchanged bit-for-bit (79)" —— 这些 inverse ETF 本就不在 79 基础池,**cycle06/08 可选 universe 逐位不变**,只是 blacklist YAML 文本变 → universe_hash 变。
+  - `risk.yaml` commit `21f43a2` 只加注释到 dead key → risk_config_hash **未变**(算的是解析值,注释被忽略),不构成 drift。
+  - **结论**:benign config drift,fail-closed 正确触发,但对这两候选**可证明无实质影响**(executable 79 不变 + factor_registry 不变)。
+- **纪律留痕**:这正是 `feedback_pre_post_audit_must_smoke_observe` 警告的场景("改 universe.yaml 立刻 check 活跃 forward 候选 drift")—— **audit 收口时漏跑 observe smoke,本次才暴露**。诚实记录,非隐瞒。
+- **处置 = 未 auto-resolve**(ritual 纪律:config_drift halt = pause-before-commit,surface 给用户)。cycle06/08 manifest 留 dirty(status=requires_data_review + config_drift_event 落在最新 TD,**未 append 新 TD**,仍 31 settled runs),**未 commit**。resolution 选项待用户拍板:
+  - **(A) backfill_config_snapshot.py --force + 清 halt**:re-snapshot universe_hash 到当前 + migration_note 留痕("assert unchanged-in-effect"),NAV 历史零改动。最轻、最诚实(保留 audit 信号)。
+  - **(B) re-init #5(overwrite=True)**:re-anchor config + re-derive NAV;NAV 应逐位不变(同数据同 executable universe),metadata 保住。重但已验证 4 次。
+  - 我倾向 **(A)**:改动可证明 benign,re-snapshot + migration_note 比 re-init 更轻且保留"config 于此日重锚"的审计痕迹。
+- sealed 2026 未读;无 silent invariant change。
