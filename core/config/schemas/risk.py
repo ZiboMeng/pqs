@@ -1,8 +1,9 @@
 """Risk management configuration schemas."""
 
-from typing import Dict, List, Optional
-from pydantic import BaseModel, Field, model_validator
 from enum import Enum
+from typing import Dict, List, Optional
+
+from pydantic import BaseModel, Field, model_validator
 
 
 class KillSwitchLevel(str, Enum):
@@ -43,6 +44,8 @@ class PositionLimitsConfig(BaseModel):
     max_positions: int = Field(default=10, ge=1, le=50)
     min_position_size_usd: float = Field(default=500.0, ge=0)
     allow_fractional_shares: bool = False
+    max_order_notional_fraction: float = Field(default=0.35, gt=0, le=1.0)
+    max_reference_price_deviation: float = Field(default=0.05, ge=0, le=0.50)
 
     # Per-symbol overrides (symbol → max weight)
     symbol_caps: Dict[str, float] = Field(default_factory=dict)

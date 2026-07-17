@@ -22,6 +22,8 @@ position_limits:
   max_positions: 10
   min_position_size_usd: 500.0
   allow_fractional_shares: false
+  max_order_notional_fraction: 0.35
+  max_reference_price_deviation: 0.05
   symbol_caps:
     SPY:   0.35
     QQQ:   0.30

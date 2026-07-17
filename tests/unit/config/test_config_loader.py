@@ -1,10 +1,10 @@
 """Unit tests for ConfigSystem: loader, deep_merge, and pydantic validation."""
 
-import pytest
 from pathlib import Path
 
-from core.config.loader import load_config, _deep_merge, PQSConfig
+import pytest
 
+from core.config.loader import PQSConfig, _deep_merge, load_config
 
 CONFIG_DIR = Path(__file__).parents[3] / "config"
 
@@ -63,7 +63,7 @@ class TestLoadConfig:
         assert cfg.risk.allow_margin is False
         assert cfg.risk.allow_short is False
 
-    def test_blacklist_does_not_contain_SQQQ_in_seed(self):
+    def test_blacklist_does_not_contain_SQQQ_in_seed(self):  # noqa: N802
         cfg = load_config(config_dir=CONFIG_DIR)
         assert "SQQQ" in cfg.universe.blacklist
         assert "SQQQ" not in cfg.universe.seed_pool
@@ -163,6 +163,14 @@ class TestRegimeConfig:
 # ── pydantic validation guard tests ──────────────────────────────────────────
 
 class TestValidationGuards:
+    def test_order_notional_and_reference_deviation_are_bounded(self):
+        from core.config.schemas.risk import PositionLimitsConfig
+
+        with pytest.raises(Exception):
+            PositionLimitsConfig(max_order_notional_fraction=1.1)
+        with pytest.raises(Exception):
+            PositionLimitsConfig(max_reference_price_deviation=0.75)
+
     def test_cannot_set_allow_short_true(self):
         from core.config.schemas.risk import RiskConfig
         with pytest.raises(Exception):
