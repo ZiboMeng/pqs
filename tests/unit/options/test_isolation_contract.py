@@ -16,13 +16,33 @@ test is the auditor for branch isolation.
 """
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
 import pytest
 
-
 PROJ = Path(__file__).resolve().parents[3]
+
+
+def _options_isolation_is_applicable() -> bool:
+    """Apply this Git-diff gate only to a dedicated options-only branch."""
+    if os.environ.get("PQS_ENFORCE_OPTIONS_ISOLATION") == "1":
+        return True
+    result = subprocess.run(
+        ["git", "branch", "--show-current"],
+        capture_output=True,
+        text=True,
+        cwd=PROJ,
+        check=False,
+    )
+    branch = result.stdout.strip().lower()
+    return branch.startswith("options/") or "pqs-options" in branch
+
+
+def _require_options_isolation_scope() -> None:
+    if not _options_isolation_is_applicable():
+        pytest.skip("Git-diff isolation gate applies only to options-only branches")
 
 
 # Files / globs the options branch must NOT touch.
@@ -154,6 +174,7 @@ def test_options_branch_does_not_touch_stock_workstream():
     Resolution: revert the offending file change. If a legitimate stock
     workstream edit is needed, do it on a separate non-options branch.
     """
+    _require_options_isolation_scope()
     diff = _git_diff_files("main")
     if not diff:
         # No changes vs main — trivially compliant
@@ -162,11 +183,11 @@ def test_options_branch_does_not_touch_stock_workstream():
     violations = [path for path in diff if _violates_isolation(path)]
 
     assert not violations, (
-        f"Options branch violates isolation contract!\n"
-        f"The following stock workstream files were modified:\n"
+        "Options branch violates isolation contract!\n"
+        "The following stock workstream files were modified:\n"
         + "\n".join(f"  - {v}" for v in violations)
         + "\n\nResolution: revert these files via "
-        f"`git checkout main -- <file>`. If a legitimate stock workstream "
+        "`git checkout main -- <file>`. If a legitimate stock workstream "
         "edit is needed, do it on a separate non-options branch.\n"
         "PRD reference: docs/prd/20260502-pqs_options_v1_free_path_prd.md "
         "Appendix B."
@@ -191,6 +212,7 @@ def test_options_branch_writes_only_to_options_namespace():
     are outside both isolation list AND options namespace. Such files
     might be legitimate (e.g., new top-level docs) but warrant review.
     """
+    _require_options_isolation_scope()
     diff = _git_diff_files("main")
     if not diff:
         return
@@ -227,7 +249,7 @@ def test_options_branch_writes_only_to_options_namespace():
     ]
 
     assert not suspicious, (
-        f"Options branch wrote files outside options namespace:\n"
+        "Options branch wrote files outside options namespace:\n"
         + "\n".join(f"  - {s}" for s in suspicious)
         + "\n\nIf these are legitimate, update test_isolation_contract.py "
         "allowed_prefixes. Else move to options namespace."

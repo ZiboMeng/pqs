@@ -18,22 +18,21 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, timedelta
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from core.options.pricing.black_scholes import BSInputs, put_price, call_price
+from core.options.paper.spec import StrategySpec, write_spec
 from core.options.strategies.spreads import (
-    BullPutSpread, IronCondor,
-    bull_put_spread_metrics, iron_condor_metrics,
-    bull_put_spread_mtm, iron_condor_mtm,
-    bull_put_spread_expiry_payoff, iron_condor_expiry_payoff,
+    BullPutSpread,
+    bull_put_spread_expiry_payoff,
+    bull_put_spread_metrics,
+    bull_put_spread_mtm,
+    iron_condor_expiry_payoff,
 )
-from core.options.paper.spec import StrategySpec, load_spec, write_spec
-
 
 PAPER_DIR_DEFAULT = Path("data/options/paper_runs")
 
@@ -148,7 +147,11 @@ def _open_position(spec: StrategySpec, today: datetime, spot: float,
                            sigma=iv_put, r=spec.pricing.risk_free_rate)
         bp_m = bull_put_spread_metrics(bp)
         # For call leg use bear_call metrics with iv_call
-        from core.options.strategies.spreads import BearCallSpread, bear_call_spread_metrics, SpreadMetrics
+        from core.options.strategies.spreads import (
+            BearCallSpread,
+            SpreadMetrics,
+            bear_call_spread_metrics,
+        )
         bc = BearCallSpread(spot_at_open=spot, k_short_call=k_short_call,
                             k_long_call=k_long_call, t_years=t_years,
                             sigma=iv_call, r=spec.pricing.risk_free_rate)
@@ -221,6 +224,31 @@ def _expiry_payoff_per_share(pos: OpenPosition, spot_expiry: float) -> float:
             pos.k_long_put, pos.k_short_put, pos.k_short_call, pos.k_long_call, spot_expiry,
         )
     raise ValueError(pos.structure)
+
+
+def _mark_portfolio(
+    spec: StrategySpec,
+    state: RunState,
+    spot: float,
+    iv_put: float,
+    iv_call: float,
+    today: datetime,
+) -> tuple[float, float, float, float]:
+    """Return ``(nav, collateral, liability, unrealized_pnl)``.
+
+    Entry credit is already present in cash. Therefore NAV must subtract the
+    current option liability, not add ``credit - liability`` a second time.
+    """
+    collateral = sum(position.cash_collateral for position in state.open_positions)
+    liability = 0.0
+    unrealized = 0.0
+    for position in state.open_positions:
+        mtm = _mtm_per_share(spec, position, spot, iv_put, iv_call, today)
+        multiplier = 100.0 * position.contracts
+        liability += mtm * multiplier
+        unrealized += (position.credit_per_share - mtm) * multiplier
+    nav = state.cash + collateral - liability
+    return nav, collateral, liability, unrealized
 
 
 # -- Public API: init / observe ---------------------------------------------
@@ -387,12 +415,14 @@ def observe(spec: StrategySpec, today_dt: datetime, spot: float, vix: float,
     state.open_positions = still_open
 
     # 2) NAV mark-to-market
-    unrealized = 0.0
-    collateral = sum(p.cash_collateral for p in state.open_positions)
-    for pos in state.open_positions:
-        mtm = _mtm_per_share(spec, pos, spot, iv_put, iv_call, today_dt)
-        unrealized += (pos.credit_per_share - mtm) * 100.0 * pos.contracts
-    nav_today = state.cash + collateral + unrealized
+    nav_today, collateral, option_liability, unrealized = _mark_portfolio(
+        spec,
+        state,
+        spot,
+        iv_put,
+        iv_call,
+        today_dt,
+    )
     state.nav_current = nav_today
     state.nav_high_water = max(state.nav_high_water, nav_today)
     state.rolling_nav_window.append(nav_today)
@@ -420,15 +450,30 @@ def observe(spec: StrategySpec, today_dt: datetime, spot: float, vix: float,
                     })
                     events.append(f"opened:{pos.structure}:credit=${pos.credit_per_share:.2f}/sh×{pos.contracts}")
 
+                    # Opening changes cash/collateral/liability atomically.
+                    # Re-mark before persistence so the opening row satisfies
+                    # NAV = cash + collateral - option liability.
+                    nav_today, collateral, option_liability, unrealized = _mark_portfolio(
+                        spec,
+                        state,
+                        spot,
+                        iv_put,
+                        iv_call,
+                        today_dt,
+                    )
+                    state.nav_current = nav_today
+                    state.nav_high_water = max(state.nav_high_water, nav_today)
+
     # 4) Persist
     state.n_observe_days += 1
     state.last_observe_date = today_str
-    state.last_observe_at_utc = datetime.utcnow().isoformat() + "Z"
+    state.last_observe_at_utc = datetime.now(UTC).isoformat()
 
     _append_csv(run_dir / "daily_nav.csv", {
         "date": today_str, "nav": nav_today, "spot": spot, "vix": vix,
         "iv_put": iv_put, "iv_call": iv_call, "cash": state.cash,
-        "collateral": collateral, "unrealized_pnl": unrealized,
+        "collateral": collateral, "option_liability": option_liability,
+        "unrealized_pnl": unrealized,
         "rolling_dd": rolling_dd, "n_open": len(state.open_positions),
         "opened_today": opened, "events": "|".join(events) if events else "",
     })

@@ -7,16 +7,19 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta
-from pathlib import Path
 
 import pandas as pd
 import pytest
 
+from core.options.paper.runner import _is_last_bday_of_month, init_run, observe
 from core.options.paper.spec import (
-    StrategySpec, OverlayParams, VolRegimeFilterParams, PricingParams,
-    load_spec, write_spec,
+    OverlayParams,
+    PricingParams,
+    StrategySpec,
+    VolRegimeFilterParams,
+    load_spec,
+    write_spec,
 )
-from core.options.paper.runner import init_run, observe, _is_last_bday_of_month
 
 
 @pytest.fixture
@@ -130,6 +133,48 @@ def test_observe_opens_position_on_last_bday_of_month(tmp_path, spec_factory):
     assert any("opened" in e for e in res["events"])
 
 
+def test_opening_nav_does_not_double_count_option_credit(tmp_path, spec_factory):
+    spec = spec_factory()
+    init_run(spec, base_dir=tmp_path, start_date="2026-05-29")
+    today = datetime(2026, 5, 29)
+    hist = _synthetic_spy_history(today)
+    result = observe(spec, today, 600.0, 18.0, hist, base_dir=tmp_path)
+
+    row = pd.read_csv(tmp_path / "test_run" / "daily_nav.csv").iloc[-1]
+    assert result["open_positions"] == 1
+    assert row["nav"] == pytest.approx(spec.initial_nav, abs=1e-6)
+    assert row["nav"] == pytest.approx(
+        row["cash"] + row["collateral"] - row["option_liability"],
+        abs=1e-6,
+    )
+    assert row["unrealized_pnl"] == pytest.approx(0.0, abs=1e-6)
+
+
+def test_next_mark_uses_liability_not_credit_twice(tmp_path, spec_factory):
+    spec = spec_factory(
+        overlay=OverlayParams(early_tp_frac=10.0, stop_loss_frac=10.0)
+    )
+    init_run(spec, base_dir=tmp_path, start_date="2026-05-29")
+    opened = datetime(2026, 5, 29)
+    hist = _synthetic_spy_history(opened)
+    observe(spec, opened, 600.0, 18.0, hist, base_dir=tmp_path)
+    observe(spec, datetime(2026, 6, 1), 600.0, 18.0, hist, base_dir=tmp_path)
+
+    rows = pd.read_csv(tmp_path / "test_run" / "daily_nav.csv")
+    marked = rows.iloc[-1]
+    assert marked["n_open"] == 1
+    assert marked["nav"] == pytest.approx(
+        marked["cash"] + marked["collateral"] - marked["option_liability"],
+        abs=1e-6,
+    )
+    # With unchanged spot/IV, one weekend of theta may create a small P&L,
+    # but the NAV change cannot equal an extra copy of the entry credit.
+    manifest = json.loads((tmp_path / "test_run" / "manifest.json").read_text())
+    position = manifest["open_positions"][0]
+    entry_credit = position["credit_per_share"] * 100 * position["contracts"]
+    assert abs(marked["nav"] - spec.initial_nav) < entry_credit
+
+
 def test_observe_no_open_when_vix_above_halt(tmp_path, spec_factory):
     spec = spec_factory()
     init_run(spec, base_dir=tmp_path, start_date="2026-05-29")
@@ -161,7 +206,8 @@ def test_observe_full_cycle_open_then_expire_worthless(tmp_path, spec_factory):
     # Advance day-by-day to expiry; spot rises to 620 (well above 8% OTM put)
     for d in range(1, 25):
         next_day = today + timedelta(days=d)
-        if next_day.weekday() >= 5: continue  # skip weekends
+        if next_day.weekday() >= 5:
+            continue  # skip weekends
         spot_now = 600.0 + d * 0.5
         observe(spec, next_day, spot_now, 18.0, hist, base_dir=tmp_path)
 
