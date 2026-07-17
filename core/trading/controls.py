@@ -148,6 +148,24 @@ class TradingControlStore:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def list_current(self) -> list[TradingControl]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM trading_controls ORDER BY scope, scope_key"
+            ).fetchall()
+        return [
+            TradingControl(
+                scope=ControlScope(row["scope"]),
+                scope_key=row["scope_key"],
+                paused=bool(row["paused"]),
+                reason=row["reason"],
+                updated_by=row["updated_by"],
+                updated_at=datetime.fromisoformat(row["updated_at"]),
+                version=int(row["version"]),
+            )
+            for row in rows
+        ]
+
     @staticmethod
     def _normalize_key(scope: ControlScope, scope_key: str) -> str:
         if scope is ControlScope.GLOBAL:
