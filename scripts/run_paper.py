@@ -451,6 +451,7 @@ def main():
             max_gross_exposure=cfg.risk.max_gross_exposure,
             max_single_position=cfg.risk.position_limits.max_single_position,
             max_positions=cfg.risk.position_limits.max_positions,
+            max_order_notional_fraction=cfg.risk.position_limits.max_single_position,
             min_cash_fraction=cfg.risk.budget.min_cash,
             symbol_caps=dict(cfg.risk.position_limits.symbol_caps),
             blocked_symbols=frozenset(cfg.universe.blacklist),

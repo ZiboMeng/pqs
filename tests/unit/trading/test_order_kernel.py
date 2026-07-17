@@ -80,6 +80,7 @@ def test_pretrade_rejects_cash_position_gross_and_turnover_breaches():
         max_single_position=0.15,
         min_cash_fraction=0.90,
         max_daily_turnover_fraction=0.05,
+        max_order_notional_fraction=0.20,
     )
     decision = PreTradeRiskEngine(limits).evaluate(intent(quantity=250), snapshot())
     assert not decision.approved
@@ -88,7 +89,16 @@ def test_pretrade_rejects_cash_position_gross_and_turnover_breaches():
         "SYMBOL_CAP_BREACH",
         "GROSS_EXPOSURE_BREACH",
         "DAILY_TURNOVER_LIMIT",
+        "MAX_ORDER_NOTIONAL_BREACH",
     }
+
+
+def test_pretrade_rejects_stale_reference_price_deviation():
+    decision = PreTradeRiskEngine(
+        RiskLimits(max_reference_price_deviation=0.02)
+    ).evaluate(intent(reference_price=90.0), snapshot())
+    assert not decision.approved
+    assert decision.reason_codes == ("REFERENCE_PRICE_DEVIATION",)
 
 
 def test_pretrade_rejects_short_and_missing_position_marks():

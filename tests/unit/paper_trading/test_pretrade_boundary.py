@@ -47,6 +47,7 @@ def engine(
                 max_single_position=0.60,
                 max_gross_exposure=1.0,
                 min_cash_fraction=0.05,
+                max_order_notional_fraction=0.60,
             )
         ),
     )

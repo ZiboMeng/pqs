@@ -16,6 +16,8 @@ class RiskLimits:
     min_cash_fraction: float = 0.05
     max_daily_loss_fraction: float = 0.03
     max_daily_turnover_fraction: float = 1.0
+    max_order_notional_fraction: float = 0.35
+    max_reference_price_deviation: float = 0.05
     symbol_caps: dict[str, float] = field(default_factory=dict)
     blocked_symbols: frozenset[str] = frozenset()
     long_only: bool = True
@@ -81,6 +83,11 @@ class PreTradeRiskEngine:
             reasons.append("SHORT_POSITION_FORBIDDEN")
 
         order_notional = order.quantity * price
+        if order_notional > snapshot.equity * limits.max_order_notional_fraction:
+            reasons.append("MAX_ORDER_NOTIONAL_BREACH")
+        reference_deviation = abs(order.reference_price - price) / price
+        if reference_deviation > limits.max_reference_price_deviation:
+            reasons.append("REFERENCE_PRICE_DEVIATION")
         projected_cash = snapshot.cash - order_notional if order.side is TradingSide.BUY else snapshot.cash + order_notional
         min_cash = snapshot.equity * limits.min_cash_fraction
         if not limits.allow_margin and projected_cash < min_cash - 1e-9:
