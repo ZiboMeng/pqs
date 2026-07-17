@@ -186,3 +186,19 @@ First ritual since the 2026-04-26 baseline. RCMv1 + Cand-2 aborted
   - **(B) re-init #5(overwrite=True)**:re-anchor config + re-derive NAV;NAV 应逐位不变(同数据同 executable universe),metadata 保住。重但已验证 4 次。
   - 我倾向 **(A)**:改动可证明 benign,re-snapshot + migration_note 比 re-init 更轻且保留"config 于此日重锚"的审计痕迹。
 - sealed 2026 未读;无 silent invariant change。
+
+### 2026-07-17 cycle06/08 config_drift RESOLUTION(用户 go A → 诚实改执行 B,机制所限)
+- **诚实纠正**:上方推荐的 **(A) backfill + recover 走不通**(基于我错误假设 recover 能清 config drift)。code-verified:
+  - `recover()` runner.py:1608-1615 —— 没有 `policy_decision="invalidated"` 的 DataRevisionEvent 就 raise("halt was likely triggered by a ConfigDriftEvent, **out of scope for this recovery path**")。本次 halt 恰是纯 config-drift(revised_symbols=n/a),recover 必拒。
+  - `observe()` runner.py:951 —— 在任何 revalidate **之前**就对 `requires_data_review` 硬 raise;`decide()` 只接受 terminal 状态。
+  - ∴ **config-drift halt 唯一 sanctioned 恢复机制 = re-init(overwrite=True)**(本就 re-anchor config_snapshot + 重算 NAV)。B 达成 A 的意图(重锚 benign universe + NAV 逐位不变 + 补 TD),只是走对的机制。
+- **执行 re-init #5(overwrite,metadata 全保住)**:role=core_alpha、SPY/QQQ、cadence[10,20,40,60]/weekly、settle_window=10、start=2026-05-19。旧 manifest 备份 `*.preReinit_2026-07-17.json`。
+- **verification 全绿**:
+  - status=in_progress,n_runs=41(TD001→**TD041**,05-19→07-17),universe_hash 重锚到当前 benign 值 `4ba86629`,`config_drift_events=0`、`data_revision_events=0`。
+  - **历史 NAV 逐位一致**(pre-reinit 备份 vs 重算):TD001/10/20/31 的 (date, cum_ret, vs_spy) 四锚点全 OK → 重算未污染历史,证实 universe 改动对这两候选 benign。
+- **⚠ 市场结果(如实,TD041=2026-07-17)**:
+  - cycle06:cum_ret **+0.10%**,**vs SPY −1.20%**,vs QQQ +0.98%,MaxDD -7.45%。
+  - cycle08:cum_ret **−2.19%**,**vs SPY −3.50%**,vs QQQ −1.31%,MaxDD -9.98%。
+  - 与 07-08(TD034)一致:两候选 7 月持续跑输 SPY(cycle08 更弱,回撤扩大到近 -10%)。in-sample edge 未在 forward 存活的判读**维持**,**不在低点拍板,TD60 verdict 前继续观察**。
+- **TODO(记入,audit 纪律)**:audit 收口(commit e287201)改 universe.yaml 时**漏跑 forward observe smoke**,导致 config drift 9 天后才在 daily ritual 暴露。以后**任何改 universe.yaml / RESEARCH_FACTORS / risk.yaml 的 commit,收口同轮必跑一次活跃 forward 候选的 `observe --dry-run` drift check**(feedback_pre_post_audit_must_smoke_observe 已有此纪律,本次违反,留痕)。
+- sealed 2026 未读;无 silent invariant change。
