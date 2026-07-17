@@ -372,7 +372,10 @@ class MasterReportBuilder:
             risk["current_drawdown"]    = self._paper_trading.get("running_drawdown")
             risk["kill_switch_triggered"] = self._paper_trading.get("kill_switch", False)
         elif self._performance:
-            risk["kill_switch_triggered"] = False
+            # A historical backtest result alone cannot tell us the current
+            # runtime switch state. False previously rendered as "normal" and
+            # was easy to misread as proof that historical limits held.
+            risk["kill_switch_triggered"] = None
 
         return MasterReport(
             generated_at    = pd.Timestamp.now(),

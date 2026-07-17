@@ -347,7 +347,13 @@ class MasterReport:
         if self.risk_summary is not None:
             section_idx += 1
             r = self.risk_summary
-            ks_status = "🚨 已触发" if r.get("kill_switch_triggered") else "✅ 正常"
+            kill_switch = r.get("kill_switch_triggered")
+            if kill_switch is True:
+                ks_status = "🚨 已触发"
+            elif kill_switch is False:
+                ks_status = "✅ 正常（当前 runtime）"
+            else:
+                ks_status = "N/A（仅回测，未评估当前 runtime）"
             lines += [
                 "---",
                 f"## {section_idx}. 风险摘要",

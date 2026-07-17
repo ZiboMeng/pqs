@@ -457,6 +457,8 @@ class TestBuildAndRisk:
         report = MasterReportBuilder().set_backtest(result).build()
         assert report.risk_summary is not None
         assert report.risk_summary["max_drawdown"] == pytest.approx(-0.12)
+        assert report.risk_summary["kill_switch_triggered"] is None
+        assert "N/A（仅回测" in report.to_markdown()
 
     def test_chaining_works(self):
         """链式调用不抛出异常。"""
