@@ -13,7 +13,7 @@ dependencies = [
     "scipy>=1.10.0",
     "pyyaml>=6.0.1",
     "pydantic>=2.0.0",
-    "pydantic-settings>=2.0.0",
+    "pydantic-settings>=2.14.2",
     "yfinance>=0.2.40",
     "pyarrow>=14.0.0",
     "sqlalchemy>=2.0.0",
@@ -30,6 +30,10 @@ dependencies = [
     "requests>=2.28.0",
     "tqdm>=4.60.0",
     "pyzipper>=0.3.0",
+    # Security floors for transitive image/HTML parsers used by the
+    # reporting and market-data dependency graph (pip-audit 2026-07-17).
+    "pillow>=12.3.0",
+    "soupsieve>=2.8.4",
 ]
 
 [project.optional-dependencies]
