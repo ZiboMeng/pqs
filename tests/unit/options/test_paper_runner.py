@@ -73,6 +73,7 @@ def test_init_creates_run_dir_and_manifest(tmp_path, spec_factory):
     assert state.start_date == "2026-05-04"
     assert state.nav_initial == 10000.0
     assert state.cash == 10000.0
+    assert state.accounting_version == paper_runner.ACCOUNTING_VERSION
     assert (tmp_path / "test_run" / "spec.yaml").exists()
     assert (tmp_path / "test_run" / "manifest.json").exists()
 
@@ -91,6 +92,26 @@ def test_init_rejects_spec_hash_mismatch(tmp_path, spec_factory):
     s2 = spec_factory(short_otm_pct=0.05)
     with pytest.raises(RuntimeError, match="DIFFERENT spec_hash"):
         init_run(s2, base_dir=tmp_path)
+
+
+def test_observe_refuses_legacy_invalidated_nav_history(tmp_path, spec_factory):
+    spec = spec_factory()
+    init_run(spec, base_dir=tmp_path, start_date="2026-05-04")
+    manifest_path = tmp_path / "test_run" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest.pop("accounting_version")
+    manifest_path.write_text(json.dumps(manifest))
+
+    today = datetime(2026, 5, 4)
+    with pytest.raises(RuntimeError, match="invalidated accounting version"):
+        observe(
+            spec,
+            today,
+            600.0,
+            18.0,
+            _synthetic_spy_history(today),
+            base_dir=tmp_path,
+        )
 
 
 def _synthetic_spy_history(end_date: datetime, n_days: int = 60,

@@ -40,6 +40,8 @@ from core.options.strategies.spreads import (
 )
 
 PAPER_DIR_DEFAULT = Path("data/options/paper_runs")
+ACCOUNTING_VERSION = "options-nav-v2-liability-20260717"
+LEGACY_ACCOUNTING_VERSION = "legacy-pre-liability-fix"
 
 
 # -- Data structures --------------------------------------------------------
@@ -74,6 +76,7 @@ class RunState:
     nav_initial: float
     nav_current: float
     nav_high_water: float
+    accounting_version: str
     open_positions: list[OpenPosition] = field(default_factory=list)
     n_observe_days: int = 0
     last_observe_date: str | None = None
@@ -293,6 +296,7 @@ def _init_run_locked(
         candidate_id=spec.candidate_id, spec_hash=sh, spec_path=str(spec_path),
         start_date=start, cash=spec.initial_nav, nav_initial=spec.initial_nav,
         nav_current=spec.initial_nav, nav_high_water=spec.initial_nav,
+        accounting_version=ACCOUNTING_VERSION,
         rolling_window_max=spec.overlay.dd_halt_window,
     )
     _persist(state, run_dir)
@@ -309,6 +313,7 @@ def _state_from_manifest(d: dict) -> RunState:
         spec_path=d["spec_path"], start_date=d["start_date"],
         cash=d["cash"], nav_initial=d["nav_initial"],
         nav_current=d["nav_current"], nav_high_water=d["nav_high_water"],
+        accounting_version=d.get("accounting_version", LEGACY_ACCOUNTING_VERSION),
         open_positions=positions,
         n_observe_days=d.get("n_observe_days", 0),
         last_observe_date=d.get("last_observe_date"),
@@ -399,6 +404,12 @@ def _observe_locked(spec: StrategySpec, today_dt: datetime, spot: float, vix: fl
     if not manifest_path.exists():
         raise RuntimeError(f"Run {spec.candidate_id} not initialized. Run init_run() first.")
     state = _state_from_manifest(json.loads(manifest_path.read_text()))
+    if state.accounting_version != ACCOUNTING_VERSION:
+        raise RuntimeError(
+            f"Run {spec.candidate_id} uses invalidated accounting version "
+            f"{state.accounting_version!r}; start a new candidate run under "
+            f"{ACCOUNTING_VERSION!r}. Historical NAV must not be mixed."
+        )
     today_str = today_dt.strftime("%Y-%m-%d")
     if state.last_observe_date == today_str:
         print(f"[observe] {spec.candidate_id} already observed today ({today_str}); skipping.")
