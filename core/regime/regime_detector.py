@@ -43,6 +43,7 @@ RegimeDetector: 六状态市场环境识别。
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Optional
@@ -119,6 +120,25 @@ class RegimeReading:
             f"SPY_DD={self.spy_drawdown_from_peak:.1%} | "
             f"TNX_spike={self.tnx_spike}"
         )
+
+
+@dataclass(frozen=True)
+class RegimeAssessment:
+    """Quality-aware current regime for execution decisions.
+
+    ``confidence`` is a deterministic boundary/coverage score, not a
+    statistically calibrated forecast probability.
+    """
+
+    state: RegimeState | None
+    confidence: float
+    probabilities: Dict[str, float]
+    reasons: tuple[str, ...]
+    observations: int
+
+    @property
+    def label(self) -> str:
+        return "UNKNOWN" if self.state is None else self.state.value
 
 
 # ── RegimeDetector ────────────────────────────────────────────────────────────
@@ -272,6 +292,93 @@ class RegimeDetector:
             tnx_spike              = tnx_spike_val,
             spy_above_fast_ema     = spy_val > fast_val,
             spy_above_slow_ema     = spy_val > slow_val,
+        )
+
+    def assess_current(
+        self,
+        spy: pd.Series,
+        vix: pd.Series,
+        tnx: Optional[pd.Series] = None,
+    ) -> RegimeAssessment:
+        """Return an execution-safe regime with quality and uncertainty.
+
+        Missing/non-finite inputs or insufficient joint history produce
+        UNKNOWN instead of the legacy optimistic NEUTRAL fallback.
+        """
+        common = spy.index.intersection(vix.index)
+        observations = len(common)
+        required = self._cfg.min_history_observations
+        unknown_probabilities = {
+            **{state.value: 0.0 for state in _REGIME_ORDER},
+            "UNKNOWN": 1.0,
+        }
+        if observations < required:
+            return RegimeAssessment(
+                state=None,
+                confidence=0.0,
+                probabilities=unknown_probabilities,
+                reasons=(f"INSUFFICIENT_HISTORY:{observations}<{required}",),
+                observations=observations,
+            )
+        latest_spy = float(spy.loc[common[-1]])
+        latest_vix = float(vix.loc[common[-1]])
+        if not math.isfinite(latest_spy) or not math.isfinite(latest_vix):
+            return RegimeAssessment(
+                state=None,
+                confidence=0.0,
+                probabilities=unknown_probabilities,
+                reasons=("NON_FINITE_LATEST_INPUT",),
+                observations=observations,
+            )
+
+        reading = self.get_current(spy, vix, tnx)
+        thresholds = self._cfg.vix_thresholds
+        boundaries = [
+            thresholds.bull,
+            thresholds.risk_on,
+            thresholds.neutral,
+            thresholds.cautious,
+            thresholds.risk_off,
+        ]
+        distance = min(abs(latest_vix - boundary) for boundary in boundaries)
+        boundary_score = min(distance / 5.0, 1.0)
+        history_score = min(observations / max(self._cfg.spy_ema_slow, 1), 1.0)
+        smoothing_score = 1.0 if reading.state is reading.raw_state else 0.7
+        confidence = max(
+            0.0,
+            min(1.0, boundary_score * history_score * smoothing_score),
+        )
+
+        probabilities = {state.value: 0.0 for state in _REGIME_ORDER}
+        probabilities["UNKNOWN"] = 0.0
+        probabilities[reading.state.value] = confidence
+        residual = 1.0 - confidence
+        rank = _REGIME_RANK[reading.state]
+        neighbors = [
+            state
+            for idx, state in enumerate(_REGIME_ORDER)
+            if abs(idx - rank) == 1
+        ]
+        if neighbors:
+            for neighbor in neighbors:
+                probabilities[neighbor.value] += residual / len(neighbors)
+        else:
+            probabilities[reading.state.value] += residual
+
+        reasons = (
+            f"VIX={latest_vix:.2f}",
+            f"VIX_BOUNDARY_DISTANCE={distance:.2f}",
+            f"SPY_DRAWDOWN={reading.spy_drawdown_from_peak:.4f}",
+            f"TREND_FAST={'ABOVE' if reading.spy_above_fast_ema else 'BELOW'}",
+            f"TREND_SLOW={'ABOVE' if reading.spy_above_slow_ema else 'BELOW'}",
+            f"RAW_STATE={reading.raw_state.value}",
+        )
+        return RegimeAssessment(
+            state=reading.state,
+            confidence=confidence,
+            probabilities=probabilities,
+            reasons=reasons,
+            observations=observations,
         )
 
     def get_constraints(

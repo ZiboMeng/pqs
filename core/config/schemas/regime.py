@@ -1,6 +1,7 @@
 """Regime detection configuration schemas."""
 
 from typing import Dict
+
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -66,6 +67,8 @@ class RegimeConfig(BaseModel):
 
     # Regime smoothing: avoid flip-flopping between states
     smoothing_window: int = Field(default=3, ge=1, le=10)
+    min_history_observations: int = Field(default=60, ge=2, le=500)
+    min_live_confidence: float = Field(default=0.25, ge=0.0, le=1.0)
 
     vix_thresholds: VixThresholdsConfig = Field(default_factory=VixThresholdsConfig)
     drawdown_thresholds: DrawdownThresholdsConfig = Field(default_factory=DrawdownThresholdsConfig)

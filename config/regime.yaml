@@ -4,6 +4,8 @@ vix_symbol: "^VIX"
 tnx_symbol: "^TNX"
 tnx_spike_threshold: 0.15   # 10Y yield daily rise >= 15bp → forces minimum CAUTIOUS
 smoothing_window: 3          # avoid flip-flopping; regime confirmed after N consecutive bars
+min_history_observations: 60 # below this, live assessment is UNKNOWN and fails closed
+min_live_confidence: 0.25    # deterministic boundary confidence, not a calibrated probability
 
 vix_thresholds:
   bull:     15.0

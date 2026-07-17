@@ -12,7 +12,6 @@ from core.config.schemas.regime import (
 )
 from core.regime.regime_detector import RegimeDetector, RegimeReading, RegimeState
 
-
 # ── 辅助函数 ──────────────────────────────────────────────────────────────────
 
 def _make_config(**kw) -> RegimeConfig:
@@ -371,6 +370,42 @@ class TestGetCurrent:
         reading = det.get_current(spy, vix)
         text    = str(reading)
         assert any(s.value in text for s in RegimeState)
+
+
+class TestQualityAwareAssessment:
+    def test_insufficient_history_is_unknown_not_neutral(self):
+        detector = _make_detector()
+        assessment = detector.assess_current(_make_spy(20), _make_vix(20))
+        assert assessment.label == "UNKNOWN"
+        assert assessment.state is None
+        assert assessment.confidence == 0.0
+        assert assessment.probabilities["UNKNOWN"] == 1.0
+
+    def test_non_finite_latest_input_is_unknown(self):
+        detector = _make_detector()
+        spy = _make_spy(100)
+        vix = _make_vix(100)
+        vix.iloc[-1] = float("nan")
+        assessment = detector.assess_current(spy, vix)
+        assert assessment.label == "UNKNOWN"
+        assert assessment.reasons == ("NON_FINITE_LATEST_INPUT",)
+
+    def test_assessment_has_explainable_normalized_distribution(self):
+        detector = _make_detector()
+        assessment = detector.assess_current(_make_spy(300), _make_vix(300, 17.0))
+        assert assessment.state is RegimeState.RISK_ON
+        assert 0.0 < assessment.confidence <= 1.0
+        assert sum(assessment.probabilities.values()) == pytest.approx(1.0)
+        assert assessment.probabilities["RISK_ON"] == pytest.approx(
+            assessment.confidence
+        )
+        assert any(reason.startswith("VIX_BOUNDARY_DISTANCE=") for reason in assessment.reasons)
+
+    def test_exact_vix_boundary_has_zero_confidence(self):
+        detector = _make_detector()
+        assessment = detector.assess_current(_make_spy(300), _make_vix(300, 20.0))
+        assert assessment.state is RegimeState.NEUTRAL
+        assert assessment.confidence == 0.0
 
 
 # ── get_constraints ───────────────────────────────────────────────────────────

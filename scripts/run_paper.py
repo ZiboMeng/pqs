@@ -536,6 +536,27 @@ def main():
     except VixDataMissingError as exc:
         logger.error("Refusing to run live without fresh VIX: %s", exc)
         return
+    if args.mode == "live":
+        assessment = detector.assess_current(spy_close, vix_for_regime)
+        logger.info(
+            "Regime assessment: label=%s confidence=%.3f observations=%d reasons=%s",
+            assessment.label,
+            assessment.confidence,
+            assessment.observations,
+            ",".join(assessment.reasons),
+        )
+        if (
+            assessment.state is None
+            or assessment.confidence < cfg.regime.min_live_confidence
+        ):
+            logger.error(
+                "Refusing paper-live startup: regime is %s or low-confidence "
+                "(%.3f < %.3f)",
+                assessment.label,
+                assessment.confidence,
+                cfg.regime.min_live_confidence,
+            )
+            return
     regime = detector.classify_series(spy_close, vix_for_regime)
 
     # Strategy
