@@ -34,11 +34,14 @@ from typing import Callable, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from core.backtest.backtest_engine import BacktestResult, compute_metrics
 from core.execution.cost_model import CostModel
 from core.execution.execution_simulator import (
-    ExecutionSimulator, Fill, Order, OrderSide,
+    ExecutionSimulator,
+    Fill,
+    Order,
+    OrderSide,
 )
-from core.backtest.backtest_engine import BacktestResult, compute_metrics
 from core.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -251,6 +254,19 @@ class IntradayBacktestEngine:
         on_bar_complete: Optional[Callable[["BarUpdate"], None]] = None,
         skip_bar_fn: Optional[Callable[[pd.Timestamp], bool]] = None,
         stale_counts: Optional[Dict[str, int]] = None,
+        order_filter: Optional[
+            Callable[
+                [
+                    List[Order],
+                    pd.Timestamp,
+                    Dict[str, float],
+                    float,
+                    Dict[str, float],
+                    float,
+                ],
+                List[Order],
+            ]
+        ] = None,
     ) -> DayResult:
         """
         Execute one trading day across multiple assets using intraday bars.
@@ -274,6 +290,9 @@ class IntradayBacktestEngine:
         skip_bar_fn    : called at the start of each bar as fn(bar_ts) →
                          bool. True = skip this bar entirely (no order gen,
                          no fills, no hook). Used for idempotent re-runs.
+        order_filter   : independent pre-trade boundary called after intent
+                         generation and before the simulator/broker. It may
+                         remove orders but must never add or resize them.
 
         Returns DayResult with fills, eod_positions, eod_cash.
         """
@@ -421,6 +440,20 @@ class IntradayBacktestEngine:
                 rebal_thr=self._rebal_thr,
             )
 
+            if order_filter is not None and orders:
+                proposed = list(orders)
+                orders = order_filter(
+                    proposed,
+                    bar_ts,
+                    dict(shares),
+                    cur_cash,
+                    dict(open_prices),
+                    port_val,
+                )
+                proposed_ids = {id(order) for order in proposed}
+                if any(id(order) not in proposed_ids for order in orders):
+                    raise ValueError("order_filter may not add or replace order objects")
+
             new_fills = self._sim.simulate_fills(
                 orders=orders, open_prices=open_prices, vix=vix, cash=cur_cash,
             )
@@ -456,15 +489,43 @@ class IntradayBacktestEngine:
             for sym in list(shares):
                 if sym in day_bars and len(day_bars[sym]) > 0:
                     eod_prices[sym] = float(day_bars[sym]["close"].iloc[-1])
+            eod_orders: List[Order] = []
             for sym, qty in list(shares.items()):
                 if sym in eod_prices and eod_prices[sym] > 0:
-                    order = Order(symbol=sym, side=OrderSide.SELL,
-                                  qty_shares=qty, signal_date=date)
-                    f = self._sim.simulate_fill(order, eod_prices[sym], vix, cur_cash)
-                    if f:
-                        shares[sym] = max(shares.get(sym, 0) - f.executed_qty, 0)
-                        cur_cash += f.cash_delta
-                        fills.append(f)
+                    eod_orders.append(
+                        Order(
+                            symbol=sym,
+                            side=OrderSide.SELL,
+                            qty_shares=qty,
+                            signal_date=date,
+                            comment="EOD forced close",
+                        )
+                    )
+            if order_filter is not None and eod_orders:
+                eod_orders = order_filter(
+                    eod_orders,
+                    pd.Timestamp(bar_times[-1]),
+                    dict(shares),
+                    cur_cash,
+                    dict(eod_prices),
+                    cur_cash + sum(
+                        qty * eod_prices.get(sym, 0.0) for sym, qty in shares.items()
+                    ),
+                )
+            for order in eod_orders:
+                eod_fill = self._sim.simulate_fill(
+                    order,
+                    eod_prices[order.symbol],
+                    vix,
+                    cur_cash,
+                )
+                if eod_fill:
+                    shares[order.symbol] = max(
+                        shares.get(order.symbol, 0) - eod_fill.executed_qty,
+                        0,
+                    )
+                    cur_cash += eod_fill.cash_delta
+                    fills.append(eod_fill)
             shares = {s: q for s, q in shares.items() if q > 1e-6}
 
         end_val = cur_cash + self._multi_portfolio_value(shares, day_bars, -1)

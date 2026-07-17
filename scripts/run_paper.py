@@ -434,6 +434,38 @@ def main():
         suspend_dd_ratio=1.00,
     )
     kill_switch = KillSwitch(ks_cfg)
+    order_service = None
+    startup_reconciliation_ok = True
+    if args.mode != "status":
+        from core.trading import OrderStore, PreTradeRiskEngine, RiskLimits
+        from core.trading.order import OrderState
+        from core.trading.service import OrderRegistrationService
+
+        risk_limits = RiskLimits(
+            max_gross_exposure=cfg.risk.max_gross_exposure,
+            max_single_position=cfg.risk.position_limits.max_single_position,
+            max_positions=cfg.risk.position_limits.max_positions,
+            min_cash_fraction=cfg.risk.budget.min_cash,
+            symbol_caps=dict(cfg.risk.position_limits.symbol_caps),
+            blocked_symbols=frozenset(cfg.universe.blacklist),
+            long_only=cfg.risk.long_only,
+            allow_margin=cfg.risk.allow_margin,
+        )
+        order_service = OrderRegistrationService(
+            OrderStore(args.db_path),
+            PreTradeRiskEngine(risk_limits),
+        )
+        recovered_orders = order_service.quarantine_after_restart()
+        unresolved = [
+            order for order in recovered_orders if order.state is OrderState.UNKNOWN
+        ]
+        startup_reconciliation_ok = not unresolved
+        if recovered_orders:
+            logger.warning(
+                "Restart recovery examined %d non-terminal orders; unresolved=%d",
+                len(recovered_orders),
+                len(unresolved),
+            )
     # Share mode: config/risk.yaml::position_limits.allow_fractional_shares
     # is the single source of truth (P0.5). Prior behavior relied on
     # per-engine defaults happening to match — fragile under future
@@ -446,6 +478,13 @@ def main():
         initial_capital = cfg.system.account.initial_capital_usd,
         kill_switch     = kill_switch,
         integer_shares  = integer_shares,
+        order_service   = order_service,
+        # replay is explicitly historical; paper-live cannot reach execution
+        # until the completed-session freshness gate below passes.
+        market_data_fresh = args.mode in {"live", "replay"},
+        # No external broker is configured in this entrypoint; the durable
+        # local cash/position ledger is its reconciliation authority.
+        reconciliation_ok = startup_reconciliation_ok,
     )
 
     if args.mode == "status":

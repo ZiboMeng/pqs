@@ -19,16 +19,20 @@ from __future__ import annotations
 import json
 import sqlite3
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 
 import pandas as pd
 
-from core.execution.cost_model import CostModel
-from core.execution.execution_simulator import Order, OrderSide, Fill
 from core.backtest.backtest_engine import BacktestEngine as _DailyEngine
-from core.backtest.intraday_engine import IntradayBacktestEngine, DayResult, BarUpdate
+from core.backtest.intraday_engine import BarUpdate, DayResult, IntradayBacktestEngine
+from core.execution.cost_model import CostModel
+from core.execution.execution_simulator import Fill, Order, OrderSide
 from core.paper_trading.pnl_tracker import PnLTracker
 from core.risk.kill_switch import KillSwitch, KillSwitchConfig
+
+if TYPE_CHECKING:
+    from core.execution.broker_adapter import BrokerAdapter, ReconcileResult
+    from core.trading.service import OrderRegistrationService
 from core.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -74,6 +78,9 @@ class PaperTradingEngine:
         replay_mode:        bool               = False,
         integer_shares:     bool               = True,
         broker_adapter:     Optional["BrokerAdapter"] = None,
+        order_service:      Optional["OrderRegistrationService"] = None,
+        market_data_fresh:  bool = False,
+        reconciliation_ok:  bool = False,
     ):
         self._engine = IntradayBacktestEngine(
             cost_model         = cost_model,
@@ -107,6 +114,9 @@ class PaperTradingEngine:
         # broker replaces ExecutionSimulator.
         self._broker = broker_adapter
         self._broker_reconcile_results: List["ReconcileResult"] = []
+        self._order_service = order_service
+        self._market_data_fresh = market_data_fresh
+        self._reconciliation_ok = reconciliation_ok
 
         if replay_mode:
             logger.warning(_REPLAY_BIAS_WARNING)
@@ -246,6 +256,15 @@ class PaperTradingEngine:
             open_row=open_row,
             signal_date=signal_date,
         )
+        orders = self._apply_pretrade_boundary(
+            orders,
+            run_id=f"daily-{exec_date.date().isoformat()}",
+            bar_ts=pd.Timestamp(signal_date),
+            positions=dict(self._positions),
+            cash=self._cash,
+            prices=dict(exec_open),
+            equity=portfolio_value,
+        )
 
         fills = daily_engine._sim.simulate_fills(
             orders=orders,
@@ -253,6 +272,7 @@ class PaperTradingEngine:
             vix=vix,
             cash=self._cash,
         )
+        self._record_order_outcomes(orders, fills)
 
         for fill in fills:
             prev_qty = self._positions.get(fill.symbol, 0.0)
@@ -414,6 +434,7 @@ class PaperTradingEngine:
         bar_fill_ids: set[int] = set()
 
         def _on_bar(upd: BarUpdate) -> None:
+            self._record_order_outcomes(upd.orders, upd.fills)
             # Update in-memory state from the runtime's per-bar snapshot.
             self._positions = dict(upd.positions)
             self._cash = upd.cash
@@ -434,6 +455,24 @@ class PaperTradingEngine:
                 positions=upd.positions, cash=upd.cash,
             )
 
+        def _pretrade_filter(
+            orders: List[Order],
+            bar_ts: pd.Timestamp,
+            positions: Dict[str, float],
+            cash: float,
+            prices: Dict[str, float],
+            equity: float,
+        ) -> List[Order]:
+            return self._apply_pretrade_boundary(
+                orders,
+                run_id=run_id,
+                bar_ts=bar_ts,
+                positions=positions,
+                cash=cash,
+                prices=prices,
+                equity=equity,
+            )
+
         result = self._engine.run_multi_day(
             date=date, day_bars=day_bars,
             target_wts=target_wts,
@@ -444,6 +483,7 @@ class PaperTradingEngine:
             on_bar_complete=_on_bar,
             skip_bar_fn=_skip,
             stale_counts=self._intraday_stale_counts,
+            order_filter=_pretrade_filter if self._order_service is not None else None,
         )
 
         self._positions = result.eod_positions
@@ -462,6 +502,10 @@ class PaperTradingEngine:
         # guard with has_fill_for_bar to keep re-runs idempotent.
         residual_fills = [f for f in result.trades if id(f) not in bar_fill_ids]
         if residual_fills:
+            self._record_order_outcomes(
+                [fill.order for fill in residual_fills],
+                residual_fills,
+            )
             ref_sym = next(iter(day_bars))
             last_bar_ts = day_bars[ref_sym].index[-1]
             if not self.has_fill_for_bar(run_id, last_bar_ts):
@@ -492,6 +536,91 @@ class PaperTradingEngine:
         )
         return result
 
+    # ── Independent order/risk boundary ──────────────────────────────────────
+
+    def _apply_pretrade_boundary(
+        self,
+        orders: List[Order],
+        *,
+        run_id: str,
+        bar_ts: pd.Timestamp,
+        positions: Dict[str, float],
+        cash: float,
+        prices: Dict[str, float],
+        equity: float,
+    ) -> List[Order]:
+        """Register and independently validate each order before execution."""
+        if self._order_service is None:
+            return orders
+
+        from core.trading.order import OrderIntent, OrderState, TradingSide
+        from core.trading.risk import RiskSnapshot
+
+        accepted: List[Order] = []
+        kill_state = str(getattr(self._kill_switch, "state", "NORMAL"))
+        for order in orders:
+            decision_id = f"{run_id}:{pd.Timestamp(bar_ts).isoformat()}"
+            intent = OrderIntent(
+                symbol=order.symbol,
+                side=TradingSide(order.side.value),
+                quantity=float(order.qty_shares),
+                reference_price=float(prices[order.symbol]),
+                signal_id=f"{decision_id}:{order.symbol}",
+                strategy_id="paper-runtime",
+                decision_id=decision_id,
+                idempotency_key=f"{decision_id}:{order.symbol}:{order.side.value}",
+                comment=order.comment,
+            )
+            snapshot = RiskSnapshot(
+                equity=float(equity),
+                cash=float(cash),
+                positions=dict(positions),
+                prices=dict(prices),
+                data_fresh=self._market_data_fresh,
+                kill_switch_active=kill_state.endswith("SUSPENDED"),
+                reconciliation_ok=self._reconciliation_ok,
+            )
+            result = self._order_service.register(intent, snapshot)
+            if result.duplicate:
+                logger.warning(
+                    "Suppressing duplicate order intent %s (%s)",
+                    intent.idempotency_key,
+                    result.order.state.value,
+                )
+                continue
+            if result.order.state is not OrderState.VALIDATED:
+                logger.warning(
+                    "Pre-trade veto rejected %s %s: %s",
+                    order.side.value,
+                    order.symbol,
+                    ",".join(result.risk_decision.reason_codes)
+                    if result.risk_decision is not None
+                    else "UNKNOWN",
+                )
+                continue
+            self._order_service.mark_submitted(intent.order_id)
+            setattr(order, "canonical_order_id", intent.order_id)
+            accepted.append(order)
+        return accepted
+
+    def _record_order_outcomes(self, orders: List[Order], fills: List[Fill]) -> None:
+        if self._order_service is None:
+            return
+        fill_by_order = {id(fill.order): fill for fill in fills}
+        for order in orders:
+            order_id = getattr(order, "canonical_order_id", None)
+            if order_id is None:
+                continue
+            fill = fill_by_order.get(id(order))
+            if fill is None:
+                self._order_service.mark_rejected(
+                    order_id,
+                    reason="execution_simulator_declined",
+                )
+                continue
+            self._order_service.mark_acknowledged(order_id)
+            self._order_service.mark_fill(order_id, float(fill.executed_qty))
+
     # ── BrokerAdapter mirror helpers (Round 12) ───────────────────────────────
 
     def _mirror_fills_to_broker(self, fills: List[Fill]) -> None:
@@ -505,7 +634,9 @@ class PaperTradingEngine:
             return
         for f in fills:
             try:
-                self._broker.set_next_fill_price(f.symbol, f.executed_price)
+                set_fill_price = getattr(self._broker, "set_next_fill_price", None)
+                if callable(set_fill_price):
+                    set_fill_price(f.symbol, f.executed_price)
                 ack = self._broker.submit_order(f.order)
                 if ack.status != "ACCEPTED":
                     logger.warning(

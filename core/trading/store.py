@@ -9,7 +9,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .order import ALLOWED_TRANSITIONS, OrderIntent, OrderState, TradingSide
+from .order import (
+    ALLOWED_TRANSITIONS,
+    TERMINAL_STATES,
+    OrderIntent,
+    OrderState,
+    TradingSide,
+)
 
 
 class InvalidOrderTransitionError(RuntimeError):
@@ -138,6 +144,24 @@ class OrderStore:
                 "SELECT * FROM orders WHERE order_id = ?", (order_id,)
             ).fetchone()
         return None if row is None else self._from_row(row)
+
+    def list_nonterminal(self) -> list[StoredOrder]:
+        terminal_values = tuple(state.value for state in TERMINAL_STATES)
+        placeholders = ",".join("?" for _ in terminal_values)
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"SELECT * FROM orders WHERE state NOT IN ({placeholders}) "  # noqa: S608
+                "ORDER BY created_at, order_id",
+                terminal_values,
+            ).fetchall()
+        return [self._from_row(row) for row in rows]
+
+    def list_all(self) -> list[StoredOrder]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM orders ORDER BY created_at, order_id"
+            ).fetchall()
+        return [self._from_row(row) for row in rows]
 
     def transition(
         self,

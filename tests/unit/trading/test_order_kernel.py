@@ -176,3 +176,20 @@ def test_registration_service_durably_records_veto_and_deduplicates(tmp_path):
     assert duplicate.duplicate
     assert duplicate.order.state is OrderState.REJECTED
     assert duplicate.risk_decision is None
+
+
+def test_restart_quarantines_possibly_submitted_orders_without_retry(tmp_path):
+    store = OrderStore(tmp_path / "orders.db")
+    service = OrderRegistrationService(store, PreTradeRiskEngine(RiskLimits()))
+    order = intent()
+    result = service.register(order, snapshot())
+    assert result.order.state is OrderState.VALIDATED
+    service.mark_submitted(order.order_id, broker_order_id="broker-unknown")
+
+    recovered = OrderRegistrationService(
+        OrderStore(tmp_path / "orders.db"),
+        PreTradeRiskEngine(RiskLimits()),
+    ).quarantine_after_restart()
+    assert len(recovered) == 1
+    assert recovered[0].state is OrderState.UNKNOWN
+    assert recovered[0].broker_order_id == "broker-unknown"
