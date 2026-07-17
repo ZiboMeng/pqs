@@ -16,11 +16,16 @@ Outputs per candidate (under data/options/paper_runs/<id>/):
 """
 from __future__ import annotations
 
+import fcntl
 import json
 import math
+import os
+import tempfile
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Iterator
 
 import numpy as np
 import pandas as pd
@@ -257,6 +262,16 @@ def init_run(spec: StrategySpec, base_dir: Path = PAPER_DIR_DEFAULT,
              start_date: str | None = None) -> RunState:
     """Bootstrap a fresh paper run. Idempotent — reuses existing if found."""
     run_dir = base_dir / spec.candidate_id
+    with _run_lock(run_dir):
+        return _init_run_locked(spec, base_dir, start_date)
+
+
+def _init_run_locked(
+    spec: StrategySpec,
+    base_dir: Path,
+    start_date: str | None,
+) -> RunState:
+    run_dir = base_dir / spec.candidate_id
     spec_path = run_dir / "spec.yaml"
     manifest_path = run_dir / "manifest.json"
 
@@ -311,22 +326,74 @@ def _persist(state: RunState, run_dir: Path) -> None:
         **{k: v for k, v in asdict(state).items() if k != "open_positions"},
         "open_positions": [asdict(p) for p in state.open_positions],
     }
-    (run_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str))
+    _atomic_write_text(
+        run_dir / "manifest.json",
+        json.dumps(manifest, indent=2, default=str),
+    )
 
 
-def _append_csv(path: Path, row: dict) -> None:
-    new_file = not path.exists()
-    df = pd.DataFrame([row])
-    if new_file:
-        df.to_csv(path, index=False)
+def _atomic_write_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp_name, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_name)
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def _upsert_csv(path: Path, row: dict, *, key_columns: tuple[str, ...]) -> None:
+    incoming = pd.DataFrame([row])
+    if path.exists():
+        existing = pd.read_csv(path)
+        for column in key_columns:
+            if column not in existing.columns:
+                raise RuntimeError(f"{path} is missing required key column {column}")
+        matches = pd.Series(True, index=existing.index)
+        for column in key_columns:
+            matches &= existing[column].astype(str) == str(row[column])
+        output = pd.concat([existing.loc[~matches], incoming], ignore_index=True)
     else:
-        df.to_csv(path, mode="a", header=False, index=False)
+        output = incoming
+    _atomic_write_text(path, output.to_csv(index=False))
+
+
+@contextmanager
+def _run_lock(run_dir: Path) -> Iterator[None]:
+    run_dir.mkdir(parents=True, exist_ok=True)
+    with (run_dir / ".observe.lock").open("a+", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def observe(spec: StrategySpec, today_dt: datetime, spot: float, vix: float,
             spy_history_close: pd.Series,
             base_dir: Path = PAPER_DIR_DEFAULT) -> dict:
     """Run one daily observation. Returns dict with summary."""
+    run_dir = base_dir / spec.candidate_id
+    with _run_lock(run_dir):
+        return _observe_locked(
+            spec,
+            today_dt,
+            spot,
+            vix,
+            spy_history_close,
+            base_dir,
+        )
+
+
+def _observe_locked(spec: StrategySpec, today_dt: datetime, spot: float, vix: float,
+                    spy_history_close: pd.Series, base_dir: Path) -> dict:
     run_dir = base_dir / spec.candidate_id
     manifest_path = run_dir / "manifest.json"
     if not manifest_path.exists():
@@ -355,12 +422,12 @@ def observe(spec: StrategySpec, today_dt: datetime, spot: float, vix: float,
             state.closed_positions_count += 1
             reason = ("expiry_full_loss" if payoff >= pos.width_per_share - 1e-6
                       else "expiry_partial_loss" if payoff > 0 else "expiry_worthless")
-            _append_csv(run_dir / "trade_log.csv", {
+            _upsert_csv(run_dir / "trade_log.csv", {
                 "date": today_str, "event": "close", "structure": pos.structure,
                 "reason": reason, "contracts": pos.contracts,
                 "credit_per_share": pos.credit_per_share, "close_value": payoff,
                 "pnl_total": pnl_total,
-            })
+            }, key_columns=("date", "event", "structure", "reason"))
             events.append(f"closed:{reason}:${pnl_total:+.2f}")
             continue
 
@@ -373,12 +440,12 @@ def observe(spec: StrategySpec, today_dt: datetime, spot: float, vix: float,
             state.cash += pos.cash_collateral
             state.realized_pnl_cumulative += pnl
             state.closed_positions_count += 1
-            _append_csv(run_dir / "trade_log.csv", {
+            _upsert_csv(run_dir / "trade_log.csv", {
                 "date": today_str, "event": "close", "structure": pos.structure,
                 "reason": "stop_loss", "contracts": pos.contracts,
                 "credit_per_share": pos.credit_per_share, "close_value": mtm,
                 "pnl_total": pnl,
-            })
+            }, key_columns=("date", "event", "structure", "reason"))
             events.append(f"closed:stop_loss:${pnl:+.2f}")
             continue
         # Profit target
@@ -388,12 +455,12 @@ def observe(spec: StrategySpec, today_dt: datetime, spot: float, vix: float,
             state.cash += pos.cash_collateral
             state.realized_pnl_cumulative += pnl
             state.closed_positions_count += 1
-            _append_csv(run_dir / "trade_log.csv", {
+            _upsert_csv(run_dir / "trade_log.csv", {
                 "date": today_str, "event": "close", "structure": pos.structure,
                 "reason": "early_tp", "contracts": pos.contracts,
                 "credit_per_share": pos.credit_per_share, "close_value": mtm,
                 "pnl_total": pnl,
-            })
+            }, key_columns=("date", "event", "structure", "reason"))
             events.append(f"closed:early_tp:${pnl:+.2f}")
             continue
         # Time stop
@@ -403,12 +470,12 @@ def observe(spec: StrategySpec, today_dt: datetime, spot: float, vix: float,
             state.cash += pos.cash_collateral
             state.realized_pnl_cumulative += pnl
             state.closed_positions_count += 1
-            _append_csv(run_dir / "trade_log.csv", {
+            _upsert_csv(run_dir / "trade_log.csv", {
                 "date": today_str, "event": "close", "structure": pos.structure,
                 "reason": "time_stop", "contracts": pos.contracts,
                 "credit_per_share": pos.credit_per_share, "close_value": mtm,
                 "pnl_total": pnl,
-            })
+            }, key_columns=("date", "event", "structure", "reason"))
             events.append(f"closed:time_stop:${pnl:+.2f}")
             continue
         still_open.append(pos)
@@ -442,12 +509,12 @@ def observe(spec: StrategySpec, today_dt: datetime, spot: float, vix: float,
                     state.cash += pos.credit_per_share * 100.0 * pos.contracts
                     state.open_positions.append(pos)
                     opened = True
-                    _append_csv(run_dir / "trade_log.csv", {
+                    _upsert_csv(run_dir / "trade_log.csv", {
                         "date": today_str, "event": "open", "structure": pos.structure,
                         "reason": "monthly_entry", "contracts": pos.contracts,
                         "credit_per_share": pos.credit_per_share, "close_value": None,
                         "pnl_total": None,
-                    })
+                    }, key_columns=("date", "event", "structure", "reason"))
                     events.append(f"opened:{pos.structure}:credit=${pos.credit_per_share:.2f}/sh×{pos.contracts}")
 
                     # Opening changes cash/collateral/liability atomically.
@@ -469,14 +536,14 @@ def observe(spec: StrategySpec, today_dt: datetime, spot: float, vix: float,
     state.last_observe_date = today_str
     state.last_observe_at_utc = datetime.now(UTC).isoformat()
 
-    _append_csv(run_dir / "daily_nav.csv", {
+    _upsert_csv(run_dir / "daily_nav.csv", {
         "date": today_str, "nav": nav_today, "spot": spot, "vix": vix,
         "iv_put": iv_put, "iv_call": iv_call, "cash": state.cash,
         "collateral": collateral, "option_liability": option_liability,
         "unrealized_pnl": unrealized,
         "rolling_dd": rolling_dd, "n_open": len(state.open_positions),
         "opened_today": opened, "events": "|".join(events) if events else "",
-    })
+    }, key_columns=("date",))
     _persist(state, run_dir)
 
     return {

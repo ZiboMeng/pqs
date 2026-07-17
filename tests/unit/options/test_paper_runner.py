@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import pytest
 
+import core.options.paper.runner as paper_runner
 from core.options.paper.runner import _is_last_bday_of_month, init_run, observe
 from core.options.paper.spec import (
     OverlayParams,
@@ -119,6 +120,35 @@ def test_observe_idempotent_same_day(tmp_path, spec_factory):
     observe(spec, today, 600.0, 18.0, hist, base_dir=tmp_path)
     res = observe(spec, today, 600.0, 18.0, hist, base_dir=tmp_path)
     assert res["status"] == "skipped_already_today"
+
+
+def test_observe_recovers_without_duplicate_rows_after_manifest_write_crash(
+    tmp_path, spec_factory, monkeypatch
+):
+    spec = spec_factory()
+    init_run(spec, base_dir=tmp_path, start_date="2026-05-29")
+    today = datetime(2026, 5, 29)
+    hist = _synthetic_spy_history(today)
+    original_persist = paper_runner._persist
+    calls = 0
+
+    def fail_once(state, run_dir):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise OSError("injected manifest write failure")
+        return original_persist(state, run_dir)
+
+    monkeypatch.setattr(paper_runner, "_persist", fail_once)
+    with pytest.raises(OSError, match="injected"):
+        observe(spec, today, 600.0, 18.0, hist, base_dir=tmp_path)
+
+    # The manifest remains the pre-observation state, so retry recomputes the
+    # same business events. Atomic upsert must replace, not duplicate, rows.
+    result = observe(spec, today, 600.0, 18.0, hist, base_dir=tmp_path)
+    assert result["status"] == "observed"
+    assert len(pd.read_csv(tmp_path / "test_run" / "daily_nav.csv")) == 1
+    assert len(pd.read_csv(tmp_path / "test_run" / "trade_log.csv")) == 1
 
 
 def test_observe_opens_position_on_last_bday_of_month(tmp_path, spec_factory):
