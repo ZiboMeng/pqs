@@ -435,9 +435,15 @@ def main():
     )
     kill_switch = KillSwitch(ks_cfg)
     order_service = None
+    manual_pause_check = None
     startup_reconciliation_ok = True
     if args.mode != "status":
-        from core.trading import OrderStore, PreTradeRiskEngine, RiskLimits
+        from core.trading import (
+            OrderStore,
+            PreTradeRiskEngine,
+            RiskLimits,
+            TradingControlStore,
+        )
         from core.trading.order import OrderState
         from core.trading.service import OrderRegistrationService
 
@@ -455,6 +461,15 @@ def main():
             OrderStore(args.db_path),
             PreTradeRiskEngine(risk_limits),
         )
+        control_store = TradingControlStore(args.db_path)
+
+        def _control_pause_check(symbol: str) -> bool:
+            return control_store.is_paused(
+                strategy_id="paper-runtime",
+                symbol=symbol,
+            )
+
+        manual_pause_check = _control_pause_check
         recovered_orders = order_service.quarantine_after_restart()
         unresolved = [
             order for order in recovered_orders if order.state is OrderState.UNKNOWN
@@ -485,6 +500,7 @@ def main():
         # No external broker is configured in this entrypoint; the durable
         # local cash/position ledger is its reconciliation authority.
         reconciliation_ok = startup_reconciliation_ok,
+        manual_pause_check = manual_pause_check,
     )
 
     if args.mode == "status":

@@ -81,6 +81,7 @@ class PaperTradingEngine:
         order_service:      Optional["OrderRegistrationService"] = None,
         market_data_fresh:  bool = False,
         reconciliation_ok:  bool = False,
+        manual_pause_check: Optional[Callable[[str], bool]] = None,
     ):
         self._engine = IntradayBacktestEngine(
             cost_model         = cost_model,
@@ -117,6 +118,7 @@ class PaperTradingEngine:
         self._order_service = order_service
         self._market_data_fresh = market_data_fresh
         self._reconciliation_ok = reconciliation_ok
+        self._manual_pause_check = manual_pause_check
 
         if replay_mode:
             logger.warning(_REPLAY_BIAS_WARNING)
@@ -578,6 +580,11 @@ class PaperTradingEngine:
                 prices=dict(prices),
                 data_fresh=self._market_data_fresh,
                 kill_switch_active=kill_state.endswith("SUSPENDED"),
+                manual_pause=(
+                    self._manual_pause_check(order.symbol)
+                    if self._manual_pause_check is not None
+                    else False
+                ),
                 reconciliation_ok=self._reconciliation_ok,
             )
             result = self._order_service.register(intent, snapshot)

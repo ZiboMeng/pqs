@@ -31,7 +31,12 @@ def bars() -> dict[str, pd.DataFrame]:
     }
 
 
-def engine(tmp_path: Path, *, data_fresh: bool) -> tuple[PaperTradingEngine, OrderStore]:
+def engine(
+    tmp_path: Path,
+    *,
+    data_fresh: bool,
+    manually_paused: bool = False,
+) -> tuple[PaperTradingEngine, OrderStore]:
     cfg = load_config(Path("config"))
     db_path = tmp_path / "paper.db"
     store = OrderStore(db_path)
@@ -54,6 +59,7 @@ def engine(tmp_path: Path, *, data_fresh: bool) -> tuple[PaperTradingEngine, Ord
         order_service=service,
         market_data_fresh=data_fresh,
         reconciliation_ok=True,
+        manual_pause_check=lambda _symbol: manually_paused,
     )
     return paper, store
 
@@ -104,3 +110,17 @@ def test_fresh_order_runs_through_durable_lifecycle_once(tmp_path):
     second = paper.run_day_intraday(**kwargs)
     assert second.n_trades == 0
     assert len(store.list_all()) == 1
+
+
+def test_durable_manual_pause_vetoes_before_fill(tmp_path):
+    paper, store = engine(tmp_path, data_fresh=True, manually_paused=True)
+    result = paper.run_day_intraday(
+        run_id="paused-run",
+        date=pd.Timestamp("2026-04-27"),
+        day_bars=bars(),
+        target_wts={"SPY": 0.50},
+    )
+    assert result.n_trades == 0
+    assert store.list_all()[0].state is OrderState.REJECTED
+    events = store.events(store.list_all()[0].intent.order_id)
+    assert events[-1]["metadata"]["reason_codes"] == ["MANUAL_PAUSE_ACTIVE"]

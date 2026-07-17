@@ -1,5 +1,6 @@
 """Fail-closed order, risk, and persistence primitives."""
 
+from .controls import ControlScope, TradingControl, TradingControlStore
 from .order import OrderIntent, OrderState, TradingSide
 from .risk import PreTradeRiskEngine, RiskDecision, RiskLimits, RiskSnapshot
 from .service import OrderRegistrationService, RegistrationResult
@@ -16,4 +17,7 @@ __all__ = [
     "RiskSnapshot",
     "RegistrationResult",
     "TradingSide",
+    "ControlScope",
+    "TradingControl",
+    "TradingControlStore",
 ]
