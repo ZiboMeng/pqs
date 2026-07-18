@@ -1,0 +1,24 @@
+schema_version: 1
+mode: PAPER
+live_enabled: false
+initial_capital_usd: 100000.0
+
+aggregate_limits:
+  max_gross_exposure: 1.00
+  max_single_position: 0.35
+  minimum_cash_fraction: 0.05
+  symbol_caps:
+    SPY: 0.35
+    QQQ: 0.30
+    IEF: 0.35
+    GLD: 0.20
+    BIL: 0.35
+    SHY: 0.35
+    TQQQ: 0.10
+
+strategy_budgets:
+  dual_index_growth_v1:
+    capital_fraction: 1.00
+    max_gross_exposure: 1.00
+    max_turnover: 8.00
+    priority: 10

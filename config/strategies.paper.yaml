@@ -1,0 +1,28 @@
+schema_version: 1
+mode: PAPER
+live_enabled: false
+
+strategies:
+  - strategy_id: dual_index_growth_v1
+    enabled: true
+    parameters:
+      slow_trend: 168
+      equity_gross: 0.70
+      cooldown_sessions: 21
+    # Validation proved that a second, external risk-on-only gate destroys
+    # the candidate's edge. The strategy's own dual-index trend state remains
+    # its equity gate; every recognized external regime is monitor-only.
+    allowed_regimes:
+      - RISK_OFF
+      - DEFENSIVE
+      - NEUTRAL
+      - SIDEWAYS
+      - RISK_ON
+      - STRONG_BULL_TREND
+      - STRESSED
+    minimum_regime_confidence: 0.50
+    regime_integration_mode: quality_fail_closed
+    schedule:
+      signal_time: session_close
+      execution_time: next_tradable_open
+      decision_frequency: month_end

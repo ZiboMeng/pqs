@@ -1,0 +1,14 @@
+schema_version: 1
+mode: PAPER
+live_enabled: false
+minimum_confidence: 0.50
+vix_mode: strict
+
+adapter:
+  minimum_duration: 3
+  improvement_hysteresis: 3
+  post_stress_cooldown: 10
+  minimum_history: 200
+  strong_trend_return_126: 0.08
+  sideways_abs_return_63: 0.03
+  max_quality_volatility: 0.60

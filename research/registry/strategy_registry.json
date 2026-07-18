@@ -1,4 +1,65 @@
 {
   "schema_version": 1,
-  "strategies": []
+  "strategies": [
+    {
+      "asset_universe": [
+        "SPY",
+        "QQQ",
+        "IEF",
+        "GLD",
+        "BIL",
+        "SHY"
+      ],
+      "family": "dual_index_growth",
+      "invalidating_conditions": [
+        "rolling 60-session Sharpe below -0.5",
+        "portfolio drawdown reaches 25%",
+        "research or executable data provenance changes",
+        "signal-to-fill timing or cost accounting drifts from certification",
+        "broker reconciliation is not clean",
+        "external regime becomes UNKNOWN or confidence falls below 0.50"
+      ],
+      "kill_switch": {
+        "degrade_drawdown": 0.175,
+        "halt_drawdown": 0.25,
+        "loss_streak_sessions": 5,
+        "manual_global_strategy_symbol_pauses": true
+      },
+      "live_enabled": false,
+      "max_position": 0.35,
+      "max_turnover": 8.0,
+      "promotion_evidence": {
+        "development": "research/results/phase2/development/selection_d2r5.json",
+        "final_holdout": "research/results/phase2/holdout/summary_d2r5.json",
+        "operational": null,
+        "validation": "research/results/phase2/validation/summary_d2r5.json"
+      },
+      "required_data": {
+        "frequency": "1d",
+        "minimum_history_sessions": 252,
+        "price_basis": "total_return_adjusted",
+        "required_fields": [
+          "open",
+          "close"
+        ],
+        "vix_required": true
+      },
+      "risk_budget": {
+        "capital_fraction": 1.0,
+        "equity_gate": "internal dual-index long-trend state",
+        "max_equity_gross": 0.70,
+        "max_gross_exposure": 1.0,
+        "minimum_cash_fraction": 0.05
+      },
+      "schedule": {
+        "decision_frequency": "month_end",
+        "execution_time": "next_tradable_open",
+        "signal_time": "session_close"
+      },
+      "status": "RESEARCH_QUALIFIED",
+      "strategy_id": "dual_index_growth_v1",
+      "strategy_type": "growth_engine",
+      "version": "v1"
+    }
+  ]
 }
