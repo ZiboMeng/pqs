@@ -58,6 +58,24 @@ mostly a low-return/cash-exposure effect rather than compensated alpha. Negative
 risk-adjusted returns reject the v1 oversold trigger; it will not be tuned after
 viewing these outcomes.
 
+### D2R2 validation outcome
+
+Adaptive core completed all six registered validation/robustness runs and
+passed every frozen research gate on 2017–2023: CAGR 9.04%, Sharpe 0.606,
+Sortino 0.766, MaxDD -14.75%, 5/7 positive annual folds, both parameter
+neighbors passing, 2x-cost Sharpe 0.597 and delayed-signal Sharpe 0.635. Its
+stationary-bootstrap CAGR interval is 2.70% to 15.84%. It becomes a frozen
+holdout finalist, not yet a PAPER strategy.
+
+Sector rotation v1 failed closed before performance evaluation. In validation,
+a date with only one eligible positive-momentum sector made the v1 allocator
+attempt a 70% single-symbol target, violating the 35% hard cap. The base run is
+`FAILED`; its six dependent robustness experiments are also retained as
+`FAILED`. V1 is ineligible. A safety-corrected v2 may be preregistered as a new
+version with one fixed development cell and unchanged gates; because v1 exposed
+the validation period, v2 validation reuse is explicitly non-pristine and only
+the still-unaccessed final holdout can provide new final evidence.
+
 ## Legacy D1 design notes (performance numbers invalidated)
 
 The subsections below preserve the original D1 attribution. Every performance

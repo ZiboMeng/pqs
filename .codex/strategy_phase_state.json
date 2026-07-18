@@ -3,15 +3,15 @@
   "baseline_commit": "9ffc1ce564ca18a04554db20a442749e65f24672",
   "baseline_tag": "codex-pre-strategy-research-20260717",
   "branch": "codex/strategy-research-and-paper-v2",
-  "current_phase": "D2R2_DEVELOPMENT_COMPLETE",
-  "last_completed_task": "Executed all 41 D2R2 development cells: 4 passed basic gates, 37 failed; froze adaptive_core cell 09 and sector_rotation cell 03 as the only development-qualified family representatives.",
-  "next_task": "Commit/push all D2R2 development evidence and failure attribution, preregister validation plus robustness runs for only adaptive_core and sector_rotation, then execute them.",
+  "current_phase": "SECTOR_ROTATION_V2_REPAIR_PREREGISTRATION",
+  "last_completed_task": "Adaptive core passed all D2R2 validation gates. Sector rotation v1 failed closed when one eligible sector produced a 70% target above the 35% cap; all dependent runs were failed and retained.",
+  "next_task": "Commit D2R2 validation evidence, preregister a one-cell sector rotation v2 safety repair with explicit validation reuse, then execute development and validation without tuning.",
   "open_p0": [],
   "open_p1": [],
   "candidate_strategies": [
-    "adaptive_core_v1:DEVELOPMENT_PASS_VALIDATION_PENDING",
+    "adaptive_core_v1:VALIDATION_PASS_HOLDOUT_PENDING",
     "controlled_growth_v1:DEVELOPMENT_FAIL_STOP_V1",
-    "sector_rotation_v1:DEVELOPMENT_PASS_VALIDATION_PENDING",
+    "sector_rotation_v1:VALIDATION_EXECUTION_FAIL_REPAIR_AS_V2",
     "etf_reversion_v1:DEVELOPMENT_FAIL_STOP_V1"
   ],
   "promoted_paper_strategies": [],
@@ -21,6 +21,6 @@
   ],
   "last_test_command": "pytest -q tests/unit/data tests/unit/research/test_source_boundaries.py tests/unit/research/test_forward_source_layer.py tests/unit/research/test_phase2_registry_promotion.py tests/unit/research/test_phase2_runner_protocol.py tests/unit/signals/test_phase2_etf_strategies.py tests/unit/regime/test_phase2_regime.py tests/unit/portfolio/test_strategy_allocator.py tests/unit/scripts/test_fetch_data_preclose_raise.py tests/unit/backtest tests/unit/execution tests/unit/paper_trading tests/integration/test_backtest_paper_consistency.py",
   "last_test_result": "PASS: 706 passed, 1 xfailed, 0 failed in 130.81s; focused Ruff and mypy passed; repeated store/source tests left the real provenance hash unchanged.",
-  "last_backtest_run": "D2R2 development: 41/41 completed, 4 PASS and 37 FAIL. Winners: adaptive_core 6.30% CAGR/0.307 Sharpe/-10.93% MaxDD; sector_rotation 7.25%/0.406/-12.80%. Growth and reversion had zero passing cells.",
-  "last_updated_utc": "2026-07-18T01:44:00Z"
+  "last_backtest_run": "D2R2 validation: adaptive_core PASS all gates at 9.04% CAGR/0.606 Sharpe/-14.75% MaxDD; sector_rotation v1 FAILED before metrics on the 35% symbol-cap invariant.",
+  "last_updated_utc": "2026-07-18T01:50:00Z"
 }

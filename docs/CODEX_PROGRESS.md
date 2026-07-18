@@ -115,17 +115,23 @@ controlled growth and ETF reversion stop at v1. No strategy is promoted.
   (7.25%, 0.406, -12.80%). Growth and ETF reversion had zero passing cells and stop at v1.
 - Tightened the validation runner so a family that failed its frozen development gate cannot
   consume validation experiments merely because a within-family representative was selected.
+- Adaptive core completed all six D2R2 validation/robustness runs and passed every frozen
+  research gate (9.04% CAGR, 0.606 Sharpe, -14.75% MaxDD, 5/7 positive annual folds, 100%
+  neighbor pass, strong 2x-cost and delay results).
+- Sector rotation v1 failed closed in validation before metrics: a single eligible sector caused
+  a 70% target and violated the 35% symbol cap. Its base and six dependency runs are retained as
+  failed. Validation summaries now persist atomically per family and recover after interruption.
 
 ## In progress
 
-- Commit/push every D2R2 development artifact and failure attribution, then preregister
-  validation/robustness experiments for adaptive core and sector rotation only.
+- Commit/push D2R2 validation evidence, then preregister a one-cell sector rotation v2 safety
+  repair with new version/experiment lineage and explicit validation-reuse disclosure.
 
 ## Next
 
-1. Register validation base, 2x-cost, delay, deterministic rerun and adjacent-neighbor cells.
-2. Execute validation and freeze all gate details, annual folds, stress and bootstrap evidence.
-3. Admit only validation-qualified finalists to the one-time final holdout.
+1. Implement and preregister the sector rotation v2 single-symbol-cap repair; do not tune it.
+2. Run its fixed development cell, then validation/robustness under unchanged gates.
+3. Admit adaptive core and only a qualifying sector v2 to the one-time final holdout.
 4. Admit only holdout-qualified, complementary strategies to PAPER replay.
 
 ## Unresolved issues
