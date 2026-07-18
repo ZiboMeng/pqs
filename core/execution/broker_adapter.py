@@ -21,10 +21,13 @@ Design principles (per CLAUDE.md):
 
 from __future__ import annotations
 
+import json
+import sqlite3
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List, Optional
 
 from core.execution.cost_model import CostModel
@@ -122,6 +125,7 @@ class SimulatedBrokerAdapter(BrokerAdapter):
         cost_model:      CostModel,
         initial_cash:    float = 100_000.0,
         initial_positions: Optional[Dict[str, float]] = None,
+        state_db_path: Optional[str | Path] = None,
     ):
         self._sim = ExecutionSimulator(
             cost_model, freq="interday", allow_partial=True,
@@ -137,6 +141,10 @@ class SimulatedBrokerAdapter(BrokerAdapter):
         self._next_fill_prices: Dict[str, float] = {}
         # Default price if nothing injected — caller's responsibility
         self._default_price: Optional[float] = None
+        self._state_db_path = Path(state_db_path) if state_db_path is not None else None
+        if self._state_db_path is not None:
+            self._initialize_state_db()
+            self._load_persisted_state()
 
     # ── Knobs for tests ──────────────────────────────────────────────────────
 
@@ -174,6 +182,8 @@ class SimulatedBrokerAdapter(BrokerAdapter):
             )
 
         order_id = uuid.uuid4().hex[:12]
+        old_cash = self._cash
+        old_positions = dict(self._positions)
         previous = self._positions.get(fill.symbol, 0.0)
         if fill.side == OrderSide.BUY:
             self._positions[fill.symbol] = previous + fill.executed_qty
@@ -185,6 +195,12 @@ class SimulatedBrokerAdapter(BrokerAdapter):
             for symbol, quantity in self._positions.items()
             if quantity > 1e-6
         }
+        try:
+            self._persist_state(fill_key=fill_key, broker_order_id=order_id)
+        except Exception:
+            self._cash = old_cash
+            self._positions = old_positions
+            raise
         self._fills.append(fill)
         self._fill_timestamps.append(datetime.now())
         self._mirrored_fill_ids[fill_key] = order_id
@@ -229,6 +245,8 @@ class SimulatedBrokerAdapter(BrokerAdapter):
             )
 
         # Book the fill
+        old_cash = self._cash
+        old_positions = dict(self._positions)
         prev = self._positions.get(sym, 0.0)
         if fill.side == OrderSide.BUY:
             self._positions[sym] = prev + fill.executed_qty
@@ -237,6 +255,13 @@ class SimulatedBrokerAdapter(BrokerAdapter):
         self._cash += fill.cash_delta
         self._positions = {s: q for s, q in self._positions.items() if q > 1e-6}
 
+        try:
+            self._persist_state()
+        except Exception:
+            self._cash = old_cash
+            self._positions = old_positions
+            self._open_orders.pop(order_id, None)
+            raise
         self._fills.append(fill)
         self._fill_timestamps.append(datetime.now())
         # Order completes (simulated, no partial fills here)
@@ -291,3 +316,82 @@ class SimulatedBrokerAdapter(BrokerAdapter):
             cash_mismatch=cash_diff,
             details=details,
         )
+
+    def _initialize_state_db(self) -> None:
+        assert self._state_db_path is not None
+        self._state_db_path.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(self._state_db_path) as conn:
+            conn.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS simulated_broker_state (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    cash REAL NOT NULL,
+                    positions_json TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS simulated_broker_fill_keys (
+                    fill_key TEXT PRIMARY KEY,
+                    broker_order_id TEXT NOT NULL,
+                    recorded_at TEXT NOT NULL
+                );
+                """
+            )
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO simulated_broker_state (
+                    id, cash, positions_json, updated_at
+                ) VALUES (1, ?, ?, ?)
+                """,
+                (self._cash, json.dumps(self._positions, sort_keys=True), datetime.now().isoformat()),
+            )
+
+    def _load_persisted_state(self) -> None:
+        assert self._state_db_path is not None
+        with sqlite3.connect(self._state_db_path) as conn:
+            row = conn.execute(
+                "SELECT cash, positions_json FROM simulated_broker_state WHERE id = 1"
+            ).fetchone()
+            keys = conn.execute(
+                "SELECT fill_key, broker_order_id FROM simulated_broker_fill_keys"
+            ).fetchall()
+        if row is not None:
+            self._cash = float(row[0])
+            self._positions = {
+                str(symbol): float(quantity)
+                for symbol, quantity in json.loads(row[1]).items()
+            }
+        self._mirrored_fill_ids = {str(key): str(order_id) for key, order_id in keys}
+
+    def _persist_state(
+        self,
+        *,
+        fill_key: str | None = None,
+        broker_order_id: str | None = None,
+    ) -> None:
+        if self._state_db_path is None:
+            return
+        with sqlite3.connect(self._state_db_path) as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            if fill_key is not None:
+                if broker_order_id is None:
+                    raise ValueError("broker_order_id is required with fill_key")
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO simulated_broker_fill_keys (
+                        fill_key, broker_order_id, recorded_at
+                    ) VALUES (?, ?, ?)
+                    """,
+                    (fill_key, broker_order_id, datetime.now().isoformat()),
+                )
+            conn.execute(
+                """
+                UPDATE simulated_broker_state
+                SET cash = ?, positions_json = ?, updated_at = ?
+                WHERE id = 1
+                """,
+                (
+                    self._cash,
+                    json.dumps(self._positions, sort_keys=True),
+                    datetime.now().isoformat(),
+                ),
+            )

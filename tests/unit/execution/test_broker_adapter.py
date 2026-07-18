@@ -169,6 +169,25 @@ class TestFillsHistory:
         assert abs(ba.get_cash() - expected_cash) < 1e-4
 
 
+def test_simulated_broker_state_survives_restart(tmp_path):
+    state_db = tmp_path / "broker.db"
+    first = SimulatedBrokerAdapter(
+        cost_model=_cost(),
+        initial_cash=100_000.0,
+        state_db_path=state_db,
+    )
+    first.set_default_fill_price(100.0)
+    first.submit_order(_mk_order("AAPL", OrderSide.BUY, 10))
+
+    restarted = SimulatedBrokerAdapter(
+        cost_model=_cost(),
+        initial_cash=1.0,
+        state_db_path=state_db,
+    )
+    assert restarted.get_cash() == first.get_cash()
+    assert restarted.get_positions() == first.get_positions()
+
+
 class TestContractPurity:
     """BrokerAdapter must NOT expose any strategy-layer concern — only
     order submission, position/cash queries, reconcile. Strategy code
