@@ -1,0 +1,50 @@
+{
+  "accesses": [
+    {
+      "code_commit": "ab52983a64c48608b382ef29c0bb4d9df7dae999",
+      "data_revision": "d2r2",
+      "experiment_id": "P2-D2R2-HOLDOUT-ADAPTIVE-CORE-FINAL",
+      "family": "adaptive_core",
+      "parameters": {
+        "trend_windows": [
+          84,
+          168,
+          252
+        ],
+        "volatility_target": 0.14
+      },
+      "parameters_locked": true,
+      "purpose": "single frozen phase-two finalist evaluation",
+      "range": {
+        "end": "2026-07-17",
+        "start": "2024-01-02"
+      },
+      "result_viewed_before_access": false,
+      "strategy_id": "adaptive_core_v1"
+    },
+    {
+      "code_commit": "ab52983a64c48608b382ef29c0bb4d9df7dae999",
+      "data_revision": "d2r3",
+      "experiment_id": "P2-D2R3-HOLDOUT-SECTOR-ROTATION-V2-FINAL",
+      "family": "sector_rotation_v2",
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 168,
+        "top_n": 3
+      },
+      "parameters_locked": true,
+      "purpose": "single frozen phase-two finalist evaluation",
+      "range": {
+        "end": "2026-07-17",
+        "start": "2024-01-02"
+      },
+      "result_viewed_before_access": false,
+      "strategy_id": "sector_rotation_v2"
+    }
+  ],
+  "schema_version": 1
+}

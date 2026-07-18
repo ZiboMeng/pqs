@@ -5366,6 +5366,73 @@
       "status": "COMPLETED",
       "strategy_family": "sector_rotation_v2",
       "strategy_version": "v2"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "ab52983a64c48608b382ef29c0bb4d9df7dae999",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:single_frozen_access",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r2",
+        "end": "2026-07-17",
+        "role": "final_holdout",
+        "start": "2024-01-02"
+      },
+      "experiment_id": "P2-D2R2-HOLDOUT-ADAPTIVE-CORE-FINAL",
+      "failure_reason": null,
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [final_holdout:single_frozen_access]",
+      "key_metrics": null,
+      "parameters": {
+        "trend_windows": [
+          84,
+          168,
+          252
+        ],
+        "volatility_target": 0.14
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:57:59.903065Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "ab52983a64c48608b382ef29c0bb4d9df7dae999",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:single_frozen_access",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r3",
+        "end": "2026-07-17",
+        "role": "final_holdout",
+        "start": "2024-01-02"
+      },
+      "experiment_id": "P2-D2R3-HOLDOUT-SECTOR-ROTATION-V2-FINAL",
+      "failure_reason": null,
+      "hypothesis": "The frozen v1 signal remains viable when sparse selections obey the 35% symbol cap. [final_holdout:single_frozen_access]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 168,
+        "top_n": 3
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:58:00.444262Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation_v2",
+      "strategy_version": "v2"
     }
   ],
   "schema_version": 1
