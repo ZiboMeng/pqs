@@ -6444,6 +6444,126 @@
       "status": "COMPLETED",
       "strategy_family": "dual_index_growth",
       "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "5ad015711e718d5b3979ffeb64f1f8b856a9e49b",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r6",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2R6-DEV-CRASH-BUFFER-CORE-01",
+      "failure_reason": null,
+      "hypothesis": "A diversified core with a daily crash buffer preserves long-horizon equity premia within stable-core loss limits. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "cooldown_sessions": 21,
+        "qqq_sleeve": 0.15,
+        "slow_trend": 168
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T02:24:03.282095Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "crash_buffer_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "5ad015711e718d5b3979ffeb64f1f8b856a9e49b",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r6",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2R6-DEV-CRASH-BUFFER-CORE-02",
+      "failure_reason": null,
+      "hypothesis": "A diversified core with a daily crash buffer preserves long-horizon equity premia within stable-core loss limits. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "cooldown_sessions": 21,
+        "qqq_sleeve": 0.2,
+        "slow_trend": 168
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T02:24:03.282116Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "crash_buffer_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "5ad015711e718d5b3979ffeb64f1f8b856a9e49b",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r6",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2R6-DEV-CRASH-BUFFER-CORE-03",
+      "failure_reason": null,
+      "hypothesis": "A diversified core with a daily crash buffer preserves long-horizon equity premia within stable-core loss limits. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "cooldown_sessions": 21,
+        "qqq_sleeve": 0.15,
+        "slow_trend": 252
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T02:24:03.282127Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "crash_buffer_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "5ad015711e718d5b3979ffeb64f1f8b856a9e49b",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r6",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2R6-DEV-CRASH-BUFFER-CORE-04",
+      "failure_reason": null,
+      "hypothesis": "A diversified core with a daily crash buffer preserves long-horizon equity premia within stable-core loss limits. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "cooldown_sessions": 21,
+        "qqq_sleeve": 0.2,
+        "slow_trend": 252
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T02:24:03.282134Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "crash_buffer_core",
+      "strategy_version": "v1"
     }
   ],
   "schema_version": 1
