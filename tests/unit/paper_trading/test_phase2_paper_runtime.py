@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -10,7 +11,7 @@ from pandas.testing import assert_frame_equal
 
 from core.config.loader import load_config
 from core.config.schemas.cost_model import CostModelConfig, CostTierConfig
-from core.execution.broker_adapter import SimulatedBrokerAdapter
+from core.execution.broker_adapter import OrderAck, SimulatedBrokerAdapter
 from core.execution.cost_model import CostModel
 from core.paper_trading.paper_trading_engine import PaperTradingEngine
 from core.paper_trading.phase2_runtime import (
@@ -57,6 +58,16 @@ class RecordingStrategy:
 class TimeoutBroker(SimulatedBrokerAdapter):
     def mirror_fill(self, fill):
         raise TimeoutError("injected broker timeout")
+
+
+class UnknownBroker(SimulatedBrokerAdapter):
+    def mirror_fill(self, fill):
+        return OrderAck(
+            order_id="broker-unknown",
+            order=fill.order,
+            submitted_at=datetime.now(),
+            status="UNKNOWN",
+        )
 
 
 def _panel(rows: int = 340) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
@@ -242,6 +253,18 @@ def test_broker_timeout_isolates_account_and_blocks_following_orders(tmp_path) -
     assert second.payload["fills"] == []
 
 
+def test_broker_unknown_isolates_account(tmp_path) -> None:
+    runtime, _ = _runtime(tmp_path, broker_type=UnknownBroker)
+    date = runtime.close.index[260]
+    report = runtime.run_range(date, date)[0].payload
+    assert report["reconciliation"]["passed"] is False
+    assert "BROKER_RECONCILIATION_FAILED" in report["manual_review"]
+    assert runtime.control_store.is_paused(
+        strategy_id=runtime.spec.strategy_id,
+        symbol="*",
+    )
+
+
 def test_daily_report_includes_pretrade_rejection_reason(tmp_path) -> None:
     runtime, _ = _runtime(tmp_path, max_daily_turnover=0.10)
     date = runtime.close.index[260]
@@ -249,6 +272,52 @@ def test_daily_report_includes_pretrade_rejection_reason(tmp_path) -> None:
     assert "DAILY_TURNOVER_LIMIT" in report["rejected_signals"]
     assert "PRETRADE_RISK_REJECTION" in report["manual_review"]
     assert any(order["state"] == "REJECTED" for order in report["orders"])
+
+
+def test_crash_after_broker_fill_is_detected_on_restart(tmp_path, monkeypatch) -> None:
+    runtime, _ = _runtime(tmp_path)
+    date = runtime.close.index[260]
+
+    def fail_ledger_write(*args, **kwargs):
+        raise RuntimeError("injected ledger crash after broker fill")
+
+    monkeypatch.setattr(runtime.engine, "_save_state", fail_ledger_write)
+    with pytest.raises(RuntimeError, match="injected ledger crash"):
+        runtime.run_range(date, date)
+    assert runtime.engine.get_positions() == {}
+    assert runtime.broker.get_positions()
+
+    restarted, _ = _runtime(tmp_path)
+    assert restarted._reconciliation_ok is False
+    assert restarted.control_store.is_paused(
+        strategy_id=restarted.spec.strategy_id,
+        symbol="*",
+    )
+
+
+def test_post_commit_report_crash_rebuilds_without_duplicate_order(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    runtime, _ = _runtime(tmp_path)
+    date = runtime.close.index[260]
+    original_writer = runtime._atomic_report
+
+    def fail_report(*args, **kwargs):
+        raise RuntimeError("injected post-commit report crash")
+
+    monkeypatch.setattr(runtime, "_atomic_report", fail_report)
+    with pytest.raises(RuntimeError, match="post-commit report crash"):
+        runtime.run_range(date, date)
+    orders_after_commit = len(runtime.order_store.list_all())
+    assert len(runtime.engine.load_history()) == 1
+
+    monkeypatch.setattr(runtime, "_atomic_report", original_writer)
+    recovered = runtime.run_range(date, date)[0]
+    assert recovered.reused
+    assert recovered.payload["recovery_status"] == "COMMITTED_LEDGER_SESSION_REPORT_REBUILT"
+    assert len(runtime.order_store.list_all()) == orders_after_commit
+    assert len(runtime.engine.load_history()) == 1
 
 
 def test_market_event_guard_rejects_missing_stale_duplicate_and_out_of_order() -> None:

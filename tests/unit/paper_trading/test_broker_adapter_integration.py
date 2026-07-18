@@ -231,6 +231,21 @@ class TestMirrorDailyPath:
         assert broker.get_cash() == cash_after
         assert broker.get_positions() == positions_after
 
+    def test_partial_fill_is_mirrored_and_reconciled_exactly(self, tmp_path):
+        cm = _nonzero_cost_model()
+        broker = SimulatedBrokerAdapter(cost_model=cm, initial_cash=1_000.0)
+        engine = _make_engine(tmp_path, cm, broker=broker, initial_capital=1_000.0)
+        result = engine.run_day_daily(
+            exec_date=pd.Timestamp("2024-01-02"),
+            target_wts={"AAPL": 1.0},
+            prev_close={"AAPL": 100.0},
+            exec_open={"AAPL": 100.0},
+            eod_close={"AAPL": 100.0},
+        )
+        assert result.n_trades == 1
+        assert result.trades[0].executed_qty < result.trades[0].order.qty_shares
+        assert engine.get_broker_reconcile_results()[0].passed
+
 
 class TestBrokerInterfaceContract:
     """Regression: the mirror must NOT swallow critical adapter errors
