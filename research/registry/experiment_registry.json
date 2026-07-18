@@ -5893,6 +5893,242 @@
       "status": "COMPLETED",
       "strategy_family": "defensive_growth",
       "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1c70a65ac89775d7d8f54011a1b59f21294cd133",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r5",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2R5-DEV-MULTI-ASSET-TREND-01",
+      "failure_reason": null,
+      "hypothesis": "Bounded absolute-trend sleeves retain cross-asset premia while inactive sleeves move to T-bills. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "sleeve_weight": 0.2,
+        "slow_trend": 168
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T02:13:11.714628Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "multi_asset_trend",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1c70a65ac89775d7d8f54011a1b59f21294cd133",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r5",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2R5-DEV-MULTI-ASSET-TREND-02",
+      "failure_reason": null,
+      "hypothesis": "Bounded absolute-trend sleeves retain cross-asset premia while inactive sleeves move to T-bills. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "sleeve_weight": 0.25,
+        "slow_trend": 168
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T02:13:11.714651Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "multi_asset_trend",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1c70a65ac89775d7d8f54011a1b59f21294cd133",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r5",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2R5-DEV-MULTI-ASSET-TREND-03",
+      "failure_reason": null,
+      "hypothesis": "Bounded absolute-trend sleeves retain cross-asset premia while inactive sleeves move to T-bills. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "sleeve_weight": 0.2,
+        "slow_trend": 252
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T02:13:11.714662Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "multi_asset_trend",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1c70a65ac89775d7d8f54011a1b59f21294cd133",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r5",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2R5-DEV-MULTI-ASSET-TREND-04",
+      "failure_reason": null,
+      "hypothesis": "Bounded absolute-trend sleeves retain cross-asset premia while inactive sleeves move to T-bills. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "sleeve_weight": 0.25,
+        "slow_trend": 252
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T02:13:11.714669Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "multi_asset_trend",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "1c70a65ac89775d7d8f54011a1b59f21294cd133",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r5",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2R5-DEV-DUAL-INDEX-GROWTH-01",
+      "failure_reason": null,
+      "hypothesis": "High-participation month-end QQQ/SPY trend captures growth with a fixed defensive off-state. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "cooldown_sessions": 21,
+        "equity_gross": 0.6,
+        "slow_trend": 168
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T02:13:11.714676Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "dual_index_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "1c70a65ac89775d7d8f54011a1b59f21294cd133",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r5",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2R5-DEV-DUAL-INDEX-GROWTH-02",
+      "failure_reason": null,
+      "hypothesis": "High-participation month-end QQQ/SPY trend captures growth with a fixed defensive off-state. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "cooldown_sessions": 21,
+        "equity_gross": 0.7,
+        "slow_trend": 168
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T02:13:11.714686Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "dual_index_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "1c70a65ac89775d7d8f54011a1b59f21294cd133",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r5",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2R5-DEV-DUAL-INDEX-GROWTH-03",
+      "failure_reason": null,
+      "hypothesis": "High-participation month-end QQQ/SPY trend captures growth with a fixed defensive off-state. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "cooldown_sessions": 21,
+        "equity_gross": 0.6,
+        "slow_trend": 252
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T02:13:11.714693Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "dual_index_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "1c70a65ac89775d7d8f54011a1b59f21294cd133",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r5",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2R5-DEV-DUAL-INDEX-GROWTH-04",
+      "failure_reason": null,
+      "hypothesis": "High-participation month-end QQQ/SPY trend captures growth with a fixed defensive off-state. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "cooldown_sessions": 21,
+        "equity_gross": 0.7,
+        "slow_trend": 252
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T02:13:11.714699Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "dual_index_growth",
+      "strategy_version": "v1"
     }
   ],
   "schema_version": 1
