@@ -48,6 +48,23 @@ def test_unregistered_experiment_cannot_start(tmp_path) -> None:
         ExperimentRegistry(tmp_path / "registry.json").mark_running("not-planned")
 
 
+def test_invalidated_experiment_is_retained_with_reason(tmp_path) -> None:
+    registry = ExperimentRegistry(tmp_path / "registry.json")
+    registry.preregister([_spec()])
+    registry.mark_running("phase2-a-001")
+    registry.complete(
+        "phase2-a-001",
+        result_path="bad.json",
+        key_metrics={"cagr": 0.0},
+        passed=False,
+    )
+    registry.invalidate("phase2-a-001", "insufficient asset history")
+    record = registry.get("phase2-a-001")
+    assert record["status"] == "INVALIDATED"
+    assert record["pass_fail"] == "INVALID"
+    assert record["invalidation_reason"] == "insufficient asset history"
+
+
 def test_frozen_promotion_policy_is_executable() -> None:
     policy = PromotionPolicy.load()
     evidence = CandidateEvidence(

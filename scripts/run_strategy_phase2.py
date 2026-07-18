@@ -51,9 +51,7 @@ ROOT = Path(__file__).resolve().parent.parent
 REGISTRY_PATH = ROOT / "research/registry/experiment_registry.json"
 RESULT_ROOT = ROOT / "research/results/phase2"
 HOLDOUT_ACCESS_PATH = ROOT / "research/holdout/phase2_access_log.json"
-SELECTION_PATH = RESULT_ROOT / "development/selection.json"
-VALIDATION_SUMMARY_PATH = RESULT_ROOT / "validation/summary.json"
-HOLDOUT_SUMMARY_PATH = RESULT_ROOT / "holdout/summary.json"
+DATA_MANIFEST_PATH = ROOT / "research/registry/phase2_data_manifest.json"
 POLICY_PATH = ROOT / "config/strategy_promotion.yaml"
 SEED = 20260717
 
@@ -217,7 +215,24 @@ def _all_symbols() -> list[str]:
     return sorted(symbols)
 
 
-def _load_panel(end: str) -> tuple[pd.DataFrame, pd.DataFrame, Any]:
+def _validate_data_manifest(revision: str) -> None:
+    if revision == "d1":
+        return
+    manifest = _load_json(DATA_MANIFEST_PATH)
+    if manifest.get("schema_version") != 1:
+        raise RuntimeError("invalid phase-two data manifest schema")
+    for symbol in _all_symbols():
+        evidence = manifest.get("symbols", {}).get(symbol)
+        if evidence is None:
+            raise RuntimeError(f"data manifest missing {symbol}")
+        path = ROOT / "data/daily" / f"{symbol.replace('-', '_')}.parquet"
+        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        if actual != evidence.get("raw_parquet_sha256"):
+            raise RuntimeError(f"raw data hash drift for {symbol}")
+
+
+def _load_panel(end: str, revision: str = "d1") -> tuple[pd.DataFrame, pd.DataFrame, Any]:
+    _validate_data_manifest(revision)
     cfg = load_config(ROOT / "config")
     panel = load_adjusted_panel(
         _all_symbols(),
@@ -286,6 +301,7 @@ def _experiment_spec(
     start: str,
     end: str,
     commit: str,
+    revision: str,
     variant: str = "base_cost",
 ) -> ExperimentSpec:
     meta = FAMILY_META[family]
@@ -295,7 +311,17 @@ def _experiment_spec(
         strategy_version=meta["version"],
         hypothesis=f"{meta['hypothesis']} [{role}:{variant}]",
         parameters=dict(parameters),
-        data_range={"role": role, "start": start, "end": end},
+        data_range={
+            "role": role,
+            "start": start,
+            "end": end,
+            "data_revision": revision,
+            "data_manifest_sha256": (
+                hashlib.sha256(DATA_MANIFEST_PATH.read_bytes()).hexdigest()
+                if DATA_MANIFEST_PATH.exists()
+                else "pre-canonical-manifest"
+            ),
+        },
         cost_model=f"config/cost_model.yaml:{variant}",
         benchmark=meta["benchmark"],
         code_commit=commit,
@@ -365,7 +391,7 @@ def _development_score(metrics: Mapping[str, Any]) -> float:
     )
 
 
-def run_development(plan_only: bool = False) -> None:
+def run_development(plan_only: bool = False, revision: str = "d1") -> None:
     _assert_source_clean()
     policy = PromotionPolicy.load(POLICY_PATH)
     split = policy.payload["data_protocol"]["development"]
@@ -375,7 +401,7 @@ def run_development(plan_only: bool = False) -> None:
     indexed: list[tuple[str, int, dict[str, Any], ExperimentSpec]] = []
     for family, cells in _grids().items():
         for index, parameters in enumerate(cells, start=1):
-            experiment_id = f"P2-DEV-{family.upper().replace('_', '-')}-{index:02d}"
+            experiment_id = f"P2-{revision.upper()}-DEV-{family.upper().replace('_', '-')}-{index:02d}"
             spec = _experiment_spec(
                 experiment_id,
                 family,
@@ -384,6 +410,7 @@ def run_development(plan_only: bool = False) -> None:
                 split["start"],
                 split["end"],
                 commit,
+                revision,
             )
             specs.append(spec)
             indexed.append((family, index, parameters, spec))
@@ -392,12 +419,12 @@ def run_development(plan_only: bool = False) -> None:
         print(f"preregistered {len(specs)} development experiments; no data loaded")
         return
 
-    close, open_df, cfg = _load_panel(split["end"])
+    close, open_df, cfg = _load_panel(split["end"], revision)
     effective_start = _effective_start(close, split["start"], policy.payload["data_protocol"]["warmup_bars"])
     family_results: dict[str, list[dict[str, Any]]] = {family: [] for family in _grids()}
     for family, index, parameters, spec in indexed:
         meta = FAMILY_META[family]
-        result_path = RESULT_ROOT / "development" / f"{spec.experiment_id}.json"
+        result_path = RESULT_ROOT / "development" / revision / f"{spec.experiment_id}.json"
 
         def evaluate() -> tuple[dict[str, Any], BacktestResult]:
             result = _run(
@@ -460,8 +487,10 @@ def run_development(plan_only: bool = False) -> None:
             "development_score": winner["development_score"],
             "metrics": winner["metrics"],
         }
-    _atomic_json(SELECTION_PATH, selection)
-    print(f"development selection written to {SELECTION_PATH.relative_to(ROOT)}")
+    selection_path = RESULT_ROOT / "development" / f"selection_{revision}.json"
+    selection["data_revision"] = revision
+    _atomic_json(selection_path, selection)
+    print(f"development selection written to {selection_path.relative_to(ROOT)}")
 
 
 def _neighbor_cells(family: str, selected: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -527,9 +556,10 @@ def _research_controls(strategy_type: str, deterministic: bool) -> dict[str, Any
     }
 
 
-def run_validation(plan_only: bool = False) -> None:
+def run_validation(plan_only: bool = False, revision: str = "d1") -> None:
     _assert_source_clean()
-    selection = _load_json(SELECTION_PATH)
+    selection_path = RESULT_ROOT / "development" / f"selection_{revision}.json"
+    selection = _load_json(selection_path)
     policy = PromotionPolicy.load(POLICY_PATH)
     split = policy.payload["data_protocol"]["validation"]
     commit = _git_commit()
@@ -541,13 +571,14 @@ def run_validation(plan_only: bool = False) -> None:
         variants: dict[str, ExperimentSpec] = {}
         for variant in ("base", "cost2x", "delay1", "determinism"):
             spec = _experiment_spec(
-                f"P2-VAL-{family.upper().replace('_', '-')}-{variant.upper()}",
+                f"P2-{revision.upper()}-VAL-{family.upper().replace('_', '-')}-{variant.upper()}",
                 family,
                 parameters,
                 "validation",
                 split["start"],
                 split["end"],
                 commit,
+                revision,
                 variant,
             )
             specs.append(spec)
@@ -555,13 +586,14 @@ def run_validation(plan_only: bool = False) -> None:
         neighbors = []
         for index, neighbor in enumerate(_neighbor_cells(family, parameters), start=1):
             spec = _experiment_spec(
-                f"P2-VAL-{family.upper().replace('_', '-')}-NEIGHBOR-{index:02d}",
+                f"P2-{revision.upper()}-VAL-{family.upper().replace('_', '-')}-NEIGHBOR-{index:02d}",
                 family,
                 neighbor,
                 "validation_sensitivity",
                 split["start"],
                 split["end"],
                 commit,
+                revision,
                 "parameter_neighbor",
             )
             specs.append(spec)
@@ -572,13 +604,14 @@ def run_validation(plan_only: bool = False) -> None:
         print(f"preregistered {len(specs)} validation/robustness experiments; no data loaded")
         return
 
-    close, open_df, cfg = _load_panel(split["end"])
+    close, open_df, cfg = _load_panel(split["end"], revision)
     effective_start = _effective_start(close, split["start"], 0)
     summary: dict[str, Any] = {
         "schema_version": 1,
         "code_commit": commit,
         "evaluation_start": effective_start,
         "evaluation_end": split["end"],
+        "data_revision": revision,
         "families": {},
     }
     for family, item in work.items():
@@ -591,7 +624,7 @@ def run_validation(plan_only: bool = False) -> None:
             cost: float = 1.0,
             delay: int = 0,
         ) -> tuple[dict[str, Any], BacktestResult]:
-            path = RESULT_ROOT / "validation" / f"{spec.experiment_id}.json"
+            path = RESULT_ROOT / "validation" / revision / f"{spec.experiment_id}.json"
 
             def evaluate() -> tuple[dict[str, Any], BacktestResult]:
                 result = _run(
@@ -642,7 +675,7 @@ def run_validation(plan_only: bool = False) -> None:
 
         neighbor_results: list[dict[str, Any]] = []
         for neighbor, spec in item["neighbors"]:
-            path = RESULT_ROOT / "validation" / f"{spec.experiment_id}.json"
+            path = RESULT_ROOT / "validation" / revision / f"{spec.experiment_id}.json"
 
             def evaluate_neighbor(
                 neighbor: Mapping[str, Any] = neighbor,
@@ -735,7 +768,8 @@ def run_validation(plan_only: bool = False) -> None:
             f"{meta['strategy_id']}: validation gate={'PASS' if decision.eligible else 'FAIL'} "
             f"failed={','.join(decision.failed_gates) or 'none'}"
         )
-    _atomic_json(VALIDATION_SUMMARY_PATH, summary)
+    validation_summary_path = RESULT_ROOT / "validation" / f"summary_{revision}.json"
+    _atomic_json(validation_summary_path, summary)
 
 
 def _record_holdout_access(entries: list[dict[str, Any]], commit: str) -> None:
@@ -759,9 +793,10 @@ def _record_holdout_access(entries: list[dict[str, Any]], commit: str) -> None:
     _atomic_json(HOLDOUT_ACCESS_PATH, existing)
 
 
-def run_holdout(plan_only: bool = False) -> None:
+def run_holdout(plan_only: bool = False, revision: str = "d1") -> None:
     _assert_source_clean()
-    validation = _load_json(VALIDATION_SUMMARY_PATH)
+    validation_summary_path = RESULT_ROOT / "validation" / f"summary_{revision}.json"
+    validation = _load_json(validation_summary_path)
     policy = PromotionPolicy.load(POLICY_PATH)
     split = policy.payload["data_protocol"]["final_holdout"]
     qualified = {
@@ -779,13 +814,14 @@ def run_holdout(plan_only: bool = False) -> None:
     for family, item in qualified.items():
         specs.append(
             _experiment_spec(
-                f"P2-HOLDOUT-{family.upper().replace('_', '-')}-FINAL",
+                f"P2-{revision.upper()}-HOLDOUT-{family.upper().replace('_', '-')}-FINAL",
                 family,
                 item["parameters"],
                 "final_holdout",
                 split["start"],
                 split["end"],
                 commit,
+                revision,
                 "single_frozen_access",
             )
         )
@@ -797,6 +833,7 @@ def run_holdout(plan_only: bool = False) -> None:
                 "family": family,
                 "experiment_id": spec.experiment_id,
                 "range": split,
+                "data_revision": revision,
                 "parameters": qualified[family]["parameters"],
             }
             for family, spec in zip(qualified, specs)
@@ -808,18 +845,19 @@ def run_holdout(plan_only: bool = False) -> None:
         return
 
     # The holdout is loaded only after both registry and access-ledger writes.
-    close, open_df, cfg = _load_panel(split["end"])
+    close, open_df, cfg = _load_panel(split["end"], revision)
     effective_start = _effective_start(close, split["start"], 0)
     summary: dict[str, Any] = {
         "schema_version": 1,
         "code_commit": commit,
         "evaluation_start": effective_start,
         "evaluation_end": split["end"],
+        "data_revision": revision,
         "families": {},
     }
     for (family, prior), spec in zip(qualified.items(), specs):
         meta = FAMILY_META[family]
-        result_path = RESULT_ROOT / "holdout" / f"{spec.experiment_id}.json"
+        result_path = RESULT_ROOT / "holdout" / revision / f"{spec.experiment_id}.json"
 
         def evaluate() -> tuple[dict[str, Any], BacktestResult]:
             result = _run(
@@ -869,20 +907,28 @@ def run_holdout(plan_only: bool = False) -> None:
             f"{meta['strategy_id']}: holdout gate={'PASS' if decision.eligible else 'FAIL'} "
             f"failed={','.join(decision.failed_gates) or 'none'}"
         )
-    _atomic_json(HOLDOUT_SUMMARY_PATH, summary)
+    holdout_summary_path = RESULT_ROOT / "holdout" / f"summary_{revision}.json"
+    _atomic_json(holdout_summary_path, summary)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("stage", choices=("development", "validation", "holdout"))
     parser.add_argument("--plan-only", action="store_true", help="register all runs without loading market data")
+    parser.add_argument(
+        "--revision",
+        default="d1",
+        help="immutable data revision included in experiment IDs (for example d2)",
+    )
     args = parser.parse_args()
+    if not args.revision.isalnum():
+        parser.error("--revision must be alphanumeric")
     if args.stage == "development":
-        run_development(args.plan_only)
+        run_development(args.plan_only, args.revision.lower())
     elif args.stage == "validation":
-        run_validation(args.plan_only)
+        run_validation(args.plan_only, args.revision.lower())
     else:
-        run_holdout(args.plan_only)
+        run_holdout(args.plan_only, args.revision.lower())
 
 
 if __name__ == "__main__":

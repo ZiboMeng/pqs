@@ -1,12 +1,12 @@
 # Codex audit and hardening progress
 
-Last updated: 2026-07-17 (candidate implementation ready)
+Last updated: 2026-07-17 (D1 data evidence invalidated; canonical repair underway)
 
 ## Current phase
 
-Strategy Phase 2 — audit, certification, failure attribution, preregistration and candidate
-implementation are complete. Development experiments are next; no candidate result has been
-read and no strategy is promoted.
+Strategy Phase 2 — all 41 D1 development cells ran, but the entire batch is explicitly
+invalidated because ETF coverage and adjustment semantics did not match the frozen protocol.
+Canonical phase-two data repair is underway; no strategy is promoted.
 
 ## Completed
 
@@ -81,18 +81,29 @@ read and no strategy is promoted.
   conflict resolution, aggregate symbol/gross caps, and a final fail-closed portfolio veto.
 - Passed 17 new tests and scoped Ruff. Scoped mypy reports no errors in new code; its only output
   is two pre-existing imported-module errors in `source_boundaries.py` and `logging_setup.py`.
+- Preregistered and executed all 41 D1 development cells at commit `542f680`; every apparent
+  pass/fail and its metrics remains in the experiment registry and result directory.
+- Diagnosed the common low-exposure cause: SPY had 2,518 development observations, but QQQ,
+  TQQQ and all nine sector ETFs had only 504 observations beginning in 2015; IEF/GLD/SHY began
+  in 2009. This violated the intended multi-regime development range.
+- Found a separate adjustment contract mismatch: the stored yfinance frontier was written with
+  dividends/splits baked in while BarStore then reapplied canonical splits/distributions. All 41
+  D1 entries are now `INVALIDATED`, not relabeled as economic failures.
+- Added a recoverable canonical builder that backs up existing files, downloads split-adjusted
+  but not dividend-adjusted history, reverses future splits to the as-traded raw basis, proves
+  round-trip equivalence, publishes atomically and records explicit source semantics.
 
 ## In progress
 
-- Commit and push the tested implementation, then preregister all development runs against the
-  exact clean commit before loading their evaluation data.
+- Complete and hash-certify the 17-symbol canonical data rebuild, refresh distributions, then
+  preregister D2 under new experiment IDs with the exact same strategy logic, grids and gates.
 
 ## Next
 
-1. Commit the clean implementation, preregister every development run, then evaluate development.
-2. Freeze one winner per family using the predeclared score and commit all failures/results.
-3. Validate only family winners on annual forward folds, 2x cost, delay and neighbor checks.
-4. Admit only qualifying frozen finalists to the limited holdout and PAPER replay.
+1. Back up and rebuild the phase-two daily files in uniform as-traded semantics.
+2. Rebuild/validate total-return distributions and commit the data manifest hashes.
+3. Register and run D2 with unchanged candidate definitions and freeze one winner per family.
+4. Validate winners, then admit only qualifying finalists to holdout and PAPER replay.
 
 ## Unresolved issues
 

@@ -1,11 +1,10 @@
 """Source-boundary sidecar tests (post-MVP audit 2026-04-26)."""
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
-import pytest
 
 from core.data.source_boundaries import (
     SEMANTICS_AUTO_ADJUST,
@@ -13,8 +12,8 @@ from core.data.source_boundaries import (
     backfill_from_daily_store,
     get_boundary,
     load_boundaries,
+    record_canonical_replacement,
     record_yfinance_append,
-    save_boundaries,
     window_crosses_boundary,
 )
 
@@ -135,6 +134,27 @@ def test_get_boundary_returns_none_for_unknown_symbol(tmp_path: Path):
         path=sidecar,
     )
     assert get_boundary("Z", path=sidecar) is None
+
+
+def test_canonical_replacement_clears_mixed_frontier(tmp_path: Path):
+    sidecar = tmp_path / "boundaries.parquet"
+    record_yfinance_append(
+        symbol="A",
+        appended_dates=[date(2026, 5, 1)],
+        prev_max_date=date(2026, 4, 17),
+        path=sidecar,
+    )
+    record_canonical_replacement(
+        "A",
+        start_date=date(2007, 1, 3),
+        end_date=date(2026, 7, 17),
+        path=sidecar,
+    )
+    boundary = get_boundary("A", path=sidecar)
+    assert boundary is not None
+    assert boundary["canonical_source"] == "yfinance_reconstructed_raw"
+    assert boundary["frontier_start_date"] is None
+    assert boundary["canonical_end_date"] == date(2026, 7, 17)
 
 
 def test_market_data_store_records_boundary_on_yfinance_append(tmp_path: Path):

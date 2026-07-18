@@ -4,7 +4,25 @@
 
 代码基线：`81c6ea0` 加本认证修复集（最终提交号见 `CODEX_PROGRESS.md`）
 
-结论：**核心日线回测/PAPER 会计与时间语义通过本轮认证；现有策略均未通过晋升。**
+结论：**执行/PAPER 会计与时间语义通过；价格数据认证于 D1 研究后暂停，等待 D2
+canonical rebuild。任何现有策略仍不得晋升。**
+
+## 0. 2026-07-17 D1 后续纠正（必须先读）
+
+Phase-two D1 开发运行暴露了第一次认证未发现的源语义组合问题：SPY 在 development
+有 2,518 个观测，但 QQQ、TQQQ 和九个 sector ETF 只有 2015 起的 504 个观测；
+IEF/GLD/SHY 从 2009 起。更严重的是，`fetch_data.py` 的 yfinance frontier 使用
+`auto_adjust=True`，而本认证消费者又在读取时施加 split/distribution cascade。跨该
+frontier 会重复调整；个别历史 split 语义也不是统一的 raw basis。
+
+因此：
+
+- 本文第 2 节的**目标价格契约仍然有效**；
+- 第 3、6 节原 hash 和基准只保留为 D1 历史证据，不再是有效晋升证据；
+- 41 个 D1 新策略实验全部标记 `INVALIDATED`，结果未删除；
+- D2 必须先备份旧 daily files，以统一的 as-traded raw OHLCV 重建研究所需 ETF，
+  round-trip 验证 split，再刷新 distribution sidecar 和 manifest hash；
+- 在 D2 hash、覆盖测试和重新回测完成前，价格认证状态为 FAIL-CLOSED。
 
 ## 1. 认证边界
 

@@ -3,16 +3,16 @@
   "baseline_commit": "9ffc1ce564ca18a04554db20a442749e65f24672",
   "baseline_tag": "codex-pre-strategy-research-20260717",
   "branch": "codex/strategy-research-and-paper-v2",
-  "current_phase": "DEVELOPMENT_EXPERIMENTS_READY",
-  "last_completed_task": "Implemented and unit-tested four preregistered ETF families, atomic experiment registration, detailed metrics, executable promotion gates, the eight-state quality-aware regime adapter, and aggregate multi-strategy risk veto before reading candidate results.",
-  "next_task": "Commit the clean implementation, preregister all 41 development cells against that exact commit, execute them, retain every failure, and freeze one development winner per family.",
+  "current_phase": "PHASE2_DATA_COVERAGE_AND_SEMANTICS_REPAIR",
+  "last_completed_task": "Ran all 41 preregistered D1 development cells, retained every result, diagnosed inadequate ETF history and incompatible auto-adjusted frontier semantics, and marked all 41 results INVALID rather than treating missing exposure as strategy failure.",
+  "next_task": "Publish backed-up, uniformly reconstructed as-traded OHLCV for the 17 phase-two ETFs; rebuild distribution references; hash-certify coverage and then register D2 with unchanged logic, grids and gates.",
   "open_p0": [],
   "open_p1": [],
   "candidate_strategies": [
-    "adaptive_core_v1:IMPLEMENTED_DEVELOPMENT_PENDING",
-    "controlled_growth_v1:IMPLEMENTED_DEVELOPMENT_PENDING",
-    "sector_rotation_v1:IMPLEMENTED_DEVELOPMENT_PENDING",
-    "etf_reversion_v1:IMPLEMENTED_DEVELOPMENT_PENDING"
+    "adaptive_core_v1:D1_DATA_INVALID_D2_PENDING",
+    "controlled_growth_v1:D1_DATA_INVALID_D2_PENDING",
+    "sector_rotation_v1:D1_DATA_INVALID_D2_PENDING",
+    "etf_reversion_v1:D1_DATA_INVALID_D2_PENDING"
   ],
   "promoted_paper_strategies": [],
   "retired_strategies": [
@@ -21,6 +21,6 @@
   ],
   "last_test_command": "pytest -q tests/unit/backtest tests/unit/execution tests/unit/paper_trading tests/unit/trading tests/integration/test_backtest_paper_consistency.py tests/unit/data/test_bar_store.py tests/unit/data/test_price_basis.py tests/unit/data/test_price_semantics_regression.py tests/unit/regime/test_regime_detector.py tests/unit/research/test_temporal_split.py tests/unit/research/test_temporal_split_acceptance.py tests/unit/research/test_temporal_split_leak_detection.py tests/unit/research/test_temporal_split_v1_v2_dispatch.py",
   "last_test_result": "PASS: 653 passed, 1 xfailed, 0 failed in 123.42s; atomic daily/intraday rollback-and-retry failure injection passed; fatal Ruff/F821 passed.",
-  "last_backtest_run": "Corrected 2007-01-03..2026-07-17 total-return diagnostic: dual momentum CAGR 5.7% IR -0.33 MaxDD -22.0%; trend following -1.5% IR -0.71 MaxDD -30.2%; cross-asset 4.2% IR -0.43 MaxDD -11.1%; multi-factor 8.0% IR -0.23 MaxDD -15.0%; SPY CAGR 10.9%. No promotion.",
-  "last_updated_utc": "2026-07-18T01:42:00Z"
+  "last_backtest_run": "D1 development: 41/41 completed then INVALIDATED for data coverage/source semantics. SPY had 2,518 development bars, QQQ/TQQQ/sectors only 504 from 2015, and IEF/GLD/SHY only from 2009; results retained under research/results/phase2/development.",
+  "last_updated_utc": "2026-07-18T02:20:00Z"
 }

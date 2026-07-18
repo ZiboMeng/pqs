@@ -135,6 +135,19 @@ class ExperimentRegistry:
             failure_reason=reason,
         )
 
+    def invalidate(self, experiment_id: str, reason: str) -> None:
+        """Retain a completed result but exclude it after evidence invalidation."""
+        if not reason.strip():
+            raise ValueError("invalidation requires a non-empty reason")
+        self._transition(
+            experiment_id,
+            {"COMPLETED"},
+            "INVALIDATED",
+            invalidated_at_utc=_utc_now(),
+            invalidation_reason=reason,
+            pass_fail="INVALID",
+        )
+
     def _transition(
         self,
         experiment_id: str,

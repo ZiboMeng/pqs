@@ -29,6 +29,8 @@ Sidecar location: ``data/ref/daily_source_boundaries.parquet``
 
 Schema:
   symbol                str   — ticker
+  canonical_source      str   — source of the canonical segment
+  canonical_semantics   str   — adjustment semantics of canonical bars
   canonical_end_date    date  — last polygon-canonical day; null if
                                  no canonical history
   frontier_start_date   date  — first non-canonical day stored; null
@@ -46,7 +48,6 @@ from typing import Optional
 
 import pandas as pd
 
-
 DEFAULT_BOUNDARIES_PATH = Path("data/ref/daily_source_boundaries.parquet")
 DEFAULT_DAILY_DIR = Path("data/daily")
 
@@ -61,12 +62,18 @@ ROUND3_POLYGON_CANONICAL_HORIZON = date(2026, 4, 17)
 # Source / semantics labels — keep consistent across writers.
 SOURCE_POLYGON_AGGREGATOR = "polygon_aggregator"
 SOURCE_YFINANCE_AUTO_ADJUST = "yfinance_auto_adjust"
+SOURCE_YFINANCE_RECONSTRUCTED_RAW = "yfinance_reconstructed_raw"
 
 SEMANTICS_RAW_SPLIT_AT_READ = "raw_bars_splits_at_read_no_dividends"
 SEMANTICS_AUTO_ADJUST = "auto_adjust_True_split_and_dividends_baked"
+SEMANTICS_RECONSTRUCTED_AS_TRADED = (
+    "as_traded_ohlcv_reconstructed_from_yfinance_split_adjusted_close"
+)
 
 _COLUMNS = [
     "symbol",
+    "canonical_source",
+    "canonical_semantics",
     "canonical_end_date",
     "frontier_start_date",
     "frontier_source",
@@ -92,6 +99,9 @@ def load_boundaries(path: Optional[Path] = None) -> pd.DataFrame:
     if not p.exists():
         return pd.DataFrame(columns=_COLUMNS).set_index("symbol")
     df = pd.read_parquet(p)
+    for column in _COLUMNS:
+        if column != "symbol" and column not in df.columns:
+            df[column] = None
     if "symbol" in df.columns:
         df = df.set_index("symbol")
     return df
@@ -123,6 +133,8 @@ def get_boundary(
     row = df.loc[symbol]
     return {
         "symbol": symbol,
+        "canonical_source": _str_or_none(row.get("canonical_source")),
+        "canonical_semantics": _str_or_none(row.get("canonical_semantics")),
         "canonical_end_date": _to_date(row.get("canonical_end_date")),
         "frontier_start_date": _to_date(row.get("frontier_start_date")),
         "frontier_source": _str_or_none(row.get("frontier_source")),
@@ -180,9 +192,13 @@ def record_yfinance_append(
 
     if symbol in df.index:
         row = df.loc[symbol]
+        existing_canonical_source = _str_or_none(row.get("canonical_source"))
+        existing_canonical_semantics = _str_or_none(row.get("canonical_semantics"))
         existing_canonical = _to_date(row.get("canonical_end_date"))
         existing_frontier = _to_date(row.get("frontier_start_date"))
     else:
+        existing_canonical_source = SOURCE_POLYGON_AGGREGATOR
+        existing_canonical_semantics = SEMANTICS_RAW_SPLIT_AT_READ
         existing_canonical = None
         existing_frontier = None
 
@@ -199,6 +215,8 @@ def record_yfinance_append(
         pass
 
     df.loc[symbol] = {
+        "canonical_source": existing_canonical_source,
+        "canonical_semantics": existing_canonical_semantics,
         "canonical_end_date": new_canonical,
         "frontier_start_date": new_frontier,
         "frontier_source": SOURCE_YFINANCE_AUTO_ADJUST,
@@ -250,6 +268,8 @@ def backfill_from_daily_store(
         )
         rows.append({
             "symbol": symbol,
+            "canonical_source": SOURCE_POLYGON_AGGREGATOR,
+            "canonical_semantics": SEMANTICS_RAW_SPLIT_AT_READ,
             "canonical_end_date": canonical_end,
             "frontier_start_date": frontier_start,
             "frontier_source": (
@@ -263,6 +283,38 @@ def backfill_from_daily_store(
     out_df = pd.DataFrame(rows).set_index("symbol")
     save_boundaries(out_df, path)
     return out_df
+
+
+def record_canonical_replacement(
+    symbol: str,
+    *,
+    start_date: date,
+    end_date: date,
+    source: str = SOURCE_YFINANCE_RECONSTRUCTED_RAW,
+    semantics: str = SEMANTICS_RECONSTRUCTED_AS_TRADED,
+    path: Optional[Path] = None,
+) -> None:
+    """Record a whole-file canonical replacement with uniform semantics.
+
+    A replacement has no internal frontier: every stored bar belongs to the
+    same source/semantic layer.  ``start_date`` is accepted for audit callers
+    and validation even though the legacy sidecar only needs the end boundary.
+    """
+    start = _to_date(start_date)
+    end = _to_date(end_date)
+    if start is None or end is None or start > end:
+        raise ValueError("canonical replacement requires start_date <= end_date")
+    df = load_boundaries(path)
+    df.loc[symbol] = {
+        "canonical_source": source,
+        "canonical_semantics": semantics,
+        "canonical_end_date": end,
+        "frontier_start_date": None,
+        "frontier_source": None,
+        "frontier_semantics": None,
+        "last_updated_at": datetime.now(timezone.utc),
+    }
+    save_boundaries(df, path)
 
 
 def window_crosses_boundary(

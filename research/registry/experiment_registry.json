@@ -1,4 +1,1621 @@
 {
-  "schema_version": 1,
-  "experiments": []
+  "experiments": [
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T00:59:23.856672Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-ADAPTIVE-CORE-01",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:39.893205Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.49102912696579615,
+        "cagr": 0.003463361497866524,
+        "calmar": 0.11075402997636552,
+        "max_drawdown": -0.03127074923238091,
+        "sharpe": -1.827020912140558,
+        "sortino": -2.6218105087877146
+      },
+      "parameters": {
+        "trend_windows": [
+          42,
+          126,
+          210
+        ],
+        "volatility_target": 0.1
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160064Z",
+      "result_path": "research/results/phase2/development/P2-DEV-ADAPTIVE-CORE-01.json",
+      "started_at_utc": "2026-07-18T00:59:18.513257Z",
+      "status": "INVALIDATED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T00:59:29.242438Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-ADAPTIVE-CORE-02",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:39.904060Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.49833939389040116,
+        "cagr": 0.0034995515889406636,
+        "calmar": 0.09652082820708671,
+        "max_drawdown": -0.03625695773592338,
+        "sharpe": -1.6160408859471647,
+        "sortino": -2.2856361915138663
+      },
+      "parameters": {
+        "trend_windows": [
+          42,
+          126,
+          210
+        ],
+        "volatility_target": 0.12
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160087Z",
+      "result_path": "research/results/phase2/development/P2-DEV-ADAPTIVE-CORE-02.json",
+      "started_at_utc": "2026-07-18T00:59:23.865999Z",
+      "status": "INVALIDATED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T00:59:34.656227Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-ADAPTIVE-CORE-03",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:39.911227Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.47801289185058593,
+        "cagr": 0.0038348611767675678,
+        "calmar": 0.09204474200621016,
+        "max_drawdown": -0.04166301184818177,
+        "sharpe": -1.4912395104474694,
+        "sortino": -2.109428751558682
+      },
+      "parameters": {
+        "trend_windows": [
+          42,
+          126,
+          210
+        ],
+        "volatility_target": 0.14
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160098Z",
+      "result_path": "research/results/phase2/development/P2-DEV-ADAPTIVE-CORE-03.json",
+      "started_at_utc": "2026-07-18T00:59:29.251517Z",
+      "status": "INVALIDATED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T00:59:40.034387Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-ADAPTIVE-CORE-04",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:39.919244Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.4634528279259454,
+        "cagr": 0.0049052918905481135,
+        "calmar": 0.1541320983087576,
+        "max_drawdown": -0.03182524564560087,
+        "sharpe": -1.8389647570752057,
+        "sortino": -2.619796699576499
+      },
+      "parameters": {
+        "trend_windows": [
+          63,
+          126,
+          252
+        ],
+        "volatility_target": 0.1
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160106Z",
+      "result_path": "research/results/phase2/development/P2-DEV-ADAPTIVE-CORE-04.json",
+      "started_at_utc": "2026-07-18T00:59:34.665208Z",
+      "status": "INVALIDATED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T00:59:45.449947Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-ADAPTIVE-CORE-05",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:39.926490Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.46443682572775524,
+        "cagr": 0.005141422830878817,
+        "calmar": 0.15008859927960963,
+        "max_drawdown": -0.034255918541158024,
+        "sharpe": -1.6357607888198145,
+        "sortino": -2.3100553523797633
+      },
+      "parameters": {
+        "trend_windows": [
+          63,
+          126,
+          252
+        ],
+        "volatility_target": 0.12
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160112Z",
+      "result_path": "research/results/phase2/development/P2-DEV-ADAPTIVE-CORE-05.json",
+      "started_at_utc": "2026-07-18T00:59:40.044276Z",
+      "status": "INVALIDATED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T00:59:51.123803Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-ADAPTIVE-CORE-06",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:39.933783Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.4368757644994035,
+        "cagr": 0.005209608747097194,
+        "calmar": 0.1466856673944517,
+        "max_drawdown": -0.03551545859683796,
+        "sharpe": -1.5221107460885963,
+        "sortino": -2.1383361176172753
+      },
+      "parameters": {
+        "trend_windows": [
+          63,
+          126,
+          252
+        ],
+        "volatility_target": 0.14
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160120Z",
+      "result_path": "research/results/phase2/development/P2-DEV-ADAPTIVE-CORE-06.json",
+      "started_at_utc": "2026-07-18T00:59:45.458597Z",
+      "status": "INVALIDATED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T00:59:56.587862Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-ADAPTIVE-CORE-07",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:39.941180Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.45934284272553627,
+        "cagr": 0.004788642697150847,
+        "calmar": 0.14744731370325176,
+        "max_drawdown": -0.032476974838540174,
+        "sharpe": -1.8644000872793598,
+        "sortino": -2.656552299145999
+      },
+      "parameters": {
+        "trend_windows": [
+          84,
+          168,
+          252
+        ],
+        "volatility_target": 0.1
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160127Z",
+      "result_path": "research/results/phase2/development/P2-DEV-ADAPTIVE-CORE-07.json",
+      "started_at_utc": "2026-07-18T00:59:51.131960Z",
+      "status": "INVALIDATED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:00:02.119399Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-ADAPTIVE-CORE-08",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:39.948330Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.4696026029019806,
+        "cagr": 0.005187964580529947,
+        "calmar": 0.15174631284383375,
+        "max_drawdown": -0.034188406184663095,
+        "sharpe": -1.6426403162484535,
+        "sortino": -2.3209857283921123
+      },
+      "parameters": {
+        "trend_windows": [
+          84,
+          168,
+          252
+        ],
+        "volatility_target": 0.12
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160133Z",
+      "result_path": "research/results/phase2/development/P2-DEV-ADAPTIVE-CORE-08.json",
+      "started_at_utc": "2026-07-18T00:59:56.597628Z",
+      "status": "INVALIDATED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:00:07.451224Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-ADAPTIVE-CORE-09",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:39.955654Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.44181448356591185,
+        "cagr": 0.00527329536595933,
+        "calmar": 0.14863259552792546,
+        "max_drawdown": -0.03547872757808747,
+        "sharpe": -1.5270167631973381,
+        "sortino": -2.147163272729706
+      },
+      "parameters": {
+        "trend_windows": [
+          84,
+          168,
+          252
+        ],
+        "volatility_target": 0.14
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160140Z",
+      "result_path": "research/results/phase2/development/P2-DEV-ADAPTIVE-CORE-09.json",
+      "started_at_utc": "2026-07-18T01:00:02.128509Z",
+      "status": "INVALIDATED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:00:13.399642Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-CONTROLLED-GROWTH-01",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:39.962739Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 1.3750544874910984,
+        "cagr": -0.005332695861120174,
+        "calmar": -0.0544742987750422,
+        "max_drawdown": -0.09789379544181277,
+        "sharpe": -2.07653336318203,
+        "sortino": -2.591596366590045
+      },
+      "parameters": {
+        "breadth_threshold": 0.55,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.22,
+        "slow_trend": 168,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160148Z",
+      "result_path": "research/results/phase2/development/P2-DEV-CONTROLLED-GROWTH-01.json",
+      "started_at_utc": "2026-07-18T01:00:07.459856Z",
+      "status": "INVALIDATED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:00:19.077577Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-CONTROLLED-GROWTH-02",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:39.971033Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 1.4178718518839646,
+        "cagr": -0.004698316283332726,
+        "calmar": -0.04799401496415945,
+        "max_drawdown": -0.09789379544181277,
+        "sharpe": -1.9934611923923515,
+        "sortino": -2.501600067689477
+      },
+      "parameters": {
+        "breadth_threshold": 0.55,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.28,
+        "slow_trend": 168,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160155Z",
+      "result_path": "research/results/phase2/development/P2-DEV-CONTROLLED-GROWTH-02.json",
+      "started_at_utc": "2026-07-18T01:00:13.408986Z",
+      "status": "INVALIDATED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:00:24.597326Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-CONTROLLED-GROWTH-03",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:39.978410Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 1.4280479420965515,
+        "cagr": -0.004324238100188449,
+        "calmar": -0.05123915063330625,
+        "max_drawdown": -0.08439324318888351,
+        "sharpe": -2.1905971637765416,
+        "sortino": -2.7351261201029353
+      },
+      "parameters": {
+        "breadth_threshold": 0.65,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.22,
+        "slow_trend": 168,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160162Z",
+      "result_path": "research/results/phase2/development/P2-DEV-CONTROLLED-GROWTH-03.json",
+      "started_at_utc": "2026-07-18T01:00:19.086059Z",
+      "status": "INVALIDATED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:00:30.101390Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-CONTROLLED-GROWTH-04",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:39.986583Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 1.4722153035200851,
+        "cagr": -0.0036936158643856576,
+        "calmar": -0.04376672497487559,
+        "max_drawdown": -0.08439324318888351,
+        "sharpe": -2.0929106033840723,
+        "sortino": -2.6292192829082865
+      },
+      "parameters": {
+        "breadth_threshold": 0.65,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.28,
+        "slow_trend": 168,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160168Z",
+      "result_path": "research/results/phase2/development/P2-DEV-CONTROLLED-GROWTH-04.json",
+      "started_at_utc": "2026-07-18T01:00:24.606054Z",
+      "status": "INVALIDATED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:00:35.608237Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-CONTROLLED-GROWTH-05",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:39.993447Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 1.1879632290798507,
+        "cagr": -0.0061432951296700455,
+        "calmar": -0.06862709062396515,
+        "max_drawdown": -0.08951705622101305,
+        "sharpe": -2.1217896130182843,
+        "sortino": -2.6365734570124393
+      },
+      "parameters": {
+        "breadth_threshold": 0.55,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.22,
+        "slow_trend": 210,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160175Z",
+      "result_path": "research/results/phase2/development/P2-DEV-CONTROLLED-GROWTH-05.json",
+      "started_at_utc": "2026-07-18T01:00:30.110590Z",
+      "status": "INVALIDATED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:00:41.112350Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-CONTROLLED-GROWTH-06",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.000989Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 1.230856908625375,
+        "cagr": -0.005529751849187692,
+        "calmar": -0.0617731646082621,
+        "max_drawdown": -0.08951705622101305,
+        "sharpe": -2.036168548059325,
+        "sortino": -2.5451701070710477
+      },
+      "parameters": {
+        "breadth_threshold": 0.55,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.28,
+        "slow_trend": 210,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160182Z",
+      "result_path": "research/results/phase2/development/P2-DEV-CONTROLLED-GROWTH-06.json",
+      "started_at_utc": "2026-07-18T01:00:35.622136Z",
+      "status": "INVALIDATED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:00:46.640582Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-CONTROLLED-GROWTH-07",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.008096Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 1.1861791362238827,
+        "cagr": -0.003827146403028503,
+        "calmar": -0.0572451600344743,
+        "max_drawdown": -0.06685537084224606,
+        "sharpe": -2.2697299415018724,
+        "sortino": -2.8718236061715188
+      },
+      "parameters": {
+        "breadth_threshold": 0.65,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.22,
+        "slow_trend": 210,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160189Z",
+      "result_path": "research/results/phase2/development/P2-DEV-CONTROLLED-GROWTH-07.json",
+      "started_at_utc": "2026-07-18T01:00:41.122809Z",
+      "status": "INVALIDATED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:00:52.447864Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-CONTROLLED-GROWTH-08",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.016296Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 1.2302080507706827,
+        "cagr": -0.003202400014029494,
+        "calmar": -0.047900415085363496,
+        "max_drawdown": -0.06685537084224606,
+        "sharpe": -2.160463080029337,
+        "sortino": -2.751395171343815
+      },
+      "parameters": {
+        "breadth_threshold": 0.65,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.28,
+        "slow_trend": 210,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160196Z",
+      "result_path": "research/results/phase2/development/P2-DEV-CONTROLLED-GROWTH-08.json",
+      "started_at_utc": "2026-07-18T01:00:46.649572Z",
+      "status": "INVALIDATED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:00:57.985451Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-CONTROLLED-GROWTH-09",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.024581Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 1.0681924109908327,
+        "cagr": -0.000598327427731804,
+        "calmar": -0.01248486318517827,
+        "max_drawdown": -0.047924227831517126,
+        "sharpe": -2.392355497272985,
+        "sortino": -3.118667895797953
+      },
+      "parameters": {
+        "breadth_threshold": 0.55,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.22,
+        "slow_trend": 252,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160202Z",
+      "result_path": "research/results/phase2/development/P2-DEV-CONTROLLED-GROWTH-09.json",
+      "started_at_utc": "2026-07-18T01:00:52.457160Z",
+      "status": "INVALIDATED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:01:03.620427Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-CONTROLLED-GROWTH-10",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.033040Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 1.113124320965507,
+        "cagr": 2.5151262751377246e-05,
+        "calmar": 0.0005248131037144566,
+        "max_drawdown": -0.047924227831517126,
+        "sharpe": -2.25350026363363,
+        "sortino": -2.9560610908358913
+      },
+      "parameters": {
+        "breadth_threshold": 0.55,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.28,
+        "slow_trend": 252,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160209Z",
+      "result_path": "research/results/phase2/development/P2-DEV-CONTROLLED-GROWTH-10.json",
+      "started_at_utc": "2026-07-18T01:00:57.994123Z",
+      "status": "INVALIDATED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:01:09.093774Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-CONTROLLED-GROWTH-11",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.041620Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 1.1112110136070912,
+        "cagr": -0.001610630748465236,
+        "calmar": -0.03452155355682776,
+        "max_drawdown": -0.046655801449198724,
+        "sharpe": -2.552092601697511,
+        "sortino": -3.2364555986411694
+      },
+      "parameters": {
+        "breadth_threshold": 0.65,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.22,
+        "slow_trend": 252,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160216Z",
+      "result_path": "research/results/phase2/development/P2-DEV-CONTROLLED-GROWTH-11.json",
+      "started_at_utc": "2026-07-18T01:01:03.628021Z",
+      "status": "INVALIDATED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:01:14.659428Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-CONTROLLED-GROWTH-12",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.049714Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 1.1557500597804857,
+        "cagr": -0.0009815135033350852,
+        "calmar": -0.02103733025364077,
+        "max_drawdown": -0.046655801449198724,
+        "sharpe": -2.3970311672982443,
+        "sortino": -3.06727008271541
+      },
+      "parameters": {
+        "breadth_threshold": 0.65,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.28,
+        "slow_trend": 252,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160223Z",
+      "result_path": "research/results/phase2/development/P2-DEV-CONTROLLED-GROWTH-12.json",
+      "started_at_utc": "2026-07-18T01:01:09.103249Z",
+      "status": "INVALIDATED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:01:20.870649Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-SECTOR-ROTATION-01",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.057513Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.47152719928209746,
+        "cagr": 0.024560413737227504,
+        "calmar": 0.2734119318879489,
+        "max_drawdown": -0.08982934127137138,
+        "sharpe": -0.3116645631168489,
+        "sortino": -0.4189970905611357
+      },
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 168,
+        "top_n": 2
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160230Z",
+      "result_path": "research/results/phase2/development/P2-DEV-SECTOR-ROTATION-01.json",
+      "started_at_utc": "2026-07-18T01:01:14.671284Z",
+      "status": "INVALIDATED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:01:27.006703Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-SECTOR-ROTATION-02",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.065454Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.47152719928209746,
+        "cagr": 0.024560413737227504,
+        "calmar": 0.2734119318879489,
+        "max_drawdown": -0.08982934127137138,
+        "sharpe": -0.3116645631168489,
+        "sortino": -0.4189970905611357
+      },
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 252,
+        "top_n": 2
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160237Z",
+      "result_path": "research/results/phase2/development/P2-DEV-SECTOR-ROTATION-02.json",
+      "started_at_utc": "2026-07-18T01:01:20.883057Z",
+      "status": "INVALIDATED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:01:33.261474Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-SECTOR-ROTATION-03",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.073353Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.697935451832832,
+        "cagr": 0.0275228089552213,
+        "calmar": 0.30638996752826936,
+        "max_drawdown": -0.08982934127137138,
+        "sharpe": -0.25709022440519075,
+        "sortino": -0.3504705833124793
+      },
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 168,
+        "top_n": 3
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160244Z",
+      "result_path": "research/results/phase2/development/P2-DEV-SECTOR-ROTATION-03.json",
+      "started_at_utc": "2026-07-18T01:01:27.015176Z",
+      "status": "INVALIDATED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:01:39.454627Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-SECTOR-ROTATION-04",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.082244Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.697935451832832,
+        "cagr": 0.0275228089552213,
+        "calmar": 0.30638996752826936,
+        "max_drawdown": -0.08982934127137138,
+        "sharpe": -0.25709022440519075,
+        "sortino": -0.3504705833124793
+      },
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 252,
+        "top_n": 3
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160251Z",
+      "result_path": "research/results/phase2/development/P2-DEV-SECTOR-ROTATION-04.json",
+      "started_at_utc": "2026-07-18T01:01:33.273022Z",
+      "status": "INVALIDATED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:01:45.615063Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-SECTOR-ROTATION-05",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.090475Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.47240835328986214,
+        "cagr": 0.025832262961454022,
+        "calmar": 0.2875704374077022,
+        "max_drawdown": -0.08982934127137138,
+        "sharpe": -0.28575449449679163,
+        "sortino": -0.3868066026068017
+      },
+      "parameters": {
+        "momentum_weights": [
+          0.3,
+          0.4,
+          0.3
+        ],
+        "slow_trend": 168,
+        "top_n": 2
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160257Z",
+      "result_path": "research/results/phase2/development/P2-DEV-SECTOR-ROTATION-05.json",
+      "started_at_utc": "2026-07-18T01:01:39.466927Z",
+      "status": "INVALIDATED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:01:52.069002Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-SECTOR-ROTATION-06",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.098785Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.47240835328986214,
+        "cagr": 0.025832262961454022,
+        "calmar": 0.2875704374077022,
+        "max_drawdown": -0.08982934127137138,
+        "sharpe": -0.28575449449679163,
+        "sortino": -0.3868066026068017
+      },
+      "parameters": {
+        "momentum_weights": [
+          0.3,
+          0.4,
+          0.3
+        ],
+        "slow_trend": 252,
+        "top_n": 2
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160264Z",
+      "result_path": "research/results/phase2/development/P2-DEV-SECTOR-ROTATION-06.json",
+      "started_at_utc": "2026-07-18T01:01:45.623728Z",
+      "status": "INVALIDATED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:01:58.275032Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-SECTOR-ROTATION-07",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.123708Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.6408455340054201,
+        "cagr": 0.026810815787507325,
+        "calmar": 0.2984639028634616,
+        "max_drawdown": -0.08982934127137138,
+        "sharpe": -0.2710211430412949,
+        "sortino": -0.369970528514594
+      },
+      "parameters": {
+        "momentum_weights": [
+          0.3,
+          0.4,
+          0.3
+        ],
+        "slow_trend": 168,
+        "top_n": 3
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160271Z",
+      "result_path": "research/results/phase2/development/P2-DEV-SECTOR-ROTATION-07.json",
+      "started_at_utc": "2026-07-18T01:01:52.077555Z",
+      "status": "INVALIDATED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:02:04.442092Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-SECTOR-ROTATION-08",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.134337Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.6408455340054201,
+        "cagr": 0.026810815787507325,
+        "calmar": 0.2984639028634616,
+        "max_drawdown": -0.08982934127137138,
+        "sharpe": -0.2710211430412949,
+        "sortino": -0.369970528514594
+      },
+      "parameters": {
+        "momentum_weights": [
+          0.3,
+          0.4,
+          0.3
+        ],
+        "slow_trend": 252,
+        "top_n": 3
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160277Z",
+      "result_path": "research/results/phase2/development/P2-DEV-SECTOR-ROTATION-08.json",
+      "started_at_utc": "2026-07-18T01:01:58.284293Z",
+      "status": "INVALIDATED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:02:10.714065Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-SECTOR-ROTATION-09",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.142474Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.6340651504485612,
+        "cagr": 0.024117612612499117,
+        "calmar": 0.26848257229940753,
+        "max_drawdown": -0.08982934127137138,
+        "sharpe": -0.3199207546839568,
+        "sortino": -0.4295741397850591
+      },
+      "parameters": {
+        "momentum_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "slow_trend": 168,
+        "top_n": 2
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160284Z",
+      "result_path": "research/results/phase2/development/P2-DEV-SECTOR-ROTATION-09.json",
+      "started_at_utc": "2026-07-18T01:02:04.455138Z",
+      "status": "INVALIDATED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:02:17.092202Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-SECTOR-ROTATION-10",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.151766Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.6340651504485612,
+        "cagr": 0.024117612612499117,
+        "calmar": 0.26848257229940753,
+        "max_drawdown": -0.08982934127137138,
+        "sharpe": -0.3199207546839568,
+        "sortino": -0.4295741397850591
+      },
+      "parameters": {
+        "momentum_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "slow_trend": 252,
+        "top_n": 2
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160290Z",
+      "result_path": "research/results/phase2/development/P2-DEV-SECTOR-ROTATION-10.json",
+      "started_at_utc": "2026-07-18T01:02:10.723146Z",
+      "status": "INVALIDATED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:02:23.468172Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-SECTOR-ROTATION-11",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.161058Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.6961154706833464,
+        "cagr": 0.027557393418139675,
+        "calmar": 0.3067749693821057,
+        "max_drawdown": -0.08982934127137138,
+        "sharpe": -0.2531352579662268,
+        "sortino": -0.3425196706622014
+      },
+      "parameters": {
+        "momentum_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "slow_trend": 168,
+        "top_n": 3
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160298Z",
+      "result_path": "research/results/phase2/development/P2-DEV-SECTOR-ROTATION-11.json",
+      "started_at_utc": "2026-07-18T01:02:17.101464Z",
+      "status": "INVALIDATED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:02:29.661077Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-SECTOR-ROTATION-12",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.170634Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.6961154706833464,
+        "cagr": 0.027557393418139675,
+        "calmar": 0.3067749693821057,
+        "max_drawdown": -0.08982934127137138,
+        "sharpe": -0.2531352579662268,
+        "sortino": -0.3425196706622014
+      },
+      "parameters": {
+        "momentum_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "slow_trend": 252,
+        "top_n": 3
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160304Z",
+      "result_path": "research/results/phase2/development/P2-DEV-SECTOR-ROTATION-12.json",
+      "started_at_utc": "2026-07-18T01:02:23.478347Z",
+      "status": "INVALIDATED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:02:36.192736Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-ETF-REVERSION-01",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.179101Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 1.439364554941308,
+        "cagr": -0.00036047149705820125,
+        "calmar": -0.018294596708200196,
+        "max_drawdown": -0.01970371376902924,
+        "sharpe": -7.7573260220785825,
+        "sortino": -10.681794548490878
+      },
+      "parameters": {
+        "hold_sessions": 2,
+        "loss_threshold": -0.025,
+        "rsi_cutoff": 5
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160311Z",
+      "result_path": "research/results/phase2/development/P2-DEV-ETF-REVERSION-01.json",
+      "started_at_utc": "2026-07-18T01:02:29.669021Z",
+      "status": "INVALIDATED",
+      "strategy_family": "etf_reversion",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:02:42.656838Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-ETF-REVERSION-02",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.193012Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 1.4734253480551183,
+        "cagr": 0.0018923986534622461,
+        "calmar": 0.10025349213085848,
+        "max_drawdown": -0.01887613701268524,
+        "sharpe": -5.399643586622688,
+        "sortino": -9.220551920974467
+      },
+      "parameters": {
+        "hold_sessions": 4,
+        "loss_threshold": -0.025,
+        "rsi_cutoff": 5
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160317Z",
+      "result_path": "research/results/phase2/development/P2-DEV-ETF-REVERSION-02.json",
+      "started_at_utc": "2026-07-18T01:02:36.204675Z",
+      "status": "INVALIDATED",
+      "strategy_family": "etf_reversion",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:02:49.124389Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-ETF-REVERSION-03",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.203517Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 2.6181003505722735,
+        "cagr": 0.00028997030788002753,
+        "calmar": 0.013324110509692401,
+        "max_drawdown": -0.021762826694441892,
+        "sharpe": -5.005427045284935,
+        "sortino": -6.4347398098233
+      },
+      "parameters": {
+        "hold_sessions": 2,
+        "loss_threshold": -0.025,
+        "rsi_cutoff": 10
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160324Z",
+      "result_path": "research/results/phase2/development/P2-DEV-ETF-REVERSION-03.json",
+      "started_at_utc": "2026-07-18T01:02:42.665434Z",
+      "status": "INVALIDATED",
+      "strategy_family": "etf_reversion",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:02:55.603008Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-ETF-REVERSION-04",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.217156Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 2.7614391945211256,
+        "cagr": 0.0031860276630923945,
+        "calmar": 0.12132893068980782,
+        "max_drawdown": -0.02625942258765852,
+        "sharpe": -3.5652103803559303,
+        "sortino": -5.1029978000177865
+      },
+      "parameters": {
+        "hold_sessions": 4,
+        "loss_threshold": -0.025,
+        "rsi_cutoff": 10
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160330Z",
+      "result_path": "research/results/phase2/development/P2-DEV-ETF-REVERSION-04.json",
+      "started_at_utc": "2026-07-18T01:02:49.132449Z",
+      "status": "INVALIDATED",
+      "strategy_family": "etf_reversion",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:03:02.128363Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-ETF-REVERSION-05",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.227982Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.4036073624569954,
+        "cagr": 0.00018948626096104704,
+        "calmar": 0.04440907750343942,
+        "max_drawdown": -0.0042668362328934124,
+        "sharpe": -20.173051528771346,
+        "sortino": -29.905500655932528
+      },
+      "parameters": {
+        "hold_sessions": 2,
+        "loss_threshold": -0.035,
+        "rsi_cutoff": 5
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160336Z",
+      "result_path": "research/results/phase2/development/P2-DEV-ETF-REVERSION-05.json",
+      "started_at_utc": "2026-07-18T01:02:55.611524Z",
+      "status": "INVALIDATED",
+      "strategy_family": "etf_reversion",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:03:08.677188Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-ETF-REVERSION-06",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.242233Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.4349916275410002,
+        "cagr": 0.0007407020245644436,
+        "calmar": 0.20412997423689838,
+        "max_drawdown": -0.003628580404878897,
+        "sharpe": -15.16226650749291,
+        "sortino": -26.50655320583184
+      },
+      "parameters": {
+        "hold_sessions": 4,
+        "loss_threshold": -0.035,
+        "rsi_cutoff": 5
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160342Z",
+      "result_path": "research/results/phase2/development/P2-DEV-ETF-REVERSION-06.json",
+      "started_at_utc": "2026-07-18T01:03:02.136432Z",
+      "status": "INVALIDATED",
+      "strategy_family": "etf_reversion",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:03:15.276345Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-ETF-REVERSION-07",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.252615Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.666536394362392,
+        "cagr": 8.261641179063695e-05,
+        "calmar": 0.010004385087399679,
+        "max_drawdown": -0.008258019965134153,
+        "sharpe": -11.642246622164635,
+        "sortino": -18.89698549068455
+      },
+      "parameters": {
+        "hold_sessions": 2,
+        "loss_threshold": -0.035,
+        "rsi_cutoff": 10
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160348Z",
+      "result_path": "research/results/phase2/development/P2-DEV-ETF-REVERSION-07.json",
+      "started_at_utc": "2026-07-18T01:03:08.685788Z",
+      "status": "INVALIDATED",
+      "strategy_family": "etf_reversion",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "542f680dbdb23af3a72034f425a79ddea28c44c8",
+      "completed_at_utc": "2026-07-18T01:03:21.863000Z",
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-DEV-ETF-REVERSION-08",
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
+      "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
+      "invalidated_at_utc": "2026-07-18T01:09:40.261630Z",
+      "invalidation_reason": "INVALID_DATA_COVERAGE_AND_SOURCE_SEMANTICS: QQQ/TQQQ/sector ETFs had only 2015-2016 development coverage; IEF/GLD/SHY began 2009; the local auto-adjusted yfinance frontier was incompatible with read-time distribution adjustment.",
+      "key_metrics": {
+        "annual_turnover": 0.6980654858014934,
+        "cagr": 0.0006821331079074344,
+        "calmar": 0.061114209947149625,
+        "max_drawdown": -0.011161612143842321,
+        "sharpe": -9.34802760999734,
+        "sortino": -14.848048619691868
+      },
+      "parameters": {
+        "hold_sessions": 4,
+        "loss_threshold": -0.035,
+        "rsi_cutoff": 10
+      },
+      "pass_fail": "INVALID",
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T00:59:08.160362Z",
+      "result_path": "research/results/phase2/development/P2-DEV-ETF-REVERSION-08.json",
+      "started_at_utc": "2026-07-18T01:03:15.285502Z",
+      "status": "INVALIDATED",
+      "strategy_family": "etf_reversion",
+      "strategy_version": "v1"
+    }
+  ],
+  "schema_version": 1
 }
