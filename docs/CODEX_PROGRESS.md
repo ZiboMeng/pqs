@@ -125,11 +125,14 @@ controlled growth and ETF reversion stop at v1. No strategy is promoted.
   allocation invariant, and proved the one-sector case emits 35% sector plus 32.5%/32.5% BIL/SHY.
   Its sole D2R3 development cell passed with the expected v1-equivalent 7.25% CAGR, 0.406 Sharpe
   and -12.80% MaxDD; no v2 parameter search occurred.
+- Completed all seven D2R3 v2 validation/robustness experiments under the disclosed reused
+  interval; all passed. V2 produced 7.39% CAGR, 0.383 Sharpe, -11.13% MaxDD, 5/7 positive
+  annual folds, 100% adjacent-neighbor pass, and passed 2x-cost and one-session-delay gates.
 
 ## In progress
 
-- Commit/push the one-cell D2R3 development evidence, then preregister v2 validation and
-  robustness with explicit validation-reuse disclosure.
+- Commit/push D2R3 validation evidence, then preregister exactly one final-holdout access for
+  adaptive core and sector rotation v2 before loading any 2024–2026 candidate data.
 
 ## Next
 

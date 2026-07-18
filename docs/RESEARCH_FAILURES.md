@@ -81,6 +81,13 @@ expected v1-equivalent metrics (7.25% CAGR, 0.406 Sharpe, 0.554 Sortino,
 -12.80% MaxDD). No alternative v2 development parameter was run or selected.
 The fixed repair may proceed to the disclosed validation reuse.
 
+All seven D2R3 v2 validation/robustness experiments then passed: 7.39% CAGR,
+0.383 Sharpe, 0.486 Sortino, -11.13% MaxDD, 5/7 positive annual folds, all
+three neighbors passing, 2x-cost Sharpe 0.355 and delayed-signal Sharpe 0.439.
+The bootstrap CAGR interval is 1.20% to 13.42%. Despite the non-pristine reused
+validation interval, the unchanged v2 now qualifies as a frozen finalist for
+one access to the still-unread phase-two final holdout.
+
 ## Legacy D1 design notes (performance numbers invalidated)
 
 The subsections below preserve the original D1 attribution. Every performance
