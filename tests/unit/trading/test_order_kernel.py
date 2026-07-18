@@ -108,6 +108,58 @@ def test_pretrade_reserves_estimated_cost_above_minimum_cash():
     assert "MIN_CASH_BREACH" in decision.reason_codes
 
 
+def test_pretrade_allows_sell_that_reduces_existing_limit_breaches():
+    limits = RiskLimits(
+        max_gross_exposure=0.30,
+        max_single_position=0.30,
+        max_order_notional_fraction=0.01,
+        max_daily_turnover_fraction=0.01,
+        blocked_symbols=frozenset({"QQQ"}),
+    )
+    order = intent(
+        symbol="QQQ",
+        side=TradingSide.SELL,
+        quantity=50.0,
+        reference_price=100.0,
+    )
+    decision = PreTradeRiskEngine(limits).evaluate(
+        order,
+        snapshot(
+            cash=60_000.0,
+            positions={"QQQ": 400.0},
+            prices={"QQQ": 100.0},
+            daily_pnl=-4_000.0,
+            daily_turnover=50_000.0,
+            kill_switch_active=True,
+        ),
+    )
+    assert decision.approved
+    assert decision.reason_codes == ()
+
+
+def test_pretrade_does_not_exempt_sell_from_data_pause_or_reconciliation():
+    order = intent(
+        side=TradingSide.SELL,
+        quantity=10.0,
+    )
+    decision = PreTradeRiskEngine(RiskLimits()).evaluate(
+        order,
+        snapshot(
+            cash=90_000.0,
+            positions={"SPY": 100.0},
+            data_fresh=False,
+            manual_pause=True,
+            reconciliation_ok=False,
+        ),
+    )
+    assert not decision.approved
+    assert set(decision.reason_codes) >= {
+        "STALE_MARKET_DATA",
+        "MANUAL_PAUSE_ACTIVE",
+        "RECONCILIATION_NOT_OK",
+    }
+
+
 def test_pretrade_rejects_stale_reference_price_deviation():
     decision = PreTradeRiskEngine(
         RiskLimits(max_reference_price_deviation=0.02)

@@ -440,6 +440,15 @@ class Phase2PaperRuntime:
         reconcile_result = items["reconcile_result"]
         eod_check = items["eod_check"]
         enabled = bool(items["enabled"])
+        session_orders = self._session_order_audit(items["exec_date"])
+        pretrade_rejections = sorted(
+            {
+                reason
+                for order in session_orders
+                if order["state"] == OrderState.REJECTED.value
+                for reason in order["reason_codes"]
+            }
+        )
         manual_review: list[str] = []
         if not reconcile_result.passed:
             manual_review.append("BROKER_RECONCILIATION_FAILED")
@@ -447,6 +456,8 @@ class Phase2PaperRuntime:
             manual_review.extend(allocation.veto_reasons)
         if not enabled:
             manual_review.append("REGIME_NOT_ALLOWED_OR_LOW_CONFIDENCE")
+        if pretrade_rejections:
+            manual_review.append("PRETRADE_RISK_REJECTION")
         if not eod_check["ok"]:
             manual_review.append("EOD_ACCOUNTING_WARNING")
         return {
@@ -466,6 +477,7 @@ class Phase2PaperRuntime:
             "rejected_signals": [
                 *allocation.veto_reasons,
                 *(() if enabled else ("REGIME_NOT_ALLOWED_OR_LOW_CONFIDENCE",)),
+                *pretrade_rejections,
             ],
             "risk_budget": {
                 "capital_fraction": self.spec.capital_fraction,
@@ -476,15 +488,7 @@ class Phase2PaperRuntime:
             },
             "positions": self.engine.get_positions(),
             "cash": self.engine.get_cash(),
-            "orders": [
-                {
-                    "symbol": fill.symbol,
-                    "side": fill.side.value,
-                    "quantity": fill.executed_qty,
-                    "signal_date": fill.signal_date.date().isoformat(),
-                }
-                for fill in day_result.trades
-            ],
+            "orders": session_orders,
             "fills": [
                 {
                     "symbol": fill.symbol,
@@ -525,6 +529,29 @@ class Phase2PaperRuntime:
             },
             "manual_review": sorted(set(manual_review)),
         }
+
+    def _session_order_audit(self, exec_date: pd.Timestamp) -> list[dict[str, Any]]:
+        prefix = f"daily-{exec_date.date().isoformat()}:"
+        output: list[dict[str, Any]] = []
+        for order in self.order_store.list_all():
+            if not order.intent.decision_id.startswith(prefix):
+                continue
+            reason_codes: list[str] = []
+            for event in self.order_store.events(order.intent.order_id):
+                values = event["metadata"].get("reason_codes", [])
+                reason_codes.extend(str(value) for value in values)
+            output.append(
+                {
+                    "order_id": order.intent.order_id,
+                    "symbol": order.intent.symbol,
+                    "side": order.intent.side.value,
+                    "quantity": order.intent.quantity,
+                    "state": order.state.value,
+                    "filled_quantity": order.filled_quantity,
+                    "reason_codes": sorted(set(reason_codes)),
+                }
+            )
+        return output
 
     def _recover_committed_report(
         self,

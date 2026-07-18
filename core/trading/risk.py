@@ -57,14 +57,10 @@ class PreTradeRiskEngine:
 
         if not snapshot.data_fresh:
             reasons.append("STALE_MARKET_DATA")
-        if snapshot.kill_switch_active:
-            reasons.append("KILL_SWITCH_ACTIVE")
         if snapshot.manual_pause:
             reasons.append("MANUAL_PAUSE_ACTIVE")
         if not snapshot.reconciliation_ok:
             reasons.append("RECONCILIATION_NOT_OK")
-        if order.symbol in limits.blocked_symbols:
-            reasons.append("SYMBOL_BLOCKED")
         if not math.isfinite(snapshot.equity) or snapshot.equity <= 0:
             reasons.append("INVALID_EQUITY")
             return RiskDecision(False, tuple(reasons))
@@ -80,11 +76,24 @@ class PreTradeRiskEngine:
         current_qty = float(snapshot.positions.get(order.symbol, 0.0))
         signed_qty = order.quantity if order.side is TradingSide.BUY else -order.quantity
         projected_qty = current_qty + signed_qty
+        risk_reducing_sell = (
+            order.side is TradingSide.SELL
+            and current_qty > 0.0
+            and projected_qty >= -1e-9
+            and projected_qty < current_qty
+        )
+        if snapshot.kill_switch_active and not risk_reducing_sell:
+            reasons.append("KILL_SWITCH_ACTIVE")
+        if order.symbol in limits.blocked_symbols and not risk_reducing_sell:
+            reasons.append("SYMBOL_BLOCKED")
         if limits.long_only and projected_qty < -1e-9:
             reasons.append("SHORT_POSITION_FORBIDDEN")
 
         order_notional = order.quantity * price
-        if order_notional > snapshot.equity * limits.max_order_notional_fraction:
+        if (
+            not risk_reducing_sell
+            and order_notional > snapshot.equity * limits.max_order_notional_fraction
+        ):
             reasons.append("MAX_ORDER_NOTIONAL_BREACH")
         reference_deviation = abs(order.reference_price - price) / price
         if reference_deviation > limits.max_reference_price_deviation:
@@ -98,27 +107,45 @@ class PreTradeRiskEngine:
         if not limits.allow_margin and projected_cash < min_cash - 1e-9:
             reasons.append("MIN_CASH_BREACH")
 
-        projected_values: dict[str, float] = {}
+        current_values: dict[str, float] = {}
         for symbol, qty in snapshot.positions.items():
             symbol_price = snapshot.prices.get(symbol)
             if symbol_price is None or not math.isfinite(symbol_price) or symbol_price <= 0:
                 reasons.append(f"MISSING_POSITION_PRICE:{symbol}")
                 continue
-            projected_values[symbol] = float(qty) * float(symbol_price)
+            current_values[symbol] = float(qty) * float(symbol_price)
+        projected_values = dict(current_values)
         projected_values[order.symbol] = max(projected_qty, 0.0) * price
         projected_values = {s: v for s, v in projected_values.items() if v > 1e-9}
 
         symbol_cap = limits.symbol_caps.get(order.symbol, limits.max_single_position)
-        if projected_values.get(order.symbol, 0.0) / snapshot.equity > symbol_cap + 1e-9:
+        symbol_exposure_reduced = (
+            risk_reducing_sell
+            and projected_values.get(order.symbol, 0.0)
+            < current_values.get(order.symbol, 0.0)
+        )
+        if (
+            projected_values.get(order.symbol, 0.0) / snapshot.equity > symbol_cap + 1e-9
+            and not symbol_exposure_reduced
+        ):
             reasons.append("SYMBOL_CAP_BREACH")
         gross = sum(abs(v) for v in projected_values.values()) / snapshot.equity
-        if gross > limits.max_gross_exposure + 1e-9:
+        current_gross = sum(abs(v) for v in current_values.values()) / snapshot.equity
+        if (
+            gross > limits.max_gross_exposure + 1e-9
+            and not (risk_reducing_sell and gross < current_gross)
+        ):
             reasons.append("GROSS_EXPOSURE_BREACH")
         if len(projected_values) > limits.max_positions:
             reasons.append("MAX_POSITIONS_BREACH")
-        if snapshot.daily_pnl <= -snapshot.equity * limits.max_daily_loss_fraction:
+        if (
+            snapshot.daily_pnl <= -snapshot.equity * limits.max_daily_loss_fraction
+            and not risk_reducing_sell
+        ):
             reasons.append("DAILY_LOSS_LIMIT")
         if (
+            not risk_reducing_sell
+            and
             snapshot.daily_turnover + order_notional
             > snapshot.equity * limits.max_daily_turnover_fraction
         ):

@@ -112,6 +112,7 @@ def _runtime(
     root: Path,
     *,
     broker_type=SimulatedBrokerAdapter,
+    max_daily_turnover: float = 1.0,
 ) -> tuple[Phase2PaperRuntime, RecordingStrategy]:
     close, open_prices, vix = _panel()
     spec = _spec()
@@ -125,6 +126,7 @@ def _runtime(
         PreTradeRiskEngine(
             RiskLimits(
                 min_cash_fraction=0.05,
+                max_daily_turnover_fraction=max_daily_turnover,
                 symbol_caps={"SPY": 0.35, "BIL": 0.35},
             )
         ),
@@ -238,6 +240,15 @@ def test_broker_timeout_isolates_account_and_blocks_following_orders(tmp_path) -
     second = runtime.run_range(dates[1], dates[1])[0]
     assert "ACCOUNT_NOT_RECONCILED" in second.payload["rejected_signals"]
     assert second.payload["fills"] == []
+
+
+def test_daily_report_includes_pretrade_rejection_reason(tmp_path) -> None:
+    runtime, _ = _runtime(tmp_path, max_daily_turnover=0.10)
+    date = runtime.close.index[260]
+    report = runtime.run_range(date, date)[0].payload
+    assert "DAILY_TURNOVER_LIMIT" in report["rejected_signals"]
+    assert "PRETRADE_RISK_REJECTION" in report["manual_review"]
+    assert any(order["state"] == "REJECTED" for order in report["orders"])
 
 
 def test_market_event_guard_rejects_missing_stale_duplicate_and_out_of_order() -> None:
