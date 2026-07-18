@@ -463,6 +463,128 @@ class DefensiveGrowthStrategy:
 
 
 @dataclass(frozen=True)
+class MultiAssetTrendParams:
+    slow_trend: int = 252
+    sleeve_weight: float = 0.25
+
+    def __post_init__(self) -> None:
+        if self.slow_trend not in {168, 252}:
+            raise ValueError("slow_trend is outside the preregistered grid")
+        if self.sleeve_weight not in {0.20, 0.25}:
+            raise ValueError("sleeve_weight is outside the preregistered grid")
+
+
+class MultiAssetTrendStrategy:
+    """Monthly absolute trend across four bounded cross-asset sleeves."""
+
+    strategy_id = "multi_asset_trend_v1"
+    strategy_type = "etf_rotation"
+    risk_symbols = ("SPY", "QQQ", "IEF", "GLD")
+    required_symbols = (*risk_symbols, "BIL", "SHY", "SHV")
+
+    def __init__(self, params: MultiAssetTrendParams | None = None) -> None:
+        self.params = params or MultiAssetTrendParams()
+
+    def generate(
+        self,
+        price_df: pd.DataFrame,
+        regime_series: pd.Series | None = None,
+    ) -> pd.DataFrame:
+        del regime_series
+        _validate_panel(price_df, self.required_symbols)
+        risky = price_df.loc[:, self.risk_symbols]
+        slow = self.params.slow_trend
+        eligible = (risky > risky.rolling(slow).mean()) & (risky.pct_change(126) > 0.0)
+        ready = risky.rolling(max(252, slow)).count().min(axis=1) >= max(252, slow)
+        raw = pd.DataFrame(0.0, index=price_df.index, columns=price_df.columns)
+        for date in price_df.index[ready]:
+            row = raw.loc[date]
+            active = [symbol for symbol in self.risk_symbols if bool(eligible.at[date, symbol])]
+            for symbol in active:
+                row[symbol] = self.params.sleeve_weight
+            residual = 1.0 - float(row.sum())
+            for symbol in _CASH:
+                row[symbol] = residual / len(_CASH)
+            raw.loc[date] = row
+        weights = _carry_rebalance_targets(raw, _period_end_mask(price_df.index, "M"))
+        return _assert_weight_contract(weights)
+
+
+@dataclass(frozen=True)
+class DualIndexGrowthParams:
+    slow_trend: int = 252
+    equity_gross: float = 0.70
+    cooldown_sessions: int = 21
+
+    def __post_init__(self) -> None:
+        if self.slow_trend not in {168, 252}:
+            raise ValueError("slow_trend is outside the preregistered grid")
+        if self.equity_gross not in {0.60, 0.70}:
+            raise ValueError("equity_gross is outside the preregistered grid")
+        if self.cooldown_sessions != 21:
+            raise ValueError("cooldown is frozen at 21 sessions")
+
+
+class DualIndexGrowthStrategy:
+    """Month-end QQQ/SPY growth state with a bounded defensive allocation."""
+
+    strategy_id = "dual_index_growth_v1"
+    strategy_type = "growth_engine"
+    required_symbols = ("QQQ", "SPY", "IEF", "GLD", "BIL", "SHY")
+
+    def __init__(self, params: DualIndexGrowthParams | None = None) -> None:
+        self.params = params or DualIndexGrowthParams()
+
+    def generate(
+        self,
+        price_df: pd.DataFrame,
+        regime_series: pd.Series | None = None,
+    ) -> pd.DataFrame:
+        del regime_series
+        _validate_panel(price_df, self.required_symbols)
+        qqq = price_df["QQQ"]
+        spy = price_df["SPY"]
+        slow = self.params.slow_trend
+        signal = (
+            (qqq > qqq.rolling(slow).mean())
+            & (qqq.pct_change(126) > 0.0)
+            & (spy > spy.rolling(200).mean())
+        )
+        ready = qqq.rolling(max(252, slow)).count() >= max(252, slow)
+        month_end = _period_end_mask(price_df.index, "M")
+        weights = pd.DataFrame(0.0, index=price_df.index, columns=price_df.columns)
+        active = False
+        cooldown = 0
+        for date in price_df.index:
+            if cooldown > 0:
+                cooldown -= 1
+            if bool(month_end.loc[date]) and bool(ready.loc[date]):
+                if active and not bool(signal.loc[date]):
+                    active = False
+                    cooldown = self.params.cooldown_sessions
+                elif not active and cooldown == 0 and bool(signal.loc[date]):
+                    active = True
+            if not bool(ready.loc[date]):
+                continue
+
+            row = weights.loc[date]
+            if active:
+                row["QQQ"] = 0.35
+                row["SPY"] = self.params.equity_gross - 0.35
+                row["GLD"] = 0.15
+                residual = 1.0 - float(row.sum())
+                row["BIL"] = residual / 2.0
+                row["SHY"] = residual / 2.0
+            else:
+                row["IEF"] = 0.30
+                row["GLD"] = 0.30
+                row["BIL"] = 0.20
+                row["SHY"] = 0.20
+            weights.loc[date] = row
+        return _assert_weight_contract(weights)
+
+
+@dataclass(frozen=True)
 class EtfReversionParams:
     loss_threshold: float = -0.035
     rsi_cutoff: int = 10
@@ -544,8 +666,12 @@ __all__ = [
     "ControlledGrowthStrategy",
     "DefensiveGrowthParams",
     "DefensiveGrowthStrategy",
+    "DualIndexGrowthParams",
+    "DualIndexGrowthStrategy",
     "EtfReversionParams",
     "EtfReversionStrategy",
+    "MultiAssetTrendParams",
+    "MultiAssetTrendStrategy",
     "SectorRotationParams",
     "SectorRotationStrategy",
     "SectorRotationV2Strategy",

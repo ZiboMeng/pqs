@@ -43,8 +43,12 @@ from core.signals.strategies.phase2_etf import (
     ControlledGrowthStrategy,
     DefensiveGrowthParams,
     DefensiveGrowthStrategy,
+    DualIndexGrowthParams,
+    DualIndexGrowthStrategy,
     EtfReversionParams,
     EtfReversionStrategy,
+    MultiAssetTrendParams,
+    MultiAssetTrendStrategy,
     RiskBalancedCoreParams,
     RiskBalancedCoreStrategy,
     SectorRotationParams,
@@ -103,6 +107,20 @@ FAMILY_META: dict[str, dict[str, str]] = {
         "strategy_type": "growth_engine",
         "benchmark": "QQQ",
         "hypothesis": "An unlevered weekly Nasdaq state machine retains growth while explicit defensive sleeves limit drawdown.",
+    },
+    "multi_asset_trend": {
+        "version": "v1",
+        "strategy_id": "multi_asset_trend_v1",
+        "strategy_type": "etf_rotation",
+        "benchmark": "SPY",
+        "hypothesis": "Bounded absolute-trend sleeves retain cross-asset premia while inactive sleeves move to T-bills.",
+    },
+    "dual_index_growth": {
+        "version": "v1",
+        "strategy_id": "dual_index_growth_v1",
+        "strategy_type": "growth_engine",
+        "benchmark": "QQQ",
+        "hypothesis": "High-participation month-end QQQ/SPY trend captures growth with a fixed defensive off-state.",
     },
     "etf_reversion": {
         "version": "v1",
@@ -167,6 +185,16 @@ def _repair_grids() -> dict[str, list[dict[str, Any]]]:
             for slow in (168, 210, 252)
             for gross in (0.55, 0.65)
         ],
+        "multi_asset_trend": [
+            {"slow_trend": slow, "sleeve_weight": weight}
+            for slow in (168, 252)
+            for weight in (0.20, 0.25)
+        ],
+        "dual_index_growth": [
+            {"slow_trend": slow, "equity_gross": gross, "cooldown_sessions": 21}
+            for slow in (168, 252)
+            for gross in (0.60, 0.70)
+        ],
     }
 
 
@@ -202,6 +230,10 @@ def _make_strategy(family: str, parameters: Mapping[str, Any]):
         return RiskBalancedCoreStrategy(RiskBalancedCoreParams(**parameters))
     if family == "defensive_growth":
         return DefensiveGrowthStrategy(DefensiveGrowthParams(**parameters))
+    if family == "multi_asset_trend":
+        return MultiAssetTrendStrategy(MultiAssetTrendParams(**parameters))
+    if family == "dual_index_growth":
+        return DualIndexGrowthStrategy(DualIndexGrowthParams(**parameters))
     if family == "etf_reversion":
         return EtfReversionStrategy(EtfReversionParams(**parameters))
     raise KeyError(family)
@@ -643,6 +675,16 @@ def _neighbor_cells(family: str, selected: Mapping[str, Any]) -> list[dict[str, 
         axes = {
             "slow_trend": [168, 210, 252],
             "risk_on_equity_gross": [0.55, 0.65],
+        }
+    elif family == "multi_asset_trend":
+        axes = {
+            "slow_trend": [168, 252],
+            "sleeve_weight": [0.20, 0.25],
+        }
+    elif family == "dual_index_growth":
+        axes = {
+            "slow_trend": [168, 252],
+            "equity_gross": [0.60, 0.70],
         }
     else:
         axes = {

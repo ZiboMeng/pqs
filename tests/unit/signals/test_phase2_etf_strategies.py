@@ -8,7 +8,9 @@ from core.signals.strategies.phase2_etf import (
     AdaptiveCoreStrategy,
     ControlledGrowthStrategy,
     DefensiveGrowthStrategy,
+    DualIndexGrowthStrategy,
     EtfReversionStrategy,
+    MultiAssetTrendStrategy,
     RiskBalancedCoreStrategy,
     SectorRotationStrategy,
     SectorRotationV2Strategy,
@@ -53,6 +55,8 @@ def _panel(rows: int = 420) -> pd.DataFrame:
         EtfReversionStrategy(),
         RiskBalancedCoreStrategy(),
         DefensiveGrowthStrategy(),
+        MultiAssetTrendStrategy(),
+        DualIndexGrowthStrategy(),
     ],
 )
 def test_phase2_strategy_weight_contract(strategy) -> None:
@@ -97,7 +101,12 @@ def test_sector_rotation_v2_caps_a_single_eligible_sector() -> None:
 
 def test_final_iteration_strategies_are_fully_collateralized_after_warmup() -> None:
     panel = _panel(600)
-    for strategy in (RiskBalancedCoreStrategy(), DefensiveGrowthStrategy()):
+    for strategy in (
+        RiskBalancedCoreStrategy(),
+        DefensiveGrowthStrategy(),
+        MultiAssetTrendStrategy(),
+        DualIndexGrowthStrategy(),
+    ):
         weights = strategy.generate(panel)
         invested = weights.sum(axis=1)
         assert np.allclose(invested[invested > 0.0], 1.0)

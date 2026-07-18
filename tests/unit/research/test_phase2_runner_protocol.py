@@ -32,6 +32,8 @@ def test_preregistered_grid_sizes_are_frozen() -> None:
     ]
     assert len(repair["risk_balanced_core"]) == 6
     assert len(repair["defensive_growth"]) == 6
+    assert len(repair["multi_asset_trend"]) == 4
+    assert len(repair["dual_index_growth"]) == 4
 
 
 def test_parameter_neighbors_change_exactly_one_axis() -> None:
