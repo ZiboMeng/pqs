@@ -246,6 +246,49 @@ not a repair or relabeling of adaptive core and uses no TQQQ.
 Iterations F and G consume the two remaining finalist slots only if they pass
 development and validation. No fifth phase-two finalist is permitted.
 
+## Iteration H — bounded multi-asset absolute trend (`multi_asset_trend_v1`)
+
+Status: preregistered after F/G stopped in development and before H code or
+evaluation. This is the last rotation-style hypothesis eligible for a remaining
+finalist slot.
+
+- Economic logic: slow absolute trend across four liquid, economically distinct
+  sleeves can retain compensated premia while refusing persistent negative
+  trends; this is not a rank or broad-universe EMA strategy.
+- Assets: SPY, QQQ, IEF and GLD risk sleeves; BIL, SHY and SHV receive all
+  inactive-sleeve capital.
+- Signal: at month-end, each risk sleeve independently requires price above its
+  slow mean and positive 126-session return. Decisions execute next open.
+- Allocation: every active sleeve receives the same fixed weight; residual is
+  split equally across the three cash ETFs, so even an all-off state stays below
+  the 35% symbol cap.
+- Grid: slow trend `168/252` crossed with sleeve weight `20%/25%` = exactly four
+  attempts. The 126-session confirmation, monthly timing and cash split are fixed.
+- Type/gates: `etf_rotation`, SPY benchmark, existing gates unchanged. Failure
+  risks are synchronized false exits, duration/gold whipsaw and equity overlap.
+
+## Iteration I — high-participation dual-index trend (`dual_index_growth_v1`)
+
+Status: preregistered with H and before I code or evaluation. It differs from
+failed defensive growth by using a slow month-end dual-index state, materially
+higher but capped equity participation and no daily fast-exit churn.
+
+- Assets: QQQ, SPY, IEF, GLD, BIL and SHY; no leverage.
+- Risk-on state: QQQ above its slow mean with positive 126-session return and
+  SPY above its 200-session mean. QQQ receives at most 35%, SPY receives the
+  remaining equity gross, GLD receives 15%, and BIL/SHY split residual cash.
+- Risk-off state: fixed 30% IEF, 30% GLD and 20% each BIL/SHY.
+- Transition: decisions occur only at month-end and execute next open. An exit
+  starts a fixed 21-session cooldown before re-entry; no same-month reversal.
+- Grid: slow QQQ trend `168/252` crossed with equity gross `60%/70%` = exactly
+  four attempts. All other signal and allocation values are frozen.
+- Type/gates: `growth_engine`, QQQ benchmark, TQQQ weight zero, existing gates
+  unchanged. Failure risks are late exits, high equity overlap and missed rebounds.
+
+H and I do not expand F/G or modify either rejected holdout finalist. They may
+use the two remaining finalist slots only after independent development and
+validation passes; no additional phase-two family follows them.
+
 ## Final selection and non-negotiable stop rules
 
 Development ranks by a preregistered composite of gate margin, not headline
