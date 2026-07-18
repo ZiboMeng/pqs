@@ -135,11 +135,14 @@ controlled growth and ETF reversion stop at v1. No strategy is promoted.
 - Preregistered and ran 12 D2R4 development cells for risk-balanced core and defensive growth.
   Both families failed all six cells and stop before validation: risk balance topped out at
   0.074 Sharpe, while every defensive-growth Sharpe was negative. No finalist slot was consumed.
+- Ran all eight D2R5 terminal development cells. Multi-asset trend failed 4/4 (best Sharpe
+  0.272 vs 0.30 required) and stops. Dual-index growth passed 4/4; its frozen winner produced
+  8.29% CAGR, 0.442 Sharpe and -10.28% MaxDD and advances alone to validation.
 
 ## In progress
 
-- Commit/push all D2R4 failures, then preregister bounded multi-asset trend and unlevered
-  dual-index growth hypotheses; the two final holdout slots remain unused.
+- Commit/push D2R5 development evidence, then preregister validation/robustness for dual-index
+  growth only. Multi-asset trend must not consume validation.
 
 ## Next
 

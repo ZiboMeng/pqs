@@ -115,6 +115,15 @@ all six cells: the best CAGR was roughly 2.8% and every Sharpe was negative.
 The weekly state machine and defensive allocation spent too much return budget
 outside growth assets. Both v1 grids are closed and will not be expanded.
 
+### D2R5 terminal development outcome
+
+Multi-asset trend failed all four cells and stops before validation. Its best
+observed Sharpe was 0.272 versus the unchanged 0.30 rotation gate; its strong
+drawdown/Calmar profile does not permit rounding or reclassification into a
+pass. Dual-index growth passed all four cells. The frozen representative uses
+slow trend 168, 70% equity gross and the fixed 21-session cooldown, with 8.29%
+CAGR, 0.442 Sharpe, 0.599 Sortino and -10.28% MaxDD. Only that family advances.
+
 ## Legacy D1 design notes (performance numbers invalidated)
 
 The subsections below preserve the original D1 attribution. Every performance
