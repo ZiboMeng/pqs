@@ -44,6 +44,25 @@
       },
       "result_viewed_before_access": false,
       "strategy_id": "sector_rotation_v2"
+    },
+    {
+      "code_commit": "944644a463d50fd577f6266ebf183532824c7945",
+      "data_revision": "d2r5",
+      "experiment_id": "P2-D2R5-HOLDOUT-DUAL-INDEX-GROWTH-FINAL",
+      "family": "dual_index_growth",
+      "parameters": {
+        "cooldown_sessions": 21,
+        "equity_gross": 0.7,
+        "slow_trend": 168
+      },
+      "parameters_locked": true,
+      "purpose": "single frozen phase-two finalist evaluation",
+      "range": {
+        "end": "2026-07-17",
+        "start": "2024-01-02"
+      },
+      "result_viewed_before_access": false,
+      "strategy_id": "dual_index_growth_v1"
     }
   ],
   "schema_version": 1
