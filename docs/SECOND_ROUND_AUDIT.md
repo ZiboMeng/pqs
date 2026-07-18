@@ -209,3 +209,31 @@ cooldown 或 switching cost。Regime 不是强制创新点：只有在 OOS 中�
   使用 regime，必须先预注册并补齐 historical confidence/cooldown 证据。
 
 完整认证和修复后诊断结果见 `BACKTEST_CERTIFICATION.md`。
+
+## 10. PAPER 操作化复审与关闭状态（2026-07-17）
+
+研究候选接入真实 PAPER 路径时又沿 `signal -> allocator -> veto -> order -> broker ->
+fill -> ledger -> reconcile -> report` 做了一次逐层复审，发现并关闭以下接缝问题：
+
+| 编号 | 发现 | 风险 | 关闭证据 |
+|---|---|---|---|
+| P0-PAPER-01 | simulated broker mirror 路径会再次应用成本，broker 与内部账本不可能精确对账 | 虚假现金差异、自动暂停或掩盖真实成本 | broker 直接镜像权威 fill；非零成本精确对账和重复 callback 幂等测试 |
+| P1-PAPER-02 | broker 权威状态与内部 paper ledger 共用恢复边界，无法检测进程崩溃后的单边提交 | 重启后可能把不一致误判为一致 | 独立 SQLite broker cash/positions/fill keys；broker-first crash 后重启必触发 mismatch/global pause |
+| P0-PAPER-03 | 账户已超 cap 时，风险降低型 SELL 仍因“卖后仍超 cap”被拒 | 无法去风险，风险状态被锁死 | SELL 仅在降低已有 cap/gross breach 时获准；stale/manual pause/unreconciled 仍 fail closed |
+| P1-PAPER-04 | 研究通过与 PAPER 批准之间没有单一可执行、幂等的最终门禁 | 人工修改 registry 可绕过证据 | finalizer 固定读取 validation/holdout/operational evidence，28/28 gate 全过才原子登记 |
+
+全年 2023 PAPER replay 共 250 sessions、41 orders（35 FILLED、6 风控 REJECTED），
+最终 equity 112,281.5452；clean/restart/idempotent 三条 NAV hash 均为
+`de162a7596a7817db8dcf0017fcd05a57201ddf8628f2ee68c6d76c448270601`。
+16 类故障注入全部通过，未解析订单为 0，对账干净，无全局暂停，LIVE 始终关闭。
+
+Regime 验证也给出否证结果：额外 `risk-on-only` gate 把 validation CAGR 从 11.39%
+降到 2.10%、Sharpe 从 0.732 降到 -0.353，并把换手从 2.08x 提高到 7.39x。
+因此 PAPER 只使用 regime 数据质量 fail-close；经济风险开关仍是策略自身的 dual-index
+long-trend state。此选择不是绕过 regime，而是保留有 OOS 增量的最小边界。
+
+清理结论没有改变：除已处理的 0-byte 占位文件外，没有其他文档、代码或历史证据同时满足
+静态/动态无依赖、无谱系价值、删除后完整验证这四项条件，故未做推测性删除。
+
+最终全仓回归为 4,213 passed、23 skipped、1 expected xfail、0 failed、43 warnings，
+耗时 1,983.12 秒；第二阶段合并子集另为 858 passed、1 expected xfail、0 failed。

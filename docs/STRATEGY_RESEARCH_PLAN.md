@@ -325,6 +325,16 @@ validation or holdout establishes an evidence/epistemic blocker: obtaining a
 second strategy would then require future unseen sessions or an explicitly
 authorized new research protocol, not more reuse of the same holdout.
 
+### Recorded J outcome (appended after evaluation)
+
+All four D2R6 development cells failed the unchanged stable-core gates. The best
+cell returned 2.47% CAGR with -0.181 Sharpe, -0.251 Sortino, 0.185 Calmar and
+-13.33% MaxDD. J therefore stopped before validation and did not consume the
+remaining holdout access. The unused access is not permission to invent another
+family after the terminal plan and three observed finalist outcomes. Phase-two
+research is closed pending genuinely unseen future sessions or a separately
+authorized, disjoint data protocol.
+
 ## Final selection and non-negotiable stop rules
 
 Development ranks by a preregistered composite of gate margin, not headline

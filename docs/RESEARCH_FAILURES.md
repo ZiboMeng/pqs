@@ -133,8 +133,31 @@ finalist; no stopped family is revived to manufacture a second candidate.
 Its third sealed final-holdout access also passed every frozen research gate:
 15.31% CAGR, 0.934 Sharpe, 1.281 Sortino, -9.43% MaxDD, beta 0.433 to QQQ and
 57.48% positive-PnL concentration in the best year. It is the only candidate
-currently eligible to attempt operational PAPER qualification; it is not yet
-`PAPER_APPROVED` until replay, fault, restart and risk-veto evidence is complete.
+that completed operational PAPER qualification. The frozen policy subsequently
+passed 28/28 research and operational gates; its registry status is
+`PAPER_APPROVED`, while LIVE remains disabled.
+
+### D2R6 final stable-core outcome and stop boundary
+
+`crash_buffer_core_v1` was the final preregistered family. All four development
+cells failed before validation. CAGR ranged from 2.13% to 2.47%, Sharpe from
+-0.218 to -0.181, Sortino from -0.298 to -0.251, and Calmar from 0.150 to 0.185.
+The best representative (`slow_trend=252`, `qqq_sleeve=15%`) had 2.47% CAGR,
+-0.181 Sharpe and -13.33% MaxDD. Low drawdown did not compensate for return below
+the 4% research risk-free convention and a negative risk-adjusted result.
+
+The family stops at v1. Relaxing the stable-core CAGR/Sharpe/Calmar gates,
+searching faster crash thresholds, or adding another neighbor after observing
+three finalist holdouts would be post-hoc overfitting. No D2R6 validation or
+holdout data was accessed.
+
+This closes the bounded phase-two search with one, not two, approved strategies.
+The missing second strategy is blocked by absence of a new untouched evidence
+interval, not by an implementation or compute failure. A defensible restart
+requires at least 252 completed future sessions not available at the 2026-07-17
+cutoff, or an explicitly authorized new protocol backed by a disjoint point-in-time
+data source. Reusing the already observed 2024–2026 interval cannot create new
+out-of-sample evidence.
 
 ## Legacy D1 design notes (performance numbers invalidated)
 

@@ -1,12 +1,14 @@
 # Codex audit and hardening progress
 
-Last updated: 2026-07-17 (D2R2 development complete)
+Last updated: 2026-07-17 (one PAPER approval; second-strategy evidence blocked)
 
 ## Current phase
 
-Strategy Phase 2 — all 41 D1 cells remain explicitly invalidated. D2R2 completed all 41
-development cells on certified data: adaptive core and sector rotation advance to validation;
-controlled growth and ETF reversion stop at v1. No strategy is promoted.
+Strategy Phase 2 close-out — `dual_index_growth_v1` passed its sealed holdout,
+250-session PAPER replay, restart/idempotence, 16 fault scenarios and all 28 frozen
+promotion gates. It is `PAPER_APPROVED`; LIVE remains disabled. Every other bounded
+family failed or was invalidated. A second approval is blocked until genuinely unseen
+post-2026-07-17 sessions or a user-authorized disjoint point-in-time protocol exists.
 
 ## Completed
 
@@ -141,28 +143,46 @@ controlled growth and ETF reversion stop at v1. No strategy is promoted.
 - Dual-index growth passed all six D2R5 validation/robustness runs: 11.39% CAGR, 0.732 Sharpe,
   -13.65% MaxDD, 6/7 positive annual folds, 100% neighbor pass, and strong 2x-cost/delay results.
 - The third sealed holdout access passed every research gate for dual-index growth: 15.31% CAGR,
-  0.934 Sharpe, -9.43% MaxDD and 0.433 QQQ beta. It is research-qualified but still awaits all
-  operational PAPER gates; no other candidate is research-qualified.
+  0.934 Sharpe, -9.43% MaxDD and 0.433 QQQ beta. At that checkpoint it was research-qualified
+  and still awaited operational gates; no other candidate was research-qualified.
+- Preregistered the terminal crash-buffer stable-core family and ran all four D2R6 development
+  cells. All failed: CAGR 2.13%–2.47%, Sharpe -0.218 to -0.181. It stopped before validation;
+  no further phase-two family is authorized on the already observed evidence.
+- Added a persistent simulated-broker authority separate from the internal ledger, exact
+  authoritative fill mirroring, causal daily PAPER runtime, atomic reports and automatic
+  reconciliation pauses. Fixed risk-reducing SELL handling without weakening stale/manual/
+  unreconciled vetoes.
+- Rejected an external risk-on-only regime gate after validation ablation reduced CAGR from
+  11.39% to 2.10%, Sharpe from 0.732 to -0.353 and increased turnover. PAPER uses only regime
+  quality fail-close outside the strategy's own frozen trend state.
+- Completed clean, process-restart and idempotent 2023 PAPER replays: 250 sessions, 41 orders,
+  35 fills, 6 risk rejections, no unresolved orders, identical NAV/cash/positions/order state,
+  and no global pause. All 16 fault-injection scenarios pass.
+- Added a machine finalizer that verifies frozen evidence intervals, identity, hashes, all
+  research/operational gates and PAPER-only configs. It recorded 28/28 passing gates and moved
+  `dual_index_growth_v1` to `PAPER_APPROVED`; LIVE remains false.
 
 ## In progress
 
-- Commit/push the dual-index holdout pass, operationalize its PAPER replay, and preregister one
-  final stable-core hypothesis for the last finalist slot under an explicit search amendment.
+- No research execution is in progress inside the exhausted evidence boundary. The approved
+  strategy may continue PAPER monitoring; second-strategy research is externally data-blocked.
 
 ## Next
 
-1. Implement and preregister the sector rotation v2 single-symbol-cap repair; do not tune it.
-2. Run its fixed development cell, then validation/robustness under unchanged gates.
-3. Admit adaptive core and only a qualifying sector v2 to the one-time final holdout.
-4. Admit only holdout-qualified, complementary strategies to PAPER replay.
+1. Keep the approved strategy in PAPER simulation and monitor reconciliation, drawdown and
+   invalidating conditions; do not enable LIVE.
+2. For a second strategy, wait for at least 252 completed unseen sessions after 2026-07-17 or
+   obtain explicit user authorization for a disjoint point-in-time dataset and newly frozen protocol.
+3. Only after that external evidence exists, preregister a new economic family before any read.
 
 ## Unresolved issues
 
 - Top-level documentation explicitly describes the system as research and internal
   simulation, not a real broker-connected trading system; the requested LIVE boundary and
   production safety controls must be assessed against that actual scope.
-- The durable paper order lifecycle is now enforced before simulation, but a real external
-  broker is still absent and the adapter is not yet the authoritative cash/position source.
+- The persistent simulated broker is authoritative for PAPER cash/positions/fills and is
+  reconciled against the independent internal ledger. A real external broker remains absent by
+  scope and no real-broker execution-quality claim is made.
 - Options now have strict quote quality, combo, Greeks, and max-loss boundaries, but still use
   synthetic Black-Scholes marks and have no historical real-chain evidence; corrected NAV makes
   prior options paper artifacts methodologically obsolete.
@@ -176,17 +196,22 @@ controlled growth and ETF reversion stop at v1. No strategy is promoted.
 
 ## External blockers
 
-- None for audit and local implementation.
+- The second required PAPER strategy lacks a new untouched evidence interval. Three finalists
+  have already accessed the 2024–2026 holdout and the terminal preregistered family failed
+  development. At least 252 completed sessions after 2026-07-17, or a user-authorized disjoint
+  point-in-time dataset and new sealed protocol, are required; another pass over the same data
+  is overfitting.
 - Real broker credentials, commercial point-in-time options data, a cloud account, and live
-  capital authorization are intentionally outside the current local implementation scope.
+  capital authorization remain intentionally outside this phase and are not needed for the one
+  approved simulated PAPER strategy.
 
 ## Latest test result
 
-Phase-two focused baseline: 601 passed, 1 xfailed, 0 failed in 165.64 seconds across
-backtest, execution, PAPER, order/risk, price semantics, regime, temporal split, and
-backtest/PAPER integration. The earlier quick safety gate also remains green at 195 passed,
-2 skipped plus config, Fatal Ruff, F821, and focused mypy. These baselines describe existing
-behavior; the newly recorded counterexamples cover invariants the suite did not previously test.
+Current full repository result: 4,213 passed, 23 skipped, 1 expected xfail, 0 failed and
+43 warnings in 1,983.12 seconds (33:03). The preceding phase-two consolidated run passed
+858 tests with 1 expected xfail in 131.41 seconds. Focused PAPER safety passed 84 tests;
+promotion finalizer passed 8 tests, including idempotence and missing-control fail-close.
+Ruff, focused mypy, evidence re-verification, config/JSON validation and `pip check` pass.
 
 First-round full-suite history follows and is retained for provenance.
 
@@ -207,10 +232,10 @@ were inspected/tested, but an actual container build remains an environment-leve
 
 ## Latest backtest result
 
-Corrected phase-two diagnostic (total-return basis, real T+1 open, current costs, 2007-01-03 to
-2026-07-17): dual momentum CAGR 5.7% / IR -0.33 / MaxDD -22.0%; trend following -1.5% /
--0.71 / -30.2%; cross-asset rotation 4.2% / -0.43 / -11.1%; multi-factor 8.0% / -0.23 /
--15.0%; SPY CAGR 10.9%. No strategy qualifies. See `BACKTEST_CERTIFICATION.md`.
+Latest certified candidate evidence: dual-index growth validation 11.39% CAGR / 0.732
+Sharpe / -13.65% MaxDD; sealed holdout 15.31% / 0.934 / -9.43%, with 0.433 QQQ beta.
+The terminal D2R6 crash-buffer family failed all four development cells; its best result was
+2.47% CAGR / -0.181 Sharpe / -13.33% MaxDD. It did not access validation or holdout.
 
 The phase-one diagnostic numbers below are retained as historical output, but are not valid
 promotion evidence because that runner used raw prices and non-conserving SELL sizing.
@@ -232,20 +257,20 @@ not OOS evidence.
 
 ## Key file changes
 
-- Audit docs plus runtime, trading, risk, reconciliation, options domains, regime, security,
-  data portability, CI, container, health-check, and operator controls are committed through
-  `6d8e444`; documentation updates are this final close-out commit.
+- Phase-two research, runtime and promotion changes are committed and pushed on
+  `codex/strategy-research-and-paper-v2`; this documentation/state unit records the final
+  full-regression evidence and external blocker boundary.
 
 ## Acceptance checklist
 
 - [x] Evidence-based audit and accurate architecture/data-flow diagrams
 - [x] Every P0/P1 finding fixed locally or supported by explicit external-blocker evidence
 - [x] Reproducible `.[dev,research]` install, fatal lint, safety-package type-check, and full tests
-- [ ] Shared, time-correct BACKTEST/PAPER business logic
+- [x] Shared, time-correct BACKTEST/PAPER business logic
 - [x] Independent fail-closed risk veto and tested kill switches
-- [ ] Durable idempotent order lifecycle and recovery are complete; external-broker authority blocked
-- [ ] Cost/slippage-aware OOS and walk-forward backtest evidence
-- [ ] Stable base, risk-on core, capped growth engine, and defined-risk options candidate
-- [ ] End-to-end paper flow including failure, partial fill, restart, and report evidence
+- [x] Durable idempotent simulated PAPER lifecycle, independent authority and recovery
+- [x] Cost/slippage-aware OOS and walk-forward backtest evidence
+- [ ] Two complementary PAPER strategies (one approved; second blocked on unseen evidence)
+- [x] End-to-end paper flow including failure, partial fill, restart, and report evidence
 - [x] Operations runbook, health check, CI/container baseline, and cloud migration design
 - [x] LIVE remains disabled until explicit human authorization and configuration

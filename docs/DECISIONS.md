@@ -42,3 +42,20 @@
 
 - 选择：先修 F/E 和关键路径类型错误；建立“新增代码零问题”门，再逐步清历史 I/N。
 - 原因：一次自动修 600+ 文件会产生高风险、低信号 diff。
+
+## ADR-008：Regime 只保留质量 fail-close，不叠加无增量择时
+
+- 证据：validation 中额外 risk-on-only gate 将 CAGR 11.39% 降至 2.10%、Sharpe 0.732
+  降至 -0.353，且换手升至 7.39x。
+- 选择：`dual_index_growth_v1` 的经济开关使用自身 dual-index long-trend state；外部
+  regime 只在 UNKNOWN、低 confidence、缺失或陈旧时拒绝新增风险。
+- 代价：不能把 regime 状态当成额外 alpha；未来修改必须重新预注册和验证。
+
+## ADR-009：不足两个策略时关闭当前搜索，而不是复用已读 holdout
+
+- 证据：adaptive core、sector rotation v2 已最终拒绝；controlled growth、reversion、
+  risk balance、defensive growth、multi-asset trend、crash-buffer core 均在开发/验证停止；
+  只有 dual-index growth 完成研究和 PAPER 门禁。
+- 选择：保留一个 `PAPER_APPROVED`，不制造第二个。当前搜索在 2026-07-17 数据截止处关闭。
+- 解锁：等待至少 252 个新的、未见的未来 sessions，或由用户明确批准采用不重叠的
+  point-in-time 数据与新协议；不得仅降低 gate 或重看 2024–2026 holdout。

@@ -3,9 +3,9 @@
   "baseline_commit": "9ffc1ce564ca18a04554db20a442749e65f24672",
   "baseline_tag": "codex-pre-strategy-research-20260717",
   "branch": "codex/strategy-research-and-paper-v2",
-  "current_phase": "ONE_RESEARCH_QUALIFIED_FINAL_SLOT_REMAINS",
-  "last_completed_task": "Dual-index growth passed its sealed final holdout at 15.31% CAGR, 0.934 Sharpe and -9.43% MaxDD. It is research-qualified but not PAPER_APPROVED until operational gates pass.",
-  "next_task": "Commit/push the holdout pass, implement paper-style replay and fault evidence for dual-index growth, and preregister one final stable-core hypothesis for the last finalist slot.",
+  "current_phase": "ONE_PAPER_APPROVED_SECOND_STRATEGY_UNSEEN_DATA_BLOCKED",
+  "last_completed_task": "Dual-index growth passed 28/28 frozen research and operational gates and is PAPER_APPROVED with LIVE disabled. Terminal crash-buffer core failed all four development cells.",
+  "next_task": "Maintain PAPER monitoring. Resume second-strategy research only after at least 252 unseen post-2026-07-17 sessions exist or the user authorizes a disjoint point-in-time dataset and new sealed protocol.",
   "open_p0": [],
   "open_p1": [],
   "candidate_strategies": [
@@ -16,16 +16,19 @@
     "risk_balanced_core_v1:DEVELOPMENT_FAIL_STOP_V1",
     "defensive_growth_v1:DEVELOPMENT_FAIL_STOP_V1",
     "multi_asset_trend_v1:DEVELOPMENT_FAIL_STOP_V1",
-    "dual_index_growth_v1:RESEARCH_PASS_PAPER_OPS_PENDING",
-    "etf_reversion_v1:DEVELOPMENT_FAIL_STOP_V1"
+    "dual_index_growth_v1:PAPER_APPROVED_LIVE_DISABLED",
+    "etf_reversion_v1:DEVELOPMENT_FAIL_STOP_V1",
+    "crash_buffer_core_v1:DEVELOPMENT_FAIL_TERMINAL_STOP"
   ],
-  "promoted_paper_strategies": [],
+  "promoted_paper_strategies": [
+    "dual_index_growth_v1"
+  ],
   "retired_strategies": [
     "legacy_trend_following",
     "legacy_multi_factor"
   ],
-  "last_test_command": "pytest -q tests/unit/data tests/unit/research/test_source_boundaries.py tests/unit/research/test_forward_source_layer.py tests/unit/research/test_phase2_registry_promotion.py tests/unit/research/test_phase2_runner_protocol.py tests/unit/signals/test_phase2_etf_strategies.py tests/unit/regime/test_phase2_regime.py tests/unit/portfolio/test_strategy_allocator.py tests/unit/scripts/test_fetch_data_preclose_raise.py tests/unit/backtest tests/unit/execution tests/unit/paper_trading tests/integration/test_backtest_paper_consistency.py",
-  "last_test_result": "PASS: 706 passed, 1 xfailed, 0 failed in 130.81s; focused Ruff and mypy passed; repeated store/source tests left the real provenance hash unchanged.",
-  "last_backtest_run": "D2R5 holdout: dual_index_growth PASS all research gates at 15.31% CAGR/0.934 Sharpe/1.281 Sortino/-9.43% MaxDD/0.433 beta.",
-  "last_updated_utc": "2026-07-18T02:25:00Z"
+  "last_test_command": ".venv/bin/pytest -q",
+  "last_test_result": "PASS: 4213 passed, 23 skipped, 1 xfailed, 0 failed, 43 warnings in 1983.12s; phase-two consolidated subset 858 passed, 1 xfailed; focused Ruff/mypy/config/pip checks passed.",
+  "last_backtest_run": "D2R5 holdout: dual_index_growth PASS at 15.31% CAGR/0.934 Sharpe/-9.43% MaxDD. D2R6: crash_buffer_core 0/4 development pass; best 2.47% CAGR/-0.181 Sharpe.",
+  "last_updated_utc": "2026-07-18T03:45:21Z"
 }
