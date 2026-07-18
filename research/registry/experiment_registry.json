@@ -1615,6 +1615,1335 @@
       "status": "INVALIDATED",
       "strategy_family": "etf_reversion",
       "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-ADAPTIVE-CORE-01",
+      "failure_reason": null,
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "trend_windows": [
+          42,
+          126,
+          210
+        ],
+        "volatility_target": 0.1
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.640887Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-ADAPTIVE-CORE-02",
+      "failure_reason": null,
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "trend_windows": [
+          42,
+          126,
+          210
+        ],
+        "volatility_target": 0.12
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.640910Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-ADAPTIVE-CORE-03",
+      "failure_reason": null,
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "trend_windows": [
+          42,
+          126,
+          210
+        ],
+        "volatility_target": 0.14
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.640921Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-ADAPTIVE-CORE-04",
+      "failure_reason": null,
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "trend_windows": [
+          63,
+          126,
+          252
+        ],
+        "volatility_target": 0.1
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.640929Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-ADAPTIVE-CORE-05",
+      "failure_reason": null,
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "trend_windows": [
+          63,
+          126,
+          252
+        ],
+        "volatility_target": 0.12
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.640936Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-ADAPTIVE-CORE-06",
+      "failure_reason": null,
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "trend_windows": [
+          63,
+          126,
+          252
+        ],
+        "volatility_target": 0.14
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.640942Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-ADAPTIVE-CORE-07",
+      "failure_reason": null,
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "trend_windows": [
+          84,
+          168,
+          252
+        ],
+        "volatility_target": 0.1
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.640951Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-ADAPTIVE-CORE-08",
+      "failure_reason": null,
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "trend_windows": [
+          84,
+          168,
+          252
+        ],
+        "volatility_target": 0.12
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.640958Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-ADAPTIVE-CORE-09",
+      "failure_reason": null,
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "trend_windows": [
+          84,
+          168,
+          252
+        ],
+        "volatility_target": 0.14
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.640964Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-01",
+      "failure_reason": null,
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "breadth_threshold": 0.55,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.22,
+        "slow_trend": 168,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.640971Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-02",
+      "failure_reason": null,
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "breadth_threshold": 0.55,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.28,
+        "slow_trend": 168,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.640979Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-03",
+      "failure_reason": null,
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "breadth_threshold": 0.65,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.22,
+        "slow_trend": 168,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.640986Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-04",
+      "failure_reason": null,
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "breadth_threshold": 0.65,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.28,
+        "slow_trend": 168,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.640992Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-05",
+      "failure_reason": null,
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "breadth_threshold": 0.55,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.22,
+        "slow_trend": 210,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.640999Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-06",
+      "failure_reason": null,
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "breadth_threshold": 0.55,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.28,
+        "slow_trend": 210,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641005Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-07",
+      "failure_reason": null,
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "breadth_threshold": 0.65,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.22,
+        "slow_trend": 210,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641012Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-08",
+      "failure_reason": null,
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "breadth_threshold": 0.65,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.28,
+        "slow_trend": 210,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641022Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-09",
+      "failure_reason": null,
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "breadth_threshold": 0.55,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.22,
+        "slow_trend": 252,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641028Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-10",
+      "failure_reason": null,
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "breadth_threshold": 0.55,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.28,
+        "slow_trend": 252,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641035Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-11",
+      "failure_reason": null,
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "breadth_threshold": 0.65,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.22,
+        "slow_trend": 252,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641041Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-12",
+      "failure_reason": null,
+      "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "breadth_threshold": 0.65,
+        "cooldown_sessions": 10,
+        "qqq_volatility_ceiling": 0.28,
+        "slow_trend": 252,
+        "tqqq_cap": 0.1
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641048Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "controlled_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-01",
+      "failure_reason": null,
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 168,
+        "top_n": 2
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641055Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-02",
+      "failure_reason": null,
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 252,
+        "top_n": 2
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641061Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-03",
+      "failure_reason": null,
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 168,
+        "top_n": 3
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641068Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-04",
+      "failure_reason": null,
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 252,
+        "top_n": 3
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641077Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-05",
+      "failure_reason": null,
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.3,
+          0.4,
+          0.3
+        ],
+        "slow_trend": 168,
+        "top_n": 2
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641084Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-06",
+      "failure_reason": null,
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.3,
+          0.4,
+          0.3
+        ],
+        "slow_trend": 252,
+        "top_n": 2
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641093Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-07",
+      "failure_reason": null,
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.3,
+          0.4,
+          0.3
+        ],
+        "slow_trend": 168,
+        "top_n": 3
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641100Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-08",
+      "failure_reason": null,
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.3,
+          0.4,
+          0.3
+        ],
+        "slow_trend": 252,
+        "top_n": 3
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641107Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-09",
+      "failure_reason": null,
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "slow_trend": 168,
+        "top_n": 2
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641113Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-10",
+      "failure_reason": null,
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "slow_trend": 252,
+        "top_n": 2
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641120Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-11",
+      "failure_reason": null,
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "slow_trend": 168,
+        "top_n": 3
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641126Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-12",
+      "failure_reason": null,
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "slow_trend": 252,
+        "top_n": 3
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641134Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-ETF-REVERSION-01",
+      "failure_reason": null,
+      "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "hold_sessions": 2,
+        "loss_threshold": -0.025,
+        "rsi_cutoff": 5
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641140Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "etf_reversion",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-ETF-REVERSION-02",
+      "failure_reason": null,
+      "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "hold_sessions": 4,
+        "loss_threshold": -0.025,
+        "rsi_cutoff": 5
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641147Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "etf_reversion",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-ETF-REVERSION-03",
+      "failure_reason": null,
+      "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "hold_sessions": 2,
+        "loss_threshold": -0.025,
+        "rsi_cutoff": 10
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641153Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "etf_reversion",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-ETF-REVERSION-04",
+      "failure_reason": null,
+      "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "hold_sessions": 4,
+        "loss_threshold": -0.025,
+        "rsi_cutoff": 10
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641161Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "etf_reversion",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-ETF-REVERSION-05",
+      "failure_reason": null,
+      "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "hold_sessions": 2,
+        "loss_threshold": -0.035,
+        "rsi_cutoff": 5
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641167Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "etf_reversion",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-ETF-REVERSION-06",
+      "failure_reason": null,
+      "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "hold_sessions": 4,
+        "loss_threshold": -0.035,
+        "rsi_cutoff": 5
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641173Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "etf_reversion",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-ETF-REVERSION-07",
+      "failure_reason": null,
+      "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "hold_sessions": 2,
+        "loss_threshold": -0.035,
+        "rsi_cutoff": 10
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641180Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "etf_reversion",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2-DEV-ETF-REVERSION-08",
+      "failure_reason": null,
+      "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "hold_sessions": 4,
+        "loss_threshold": -0.035,
+        "rsi_cutoff": 10
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:35:50.641186Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "etf_reversion",
+      "strategy_version": "v1"
     }
   ],
   "schema_version": 1
