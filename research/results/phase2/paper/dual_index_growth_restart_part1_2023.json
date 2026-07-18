@@ -1,0 +1,36 @@
+{
+  "broker_reconciled": true,
+  "cash": 7197.634852723859,
+  "global_pause": false,
+  "latest_equity": 109546.5856812761,
+  "live_enabled": false,
+  "mode": "PAPER_REPLAY",
+  "nav_sha256": "9c9039af6bfd667fa74551892fa3b6ca5c440a2e0618dccb47f02c7427028a5f",
+  "order_states": {
+    "ACKNOWLEDGED": 0,
+    "CANCELLED": 0,
+    "CANCEL_PENDING": 0,
+    "CREATED": 0,
+    "EXPIRED": 0,
+    "FILLED": 23,
+    "PARTIALLY_FILLED": 0,
+    "REJECTED": 3,
+    "SUBMITTED": 0,
+    "UNKNOWN": 0,
+    "VALIDATED": 0
+  },
+  "orders": 26,
+  "positions": {
+    "BIL": 95.0,
+    "GLD": 82.0,
+    "QQQ": 92.0,
+    "SHY": 103.0,
+    "SPY": 92.0
+  },
+  "reports_returned": 124,
+  "reports_reused": 0,
+  "schema_version": 1,
+  "sessions": 124,
+  "status_at_run": "RESEARCH_QUALIFIED",
+  "strategy_id": "dual_index_growth_v1"
+}

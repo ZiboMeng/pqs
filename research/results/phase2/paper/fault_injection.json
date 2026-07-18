@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "strategy_id": "dual_index_growth_v1",
+  "test_command": ".venv/bin/pytest -q tests/unit/paper_trading/test_phase2_paper_runtime.py tests/unit/paper_trading/test_broker_adapter_integration.py tests/unit/paper_trading/test_pretrade_boundary.py tests/unit/trading/test_order_kernel.py tests/unit/trading/test_controls.py tests/unit/trading/test_reconciliation.py tests/unit/risk/test_kill_switch.py tests/unit/execution/test_execution_simulator.py",
+  "test_result": {
+    "failed": 0,
+    "passed": 84,
+    "status": "PASS"
+  },
+  "scenarios": {
+    "broker_partial_fill": {
+      "evidence": "tests/unit/paper_trading/test_broker_adapter_integration.py::TestMirrorDailyPath::test_partial_fill_is_mirrored_and_reconciled_exactly",
+      "passed": true
+    },
+    "broker_timeout": {
+      "evidence": "tests/unit/paper_trading/test_phase2_paper_runtime.py::test_broker_timeout_isolates_account_and_blocks_following_orders",
+      "passed": true
+    },
+    "broker_unknown": {
+      "evidence": "tests/unit/paper_trading/test_phase2_paper_runtime.py::test_broker_unknown_isolates_account",
+      "passed": true
+    },
+    "crash_after_broker_before_ledger": {
+      "evidence": "tests/unit/paper_trading/test_phase2_paper_runtime.py::test_crash_after_broker_fill_is_detected_on_restart",
+      "passed": true
+    },
+    "crash_after_ledger_before_report": {
+      "evidence": "tests/unit/paper_trading/test_phase2_paper_runtime.py::test_post_commit_report_crash_rebuilds_without_duplicate_order",
+      "passed": true
+    },
+    "database_transaction_failure": {
+      "evidence": "tests/unit/paper_trading/test_pretrade_boundary.py::test_daily_fill_and_account_state_rollback_together",
+      "passed": true
+    },
+    "duplicate_broker_callback": {
+      "evidence": "tests/unit/paper_trading/test_broker_adapter_integration.py::TestMirrorDailyPath::test_duplicate_fill_callback_is_idempotent",
+      "passed": true
+    },
+    "duplicate_market_event": {
+      "evidence": "tests/unit/paper_trading/test_phase2_paper_runtime.py::test_market_event_guard_rejects_missing_stale_duplicate_and_out_of_order",
+      "passed": true
+    },
+    "global_kill_switch": {
+      "evidence": "tests/unit/risk/test_kill_switch.py",
+      "passed": true
+    },
+    "global_strategy_symbol_pause": {
+      "evidence": "tests/unit/trading/test_controls.py",
+      "passed": true
+    },
+    "missing_market_data": {
+      "evidence": "tests/unit/paper_trading/test_phase2_paper_runtime.py::test_market_event_guard_rejects_missing_stale_duplicate_and_out_of_order",
+      "passed": true
+    },
+    "out_of_order_market_data": {
+      "evidence": "tests/unit/paper_trading/test_phase2_paper_runtime.py::test_duplicate_or_unordered_panel_fails_before_strategy",
+      "passed": true
+    },
+    "pretrade_risk_veto": {
+      "evidence": "tests/unit/paper_trading/test_phase2_paper_runtime.py::test_daily_report_includes_pretrade_rejection_reason",
+      "passed": true
+    },
+    "reconciliation_mismatch": {
+      "evidence": "tests/unit/trading/test_reconciliation.py::test_any_mismatch_fails_and_automatically_sets_global_pause",
+      "passed": true
+    },
+    "restart_unknown_order_quarantine": {
+      "evidence": "tests/unit/trading/test_order_kernel.py::test_restart_quarantines_possibly_submitted_orders_without_retry",
+      "passed": true
+    },
+    "stale_market_data": {
+      "evidence": "tests/unit/paper_trading/test_pretrade_boundary.py::test_stale_data_veto_prevents_fill_and_is_auditable",
+      "passed": true
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "checks": {
+    "all_fault_scenarios_passed": true,
+    "broker_reconciled": true,
+    "fault_suite_passed": true,
+    "idempotent_all_sessions_reused": true,
+    "idempotent_nav_identical": true,
+    "idempotent_no_new_orders": true,
+    "live_disabled": true,
+    "no_global_pause": true,
+    "no_unresolved_orders": true,
+    "paper_replay_250_sessions": true,
+    "restart_cash_identical": true,
+    "restart_equity_identical": true,
+    "restart_nav_identical": true,
+    "restart_orders_identical": true,
+    "restart_positions_identical": true
+  },
+  "code_commit": "cba313ec11996d4de09f61773ec6217a397aa126",
+  "evidence": {
+    "clean": "research/results/phase2/paper/dual_index_growth_clean_2023.json",
+    "fault_injection": "research/results/phase2/paper/fault_injection.json",
+    "idempotent": "research/results/phase2/paper/dual_index_growth_idempotent_2023.json",
+    "restart": "research/results/phase2/paper/dual_index_growth_restart_2023.json"
+  },
+  "fault_scenarios": {
+    "broker_partial_fill": true,
+    "broker_timeout": true,
+    "broker_unknown": true,
+    "crash_after_broker_before_ledger": true,
+    "crash_after_ledger_before_report": true,
+    "database_transaction_failure": true,
+    "duplicate_broker_callback": true,
+    "duplicate_market_event": true,
+    "global_kill_switch": true,
+    "global_strategy_symbol_pause": true,
+    "missing_market_data": true,
+    "out_of_order_market_data": true,
+    "pretrade_risk_veto": true,
+    "reconciliation_mismatch": true,
+    "restart_unknown_order_quarantine": true,
+    "stale_market_data": true
+  },
+  "operational_controls": {
+    "live_disabled": true,
+    "missing_data_fail_closed": true,
+    "paper_replay": true,
+    "restart_idempotency_test": true,
+    "risk_veto_test": true,
+    "stale_data_fail_closed": true
+  },
+  "paper_replay": {
+    "end": "2023-12-29",
+    "filled_orders": 35,
+    "latest_equity": 112281.54517449625,
+    "nav_sha256": "de162a7596a7817db8dcf0017fcd05a57201ddf8628f2ee68c6d76c448270601",
+    "orders": 41,
+    "risk_rejected_orders": 6,
+    "sessions": 250,
+    "start": "2023-01-03"
+  },
+  "schema_version": 1,
+  "status": "PASS",
+  "strategy_id": "dual_index_growth_v1"
+}
