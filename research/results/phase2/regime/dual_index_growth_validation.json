@@ -1,0 +1,51 @@
+{
+  "code_commit": "d8f265da9439c296e87a613e4d7cbb3f8a183ab3",
+  "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+  "decision": {
+    "economic_equity_gate": "strategy_internal_dual_index_long_trend",
+    "external_risk_on_gate": "REJECTED_NO_INCREMENTAL_VALUE",
+    "paper_integration": "QUALITY_FAIL_CLOSED_ONLY",
+    "reason": "External risk-on-only gating materially reduced CAGR and Sharpe and increased turnover; the mandate permits independent operation when Regime gating has no validation increment."
+  },
+  "evaluation_end": "2023-12-29",
+  "evaluation_role": "validation_regime_ablation",
+  "evaluation_start": "2017-01-03",
+  "metrics": {
+    "external_exposure_scaled": {
+      "annual_turnover": 4.815620953404864,
+      "cagr": 0.06323512671014653,
+      "calmar": 0.547444637286638,
+      "max_drawdown": -0.11550962856000557,
+      "sharpe": 0.35659730932706124,
+      "sortino": 0.41963316955986946
+    },
+    "external_quality_fail_closed": {
+      "annual_turnover": 2.3372703928467984,
+      "cagr": 0.10600014455117535,
+      "calmar": 0.7776801635392409,
+      "max_drawdown": -0.136303006712639,
+      "sharpe": 0.6640322072654348,
+      "sortino": 0.8291172501186216
+    },
+    "external_risk_on_only": {
+      "annual_turnover": 7.391106320521794,
+      "cagr": 0.02100684853221768,
+      "calmar": 0.1234511008232938,
+      "max_drawdown": -0.17016331480337785,
+      "sharpe": -0.35307928068368083,
+      "sortino": -0.43235069956745475
+    },
+    "independent_internal_gate": {
+      "annual_turnover": 2.0756878627635835,
+      "cagr": 0.11388054493977262,
+      "calmar": 0.8341075325086201,
+      "max_drawdown": -0.13652981240592707,
+      "sharpe": 0.7317944462289236,
+      "sortino": 0.9196297302050424
+    }
+  },
+  "quality_accepted_session_fraction": 0.9869318181818182,
+  "risk_on_session_fraction": 0.42613636363636365,
+  "schema_version": 1,
+  "strategy_id": "dual_index_growth_v1"
+}
