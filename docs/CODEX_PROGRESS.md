@@ -1,11 +1,12 @@
 # Codex audit and hardening progress
 
-Last updated: 2026-07-17
+Last updated: 2026-07-17 (phase-two scoped audit checkpoint)
 
 ## Current phase
 
-Phase 2 — P0 execution controls and highest-confidence P1 defects implemented; local
-acceptance is complete and external-integration work is explicitly blocked.
+Strategy Phase 2 — the scoped re-audit and cleanup dependency review are complete. Backtest
+and PAPER certification are fail-closed while three P0 and eight P1 findings are remediated;
+new strategy search has deliberately not started.
 
 ## Completed
 
@@ -47,16 +48,31 @@ acceptance is complete and external-integration work is explicitly blocked.
 - Captured the first complete baseline: 4 failed, 4,077 passed, 21 skipped, 1 xfailed in
   1,938.15 seconds. All four failures were the missing declared LightGBM research extra;
   installing it made the focused 7-test module pass.
+- Created and pushed rollback tag `codex-pre-strategy-research-20260717` and branch
+  `codex/strategy-research-and-paper-v2` from `9ffc1ce`.
+- Re-read all first-round governing documents and completed the dependency-traced cleanup,
+  price/accounting, temporal-isolation, PAPER persistence, and regime audit in
+  `docs/SECOND_ROUND_AUDIT.md`.
+- Confirmed no historical document/code family is safely deletable: historical failures,
+  temporal split versions, sealed ledgers, package boundaries, options safety code, and raw
+  storage all have active runtime or evidence-lineage roles. Only a zero-byte untracked
+  `.codex` placeholder was removed so the mandated state directory could exist.
+- Reproduced raw-price contamination and a gap-down liquidation that sells roughly twice the
+  held shares and creates cash. Also identified stale batch-risk snapshots and non-atomic
+  FILLED-vs-account persistence in PAPER.
 
 ## In progress
 
-- No uncommitted implementation work. Documentation close-out is awaiting this final commit.
+- Audit checkpoint is being committed before implementation. Strategy research remains
+  blocked until the backtest and PAPER certification findings are closed.
 
 ## Next
 
-1. With a real broker sandbox and credentials, implement broker-authoritative reconciliation.
-2. With point-in-time option-chain data, implement assignment/OCC handling and promotion evidence.
-3. Continue repository-wide Ruff/mypy debt reduction without mixing it with safety changes.
+1. Fix canonical adjusted/total-return price access, split/dividend completeness checks, and
+   share-conserving sell sizing with negative controls.
+2. Make actual signal/fill bar dates and T+1-open semantics identical in full, fold, and PAPER.
+3. Make PAPER batch risk account-aware and fill/account/checkpoint persistence crash-recoverable.
+4. Certify the engine, then preregister and evaluate new strategy hypotheses.
 
 ## Unresolved issues
 
@@ -69,6 +85,11 @@ acceptance is complete and external-integration work is explicitly blocked.
   synthetic Black-Scholes marks and have no historical real-chain evidence; corrected NAV makes
   prior options paper artifacts methodologically obsolete.
 - Full-repository Ruff/mypy debt remains beyond the cleared F821 and new safety packages.
+- The old 2026 sealed interval has already been consumed and cannot be reused as pristine
+  evidence. Phase-two final validation must be preregistered, narrowly accessed, and described
+  honestly rather than relabeling old data.
+- Dividend sidecar coverage currently ends before the price data for several key assets, so a
+  full-to-2026-07 total-return certification is not yet valid.
 
 ## External blockers
 
@@ -77,6 +98,14 @@ acceptance is complete and external-integration work is explicitly blocked.
   capital authorization are intentionally outside the current local implementation scope.
 
 ## Latest test result
+
+Phase-two focused baseline: 601 passed, 1 xfailed, 0 failed in 165.64 seconds across
+backtest, execution, PAPER, order/risk, price semantics, regime, temporal split, and
+backtest/PAPER integration. The earlier quick safety gate also remains green at 195 passed,
+2 skipped plus config, Fatal Ruff, F821, and focused mypy. These baselines describe existing
+behavior; the newly recorded counterexamples cover invariants the suite did not previously test.
+
+First-round full-suite history follows and is retained for provenance.
 
 Baseline: 4 failed, 4,077 passed, 21 skipped, 1 xfailed in 32:18. The four failures were
 `ModuleNotFoundError: lightgbm`; the README-prescribed `.[dev,research]` environment resolves
@@ -94,6 +123,10 @@ could not be executed locally; CI definitions, Dockerfile semantics, and the und
 were inspected/tested, but an actual container build remains an environment-level verification gap.
 
 ## Latest backtest result
+
+No phase-two certification backtest has run. The phase-one diagnostic numbers below are retained
+as historical output, but are not valid promotion evidence: the main runner bypassed adjusted
+price access and its SELL sizing can violate share conservation on open gaps.
 
 Paper status smoke passes at $100,000 cash/equity and no positions. Mining leaderboard loads
 65 historical trials; every candidate is Tier D and none passed OOS or was promoted.

@@ -8,6 +8,19 @@ fast path. **New files going forward** land in the per-category subdirs
 defined at the bottom of this file. Within each category section,
 **newest first**.
 
+## Active Codex phase-two evidence
+
+- [SECOND_ROUND_AUDIT.md](SECOND_ROUND_AUDIT.md) — 2026-07-17 scoped re-audit of the
+  certification, research-isolation, PAPER, data-lineage, and cleanup paths. It is the
+  current blocker ledger for strategy research; flat placement is required by the phase-two
+  task contract and intentionally overrides the general new-doc subdirectory convention.
+- [CODEX_PROGRESS.md](CODEX_PROGRESS.md) — cumulative first-round history plus current
+  phase-two implementation/test status.
+- [AUDIT.md](AUDIT.md), [ARCHITECTURE.md](ARCHITECTURE.md),
+  [GAP_ANALYSIS.md](GAP_ANALYSIS.md), [ROADMAP.md](ROADMAP.md),
+  [RISK_POLICY.md](RISK_POLICY.md), [OPERATIONS.md](OPERATIONS.md) — retained first-round
+  evidence and governing boundaries; not cleanup candidates.
+
 If you want chronological order, sort by filename — the
 `YYYYMMDD-` prefix makes that trivial.
 
