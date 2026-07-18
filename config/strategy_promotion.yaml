@@ -1,0 +1,118 @@
+schema_version: 1
+policy_id: phase2-paper-promotion-v1
+frozen_at_utc: "2026-07-18T00:50:00Z"
+frozen_before_candidate_results: true
+
+# The old 2026 sealed interval and the legacy rolling holdouts were already
+# consumed.  These boundaries are therefore a new, hypothesis-scoped protocol,
+# not a claim that the researcher's market knowledge is globally pristine.
+data_protocol:
+  development:
+    start: "2007-01-03"
+    end: "2016-12-30"
+  validation:
+    start: "2017-01-03"
+    end: "2023-12-29"
+  final_holdout:
+    start: "2024-01-02"
+    end: "2026-07-17"
+  walk_forward_frequency: calendar_year
+  max_finalists_per_family: 1
+  max_total_finalists: 4
+  warmup_bars: 252
+  signal_time: session_close
+  execution_time: next_tradable_open
+  price_basis: total_return_adjusted
+  cash_return: explicit_cash_proxy_etf
+  benchmark_basis: total_return_adjusted
+
+cost_stress:
+  base_multiplier: 1.0
+  stressed_multiplier: 2.0
+  extra_signal_delay_bars: 1
+
+common_hard_gates:
+  unresolved_p0_max: 0
+  unresolved_research_p1_max: 0
+  require_no_known_lookahead: true
+  min_validation_cagr: 0.03
+  min_validation_sharpe: 0.20
+  min_validation_sortino: 0.25
+  min_positive_walk_forward_fraction: 0.60
+  min_cost_2x_cagr: 0.02
+  min_cost_2x_sharpe: 0.10
+  min_delayed_signal_sharpe: 0.05
+  min_parameter_neighbor_pass_fraction: 0.60
+  max_single_year_positive_pnl_fraction: 0.60
+  max_drawdown: 0.25
+  max_stress_drawdown: 0.25
+  max_annual_turnover: 8.0
+  require_missing_data_fail_closed: true
+  require_stale_data_fail_closed: true
+  require_deterministic_rerun: true
+  deterministic_nav_tolerance: 1.0e-10
+  require_risk_veto_test: true
+  require_restart_idempotency_test: true
+  require_paper_replay: true
+  require_live_disabled: true
+
+strategy_type_gates:
+  stable_core:
+    min_validation_cagr: 0.04
+    min_validation_sharpe: 0.30
+    min_validation_sortino: 0.40
+    max_drawdown: 0.20
+    min_calmar: 0.30
+    min_calmar_improvement_vs_spy: 0.10
+    min_max_drawdown_improvement_vs_spy: 0.10
+    min_market_participation: 0.45
+  growth_engine:
+    min_validation_cagr: 0.05
+    min_validation_sharpe: 0.30
+    min_validation_sortino: 0.40
+    max_drawdown: 0.23
+    min_calmar: 0.30
+    min_calmar_improvement_vs_qqq: 0.05
+    max_beta_to_qqq: 0.90
+    max_tqqq_weight: 0.10
+    require_cooldown: true
+    require_risk_on_gate: true
+  etf_rotation:
+    min_validation_cagr: 0.04
+    min_validation_sharpe: 0.30
+    min_validation_sortino: 0.40
+    max_drawdown: 0.23
+    min_calmar: 0.30
+    min_calmar_improvement_vs_spy: 0.05
+    min_max_drawdown_improvement_vs_spy: 0.08
+    max_assets: 12
+  daily_mean_reversion:
+    min_validation_cagr: 0.03
+    min_validation_sharpe: 0.35
+    min_validation_sortino: 0.45
+    max_drawdown: 0.18
+    min_calmar: 0.35
+    max_annual_turnover: 12.0
+
+complementarity_gates:
+  max_daily_return_correlation: 0.75
+  max_drawdown_correlation: 0.85
+  max_combined_drawdown: 0.20
+  max_combined_gross_exposure: 1.0
+  require_distinct_family: true
+  require_distinct_trigger_logic: true
+  require_aggregate_risk_veto: true
+
+stress_periods:
+  - name: financial_crisis
+    start: "2007-10-01"
+    end: "2009-03-31"
+  - name: q4_2018
+    start: "2018-10-01"
+    end: "2018-12-31"
+  - name: covid_crash
+    start: "2020-02-18"
+    end: "2020-04-30"
+  - name: rate_hike_2022
+    start: "2022-01-03"
+    end: "2022-12-30"

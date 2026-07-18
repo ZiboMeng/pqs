@@ -1,12 +1,12 @@
 # Codex audit and hardening progress
 
-Last updated: 2026-07-17 (backtest/PAPER certification checkpoint)
+Last updated: 2026-07-17 (research protocol frozen)
 
 ## Current phase
 
-Strategy Phase 2 — the scoped audit and backtest/PAPER certification repair are complete.
-Research remains closed while failure attribution, split governance, and hypothesis
-preregistration are written; no strategy is promoted.
+Strategy Phase 2 — the scoped audit and certification repairs are complete. Legacy failure
+attribution and the phase-two research protocol are now frozen; candidate implementation is
+next and no strategy is promoted.
 
 ## Completed
 
@@ -66,18 +66,25 @@ preregistration are written; no strategy is promoted.
   fill/order/account/checkpoint persistence atomic with safe VALIDATED retry after rollback.
 - Passed 653 tests / 1 expected xfail and daily+intraday crash failure injection; generated
   `BACKTEST_CERTIFICATION.md` and a hash-stamped corrected baseline manifest.
+- Classified dual momentum and cross-asset rotation as redesign hypotheses, retired the legacy
+  daily trend and multi-factor promotion paths, and retained every failed artifact. The archive
+  contains 65 multi-factor trials, all Tier D, with zero OOS or holdout passes.
+- Preregistered four economically distinct ETF candidates, 41 bounded development cells in
+  total, hypothesis-scoped development/validation/holdout dates, finalist access limits, and
+  fixed numeric PAPER gates in `config/strategy_promotion.yaml` before candidate evaluation.
 
 ## In progress
 
-- Certification checkpoint is being committed. New strategy evaluation remains blocked until
-  old-family failure attribution and new hypothesis preregistration are complete.
+- Implement the preregistered candidate families, uniform evaluator, registry and executable
+  promotion gates. Candidate evaluation remains blocked until that implementation is tested and
+  committed so every experiment can name an exact clean code commit.
 
 ## Next
 
-1. Attribute the corrected failures of every existing strategy family and freeze no-go regions.
-2. Freeze train/validation/finalist-only holdout access and acceptance gates.
-3. Preregister a small set of economically distinct hypotheses, then evaluate development data.
-4. Admit only qualifying finalists to the limited holdout and PAPER replay.
+1. Implement and test the preregistered families and evaluation/promotion machinery.
+2. Commit the clean implementation, preregister every development run, then evaluate development.
+3. Validate only each family winner on annual forward folds and robustness checks.
+4. Admit only qualifying frozen finalists to the limited holdout and PAPER replay.
 
 ## Unresolved issues
 
@@ -93,8 +100,9 @@ preregistration are written; no strategy is promoted.
 - The old 2026 sealed interval has already been consumed and cannot be reused as pristine
   evidence. Phase-two final validation must be preregistered, narrowly accessed, and described
   honestly rather than relabeling old data.
-- Dividend sidecar coverage currently ends before the price data for several key assets, so a
-  full-to-2026-07 total-return certification is not yet valid.
+- Dividend coverage has been refreshed and fail-closed validated for all 81 executable symbols
+  through the applicable source cutoff. Rebuilding it still depends on external upstream data,
+  but the committed manifest hashes make the current certification reproducible.
 
 ## External blockers
 
