@@ -6185,6 +6185,186 @@
       "status": "COMPLETED",
       "strategy_family": "dual_index_growth",
       "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "a2934bc1cb5eb71a220aae8413d0f110e201c7a1",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r5",
+        "end": "2023-12-29",
+        "role": "validation",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R5-VAL-DUAL-INDEX-GROWTH-BASE",
+      "failure_reason": null,
+      "hypothesis": "High-participation month-end QQQ/SPY trend captures growth with a fixed defensive off-state. [validation:base]",
+      "key_metrics": null,
+      "parameters": {
+        "cooldown_sessions": 21,
+        "equity_gross": 0.7,
+        "slow_trend": 168
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T02:15:47.372014Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "dual_index_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "a2934bc1cb5eb71a220aae8413d0f110e201c7a1",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:cost2x",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r5",
+        "end": "2023-12-29",
+        "role": "validation",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R5-VAL-DUAL-INDEX-GROWTH-COST2X",
+      "failure_reason": null,
+      "hypothesis": "High-participation month-end QQQ/SPY trend captures growth with a fixed defensive off-state. [validation:cost2x]",
+      "key_metrics": null,
+      "parameters": {
+        "cooldown_sessions": 21,
+        "equity_gross": 0.7,
+        "slow_trend": 168
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T02:15:47.372040Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "dual_index_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "a2934bc1cb5eb71a220aae8413d0f110e201c7a1",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:delay1",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r5",
+        "end": "2023-12-29",
+        "role": "validation",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R5-VAL-DUAL-INDEX-GROWTH-DELAY1",
+      "failure_reason": null,
+      "hypothesis": "High-participation month-end QQQ/SPY trend captures growth with a fixed defensive off-state. [validation:delay1]",
+      "key_metrics": null,
+      "parameters": {
+        "cooldown_sessions": 21,
+        "equity_gross": 0.7,
+        "slow_trend": 168
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T02:15:47.372051Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "dual_index_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "a2934bc1cb5eb71a220aae8413d0f110e201c7a1",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:determinism",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r5",
+        "end": "2023-12-29",
+        "role": "validation",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R5-VAL-DUAL-INDEX-GROWTH-DETERMINISM",
+      "failure_reason": null,
+      "hypothesis": "High-participation month-end QQQ/SPY trend captures growth with a fixed defensive off-state. [validation:determinism]",
+      "key_metrics": null,
+      "parameters": {
+        "cooldown_sessions": 21,
+        "equity_gross": 0.7,
+        "slow_trend": 168
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T02:15:47.372063Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "dual_index_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "a2934bc1cb5eb71a220aae8413d0f110e201c7a1",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:parameter_neighbor",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r5",
+        "end": "2023-12-29",
+        "role": "validation_sensitivity",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R5-VAL-DUAL-INDEX-GROWTH-NEIGHBOR-01",
+      "failure_reason": null,
+      "hypothesis": "High-participation month-end QQQ/SPY trend captures growth with a fixed defensive off-state. [validation_sensitivity:parameter_neighbor]",
+      "key_metrics": null,
+      "parameters": {
+        "cooldown_sessions": 21,
+        "equity_gross": 0.6,
+        "slow_trend": 168
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T02:15:47.372071Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "dual_index_growth",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "QQQ",
+      "code_commit": "a2934bc1cb5eb71a220aae8413d0f110e201c7a1",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:parameter_neighbor",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r5",
+        "end": "2023-12-29",
+        "role": "validation_sensitivity",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R5-VAL-DUAL-INDEX-GROWTH-NEIGHBOR-02",
+      "failure_reason": null,
+      "hypothesis": "High-participation month-end QQQ/SPY trend captures growth with a fixed defensive off-state. [validation_sensitivity:parameter_neighbor]",
+      "key_metrics": null,
+      "parameters": {
+        "cooldown_sessions": 21,
+        "equity_gross": 0.7,
+        "slow_trend": 252
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T02:15:47.372081Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "dual_index_growth",
+      "strategy_version": "v1"
     }
   ],
   "schema_version": 1
