@@ -128,11 +128,15 @@ controlled growth and ETF reversion stop at v1. No strategy is promoted.
 - Completed all seven D2R3 v2 validation/robustness experiments under the disclosed reused
   interval; all passed. V2 produced 7.39% CAGR, 0.383 Sharpe, -11.13% MaxDD, 5/7 positive
   annual folds, 100% adjacent-neighbor pass, and passed 2x-cost and one-session-delay gates.
+- Sealed both finalist experiment records and the holdout access ledger before loading any
+  2024–2026 candidate data. Adaptive core then failed only the frozen SPY drawdown-improvement
+  gate (9.39 points actual vs 10 required); sector rotation v2 failed four performance/concentration
+  gates. Both are final-rejected and cannot be tuned or retried on that holdout.
 
 ## In progress
 
-- Commit/push D2R3 validation evidence, then preregister exactly one final-holdout access for
-  adaptive core and sector rotation v2 before loading any 2024–2026 candidate data.
+- Commit/push both final-holdout rejections, then preregister at most two genuinely new,
+  economically distinct hypotheses for the two remaining finalist slots.
 
 ## Next
 

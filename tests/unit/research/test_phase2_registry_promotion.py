@@ -65,6 +65,28 @@ def test_invalidated_experiment_is_retained_with_reason(tmp_path) -> None:
     assert record["invalidation_reason"] == "insufficient asset history"
 
 
+def test_decision_correction_preserves_audit_history(tmp_path) -> None:
+    registry = ExperimentRegistry(tmp_path / "registry.json")
+    registry.preregister([_spec()])
+    registry.mark_running("phase2-a-001")
+    registry.complete(
+        "phase2-a-001",
+        result_path="result.json",
+        key_metrics={"cagr": 0.1},
+        passed=True,
+    )
+    registry.correct_completion_decision(
+        "phase2-a-001",
+        passed=False,
+        reason="FULL_POLICY_GATE_FAILED",
+    )
+    record = registry.get("phase2-a-001")
+    assert record["status"] == "COMPLETED"
+    assert record["pass_fail"] == "FAIL"
+    assert record["failure_reason"] == "FULL_POLICY_GATE_FAILED"
+    assert record["decision_corrections"][0]["prior_pass_fail"] == "PASS"
+
+
 def test_frozen_promotion_policy_is_executable() -> None:
     policy = PromotionPolicy.load()
     evidence = CandidateEvidence(

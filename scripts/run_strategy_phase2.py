@@ -992,6 +992,9 @@ def run_holdout(plan_only: bool = False, revision: str = "d1") -> None:
     for (family, prior), spec in zip(qualified.items(), specs):
         meta = FAMILY_META[family]
         result_path = RESULT_ROOT / "holdout" / revision / f"{spec.experiment_id}.json"
+        benchmark_metrics = _benchmark_metrics(
+            close[meta["benchmark"]], effective_start, split["end"]
+        )
 
         def evaluate() -> tuple[dict[str, Any], BacktestResult]:
             result = _run(
@@ -1009,14 +1012,24 @@ def run_holdout(plan_only: bool = False, revision: str = "d1") -> None:
             )
             return ({"experiment_id": spec.experiment_id, "metrics": metrics}, result)
 
+        def passes_full_holdout_policy(metrics: Mapping[str, Any]) -> bool:
+            evidence = CandidateEvidence(
+                strategy_id=meta["strategy_id"],
+                strategy_type=meta["strategy_type"],
+                metrics=metrics,
+                benchmark_metrics=benchmark_metrics,
+                robustness=prior["robustness"],
+                controls=prior["controls"],
+            )
+            return policy.evaluate(evidence, include_operational=False).eligible
+
         payload, _ = _execute_registered(
             registry,
             spec,
             result_path,
             evaluate,
-            lambda metrics: _basic_metric_pass(metrics, family, policy),
+            passes_full_holdout_policy,
         )
-        benchmark_metrics = _benchmark_metrics(close[meta["benchmark"]], effective_start, split["end"])
         evidence = CandidateEvidence(
             strategy_id=meta["strategy_id"],
             strategy_type=meta["strategy_type"],

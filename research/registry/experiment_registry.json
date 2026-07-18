@@ -5370,7 +5370,7 @@
     {
       "benchmark": "SPY",
       "code_commit": "ab52983a64c48608b382ef29c0bb4d9df7dae999",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:58:36.204495Z",
       "cost_model": "config/cost_model.yaml:single_frozen_access",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -5379,10 +5379,25 @@
         "role": "final_holdout",
         "start": "2024-01-02"
       },
+      "decision_corrections": [
+        {
+          "corrected_at_utc": "2026-07-18T02:02:06.059340Z",
+          "corrected_pass_fail": "FAIL",
+          "prior_pass_fail": "PASS",
+          "reason": "FULL_HOLDOUT_POLICY_FAILED: maxdd_improvement_vs_spy actual=0.09390208762592708 required=0.10; prior classification used basic gates only"
+        }
+      ],
       "experiment_id": "P2-D2R2-HOLDOUT-ADAPTIVE-CORE-FINAL",
-      "failure_reason": null,
+      "failure_reason": "FULL_HOLDOUT_POLICY_FAILED: maxdd_improvement_vs_spy actual=0.09390208762592708 required=0.10; prior classification used basic gates only",
       "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [final_holdout:single_frozen_access]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 1.7629103452258987,
+        "cagr": 0.15796240260485406,
+        "calmar": 1.6867267890788529,
+        "max_drawdown": -0.0936502601533469,
+        "sharpe": 1.0385736070959035,
+        "sortino": 1.4204410744778975
+      },
       "parameters": {
         "trend_windows": [
           84,
@@ -5391,19 +5406,19 @@
         ],
         "volatility_target": 0.14
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:57:59.903065Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/holdout/d2r2/P2-D2R2-HOLDOUT-ADAPTIVE-CORE-FINAL.json",
+      "started_at_utc": "2026-07-18T01:58:25.217935Z",
+      "status": "COMPLETED",
       "strategy_family": "adaptive_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "ab52983a64c48608b382ef29c0bb4d9df7dae999",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:58:54.470911Z",
       "cost_model": "config/cost_model.yaml:single_frozen_access",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -5413,9 +5428,16 @@
         "start": "2024-01-02"
       },
       "experiment_id": "P2-D2R3-HOLDOUT-SECTOR-ROTATION-V2-FINAL",
-      "failure_reason": null,
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
       "hypothesis": "The frozen v1 signal remains viable when sparse selections obey the 35% symbol cap. [final_holdout:single_frozen_access]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 6.324847401951036,
+        "cagr": 0.043628335909930316,
+        "calmar": 0.42093173628384223,
+        "max_drawdown": -0.10364705758491659,
+        "sharpe": 0.07607584400114399,
+        "sortino": 0.10935965036397176
+      },
       "parameters": {
         "momentum_weights": [
           0.2,
@@ -5425,12 +5447,12 @@
         "slow_trend": 168,
         "top_n": 3
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:58:00.444262Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/holdout/d2r3/P2-D2R3-HOLDOUT-SECTOR-ROTATION-V2-FINAL.json",
+      "started_at_utc": "2026-07-18T01:58:40.443985Z",
+      "status": "COMPLETED",
       "strategy_family": "sector_rotation_v2",
       "strategy_version": "v2"
     }

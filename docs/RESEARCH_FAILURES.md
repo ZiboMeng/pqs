@@ -88,6 +88,23 @@ The bootstrap CAGR interval is 1.20% to 13.42%. Despite the non-pristine reused
 validation interval, the unchanged v2 now qualifies as a frozen finalist for
 one access to the still-unread phase-two final holdout.
 
+### Final holdout decisions
+
+Both finalist accesses were registered and committed before any 2024–2026
+candidate data was loaded. Neither passed, so neither may enter PAPER:
+
+- Adaptive core returned 15.80% CAGR with 1.039 Sharpe and -9.37% MaxDD, but
+  SPY's -18.76% holdout drawdown meant the improvement was 9.39 percentage
+  points, below the frozen 10-point requirement. It failed exactly that gate.
+- Sector rotation v2 returned 4.36% CAGR with 0.076 Sharpe and -10.36% MaxDD.
+  It failed Sharpe, Sortino, single-year positive-PnL concentration and Calmar
+  improvement versus SPY. Its 2026 partial-year return was -6.03%.
+
+The thresholds are not relaxed. Both versions are final-rejected, and their
+logic/parameters will not be edited and retested on this holdout. Two of the
+four preregistered finalist slots remain available only to genuinely new,
+economically distinct hypotheses.
+
 ## Legacy D1 design notes (performance numbers invalidated)
 
 The subsections below preserve the original D1 attribution. Every performance

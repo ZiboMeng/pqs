@@ -148,6 +148,40 @@ class ExperimentRegistry:
             pass_fail="INVALID",
         )
 
+    def correct_completion_decision(
+        self,
+        experiment_id: str,
+        *,
+        passed: bool,
+        reason: str,
+    ) -> None:
+        """Auditably correct a completed result's decision classification."""
+        if not reason.strip():
+            raise ValueError("decision correction requires a non-empty reason")
+        payload = self._load()
+        for entry in payload["experiments"]:
+            if entry.get("experiment_id") != experiment_id:
+                continue
+            if entry.get("status") != "COMPLETED":
+                raise ValueError(
+                    f"experiment {experiment_id} decision correction requires COMPLETED status"
+                )
+            prior = entry.get("pass_fail")
+            corrected = "PASS" if passed else "FAIL"
+            entry.setdefault("decision_corrections", []).append(
+                {
+                    "corrected_at_utc": _utc_now(),
+                    "prior_pass_fail": prior,
+                    "corrected_pass_fail": corrected,
+                    "reason": reason,
+                }
+            )
+            entry["pass_fail"] = corrected
+            entry["failure_reason"] = None if passed else reason
+            self._write(payload)
+            return
+        raise KeyError(experiment_id)
+
     def _transition(
         self,
         experiment_id: str,

@@ -3,16 +3,16 @@
   "baseline_commit": "9ffc1ce564ca18a04554db20a442749e65f24672",
   "baseline_tag": "codex-pre-strategy-research-20260717",
   "branch": "codex/strategy-research-and-paper-v2",
-  "current_phase": "TWO_FINALISTS_HOLDOUT_PREREGISTRATION",
-  "last_completed_task": "Sector rotation v2 passed all seven D2R3 validation/robustness runs at 7.39% CAGR, 0.383 Sharpe and -11.13% MaxDD; adaptive core and rotation v2 are frozen finalists.",
-  "next_task": "Commit/push D2R3 validation evidence, preregister one final-holdout access for each frozen finalist without loading holdout data, commit the access ledger, then execute once.",
+  "current_phase": "FINALIST_ITERATION_TWO_SLOTS_REMAIN",
+  "last_completed_task": "Executed the two sealed holdout accesses once. Adaptive core failed the 10-point SPY drawdown-improvement gate by 0.61 points; sector rotation v2 failed four holdout gates. Both are final-rejected.",
+  "next_task": "Commit/push both holdout rejections, preregister at most two new economically distinct families for the remaining finalist slots, and repeat development/validation without altering rejected versions.",
   "open_p0": [],
   "open_p1": [],
   "candidate_strategies": [
-    "adaptive_core_v1:VALIDATION_PASS_HOLDOUT_PENDING",
+    "adaptive_core_v1:HOLDOUT_FAIL_FINAL",
     "controlled_growth_v1:DEVELOPMENT_FAIL_STOP_V1",
     "sector_rotation_v1:VALIDATION_EXECUTION_FAIL",
-    "sector_rotation_v2:VALIDATION_PASS_HOLDOUT_PENDING",
+    "sector_rotation_v2:HOLDOUT_FAIL_FINAL",
     "etf_reversion_v1:DEVELOPMENT_FAIL_STOP_V1"
   ],
   "promoted_paper_strategies": [],
@@ -22,6 +22,6 @@
   ],
   "last_test_command": "pytest -q tests/unit/data tests/unit/research/test_source_boundaries.py tests/unit/research/test_forward_source_layer.py tests/unit/research/test_phase2_registry_promotion.py tests/unit/research/test_phase2_runner_protocol.py tests/unit/signals/test_phase2_etf_strategies.py tests/unit/regime/test_phase2_regime.py tests/unit/portfolio/test_strategy_allocator.py tests/unit/scripts/test_fetch_data_preclose_raise.py tests/unit/backtest tests/unit/execution tests/unit/paper_trading tests/integration/test_backtest_paper_consistency.py",
   "last_test_result": "PASS: 706 passed, 1 xfailed, 0 failed in 130.81s; focused Ruff and mypy passed; repeated store/source tests left the real provenance hash unchanged.",
-  "last_backtest_run": "D2R3 sector_rotation_v2 validation: all 7 runs PASS; 7.39% CAGR/0.383 Sharpe/0.486 Sortino/-11.13% MaxDD; 5/7 annual folds and 3/3 neighbors pass.",
-  "last_updated_utc": "2026-07-18T01:57:00Z"
+  "last_backtest_run": "Final holdout: adaptive_core 15.80% CAGR/1.039 Sharpe/-9.37% MaxDD FAIL maxdd improvement; sector_rotation_v2 4.36%/0.076/-10.36% FAIL four gates.",
+  "last_updated_utc": "2026-07-18T02:00:00Z"
 }
