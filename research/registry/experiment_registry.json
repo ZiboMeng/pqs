@@ -5038,6 +5038,40 @@
       "status": "FAILED",
       "strategy_family": "sector_rotation",
       "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "430aacfde76b7476abb0b6424a5ed29c95a172db",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base_cost",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r3",
+        "end": "2016-12-30",
+        "role": "development",
+        "start": "2007-01-03"
+      },
+      "experiment_id": "P2-D2R3-DEV-SECTOR-ROTATION-V2-01",
+      "failure_reason": null,
+      "hypothesis": "The frozen v1 signal remains viable when sparse selections obey the 35% symbol cap. [development:base_cost]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 168,
+        "top_n": 3
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:53:17.536104Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation_v2",
+      "strategy_version": "v2"
     }
   ],
   "schema_version": 1
