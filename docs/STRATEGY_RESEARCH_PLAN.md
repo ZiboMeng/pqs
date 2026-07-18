@@ -289,6 +289,42 @@ H and I do not expand F/G or modify either rejected holdout finalist. They may
 use the two remaining finalist slots only after independent development and
 validation passes; no additional phase-two family follows them.
 
+## Search-budget amendment J — crash-buffer stable core (`crash_buffer_core_v1`)
+
+Status: preregistered after H failed development and I passed its holdout, and
+before J code or evaluation. This explicitly amends the prior terminal sentence
+because the governing task requires continued economically grounded research
+until two strategies qualify unless an external blocker exists. It adds four
+development attempts and consumes the fourth/final finalist slot only if all
+prior gates pass. No family follows J.
+
+Epistemic limitation: three other candidate holdout results and aggregate
+2024–2026 market behavior are already known. J therefore cannot claim a globally
+pristine holdout; it remains a hypothesis-scoped one-access test with materially
+higher search debt, disclosed in promotion evidence.
+
+- Economic logic: retain a fixed diversified core during confirmed long-horizon
+  equity strength, but use a daily crash buffer and cooldown to cap loss before
+  the slow month-end state can react.
+- Assets: SPY, QQQ, IEF, GLD, BIL and SHY; no leverage or individual stocks.
+- Risk-on: fixed 35% SPY, grid-selected QQQ sleeve, 15% IEF, 20% GLD, with
+  BIL/SHY splitting residual cash.
+- Risk-off: fixed 30% IEF, 30% GLD and 20% each BIL/SHY.
+- Entry: month-end SPY above its slow mean with positive 126-session return and
+  QQQ above its 200-session mean; next-open execution.
+- Emergency exit: any close below SPY's 63-session mean or at/below a fixed
+  -7.5% 63-session drawdown enters risk-off and starts a fixed 21-session
+  cooldown. Re-entry is month-end only after cooldown.
+- Grid: slow SPY trend `168/252` crossed with QQQ sleeve `15%/20%` = exactly
+  four attempts. Every other trigger, sleeve and cooldown is frozen.
+- Type/gates: `stable_core`, SPY benchmark, all existing common/stable gates
+  unchanged. Primary risks are whipsaw, gap-through-exit and gold/duration shock.
+
+J is the final allowed phase-two finalist hypothesis. Failure at development,
+validation or holdout establishes an evidence/epistemic blocker: obtaining a
+second strategy would then require future unseen sessions or an explicitly
+authorized new research protocol, not more reuse of the same holdout.
+
 ## Final selection and non-negotiable stop rules
 
 Development ranks by a preregistered composite of gate margin, not headline
