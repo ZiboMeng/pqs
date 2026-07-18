@@ -5079,6 +5079,244 @@
       "status": "COMPLETED",
       "strategy_family": "sector_rotation_v2",
       "strategy_version": "v2"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "a4b0808515637b3cbebdbe389f3b6d38920e0c92",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r3",
+        "end": "2023-12-29",
+        "role": "validation",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R3-VAL-SECTOR-ROTATION-V2-BASE",
+      "failure_reason": null,
+      "hypothesis": "The frozen v1 signal remains viable when sparse selections obey the 35% symbol cap. [validation:base]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 168,
+        "top_n": 3
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:54:45.738653Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation_v2",
+      "strategy_version": "v2"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "a4b0808515637b3cbebdbe389f3b6d38920e0c92",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:cost2x",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r3",
+        "end": "2023-12-29",
+        "role": "validation",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R3-VAL-SECTOR-ROTATION-V2-COST2X",
+      "failure_reason": null,
+      "hypothesis": "The frozen v1 signal remains viable when sparse selections obey the 35% symbol cap. [validation:cost2x]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 168,
+        "top_n": 3
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:54:45.738675Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation_v2",
+      "strategy_version": "v2"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "a4b0808515637b3cbebdbe389f3b6d38920e0c92",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:delay1",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r3",
+        "end": "2023-12-29",
+        "role": "validation",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R3-VAL-SECTOR-ROTATION-V2-DELAY1",
+      "failure_reason": null,
+      "hypothesis": "The frozen v1 signal remains viable when sparse selections obey the 35% symbol cap. [validation:delay1]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 168,
+        "top_n": 3
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:54:45.738688Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation_v2",
+      "strategy_version": "v2"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "a4b0808515637b3cbebdbe389f3b6d38920e0c92",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:determinism",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r3",
+        "end": "2023-12-29",
+        "role": "validation",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R3-VAL-SECTOR-ROTATION-V2-DETERMINISM",
+      "failure_reason": null,
+      "hypothesis": "The frozen v1 signal remains viable when sparse selections obey the 35% symbol cap. [validation:determinism]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 168,
+        "top_n": 3
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:54:45.738697Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation_v2",
+      "strategy_version": "v2"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "a4b0808515637b3cbebdbe389f3b6d38920e0c92",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:parameter_neighbor",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r3",
+        "end": "2023-12-29",
+        "role": "validation_sensitivity",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R3-VAL-SECTOR-ROTATION-V2-NEIGHBOR-01",
+      "failure_reason": null,
+      "hypothesis": "The frozen v1 signal remains viable when sparse selections obey the 35% symbol cap. [validation_sensitivity:parameter_neighbor]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 168,
+        "top_n": 2
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:54:45.738705Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation_v2",
+      "strategy_version": "v2"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "a4b0808515637b3cbebdbe389f3b6d38920e0c92",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:parameter_neighbor",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r3",
+        "end": "2023-12-29",
+        "role": "validation_sensitivity",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R3-VAL-SECTOR-ROTATION-V2-NEIGHBOR-02",
+      "failure_reason": null,
+      "hypothesis": "The frozen v1 signal remains viable when sparse selections obey the 35% symbol cap. [validation_sensitivity:parameter_neighbor]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 252,
+        "top_n": 3
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:54:45.738711Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation_v2",
+      "strategy_version": "v2"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "a4b0808515637b3cbebdbe389f3b6d38920e0c92",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:parameter_neighbor",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r3",
+        "end": "2023-12-29",
+        "role": "validation_sensitivity",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R3-VAL-SECTOR-ROTATION-V2-NEIGHBOR-03",
+      "failure_reason": null,
+      "hypothesis": "The frozen v1 signal remains viable when sparse selections obey the 35% symbol cap. [validation_sensitivity:parameter_neighbor]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.3,
+          0.4,
+          0.3
+        ],
+        "slow_trend": 168,
+        "top_n": 3
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:54:45.738718Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation_v2",
+      "strategy_version": "v2"
     }
   ],
   "schema_version": 1
