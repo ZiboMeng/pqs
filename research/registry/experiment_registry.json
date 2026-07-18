@@ -4560,6 +4560,442 @@
       "status": "COMPLETED",
       "strategy_family": "etf_reversion",
       "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "6f8341a4fac70830f3cdd1ea0b40f42534ac9c2b",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r2",
+        "end": "2023-12-29",
+        "role": "validation",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R2-VAL-ADAPTIVE-CORE-BASE",
+      "failure_reason": null,
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [validation:base]",
+      "key_metrics": null,
+      "parameters": {
+        "trend_windows": [
+          84,
+          168,
+          252
+        ],
+        "volatility_target": 0.14
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:45:26.236477Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "6f8341a4fac70830f3cdd1ea0b40f42534ac9c2b",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:cost2x",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r2",
+        "end": "2023-12-29",
+        "role": "validation",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R2-VAL-ADAPTIVE-CORE-COST2X",
+      "failure_reason": null,
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [validation:cost2x]",
+      "key_metrics": null,
+      "parameters": {
+        "trend_windows": [
+          84,
+          168,
+          252
+        ],
+        "volatility_target": 0.14
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:45:26.236499Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "6f8341a4fac70830f3cdd1ea0b40f42534ac9c2b",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:delay1",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r2",
+        "end": "2023-12-29",
+        "role": "validation",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R2-VAL-ADAPTIVE-CORE-DELAY1",
+      "failure_reason": null,
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [validation:delay1]",
+      "key_metrics": null,
+      "parameters": {
+        "trend_windows": [
+          84,
+          168,
+          252
+        ],
+        "volatility_target": 0.14
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:45:26.236510Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "6f8341a4fac70830f3cdd1ea0b40f42534ac9c2b",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:determinism",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r2",
+        "end": "2023-12-29",
+        "role": "validation",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R2-VAL-ADAPTIVE-CORE-DETERMINISM",
+      "failure_reason": null,
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [validation:determinism]",
+      "key_metrics": null,
+      "parameters": {
+        "trend_windows": [
+          84,
+          168,
+          252
+        ],
+        "volatility_target": 0.14
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:45:26.236518Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "6f8341a4fac70830f3cdd1ea0b40f42534ac9c2b",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:parameter_neighbor",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r2",
+        "end": "2023-12-29",
+        "role": "validation_sensitivity",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R2-VAL-ADAPTIVE-CORE-NEIGHBOR-01",
+      "failure_reason": null,
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [validation_sensitivity:parameter_neighbor]",
+      "key_metrics": null,
+      "parameters": {
+        "trend_windows": [
+          63,
+          126,
+          252
+        ],
+        "volatility_target": 0.14
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:45:26.236530Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "6f8341a4fac70830f3cdd1ea0b40f42534ac9c2b",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:parameter_neighbor",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r2",
+        "end": "2023-12-29",
+        "role": "validation_sensitivity",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R2-VAL-ADAPTIVE-CORE-NEIGHBOR-02",
+      "failure_reason": null,
+      "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [validation_sensitivity:parameter_neighbor]",
+      "key_metrics": null,
+      "parameters": {
+        "trend_windows": [
+          84,
+          168,
+          252
+        ],
+        "volatility_target": 0.12
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:45:26.236537Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "adaptive_core",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "6f8341a4fac70830f3cdd1ea0b40f42534ac9c2b",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:base",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r2",
+        "end": "2023-12-29",
+        "role": "validation",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R2-VAL-SECTOR-ROTATION-BASE",
+      "failure_reason": null,
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [validation:base]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 168,
+        "top_n": 3
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:45:26.236545Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "6f8341a4fac70830f3cdd1ea0b40f42534ac9c2b",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:cost2x",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r2",
+        "end": "2023-12-29",
+        "role": "validation",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R2-VAL-SECTOR-ROTATION-COST2X",
+      "failure_reason": null,
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [validation:cost2x]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 168,
+        "top_n": 3
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:45:26.236552Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "6f8341a4fac70830f3cdd1ea0b40f42534ac9c2b",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:delay1",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r2",
+        "end": "2023-12-29",
+        "role": "validation",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R2-VAL-SECTOR-ROTATION-DELAY1",
+      "failure_reason": null,
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [validation:delay1]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 168,
+        "top_n": 3
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:45:26.236559Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "6f8341a4fac70830f3cdd1ea0b40f42534ac9c2b",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:determinism",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r2",
+        "end": "2023-12-29",
+        "role": "validation",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R2-VAL-SECTOR-ROTATION-DETERMINISM",
+      "failure_reason": null,
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [validation:determinism]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 168,
+        "top_n": 3
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:45:26.236567Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "6f8341a4fac70830f3cdd1ea0b40f42534ac9c2b",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:parameter_neighbor",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r2",
+        "end": "2023-12-29",
+        "role": "validation_sensitivity",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R2-VAL-SECTOR-ROTATION-NEIGHBOR-01",
+      "failure_reason": null,
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [validation_sensitivity:parameter_neighbor]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 168,
+        "top_n": 2
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:45:26.236575Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "6f8341a4fac70830f3cdd1ea0b40f42534ac9c2b",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:parameter_neighbor",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r2",
+        "end": "2023-12-29",
+        "role": "validation_sensitivity",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R2-VAL-SECTOR-ROTATION-NEIGHBOR-02",
+      "failure_reason": null,
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [validation_sensitivity:parameter_neighbor]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.2,
+          0.3,
+          0.5
+        ],
+        "slow_trend": 252,
+        "top_n": 3
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:45:26.236582Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
+    },
+    {
+      "benchmark": "SPY",
+      "code_commit": "6f8341a4fac70830f3cdd1ea0b40f42534ac9c2b",
+      "completed_at_utc": null,
+      "cost_model": "config/cost_model.yaml:parameter_neighbor",
+      "data_range": {
+        "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
+        "data_revision": "d2r2",
+        "end": "2023-12-29",
+        "role": "validation_sensitivity",
+        "start": "2017-01-03"
+      },
+      "experiment_id": "P2-D2R2-VAL-SECTOR-ROTATION-NEIGHBOR-03",
+      "failure_reason": null,
+      "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [validation_sensitivity:parameter_neighbor]",
+      "key_metrics": null,
+      "parameters": {
+        "momentum_weights": [
+          0.3,
+          0.4,
+          0.3
+        ],
+        "slow_trend": 168,
+        "top_n": 3
+      },
+      "pass_fail": null,
+      "random_seed": 20260717,
+      "registered_at_utc": "2026-07-18T01:45:26.236589Z",
+      "result_path": null,
+      "started_at_utc": null,
+      "status": "PLANNED",
+      "strategy_family": "sector_rotation",
+      "strategy_version": "v1"
     }
   ],
   "schema_version": 1
