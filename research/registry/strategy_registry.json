@@ -28,10 +28,15 @@
       "live_enabled": false,
       "max_position": 0.35,
       "max_turnover": 8.0,
+      "promotion_decision": {
+        "decision": "PAPER_APPROVED",
+        "policy_id": "phase2-paper-promotion-v1",
+        "promotion_registry": "research/registry/promotion_registry.json"
+      },
       "promotion_evidence": {
         "development": "research/results/phase2/development/selection_d2r5.json",
         "final_holdout": "research/results/phase2/holdout/summary_d2r5.json",
-        "operational": null,
+        "operational": "research/results/phase2/paper/operational_acceptance.json",
         "validation": "research/results/phase2/validation/summary_d2r5.json"
       },
       "required_data": {
@@ -47,7 +52,7 @@
       "risk_budget": {
         "capital_fraction": 1.0,
         "equity_gate": "internal dual-index long-trend state",
-        "max_equity_gross": 0.70,
+        "max_equity_gross": 0.7,
         "max_gross_exposure": 1.0,
         "minimum_cash_fraction": 0.05
       },
@@ -56,7 +61,7 @@
         "execution_time": "next_tradable_open",
         "signal_time": "session_close"
       },
-      "status": "RESEARCH_QUALIFIED",
+      "status": "PAPER_APPROVED",
       "strategy_id": "dual_index_growth_v1",
       "strategy_type": "growth_engine",
       "version": "v1"

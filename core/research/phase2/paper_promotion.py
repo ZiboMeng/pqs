@@ -214,11 +214,11 @@ def promote(
 
     strategy["status"] = "PAPER_APPROVED"
     strategy["live_enabled"] = False
-    strategy["promotion_evidence"]["operational"] = str(operational_path)
+    strategy["promotion_evidence"]["operational"] = evidence_paths["operational"]
     strategy["promotion_decision"] = {
         "decision": "PAPER_APPROVED",
         "policy_id": policy.payload["policy_id"],
-        "promotion_registry": str(promotion_registry_path),
+        "promotion_registry": _display_path(promotion_registry_path, root),
     }
     _atomic_json(strategy_registry_path, strategy_registry)
     return promotion_record

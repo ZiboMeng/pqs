@@ -1,4 +1,195 @@
 {
-  "schema_version": 1,
-  "promotions": []
+  "promotions": [
+    {
+      "code_commit": "8d16d8a4966988dee2b1f1918d8810de4062e744",
+      "decision": "PAPER_APPROVED",
+      "evaluated_at_utc": "2026-07-18T03:05:21.514948Z",
+      "evidence": {
+        "final_holdout": "research/results/phase2/holdout/summary_d2r5.json",
+        "operational": "research/results/phase2/paper/operational_acceptance.json",
+        "validation": "research/results/phase2/validation/summary_d2r5.json"
+      },
+      "evidence_sha256": {
+        "final_holdout": "05b716b8e375c9a5c2485c1b2904c2cdfd414e6adb4e6d291b2febdabfa0ef1a",
+        "operational": "453d2a8696bc684dbfef80e443430f58d2d04aea7d7b2479af522520b978ade0",
+        "validation": "079610c2693d419ad592c637fd64386c7957b145b9295bf5f007d081b2e3c1ea"
+      },
+      "failed_gates": [],
+      "gates": [
+        {
+          "actual": 0,
+          "name": "unresolved_p0",
+          "passed": true,
+          "required": 0
+        },
+        {
+          "actual": 0,
+          "name": "unresolved_research_p1",
+          "passed": true,
+          "required": 0
+        },
+        {
+          "actual": true,
+          "name": "no_known_lookahead",
+          "passed": true,
+          "required": true
+        },
+        {
+          "actual": 0.153130920569728,
+          "name": "validation_cagr",
+          "passed": true,
+          "required": 0.05
+        },
+        {
+          "actual": 0.9341972465798473,
+          "name": "validation_sharpe",
+          "passed": true,
+          "required": 0.3
+        },
+        {
+          "actual": 1.2812778503919136,
+          "name": "validation_sortino",
+          "passed": true,
+          "required": 0.4
+        },
+        {
+          "actual": 0.09431163020342709,
+          "name": "max_drawdown",
+          "passed": true,
+          "required": 0.23
+        },
+        {
+          "actual": 1.6236695330091275,
+          "name": "calmar",
+          "passed": true,
+          "required": 0.3
+        },
+        {
+          "actual": 0.8571428571428571,
+          "name": "positive_walk_forward_fraction",
+          "passed": true,
+          "required": 0.6
+        },
+        {
+          "actual": 0.11300409995293781,
+          "name": "cost_2x_cagr",
+          "passed": true,
+          "required": 0.02
+        },
+        {
+          "actual": 0.72395429080774,
+          "name": "cost_2x_sharpe",
+          "passed": true,
+          "required": 0.1
+        },
+        {
+          "actual": 0.8238597014789002,
+          "name": "delayed_signal_sharpe",
+          "passed": true,
+          "required": 0.05
+        },
+        {
+          "actual": 1.0,
+          "name": "parameter_neighbor_pass_fraction",
+          "passed": true,
+          "required": 0.6
+        },
+        {
+          "actual": 0.5747687741848768,
+          "name": "single_year_pnl_concentration",
+          "passed": true,
+          "required": 0.6
+        },
+        {
+          "actual": 0.13466380880525697,
+          "name": "stress_drawdown",
+          "passed": true,
+          "required": 0.25
+        },
+        {
+          "actual": 2.370701659591374,
+          "name": "annual_turnover",
+          "passed": true,
+          "required": 8.0
+        },
+        {
+          "actual": 0.5348683898254529,
+          "name": "calmar_improvement_vs_qqq",
+          "passed": true,
+          "required": 0.05
+        },
+        {
+          "actual": 0.4331677321829829,
+          "name": "beta_to_qqq",
+          "passed": true,
+          "required": 0.9
+        },
+        {
+          "actual": 0.0,
+          "name": "tqqq_weight",
+          "passed": true,
+          "required": 0.1
+        },
+        {
+          "actual": true,
+          "name": "cooldown_test",
+          "passed": true,
+          "required": true
+        },
+        {
+          "actual": true,
+          "name": "risk_on_gate_test",
+          "passed": true,
+          "required": true
+        },
+        {
+          "actual": true,
+          "name": "deterministic_rerun",
+          "passed": true,
+          "required": true
+        },
+        {
+          "actual": true,
+          "name": "live_disabled",
+          "passed": true,
+          "required": true
+        },
+        {
+          "actual": true,
+          "name": "missing_data_fail_closed",
+          "passed": true,
+          "required": true
+        },
+        {
+          "actual": true,
+          "name": "stale_data_fail_closed",
+          "passed": true,
+          "required": true
+        },
+        {
+          "actual": true,
+          "name": "risk_veto_test",
+          "passed": true,
+          "required": true
+        },
+        {
+          "actual": true,
+          "name": "restart_idempotency_test",
+          "passed": true,
+          "required": true
+        },
+        {
+          "actual": true,
+          "name": "paper_replay",
+          "passed": true,
+          "required": true
+        }
+      ],
+      "live_enabled": false,
+      "operational_evidence_code_commit": "cba313ec11996d4de09f61773ec6217a397aa126",
+      "policy_id": "phase2-paper-promotion-v1",
+      "strategy_id": "dual_index_growth_v1"
+    }
+  ],
+  "schema_version": 1
 }
