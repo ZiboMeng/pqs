@@ -6411,7 +6411,7 @@
     {
       "benchmark": "QQQ",
       "code_commit": "944644a463d50fd577f6266ebf183532824c7945",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T02:19:05.688589Z",
       "cost_model": "config/cost_model.yaml:single_frozen_access",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -6423,18 +6423,25 @@
       "experiment_id": "P2-D2R5-HOLDOUT-DUAL-INDEX-GROWTH-FINAL",
       "failure_reason": null,
       "hypothesis": "High-participation month-end QQQ/SPY trend captures growth with a fixed defensive off-state. [final_holdout:single_frozen_access]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 2.370701659591374,
+        "cagr": 0.153130920569728,
+        "calmar": 1.6236695330091275,
+        "max_drawdown": -0.09431163020342709,
+        "sharpe": 0.9341972465798473,
+        "sortino": 1.2812778503919136
+      },
       "parameters": {
         "cooldown_sessions": 21,
         "equity_gross": 0.7,
         "slow_trend": 168
       },
-      "pass_fail": null,
+      "pass_fail": "PASS",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T02:18:20.025975Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/holdout/d2r5/P2-D2R5-HOLDOUT-DUAL-INDEX-GROWTH-FINAL.json",
+      "started_at_utc": "2026-07-18T02:18:54.961846Z",
+      "status": "COMPLETED",
       "strategy_family": "dual_index_growth",
       "strategy_version": "v1"
     }

@@ -3,9 +3,9 @@
   "baseline_commit": "9ffc1ce564ca18a04554db20a442749e65f24672",
   "baseline_tag": "codex-pre-strategy-research-20260717",
   "branch": "codex/strategy-research-and-paper-v2",
-  "current_phase": "D2R5_DUAL_INDEX_HOLDOUT_PREREGISTRATION",
-  "last_completed_task": "Dual-index growth passed all six validation/robustness runs at 11.39% CAGR, 0.732 Sharpe and -13.65% MaxDD; it is the third frozen finalist.",
-  "next_task": "Commit/push D2R5 validation evidence, preregister and commit the third holdout access without loading holdout data, then execute it once.",
+  "current_phase": "ONE_RESEARCH_QUALIFIED_FINAL_SLOT_REMAINS",
+  "last_completed_task": "Dual-index growth passed its sealed final holdout at 15.31% CAGR, 0.934 Sharpe and -9.43% MaxDD. It is research-qualified but not PAPER_APPROVED until operational gates pass.",
+  "next_task": "Commit/push the holdout pass, implement paper-style replay and fault evidence for dual-index growth, and preregister one final stable-core hypothesis for the last finalist slot.",
   "open_p0": [],
   "open_p1": [],
   "candidate_strategies": [
@@ -16,7 +16,7 @@
     "risk_balanced_core_v1:DEVELOPMENT_FAIL_STOP_V1",
     "defensive_growth_v1:DEVELOPMENT_FAIL_STOP_V1",
     "multi_asset_trend_v1:DEVELOPMENT_FAIL_STOP_V1",
-    "dual_index_growth_v1:VALIDATION_PASS_HOLDOUT_PENDING",
+    "dual_index_growth_v1:RESEARCH_PASS_PAPER_OPS_PENDING",
     "etf_reversion_v1:DEVELOPMENT_FAIL_STOP_V1"
   ],
   "promoted_paper_strategies": [],
@@ -26,6 +26,6 @@
   ],
   "last_test_command": "pytest -q tests/unit/data tests/unit/research/test_source_boundaries.py tests/unit/research/test_forward_source_layer.py tests/unit/research/test_phase2_registry_promotion.py tests/unit/research/test_phase2_runner_protocol.py tests/unit/signals/test_phase2_etf_strategies.py tests/unit/regime/test_phase2_regime.py tests/unit/portfolio/test_strategy_allocator.py tests/unit/scripts/test_fetch_data_preclose_raise.py tests/unit/backtest tests/unit/execution tests/unit/paper_trading tests/integration/test_backtest_paper_consistency.py",
   "last_test_result": "PASS: 706 passed, 1 xfailed, 0 failed in 130.81s; focused Ruff and mypy passed; repeated store/source tests left the real provenance hash unchanged.",
-  "last_backtest_run": "D2R5 validation: dual_index_growth all 6 runs PASS; 11.39% CAGR/0.732 Sharpe/0.920 Sortino/-13.65% MaxDD; 6/7 folds and 2/2 neighbors pass.",
-  "last_updated_utc": "2026-07-18T02:20:00Z"
+  "last_backtest_run": "D2R5 holdout: dual_index_growth PASS all research gates at 15.31% CAGR/0.934 Sharpe/1.281 Sortino/-9.43% MaxDD/0.433 beta.",
+  "last_updated_utc": "2026-07-18T02:25:00Z"
 }

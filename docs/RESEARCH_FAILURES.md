@@ -130,6 +130,12 @@ both neighbors passing, 2x-cost Sharpe 0.724 and delayed-signal Sharpe 0.824.
 Its bootstrap CAGR interval is 4.58% to 18.99%. It becomes the third frozen
 finalist; no stopped family is revived to manufacture a second candidate.
 
+Its third sealed final-holdout access also passed every frozen research gate:
+15.31% CAGR, 0.934 Sharpe, 1.281 Sortino, -9.43% MaxDD, beta 0.433 to QQQ and
+57.48% positive-PnL concentration in the best year. It is the only candidate
+currently eligible to attempt operational PAPER qualification; it is not yet
+`PAPER_APPROVED` until replay, fault, restart and risk-veto evidence is complete.
+
 ## Legacy D1 design notes (performance numbers invalidated)
 
 The subsections below preserve the original D1 attribution. Every performance

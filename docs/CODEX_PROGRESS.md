@@ -140,11 +140,14 @@ controlled growth and ETF reversion stop at v1. No strategy is promoted.
   8.29% CAGR, 0.442 Sharpe and -10.28% MaxDD and advances alone to validation.
 - Dual-index growth passed all six D2R5 validation/robustness runs: 11.39% CAGR, 0.732 Sharpe,
   -13.65% MaxDD, 6/7 positive annual folds, 100% neighbor pass, and strong 2x-cost/delay results.
+- The third sealed holdout access passed every research gate for dual-index growth: 15.31% CAGR,
+  0.934 Sharpe, -9.43% MaxDD and 0.433 QQQ beta. It is research-qualified but still awaits all
+  operational PAPER gates; no other candidate is research-qualified.
 
 ## In progress
 
-- Commit/push D2R5 validation evidence, preregister the third and only current holdout finalist,
-  then perform its one sealed access.
+- Commit/push the dual-index holdout pass, operationalize its PAPER replay, and preregister one
+  final stable-core hypothesis for the last finalist slot under an explicit search amendment.
 
 ## Next
 
