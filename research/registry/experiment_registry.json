@@ -4564,7 +4564,7 @@
     {
       "benchmark": "SPY",
       "code_commit": "6f8341a4fac70830f3cdd1ea0b40f42534ac9c2b",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:45:55.560436Z",
       "cost_model": "config/cost_model.yaml:base",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -4576,7 +4576,14 @@
       "experiment_id": "P2-D2R2-VAL-ADAPTIVE-CORE-BASE",
       "failure_reason": null,
       "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [validation:base]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 1.7297062589702268,
+        "cagr": 0.09039246511451537,
+        "calmar": 0.612692407385889,
+        "max_drawdown": -0.14753318961497092,
+        "sharpe": 0.606177857233068,
+        "sortino": 0.7659939920641139
+      },
       "parameters": {
         "trend_windows": [
           84,
@@ -4585,19 +4592,19 @@
         ],
         "volatility_target": 0.14
       },
-      "pass_fail": null,
+      "pass_fail": "PASS",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:45:26.236477Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/validation/d2r2/P2-D2R2-VAL-ADAPTIVE-CORE-BASE.json",
+      "started_at_utc": "2026-07-18T01:45:45.730591Z",
+      "status": "COMPLETED",
       "strategy_family": "adaptive_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "6f8341a4fac70830f3cdd1ea0b40f42534ac9c2b",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:46:05.329964Z",
       "cost_model": "config/cost_model.yaml:cost2x",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -4609,7 +4616,14 @@
       "experiment_id": "P2-D2R2-VAL-ADAPTIVE-CORE-COST2X",
       "failure_reason": null,
       "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [validation:cost2x]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 1.7359413618020139,
+        "cagr": 0.08946374676980873,
+        "calmar": 0.6021204840251838,
+        "max_drawdown": -0.148581138066824,
+        "sharpe": 0.5968283994341652,
+        "sortino": 0.7541588615602797
+      },
       "parameters": {
         "trend_windows": [
           84,
@@ -4618,19 +4632,19 @@
         ],
         "volatility_target": 0.14
       },
-      "pass_fail": null,
+      "pass_fail": "PASS",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:45:26.236499Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/validation/d2r2/P2-D2R2-VAL-ADAPTIVE-CORE-COST2X.json",
+      "started_at_utc": "2026-07-18T01:45:55.575296Z",
+      "status": "COMPLETED",
       "strategy_family": "adaptive_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "6f8341a4fac70830f3cdd1ea0b40f42534ac9c2b",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:46:14.945000Z",
       "cost_model": "config/cost_model.yaml:delay1",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -4642,7 +4656,14 @@
       "experiment_id": "P2-D2R2-VAL-ADAPTIVE-CORE-DELAY1",
       "failure_reason": null,
       "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [validation:delay1]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 1.7187169191441698,
+        "cagr": 0.09325099812239501,
+        "calmar": 0.6412235390599205,
+        "max_drawdown": -0.14542666081645667,
+        "sharpe": 0.6346826727497281,
+        "sortino": 0.8101435384543653
+      },
       "parameters": {
         "trend_windows": [
           84,
@@ -4651,19 +4672,19 @@
         ],
         "volatility_target": 0.14
       },
-      "pass_fail": null,
+      "pass_fail": "PASS",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:45:26.236510Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/validation/d2r2/P2-D2R2-VAL-ADAPTIVE-CORE-DELAY1.json",
+      "started_at_utc": "2026-07-18T01:46:05.344415Z",
+      "status": "COMPLETED",
       "strategy_family": "adaptive_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "6f8341a4fac70830f3cdd1ea0b40f42534ac9c2b",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:46:24.668287Z",
       "cost_model": "config/cost_model.yaml:determinism",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -4675,7 +4696,14 @@
       "experiment_id": "P2-D2R2-VAL-ADAPTIVE-CORE-DETERMINISM",
       "failure_reason": null,
       "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [validation:determinism]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 1.7297062589702268,
+        "cagr": 0.09039246511451537,
+        "calmar": 0.612692407385889,
+        "max_drawdown": -0.14753318961497092,
+        "sharpe": 0.606177857233068,
+        "sortino": 0.7659939920641139
+      },
       "parameters": {
         "trend_windows": [
           84,
@@ -4684,19 +4712,19 @@
         ],
         "volatility_target": 0.14
       },
-      "pass_fail": null,
+      "pass_fail": "PASS",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:45:26.236518Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/validation/d2r2/P2-D2R2-VAL-ADAPTIVE-CORE-DETERMINISM.json",
+      "started_at_utc": "2026-07-18T01:46:14.961093Z",
+      "status": "COMPLETED",
       "strategy_family": "adaptive_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "6f8341a4fac70830f3cdd1ea0b40f42534ac9c2b",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:46:34.320611Z",
       "cost_model": "config/cost_model.yaml:parameter_neighbor",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -4708,7 +4736,14 @@
       "experiment_id": "P2-D2R2-VAL-ADAPTIVE-CORE-NEIGHBOR-01",
       "failure_reason": null,
       "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [validation_sensitivity:parameter_neighbor]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 1.8924414321236396,
+        "cagr": 0.08831012266417826,
+        "calmar": 0.6082126325500866,
+        "max_drawdown": -0.14519613361846093,
+        "sharpe": 0.5913408455042249,
+        "sortino": 0.7462294965045682
+      },
       "parameters": {
         "trend_windows": [
           63,
@@ -4717,19 +4752,19 @@
         ],
         "volatility_target": 0.14
       },
-      "pass_fail": null,
+      "pass_fail": "PASS",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:45:26.236530Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/validation/d2r2/P2-D2R2-VAL-ADAPTIVE-CORE-NEIGHBOR-01.json",
+      "started_at_utc": "2026-07-18T01:46:24.683977Z",
+      "status": "COMPLETED",
       "strategy_family": "adaptive_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "6f8341a4fac70830f3cdd1ea0b40f42534ac9c2b",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:46:43.975387Z",
       "cost_model": "config/cost_model.yaml:parameter_neighbor",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -4741,7 +4776,14 @@
       "experiment_id": "P2-D2R2-VAL-ADAPTIVE-CORE-NEIGHBOR-02",
       "failure_reason": null,
       "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [validation_sensitivity:parameter_neighbor]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 1.7893072045688596,
+        "cagr": 0.08412865664881708,
+        "calmar": 0.6124803483830429,
+        "max_drawdown": -0.1373573158239574,
+        "sharpe": 0.5655311191190102,
+        "sortino": 0.7109647978276042
+      },
       "parameters": {
         "trend_windows": [
           84,
@@ -4750,19 +4792,19 @@
         ],
         "volatility_target": 0.12
       },
-      "pass_fail": null,
+      "pass_fail": "PASS",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:45:26.236537Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/validation/d2r2/P2-D2R2-VAL-ADAPTIVE-CORE-NEIGHBOR-02.json",
+      "started_at_utc": "2026-07-18T01:46:34.335946Z",
+      "status": "COMPLETED",
       "strategy_family": "adaptive_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "6f8341a4fac70830f3cdd1ea0b40f42534ac9c2b",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:46:48.015244Z",
       "cost_model": "config/cost_model.yaml:base",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -4772,7 +4814,7 @@
         "start": "2017-01-03"
       },
       "experiment_id": "P2-D2R2-VAL-SECTOR-ROTATION-BASE",
-      "failure_reason": null,
+      "failure_reason": "ValueError: strategy emitted a target above the 35% symbol cap",
       "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [validation:base]",
       "key_metrics": null,
       "parameters": {
@@ -4784,12 +4826,12 @@
         "slow_trend": 168,
         "top_n": 3
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:45:26.236545Z",
       "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "started_at_utc": "2026-07-18T01:46:44.547006Z",
+      "status": "FAILED",
       "strategy_family": "sector_rotation",
       "strategy_version": "v1"
     },

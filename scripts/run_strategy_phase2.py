@@ -669,9 +669,41 @@ def run_validation(plan_only: bool = False, revision: str = "d1") -> None:
         ),
         "families": {},
     }
+    validation_summary_path = RESULT_ROOT / "validation" / f"summary_{revision}.json"
     for family, item in work.items():
         meta = FAMILY_META[family]
         parameters = item["parameters"]
+        family_specs = list(item["variants"].values()) + [
+            spec for _, spec in item["neighbors"]
+        ]
+        failed_records = [
+            registry.get(spec.experiment_id)
+            for spec in family_specs
+            if registry.get(spec.experiment_id)["status"] == "FAILED"
+        ]
+        if failed_records:
+            dependency_reason = (
+                "VALIDATION_DEPENDENCY_FAILED: "
+                + "; ".join(
+                    f"{record['experiment_id']}={record.get('failure_reason')}"
+                    for record in failed_records
+                )
+            )
+            for spec in family_specs:
+                if registry.get(spec.experiment_id)["status"] == "PLANNED":
+                    registry.fail(spec.experiment_id, dependency_reason)
+            summary["families"][family] = {
+                "strategy_id": meta["strategy_id"],
+                "strategy_type": meta["strategy_type"],
+                "parameters": parameters,
+                "validation_status": "FAILED",
+                "research_gate_pass": False,
+                "failed_gates": ["validation_execution"],
+                "failure_reason": dependency_reason,
+            }
+            _atomic_json(validation_summary_path, summary)
+            print(f"{meta['strategy_id']}: validation execution FAIL")
+            continue
 
         def run_variant(
             spec: ExperimentSpec,
@@ -815,6 +847,7 @@ def run_validation(plan_only: bool = False, revision: str = "d1") -> None:
             "benchmark_metrics": benchmark_metrics,
             "robustness": robustness,
             "controls": controls,
+            "validation_status": "COMPLETED",
             "research_gate_pass": decision.eligible,
             "failed_gates": decision.failed_gates,
             "gate_details": [asdict(gate) for gate in decision.gates],
@@ -823,7 +856,7 @@ def run_validation(plan_only: bool = False, revision: str = "d1") -> None:
             f"{meta['strategy_id']}: validation gate={'PASS' if decision.eligible else 'FAIL'} "
             f"failed={','.join(decision.failed_gates) or 'none'}"
         )
-    validation_summary_path = RESULT_ROOT / "validation" / f"summary_{revision}.json"
+        _atomic_json(validation_summary_path, summary)
     _atomic_json(validation_summary_path, summary)
 
 
