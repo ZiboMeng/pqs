@@ -178,6 +178,27 @@ multi-factor evidence already shows 65 Tier-D variants with zero OOS passes.
 Running another stock selector would add survivorship and multiple-testing debt,
 so ETF families receive the formal promotion budget.
 
+## Iteration C2 — sector rotation safety repair (`sector_rotation_v2`)
+
+Status: preregistered after the v1 validation execution failure and before v2
+implementation/evaluation. The 2017–2023 validation interval is no longer
+pristine for this family; the 2024–2026 final holdout remains unaccessed.
+
+V1 attempted to allocate the full 70% risky budget to one symbol when only one
+sector had a positive eligible score. V2 changes only the allocation invariant:
+for `k` selected sectors, risky gross is `min(70%, 35% × k)`, split equally;
+the exact residual is split equally between BIL and SHY. Thus one sector gets
+35% plus 32.5%/32.5% defensive weights, two sectors get 35% each plus 15%/15%,
+and three sectors retain v1's 23.33% each plus 15%/15%.
+
+No signal, rank, universe, rebalance timing, cost, execution, benchmark or gate
+changes are permitted. There is exactly one development cell: momentum weights
+`(0.2,0.3,0.5)`, top-N `3`, slow trend `168`, the representative frozen before
+the v1 validation read. Development must still clear the original basic gate.
+If it does, validation registers the same base/2x-cost/delay/determinism suite
+and the same three adjacent parameter checks solely as robustness evidence; no
+neighbor may replace the fixed representative. V2 failure retires this repair.
+
 ## Final selection and non-negotiable stop rules
 
 Development ranks by a preregistered composite of gate margin, not headline
