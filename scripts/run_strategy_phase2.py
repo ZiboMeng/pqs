@@ -422,6 +422,21 @@ def _development_score(metrics: Mapping[str, Any]) -> float:
     )
 
 
+def _development_qualified_families(
+    selection: Mapping[str, Any],
+    policy: PromotionPolicy,
+) -> dict[str, Any]:
+    """Advance only a family whose frozen representative cleared development."""
+    families = selection.get("families", {})
+    if not isinstance(families, dict):
+        raise ValueError("development selection families must be a mapping")
+    return {
+        family: selected
+        for family, selected in families.items()
+        if _basic_metric_pass(selected.get("metrics", {}), family, policy)
+    }
+
+
 def run_development(plan_only: bool = False, revision: str = "d1") -> None:
     _assert_source_clean()
     policy = PromotionPolicy.load(POLICY_PATH)
@@ -593,14 +608,17 @@ def run_validation(plan_only: bool = False, revision: str = "d1") -> None:
     selection_path = RESULT_ROOT / "development" / f"selection_{revision}.json"
     selection = _load_json(selection_path)
     policy = PromotionPolicy.load(POLICY_PATH)
+    qualified_selection = _development_qualified_families(selection, policy)
+    if not qualified_selection:
+        raise RuntimeError("no development-qualified family may enter validation")
     split = policy.payload["data_protocol"]["validation"]
     registry = ExperimentRegistry(REGISTRY_PATH)
-    first_family = next(iter(selection["families"]))
+    first_family = next(iter(qualified_selection))
     first_id = f"P2-{revision.upper()}-VAL-{first_family.upper().replace('_', '-')}-BASE"
     commit = _locked_or_current_commit(registry, first_id)
     specs: list[ExperimentSpec] = []
     work: dict[str, dict[str, Any]] = {}
-    for family, selected in selection["families"].items():
+    for family, selected in qualified_selection.items():
         parameters = selected["parameters"]
         variants: dict[str, ExperimentSpec] = {}
         for variant in ("base", "cost2x", "delay1", "determinism"):
@@ -646,6 +664,9 @@ def run_validation(plan_only: bool = False, revision: str = "d1") -> None:
         "evaluation_start": effective_start,
         "evaluation_end": split["end"],
         "data_revision": revision,
+        "development_exclusions": sorted(
+            set(selection["families"]) - set(qualified_selection)
+        ),
         "families": {},
     }
     for family, item in work.items():

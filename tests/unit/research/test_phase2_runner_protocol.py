@@ -8,7 +8,12 @@ import pytest
 
 import scripts.run_strategy_phase2 as runner
 from core.research.phase2.registry import ExperimentRegistry, ExperimentSpec
-from scripts.run_strategy_phase2 import _grids, _locked_or_current_commit, _neighbor_cells
+from scripts.run_strategy_phase2 import (
+    _development_qualified_families,
+    _grids,
+    _locked_or_current_commit,
+    _neighbor_cells,
+)
 
 
 def test_preregistered_grid_sizes_are_frozen() -> None:
@@ -79,3 +84,21 @@ def test_execution_reuses_commit_locked_by_plan_only(tmp_path) -> None:
     )
     registry.preregister([spec])
     assert _locked_or_current_commit(registry, spec.experiment_id) == "a" * 40
+
+
+def test_validation_excludes_development_failed_families() -> None:
+    policy = runner.PromotionPolicy.load(runner.POLICY_PATH)
+    passing = {
+        "cagr": 0.08,
+        "sharpe": 0.50,
+        "sortino": 0.70,
+        "max_drawdown": -0.10,
+    }
+    failing = {**passing, "sharpe": -0.10}
+    selection = {
+        "families": {
+            "adaptive_core": {"metrics": passing},
+            "controlled_growth": {"metrics": failing},
+        }
+    }
+    assert set(_development_qualified_families(selection, policy)) == {"adaptive_core"}

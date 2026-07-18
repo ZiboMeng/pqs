@@ -1,19 +1,21 @@
 # Existing strategy failure attribution
 
-Status: frozen before phase-two candidate evaluation
+Status: original legacy attribution frozen before phase-two evaluation; D2R2
+development outcomes appended 2026-07-17
 
-Evidence cutoff: corrected total-return diagnostic ending 2026-07-17
+Current certified evidence cutoff: D2R2 development ending 2016-12-30
 
 Promotion consequence: none of the existing strategies is eligible for PAPER
 
 ## Evidence basis and limitations
 
-The comparison uses the certified next-open engine, current base costs, integer
-shares, the 81-symbol executable universe and the total-return sidecar validated
-in `docs/BACKTEST_CERTIFICATION.md`. The common range is 2007-01-03 through
-2026-07-17. This is a diagnostic full-history comparison, not new OOS evidence:
-the repository's former rolling holdout and its old 2026 sealed interval have
-both been viewed repeatedly.
+Important correction: the legacy comparison table below came from D1. Later
+phase-two work proved that D1 mixed short ETF histories and incompatible source
+adjustment semantics. Its numerical values are retained for lineage but are no
+longer valid evidence for promotion or rejection. The conservative decision to
+withhold promotion remains valid because invalid evidence cannot establish
+eligibility. Any old implementation-level finding below is a design hypothesis,
+not a certified performance claim, until rerun on D2.
 
 | Strategy | CAGR | Sharpe | MaxDD | IR vs SPY | Trades | Disposition |
 |---|---:|---:|---:|---:|---:|---|
@@ -22,6 +24,45 @@ both been viewed repeatedly.
 | cross-asset rotation | 4.19% | 0.05 | -11.12% | -0.43 | 781 | `REDESIGN_HYPOTHESIS` |
 | multi-factor | 7.98% | 0.47 | -14.98% | -0.23 | 2,999 | `RETIRED` |
 | SPY total-return benchmark | 10.90% | 0.42 | -55.2% | n/a | n/a | benchmark |
+
+## D2R2 phase-two development outcomes
+
+D2R2 used the certified manifest, next-open execution, integer shares, current
+base costs and total-return prices. The 41-cell grid was frozen and registered
+before data access. Evaluation begins after the 252-session warmup and ends
+2016-12-30. These results are in-sample development evidence only.
+
+| Frozen family representative | Cells passing basic gate | CAGR | Sharpe | Sortino | MaxDD | Disposition |
+|---|---:|---:|---:|---:|---:|---|
+| adaptive core | 1 / 9 | 6.30% | 0.307 | 0.411 | -10.93% | `ADVANCE_VALIDATION` |
+| controlled growth | 0 / 12 | 3.23% | -0.075 | -0.089 | -15.46% | `STOP_V1` |
+| sector rotation | 3 / 12 | 7.25% | 0.406 | 0.554 | -12.80% | `ADVANCE_VALIDATION` |
+| ETF reversion | 0 / 8 | 1.26% | -0.923 | -1.215 | -6.85% | `STOP_V1` |
+
+The adaptive representative uses trend windows 84/168/252 and a 14% volatility
+target. Only one of nine cells passed, so its local parameter stability remains
+an explicit validation risk. The sector representative uses 20%/30%/50%
+multi-horizon weights, top three sectors and a 168-session slow trend; three
+cells passed, but it still must clear annual folds, parameter neighbors, 2x
+costs, one-session delay and benchmark-improvement gates.
+
+Controlled growth failed all 12 cells. Its best cell remains almost fully
+invested through cash ETFs, turns over 6.34x/year and earns only 3.23% CAGR;
+under the frozen 4% risk-free convention both Sharpe and Sortino are negative.
+Losses in 2011, 2015 and 2016 show that the breadth/TQQQ gate does not create a
+reliable growth premium. No v1 cell advances.
+
+ETF reversion failed all eight cells. The best cell turns over 10.97x/year,
+incurs 739 fills and produces only 1.26% CAGR, so the low 6.85% drawdown is
+mostly a low-return/cash-exposure effect rather than compensated alpha. Negative
+risk-adjusted returns reject the v1 oversold trigger; it will not be tuned after
+viewing these outcomes.
+
+## Legacy D1 design notes (performance numbers invalidated)
+
+The subsections below preserve the original D1 attribution. Every performance
+number in them is historical, invalidated lineage; only code/design observations
+and the fail-closed no-promotion decision remain actionable.
 
 The apparently good SPY drawdown is not the relevant stable-core target: a
 stable strategy must reduce it materially while retaining a reasonable CAGR and
@@ -108,7 +149,7 @@ T-bill fallback.
 
 ## Multi-factor — `RETIRED`
 
-The certified baseline has the strongest old headline metrics but still trails
+The invalidated D1 baseline has the strongest old headline metrics but still trails
 SPY materially and has IR -0.23. More importantly, the archive contains 65
 historical trials on lineage `post-2026-04-23-feat-v1-expanded`: 32 passed the
 quick screen, zero passed OOS, zero passed holdout and zero were promoted. The

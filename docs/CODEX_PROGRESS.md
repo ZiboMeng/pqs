@@ -1,12 +1,12 @@
 # Codex audit and hardening progress
 
-Last updated: 2026-07-17 (D2 canonical data certified)
+Last updated: 2026-07-17 (D2R2 development complete)
 
 ## Current phase
 
-Strategy Phase 2 — all 41 D1 development cells remain explicitly invalidated. D2 has now
-uniformly rebuilt and certified the full 81-symbol executable universe; unchanged D2 experiments
-are ready for preregistration. No strategy is promoted.
+Strategy Phase 2 — all 41 D1 cells remain explicitly invalidated. D2R2 completed all 41
+development cells on certified data: adaptive core and sector rotation advance to validation;
+controlled growth and ETF reversion stop at v1. No strategy is promoted.
 
 ## Completed
 
@@ -109,18 +109,24 @@ are ready for preregistration. No strategy is promoted.
   source commit frozen before that registry commit. Preserved all 41 as `FAILED` with an explicit
   no-data-access reason and fixed development/validation/holdout to reuse the locked source
   commit. The unchanged rerun uses new `D2R2` IDs.
+- Preregistered and executed all 41 D2R2 development cells with unchanged data, strategy logic,
+  grids and gates. Four cells passed the basic gate and 37 failed. The frozen family winners are
+  adaptive core cell 09 (6.30% CAGR, 0.307 Sharpe, -10.93% MaxDD) and sector rotation cell 03
+  (7.25%, 0.406, -12.80%). Growth and ETF reversion had zero passing cells and stop at v1.
+- Tightened the validation runner so a family that failed its frozen development gate cannot
+  consume validation experiments merely because a within-family representative was selected.
 
 ## In progress
 
-- Commit/push the preregistration-lineage fix, then preregister D2R2 under new experiment IDs
-  with the exact same data, strategy logic, grids and gates.
+- Commit/push every D2R2 development artifact and failure attribution, then preregister
+  validation/robustness experiments for adaptive core and sector rotation only.
 
 ## Next
 
-1. Commit the D2 data manifest, parity report and canonical builder hardening.
-2. Register and run D2 with unchanged candidate definitions and freeze one winner per family.
-3. Validate winners with annual folds, 2x cost, delay and parameter-neighbor checks.
-4. Admit only qualifying finalists to holdout and PAPER replay.
+1. Register validation base, 2x-cost, delay, deterministic rerun and adjacent-neighbor cells.
+2. Execute validation and freeze all gate details, annual folds, stress and bootstrap evidence.
+3. Admit only validation-qualified finalists to the one-time final holdout.
+4. Admit only holdout-qualified, complementary strategies to PAPER replay.
 
 ## Unresolved issues
 

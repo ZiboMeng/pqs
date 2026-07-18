@@ -3,16 +3,16 @@
   "baseline_commit": "9ffc1ce564ca18a04554db20a442749e65f24672",
   "baseline_tag": "codex-pre-strategy-research-20260717",
   "branch": "codex/strategy-research-and-paper-v2",
-  "current_phase": "D2R2_PREREGISTRATION_READY",
-  "last_completed_task": "Committed/pushed canonical D2 evidence, preregistered 41 D2 cells without loading data, then preserved them as FAILED after detecting a registry-only-commit lineage bug and fixed the runner protocol.",
-  "next_task": "Commit the preregistration lineage fix, preregister 41 D2R2 cells with unchanged data/logic/grids/gates, commit the registry, execute them, and freeze one representative per family.",
+  "current_phase": "D2R2_DEVELOPMENT_COMPLETE",
+  "last_completed_task": "Executed all 41 D2R2 development cells: 4 passed basic gates, 37 failed; froze adaptive_core cell 09 and sector_rotation cell 03 as the only development-qualified family representatives.",
+  "next_task": "Commit/push all D2R2 development evidence and failure attribution, preregister validation plus robustness runs for only adaptive_core and sector_rotation, then execute them.",
   "open_p0": [],
   "open_p1": [],
   "candidate_strategies": [
-    "adaptive_core_v1:D1_DATA_INVALID_D2R2_READY",
-    "controlled_growth_v1:D1_DATA_INVALID_D2R2_READY",
-    "sector_rotation_v1:D1_DATA_INVALID_D2R2_READY",
-    "etf_reversion_v1:D1_DATA_INVALID_D2R2_READY"
+    "adaptive_core_v1:DEVELOPMENT_PASS_VALIDATION_PENDING",
+    "controlled_growth_v1:DEVELOPMENT_FAIL_STOP_V1",
+    "sector_rotation_v1:DEVELOPMENT_PASS_VALIDATION_PENDING",
+    "etf_reversion_v1:DEVELOPMENT_FAIL_STOP_V1"
   ],
   "promoted_paper_strategies": [],
   "retired_strategies": [
@@ -21,6 +21,6 @@
   ],
   "last_test_command": "pytest -q tests/unit/data tests/unit/research/test_source_boundaries.py tests/unit/research/test_forward_source_layer.py tests/unit/research/test_phase2_registry_promotion.py tests/unit/research/test_phase2_runner_protocol.py tests/unit/signals/test_phase2_etf_strategies.py tests/unit/regime/test_phase2_regime.py tests/unit/portfolio/test_strategy_allocator.py tests/unit/scripts/test_fetch_data_preclose_raise.py tests/unit/backtest tests/unit/execution tests/unit/paper_trading tests/integration/test_backtest_paper_consistency.py",
   "last_test_result": "PASS: 706 passed, 1 xfailed, 0 failed in 130.81s; focused Ruff and mypy passed; repeated store/source tests left the real provenance hash unchanged.",
-  "last_backtest_run": "D1 development: 41/41 completed then INVALIDATED for data coverage/source semantics. SPY had 2,518 development bars, QQQ/TQQQ/sectors only 504 from 2015, and IEF/GLD/SHY only from 2009; results retained under research/results/phase2/development.",
-  "last_updated_utc": "2026-07-18T01:39:00Z"
+  "last_backtest_run": "D2R2 development: 41/41 completed, 4 PASS and 37 FAIL. Winners: adaptive_core 6.30% CAGR/0.307 Sharpe/-10.93% MaxDD; sector_rotation 7.25%/0.406/-12.80%. Growth and reversion had zero passing cells.",
+  "last_updated_utc": "2026-07-18T01:44:00Z"
 }
