@@ -199,6 +199,53 @@ If it does, validation registers the same base/2x-cost/delay/determinism suite
 and the same three adjacent parameter checks solely as robustness evidence; no
 neighbor may replace the fixed representative. V2 failure retires this repair.
 
+## Finalist iteration F — volatility risk balance (`risk_balanced_core_v1`)
+
+Status: preregistered after the two earlier finalist rejections and before code
+or candidate evaluation. Other families' 2024–2026 results have been seen, so
+this is only a new hypothesis-scoped finalist, not a globally pristine period.
+
+- Economic logic: a stable core can earn compensated equity, duration and gold
+  premia without forecasting direction by equalizing their realized-volatility
+  contributions and keeping unallocated capital in short Treasuries.
+- Assets: SPY, IEF, GLD, BIL and SHY only. No QQQ, sectors, stocks or leverage.
+- Signal/allocation: at each month-end, inverse-volatility weights across
+  SPY/IEF/GLD using one trailing window, normalized to a fixed risky gross.
+  Every sleeve is clipped at 35%; any clipping residual and the non-risky gross
+  are split equally between BIL and SHY.
+- Grid: volatility lookback `42/63/126` crossed with risky gross `70%/80%` =
+  exactly six development attempts. No trend filter or covariance shrinkage is
+  introduced after results.
+- Type/gates: `stable_core`; SPY benchmark; existing stable-core and common
+  gates unchanged. Main failure risks are bond/equity correlation shocks,
+  inverse-vol crowding and low return under the fixed 4% risk-free convention.
+
+## Finalist iteration G — unlevered defensive growth (`defensive_growth_v1`)
+
+Status: preregistered at the same epistemic boundary as iteration F. This is
+not a repair or relabeling of adaptive core and uses no TQQQ.
+
+- Economic logic: persistent Nasdaq growth can be held at bounded size while a
+  weekly hysteretic state machine exits structural weakness; gold, intermediate
+  Treasuries and T-bills make the off-state explicit.
+- Assets: QQQ, SPY, IEF, GLD, BIL and SHY. No leveraged ETF.
+- Entry: QQQ above its slow mean with positive 126-session return and SPY above
+  its 200-session mean. Decisions occur weekly and execute next open.
+- Exit/cooldown: QQQ below its 63-session mean or 63-session drawdown at/below
+  -10% exits risk-on and imposes a fixed 10-session cooldown.
+- Risk-on allocation: total QQQ+SPY gross is fixed by the grid, QQQ <=35%,
+  SPY receives the residual; GLD is 15% and BIL/SHY split the remainder.
+  Risk-off is fixed at 30% IEF, 20% GLD and 25% each BIL/SHY.
+- Grid: slow trend `168/210/252` crossed with risk-on equity gross `55%/65%` =
+  exactly six attempts. Fast exit, drawdown threshold, cooldown and all sleeve
+  weights are frozen.
+- Type/gates: `growth_engine`; QQQ benchmark; TQQQ weight is identically zero.
+  Existing growth/common gates remain unchanged. Main risks are missed V-shaped
+  reversals, weekly whipsaw, cash drag and overlap with the stable core.
+
+Iterations F and G consume the two remaining finalist slots only if they pass
+development and validation. No fifth phase-two finalist is permitted.
+
 ## Final selection and non-negotiable stop rules
 
 Development ranks by a preregistered composite of gate margin, not headline
