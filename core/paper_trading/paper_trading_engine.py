@@ -847,10 +847,14 @@ class PaperTradingEngine:
             return
         for f in fills:
             try:
-                set_fill_price = getattr(self._broker, "set_next_fill_price", None)
-                if callable(set_fill_price):
-                    set_fill_price(f.symbol, f.executed_price)
-                ack = self._broker.submit_order(f.order)
+                mirror_fill = getattr(self._broker, "mirror_fill", None)
+                if callable(mirror_fill):
+                    ack = mirror_fill(f)
+                else:
+                    set_fill_price = getattr(self._broker, "set_next_fill_price", None)
+                    if callable(set_fill_price):
+                        set_fill_price(f.symbol, f.executed_price)
+                    ack = self._broker.submit_order(f.order)
                 if ack.status != "ACCEPTED":
                     logger.warning(
                         "broker mirror rejected fill for %s: %s",
@@ -863,6 +867,16 @@ class PaperTradingEngine:
                     f.symbol,
                     exc,
                 )
+
+    def set_operational_readiness(
+        self,
+        *,
+        market_data_fresh: bool,
+        reconciliation_ok: bool,
+    ) -> None:
+        """Update the fail-closed pre-trade inputs for the next session."""
+        self._market_data_fresh = bool(market_data_fresh)
+        self._reconciliation_ok = bool(reconciliation_ok)
 
     def _run_broker_reconcile(
         self,

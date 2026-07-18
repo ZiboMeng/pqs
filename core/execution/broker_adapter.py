@@ -29,9 +29,11 @@ from typing import Dict, List, Optional
 
 from core.execution.cost_model import CostModel
 from core.execution.execution_simulator import (
-    ExecutionSimulator, Fill, Order, OrderSide,
+    ExecutionSimulator,
+    Fill,
+    Order,
+    OrderSide,
 )
-
 
 # ── Interface types ──────────────────────────────────────────────────────────
 
@@ -130,6 +132,7 @@ class SimulatedBrokerAdapter(BrokerAdapter):
         self._open_orders: Dict[str, Order] = {}  # order_id → Order
         self._fills: List[Fill] = []              # chronological
         self._fill_timestamps: List[datetime] = []  # parallel to _fills
+        self._mirrored_fill_ids: Dict[str, str] = {}
         # Optional deterministic price override for next fill (per-symbol)
         self._next_fill_prices: Dict[str, float] = {}
         # Default price if nothing injected — caller's responsibility
@@ -145,6 +148,52 @@ class SimulatedBrokerAdapter(BrokerAdapter):
     def set_default_fill_price(self, price: float) -> None:
         """Fallback price when no per-symbol override is set."""
         self._default_price = float(price)
+
+    def mirror_fill(self, fill: Fill) -> OrderAck:
+        """Book an already-simulated PAPER fill exactly once.
+
+        ``PaperTradingEngine`` is the execution authority for the local PAPER
+        path.  Re-simulating its completed fill would apply slippage and
+        commission twice, so the simulated broker mirrors the authoritative
+        quantity, cash delta and price verbatim.  The stable fill key also
+        makes a duplicate broker callback idempotent.
+        """
+        canonical_id = getattr(fill.order, "canonical_order_id", None)
+        fill_key = str(canonical_id or (
+            f"{fill.symbol}:{fill.side.value}:{fill.signal_date.isoformat()}:"
+            f"{fill.fill_date.isoformat()}:{fill.executed_qty:.12g}:"
+            f"{fill.executed_price:.12g}"
+        ))
+        existing_id = self._mirrored_fill_ids.get(fill_key)
+        if existing_id is not None:
+            return OrderAck(
+                order_id=existing_id,
+                order=fill.order,
+                submitted_at=datetime.now(),
+                status="ACCEPTED",
+            )
+
+        order_id = uuid.uuid4().hex[:12]
+        previous = self._positions.get(fill.symbol, 0.0)
+        if fill.side == OrderSide.BUY:
+            self._positions[fill.symbol] = previous + fill.executed_qty
+        else:
+            self._positions[fill.symbol] = max(previous - fill.executed_qty, 0.0)
+        self._cash += fill.cash_delta
+        self._positions = {
+            symbol: quantity
+            for symbol, quantity in self._positions.items()
+            if quantity > 1e-6
+        }
+        self._fills.append(fill)
+        self._fill_timestamps.append(datetime.now())
+        self._mirrored_fill_ids[fill_key] = order_id
+        return OrderAck(
+            order_id=order_id,
+            order=fill.order,
+            submitted_at=datetime.now(),
+            status="ACCEPTED",
+        )
 
     # ── Required ABC methods ─────────────────────────────────────────────────
 

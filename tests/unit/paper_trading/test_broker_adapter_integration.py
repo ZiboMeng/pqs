@@ -52,6 +52,20 @@ def _zero_cost_model() -> CostModel:
     return CostModel(cfg)
 
 
+def _nonzero_cost_model() -> CostModel:
+    cfg = CostModelConfig(
+        tiers={
+            "default": CostTierConfig(
+                symbols=[],
+                commission_bps=1.0,
+                slippage_interday_bps=8.0,
+                slippage_intraday_bps=12.0,
+            )
+        }
+    )
+    return CostModel(cfg)
+
+
 def _make_engine(
     tmp_path: Path,
     cost_model: CostModel,
@@ -184,6 +198,38 @@ class TestMirrorDailyPath:
             )
         results = engine.get_broker_reconcile_results()
         assert len(results) == 3
+
+    def test_nonzero_cost_fill_is_not_charged_twice(self, tmp_path):
+        cm = _nonzero_cost_model()
+        broker = SimulatedBrokerAdapter(cost_model=cm, initial_cash=100_000.0)
+        engine = _make_engine(tmp_path, cm, broker=broker)
+        engine.run_day_daily(
+            exec_date=pd.Timestamp("2024-01-02"),
+            target_wts={"AAPL": 0.5},
+            prev_close={"AAPL": 100.0},
+            exec_open={"AAPL": 100.0},
+            eod_close={"AAPL": 100.0},
+        )
+        result = engine.get_broker_reconcile_results()[0]
+        assert result.passed
+        assert result.cash_mismatch == 0.0
+
+    def test_duplicate_fill_callback_is_idempotent(self, tmp_path):
+        cm = _nonzero_cost_model()
+        broker = SimulatedBrokerAdapter(cost_model=cm, initial_cash=100_000.0)
+        engine = _make_engine(tmp_path, cm, broker=broker)
+        result = engine.run_day_daily(
+            exec_date=pd.Timestamp("2024-01-02"),
+            target_wts={"AAPL": 0.5},
+            prev_close={"AAPL": 100.0},
+            exec_open={"AAPL": 100.0},
+            eod_close={"AAPL": 100.0},
+        )
+        cash_after = broker.get_cash()
+        positions_after = broker.get_positions()
+        broker.mirror_fill(result.trades[0])
+        assert broker.get_cash() == cash_after
+        assert broker.get_positions() == positions_after
 
 
 class TestBrokerInterfaceContract:
