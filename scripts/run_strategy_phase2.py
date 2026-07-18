@@ -142,6 +142,25 @@ def _git_commit() -> str:
     return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
 
 
+def _locked_or_current_commit(registry: ExperimentRegistry, experiment_id: str) -> str:
+    """Reuse the commit frozen by plan-only after a registry-only commit.
+
+    The registry itself must be committed between preregistration and data
+    access. That commit advances HEAD without changing executable research
+    code; an already-planned experiment therefore retains its original source
+    commit. Specification drift in any other field is still rejected by
+    ``ExperimentRegistry.preregister``.
+    """
+    try:
+        existing = registry.get(experiment_id)
+    except KeyError:
+        return _git_commit()
+    commit = existing.get("code_commit")
+    if not isinstance(commit, str) or len(commit) != 40:
+        raise RuntimeError(f"invalid locked code commit for {experiment_id}")
+    return commit
+
+
 def _assert_source_clean() -> None:
     status = subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True)
     allowed_prefixes = (
@@ -407,8 +426,9 @@ def run_development(plan_only: bool = False, revision: str = "d1") -> None:
     _assert_source_clean()
     policy = PromotionPolicy.load(POLICY_PATH)
     split = policy.payload["data_protocol"]["development"]
-    commit = _git_commit()
     registry = ExperimentRegistry(REGISTRY_PATH)
+    first_id = f"P2-{revision.upper()}-DEV-ADAPTIVE-CORE-01"
+    commit = _locked_or_current_commit(registry, first_id)
     specs: list[ExperimentSpec] = []
     indexed: list[tuple[str, int, dict[str, Any], ExperimentSpec]] = []
     for family, cells in _grids().items():
@@ -574,8 +594,10 @@ def run_validation(plan_only: bool = False, revision: str = "d1") -> None:
     selection = _load_json(selection_path)
     policy = PromotionPolicy.load(POLICY_PATH)
     split = policy.payload["data_protocol"]["validation"]
-    commit = _git_commit()
     registry = ExperimentRegistry(REGISTRY_PATH)
+    first_family = next(iter(selection["families"]))
+    first_id = f"P2-{revision.upper()}-VAL-{first_family.upper().replace('_', '-')}-BASE"
+    commit = _locked_or_current_commit(registry, first_id)
     specs: list[ExperimentSpec] = []
     work: dict[str, dict[str, Any]] = {}
     for family, selected in selection["families"].items():
@@ -820,8 +842,10 @@ def run_holdout(plan_only: bool = False, revision: str = "d1") -> None:
         raise RuntimeError("no validation-qualified family may access holdout")
     if len(qualified) > policy.payload["data_protocol"]["max_total_finalists"]:
         raise RuntimeError("finalist count exceeds frozen holdout limit")
-    commit = _git_commit()
     registry = ExperimentRegistry(REGISTRY_PATH)
+    first_family = next(iter(qualified))
+    first_id = f"P2-{revision.upper()}-HOLDOUT-{first_family.upper().replace('_', '-')}-FINAL"
+    commit = _locked_or_current_commit(registry, first_id)
     specs: list[ExperimentSpec] = []
     for family, item in qualified.items():
         specs.append(

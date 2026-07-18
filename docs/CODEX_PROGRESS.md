@@ -104,11 +104,16 @@ are ready for preregistration. No strategy is promoted.
 - Fixed test/store isolation so a `MarketDataStore` always writes provenance below its own
   `data_dir`; verified the test suite no longer mutates the real source sidecar, restored SPY's
   canonical record, and re-finalized the manifest hash.
+- Preregistered the first 41 D2 development IDs without loading market data. A registry-only
+  commit then exposed an orchestration bug: the old runner compared execution HEAD with the
+  source commit frozen before that registry commit. Preserved all 41 as `FAILED` with an explicit
+  no-data-access reason and fixed development/validation/holdout to reuse the locked source
+  commit. The unchanged rerun uses new `D2R2` IDs.
 
 ## In progress
 
-- Commit/push the D2 manifest and parity report, then preregister D2 under new experiment IDs
-  with the exact same strategy logic, grids and gates.
+- Commit/push the preregistration-lineage fix, then preregister D2R2 under new experiment IDs
+  with the exact same data, strategy logic, grids and gates.
 
 ## Next
 

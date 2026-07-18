@@ -1619,7 +1619,7 @@
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.390041Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -1629,7 +1629,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-ADAPTIVE-CORE-01",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -1640,19 +1640,19 @@
         ],
         "volatility_target": 0.1
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.640887Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "adaptive_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.402025Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -1662,7 +1662,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-ADAPTIVE-CORE-02",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -1673,19 +1673,19 @@
         ],
         "volatility_target": 0.12
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.640910Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "adaptive_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.412523Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -1695,7 +1695,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-ADAPTIVE-CORE-03",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -1706,19 +1706,19 @@
         ],
         "volatility_target": 0.14
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.640921Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "adaptive_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.422408Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -1728,7 +1728,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-ADAPTIVE-CORE-04",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -1739,19 +1739,19 @@
         ],
         "volatility_target": 0.1
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.640929Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "adaptive_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.432161Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -1761,7 +1761,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-ADAPTIVE-CORE-05",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -1772,19 +1772,19 @@
         ],
         "volatility_target": 0.12
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.640936Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "adaptive_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.441401Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -1794,7 +1794,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-ADAPTIVE-CORE-06",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -1805,19 +1805,19 @@
         ],
         "volatility_target": 0.14
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.640942Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "adaptive_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.450117Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -1827,7 +1827,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-ADAPTIVE-CORE-07",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -1838,19 +1838,19 @@
         ],
         "volatility_target": 0.1
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.640951Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "adaptive_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.459210Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -1860,7 +1860,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-ADAPTIVE-CORE-08",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -1871,19 +1871,19 @@
         ],
         "volatility_target": 0.12
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.640958Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "adaptive_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.468092Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -1893,7 +1893,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-ADAPTIVE-CORE-09",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Multi-timescale trend plus volatility scaling improves core risk-adjusted returns. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -1904,19 +1904,19 @@
         ],
         "volatility_target": 0.14
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.640964Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "adaptive_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "QQQ",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.477734Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -1926,7 +1926,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-01",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -1936,19 +1936,19 @@
         "slow_trend": 168,
         "tqqq_cap": 0.1
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.640971Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "controlled_growth",
       "strategy_version": "v1"
     },
     {
       "benchmark": "QQQ",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.486757Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -1958,7 +1958,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-02",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -1968,19 +1968,19 @@
         "slow_trend": 168,
         "tqqq_cap": 0.1
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.640979Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "controlled_growth",
       "strategy_version": "v1"
     },
     {
       "benchmark": "QQQ",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.495769Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -1990,7 +1990,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-03",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2000,19 +2000,19 @@
         "slow_trend": 168,
         "tqqq_cap": 0.1
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.640986Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "controlled_growth",
       "strategy_version": "v1"
     },
     {
       "benchmark": "QQQ",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.505362Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2022,7 +2022,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-04",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2032,19 +2032,19 @@
         "slow_trend": 168,
         "tqqq_cap": 0.1
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.640992Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "controlled_growth",
       "strategy_version": "v1"
     },
     {
       "benchmark": "QQQ",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.515386Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2054,7 +2054,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-05",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2064,19 +2064,19 @@
         "slow_trend": 210,
         "tqqq_cap": 0.1
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.640999Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "controlled_growth",
       "strategy_version": "v1"
     },
     {
       "benchmark": "QQQ",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.525116Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2086,7 +2086,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-06",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2096,19 +2096,19 @@
         "slow_trend": 210,
         "tqqq_cap": 0.1
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641005Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "controlled_growth",
       "strategy_version": "v1"
     },
     {
       "benchmark": "QQQ",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.536079Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2118,7 +2118,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-07",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2128,19 +2128,19 @@
         "slow_trend": 210,
         "tqqq_cap": 0.1
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641012Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "controlled_growth",
       "strategy_version": "v1"
     },
     {
       "benchmark": "QQQ",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.545818Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2150,7 +2150,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-08",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2160,19 +2160,19 @@
         "slow_trend": 210,
         "tqqq_cap": 0.1
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641022Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "controlled_growth",
       "strategy_version": "v1"
     },
     {
       "benchmark": "QQQ",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.554927Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2182,7 +2182,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-09",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2192,19 +2192,19 @@
         "slow_trend": 252,
         "tqqq_cap": 0.1
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641028Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "controlled_growth",
       "strategy_version": "v1"
     },
     {
       "benchmark": "QQQ",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.564744Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2214,7 +2214,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-10",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2224,19 +2224,19 @@
         "slow_trend": 252,
         "tqqq_cap": 0.1
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641035Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "controlled_growth",
       "strategy_version": "v1"
     },
     {
       "benchmark": "QQQ",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.575112Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2246,7 +2246,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-11",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2256,19 +2256,19 @@
         "slow_trend": 252,
         "tqqq_cap": 0.1
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641041Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "controlled_growth",
       "strategy_version": "v1"
     },
     {
       "benchmark": "QQQ",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.584533Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2278,7 +2278,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-CONTROLLED-GROWTH-12",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2288,19 +2288,19 @@
         "slow_trend": 252,
         "tqqq_cap": 0.1
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641048Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "controlled_growth",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.593886Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2310,7 +2310,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-01",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2322,19 +2322,19 @@
         "slow_trend": 168,
         "top_n": 2
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641055Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "sector_rotation",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.602964Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2344,7 +2344,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-02",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2356,19 +2356,19 @@
         "slow_trend": 252,
         "top_n": 2
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641061Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "sector_rotation",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.612230Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2378,7 +2378,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-03",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2390,19 +2390,19 @@
         "slow_trend": 168,
         "top_n": 3
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641068Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "sector_rotation",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.621732Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2412,7 +2412,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-04",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2424,19 +2424,19 @@
         "slow_trend": 252,
         "top_n": 3
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641077Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "sector_rotation",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.631114Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2446,7 +2446,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-05",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2458,19 +2458,19 @@
         "slow_trend": 168,
         "top_n": 2
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641084Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "sector_rotation",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.640833Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2480,7 +2480,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-06",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2492,19 +2492,19 @@
         "slow_trend": 252,
         "top_n": 2
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641093Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "sector_rotation",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.649922Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2514,7 +2514,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-07",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2526,19 +2526,19 @@
         "slow_trend": 168,
         "top_n": 3
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641100Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "sector_rotation",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.659692Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2548,7 +2548,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-08",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2560,19 +2560,19 @@
         "slow_trend": 252,
         "top_n": 3
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641107Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "sector_rotation",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.669364Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2582,7 +2582,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-09",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2594,19 +2594,19 @@
         "slow_trend": 168,
         "top_n": 2
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641113Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "sector_rotation",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.679303Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2616,7 +2616,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-10",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2628,19 +2628,19 @@
         "slow_trend": 252,
         "top_n": 2
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641120Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "sector_rotation",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.688926Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2650,7 +2650,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-11",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2662,19 +2662,19 @@
         "slow_trend": 168,
         "top_n": 3
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641126Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "sector_rotation",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.698624Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2684,7 +2684,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-SECTOR-ROTATION-12",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2696,19 +2696,19 @@
         "slow_trend": 252,
         "top_n": 3
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641134Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "sector_rotation",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.708265Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2718,7 +2718,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-ETF-REVERSION-01",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2726,19 +2726,19 @@
         "loss_threshold": -0.025,
         "rsi_cutoff": 5
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641140Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "etf_reversion",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.717959Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2748,7 +2748,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-ETF-REVERSION-02",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2756,19 +2756,19 @@
         "loss_threshold": -0.025,
         "rsi_cutoff": 5
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641147Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "etf_reversion",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.727065Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2778,7 +2778,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-ETF-REVERSION-03",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2786,19 +2786,19 @@
         "loss_threshold": -0.025,
         "rsi_cutoff": 10
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641153Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "etf_reversion",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.736561Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2808,7 +2808,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-ETF-REVERSION-04",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2816,19 +2816,19 @@
         "loss_threshold": -0.025,
         "rsi_cutoff": 10
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641161Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "etf_reversion",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.745811Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2838,7 +2838,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-ETF-REVERSION-05",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2846,19 +2846,19 @@
         "loss_threshold": -0.035,
         "rsi_cutoff": 5
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641167Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "etf_reversion",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.755527Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2868,7 +2868,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-ETF-REVERSION-06",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2876,19 +2876,19 @@
         "loss_threshold": -0.035,
         "rsi_cutoff": 5
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641173Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "etf_reversion",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.764981Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2898,7 +2898,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-ETF-REVERSION-07",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2906,19 +2906,19 @@
         "loss_threshold": -0.035,
         "rsi_cutoff": 10
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641180Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "etf_reversion",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "1849dd6e3425b3d4db2d9b6b3aa7d59bc840415c",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:36:50.774596Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -2928,7 +2928,7 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2-DEV-ETF-REVERSION-08",
-      "failure_reason": null,
+      "failure_reason": "PREREGISTRATION_ORCHESTRATION_BUG: registry-only commit advanced HEAD and the original runner treated it as specification drift; no market data was loaded",
       "hypothesis": "Liquid ETF overshoots rebound when the slow trend remains healthy. [development:base_cost]",
       "key_metrics": null,
       "parameters": {
@@ -2936,12 +2936,12 @@
         "loss_threshold": -0.035,
         "rsi_cutoff": 10
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:35:50.641186Z",
       "result_path": null,
       "started_at_utc": null,
-      "status": "PLANNED",
+      "status": "FAILED",
       "strategy_family": "etf_reversion",
       "strategy_version": "v1"
     }
