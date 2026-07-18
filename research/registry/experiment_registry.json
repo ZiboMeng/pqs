@@ -5042,7 +5042,7 @@
     {
       "benchmark": "SPY",
       "code_commit": "430aacfde76b7476abb0b6424a5ed29c95a172db",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T01:53:50.024713Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -5054,7 +5054,14 @@
       "experiment_id": "P2-D2R3-DEV-SECTOR-ROTATION-V2-01",
       "failure_reason": null,
       "hypothesis": "The frozen v1 signal remains viable when sparse selections obey the 35% symbol cap. [development:base_cost]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 4.209259971508626,
+        "cagr": 0.07253757102222136,
+        "calmar": 0.5666479741472313,
+        "max_drawdown": -0.1280117009707583,
+        "sharpe": 0.4056654959994866,
+        "sortino": 0.5542266449904203
+      },
       "parameters": {
         "momentum_weights": [
           0.2,
@@ -5064,12 +5071,12 @@
         "slow_trend": 168,
         "top_n": 3
       },
-      "pass_fail": null,
+      "pass_fail": "PASS",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T01:53:17.536104Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/development/d2r3/P2-D2R3-DEV-SECTOR-ROTATION-V2-01.json",
+      "started_at_utc": "2026-07-18T01:53:42.883467Z",
+      "status": "COMPLETED",
       "strategy_family": "sector_rotation_v2",
       "strategy_version": "v2"
     }

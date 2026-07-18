@@ -121,11 +121,15 @@ controlled growth and ETF reversion stop at v1. No strategy is promoted.
 - Sector rotation v1 failed closed in validation before metrics: a single eligible sector caused
   a 70% target and violated the 35% symbol cap. Its base and six dependency runs are retained as
   failed. Validation summaries now persist atomically per family and recover after interruption.
+- Preregistered sector rotation v2 before implementation, changed only the sparse-selection
+  allocation invariant, and proved the one-sector case emits 35% sector plus 32.5%/32.5% BIL/SHY.
+  Its sole D2R3 development cell passed with the expected v1-equivalent 7.25% CAGR, 0.406 Sharpe
+  and -12.80% MaxDD; no v2 parameter search occurred.
 
 ## In progress
 
-- Commit/push D2R2 validation evidence, then preregister a one-cell sector rotation v2 safety
-  repair with new version/experiment lineage and explicit validation-reuse disclosure.
+- Commit/push the one-cell D2R3 development evidence, then preregister v2 validation and
+  robustness with explicit validation-reuse disclosure.
 
 ## Next
 

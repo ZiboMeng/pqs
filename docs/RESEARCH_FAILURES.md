@@ -76,6 +76,11 @@ version with one fixed development cell and unchanged gates; because v1 exposed
 the validation period, v2 validation reuse is explicitly non-pristine and only
 the still-unaccessed final holdout can provide new final evidence.
 
+Sector rotation v2's single preregistered D2R3 development cell passed with the
+expected v1-equivalent metrics (7.25% CAGR, 0.406 Sharpe, 0.554 Sortino,
+-12.80% MaxDD). No alternative v2 development parameter was run or selected.
+The fixed repair may proceed to the disclosed validation reuse.
+
 ## Legacy D1 design notes (performance numbers invalidated)
 
 The subsections below preserve the original D1 attribution. Every performance
