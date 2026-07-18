@@ -108,3 +108,5 @@ data/fundamentals/edgar_cache/*.json
 data/fundamentals/macro/*.csv
 data/audit/ml_redo/*.pt
 data/daily/*.preD2
+# Recoverable local snapshots made before canonical daily rebuilds.
+data/backups/

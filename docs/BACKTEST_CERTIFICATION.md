@@ -4,10 +4,10 @@
 
 代码基线：`81c6ea0` 加本认证修复集（最终提交号见 `CODEX_PROGRESS.md`）
 
-结论：**执行/PAPER 会计与时间语义通过；价格数据认证于 D1 研究后暂停，等待 D2
-canonical rebuild。任何现有策略仍不得晋升。**
+结论：**执行/PAPER 会计与时间语义通过；D2 canonical daily/total-return 数据已重新
+认证。任何策略仍须单独通过 OOS/PAPER 晋升门。**
 
-## 0. 2026-07-17 D1 后续纠正（必须先读）
+## 0. 2026-07-17 D1 后续纠正与 D2 关闭证据（必须先读）
 
 Phase-two D1 开发运行暴露了第一次认证未发现的源语义组合问题：SPY 在 development
 有 2,518 个观测，但 QQQ、TQQQ 和九个 sector ETF 只有 2015 起的 504 个观测；
@@ -20,9 +20,18 @@ frontier 会重复调整；个别历史 split 语义也不是统一的 raw basis
 - 本文第 2 节的**目标价格契约仍然有效**；
 - 第 3、6 节原 hash 和基准只保留为 D1 历史证据，不再是有效晋升证据；
 - 41 个 D1 新策略实验全部标记 `INVALIDATED`，结果未删除；
-- D2 必须先备份旧 daily files，以统一的 as-traded raw OHLCV 重建研究所需 ETF，
-  round-trip 验证 split，再刷新 distribution sidecar 和 manifest hash；
-- 在 D2 hash、覆盖测试和重新回测完成前，价格认证状态为 FAIL-CLOSED。
+- D2 已将全部 81 个 executable symbols 的旧文件备份到本机
+  `data/backups/pre_phase2_canonical_daily_20260717/`（81 files, 9.9 MiB），以统一的
+  as-traded raw OHLCV 重建，round-trip 验证 split，并刷新 distribution sidecar；
+- `research/registry/phase2_data_manifest.json` 逐 symbol 固定 raw parquet hash；
+- `research/results/phase2/data_parity.json` 对 81/81 symbols 验证通过：split-only
+  daily-return 最大绝对差 `5.961e-08`，total-return 相对 Yahoo Adj Close 最大差
+  `2.251e-06`，均远低于 `2e-5` / `2e-4` 的预设容差；
+- 日常 `fetch_data.py` 入口同步改为 `auto_adjust=False` 后反推 raw basis；若重叠日
+  漂移超过 2%、既有语义非 canonical、验证失败或 provenance 写入失败，写入会拒绝或
+  回滚，避免 D2 修复被下一次增量更新重新污染；
+- D2 价格认证已恢复。第 6 节旧 D1 策略数值仍无效，必须另行重跑，不能因数据修复而
+  自动恢复为策略证据。
 
 ## 1. 认证边界
 
@@ -49,19 +58,20 @@ options 仍因缺真实 point-in-time chain 而不具备晋升证据。
 
 ## 3. 公司行动与数据证据
 
-2026-07-17 对 executable universe 81 个 ticker 全量查询成功：
+D2 对 executable universe 81 个 ticker 全量查询和 raw reconstruction 成功：
 
 - `splits.parquet`: SHA-256
   `624165282c1142b43f1445b2ac737f6c8f509b66a57126af8277b371e14c1b1b`；
-- `distributions.parquet`: 3,802 rows，SHA-256
-  `73001d19c8befda06f3fc127f982b2eb42b6ef4fd498c9392b70e9b83cdff8a3`；
+- `distributions.parquet`: 5,376 rows，SHA-256
+  `f5ebf5c63b7f6f8aacf1e4f8bba8dae3967d110a506c182e0e1ee47da8c48edf`；
 - `distribution_coverage.parquet`: 81 `OK` rows，覆盖到 2026-07-17，SHA-256
-  `9b0bb1aa368820c3b6697bed9fde73c6c48208b006bc98019b251766f8873b33`；
+  `dce18b674384759f14570747d2f13cb17fe90393f5d84a70d43d934250cec1ff`；
 - SPY 最后事件 2026-06-18，QQQ 2026-06-22，TLT/IEF/SHY/BIL/SHV 2026-07-01；
 - GLD、AMZN、TSLA、BRK-B、CMG、ISRG、SLV 为成功查询后的零分红，不是缺失值；
 - corrected close/open panel: 4,915 × 81，2007-01-03 至 2026-07-17，索引和列完全对齐；
-- mixed-source boundary sidecar SHA-256：
-  `9a679f496d985f88018519fd43da8f6dcd3723c676da27a4c11ccb62456ae453`。
+- canonical source sidecar SHA-256：
+  `4bf511a94d5d5f051e166c8c993726bdf58ef46b8da7771cdd3f318da441be01`；81
+  executable entries均为 uniform `yfinance_reconstructed_raw`，没有内部 auto-adjust frontier。
 
 数据 sidecar 因仓库数据政策不进 Git；上述 hash、builder、coverage schema 和运行 manifest
 共同构成复算证据。供应商后续修订导致 hash 变化时，旧结果自动成为 data-revision 前版本，
@@ -90,7 +100,7 @@ options 仍因缺真实 point-in-time chain 而不具备晋升证据。
 - backtest/PAPER gap-open equity parity 保持在既定 1 bps/日、5 bps 累计容差内。
 - 现有一个 xfail 是既有 integration 预期失败项，不是本修复新增失败。
 
-## 6. 修复后全期诊断基准
+## 6. D1 全期诊断基准（已失效，仅保留历史）
 
 命令：
 
@@ -109,8 +119,9 @@ python scripts/run_backtest.py --no-walk-forward --no-cross-ticker-rules \
 | multi-factor | 8.0% | 0.47 | -15.0% | -0.23 | 2,999 | 否 |
 | SPY total-return benchmark | 10.9% | 0.42 | -55.2% | — | — | benchmark |
 
-该 run 是 corrected diagnostic baseline，不是 OOS。四个策略 IR 全为负，trend following 还突破
-25% halt drawdown；因此全部保持未晋升。artifact 位于
+该 run 曾被标记为 corrected diagnostic，但 D1 后续审计证明其价格源不是统一语义，因此表中
+数值不再是有效策略证据，不能用于晋升或拒绝。其“无晋升”决定保持保守有效；artifact 仅按
+历史 lineage 保留于
 `research/results/certification_baseline/backtest/runs/20260717_173221_backtest/`。
 
 ## 7. Walk-forward/OOS 资格

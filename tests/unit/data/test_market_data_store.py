@@ -5,9 +5,10 @@ Uses a tmp_path fixture so tests never touch the real filesystem.
 """
 
 import pandas as pd
+import pytest
 
 from core.data.market_data_store import MarketDataStore
-
+from core.data.source_boundaries import get_boundary
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -128,6 +129,28 @@ class TestAppend:
 
         out = store.read("SPY", "1d")
         assert out["close"].iloc[0] == 201.0
+
+    def test_canonical_daily_append_records_uniform_source(self, tmp_path):
+        store = MarketDataStore(tmp_path)
+        first = _make_ohlcv("2024-01-02", 5)
+        store.append("SPY", "1d", first, canonical_daily=True)
+        boundary = get_boundary(
+            "SPY",
+            path=tmp_path / "ref/daily_source_boundaries.parquet",
+        )
+        assert boundary is not None
+        assert boundary["canonical_source"] == "yfinance_reconstructed_raw"
+        assert boundary["frontier_start_date"] is None
+        assert boundary["canonical_end_date"] == first.index.max().date()
+
+    def test_canonical_increment_refuses_unknown_existing_semantics(self, tmp_path):
+        store = MarketDataStore(tmp_path)
+        original = _make_ohlcv("2024-01-02", 5)
+        store.write("SPY", "1d", original)
+        extension = _make_ohlcv("2024-01-06", 2)
+        with pytest.raises(RuntimeError, match="full canonical rebuild"):
+            store.append("SPY", "1d", extension, canonical_daily=True)
+        pd.testing.assert_frame_equal(store.read("SPY", "1d"), original, check_freq=False)
 
 
 # ── get_last_date / is_stale ──────────────────────────────────────────────────

@@ -229,6 +229,18 @@ def _validate_data_manifest(revision: str) -> None:
         actual = hashlib.sha256(path.read_bytes()).hexdigest()
         if actual != evidence.get("raw_parquet_sha256"):
             raise RuntimeError(f"raw data hash drift for {symbol}")
+    references = manifest.get("reference_artifacts")
+    if not isinstance(references, dict) or not references:
+        raise RuntimeError("data manifest has no certified reference artifacts")
+    for name, evidence in references.items():
+        path = ROOT / "data/ref" / name
+        if not path.is_file():
+            raise RuntimeError(f"data manifest reference is missing: {name}")
+        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        if actual != evidence.get("sha256"):
+            raise RuntimeError(f"reference data hash drift for {name}")
+        if len(pd.read_parquet(path)) != evidence.get("rows"):
+            raise RuntimeError(f"reference data row-count drift for {name}")
 
 
 def _load_panel(end: str, revision: str = "d1") -> tuple[pd.DataFrame, pd.DataFrame, Any]:

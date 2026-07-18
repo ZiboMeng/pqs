@@ -1,0 +1,662 @@
+{
+  "failures": [],
+  "manifest": "research/registry/phase2_data_manifest.json",
+  "max_split_return_abs_diff": 5.960454840803209e-08,
+  "max_total_return_abs_diff": 2.251074598058622e-06,
+  "schema_version": 1,
+  "split_return_tolerance": 2e-05,
+  "symbols": {
+    "A": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.9515878003679745e-08,
+      "total_return_max_abs_diff": 9.5080277484616e-07
+    },
+    "AAPL": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.959576721004112e-08,
+      "total_return_max_abs_diff": 9.367391027303995e-07
+    },
+    "ABT": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.1841249720756508e-06
+    },
+    "ACGL": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.960122262393952e-08,
+      "total_return_max_abs_diff": 1.7717507572179159e-07
+    },
+    "AMZN": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.957342907869645e-08,
+      "total_return_max_abs_diff": 5.957342907869645e-08
+    },
+    "APD": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.1100106802608423e-06
+    },
+    "AVGO": {
+      "first_date": "2009-08-06",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4262,
+      "split_return_max_abs_diff": 5.9560590015550474e-08,
+      "total_return_max_abs_diff": 1.1515917872628734e-06
+    },
+    "AXP": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 9.862649570369086e-07
+    },
+    "BIL": {
+      "first_date": "2007-05-30",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4814,
+      "split_return_max_abs_diff": 5.945626102565882e-08,
+      "total_return_max_abs_diff": 1.3222223922415566e-06
+    },
+    "BKNG": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.9601095170336293e-08,
+      "total_return_max_abs_diff": 5.300070534675072e-07
+    },
+    "BRK-B": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 0.0
+    },
+    "C": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.95902118760705e-08,
+      "total_return_max_abs_diff": 1.0385941857649073e-06
+    },
+    "CAT": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.953177795170461e-08,
+      "total_return_max_abs_diff": 1.0044478668813639e-06
+    },
+    "CLX": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 9.530306850358272e-07
+    },
+    "CME": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.959873350391831e-08,
+      "total_return_max_abs_diff": 1.085570094039312e-06
+    },
+    "CMG": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.954950577091722e-08,
+      "total_return_max_abs_diff": 5.954950577091722e-08
+    },
+    "COP": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.959990168058482e-08,
+      "total_return_max_abs_diff": 1.0374920818012612e-06
+    },
+    "COST": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.1609108685473046e-06
+    },
+    "DG": {
+      "first_date": "2009-11-13",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4192,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.076451438652981e-06
+    },
+    "EA": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.9591434453665215e-08,
+      "total_return_max_abs_diff": 7.006612861015782e-07
+    },
+    "ED": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.012282794587982e-06
+    },
+    "GILD": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.9595092638531355e-08,
+      "total_return_max_abs_diff": 9.91535626493345e-07
+    },
+    "GIS": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.959402260558022e-08,
+      "total_return_max_abs_diff": 1.1004436293315933e-06
+    },
+    "GLD": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 0.0
+    },
+    "GOOGL": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.9586991785209875e-08,
+      "total_return_max_abs_diff": 4.7290864624294215e-07
+    },
+    "GS": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.071012432740659e-06
+    },
+    "IEF": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.8696276644636356e-06
+    },
+    "ISRG": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.9588061152027194e-08,
+      "total_return_max_abs_diff": 5.9588061152027194e-08
+    },
+    "JNJ": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.016239832063448e-06
+    },
+    "KLAC": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.1469910179418008e-06
+    },
+    "LLY": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 9.835390603063487e-07
+    },
+    "LRCX": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.959287463497276e-08,
+      "total_return_max_abs_diff": 9.798511102498964e-07
+    },
+    "MCK": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.1846279555083328e-06
+    },
+    "META": {
+      "first_date": "2012-05-18",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 3560,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 5.065287012051556e-07
+    },
+    "MS": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.0829007646151467e-06
+    },
+    "MSFT": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.953509440992377e-08,
+      "total_return_max_abs_diff": 1.0153961025327618e-06
+    },
+    "MTUM": {
+      "first_date": "2013-04-18",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 3332,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.0253486890654528e-06
+    },
+    "MU": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.953920378942712e-08,
+      "total_return_max_abs_diff": 6.368203580020548e-07
+    },
+    "NEE": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.95974480877004e-08,
+      "total_return_max_abs_diff": 9.456527043649743e-07
+    },
+    "NVDA": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.960454840803209e-08,
+      "total_return_max_abs_diff": 1.1741315252278284e-06
+    },
+    "OXY": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.957594306771341e-08,
+      "total_return_max_abs_diff": 1.0440645886733435e-06
+    },
+    "PWR": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 8.726305893436148e-07
+    },
+    "QQQ": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.0152055269774252e-06
+    },
+    "QUAL": {
+      "first_date": "2013-07-18",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 3269,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 7.303868863051122e-07
+    },
+    "SCHD": {
+      "first_date": "2011-10-20",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 3705,
+      "split_return_max_abs_diff": 5.958310711484671e-08,
+      "total_return_max_abs_diff": 1.219138127228625e-06
+    },
+    "SHV": {
+      "first_date": "2007-01-11",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4909,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.1954147107751112e-06
+    },
+    "SHY": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 2.251074598058622e-06
+    },
+    "SLV": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.9563979082355445e-08,
+      "total_return_max_abs_diff": 5.9563979082355445e-08
+    },
+    "SOXL": {
+      "first_date": "2010-03-11",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4113,
+      "split_return_max_abs_diff": 5.95802842617843e-08,
+      "total_return_max_abs_diff": 7.115090669973512e-07
+    },
+    "SPY": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.1268368187433708e-06
+    },
+    "TER": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.9577057287540924e-08,
+      "total_return_max_abs_diff": 9.85684527776698e-07
+    },
+    "TJX": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.9563086907132856e-08,
+      "total_return_max_abs_diff": 9.292738156752023e-07
+    },
+    "TKO": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 9.126659660241287e-07
+    },
+    "TLT": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.531751589345376e-06
+    },
+    "TMO": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 8.106324509427054e-07
+    },
+    "TQQQ": {
+      "first_date": "2010-02-11",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4132,
+      "split_return_max_abs_diff": 5.960446203268077e-08,
+      "total_return_max_abs_diff": 6.674417839525049e-07
+    },
+    "TRGP": {
+      "first_date": "2010-12-07",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 3925,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 9.321760414682245e-07
+    },
+    "TRV": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.258981450091845e-06
+    },
+    "TSLA": {
+      "first_date": "2010-06-29",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4037,
+      "split_return_max_abs_diff": 5.956555826358567e-08,
+      "total_return_max_abs_diff": 5.956555826358567e-08
+    },
+    "TSN": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.2295143894114346e-06
+    },
+    "TT": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.9602530244617924e-08,
+      "total_return_max_abs_diff": 1.0922185563755349e-06
+    },
+    "TXN": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 9.01463803271163e-07
+    },
+    "UNH": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.9596573231956995e-08,
+      "total_return_max_abs_diff": 1.0863526020976622e-06
+    },
+    "UNP": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.9589618350841533e-08,
+      "total_return_max_abs_diff": 9.517406885928281e-07
+    },
+    "USMV": {
+      "first_date": "2011-10-20",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 3705,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 9.372496767579008e-07
+    },
+    "VICI": {
+      "first_date": "2018-01-02",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 2146,
+      "split_return_max_abs_diff": 5.9599091217776845e-08,
+      "total_return_max_abs_diff": 7.617403225967934e-07
+    },
+    "VLUE": {
+      "first_date": "2013-04-18",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 3332,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 8.424227615488888e-07
+    },
+    "VZ": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.0169392787862108e-06
+    },
+    "WEC": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.957624704677755e-08,
+      "total_return_max_abs_diff": 1.1428288229087258e-06
+    },
+    "WMT": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.958158988406126e-08,
+      "total_return_max_abs_diff": 1.2072196442503014e-06
+    },
+    "XLB": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.959891380413751e-08,
+      "total_return_max_abs_diff": 1.0307396494102505e-06
+    },
+    "XLC": {
+      "first_date": "2018-06-19",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 2030,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 7.136674917695984e-07
+    },
+    "XLE": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.958202997646822e-08,
+      "total_return_max_abs_diff": 1.144303614974973e-06
+    },
+    "XLF": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.9599960966494336e-08,
+      "total_return_max_abs_diff": 1.0035963401433534e-06
+    },
+    "XLI": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.0737442446284717e-06
+    },
+    "XLK": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.959989302084523e-08,
+      "total_return_max_abs_diff": 1.1892839415494905e-06
+    },
+    "XLP": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.0356971824609928e-06
+    },
+    "XLRE": {
+      "first_date": "2015-10-08",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 2708,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 7.124646386191813e-07
+    },
+    "XLU": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.9559164489186855e-08,
+      "total_return_max_abs_diff": 1.0020061661508706e-06
+    },
+    "XLV": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 0.0,
+      "total_return_max_abs_diff": 1.5016011858381972e-06
+    },
+    "XLY": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "passed": true,
+      "rows": 4915,
+      "split_return_max_abs_diff": 5.959717142012266e-08,
+      "total_return_max_abs_diff": 1.2624265894878306e-06
+    }
+  },
+  "symbols_passed": 81,
+  "symbols_requested": 81,
+  "total_return_tolerance": 0.0002,
+  "validated_at_utc": "2026-07-18T01:29:34.881006Z"
+}

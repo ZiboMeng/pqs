@@ -46,15 +46,17 @@ from core.config.loader import load_config
 from core.data.calendar import (
     get_session_close_et,
     is_session_complete,
-    is_trading_day,
 )
+from core.data.canonical_daily import reconstruct_as_traded_ohlcv
 from core.data.fetch_session_log import (
     record_fetch as _record_fetch_event,
+)
+from core.data.fetch_session_log import (
     was_fetched_pre_close,
 )
 from core.data.market_data_store import MarketDataStore
-from core.data.yfinance_provider import YFinanceProvider
 from core.data.validator import DataValidator
+from core.data.yfinance_provider import YFinanceProvider
 from core.logging_setup import get_logger, setup_logging
 
 setup_logging()
@@ -146,6 +148,15 @@ def download_daily(
     The ``allow_pre_close_today`` flag is an emergency override. It
     bypasses guard #1 only and still respects #2 (post-close refresh).
     """
+    if provider.auto_adjust:
+        raise ValueError(
+            "daily ingestion requires YFinanceProvider(auto_adjust=False); "
+            "dividend-adjusted bars cannot be published to the raw daily store"
+        )
+    splits_path = store.data_dir / "ref/splits.parquet"
+    if not splits_path.is_file():
+        raise FileNotFoundError(f"canonical split table is missing: {splits_path}")
+    split_table = pd.read_parquet(splits_path)
     validator = DataValidator()
     success, failed = 0, []
     today_et, session_close_utc, session_complete = _today_session_status()
@@ -228,13 +239,37 @@ def download_daily(
                 failed.append(sym)
                 continue
 
-            df = ohlcv.df
+            downloaded = ohlcv.df
+            relevant_splits = split_table[split_table["symbol"] == sym]
+            df = reconstruct_as_traded_ohlcv(downloaded, relevant_splits)
+
+            # An incremental request deliberately overlaps the last stored day.
+            # A material mismatch usually means a newly effective split is not
+            # yet represented in splits.parquet; refuse the write instead of
+            # joining two price bases.
+            existing_overlap = store.read(
+                sym,
+                "1d",
+                start=df.index.min(),
+                end=df.index.max(),
+            )
+            common = existing_overlap.index.intersection(df.index)
+            if len(common):
+                old_close = existing_overlap.loc[common, "close"].astype(float)
+                new_close = df.loc[common, "close"].astype(float)
+                relative_difference = ((new_close - old_close).abs() / old_close.abs()).max()
+                if pd.notna(relative_difference) and relative_difference > 0.02:
+                    raise RuntimeError(
+                        f"{sym}: canonical overlap drift {relative_difference:.2%}; "
+                        "refresh splits and run the full canonical rebuild"
+                    )
             vr = validator.validate(df, symbol=sym, freq="1d")
             if not vr.passed:
                 for issue in vr.issues:
                     logger.error("[%s] 数据质量问题: %s", sym, issue)
+                raise RuntimeError(f"{sym}: daily validation failed; write refused")
 
-            store.append(sym, "1d", df)
+            store.append(sym, "1d", df, canonical_daily=True)
             logger.info("[%s] 日线保存完成 (%d 行)", sym, len(df))
             success += 1
 
@@ -444,7 +479,8 @@ def main():
 
     cfg      = load_config(Path(args.config_dir))
     store    = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
-    provider = YFinanceProvider()
+    daily_provider = YFinanceProvider(auto_adjust=False)
+    intraday_provider = YFinanceProvider()
 
     sym_groups = get_all_symbols(cfg)
 
@@ -463,7 +499,7 @@ def main():
     if not args.intraday_only:
         logger.info("=== 下载日线数据 ===")
         download_daily(
-            tradeable + macro, store, provider,
+            tradeable + macro, store, daily_provider,
             full=args.full, start_date=start_date,
             allow_pre_close_today=args.allow_pre_close_today,
         )
@@ -471,7 +507,7 @@ def main():
     if not args.daily_only:
         logger.info("=== 下载日内数据 ===")
         download_intraday(
-            tradeable, store, provider,
+            tradeable, store, intraday_provider,
             full=args.full,
             allow_pre_close_today=args.allow_pre_close_today,
         )

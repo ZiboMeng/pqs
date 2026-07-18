@@ -1,12 +1,12 @@
 # Codex audit and hardening progress
 
-Last updated: 2026-07-17 (D1 data evidence invalidated; canonical repair underway)
+Last updated: 2026-07-17 (D2 canonical data certified)
 
 ## Current phase
 
-Strategy Phase 2 — all 41 D1 development cells ran, but the entire batch is explicitly
-invalidated because ETF coverage and adjustment semantics did not match the frozen protocol.
-Canonical phase-two data repair is underway; no strategy is promoted.
+Strategy Phase 2 — all 41 D1 development cells remain explicitly invalidated. D2 has now
+uniformly rebuilt and certified the full 81-symbol executable universe; unchanged D2 experiments
+are ready for preregistration. No strategy is promoted.
 
 ## Completed
 
@@ -92,18 +92,30 @@ Canonical phase-two data repair is underway; no strategy is promoted.
 - Added a recoverable canonical builder that backs up existing files, downloads split-adjusted
   but not dividend-adjusted history, reverses future splits to the as-traded raw basis, proves
   round-trip equivalence, publishes atomically and records explicit source semantics.
+- Rebuilt all 81 executable symbols, preserving 81 original files in a 9.9 MiB ignored local
+  backup. Rebuilt 5,376 distribution events and retained 81/81 `OK` coverage rows.
+- Passed external daily-return parity for all 81 symbols: split-only maximum difference
+  `5.961e-08` and total-return maximum difference `2.251e-06`. The result and per-symbol values
+  are tracked in `research/results/phase2/data_parity.json`; raw hashes are fixed in the D2 data
+  manifest.
+- Hardened the normal daily updater so only reconstructed raw-basis bars can extend a canonical
+  file; stale split references, incompatible provenance, validation failures and sidecar failures
+  now fail closed, with bar rollback when provenance publication fails.
+- Fixed test/store isolation so a `MarketDataStore` always writes provenance below its own
+  `data_dir`; verified the test suite no longer mutates the real source sidecar, restored SPY's
+  canonical record, and re-finalized the manifest hash.
 
 ## In progress
 
-- Complete and hash-certify the 17-symbol canonical data rebuild, refresh distributions, then
-  preregister D2 under new experiment IDs with the exact same strategy logic, grids and gates.
+- Commit/push the D2 manifest and parity report, then preregister D2 under new experiment IDs
+  with the exact same strategy logic, grids and gates.
 
 ## Next
 
-1. Back up and rebuild the phase-two daily files in uniform as-traded semantics.
-2. Rebuild/validate total-return distributions and commit the data manifest hashes.
-3. Register and run D2 with unchanged candidate definitions and freeze one winner per family.
-4. Validate winners, then admit only qualifying finalists to holdout and PAPER replay.
+1. Commit the D2 data manifest, parity report and canonical builder hardening.
+2. Register and run D2 with unchanged candidate definitions and freeze one winner per family.
+3. Validate winners with annual folds, 2x cost, delay and parameter-neighbor checks.
+4. Admit only qualifying finalists to holdout and PAPER replay.
 
 ## Unresolved issues
 

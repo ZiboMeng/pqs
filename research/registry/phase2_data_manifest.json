@@ -1,0 +1,597 @@
+{
+  "built_at_utc": "2026-07-18T01:14:16.263078Z",
+  "end_exclusive": "2026-07-18",
+  "finalized_at_utc": "2026-07-18T01:34:27.691046Z",
+  "published_semantics": "as_traded_ohlcv_reconstructed_from_split_adjusted_close",
+  "reference_artifacts": {
+    "daily_source_boundaries.parquet": {
+      "rows": 84,
+      "sha256": "4bf511a94d5d5f051e166c8c993726bdf58ef46b8da7771cdd3f318da441be01"
+    },
+    "distribution_coverage.parquet": {
+      "rows": 81,
+      "sha256": "dce18b674384759f14570747d2f13cb17fe90393f5d84a70d43d934250cec1ff"
+    },
+    "distributions.parquet": {
+      "rows": 5376,
+      "sha256": "f5ebf5c63b7f6f8aacf1e4f8bba8dae3967d110a506c182e0e1ee47da8c48edf"
+    },
+    "splits.parquet": {
+      "rows": 4960,
+      "sha256": "624165282c1142b43f1445b2ac737f6c8f509b66a57126af8277b371e14c1b1b"
+    }
+  },
+  "schema_version": 1,
+  "source": "yfinance_auto_adjust_false",
+  "splits_sha256": "624165282c1142b43f1445b2ac737f6c8f509b66a57126af8277b371e14c1b1b",
+  "start_requested": "2007-01-01",
+  "symbols": {
+    "A": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "0ca5231183180111184c2954b82e476191d945905728a9fef5e98d7aade8fdfb",
+      "rows": 4915,
+      "splits": 1
+    },
+    "AAPL": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "57824ffcf36881f6420df2b00adff6854df48d98745131318cc9d858346a2d3b",
+      "rows": 4915,
+      "splits": 3
+    },
+    "ABT": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "f84ef3dd2e968fdda64b54d7da07b0ffd0d9ebff5a831d914f77b2d283ffc369",
+      "rows": 4915,
+      "splits": 0
+    },
+    "ACGL": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "8d3b1258ec0aa965ce01996081e38fcb752d3f4e1099c21780b7c2c200ac4991",
+      "rows": 4915,
+      "splits": 2
+    },
+    "AMZN": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "2a336997f4b01848dc52dec4bc4d36f2c00d93b50f32e24d6bdf150e2a6ad779",
+      "rows": 4915,
+      "splits": 1
+    },
+    "APD": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "32f008cad446344bfde771ee5fa6a49cacb3d347a9732bbad346af922222e96c",
+      "rows": 4915,
+      "splits": 0
+    },
+    "AVGO": {
+      "first_date": "2009-08-06",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "d8185b724da607686f435955233b4d7450820c1d7768644a8e94ea5be55b3b5a",
+      "rows": 4262,
+      "splits": 1
+    },
+    "AXP": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "6e1362e70298036f83f9e3c89244a199fb48111dc42e72b70a5e2282f859c5d2",
+      "rows": 4915,
+      "splits": 0
+    },
+    "BIL": {
+      "first_date": "2007-05-30",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "473771e09f87585f2d78de00d6f26b20360d31abe132806bcc30e271cf1f972a",
+      "rows": 4814,
+      "splits": 1
+    },
+    "BKNG": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "73fb0593119f1df24dc9756e5a235a42bdf8f5343b12c3d1fce9ac95c9687597",
+      "rows": 4915,
+      "splits": 2
+    },
+    "BRK-B": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "4173ef341e63a564a14662f231b4c1b42aeecdca66f8b25e42da9be379ab3ccf",
+      "rows": 4915,
+      "splits": 0
+    },
+    "C": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "7011c92b8b74def9d4c21c9351acbec61c6927194ff41e6de4e0033f20f8e053",
+      "rows": 4915,
+      "splits": 1
+    },
+    "CAT": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "74d9acffaff363df053dd31e5c5b6ea94dbc2a60a253fe43c42bdb6bec89200c",
+      "rows": 4915,
+      "splits": 1
+    },
+    "CLX": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "c7384c2dca93f9fca3ccc0e60757035b847e61c0f0b55365e4f487a4a9e7329b",
+      "rows": 4915,
+      "splits": 0
+    },
+    "CME": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "7dd17e367aaf285a8d3f683d47304d83c98f5ce2289094c55eef41b9d9b07674",
+      "rows": 4915,
+      "splits": 1
+    },
+    "CMG": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "69972f0727e3917cae1c422d530136fbd8fb647cb3ca82b161d94cea06a379a6",
+      "rows": 4915,
+      "splits": 1
+    },
+    "COP": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "d3c92bd0e502e7de29cf1094784e9d8a16a91235e4fff4021ed38bdd878db079",
+      "rows": 4915,
+      "splits": 1
+    },
+    "COST": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "c54e14f9461f006a304b833ae32c504305cb6a8f3c75cb255625d29824e43129",
+      "rows": 4915,
+      "splits": 0
+    },
+    "DG": {
+      "first_date": "2009-11-13",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "f51b0d1ff53b187d638d18f6f9833280c0883e7592cbc11bbfa43cf612791082",
+      "rows": 4192,
+      "splits": 0
+    },
+    "EA": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "17d1339b1a9b89fe97917881f1663077a72b0bb93735b59c0ea773d333cf51da",
+      "rows": 4915,
+      "splits": 1
+    },
+    "ED": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "7d04c6ddce32111365ca5843e1f4945c69864ea22196bf6d74540a64e29f40cf",
+      "rows": 4915,
+      "splits": 0
+    },
+    "GILD": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "1ce6da434f983ea287b7ca1f9dae6d78c42efd36080e45909f20e3087b39344e",
+      "rows": 4915,
+      "splits": 3
+    },
+    "GIS": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "220d13255e361c7426a856aa605c98409a5d5e261cc29bf1e4b3c789bf964fb2",
+      "rows": 4915,
+      "splits": 1
+    },
+    "GLD": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "208840f7f88fa265ebdee227d3d2edb8069fac6f320e71e5ea845c507311de99",
+      "rows": 4915,
+      "splits": 0
+    },
+    "GOOGL": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "a65fb00f5c8d3f1ed5ca230b322002e90bd2be8c58e258be616cee29be6a3245",
+      "rows": 4915,
+      "splits": 2
+    },
+    "GS": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "0df1f10e9e87a5f53f58abb577c699d6b6dafe47c9852924ac6944e70580f5dc",
+      "rows": 4915,
+      "splits": 0
+    },
+    "IEF": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "d98d0d84806151e42cc250b944432249f9e6d79371a59390170202ab38dbc5e5",
+      "rows": 4915,
+      "splits": 0
+    },
+    "ISRG": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "44927adfbc297ec2b0262ce50a9081b3bf6e5917dfa437354931990a43dfa72e",
+      "rows": 4915,
+      "splits": 3
+    },
+    "JNJ": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "7deb6c381271178e8cccd4f0f2e04ee0c21c7c371c3f50668b74a8f6edf520fe",
+      "rows": 4915,
+      "splits": 0
+    },
+    "KLAC": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "e35417913144d1606f83068c418c708c85ecc98cdc2667f1382d15061d642945",
+      "rows": 4915,
+      "splits": 0
+    },
+    "LLY": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "41e62ea44328d518509412948a8ad1eb6cd9a508eff34abe8385366a8171fc40",
+      "rows": 4915,
+      "splits": 0
+    },
+    "LRCX": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "317d376f7199ba6537b9fb4b3f2d37a6a1bdfa2ee7d75ad4826db9913b173766",
+      "rows": 4915,
+      "splits": 1
+    },
+    "MCK": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "dfcfe18d570a77802114b21d34faa99d77df928f43f90de5e6e5ff26e33e99fe",
+      "rows": 4915,
+      "splits": 0
+    },
+    "META": {
+      "first_date": "2012-05-18",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "2ff1af3a025430077d18d8989cb47a704016b4e456a2f7e303dd06cc528cd382",
+      "rows": 3560,
+      "splits": 0
+    },
+    "MS": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "75a4a84ee2fed04888a295ebc3b211a10a7505f42bc44b628ee5d329be2fd5a6",
+      "rows": 4915,
+      "splits": 0
+    },
+    "MSFT": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "ba06cf438c76e836fef1109ca11fe489d0b5300094a4c753ca9df73efc0ae8f4",
+      "rows": 4915,
+      "splits": 1
+    },
+    "MTUM": {
+      "first_date": "2013-04-18",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "ce04623b0df383af8311c4162a7c4121fcf638586e3723e97cfafa03999fcb54",
+      "rows": 3332,
+      "splits": 0
+    },
+    "MU": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "c4b1cbd24e18adcf9abf8684f343520170d39df3a0806c40ebd1e279489ffe12",
+      "rows": 4915,
+      "splits": 3
+    },
+    "NEE": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "262fca2368c4f1174ae8eef1db3e86da91ea70403b96654cd1c8f36376e997f1",
+      "rows": 4915,
+      "splits": 2
+    },
+    "NVDA": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "842d296d896bb18146f686531fa29486892b7c5a76c0428f1c349770d8e17f8b",
+      "rows": 4915,
+      "splits": 4
+    },
+    "OXY": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "645b7b30cd2f9d09294bdbdac05bb61c65e7b8f7d86ce3bd2845e78ed43c4376",
+      "rows": 4915,
+      "splits": 1
+    },
+    "PWR": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "424981f43dac457a99ddfe6b83a2af5a539a8c65df1b083ae1d4680888898749",
+      "rows": 4915,
+      "splits": 0
+    },
+    "QQQ": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "88d61690d55979227f75d9a506a8724f5807ddf05291c9c1e0d734a38e4035e2",
+      "rows": 4915,
+      "splits": 0
+    },
+    "QUAL": {
+      "first_date": "2013-07-18",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "c79bb3b5a07d56fcd308a9cac5c81898361f047d12bcd39777b55139ec7fb8ab",
+      "rows": 3269,
+      "splits": 0
+    },
+    "SCHD": {
+      "first_date": "2011-10-20",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "5132e8e2bd016126dc77c7714390c4c48062f1b921bb6324da5ab2a5bf0efcd3",
+      "rows": 3705,
+      "splits": 1
+    },
+    "SHV": {
+      "first_date": "2007-01-11",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "78e505c6699f22fb004c17c7493d370c46ba1cc9feec7fcdc7bcbb4c071219d4",
+      "rows": 4909,
+      "splits": 0
+    },
+    "SHY": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "47dd68df81cef26eecfbffb4f50ec428dd3203c52f1569a4d793bfa75abd25b3",
+      "rows": 4915,
+      "splits": 0
+    },
+    "SLV": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "725abb0496c4f16f9af78b48e47443274c4de372b0d62daeffb9616e4e200071",
+      "rows": 4915,
+      "splits": 1
+    },
+    "SOXL": {
+      "first_date": "2010-03-11",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "8400e061985fa9177529318db05b3cfc942baca4e3b6cb2032d5cbf9d7eb0cd0",
+      "rows": 4113,
+      "splits": 2
+    },
+    "SPY": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "748784200e7e71a179bdad2ac09a117c6e633edfa9869c2632cf3f84c034d46b",
+      "rows": 4915,
+      "splits": 0
+    },
+    "TER": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "5a80dcb15382d47c32f03f361eadd72200b7e9505c674067015dd93254d69912",
+      "rows": 4915,
+      "splits": 4
+    },
+    "TJX": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "791e77dd484fdf9728639f5cb1e395101b080fe4886d2acaf1b447850ce5853d",
+      "rows": 4915,
+      "splits": 2
+    },
+    "TKO": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "a5077f3000710d2e1b55e277a4bbb961499bcae222b8a8d49778d4f6c38491cb",
+      "rows": 4915,
+      "splits": 0
+    },
+    "TLT": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "9109323596d696f81e8bc1f42f36c8e0df83ecbf2d7de2f22d5f38b72fdc2e45",
+      "rows": 4915,
+      "splits": 0
+    },
+    "TMO": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "423d49f8f9f72c8a1948d042c288db0d2a0d5f3ad521b77aeef3b835ad11f5d7",
+      "rows": 4915,
+      "splits": 0
+    },
+    "TQQQ": {
+      "first_date": "2010-02-11",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "ea7fe7005e62826e38028af733b543754e2fc7350632df1864b4d651e3f8f600",
+      "rows": 4132,
+      "splits": 8
+    },
+    "TRGP": {
+      "first_date": "2010-12-07",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "b2f4101702ba37f809498aee5da44f95f4b8d26306ca45b38f987b19597bf45e",
+      "rows": 3925,
+      "splits": 0
+    },
+    "TRV": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "567a4a3cae0fb87a80aefe0d93836a213ca2a0450d35984f9b9e7d8175009061",
+      "rows": 4915,
+      "splits": 0
+    },
+    "TSLA": {
+      "first_date": "2010-06-29",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "4a506726587f620bb71367a6eddcf9f843850c2538af4229be41c86c3ff135e3",
+      "rows": 4037,
+      "splits": 2
+    },
+    "TSN": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "0a26fef2520ab9ffda2b7184d26b60efcb77b6da6c2c30b367e3da4727c9f626",
+      "rows": 4915,
+      "splits": 0
+    },
+    "TT": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "38f6215abeaebaac66f3bebd88ef21bf6e3cd3dbdb3f17830edfa531604c84b5",
+      "rows": 4915,
+      "splits": 1
+    },
+    "TXN": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "7f9a9ec83f7a9649631a842046b49b1c5e78e04c36b09297e40140e213c74c9f",
+      "rows": 4915,
+      "splits": 0
+    },
+    "UNH": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "eaa1774eb4f82c61ab45528e22258b076f7f52c6ee37d573c6738c15844dcae3",
+      "rows": 4915,
+      "splits": 2
+    },
+    "UNP": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "0e213a5661c393aec74f99449bb4eb4f28dd6dcc2ebdd4b469a482d67986e6a7",
+      "rows": 4915,
+      "splits": 1
+    },
+    "USMV": {
+      "first_date": "2011-10-20",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "b442ab9a6f1228240a5e22ec7260721a2b4380a09139f32484ad010ccf8ceff8",
+      "rows": 3705,
+      "splits": 0
+    },
+    "VICI": {
+      "first_date": "2018-01-02",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "71bd7b44c41c76f5fe1788f10397ad917478b46c539ec4e473adac7e6366a91b",
+      "rows": 2146,
+      "splits": 1
+    },
+    "VLUE": {
+      "first_date": "2013-04-18",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "48217a5b025a08f6c56a4b1a79225ba61510a2ca1158dfa879960526ab7f0ff9",
+      "rows": 3332,
+      "splits": 0
+    },
+    "VZ": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "abf46334d0cc09381b09067b0fa062a618e175a65ab9e67499d6edce9fc99bd0",
+      "rows": 4915,
+      "splits": 0
+    },
+    "WEC": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "287c4b23b181899d6f708d8068a335429e9c8c7a996de96af42acf9728b27068",
+      "rows": 4915,
+      "splits": 1
+    },
+    "WMT": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "18143df637bf06f7dd0c895d3947ec65885a58852f55f0dac42499cf51559ae0",
+      "rows": 4915,
+      "splits": 1
+    },
+    "XLB": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "57a610a7da4c5a92ab849df8da4296b1c60f647eeb819eb15680bdce5898401d",
+      "rows": 4915,
+      "splits": 1
+    },
+    "XLC": {
+      "first_date": "2018-06-19",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "7297a3924c2e12a9839a6979c5cad7acab348e0534b34c4db9bae7188637f0fd",
+      "rows": 2030,
+      "splits": 0
+    },
+    "XLE": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "77c6b13ec460cf310db95f0232ba59c83dfe6ab31a4aabfc0a82222ecd42f7c0",
+      "rows": 4915,
+      "splits": 1
+    },
+    "XLF": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "0908c3b9c6649f2e5e75d4e1fefab90e2c94e3444fabaf23df48cc4bbea18a96",
+      "rows": 4915,
+      "splits": 1
+    },
+    "XLI": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "1540ac3ba4c6cb14d56fa4eb4fa83ed0bd9e450f01ce6b1b51c4bd0cd22771a7",
+      "rows": 4915,
+      "splits": 0
+    },
+    "XLK": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "717d473816636c45602b21526a1293f6169a9cfca00d111e0747a15438425e8c",
+      "rows": 4915,
+      "splits": 1
+    },
+    "XLP": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "56b648fe49dca3fdf3f0f45ed2d84ab2ae9d65068a1e412ae038d66685c0af98",
+      "rows": 4915,
+      "splits": 0
+    },
+    "XLRE": {
+      "first_date": "2015-10-08",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "e718fe548500651b25acf7f7a8855cef684507c3da2fa68c703e2bc9ff9fe951",
+      "rows": 2708,
+      "splits": 0
+    },
+    "XLU": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "7e7097604b2c52dde5460d6eefb615145bac77e3a970a0da0c571f2e756dd020",
+      "rows": 4915,
+      "splits": 1
+    },
+    "XLV": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "f2fa888593561a003c2328ea58d036b9280dd86f806852b00e52dc546ba6ce3f",
+      "rows": 4915,
+      "splits": 0
+    },
+    "XLY": {
+      "first_date": "2007-01-03",
+      "last_date": "2026-07-17",
+      "raw_parquet_sha256": "43c85ea74870b0ea802e32ed4b97ef4c183248ff199c01631b31cd29db38cab4",
+      "rows": 4915,
+      "splits": 1
+    }
+  }
+}

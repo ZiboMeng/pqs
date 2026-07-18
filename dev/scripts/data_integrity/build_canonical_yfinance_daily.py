@@ -21,12 +21,13 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
+from core.config.loader import load_config  # noqa: E402
+from core.data.canonical_daily import reconstruct_as_traded_ohlcv  # noqa: E402
 from core.data.source_boundaries import record_canonical_replacement  # noqa: E402
 from core.data.yfinance_provider import YFinanceProvider  # noqa: E402
 
@@ -51,58 +52,18 @@ PHASE2_SYMBOLS = (
 )
 
 
-def _split_factor(index: pd.DatetimeIndex, splits: pd.DataFrame) -> np.ndarray:
-    if splits.empty:
-        return np.ones(len(index), dtype="float64")
-    ordered = splits.sort_values("date").reset_index(drop=True)
-    ratios = (ordered["from"].astype(float) / ordered["to"].astype(float)).to_numpy()
-    suffix = np.ones(len(ratios) + 1, dtype="float64")
-    for position in range(len(ratios) - 1, -1, -1):
-        suffix[position] = suffix[position + 1] * ratios[position]
-    dates = pd.to_datetime(ordered["date"]).to_numpy(dtype="datetime64[ns]")
-    observed = index.normalize().to_numpy(dtype="datetime64[ns]")
-    return suffix[np.searchsorted(dates, observed, side="right")]
-
-
-def reconstruct_as_traded_ohlcv(
-    split_adjusted: pd.DataFrame,
-    splits: pd.DataFrame,
-) -> pd.DataFrame:
-    """Reverse future split adjustment into the BarStore raw-bar basis."""
-    if split_adjusted.empty:
-        raise ValueError("cannot reconstruct an empty frame")
-    factor = _split_factor(split_adjusted.index, splits)
-    if not np.isfinite(factor).all() or (factor <= 0.0).any():
-        raise ValueError("invalid split factor")
-    raw = split_adjusted.copy()
-    for column in ("open", "high", "low", "close"):
-        raw[column] = split_adjusted[column].astype("float64") / factor
-    raw["volume"] = (split_adjusted["volume"].astype("float64") * factor).round()
-    raw["amount"] = raw["close"] * raw["volume"]
-    raw["partial_day"] = False
-    raw["thin_data"] = False
-
-    # Publish is forbidden unless the exact BarStore forward transform is
-    # reversible to the vendor series.
-    for column in ("open", "high", "low", "close"):
-        restored = raw[column].to_numpy(dtype="float64") * factor
-        if not np.allclose(
-            restored,
-            split_adjusted[column].to_numpy(dtype="float64"),
-            rtol=1e-9,
-            atol=1e-6,
-            equal_nan=False,
-        ):
-            raise ValueError(f"split reconstruction invariant failed for {column}")
-    restored_volume = raw["volume"].to_numpy(dtype="float64") / factor
-    if not np.allclose(
-        restored_volume,
-        split_adjusted["volume"].to_numpy(dtype="float64"),
-        rtol=0.0,
-        atol=1.0,
-    ):
-        raise ValueError("split reconstruction invariant failed for volume")
-    return raw
+def executable_symbols() -> list[str]:
+    cfg = load_config(ROOT / "config")
+    universe = cfg.universe
+    symbols = list(
+        dict.fromkeys(
+            list(universe.seed_pool)
+            + list(universe.sector_etfs)
+            + list(universe.factor_etfs)
+            + list(universe.cross_asset)
+        )
+    )
+    return [symbol for symbol in symbols if symbol not in set(universe.blacklist)]
 
 
 def _atomic_parquet(path: Path, frame: pd.DataFrame) -> None:
@@ -111,6 +72,21 @@ def _atomic_parquet(path: Path, frame: pd.DataFrame) -> None:
     os.close(fd)
     try:
         frame.to_parquet(temporary, compression="snappy")
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def _atomic_json(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2, sort_keys=True)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
         os.replace(temporary, path)
     finally:
         if os.path.exists(temporary):
@@ -146,7 +122,7 @@ def build(
         relevant_splits = split_table[split_table["symbol"] == symbol]
         raw = reconstruct_as_traded_ohlcv(downloaded, relevant_splits)
         target = data_root / "daily" / f"{symbol.replace('-', '_')}.parquet"
-        if target.exists():
+        if target.exists() and not (backup_root / target.name).exists():
             shutil.copy2(target, backup_root / target.name)
         _atomic_parquet(target, raw)
         record_canonical_replacement(
@@ -166,9 +142,35 @@ def build(
     return manifest
 
 
+def finalize_manifest(path: Path, data_root: Path) -> dict:
+    """Stamp post-distribution reference hashes onto an existing manifest."""
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    references = {}
+    for name in (
+        "splits.parquet",
+        "distributions.parquet",
+        "distribution_coverage.parquet",
+        "daily_source_boundaries.parquet",
+    ):
+        ref_path = data_root / "ref" / name
+        references[name] = {
+            "sha256": hashlib.sha256(ref_path.read_bytes()).hexdigest(),
+            "rows": len(pd.read_parquet(ref_path)),
+        }
+    manifest["reference_artifacts"] = references
+    manifest["finalized_at_utc"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    _atomic_json(path, manifest)
+    return manifest
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--symbols", nargs="*", default=list(PHASE2_SYMBOLS))
+    parser.add_argument(
+        "--all-executable",
+        action="store_true",
+        help="rebuild the complete configured executable universe",
+    )
     parser.add_argument("--start", default="2007-01-01")
     parser.add_argument("--end", default="2026-07-18", help="exclusive")
     parser.add_argument("--data-root", type=Path, default=ROOT / "data")
@@ -182,16 +184,25 @@ def main() -> None:
         type=Path,
         default=ROOT / "research/registry/phase2_data_manifest.json",
     )
+    parser.add_argument(
+        "--finalize-only",
+        action="store_true",
+        help="stamp current split/distribution/coverage/source hashes without rebuilding bars",
+    )
     args = parser.parse_args()
+    if args.finalize_only:
+        finalize_manifest(args.manifest, args.data_root)
+        print(f"finalized manifest: {args.manifest}")
+        return
+    symbols = executable_symbols() if args.all_executable else args.symbols
     manifest = build(
-        args.symbols,
+        symbols,
         start=args.start,
         end=args.end,
         data_root=args.data_root,
         backup_root=args.backup_root,
     )
-    args.manifest.parent.mkdir(parents=True, exist_ok=True)
-    args.manifest.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    _atomic_json(args.manifest, manifest)
     print(f"manifest: {args.manifest}")
 
 

@@ -162,33 +162,26 @@ def test_market_data_store_records_boundary_on_yfinance_append(tmp_path: Path):
     boundary sidecar entry automatically."""
     from core.data.market_data_store import MarketDataStore
 
-    sidecar = tmp_path / "boundaries.parquet"
-    # Patch the default sidecar path so the test doesn't touch repo state.
-    import core.data.source_boundaries as sb
-    orig = sb.DEFAULT_BOUNDARIES_PATH
-    sb.DEFAULT_BOUNDARIES_PATH = sidecar
-    try:
-        data_dir = tmp_path / "data"
-        store = MarketDataStore(data_dir=data_dir)
-        # First write — establishes canonical history.
-        df1 = pd.DataFrame(
-            {"open": 100, "close": 101, "volume": 1000},
-            index=pd.DatetimeIndex(["2026-04-15", "2026-04-16", "2026-04-17"]),
-        )
-        store.append("INTGR_T", "1d", df1)
-        # No boundary recorded yet (first write — no canonical history
-        # to defend).
-        assert get_boundary("INTGR_T", path=sidecar) is None
-        # Second write — yfinance-style frontier append.
-        df2 = pd.DataFrame(
-            {"open": 102, "close": 103, "volume": 1200},
-            index=pd.DatetimeIndex(["2026-04-20", "2026-04-21"]),
-        )
-        store.append("INTGR_T", "1d", df2)
-        b = get_boundary("INTGR_T", path=sidecar)
-        assert b is not None
-        assert b["canonical_end_date"] == date(2026, 4, 17)
-        assert b["frontier_start_date"] == date(2026, 4, 20)
-        assert b["frontier_source"] == SOURCE_YFINANCE_AUTO_ADJUST
-    finally:
-        sb.DEFAULT_BOUNDARIES_PATH = orig
+    data_dir = tmp_path / "data"
+    sidecar = data_dir / "ref/daily_source_boundaries.parquet"
+    store = MarketDataStore(data_dir=data_dir)
+    # First write — establishes canonical history.
+    df1 = pd.DataFrame(
+        {"open": 100, "close": 101, "volume": 1000},
+        index=pd.DatetimeIndex(["2026-04-15", "2026-04-16", "2026-04-17"]),
+    )
+    store.append("INTGR_T", "1d", df1)
+    # No boundary recorded yet (first write — no canonical history
+    # to defend).
+    assert get_boundary("INTGR_T", path=sidecar) is None
+    # Second write — yfinance-style frontier append.
+    df2 = pd.DataFrame(
+        {"open": 102, "close": 103, "volume": 1200},
+        index=pd.DatetimeIndex(["2026-04-20", "2026-04-21"]),
+    )
+    store.append("INTGR_T", "1d", df2)
+    b = get_boundary("INTGR_T", path=sidecar)
+    assert b is not None
+    assert b["canonical_end_date"] == date(2026, 4, 17)
+    assert b["frontier_start_date"] == date(2026, 4, 20)
+    assert b["frontier_source"] == SOURCE_YFINANCE_AUTO_ADJUST

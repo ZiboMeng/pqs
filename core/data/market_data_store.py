@@ -16,6 +16,8 @@ Usage:
 
 from __future__ import annotations
 
+import os
+import tempfile
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -73,31 +75,40 @@ class MarketDataStore:
         _write_parquet(df, path)
         logger.debug("[%s/%s] Written %d rows → %s", symbol, freq, len(df), path)
 
-    def append(self, symbol: str, freq: str, new_df: pd.DataFrame) -> int:
+    def append(
+        self,
+        symbol: str,
+        freq: str,
+        new_df: pd.DataFrame,
+        *,
+        canonical_daily: bool = False,
+    ) -> int:
         """
         Incrementally append new rows to existing parquet.
         Deduplicates on index; newer rows win on conflict.
 
         Source-boundary contract (post-2026-04-26 audit):
-        Every yfinance-source append to ``freq=='1d'`` is recorded in
-        ``data/ref/daily_source_boundaries.parquet`` so downstream
-        readers (forward runner, drift report) can detect when an
-        observation window crosses the polygon→yfinance boundary
-        and flag the artifact accordingly. Daily store is the only
-        freq with multi-source mixing; intraday writes don't trigger
-        the sidecar.
+        Legacy daily appends retain the explicit mixed-source frontier.
+        ``canonical_daily=True`` instead requires reconstructed raw-basis
+        input, refuses an incremental extension of an incompatible file,
+        and records a uniform canonical replacement. Intraday writes never
+        touch this sidecar.
 
         Returns:
             Number of new rows actually added.
         """
         if new_df.empty:
             return 0
+        if canonical_daily and freq not in {"1d", "daily"}:
+            raise ValueError("canonical_daily is valid only for daily bars")
         path = self._parquet_path(symbol, freq)
         path.parent.mkdir(parents=True, exist_ok=True)
 
         prev_max_date = None
         appended_dates: list = []
-        if path.exists():
+        existed = path.exists()
+        existing = pd.DataFrame()
+        if existed:
             existing = _read_parquet(path)
             if not existing.empty and isinstance(existing.index, pd.DatetimeIndex):
                 prev_max_date = existing.index.max().date()
@@ -106,7 +117,27 @@ class MarketDataStore:
         else:
             combined = new_df.copy().sort_index()
 
-        prev_len = len(_read_parquet(path)) if path.exists() else 0
+        if canonical_daily and existed and not existing.empty:
+            from core.data.source_boundaries import (
+                SOURCE_YFINANCE_RECONSTRUCTED_RAW,
+                get_boundary,
+            )
+
+            sidecar = self.data_dir / "ref/daily_source_boundaries.parquet"
+            boundary = get_boundary(symbol, path=sidecar)
+            compatible = bool(
+                boundary
+                and boundary["canonical_source"] == SOURCE_YFINANCE_RECONSTRUCTED_RAW
+                and boundary["frontier_start_date"] is None
+            )
+            full_replacement = existing.index.difference(new_df.index).empty
+            if not compatible and not full_replacement:
+                raise RuntimeError(
+                    f"{symbol}: incremental canonical append refused for a non-canonical daily file; "
+                    "run the full canonical rebuild first"
+                )
+
+        prev_len = len(existing)
         _write_parquet(combined, path)
         new_count = len(combined) - prev_len
         logger.debug(
@@ -117,7 +148,26 @@ class MarketDataStore:
         # appends. We record dates that are NEW relative to prev_max_date
         # (i.e. genuine yfinance-frontier extensions, not dedup-overwrites
         # of polygon dates).
-        if freq == "1d" and isinstance(new_df.index, pd.DatetimeIndex):
+        if canonical_daily:
+            try:
+                from core.data.source_boundaries import record_canonical_replacement
+
+                record_canonical_replacement(
+                    symbol,
+                    start_date=combined.index.min().date(),
+                    end_date=combined.index.max().date(),
+                    path=self.data_dir / "ref/daily_source_boundaries.parquet",
+                )
+            except Exception:
+                # Keep bars and provenance transactional from the caller's
+                # perspective: restore the prior file if sidecar publication
+                # fails, then propagate the error.
+                if existed:
+                    _write_parquet(existing, path)
+                else:
+                    path.unlink(missing_ok=True)
+                raise
+        elif freq == "1d" and isinstance(new_df.index, pd.DatetimeIndex):
             if prev_max_date is None:
                 # First-time write — no canonical history to defend.
                 # Treat the whole append as the symbol's initial range;
@@ -138,6 +188,7 @@ class MarketDataStore:
                             symbol=symbol,
                             appended_dates=appended_dates,
                             prev_max_date=prev_max_date,
+                            path=self.data_dir / "ref/daily_source_boundaries.parquet",
                         )
                     except Exception as exc:  # pragma: no cover — defense
                         logger.warning(
@@ -269,15 +320,23 @@ def _write_parquet(df: pd.DataFrame, path: Path) -> None:
 
     R2 (Phase E-0) — pyarrow imported lazily; see module-level comment.
     """
-    import pyarrow as pa                # R2: lazy
-    import pyarrow.parquet as pq        # R2: lazy
+    import pyarrow as pa  # R2: lazy
+    import pyarrow.parquet as pq  # R2: lazy
     table = pa.Table.from_pandas(df, preserve_index=True)
-    pq.write_table(
-        table,
-        path,
-        compression="snappy",
-        write_statistics=True,
-    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    os.close(fd)
+    try:
+        pq.write_table(
+            table,
+            temporary,
+            compression="snappy",
+            write_statistics=True,
+        )
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
 
 def _read_parquet(path: Path) -> pd.DataFrame:
