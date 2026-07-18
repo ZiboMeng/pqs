@@ -3,9 +3,9 @@
   "baseline_commit": "9ffc1ce564ca18a04554db20a442749e65f24672",
   "baseline_tag": "codex-pre-strategy-research-20260717",
   "branch": "codex/strategy-research-and-paper-v2",
-  "current_phase": "D2R5_DUAL_INDEX_VALIDATION_PENDING",
-  "last_completed_task": "Ran all eight D2R5 development cells. Multi-asset trend failed 4/4 and stops; dual-index growth passed 4/4 with a frozen 168-day/70%-gross representative.",
-  "next_task": "Commit/push all D2R5 evidence, preregister validation and robustness only for dual-index growth, then execute under unchanged growth gates.",
+  "current_phase": "D2R5_DUAL_INDEX_HOLDOUT_PREREGISTRATION",
+  "last_completed_task": "Dual-index growth passed all six validation/robustness runs at 11.39% CAGR, 0.732 Sharpe and -13.65% MaxDD; it is the third frozen finalist.",
+  "next_task": "Commit/push D2R5 validation evidence, preregister and commit the third holdout access without loading holdout data, then execute it once.",
   "open_p0": [],
   "open_p1": [],
   "candidate_strategies": [
@@ -16,7 +16,7 @@
     "risk_balanced_core_v1:DEVELOPMENT_FAIL_STOP_V1",
     "defensive_growth_v1:DEVELOPMENT_FAIL_STOP_V1",
     "multi_asset_trend_v1:DEVELOPMENT_FAIL_STOP_V1",
-    "dual_index_growth_v1:DEVELOPMENT_PASS_VALIDATION_PENDING",
+    "dual_index_growth_v1:VALIDATION_PASS_HOLDOUT_PENDING",
     "etf_reversion_v1:DEVELOPMENT_FAIL_STOP_V1"
   ],
   "promoted_paper_strategies": [],
@@ -26,6 +26,6 @@
   ],
   "last_test_command": "pytest -q tests/unit/data tests/unit/research/test_source_boundaries.py tests/unit/research/test_forward_source_layer.py tests/unit/research/test_phase2_registry_promotion.py tests/unit/research/test_phase2_runner_protocol.py tests/unit/signals/test_phase2_etf_strategies.py tests/unit/regime/test_phase2_regime.py tests/unit/portfolio/test_strategy_allocator.py tests/unit/scripts/test_fetch_data_preclose_raise.py tests/unit/backtest tests/unit/execution tests/unit/paper_trading tests/integration/test_backtest_paper_consistency.py",
   "last_test_result": "PASS: 706 passed, 1 xfailed, 0 failed in 130.81s; focused Ruff and mypy passed; repeated store/source tests left the real provenance hash unchanged.",
-  "last_backtest_run": "D2R5 development: multi_asset_trend 0/4 pass (best Sharpe 0.272); dual_index_growth 4/4 pass, winner 8.29% CAGR/0.442 Sharpe/0.599 Sortino/-10.28% MaxDD.",
-  "last_updated_utc": "2026-07-18T02:15:00Z"
+  "last_backtest_run": "D2R5 validation: dual_index_growth all 6 runs PASS; 11.39% CAGR/0.732 Sharpe/0.920 Sortino/-13.65% MaxDD; 6/7 folds and 2/2 neighbors pass.",
+  "last_updated_utc": "2026-07-18T02:20:00Z"
 }

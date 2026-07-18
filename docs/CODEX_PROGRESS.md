@@ -138,11 +138,13 @@ controlled growth and ETF reversion stop at v1. No strategy is promoted.
 - Ran all eight D2R5 terminal development cells. Multi-asset trend failed 4/4 (best Sharpe
   0.272 vs 0.30 required) and stops. Dual-index growth passed 4/4; its frozen winner produced
   8.29% CAGR, 0.442 Sharpe and -10.28% MaxDD and advances alone to validation.
+- Dual-index growth passed all six D2R5 validation/robustness runs: 11.39% CAGR, 0.732 Sharpe,
+  -13.65% MaxDD, 6/7 positive annual folds, 100% neighbor pass, and strong 2x-cost/delay results.
 
 ## In progress
 
-- Commit/push D2R5 development evidence, then preregister validation/robustness for dual-index
-  growth only. Multi-asset trend must not consume validation.
+- Commit/push D2R5 validation evidence, preregister the third and only current holdout finalist,
+  then perform its one sealed access.
 
 ## Next
 

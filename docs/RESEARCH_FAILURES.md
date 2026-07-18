@@ -124,6 +124,12 @@ pass. Dual-index growth passed all four cells. The frozen representative uses
 slow trend 168, 70% equity gross and the fixed 21-session cooldown, with 8.29%
 CAGR, 0.442 Sharpe, 0.599 Sortino and -10.28% MaxDD. Only that family advances.
 
+Dual-index growth then passed all six validation/robustness experiments: 11.39%
+CAGR, 0.732 Sharpe, 0.920 Sortino, -13.65% MaxDD, 6/7 positive annual folds,
+both neighbors passing, 2x-cost Sharpe 0.724 and delayed-signal Sharpe 0.824.
+Its bootstrap CAGR interval is 4.58% to 18.99%. It becomes the third frozen
+finalist; no stopped family is revived to manufacture a second candidate.
+
 ## Legacy D1 design notes (performance numbers invalidated)
 
 The subsections below preserve the original D1 attribution. Every performance
