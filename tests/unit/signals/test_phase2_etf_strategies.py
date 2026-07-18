@@ -7,7 +7,9 @@ import pytest
 from core.signals.strategies.phase2_etf import (
     AdaptiveCoreStrategy,
     ControlledGrowthStrategy,
+    DefensiveGrowthStrategy,
     EtfReversionStrategy,
+    RiskBalancedCoreStrategy,
     SectorRotationStrategy,
     SectorRotationV2Strategy,
 )
@@ -49,6 +51,8 @@ def _panel(rows: int = 420) -> pd.DataFrame:
         ControlledGrowthStrategy(),
         SectorRotationStrategy(),
         EtfReversionStrategy(),
+        RiskBalancedCoreStrategy(),
+        DefensiveGrowthStrategy(),
     ],
 )
 def test_phase2_strategy_weight_contract(strategy) -> None:
@@ -89,3 +93,12 @@ def test_sector_rotation_v2_caps_a_single_eligible_sector() -> None:
     assert np.allclose(sparse["BIL"], 0.325)
     assert np.allclose(sparse["SHY"], 0.325)
     assert float(weights.max().max()) <= 0.35
+
+
+def test_final_iteration_strategies_are_fully_collateralized_after_warmup() -> None:
+    panel = _panel(600)
+    for strategy in (RiskBalancedCoreStrategy(), DefensiveGrowthStrategy()):
+        weights = strategy.generate(panel)
+        invested = weights.sum(axis=1)
+        assert np.allclose(invested[invested > 0.0], 1.0)
+        assert float(weights.max().max()) <= 0.35

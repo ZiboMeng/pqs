@@ -337,6 +337,132 @@ class SectorRotationV2Strategy(SectorRotationStrategy):
 
 
 @dataclass(frozen=True)
+class RiskBalancedCoreParams:
+    volatility_lookback: int = 63
+    risky_gross: float = 0.80
+
+    def __post_init__(self) -> None:
+        if self.volatility_lookback not in {42, 63, 126}:
+            raise ValueError("volatility_lookback is outside the preregistered grid")
+        if self.risky_gross not in {0.70, 0.80}:
+            raise ValueError("risky_gross is outside the preregistered grid")
+
+
+class RiskBalancedCoreStrategy:
+    """Monthly inverse-volatility SPY/IEF/GLD allocation with T-bill residual."""
+
+    strategy_id = "risk_balanced_core_v1"
+    strategy_type = "stable_core"
+    required_symbols = ("SPY", "IEF", "GLD", "BIL", "SHY")
+
+    def __init__(self, params: RiskBalancedCoreParams | None = None) -> None:
+        self.params = params or RiskBalancedCoreParams()
+
+    def generate(
+        self,
+        price_df: pd.DataFrame,
+        regime_series: pd.Series | None = None,
+    ) -> pd.DataFrame:
+        del regime_series
+        _validate_panel(price_df, self.required_symbols)
+        risky = price_df.loc[:, ["SPY", "IEF", "GLD"]]
+        lookback = self.params.volatility_lookback
+        volatility = risky.pct_change().rolling(lookback).std() * np.sqrt(252.0)
+        inverse = 1.0 / volatility.replace(0.0, np.nan)
+        targets = inverse.div(inverse.sum(axis=1), axis=0) * self.params.risky_gross
+        targets = targets.clip(upper=0.35)
+
+        raw = pd.DataFrame(0.0, index=price_df.index, columns=price_df.columns)
+        ready = risky.rolling(max(lookback, 252)).count().min(axis=1) >= max(lookback, 252)
+        for date in price_df.index[ready]:
+            row = raw.loc[date]
+            row.loc[["SPY", "IEF", "GLD"]] = targets.loc[date]
+            residual = 1.0 - float(row.sum())
+            row["BIL"] = residual / 2.0
+            row["SHY"] = residual / 2.0
+            raw.loc[date] = row
+        weights = _carry_rebalance_targets(raw, _period_end_mask(price_df.index, "M"))
+        return _assert_weight_contract(weights)
+
+
+@dataclass(frozen=True)
+class DefensiveGrowthParams:
+    slow_trend: int = 210
+    risk_on_equity_gross: float = 0.65
+    cooldown_sessions: int = 10
+
+    def __post_init__(self) -> None:
+        if self.slow_trend not in {168, 210, 252}:
+            raise ValueError("slow_trend is outside the preregistered grid")
+        if self.risk_on_equity_gross not in {0.55, 0.65}:
+            raise ValueError("risk_on_equity_gross is outside the preregistered grid")
+        if self.cooldown_sessions != 10:
+            raise ValueError("cooldown is frozen at 10 sessions")
+
+
+class DefensiveGrowthStrategy:
+    """Unlevered weekly Nasdaq state machine with an explicit defensive state."""
+
+    strategy_id = "defensive_growth_v1"
+    strategy_type = "growth_engine"
+    required_symbols = ("QQQ", "SPY", "IEF", "GLD", "BIL", "SHY")
+
+    def __init__(self, params: DefensiveGrowthParams | None = None) -> None:
+        self.params = params or DefensiveGrowthParams()
+
+    def generate(
+        self,
+        price_df: pd.DataFrame,
+        regime_series: pd.Series | None = None,
+    ) -> pd.DataFrame:
+        del regime_series
+        _validate_panel(price_df, self.required_symbols)
+        qqq = price_df["QQQ"]
+        spy = price_df["SPY"]
+        slow = self.params.slow_trend
+        entry = (
+            (qqq > qqq.rolling(slow).mean())
+            & (qqq.pct_change(126) > 0.0)
+            & (spy > spy.rolling(200).mean())
+        )
+        exit_now = (qqq < qqq.rolling(63).mean()) | (
+            qqq / qqq.rolling(63).max() - 1.0 <= -0.10
+        )
+        ready = qqq.rolling(max(slow, 200)).count() >= max(slow, 200)
+        week_end = _period_end_mask(price_df.index, "W-FRI")
+        weights = pd.DataFrame(0.0, index=price_df.index, columns=price_df.columns)
+        active = False
+        cooldown = 0
+        for date in price_df.index:
+            if cooldown > 0:
+                cooldown -= 1
+            if active and bool(exit_now.loc[date]):
+                active = False
+                cooldown = self.params.cooldown_sessions
+            if bool(week_end.loc[date]) and cooldown == 0 and bool(entry.loc[date]):
+                active = True
+            if not bool(ready.loc[date]):
+                continue
+
+            row = weights.loc[date]
+            if active:
+                equity = self.params.risk_on_equity_gross
+                row["QQQ"] = min(0.35, equity)
+                row["SPY"] = equity - row["QQQ"]
+                row["GLD"] = 0.15
+                residual = 1.0 - float(row.sum())
+                row["BIL"] = residual / 2.0
+                row["SHY"] = residual / 2.0
+            else:
+                row["IEF"] = 0.30
+                row["GLD"] = 0.20
+                row["BIL"] = 0.25
+                row["SHY"] = 0.25
+            weights.loc[date] = row
+        return _assert_weight_contract(weights)
+
+
+@dataclass(frozen=True)
 class EtfReversionParams:
     loss_threshold: float = -0.035
     rsi_cutoff: int = 10
@@ -416,9 +542,13 @@ __all__ = [
     "AdaptiveCoreStrategy",
     "ControlledGrowthParams",
     "ControlledGrowthStrategy",
+    "DefensiveGrowthParams",
+    "DefensiveGrowthStrategy",
     "EtfReversionParams",
     "EtfReversionStrategy",
     "SectorRotationParams",
     "SectorRotationStrategy",
     "SectorRotationV2Strategy",
+    "RiskBalancedCoreParams",
+    "RiskBalancedCoreStrategy",
 ]

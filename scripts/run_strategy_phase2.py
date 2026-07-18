@@ -41,8 +41,12 @@ from core.signals.strategies.phase2_etf import (
     AdaptiveCoreStrategy,
     ControlledGrowthParams,
     ControlledGrowthStrategy,
+    DefensiveGrowthParams,
+    DefensiveGrowthStrategy,
     EtfReversionParams,
     EtfReversionStrategy,
+    RiskBalancedCoreParams,
+    RiskBalancedCoreStrategy,
     SectorRotationParams,
     SectorRotationStrategy,
     SectorRotationV2Strategy,
@@ -85,6 +89,20 @@ FAMILY_META: dict[str, dict[str, str]] = {
         "strategy_type": "etf_rotation",
         "benchmark": "SPY",
         "hypothesis": "The frozen v1 signal remains viable when sparse selections obey the 35% symbol cap.",
+    },
+    "risk_balanced_core": {
+        "version": "v1",
+        "strategy_id": "risk_balanced_core_v1",
+        "strategy_type": "stable_core",
+        "benchmark": "SPY",
+        "hypothesis": "Equalized realized-volatility sleeves improve stable-core diversification without directional timing.",
+    },
+    "defensive_growth": {
+        "version": "v1",
+        "strategy_id": "defensive_growth_v1",
+        "strategy_type": "growth_engine",
+        "benchmark": "QQQ",
+        "hypothesis": "An unlevered weekly Nasdaq state machine retains growth while explicit defensive sleeves limit drawdown.",
     },
     "etf_reversion": {
         "version": "v1",
@@ -138,7 +156,17 @@ def _repair_grids() -> dict[str, list[dict[str, Any]]]:
                 "top_n": 3,
                 "slow_trend": 168,
             }
-        ]
+        ],
+        "risk_balanced_core": [
+            {"volatility_lookback": lookback, "risky_gross": gross}
+            for lookback in (42, 63, 126)
+            for gross in (0.70, 0.80)
+        ],
+        "defensive_growth": [
+            {"slow_trend": slow, "risk_on_equity_gross": gross, "cooldown_sessions": 10}
+            for slow in (168, 210, 252)
+            for gross in (0.55, 0.65)
+        ],
     }
 
 
@@ -170,6 +198,10 @@ def _make_strategy(family: str, parameters: Mapping[str, Any]):
             SectorRotationV2Strategy if family == "sector_rotation_v2" else SectorRotationStrategy
         )
         return strategy_class(SectorRotationParams(**params))
+    if family == "risk_balanced_core":
+        return RiskBalancedCoreStrategy(RiskBalancedCoreParams(**parameters))
+    if family == "defensive_growth":
+        return DefensiveGrowthStrategy(DefensiveGrowthParams(**parameters))
     if family == "etf_reversion":
         return EtfReversionStrategy(EtfReversionParams(**parameters))
     raise KeyError(family)
@@ -601,6 +633,16 @@ def _neighbor_cells(family: str, selected: Mapping[str, Any]) -> list[dict[str, 
             "momentum_weights": [[0.2, 0.3, 0.5], [0.3, 0.4, 0.3], [0.4, 0.3, 0.3]],
             "top_n": [2, 3],
             "slow_trend": [168, 252],
+        }
+    elif family == "risk_balanced_core":
+        axes = {
+            "volatility_lookback": [42, 63, 126],
+            "risky_gross": [0.70, 0.80],
+        }
+    elif family == "defensive_growth":
+        axes = {
+            "slow_trend": [168, 210, 252],
+            "risk_on_equity_gross": [0.55, 0.65],
         }
     else:
         axes = {

@@ -26,11 +26,12 @@ def test_preregistered_grid_sizes_are_frozen() -> None:
         "etf_reversion": 8,
     }
     assert sum(map(len, grids.values())) == 41
-    assert _repair_grids() == {
-        "sector_rotation_v2": [
-            {"momentum_weights": [0.2, 0.3, 0.5], "top_n": 3, "slow_trend": 168}
-        ]
-    }
+    repair = _repair_grids()
+    assert repair["sector_rotation_v2"] == [
+        {"momentum_weights": [0.2, 0.3, 0.5], "top_n": 3, "slow_trend": 168}
+    ]
+    assert len(repair["risk_balanced_core"]) == 6
+    assert len(repair["defensive_growth"]) == 6
 
 
 def test_parameter_neighbors_change_exactly_one_axis() -> None:
