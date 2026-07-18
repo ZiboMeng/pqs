@@ -5459,7 +5459,7 @@
     {
       "benchmark": "SPY",
       "code_commit": "b0006feba742a2dd70e7bd5f06f381800325f6e0",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T02:07:10.985840Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -5469,26 +5469,33 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2R4-DEV-RISK-BALANCED-CORE-01",
-      "failure_reason": null,
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
       "hypothesis": "Equalized realized-volatility sleeves improve stable-core diversification without directional timing. [development:base_cost]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 0.722259555542829,
+        "cagr": 0.04065235579440474,
+        "calmar": 0.45319044015784715,
+        "max_drawdown": -0.08970258900484626,
+        "sharpe": 0.019115185376551228,
+        "sortino": 0.027379733441549006
+      },
       "parameters": {
         "risky_gross": 0.7,
         "volatility_lookback": 42
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T02:06:43.664631Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/development/d2r4/P2-D2R4-DEV-RISK-BALANCED-CORE-01.json",
+      "started_at_utc": "2026-07-18T02:07:04.005947Z",
+      "status": "COMPLETED",
       "strategy_family": "risk_balanced_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "b0006feba742a2dd70e7bd5f06f381800325f6e0",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T02:07:18.016252Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -5498,26 +5505,33 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2R4-DEV-RISK-BALANCED-CORE-02",
-      "failure_reason": null,
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
       "hypothesis": "Equalized realized-volatility sleeves improve stable-core diversification without directional timing. [development:base_cost]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 0.8735754919649394,
+        "cagr": 0.04334531705198108,
+        "calmar": 0.41898640926918357,
+        "max_drawdown": -0.10345279964470945,
+        "sharpe": 0.07443443781591053,
+        "sortino": 0.10590095207952135
+      },
       "parameters": {
         "risky_gross": 0.8,
         "volatility_lookback": 42
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T02:06:43.664662Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/development/d2r4/P2-D2R4-DEV-RISK-BALANCED-CORE-02.json",
+      "started_at_utc": "2026-07-18T02:07:11.001203Z",
+      "status": "COMPLETED",
       "strategy_family": "risk_balanced_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "b0006feba742a2dd70e7bd5f06f381800325f6e0",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T02:07:24.951339Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -5527,26 +5541,33 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2R4-DEV-RISK-BALANCED-CORE-03",
-      "failure_reason": null,
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
       "hypothesis": "Equalized realized-volatility sleeves improve stable-core diversification without directional timing. [development:base_cost]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 0.4603517397934689,
+        "cagr": 0.04122368765097262,
+        "calmar": 0.5092926659583176,
+        "max_drawdown": -0.08094302236495689,
+        "sharpe": 0.031376983064532224,
+        "sortino": 0.044821041341451345
+      },
       "parameters": {
         "risky_gross": 0.7,
         "volatility_lookback": 63
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T02:06:43.664674Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/development/d2r4/P2-D2R4-DEV-RISK-BALANCED-CORE-03.json",
+      "started_at_utc": "2026-07-18T02:07:18.034951Z",
+      "status": "COMPLETED",
       "strategy_family": "risk_balanced_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "b0006feba742a2dd70e7bd5f06f381800325f6e0",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T02:07:32.012316Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -5556,26 +5577,33 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2R4-DEV-RISK-BALANCED-CORE-04",
-      "failure_reason": null,
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
       "hypothesis": "Equalized realized-volatility sleeves improve stable-core diversification without directional timing. [development:base_cost]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 0.5540059604011834,
+        "cagr": 0.04321005872658201,
+        "calmar": 0.4412342944769895,
+        "max_drawdown": -0.097929964346494,
+        "sharpe": 0.07200008432964956,
+        "sortino": 0.10192978223307052
+      },
       "parameters": {
         "risky_gross": 0.8,
         "volatility_lookback": 63
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T02:06:43.664682Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/development/d2r4/P2-D2R4-DEV-RISK-BALANCED-CORE-04.json",
+      "started_at_utc": "2026-07-18T02:07:24.966901Z",
+      "status": "COMPLETED",
       "strategy_family": "risk_balanced_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "b0006feba742a2dd70e7bd5f06f381800325f6e0",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T02:07:39.099905Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -5585,26 +5613,33 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2R4-DEV-RISK-BALANCED-CORE-05",
-      "failure_reason": null,
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
       "hypothesis": "Equalized realized-volatility sleeves improve stable-core diversification without directional timing. [development:base_cost]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 0.3085433579084534,
+        "cagr": 0.03846659802736152,
+        "calmar": 0.43821345795133987,
+        "max_drawdown": -0.08778050360934586,
+        "sharpe": -0.027829228468579686,
+        "sortino": -0.03953787456226055
+      },
       "parameters": {
         "risky_gross": 0.7,
         "volatility_lookback": 126
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T02:06:43.664689Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/development/d2r4/P2-D2R4-DEV-RISK-BALANCED-CORE-05.json",
+      "started_at_utc": "2026-07-18T02:07:32.027481Z",
+      "status": "COMPLETED",
       "strategy_family": "risk_balanced_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "SPY",
       "code_commit": "b0006feba742a2dd70e7bd5f06f381800325f6e0",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T02:07:46.072388Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -5614,26 +5649,33 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2R4-DEV-RISK-BALANCED-CORE-06",
-      "failure_reason": null,
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
       "hypothesis": "Equalized realized-volatility sleeves improve stable-core diversification without directional timing. [development:base_cost]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 0.33137172408127025,
+        "cagr": 0.04197983659664484,
+        "calmar": 0.4223886927314084,
+        "max_drawdown": -0.09938674334575354,
+        "sharpe": 0.047832439658876916,
+        "sortino": 0.06717584468640966
+      },
       "parameters": {
         "risky_gross": 0.8,
         "volatility_lookback": 126
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T02:06:43.664695Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/development/d2r4/P2-D2R4-DEV-RISK-BALANCED-CORE-06.json",
+      "started_at_utc": "2026-07-18T02:07:39.115730Z",
+      "status": "COMPLETED",
       "strategy_family": "risk_balanced_core",
       "strategy_version": "v1"
     },
     {
       "benchmark": "QQQ",
       "code_commit": "b0006feba742a2dd70e7bd5f06f381800325f6e0",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T02:07:51.919837Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -5643,27 +5685,34 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2R4-DEV-DEFENSIVE-GROWTH-01",
-      "failure_reason": null,
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
       "hypothesis": "An unlevered weekly Nasdaq state machine retains growth while explicit defensive sleeves limit drawdown. [development:base_cost]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 10.335332834680646,
+        "cagr": 0.025411547574314408,
+        "calmar": 0.20822337568548066,
+        "max_drawdown": -0.12203984058302031,
+        "sharpe": -0.1788134521898083,
+        "sortino": -0.2377231804541451
+      },
       "parameters": {
         "cooldown_sessions": 10,
         "risk_on_equity_gross": 0.55,
         "slow_trend": 168
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T02:06:43.664702Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/development/d2r4/P2-D2R4-DEV-DEFENSIVE-GROWTH-01.json",
+      "started_at_utc": "2026-07-18T02:07:46.087077Z",
+      "status": "COMPLETED",
       "strategy_family": "defensive_growth",
       "strategy_version": "v1"
     },
     {
       "benchmark": "QQQ",
       "code_commit": "b0006feba742a2dd70e7bd5f06f381800325f6e0",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T02:07:57.509976Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -5673,27 +5722,34 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2R4-DEV-DEFENSIVE-GROWTH-02",
-      "failure_reason": null,
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
       "hypothesis": "An unlevered weekly Nasdaq state machine retains growth while explicit defensive sleeves limit drawdown. [development:base_cost]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 12.215925841991101,
+        "cagr": 0.024562430460141282,
+        "calmar": 0.1777779516026158,
+        "max_drawdown": -0.13816353624686423,
+        "sharpe": -0.16606624930238778,
+        "sortino": -0.21570075047368104
+      },
       "parameters": {
         "cooldown_sessions": 10,
         "risk_on_equity_gross": 0.65,
         "slow_trend": 168
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T02:06:43.664708Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/development/d2r4/P2-D2R4-DEV-DEFENSIVE-GROWTH-02.json",
+      "started_at_utc": "2026-07-18T02:07:51.934581Z",
+      "status": "COMPLETED",
       "strategy_family": "defensive_growth",
       "strategy_version": "v1"
     },
     {
       "benchmark": "QQQ",
       "code_commit": "b0006feba742a2dd70e7bd5f06f381800325f6e0",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T02:08:03.191577Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -5703,27 +5759,34 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2R4-DEV-DEFENSIVE-GROWTH-03",
-      "failure_reason": null,
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
       "hypothesis": "An unlevered weekly Nasdaq state machine retains growth while explicit defensive sleeves limit drawdown. [development:base_cost]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 10.850162319488103,
+        "cagr": 0.027655806168758845,
+        "calmar": 0.22668615085903218,
+        "max_drawdown": -0.12200042245173141,
+        "sharpe": -0.14855773776192469,
+        "sortino": -0.19715996679098527
+      },
       "parameters": {
         "cooldown_sessions": 10,
         "risk_on_equity_gross": 0.55,
         "slow_trend": 210
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T02:06:43.664715Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/development/d2r4/P2-D2R4-DEV-DEFENSIVE-GROWTH-03.json",
+      "started_at_utc": "2026-07-18T02:07:57.525102Z",
+      "status": "COMPLETED",
       "strategy_family": "defensive_growth",
       "strategy_version": "v1"
     },
     {
       "benchmark": "QQQ",
       "code_commit": "b0006feba742a2dd70e7bd5f06f381800325f6e0",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T02:08:08.728854Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -5733,27 +5796,34 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2R4-DEV-DEFENSIVE-GROWTH-04",
-      "failure_reason": null,
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
       "hypothesis": "An unlevered weekly Nasdaq state machine retains growth while explicit defensive sleeves limit drawdown. [development:base_cost]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 12.82167221891318,
+        "cagr": 0.0270649701199579,
+        "calmar": 0.19588682123835044,
+        "max_drawdown": -0.13816636539844548,
+        "sharpe": -0.13566260029870722,
+        "sortino": -0.17591751639023753
+      },
       "parameters": {
         "cooldown_sessions": 10,
         "risk_on_equity_gross": 0.65,
         "slow_trend": 210
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T02:06:43.664721Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/development/d2r4/P2-D2R4-DEV-DEFENSIVE-GROWTH-04.json",
+      "started_at_utc": "2026-07-18T02:08:03.206598Z",
+      "status": "COMPLETED",
       "strategy_family": "defensive_growth",
       "strategy_version": "v1"
     },
     {
       "benchmark": "QQQ",
       "code_commit": "b0006feba742a2dd70e7bd5f06f381800325f6e0",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T02:08:14.386245Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -5763,27 +5833,34 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2R4-DEV-DEFENSIVE-GROWTH-05",
-      "failure_reason": null,
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
       "hypothesis": "An unlevered weekly Nasdaq state machine retains growth while explicit defensive sleeves limit drawdown. [development:base_cost]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 10.928166988753475,
+        "cagr": 0.0278119250050175,
+        "calmar": 0.22796337947834164,
+        "max_drawdown": -0.12200172268309376,
+        "sharpe": -0.14617916599597533,
+        "sortino": -0.1936296746389443
+      },
       "parameters": {
         "cooldown_sessions": 10,
         "risk_on_equity_gross": 0.55,
         "slow_trend": 252
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T02:06:43.664727Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/development/d2r4/P2-D2R4-DEV-DEFENSIVE-GROWTH-05.json",
+      "started_at_utc": "2026-07-18T02:08:08.745231Z",
+      "status": "COMPLETED",
       "strategy_family": "defensive_growth",
       "strategy_version": "v1"
     },
     {
       "benchmark": "QQQ",
       "code_commit": "b0006feba742a2dd70e7bd5f06f381800325f6e0",
-      "completed_at_utc": null,
+      "completed_at_utc": "2026-07-18T02:08:20.159520Z",
       "cost_model": "config/cost_model.yaml:base_cost",
       "data_range": {
         "data_manifest_sha256": "060f1b6a6654974b50f29c7b61d3881c1d2659ee2432669c06a1388242fa5df0",
@@ -5793,20 +5870,27 @@
         "start": "2007-01-03"
       },
       "experiment_id": "P2-D2R4-DEV-DEFENSIVE-GROWTH-06",
-      "failure_reason": null,
+      "failure_reason": "PREDEFINED_RESEARCH_METRIC_GATE",
       "hypothesis": "An unlevered weekly Nasdaq state machine retains growth while explicit defensive sleeves limit drawdown. [development:base_cost]",
-      "key_metrics": null,
+      "key_metrics": {
+        "annual_turnover": 12.896100533487216,
+        "cagr": 0.027511633752092646,
+        "calmar": 0.19903695971712412,
+        "max_drawdown": -0.13822374392772482,
+        "sharpe": -0.129846196128654,
+        "sortino": -0.16820610530050928
+      },
       "parameters": {
         "cooldown_sessions": 10,
         "risk_on_equity_gross": 0.65,
         "slow_trend": 252
       },
-      "pass_fail": null,
+      "pass_fail": "FAIL",
       "random_seed": 20260717,
       "registered_at_utc": "2026-07-18T02:06:43.664734Z",
-      "result_path": null,
-      "started_at_utc": null,
-      "status": "PLANNED",
+      "result_path": "research/results/phase2/development/d2r4/P2-D2R4-DEV-DEFENSIVE-GROWTH-06.json",
+      "started_at_utc": "2026-07-18T02:08:14.401663Z",
+      "status": "COMPLETED",
       "strategy_family": "defensive_growth",
       "strategy_version": "v1"
     }

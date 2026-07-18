@@ -105,6 +105,16 @@ logic/parameters will not be edited and retested on this holdout. Two of the
 four preregistered finalist slots remain available only to genuinely new,
 economically distinct hypotheses.
 
+### D2R4 development stop decisions
+
+The two next preregistered families both stopped before validation, so neither
+consumed a finalist slot. Risk-balanced core failed all six cells: the best
+Sharpe was 0.074 and CAGR roughly 4.3%; its low drawdown was a low-risk/low-return
+effect under the fixed 4% risk-free convention. Defensive growth also failed
+all six cells: the best CAGR was roughly 2.8% and every Sharpe was negative.
+The weekly state machine and defensive allocation spent too much return budget
+outside growth assets. Both v1 grids are closed and will not be expanded.
+
 ## Legacy D1 design notes (performance numbers invalidated)
 
 The subsections below preserve the original D1 attribution. Every performance

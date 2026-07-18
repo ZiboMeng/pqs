@@ -132,11 +132,14 @@ controlled growth and ETF reversion stop at v1. No strategy is promoted.
   2024–2026 candidate data. Adaptive core then failed only the frozen SPY drawdown-improvement
   gate (9.39 points actual vs 10 required); sector rotation v2 failed four performance/concentration
   gates. Both are final-rejected and cannot be tuned or retried on that holdout.
+- Preregistered and ran 12 D2R4 development cells for risk-balanced core and defensive growth.
+  Both families failed all six cells and stop before validation: risk balance topped out at
+  0.074 Sharpe, while every defensive-growth Sharpe was negative. No finalist slot was consumed.
 
 ## In progress
 
-- Commit/push both final-holdout rejections, then preregister at most two genuinely new,
-  economically distinct hypotheses for the two remaining finalist slots.
+- Commit/push all D2R4 failures, then preregister bounded multi-asset trend and unlevered
+  dual-index growth hypotheses; the two final holdout slots remain unused.
 
 ## Next
 
