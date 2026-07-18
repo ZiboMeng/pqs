@@ -103,6 +103,22 @@ def next_trading_day(dt: str | date | pd.Timestamp) -> pd.Timestamp:
     return _next_trading_day_cached(pd.Timestamp(dt).normalize())
 
 
+@lru_cache(maxsize=8192)
+def _previous_trading_day_cached(ts_norm: pd.Timestamp) -> pd.Timestamp:
+    days = get_trading_days(
+        ts_norm - pd.Timedelta(days=10),
+        ts_norm - pd.Timedelta(days=1),
+    )
+    if len(days) == 0:
+        return (ts_norm - pd.tseries.offsets.BDay(1)).normalize()
+    return days[-1]
+
+
+def previous_trading_day(dt: str | date | pd.Timestamp) -> pd.Timestamp:
+    """Last NYSE session strictly BEFORE dt (holiday-aware, memoized)."""
+    return _previous_trading_day_cached(pd.Timestamp(dt).normalize())
+
+
 def get_session_close_et(
     target_date: str | date | pd.Timestamp,
 ) -> Optional[pd.Timestamp]:

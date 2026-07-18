@@ -134,6 +134,7 @@ class ExecutionSimulator:
         open_price: float,      # T+1 开盘价
         vix:        float,
         cash:       float,      # 成交前现金余额
+        fill_date:  Optional[pd.Timestamp] = None,
     ) -> Optional[Fill]:
         """
         模拟单笔委托成交。
@@ -191,18 +192,23 @@ class ExecutionSimulator:
         else:
             cash_delta = notional - bd.commission_usd
 
-        # Holiday-aware next NYSE session (audit 20260708 P2): BDay(1) mislabels
-        # fills across Good Friday / Jul-4 etc. Price/NAV are unaffected (fill uses
-        # the passed-in real next-bar open); this corrects only the fill_date label.
-        from core.data.calendar import next_trading_day
-        fill_date = next_trading_day(order.signal_date)
+        # The caller that selected the execution bar is the only authority on
+        # its timestamp.  Calendar inference is retained solely for legacy
+        # direct callers that do not have a concrete bar.  Inferring here for
+        # normal backtest/PAPER paths can mislabel a fill when the panel skips
+        # an otherwise valid exchange session.
+        if fill_date is None:
+            from core.data.calendar import next_trading_day
+            actual_fill_date = next_trading_day(order.signal_date)
+        else:
+            actual_fill_date = pd.Timestamp(fill_date)
 
         return Fill(
             order          = order,
             executed_price = exec_price,
             executed_qty   = qty,
             cost_breakdown = bd,
-            fill_date      = fill_date,
+            fill_date      = actual_fill_date,
             cash_delta     = cash_delta,
         )
 
@@ -212,6 +218,7 @@ class ExecutionSimulator:
         open_prices: dict,      # symbol → open_price
         vix:         float,
         cash:        float,
+        fill_date:   Optional[pd.Timestamp] = None,
     ) -> List[Fill]:
         """
         批量模拟成交。卖单优先处理（先卖后买，确保现金充足）。
@@ -227,7 +234,13 @@ class ExecutionSimulator:
             if price is None:
                 logger.warning("[%s] No open price available — order skipped", order.symbol)
                 continue
-            fill = self.simulate_fill(order, float(price), vix, cur_cash)
+            fill = self.simulate_fill(
+                order,
+                float(price),
+                vix,
+                cur_cash,
+                fill_date=fill_date,
+            )
             if fill is not None:
                 fills.append(fill)
                 cur_cash += fill.cash_delta

@@ -125,3 +125,34 @@ def test_rewired_loader_returns_adjusted_concrete_signature():
     panel = load_adjusted_panel(["NVDA"], _ROOT, "1d")
     v = panel["close"]["NVDA"].asof(pd.Timestamp("2015-01-02"))
     assert v < 5.0, f"NVDA 2015 adjusted={v} (raw≈20.1 → loader still raw)"
+
+
+def test_main_backtest_loader_requests_total_return_adjusted_panel(monkeypatch):
+    from scripts import run_backtest
+
+    calls = []
+    idx = pd.DatetimeIndex([pd.Timestamp("2024-01-02")])
+
+    def fake_panel(symbols, root, freq="1d", **kwargs):
+        calls.append((tuple(symbols), Path(root), freq, kwargs))
+        return {
+            "close": pd.DataFrame({"SPY": [100.0]}, index=idx),
+            "open": pd.DataFrame({"SPY": [99.0]}, index=idx),
+        }
+
+    monkeypatch.setattr("core.data.price_access.load_adjusted_panel", fake_panel)
+    store = MarketDataStore(data_dir=_ROOT)
+
+    closes = run_backtest.load_prices(store, ["SPY"])
+    opens = run_backtest.load_open_prices(store, ["SPY"])
+
+    assert closes.iloc[0, 0] == 100.0
+    assert opens.iloc[0, 0] == 99.0
+    assert len(calls) == 2
+    for symbols, root, freq, kwargs in calls:
+        assert symbols == ("SPY",)
+        assert root == _ROOT
+        assert freq == "1d"
+        assert kwargs["adjusted_total_return"] is True
+        assert kwargs["fallback"] == "local"
+        assert kwargs["require_total_return_coverage"] is True

@@ -55,6 +55,7 @@ def load_adjusted_panel(
     *,
     adjusted_total_return: bool = False,
     fallback: str = "local",
+    require_total_return_coverage: bool = False,
 ) -> dict[str, pd.DataFrame]:
     """{close,open,high,low,volume} DataFrames (index=date,
     cols=symbol), split-adjusted. Drop-in shape for the legacy
@@ -78,4 +79,19 @@ def load_adjusted_panel(
     for col in ("open", "high", "low", "volume"):
         out[col] = (pd.DataFrame(frames[col]).reindex(out["close"].index)
                     if frames[col] else None)
+    if require_total_return_coverage:
+        if not adjusted_total_return:
+            raise ValueError(
+                "require_total_return_coverage=True requires "
+                "adjusted_total_return=True"
+            )
+        if out["close"].empty:
+            raise ValueError("cannot certify an empty adjusted price panel")
+        from core.data.price_basis import validate_total_return_coverage
+
+        validate_total_return_coverage(
+            root,
+            list(out["close"].columns),
+            through=out["close"].index.max(),
+        )
     return out

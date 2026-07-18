@@ -192,3 +192,20 @@ cooldown 或 switching cost。Regime 不是强制创新点：只有在 OOS 中�
 
 本审计不预先承诺一定能找到两个合格策略。第二阶段的可交付成功标准是流程诚实、证据可复算、
 不合格就明确淘汰；只有真实通过既定门槛的、经济逻辑不同的候选才进入 PAPER。
+
+## 9. 修复状态（2026-07-17）
+
+- P0-01/02/03：**CLOSED**。回测/研究/PAPER 统一 total-return adjusted loader；81-symbol
+  coverage 和 split hash fail-closed；上下跳空 share conservation 回归已落地。
+- P1-01/02：**CLOSED**。fill 使用实际 bar 日期；runner 的 walk-forward 传入 open slice，
+  文档不再把预计算 signals 自动称为真正 OOS。
+- P1-05/06：**CLOSED**。顺序虚拟账户聚合风控、daily turnover 配置/持久化，以及订单-
+  fill-account-checkpoint 同事务已通过 daily/intraday failure injection。
+- P1-08：**CLOSED FOR PHASE-TWO PIPELINE**。认证 manifest 固定 sidecar/source-boundary hash；
+  后续每个实验仍必须生成自己的 manifest。
+- P1-03/04：**GOVERNANCE-OPEN**。旧 rolling holdout 和已消费 2026 sealed 不可修复成 pristine；
+  新 funnel 必须 finalist-only 访问并诚实标注。
+- P1-07：**OPTIONAL FEATURE OPEN**。新候选默认不得依赖历史 regime confidence；若研究假设
+  使用 regime，必须先预注册并补齐 historical confidence/cooldown 证据。
+
+完整认证和修复后诊断结果见 `BACKTEST_CERTIFICATION.md`。

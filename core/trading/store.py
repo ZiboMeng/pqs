@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -49,6 +50,24 @@ class OrderStore:
         conn.execute("PRAGMA foreign_keys = ON")
         conn.execute("PRAGMA busy_timeout = 30000")
         return conn
+
+    @property
+    def db_path(self) -> Path:
+        return self._db_path
+
+    @contextmanager
+    def transaction(self):
+        """Yield one write transaction reusable by PAPER account persistence."""
+        conn = self._connect()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
     def _initialize(self) -> None:
         with self._connect() as conn:
@@ -138,11 +157,19 @@ class OrderStore:
             assert row is not None
             return self._from_row(row), True
 
-    def get(self, order_id: str) -> StoredOrder | None:
-        with self._connect() as conn:
-            row = conn.execute(
+    def get(
+        self,
+        order_id: str,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> StoredOrder | None:
+        if connection is not None:
+            row = connection.execute(
                 "SELECT * FROM orders WHERE order_id = ?", (order_id,)
             ).fetchone()
+            return None if row is None else self._from_row(row)
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM orders WHERE order_id = ?", (order_id,)).fetchone()
         return None if row is None else self._from_row(row)
 
     def list_nonterminal(self) -> list[StoredOrder]:
@@ -158,9 +185,7 @@ class OrderStore:
 
     def list_all(self) -> list[StoredOrder]:
         with self._connect() as conn:
-            rows = conn.execute(
-                "SELECT * FROM orders ORDER BY created_at, order_id"
-            ).fetchall()
+            rows = conn.execute("SELECT * FROM orders ORDER BY created_at, order_id").fetchall()
         return [self._from_row(row) for row in rows]
 
     def transition(
@@ -172,63 +197,82 @@ class OrderStore:
         broker_order_id: str | None = None,
         filled_quantity: float | None = None,
         metadata: dict[str, Any] | None = None,
+        connection: sqlite3.Connection | None = None,
     ) -> StoredOrder:
-        with self._connect() as conn:
-            conn.execute("BEGIN IMMEDIATE")
-            row = conn.execute(
-                "SELECT * FROM orders WHERE order_id = ?", (order_id,)
-            ).fetchone()
-            if row is None:
-                raise KeyError(f"unknown order_id {order_id}")
-            current = self._from_row(row)
-            if to_state not in ALLOWED_TRANSITIONS.get(current.state, frozenset()):
-                raise InvalidOrderTransitionError(
-                    f"{current.state.value} -> {to_state.value} is not allowed"
-                )
-
-            next_filled = (
-                current.filled_quantity
-                if filled_quantity is None
-                else float(filled_quantity)
+        if connection is not None:
+            return self._transition_on_connection(
+                connection,
+                order_id,
+                to_state,
+                reason=reason,
+                broker_order_id=broker_order_id,
+                filled_quantity=filled_quantity,
+                metadata=metadata,
             )
-            if next_filled < current.filled_quantity or next_filled > current.intent.quantity:
-                raise InvalidOrderTransitionError(
-                    "filled quantity must be monotonic and <= order quantity"
-                )
-            if to_state is OrderState.PARTIALLY_FILLED and not (
-                0 < next_filled < current.intent.quantity
-            ):
-                raise InvalidOrderTransitionError(
-                    "PARTIALLY_FILLED requires 0 < filled < quantity"
-                )
-            if to_state is OrderState.FILLED and next_filled != current.intent.quantity:
-                raise InvalidOrderTransitionError(
-                    "FILLED requires filled quantity == order quantity"
-                )
+        with self.transaction() as conn:
+            return self._transition_on_connection(
+                conn,
+                order_id,
+                to_state,
+                reason=reason,
+                broker_order_id=broker_order_id,
+                filled_quantity=filled_quantity,
+                metadata=metadata,
+            )
 
-            now = datetime.now(UTC).isoformat()
-            next_broker_id = broker_order_id or current.broker_order_id
-            conn.execute(
-                """
+    def _transition_on_connection(
+        self,
+        conn: sqlite3.Connection,
+        order_id: str,
+        to_state: OrderState,
+        *,
+        reason: str,
+        broker_order_id: str | None = None,
+        filled_quantity: float | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> StoredOrder:
+        row = conn.execute("SELECT * FROM orders WHERE order_id = ?", (order_id,)).fetchone()
+        if row is None:
+            raise KeyError(f"unknown order_id {order_id}")
+        current = self._from_row(row)
+        if to_state not in ALLOWED_TRANSITIONS.get(current.state, frozenset()):
+            raise InvalidOrderTransitionError(
+                f"{current.state.value} -> {to_state.value} is not allowed"
+            )
+
+        next_filled = current.filled_quantity if filled_quantity is None else float(filled_quantity)
+        if next_filled < current.filled_quantity or next_filled > current.intent.quantity:
+            raise InvalidOrderTransitionError(
+                "filled quantity must be monotonic and <= order quantity"
+            )
+        if to_state is OrderState.PARTIALLY_FILLED and not (
+            0 < next_filled < current.intent.quantity
+        ):
+            raise InvalidOrderTransitionError("PARTIALLY_FILLED requires 0 < filled < quantity")
+        if to_state is OrderState.FILLED and next_filled != current.intent.quantity:
+            raise InvalidOrderTransitionError("FILLED requires filled quantity == order quantity")
+
+        now = datetime.now(UTC).isoformat()
+        next_broker_id = broker_order_id or current.broker_order_id
+        conn.execute(
+            """
                 UPDATE orders
                 SET state = ?, broker_order_id = ?, filled_quantity = ?, updated_at = ?
                 WHERE order_id = ?
                 """,
-                (to_state.value, next_broker_id, next_filled, now, order_id),
-            )
-            self._insert_event(
-                conn,
-                order_id,
-                current.state,
-                to_state,
-                reason=reason,
-                metadata=metadata,
-            )
-            updated = conn.execute(
-                "SELECT * FROM orders WHERE order_id = ?", (order_id,)
-            ).fetchone()
-            assert updated is not None
-            return self._from_row(updated)
+            (to_state.value, next_broker_id, next_filled, now, order_id),
+        )
+        self._insert_event(
+            conn,
+            order_id,
+            current.state,
+            to_state,
+            reason=reason,
+            metadata=metadata,
+        )
+        updated = conn.execute("SELECT * FROM orders WHERE order_id = ?", (order_id,)).fetchone()
+        assert updated is not None
+        return self._from_row(updated)
 
     def events(self, order_id: str) -> list[dict[str, Any]]:
         with self._connect() as conn:

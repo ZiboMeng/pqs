@@ -32,6 +32,7 @@ class RiskSnapshot:
     prices: dict[str, float]
     daily_pnl: float = 0.0
     daily_turnover: float = 0.0
+    estimated_order_cost: float = 0.0
     data_fresh: bool = False
     kill_switch_active: bool = False
     manual_pause: bool = False
@@ -88,7 +89,11 @@ class PreTradeRiskEngine:
         reference_deviation = abs(order.reference_price - price) / price
         if reference_deviation > limits.max_reference_price_deviation:
             reasons.append("REFERENCE_PRICE_DEVIATION")
-        projected_cash = snapshot.cash - order_notional if order.side is TradingSide.BUY else snapshot.cash + order_notional
+        projected_cash = (
+            snapshot.cash - order_notional - snapshot.estimated_order_cost
+            if order.side is TradingSide.BUY
+            else snapshot.cash + order_notional - snapshot.estimated_order_cost
+        )
         min_cash = snapshot.equity * limits.min_cash_fraction
         if not limits.allow_margin and projected_cash < min_cash - 1e-9:
             reasons.append("MIN_CASH_BREACH")

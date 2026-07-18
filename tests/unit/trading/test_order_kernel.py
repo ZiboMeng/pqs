@@ -93,6 +93,21 @@ def test_pretrade_rejects_cash_position_gross_and_turnover_breaches():
     }
 
 
+def test_pretrade_reserves_estimated_cost_above_minimum_cash():
+    limits = RiskLimits(
+        max_gross_exposure=1.0,
+        max_single_position=1.0,
+        min_cash_fraction=0.05,
+        max_order_notional_fraction=1.0,
+    )
+    decision = PreTradeRiskEngine(limits).evaluate(
+        intent(quantity=950),
+        snapshot(estimated_order_cost=1.0),
+    )
+    assert not decision.approved
+    assert "MIN_CASH_BREACH" in decision.reason_codes
+
+
 def test_pretrade_rejects_stale_reference_price_deviation():
     decision = PreTradeRiskEngine(
         RiskLimits(max_reference_price_deviation=0.02)

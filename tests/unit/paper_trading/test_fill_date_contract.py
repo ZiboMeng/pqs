@@ -87,3 +87,48 @@ def test_signal_date_crosses_weekend(tmp_path):
             f"expected Friday {expected_signal_date}"
         )
         assert fill.fill_date == exec_date
+
+
+def test_signal_date_crosses_exchange_holiday(tmp_path):
+    """Fri 2024-03-29 was Good Friday; Thursday is the prior session."""
+    eng = PaperTradingEngine(
+        cost_model=_zero_cost_model(),
+        pnl_tracker=PnLTracker(),
+        db_path=tmp_path / "holiday.db",
+        initial_capital=10_000.0,
+        integer_shares=False,
+    )
+    exec_date = pd.Timestamp("2024-04-01")
+
+    result = eng.run_day_daily(
+        exec_date=exec_date,
+        target_wts={"AAA": 1.0},
+        prev_close={"AAA": 100.0},
+        exec_open={"AAA": 100.0},
+        eod_close={"AAA": 100.0},
+    )
+
+    assert result.trades
+    assert result.trades[0].signal_date == pd.Timestamp("2024-03-28")
+    assert result.trades[0].fill_date == exec_date
+
+
+def test_explicit_signal_bar_is_preserved_when_panel_skips_a_session(tmp_path):
+    eng = PaperTradingEngine(
+        cost_model=_zero_cost_model(),
+        pnl_tracker=PnLTracker(),
+        db_path=tmp_path / "missing-session.db",
+        initial_capital=10_000.0,
+        integer_shares=False,
+    )
+    result = eng.run_day_daily(
+        exec_date=pd.Timestamp("2024-01-08"),
+        signal_date=pd.Timestamp("2024-01-04"),
+        target_wts={"AAA": 1.0},
+        prev_close={"AAA": 100.0},
+        exec_open={"AAA": 100.0},
+        eod_close={"AAA": 100.0},
+    )
+
+    assert result.trades[0].signal_date == pd.Timestamp("2024-01-04")
+    assert result.trades[0].fill_date == pd.Timestamp("2024-01-08")

@@ -98,6 +98,39 @@ class TestRollingBacktest:
         assert windows == []
 
 
+class TestWalkForwardExecutionInputs:
+    def test_each_fold_receives_the_matching_open_slice(self):
+        from core.backtest.backtest_engine import _empty_result
+
+        class RecordingEngine:
+            def __init__(self):
+                self.opens = []
+
+            def run(self, signals, prices, opens, vix):
+                self.opens.append(opens.copy())
+                return _empty_result()
+
+        idx = pd.bdate_range("2024-01-02", periods=8)
+        signals = pd.DataFrame({"SPY": 0.5}, index=idx)
+        closes = pd.DataFrame({"SPY": np.arange(8) + 100.0}, index=idx)
+        opens = pd.DataFrame({"SPY": np.arange(8) + 1_000.0}, index=idx)
+        engine = RecordingEngine()
+
+        windows = WindowAnalyzer(engine).walk_forward(
+            signals,
+            closes,
+            open_df=opens,
+            train_size=2,
+            test_size=2,
+        )
+
+        assert len(windows) == 3
+        assert len(engine.opens) == 3
+        for call, window in zip(engine.opens, windows):
+            expected = opens.loc[window.test_start:window.test_end]
+            pd.testing.assert_frame_equal(call, expected)
+
+
 # ── acceptance_check ──────────────────────────────────────────────────────────
 
 class TestAcceptanceCheck:

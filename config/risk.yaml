@@ -44,6 +44,13 @@ budget:
   enhancer: 0.10   # TQQQ, SOXL (only in RISK_ON / BULL)
   # cash = 1 - (0.58 + 0.27 + 0.10) = 0.05 minimum
 
+# Account-level session circuit breakers used by the independent PAPER
+# pre-trade boundary.  Turnover is absolute traded notional / session-start
+# equity; daily loss is marked equity loss / session-start equity.
+session_limits:
+  max_daily_loss_fraction: 0.03
+  max_daily_turnover_fraction: 1.00
+
 left_side_trading:
   enabled: false
   allowed_regimes: [RISK_OFF]

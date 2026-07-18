@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "run_id": "20260717_173221_backtest",
+  "purpose": "corrected_engine_diagnostic_baseline_not_oos",
+  "code_parent_commit": "81c6ea0761e7f2620a6f21a1087f5e6788e6d209",
+  "command": "python scripts/run_backtest.py --no-walk-forward --no-cross-ticker-rules --output-dir research/results/certification_baseline",
+  "price_basis": "split_and_distribution_adjusted_total_return",
+  "fallback": "local",
+  "start": "2007-01-03",
+  "end": "2026-07-17",
+  "rows": 4915,
+  "symbols": 81,
+  "cash_interest_annual_rate": 0.0,
+  "benchmark_hard": "SPY",
+  "benchmark_diagnostic": "QQQ",
+  "sidecar_sha256": {
+    "splits": "624165282c1142b43f1445b2ac737f6c8f509b66a57126af8277b371e14c1b1b",
+    "distributions": "73001d19c8befda06f3fc127f982b2eb42b6ef4fd498c9392b70e9b83cdff8a3",
+    "distribution_coverage": "9b0bb1aa368820c3b6697bed9fde73c6c48208b006bc98019b251766f8873b33",
+    "daily_source_boundaries": "9a679f496d985f88018519fd43da8f6dcd3723c676da27a4c11ccb62456ae453"
+  },
+  "test_evidence": "653 passed, 1 xfailed, 0 failed in 123.42s",
+  "oos": false,
+  "promotion_eligible": false
+}

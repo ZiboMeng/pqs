@@ -56,11 +56,12 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-PROJ = Path("/home/zibo/Documents/projects/pqs")
+PROJ = Path(__file__).resolve().parents[3]
 DEFAULT_OUTPUT = PROJ / "data" / "ref" / "distributions.parquet"
+DEFAULT_COVERAGE_OUTPUT = PROJ / "data" / "ref" / "distribution_coverage.parquet"
 SPLITS_PATH = PROJ / "data" / "ref" / "splits.parquet"
 
-DEFAULT_SOURCE_TAG = "yfinance_dividends_2026_05"
+DEFAULT_SOURCE_TAG = f"yfinance_dividends_{datetime.now(timezone.utc):%Y_%m}"
 
 
 def _splits_table_sha() -> str:
@@ -203,6 +204,8 @@ def main():
                     help="Latest ex_date (default: all history)")
     ap.add_argument("--output", default=str(DEFAULT_OUTPUT),
                     help=f"Output parquet (default: {DEFAULT_OUTPUT})")
+    ap.add_argument("--coverage-output", default=str(DEFAULT_COVERAGE_OUTPUT),
+                    help="Per-symbol query coverage sidecar")
     ap.add_argument("--dry-run", action="store_true",
                     help="Print summary without writing parquet")
     ap.add_argument("--append", action="store_true",
@@ -210,35 +213,79 @@ def main():
     args = ap.parse_args()
 
     out_path = Path(args.output)
+    coverage_path = Path(args.coverage_output)
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    coverage_path.parent.mkdir(parents=True, exist_ok=True)
 
     print(f"[distributions builder] sha(splits.parquet)={_splits_table_sha()}")
     print(f"[distributions builder] symbols: {args.symbols}")
     print(f"[distributions builder] range: {args.start or 'all'} → {args.end or 'all'}")
 
     all_rows = []
+    coverage_rows = []
     for sym in args.symbols:
         print(f"  fetching {sym}...")
-        df = _fetch_distributions_yfinance(sym, start=args.start, end=args.end)
+        checked_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        try:
+            df = _fetch_distributions_yfinance(sym, start=args.start, end=args.end)
+            status = "OK"
+            error = ""
+        except Exception as exc:  # fail the certification run after recording all symbols
+            print(f"    ERROR: {type(exc).__name__}: {exc}")
+            df = pd.DataFrame()
+            status = "ERROR"
+            error = f"{type(exc).__name__}: {exc}"
         print(f"    {len(df)} dividend events")
         if not df.empty:
             print(f"    range: {df['ex_date'].min().date()} → "
                   f"{df['ex_date'].max().date()}; "
                   f"total cash = ${df['cash_amount'].sum():.2f}")
         all_rows.append(df)
+        coverage_rows.append({
+            "symbol": sym,
+            "checked_start": pd.Timestamp(args.start) if args.start else pd.NaT,
+            "checked_end": (
+                pd.Timestamp(args.end).normalize()
+                if args.end else pd.Timestamp.now(tz="UTC").tz_localize(None).normalize()
+            ),
+            "checked_at": checked_at,
+            "source": DEFAULT_SOURCE_TAG,
+            "status": status,
+            "error": error,
+            "n_events": int(len(df)),
+            "first_ex_date": (
+                pd.Timestamp(df["ex_date"].min()) if not df.empty else pd.NaT
+            ),
+            "last_ex_date": (
+                pd.Timestamp(df["ex_date"].max()) if not df.empty else pd.NaT
+            ),
+            "splits_table_sha": _splits_table_sha(),
+        })
 
     new_df = pd.concat(all_rows, ignore_index=True) if all_rows else pd.DataFrame()
-    if new_df.empty:
-        print("[distributions builder] no events fetched; nothing to write")
-        return 0
+    coverage_df = pd.DataFrame(coverage_rows)
+    had_errors = bool((coverage_df["status"] != "OK").any())
 
     if args.dry_run:
         print(f"\n[distributions builder] DRY-RUN: would write {len(new_df)} rows to {out_path}")
-        print(new_df.groupby("symbol").size().to_string())
-        return 0
+        if not new_df.empty:
+            print(new_df.groupby("symbol").size().to_string())
+        print(coverage_df[["symbol", "status", "n_events", "checked_end"]].to_string(index=False))
+        return 2 if had_errors else 0
+
+    if had_errors:
+        # Never publish a partially refreshed certification sidecar.  The
+        # coverage rows are still written for diagnosis, but distributions
+        # remain untouched and the command exits non-zero.
+        coverage_df.to_parquet(coverage_path, index=False)
+        print(f"[distributions builder] coverage contains errors; wrote {coverage_path}")
+        print("[distributions builder] distributions NOT modified")
+        return 2
 
     # Merge with existing if requested
-    if args.append and out_path.exists():
+    if new_df.empty:
+        out_df = pd.read_parquet(out_path) if out_path.exists() else new_df
+    elif args.append and out_path.exists():
         existing = pd.read_parquet(out_path)
         # Drop existing rows for symbols we're rewriting
         keep_mask = ~existing["symbol"].isin(new_df["symbol"].unique())
@@ -249,12 +296,22 @@ def main():
 
     out_df = out_df.sort_values(["symbol", "ex_date"]).reset_index(drop=True)
     out_df.to_parquet(out_path, index=False)
+    if args.append and coverage_path.exists():
+        existing_coverage = pd.read_parquet(coverage_path)
+        existing_coverage = existing_coverage[
+            ~existing_coverage["symbol"].isin(coverage_df["symbol"])
+        ]
+        coverage_df = pd.concat([existing_coverage, coverage_df], ignore_index=True)
+    coverage_df = coverage_df.sort_values("symbol").reset_index(drop=True)
+    coverage_df.to_parquet(coverage_path, index=False)
     print(f"\n[distributions builder] wrote {len(out_df)} rows to {out_path}")
-    print(f"  per-symbol counts:\n{out_df.groupby('symbol').size().to_string()}")
+    if not out_df.empty:
+        print(f"  per-symbol counts:\n{out_df.groupby('symbol').size().to_string()}")
+    print(f"[distributions builder] wrote {len(coverage_df)} coverage rows to {coverage_path}")
 
     # Provenance write to bar_provenance.parquet
     prov_path = PROJ / "data" / "ref" / "bar_provenance.parquet"
-    if prov_path.exists():
+    if prov_path.exists() and not new_df.empty:
         prov = pd.read_parquet(prov_path)
         prov_rows = []
         for sym in new_df["symbol"].unique():

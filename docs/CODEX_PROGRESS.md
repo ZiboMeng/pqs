@@ -1,12 +1,12 @@
 # Codex audit and hardening progress
 
-Last updated: 2026-07-17 (phase-two scoped audit checkpoint)
+Last updated: 2026-07-17 (backtest/PAPER certification checkpoint)
 
 ## Current phase
 
-Strategy Phase 2 — the scoped re-audit and cleanup dependency review are complete. Backtest
-and PAPER certification are fail-closed while three P0 and eight P1 findings are remediated;
-new strategy search has deliberately not started.
+Strategy Phase 2 — the scoped audit and backtest/PAPER certification repair are complete.
+Research remains closed while failure attribution, split governance, and hypothesis
+preregistration are written; no strategy is promoted.
 
 ## Completed
 
@@ -60,19 +60,24 @@ new strategy search has deliberately not started.
 - Reproduced raw-price contamination and a gap-down liquidation that sells roughly twice the
   held shares and creates cash. Also identified stale batch-risk snapshots and non-atomic
   FILLED-vs-account persistence in PAPER.
+- Closed the three certification P0s: canonical total-return price access, 81-symbol
+  distribution coverage/split-hash validation, and share-conserving gap execution.
+- Closed actual-fill-bar and walk-forward-open drift, then made PAPER batch risk sequential and
+  fill/order/account/checkpoint persistence atomic with safe VALIDATED retry after rollback.
+- Passed 653 tests / 1 expected xfail and daily+intraday crash failure injection; generated
+  `BACKTEST_CERTIFICATION.md` and a hash-stamped corrected baseline manifest.
 
 ## In progress
 
-- Audit checkpoint is being committed before implementation. Strategy research remains
-  blocked until the backtest and PAPER certification findings are closed.
+- Certification checkpoint is being committed. New strategy evaluation remains blocked until
+  old-family failure attribution and new hypothesis preregistration are complete.
 
 ## Next
 
-1. Fix canonical adjusted/total-return price access, split/dividend completeness checks, and
-   share-conserving sell sizing with negative controls.
-2. Make actual signal/fill bar dates and T+1-open semantics identical in full, fold, and PAPER.
-3. Make PAPER batch risk account-aware and fill/account/checkpoint persistence crash-recoverable.
-4. Certify the engine, then preregister and evaluate new strategy hypotheses.
+1. Attribute the corrected failures of every existing strategy family and freeze no-go regions.
+2. Freeze train/validation/finalist-only holdout access and acceptance gates.
+3. Preregister a small set of economically distinct hypotheses, then evaluate development data.
+4. Admit only qualifying finalists to the limited holdout and PAPER replay.
 
 ## Unresolved issues
 
@@ -124,9 +129,13 @@ were inspected/tested, but an actual container build remains an environment-leve
 
 ## Latest backtest result
 
-No phase-two certification backtest has run. The phase-one diagnostic numbers below are retained
-as historical output, but are not valid promotion evidence: the main runner bypassed adjusted
-price access and its SELL sizing can violate share conservation on open gaps.
+Corrected phase-two diagnostic (total-return basis, real T+1 open, current costs, 2007-01-03 to
+2026-07-17): dual momentum CAGR 5.7% / IR -0.33 / MaxDD -22.0%; trend following -1.5% /
+-0.71 / -30.2%; cross-asset rotation 4.2% / -0.43 / -11.1%; multi-factor 8.0% / -0.23 /
+-15.0%; SPY CAGR 10.9%. No strategy qualifies. See `BACKTEST_CERTIFICATION.md`.
+
+The phase-one diagnostic numbers below are retained as historical output, but are not valid
+promotion evidence because that runner used raw prices and non-conserving SELL sizing.
 
 Paper status smoke passes at $100,000 cash/equity and no positions. Mining leaderboard loads
 65 historical trials; every candidate is Tier D and none passed OOS or was promoted.

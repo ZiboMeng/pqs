@@ -81,6 +81,13 @@ class BudgetConfig(BaseModel):
         return 1.0 - (self.core + self.tactical + self.enhancer)
 
 
+class SessionRiskLimitsConfig(BaseModel):
+    """Account-level intraday loss and turnover circuit breakers."""
+
+    max_daily_loss_fraction: float = Field(default=0.03, gt=0, le=1.0)
+    max_daily_turnover_fraction: float = Field(default=1.0, gt=0, le=10.0)
+
+
 class LeftSideTradingConfig(BaseModel):
     """Configuration for the controlled left-side trading enhancement module."""
 
@@ -217,6 +224,9 @@ class RiskConfig(BaseModel):
     drawdown_limits: DrawdownLimitsConfig = Field(default_factory=DrawdownLimitsConfig)
     position_limits: PositionLimitsConfig = Field(default_factory=PositionLimitsConfig)
     budget: BudgetConfig = Field(default_factory=BudgetConfig)
+    session_limits: SessionRiskLimitsConfig = Field(
+        default_factory=SessionRiskLimitsConfig,
+    )
     left_side_trading: LeftSideTradingConfig = Field(default_factory=LeftSideTradingConfig)
     intraday_timing: IntradayTimingConfig = Field(default_factory=IntradayTimingConfig)
     strategy_concentration: StrategyConcentrationConfig = Field(

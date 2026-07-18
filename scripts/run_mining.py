@@ -56,14 +56,27 @@ def load_prices(store: MarketDataStore, symbols: list) -> pd.DataFrame:
     frames = {}
     for sym in symbols:
         try:
-            df = load_adjusted(sym, store.data_dir, "1d")
+            df = load_adjusted(
+                sym,
+                store.data_dir,
+                "1d",
+                adjusted_total_return=True,
+            )
             if df is not None and not df.empty and "close" in df.columns:
                 frames[sym] = df["close"]
         except Exception as exc:
             logger.warning("加载 %s 失败: %s", sym, exc)
     if not frames:
         return pd.DataFrame()
-    return pd.DataFrame(frames).sort_index()
+    panel = pd.DataFrame(frames).sort_index()
+    from core.data.price_basis import validate_total_return_coverage
+
+    validate_total_return_coverage(
+        store.data_dir,
+        list(panel.columns),
+        through=panel.index.max(),
+    )
+    return panel
 
 
 def main():
@@ -201,7 +214,12 @@ def main():
     for sym in all_syms:
         try:
             from core.data.price_access import load_adjusted
-            df = load_adjusted(sym, store.data_dir, "1d")  # P0-A F1
+            df = load_adjusted(
+                sym,
+                store.data_dir,
+                "1d",
+                adjusted_total_return=True,
+            )  # P0-A F1
             if df is not None and not df.empty and "open" in df.columns:
                 open_frames[sym] = df["open"]
         except Exception:
@@ -287,7 +305,9 @@ def main():
     logger.info("启动策略挖掘循环 (trials=%d, budget=%.0fs)...", args.trials, args.budget)
     # QQQ series for the hard gate. P0-A F1: split-adjusted via BarStore.
     from core.data.price_access import load_adjusted
-    qqq_df = load_adjusted("QQQ", store.data_dir, "1d")
+    qqq_df = load_adjusted(
+        "QQQ", store.data_dir, "1d", adjusted_total_return=True
+    )
     qqq_series = (qqq_df["close"].reindex(price_df.index, method="ffill")
                   if qqq_df is not None and not qqq_df.empty else None)
     if qqq_series is None:

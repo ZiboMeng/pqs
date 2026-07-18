@@ -38,7 +38,7 @@ from core.logging_setup import get_logger
 logger = get_logger(__name__)
 
 # ── EOD 对账阈值（仅用于警告，不触发 kill switch）────────────────────────────
-_WARN_DAILY_PNL_RATIO    = 0.05   # 单日 P&L / 权益 > 5% → 警告
+_WARN_DAILY_PNL_RATIO = 0.05  # 单日 P&L / 权益 > 5% → 警告
 _WARN_DRAWDOWN_THRESHOLD = -0.15  # 当前回撤 < -15% → 警告
 
 # ── Replay 模式 Bias 警告文本 ────────────────────────────────────────────────
@@ -68,37 +68,40 @@ class PaperTradingEngine:
 
     def __init__(
         self,
-        cost_model:         CostModel,
-        pnl_tracker:        PnLTracker,
-        db_path:            str | Path,
-        initial_capital:    float              = 100_000.0,
-        eod_force_close:    bool               = True,
-        confluence_enabled: bool               = True,
-        kill_switch:        Optional[KillSwitch] = None,
-        replay_mode:        bool               = False,
-        integer_shares:     bool               = True,
-        broker_adapter:     Optional["BrokerAdapter"] = None,
-        order_service:      Optional["OrderRegistrationService"] = None,
-        market_data_fresh:  bool = False,
-        reconciliation_ok:  bool = False,
+        cost_model: CostModel,
+        pnl_tracker: PnLTracker,
+        db_path: str | Path,
+        initial_capital: float = 100_000.0,
+        eod_force_close: bool = True,
+        confluence_enabled: bool = True,
+        kill_switch: Optional[KillSwitch] = None,
+        replay_mode: bool = False,
+        integer_shares: bool = True,
+        broker_adapter: Optional["BrokerAdapter"] = None,
+        order_service: Optional["OrderRegistrationService"] = None,
+        market_data_fresh: bool = False,
+        reconciliation_ok: bool = False,
         manual_pause_check: Optional[Callable[[str], bool]] = None,
     ):
         self._engine = IntradayBacktestEngine(
-            cost_model         = cost_model,
-            initial_capital    = initial_capital,
-            eod_force_close    = eod_force_close,
-            confluence_enabled = confluence_enabled,
+            cost_model=cost_model,
+            initial_capital=initial_capital,
+            eod_force_close=eod_force_close,
+            confluence_enabled=confluence_enabled,
         )
-        self._tracker         = pnl_tracker
-        self._db_path         = Path(db_path)
+        self._tracker = pnl_tracker
+        self._db_path = Path(db_path)
         self._initial_capital = initial_capital
-        self._kill_switch     = kill_switch or KillSwitch(KillSwitchConfig())
-        self._replay_mode     = replay_mode
-        self._integer_shares  = integer_shares
+        self._kill_switch = kill_switch or KillSwitch(KillSwitchConfig())
+        self._replay_mode = replay_mode
+        self._integer_shares = integer_shares
 
         # 运行时状态
         self._positions: Dict[str, float] = {}
-        self._cash:      float             = initial_capital
+        self._cash: float = initial_capital
+        self._risk_session_date: Optional[pd.Timestamp] = None
+        self._risk_session_start_equity: float = initial_capital
+        self._daily_turnover: float = 0.0
         # Stale-bars tracker persists across successive run_day_intraday
         # invocations so that a multi-day halt accumulates correctly
         # toward the intraday ghost-cleanup threshold (closeout 2026-04-20).
@@ -116,6 +119,11 @@ class PaperTradingEngine:
         self._broker = broker_adapter
         self._broker_reconcile_results: List["ReconcileResult"] = []
         self._order_service = order_service
+        if order_service is not None and order_service.db_path.resolve() != self._db_path.resolve():
+            raise ValueError(
+                "OrderStore and PaperTradingEngine must share one SQLite file "
+                "for atomic fill/account commits"
+            )
         self._market_data_fresh = market_data_fresh
         self._reconciliation_ok = reconciliation_ok
         self._manual_pause_check = manual_pause_check
@@ -131,11 +139,11 @@ class PaperTradingEngine:
 
     def run_day(
         self,
-        date:     pd.Timestamp,
+        date: pd.Timestamp,
         day_bars: pd.DataFrame,
         day_sigs: pd.DataFrame,
         day_conf: Optional[pd.DataFrame] = None,
-        vix:      float                   = 15.0,
+        vix: float = 15.0,
     ) -> DayResult:
         """
         执行单日模拟盘交易。
@@ -157,18 +165,18 @@ class PaperTradingEngine:
         vix      : 当日 VIX 值（默认 15.0）
         """
         result = self._engine.run_single_day(
-            date      = date,
-            day_bars  = day_bars,
-            day_sigs  = day_sigs,
-            day_conf  = day_conf,
-            positions = self._positions.copy(),
-            cash      = self._cash,
-            vix       = vix,
+            date=date,
+            day_bars=day_bars,
+            day_sigs=day_sigs,
+            day_conf=day_conf,
+            positions=self._positions.copy(),
+            cash=self._cash,
+            vix=vix,
         )
 
         # 更新内存状态
         self._positions = result.eod_positions
-        self._cash      = result.eod_cash
+        self._cash = result.eod_cash
 
         # 当日 EOD 权益 = 现金 + 持仓市值（EOD 清仓后持仓为空，仅现金）
         equity = self._cash + self._position_value(day_bars)
@@ -181,18 +189,23 @@ class PaperTradingEngine:
 
         logger.info(
             "[%s] equity=%.2f  net_pnl=%.2f  trades=%d  forced_close=%s",
-            date.date(), equity, result.net_pnl, result.n_trades, result.forced_close,
+            date.date(),
+            equity,
+            result.net_pnl,
+            result.n_trades,
+            result.forced_close,
         )
         return result
 
     def run_day_daily(
         self,
-        exec_date:   pd.Timestamp,
-        target_wts:  Dict[str, float],
-        prev_close:  Dict[str, float],
-        exec_open:   Dict[str, float],
-        eod_close:   Optional[Dict[str, float]] = None,
-        vix:         float = 15.0,
+        exec_date: pd.Timestamp,
+        target_wts: Dict[str, float],
+        prev_close: Dict[str, float],
+        exec_open: Dict[str, float],
+        eod_close: Optional[Dict[str, float]] = None,
+        vix: float = 15.0,
+        signal_date: Optional[pd.Timestamp] = None,
     ) -> DayResult:
         """
         Daily-mode execution — single trading-day step.
@@ -212,9 +225,9 @@ class PaperTradingEngine:
                             for tests that pass identical prev/eod, but
                             production callers MUST pass eod_close).
 
-        ``signal_date`` stamped on every order is ``exec_date - 1 BDay``,
-        so ExecutionSimulator's ``fill_date = signal_date + 1 BDay`` lands
-        correctly on ``exec_date`` (was previously off by +1 BDay).
+        ``signal_date`` should be the concrete source bar selected by the
+        caller.  If omitted, the prior NYSE session is used (holiday-aware).
+        ``fill_date`` is always the concrete ``exec_date`` bar.
 
         Persistent ``self._positions`` and ``self._cash`` are updated in
         place. EOD equity recorded into the PnL tracker is the post-fill
@@ -232,7 +245,12 @@ class PaperTradingEngine:
 
         price_row = pd.Series(prev_close)
         open_row = pd.Series(exec_open)
-        signal_date = exec_date - pd.tseries.offsets.BDay(1)
+        if signal_date is None:
+            from core.data.calendar import previous_trading_day
+
+            signal_date = previous_trading_day(exec_date)
+        else:
+            signal_date = pd.Timestamp(signal_date)
 
         portfolio_value = self._cash + sum(
             self._positions.get(s, 0) * prev_close.get(s, 0) for s in self._positions
@@ -257,6 +275,8 @@ class PaperTradingEngine:
             price_row=price_row,
             open_row=open_row,
             signal_date=signal_date,
+            current_positions=self._positions,
+            cash=self._cash,
         )
         orders = self._apply_pretrade_boundary(
             orders,
@@ -266,6 +286,9 @@ class PaperTradingEngine:
             cash=self._cash,
             prices=dict(exec_open),
             equity=portfolio_value,
+            session_date=exec_date,
+            execution_freq="interday",
+            vix=vix,
         )
 
         fills = daily_engine._sim.simulate_fills(
@@ -273,9 +296,10 @@ class PaperTradingEngine:
             open_prices=exec_open,
             vix=vix,
             cash=self._cash,
+            fill_date=exec_date,
         )
-        self._record_order_outcomes(orders, fills)
-
+        old_positions = dict(self._positions)
+        old_cash = self._cash
         for fill in fills:
             prev_qty = self._positions.get(fill.symbol, 0.0)
             if fill.side == OrderSide.BUY:
@@ -295,32 +319,58 @@ class PaperTradingEngine:
         net_pnl = equity - portfolio_value
 
         result = DayResult(
-            date=exec_date, trades=fills,
-            eod_positions=dict(self._positions), eod_cash=self._cash,
-            gross_pnl=net_pnl, net_pnl=net_pnl, forced_close=False,
+            date=exec_date,
+            trades=fills,
+            eod_positions=dict(self._positions),
+            eod_cash=self._cash,
+            gross_pnl=net_pnl,
+            net_pnl=net_pnl,
+            forced_close=False,
         )
+
+        try:
+            self._record_order_outcomes(
+                orders,
+                fills,
+                persist=lambda conn: self._save_state(
+                    exec_date,
+                    result,
+                    equity,
+                    connection=conn,
+                ),
+            )
+        except Exception:
+            self._positions = old_positions
+            self._cash = old_cash
+            raise
 
         if self._broker is not None:
             self._run_broker_reconcile(date=exec_date, label="daily")
 
         self._tracker.record(result, equity)
-        self._save_state(exec_date, result, equity)
 
         logger.info(
             "[%s] daily: equity=%.2f  pnl=%.2f  trades=%d",
-            exec_date.date(), equity, net_pnl, len(fills),
+            exec_date.date(),
+            equity,
+            net_pnl,
+            len(fills),
         )
         return result
 
     def run_day_intraday(
         self,
-        run_id:         str,
-        date:           pd.Timestamp,
-        day_bars:       Dict[str, pd.DataFrame],
-        target_wts:     Dict[str, float],
-        vix:            float = 15.0,
-        target_wts_fn:  Optional[Callable[[pd.Timestamp, Dict[str, float], float], Dict[str, float]]] = None,
-        timing_provider: Optional[Callable[[pd.Timestamp, Dict[str, float], float], Dict[str, float]]] = None,
+        run_id: str,
+        date: pd.Timestamp,
+        day_bars: Dict[str, pd.DataFrame],
+        target_wts: Dict[str, float],
+        vix: float = 15.0,
+        target_wts_fn: Optional[
+            Callable[[pd.Timestamp, Dict[str, float], float], Dict[str, float]]
+        ] = None,
+        timing_provider: Optional[
+            Callable[[pd.Timestamp, Dict[str, float], float], Dict[str, float]]
+        ] = None,
         resume_from_checkpoint: bool = True,
     ) -> DayResult:
         """Bar-by-bar intraday execution for paper (live or replay).
@@ -358,9 +408,15 @@ class PaperTradingEngine:
             )
         effective_target_fn = timing_provider or target_wts_fn
         if not day_bars:
-            return DayResult(date=date, trades=[], eod_positions=dict(self._positions),
-                             eod_cash=self._cash, gross_pnl=0.0, net_pnl=0.0,
-                             forced_close=False)
+            return DayResult(
+                date=date,
+                trades=[],
+                eod_positions=dict(self._positions),
+                eod_cash=self._cash,
+                gross_pnl=0.0,
+                net_pnl=0.0,
+                forced_close=False,
+            )
 
         cp_last_bar_ts: Optional[pd.Timestamp] = None
         # Short-circuit key: do ALL symbols' bars end at or before the
@@ -369,9 +425,7 @@ class PaperTradingEngine:
         # arrives between live re-runs) or if the reference symbol
         # changed due to dict-iteration order. Using max() across all
         # symbols is stable.
-        day_last_bar_ts = max(
-            df.index[-1] for df in day_bars.values() if len(df) > 0
-        )
+        day_last_bar_ts = max(df.index[-1] for df in day_bars.values() if len(df) > 0)
         if resume_from_checkpoint:
             cp = self.load_bar_checkpoint(run_id)
             if cp is not None:
@@ -386,12 +440,11 @@ class PaperTradingEngine:
                 # and ghost cleanup never fires.
                 persisted_stale = cp.get("stale_counts") or {}
                 if persisted_stale:
-                    self._intraday_stale_counts = {
-                        s: int(n) for s, n in persisted_stale.items()
-                    }
+                    self._intraday_stale_counts = {s: int(n) for s, n in persisted_stale.items()}
                     logger.info(
                         "[%s] restored stale_counts from checkpoint: %s",
-                        date.date(), self._intraday_stale_counts,
+                        date.date(),
+                        self._intraday_stale_counts,
                     )
             if cp is not None and cp["date"] == date:
                 self._positions = {s: float(q) for s, q in cp["positions"].items()}
@@ -399,7 +452,10 @@ class PaperTradingEngine:
                 cp_last_bar_ts = cp["last_bar_ts"]
                 logger.info(
                     "[%s] resumed run_id=%s from bar_ts=%s (cash=%.2f, %d positions)",
-                    date.date(), run_id, cp_last_bar_ts, self._cash,
+                    date.date(),
+                    run_id,
+                    cp_last_bar_ts,
+                    self._cash,
                     len(self._positions),
                 )
                 # Short-circuit only when EVERY symbol's last bar is
@@ -408,8 +464,7 @@ class PaperTradingEngine:
                 # pick as reference. If any symbol has new bars past
                 # cp_last_bar_ts, we resume normally and process them.
                 all_bars_covered = all(
-                    df.index[-1] <= cp_last_bar_ts
-                    for df in day_bars.values() if len(df) > 0
+                    df.index[-1] <= cp_last_bar_ts for df in day_bars.values() if len(df) > 0
                 )
                 if all_bars_covered and cp_last_bar_ts >= day_last_bar_ts:
                     logger.info(
@@ -417,10 +472,13 @@ class PaperTradingEngine:
                         date.date(),
                     )
                     return DayResult(
-                        date=date, trades=[],
+                        date=date,
+                        trades=[],
                         eod_positions=dict(self._positions),
                         eod_cash=self._cash,
-                        gross_pnl=0.0, net_pnl=0.0, forced_close=False,
+                        gross_pnl=0.0,
+                        net_pnl=0.0,
+                        forced_close=False,
                     )
 
         def _skip(bar_ts: pd.Timestamp) -> bool:
@@ -436,10 +494,44 @@ class PaperTradingEngine:
         bar_fill_ids: set[int] = set()
 
         def _on_bar(upd: BarUpdate) -> None:
-            self._record_order_outcomes(upd.orders, upd.fills)
+            old_positions = dict(self._positions)
+            old_cash = self._cash
             # Update in-memory state from the runtime's per-bar snapshot.
             self._positions = dict(upd.positions)
             self._cash = upd.cash
+
+            def _persist_bar(conn: sqlite3.Connection) -> None:
+                self.save_intraday_bar(
+                    run_id=run_id,
+                    date=upd.date,
+                    bar_ts=upd.bar_ts,
+                    orders=upd.orders,
+                    fills=upd.fills,
+                    positions=upd.positions,
+                    cash=upd.cash,
+                    equity=upd.equity,
+                    connection=conn,
+                )
+                self.save_bar_checkpoint(
+                    run_id=run_id,
+                    date=upd.date,
+                    bar_ts=upd.bar_ts,
+                    positions=upd.positions,
+                    cash=upd.cash,
+                    connection=conn,
+                )
+                self._save_account_snapshot(upd.date, connection=conn)
+
+            try:
+                self._record_order_outcomes(
+                    upd.orders,
+                    upd.fills,
+                    persist=_persist_bar,
+                )
+            except Exception:
+                self._positions = old_positions
+                self._cash = old_cash
+                raise
             for f in upd.fills:
                 bar_fill_ids.add(id(f))
             # Mirror fills to BrokerAdapter when wired (Round 12 off-menu).
@@ -447,15 +539,6 @@ class PaperTradingEngine:
             # engine used; any drift surfaces in EOD reconcile.
             if self._broker is not None:
                 self._mirror_fills_to_broker(upd.fills)
-            self.save_intraday_bar(
-                run_id=run_id, date=upd.date, bar_ts=upd.bar_ts,
-                orders=upd.orders, fills=upd.fills,
-                positions=upd.positions, cash=upd.cash, equity=upd.equity,
-            )
-            self.save_bar_checkpoint(
-                run_id=run_id, date=upd.date, bar_ts=upd.bar_ts,
-                positions=upd.positions, cash=upd.cash,
-            )
 
         def _pretrade_filter(
             orders: List[Order],
@@ -473,10 +556,13 @@ class PaperTradingEngine:
                 cash=cash,
                 prices=prices,
                 equity=equity,
+                execution_freq="intraday",
+                vix=vix,
             )
 
         result = self._engine.run_multi_day(
-            date=date, day_bars=day_bars,
+            date=date,
+            day_bars=day_bars,
             target_wts=target_wts,
             positions=self._positions.copy(),
             cash=self._cash,
@@ -504,24 +590,37 @@ class PaperTradingEngine:
         # guard with has_fill_for_bar to keep re-runs idempotent.
         residual_fills = [f for f in result.trades if id(f) not in bar_fill_ids]
         if residual_fills:
-            self._record_order_outcomes(
-                [fill.order for fill in residual_fills],
-                residual_fills,
-            )
             ref_sym = next(iter(day_bars))
             last_bar_ts = day_bars[ref_sym].index[-1]
             if not self.has_fill_for_bar(run_id, last_bar_ts):
-                self.save_intraday_bar(
-                    run_id=run_id, date=date, bar_ts=last_bar_ts,
-                    orders=[], fills=residual_fills,
-                    positions=self._positions, cash=self._cash, equity=equity,
-                    is_eod=True,  # P1.8: flag EOD residuals for attribution
-                )
-                # Final checkpoint reflects post-EOD state so a re-run
-                # doesn't re-trigger EOD force-close.
-                self.save_bar_checkpoint(
-                    run_id=run_id, date=date, bar_ts=last_bar_ts,
-                    positions=self._positions, cash=self._cash,
+
+                def _persist_residual(conn: sqlite3.Connection) -> None:
+                    self.save_intraday_bar(
+                        run_id=run_id,
+                        date=date,
+                        bar_ts=last_bar_ts,
+                        orders=[],
+                        fills=residual_fills,
+                        positions=self._positions,
+                        cash=self._cash,
+                        equity=equity,
+                        is_eod=True,
+                        connection=conn,
+                    )
+                    self.save_bar_checkpoint(
+                        run_id=run_id,
+                        date=date,
+                        bar_ts=last_bar_ts,
+                        positions=self._positions,
+                        cash=self._cash,
+                        connection=conn,
+                    )
+                    self._save_account_snapshot(date, connection=conn)
+
+                self._record_order_outcomes(
+                    [fill.order for fill in residual_fills],
+                    residual_fills,
+                    persist=_persist_residual,
                 )
         # Mirror residual (EOD force-close) fills to broker, then reconcile.
         if self._broker is not None:
@@ -534,7 +633,10 @@ class PaperTradingEngine:
 
         logger.info(
             "[%s] intraday: equity=%.2f  pnl=%.2f  trades=%d",
-            date.date(), equity, result.net_pnl, result.n_trades,
+            date.date(),
+            equity,
+            result.net_pnl,
+            result.n_trades,
         )
         return result
 
@@ -550,6 +652,9 @@ class PaperTradingEngine:
         cash: float,
         prices: Dict[str, float],
         equity: float,
+        session_date: Optional[pd.Timestamp] = None,
+        execution_freq: str = "intraday",
+        vix: float = 15.0,
     ) -> List[Order]:
         """Register and independently validate each order before execution."""
         if self._order_service is None:
@@ -558,9 +663,18 @@ class PaperTradingEngine:
         from core.trading.order import OrderIntent, OrderState, TradingSide
         from core.trading.risk import RiskSnapshot
 
+        risk_date = pd.Timestamp(session_date or bar_ts).normalize()
+        self._start_risk_session(risk_date, equity)
+
         accepted: List[Order] = []
+        virtual_positions = dict(positions)
+        virtual_cash = float(cash)
+        virtual_turnover = float(self._daily_turnover)
         kill_state = str(getattr(self._kill_switch, "state", "NORMAL"))
-        for order in orders:
+        ordered = [order for order in orders if order.side.value == "SELL"] + [
+            order for order in orders if order.side.value == "BUY"
+        ]
+        for order in ordered:
             decision_id = f"{run_id}:{pd.Timestamp(bar_ts).isoformat()}"
             intent = OrderIntent(
                 symbol=order.symbol,
@@ -573,11 +687,21 @@ class PaperTradingEngine:
                 idempotency_key=f"{decision_id}:{order.symbol}:{order.side.value}",
                 comment=order.comment,
             )
+            notional = float(order.qty_shares) * float(prices[order.symbol])
+            estimated_cost = self._engine._cost.estimate_cost(
+                order.symbol,
+                notional,
+                execution_freq,
+                vix,
+            ).total_cost_usd
             snapshot = RiskSnapshot(
                 equity=float(equity),
-                cash=float(cash),
-                positions=dict(positions),
+                cash=virtual_cash,
+                positions=dict(virtual_positions),
                 prices=dict(prices),
+                daily_pnl=float(equity - self._risk_session_start_equity),
+                daily_turnover=virtual_turnover,
+                estimated_order_cost=estimated_cost,
                 data_fresh=self._market_data_fresh,
                 kill_switch_active=kill_state.endswith("SUSPENDED"),
                 manual_pause=(
@@ -589,12 +713,18 @@ class PaperTradingEngine:
             )
             result = self._order_service.register(intent, snapshot)
             if result.duplicate:
-                logger.warning(
-                    "Suppressing duplicate order intent %s (%s)",
-                    intent.idempotency_key,
-                    result.order.state.value,
-                )
-                continue
+                if result.order.state is OrderState.VALIDATED:
+                    logger.warning(
+                        "Retrying previously validated local order %s",
+                        intent.idempotency_key,
+                    )
+                else:
+                    logger.warning(
+                        "Suppressing duplicate order intent %s (%s)",
+                        intent.idempotency_key,
+                        result.order.state.value,
+                    )
+                    continue
             if result.order.state is not OrderState.VALIDATED:
                 logger.warning(
                     "Pre-trade veto rejected %s %s: %s",
@@ -605,28 +735,104 @@ class PaperTradingEngine:
                     else "UNKNOWN",
                 )
                 continue
-            self._order_service.mark_submitted(intent.order_id)
-            setattr(order, "canonical_order_id", intent.order_id)
+            setattr(order, "canonical_order_id", result.order.intent.order_id)
             accepted.append(order)
+            current_qty = float(virtual_positions.get(order.symbol, 0.0))
+            if order.side.value == "BUY":
+                virtual_positions[order.symbol] = current_qty + float(order.qty_shares)
+                virtual_cash -= notional + estimated_cost
+            else:
+                virtual_positions[order.symbol] = max(current_qty - float(order.qty_shares), 0.0)
+                virtual_cash += notional - estimated_cost
+            virtual_positions = {
+                symbol: qty for symbol, qty in virtual_positions.items() if qty > 1e-9
+            }
+            virtual_turnover += notional
         return accepted
 
-    def _record_order_outcomes(self, orders: List[Order], fills: List[Fill]) -> None:
-        if self._order_service is None:
-            return
+    def _record_order_outcomes(
+        self,
+        orders: List[Order],
+        fills: List[Fill],
+        *,
+        persist: Optional[Callable[[sqlite3.Connection], object]] = None,
+    ) -> None:
         fill_by_order = {id(fill.order): fill for fill in fills}
+        outcomes: list[tuple[str, float | None]] = []
         for order in orders:
             order_id = getattr(order, "canonical_order_id", None)
             if order_id is None:
                 continue
             fill = fill_by_order.get(id(order))
-            if fill is None:
-                self._order_service.mark_rejected(
-                    order_id,
-                    reason="execution_simulator_declined",
+            outcomes.append((order_id, None if fill is None else float(fill.executed_qty)))
+
+        old_turnover = self._daily_turnover
+        self._daily_turnover += sum(float(fill.notional_usd) for fill in fills)
+
+        def _persist_all(conn: sqlite3.Connection) -> None:
+            if persist is not None:
+                persist(conn)
+            self._save_risk_session(connection=conn)
+
+        try:
+            if self._order_service is not None:
+                self._order_service.commit_simulated_execution(
+                    outcomes,
+                    persist=_persist_all,
                 )
-                continue
-            self._order_service.mark_acknowledged(order_id)
-            self._order_service.mark_fill(order_id, float(fill.executed_qty))
+            else:
+                with sqlite3.connect(self._db_path) as conn:
+                    conn.execute("BEGIN IMMEDIATE")
+                    _persist_all(conn)
+        except Exception:
+            self._daily_turnover = old_turnover
+            raise
+
+    def _start_risk_session(self, date: pd.Timestamp, equity: float) -> None:
+        normalized = pd.Timestamp(date).normalize()
+        if self._risk_session_date == normalized:
+            return
+        self._risk_session_date = normalized
+        self._risk_session_start_equity = float(equity)
+        self._daily_turnover = 0.0
+        self._save_risk_session()
+
+    def _save_risk_session(
+        self,
+        *,
+        connection: Optional[sqlite3.Connection] = None,
+    ) -> None:
+        if self._risk_session_date is None:
+            return
+        if connection is not None:
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO pt_risk_session (
+                    session_date, start_equity, turnover, updated_at
+                ) VALUES (?, ?, ?, ?)
+                """,
+                (
+                    str(self._risk_session_date.date()),
+                    self._risk_session_start_equity,
+                    self._daily_turnover,
+                    str(pd.Timestamp.now()),
+                ),
+            )
+            return
+        with sqlite3.connect(self._db_path) as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO pt_risk_session (
+                    session_date, start_equity, turnover, updated_at
+                ) VALUES (?, ?, ?, ?)
+                """,
+                (
+                    str(self._risk_session_date.date()),
+                    self._risk_session_start_equity,
+                    self._daily_turnover,
+                    str(pd.Timestamp.now()),
+                ),
+            )
 
     # ── BrokerAdapter mirror helpers (Round 12) ───────────────────────────────
 
@@ -648,16 +854,20 @@ class PaperTradingEngine:
                 if ack.status != "ACCEPTED":
                     logger.warning(
                         "broker mirror rejected fill for %s: %s",
-                        f.symbol, ack.reject_reason,
+                        f.symbol,
+                        ack.reject_reason,
                     )
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "broker mirror submit_order failed for %s: %s",
-                    f.symbol, exc,
+                    f.symbol,
+                    exc,
                 )
 
     def _run_broker_reconcile(
-        self, date: pd.Timestamp, label: str = "",
+        self,
+        date: pd.Timestamp,
+        label: str = "",
     ) -> Optional["ReconcileResult"]:
         """Run reconcile between engine state and broker mirror; store
         result in `_broker_reconcile_results`. Safe to call with no broker
@@ -676,12 +886,16 @@ class PaperTradingEngine:
         if not res.passed:
             logger.warning(
                 "[%s] broker reconcile FAILED (%s): %s",
-                date.date(), label, res.details,
+                date.date(),
+                label,
+                res.details,
             )
         else:
             logger.info(
                 "[%s] broker reconcile PASSED (%s): %s",
-                date.date(), label, res.details,
+                date.date(),
+                label,
+                res.details,
             )
         return res
 
@@ -771,12 +985,12 @@ class PaperTradingEngine:
             logger.info("[%s] EOD 对账通过", date.date())
 
         return {
-            "ok":       len(warnings) == 0,
+            "ok": len(warnings) == 0,
             "warnings": warnings,
             "n_trades": day_result.n_trades,
-            "equity":   eq,
+            "equity": eq,
             "drawdown": dd,
-            "date":     date,
+            "date": date,
         }
 
     # ── Kill Switch ───────────────────────────────────────────────────────────
@@ -801,7 +1015,7 @@ class PaperTradingEngine:
     def reset(self) -> None:
         """重置到初始状态，清除所有持仓、PnLTracker 记录与 DB 数据。"""
         self._positions = {}
-        self._cash      = self._initial_capital
+        self._cash = self._initial_capital
         self._tracker.reset()
         self._clear_db()
         logger.info("PaperTradingEngine reset. initial_capital=%.2f", self._initial_capital)
@@ -812,11 +1026,7 @@ class PaperTradingEngine:
         """用当日最后一根 K 线的 close 价格估算持仓市值。"""
         if not self._positions or day_bars.empty:
             return 0.0
-        last_close = (
-            float(day_bars["close"].iloc[-1])
-            if "close" in day_bars.columns
-            else 0.0
-        )
+        last_close = float(day_bars["close"].iloc[-1]) if "close" in day_bars.columns else 0.0
         return sum(qty * last_close for qty in self._positions.values())
 
     # ── SQLite 持久化 ─────────────────────────────────────────────────────────
@@ -842,6 +1052,14 @@ class PaperTradingEngine:
                 total_cost   REAL    NOT NULL,
                 forced_close INTEGER NOT NULL,
                 is_replay    INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS pt_risk_session (
+                session_date TEXT PRIMARY KEY,
+                start_equity REAL NOT NULL,
+                turnover REAL NOT NULL,
+                updated_at TEXT NOT NULL
             )
         """)
         # Intraday bar-level persistence tables
@@ -878,10 +1096,7 @@ class PaperTradingEngine:
         # exists; failure silenced because older SQLite reports an
         # error we treat as "already migrated."
         try:
-            conn.execute(
-                "ALTER TABLE intraday_fills ADD COLUMN is_eod INTEGER "
-                "NOT NULL DEFAULT 0"
-            )
+            conn.execute("ALTER TABLE intraday_fills ADD COLUMN is_eod INTEGER NOT NULL DEFAULT 0")
         except sqlite3.OperationalError:
             pass  # column exists
         conn.execute("""
@@ -933,41 +1148,57 @@ class PaperTradingEngine:
                 "SELECT date, equity, net_pnl, n_trades, total_cost, forced_close "
                 "FROM pt_history ORDER BY date"
             ).fetchall()
+            risk_row = conn.execute(
+                "SELECT session_date, start_equity, turnover "
+                "FROM pt_risk_session ORDER BY session_date DESC LIMIT 1"
+            ).fetchone()
         finally:
             conn.close()
 
         if row:
-            self._cash      = float(row[0])
+            self._cash = float(row[0])
             self._positions = json.loads(row[1])
 
         if hist_rows:
             records = [
                 {
-                    "date":         pd.Timestamp(r[0]),
-                    "equity":       float(r[1]),
-                    "net_pnl":      float(r[2]),
-                    "n_trades":     int(r[3]),
-                    "total_cost":   float(r[4]),
+                    "date": pd.Timestamp(r[0]),
+                    "equity": float(r[1]),
+                    "net_pnl": float(r[2]),
+                    "n_trades": int(r[3]),
+                    "total_cost": float(r[4]),
                     "forced_close": bool(r[5]),
                 }
                 for r in hist_rows
             ]
             self._tracker.restore(records)
 
+        if risk_row:
+            self._risk_session_date = pd.Timestamp(risk_row[0]).normalize()
+            self._risk_session_start_equity = float(risk_row[1])
+            self._daily_turnover = float(risk_row[2])
+
     def _save_state(
         self,
-        date:   pd.Timestamp,
+        date: pd.Timestamp,
         result: DayResult,
         equity: float,
+        *,
+        connection: Optional[sqlite3.Connection] = None,
     ) -> None:
         """持久化当日状态到 SQLite。"""
-        conn = sqlite3.connect(self._db_path)
-        # pt_state 只保留一行（最新状态）
-        conn.execute("DELETE FROM pt_state")
-        conn.execute(
-            "INSERT INTO pt_state (cash, positions_json, updated_at) VALUES (?, ?, ?)",
-            (self._cash, json.dumps(self._positions), str(date.date())),
-        )
+        if connection is None:
+            with sqlite3.connect(self._db_path) as conn:
+                conn.execute("BEGIN IMMEDIATE")
+                self._save_state(
+                    date,
+                    result,
+                    equity,
+                    connection=conn,
+                )
+            return
+        conn = connection
+        self._save_account_snapshot(date, connection=conn)
         # pt_history 按日期主键 upsert
         conn.execute(
             "INSERT OR REPLACE INTO pt_history "
@@ -983,14 +1214,26 @@ class PaperTradingEngine:
                 int(self._replay_mode),
             ),
         )
-        conn.commit()
-        conn.close()
+
+    def _save_account_snapshot(
+        self,
+        date: pd.Timestamp,
+        *,
+        connection: sqlite3.Connection,
+    ) -> None:
+        """Write the current cash/positions inside the caller's transaction."""
+        connection.execute("DELETE FROM pt_state")
+        connection.execute(
+            "INSERT INTO pt_state (cash, positions_json, updated_at) VALUES (?, ?, ?)",
+            (self._cash, json.dumps(self._positions), str(date.date())),
+        )
 
     def _clear_db(self) -> None:
         """清空数据库所有记录。"""
         conn = sqlite3.connect(self._db_path)
         conn.execute("DELETE FROM pt_state")
         conn.execute("DELETE FROM pt_history")
+        conn.execute("DELETE FROM pt_risk_session")
         conn.commit()
         conn.close()
 
@@ -998,15 +1241,16 @@ class PaperTradingEngine:
 
     def save_intraday_bar(
         self,
-        run_id:    str,
-        date:      pd.Timestamp,
-        bar_ts:    pd.Timestamp,
-        orders:    List[Order],
-        fills:     List[Fill],
+        run_id: str,
+        date: pd.Timestamp,
+        bar_ts: pd.Timestamp,
+        orders: List[Order],
+        fills: List[Fill],
         positions: Dict[str, float],
-        cash:      float,
-        equity:    float,
-        is_eod:    bool = False,
+        cash: float,
+        equity: float,
+        is_eod: bool = False,
+        connection: Optional[sqlite3.Connection] = None,
     ) -> None:
         """Persist one bar's orders, fills, positions, and equity snapshot.
 
@@ -1015,7 +1259,10 @@ class PaperTradingEngine:
         can filter these out so "bar N fills" aren't conflated with
         end-of-day flatten trades parked on the last bar_ts.
         """
-        conn = sqlite3.connect(self._db_path)
+        own_connection = connection is None
+        conn = connection or sqlite3.connect(self._db_path)
+        if own_connection:
+            conn.execute("BEGIN IMMEDIATE")
         date_str = str(date.date())
         bar_str = str(bar_ts)
         is_eod_int = 1 if is_eod else 0
@@ -1024,8 +1271,15 @@ class PaperTradingEngine:
             conn.execute(
                 "INSERT INTO intraday_orders (run_id, date, bar_ts, symbol, side, qty, signal_source) "
                 "VALUES (?,?,?,?,?,?,?)",
-                (run_id, date_str, bar_str, o.symbol, o.side.value if hasattr(o.side, 'value') else str(o.side),
-                 o.qty_shares, None),
+                (
+                    run_id,
+                    date_str,
+                    bar_str,
+                    o.symbol,
+                    o.side.value if hasattr(o.side, "value") else str(o.side),
+                    o.qty_shares,
+                    None,
+                ),
             )
 
         for f in fills:
@@ -1033,11 +1287,19 @@ class PaperTradingEngine:
                 "INSERT INTO intraday_fills (run_id, date, bar_ts, symbol, side, qty, price, "
                 "slippage_usd, commission_usd, cash_delta, is_eod) "
                 "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                (run_id, date_str, bar_str, f.order.symbol,
-                 f.order.side.value if hasattr(f.order.side, 'value') else str(f.order.side),
-                 f.executed_qty, f.executed_price,
-                 f.cost_breakdown.slippage_usd, f.cost_breakdown.commission_usd, f.cash_delta,
-                 is_eod_int),
+                (
+                    run_id,
+                    date_str,
+                    bar_str,
+                    f.order.symbol,
+                    f.order.side.value if hasattr(f.order.side, "value") else str(f.order.side),
+                    f.executed_qty,
+                    f.executed_price,
+                    f.cost_breakdown.slippage_usd,
+                    f.cost_breakdown.commission_usd,
+                    f.cash_delta,
+                    is_eod_int,
+                ),
             )
 
         for sym, qty in positions.items():
@@ -1055,16 +1317,18 @@ class PaperTradingEngine:
             (run_id, date_str, bar_str, equity, cash, port_val),
         )
 
-        conn.commit()
-        conn.close()
+        if own_connection:
+            conn.commit()
+            conn.close()
 
     def save_bar_checkpoint(
         self,
-        run_id:   str,
-        date:     pd.Timestamp,
-        bar_ts:   pd.Timestamp,
+        run_id: str,
+        date: pd.Timestamp,
+        bar_ts: pd.Timestamp,
         positions: Dict[str, float],
-        cash:     float,
+        cash: float,
+        connection: Optional[sqlite3.Connection] = None,
     ) -> None:
         """Save checkpoint for restart recovery.
 
@@ -1074,19 +1338,25 @@ class PaperTradingEngine:
         this, a halted-for-3-days symbol resets counter to 0 each
         day on resume and never triggers ghost cleanup.
         """
-        state = json.dumps({
-            "positions":    positions,
-            "cash":         cash,
-            "stale_counts": dict(self._intraday_stale_counts),
-        })
-        conn = sqlite3.connect(self._db_path)
+        state = json.dumps(
+            {
+                "positions": positions,
+                "cash": cash,
+                "stale_counts": dict(self._intraday_stale_counts),
+            }
+        )
+        own_connection = connection is None
+        conn = connection or sqlite3.connect(self._db_path)
+        if own_connection:
+            conn.execute("BEGIN IMMEDIATE")
         conn.execute(
             "INSERT OR REPLACE INTO bar_checkpoints (run_id, date, last_bar_ts, state_json, updated_at) "
             "VALUES (?,?,?,?,?)",
             (run_id, str(date.date()), str(bar_ts), state, str(pd.Timestamp.now())),
         )
-        conn.commit()
-        conn.close()
+        if own_connection:
+            conn.commit()
+            conn.close()
 
     def load_bar_checkpoint(self, run_id: str) -> Optional[Dict]:
         """Load latest checkpoint for a run_id. Returns None if not found.
@@ -1105,10 +1375,10 @@ class PaperTradingEngine:
             return None
         state = json.loads(row[2])
         return {
-            "date":         pd.Timestamp(row[0]),
-            "last_bar_ts":  pd.Timestamp(row[1]),
-            "positions":    state["positions"],
-            "cash":         state["cash"],
+            "date": pd.Timestamp(row[0]),
+            "last_bar_ts": pd.Timestamp(row[1]),
+            "positions": state["positions"],
+            "cash": state["cash"],
             "stale_counts": state.get("stale_counts", {}),
         }
 

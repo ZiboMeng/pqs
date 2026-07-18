@@ -5,8 +5,8 @@ WindowAnalyzer: 滚动窗口回测与样本外验证。
 ----
   rolling_backtest    — 样本内分段评估：将全历史分成 N 段，每段独立运行回测。
                         用途：策略稳定性分析（非 OOS）。
-  walk_forward        — 真正的样本外 walk-forward：训练期 → 测试期严格分离。
-                        用途：估算真实 OOS 绩效、防过拟合。
+  walk_forward        — 时间窗口评估切片器：训练期 → 测试期严格分离。
+                        只有调用方保证 fold-local 拟合/选参时才是 OOS。
   oos_consistency_check — 汇总 walk-forward 窗口的 OOS 一致性统计。
   acceptance_check    — 对照 Tier D 标准（超额收益 / IR / 回撤比）判断是否达标。
   summarize_windows   — 将窗口列表汇总为 DataFrame。
@@ -231,7 +231,7 @@ class WindowAnalyzer:
         test_size:   int = _DEFAULT_TEST_BARS,
     ) -> List[WindowResult]:
         """
-        真正的样本外 walk-forward 验证。
+        Walk-forward 时间切片评估。
 
         每个窗口：
           训练期 [t, t+train_size)         — 调用方在此区间完成信号生成/参数优化
@@ -268,7 +268,8 @@ class WindowAnalyzer:
             train_dates = dates[start_idx:train_end_idx]
             test_dates  = dates[train_end_idx:test_end_idx]
 
-            # 仅在测试期评估（严格 OOS）
+            # 仅在测试期评估。OOS 资格仍取决于调用方是否 fold-local
+            # 生成 signals；本类无法从预计算矩阵推断其训练谱系。
             s_test = signals_df.loc[test_dates]
             p_test = price_df.loc[test_dates]
             o_test = open_df.loc[test_dates]    if open_df    is not None else None

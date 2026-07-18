@@ -337,6 +337,8 @@ class BacktestEngine:
                     price_row     = price_row,
                     open_row      = open_row,
                     signal_date   = date,
+                    current_positions = shares,
+                    cash          = cash,
                 )
 
                 fills = self._sim.simulate_fills(
@@ -344,6 +346,7 @@ class BacktestEngine:
                     open_prices = open_row.to_dict(),
                     vix         = vix_val,
                     cash        = cash,
+                    fill_date   = next_date,
                 )
 
                 # 更新持仓与现金
@@ -403,6 +406,8 @@ class BacktestEngine:
         price_row:     pd.Series,
         open_row:      pd.Series,
         signal_date:   pd.Timestamp,
+        current_positions: Optional[Dict[str, float]] = None,
+        cash:          Optional[float] = None,
     ) -> List[Order]:
         """
         将目标权重变化转换为委托单列表。
@@ -424,6 +429,40 @@ class BacktestEngine:
         # Sorting makes order generation cross-process deterministic.
         all_syms = sorted(set(list(cur_weights) + list(tgt_weights)))
         orders:  List[Order] = []
+
+        # Position quantity is an accounting fact; it must not be recovered
+        # from a prior-close weight using the next-open price.  The latter
+        # creates an oversized SELL after a gap down (and an undersized SELL
+        # after a gap up).  Production callers pass current_positions.  The
+        # fallback reconstruction only preserves compatibility for direct
+        # unit callers of this private helper.
+        positions: Dict[str, float]
+        if current_positions is None:
+            positions = {}
+            for sym, weight in cur_weights.items():
+                mark = price_row.get(sym, float("nan"))
+                if np.isfinite(mark) and float(mark) > 0:
+                    positions[sym] = float(weight) * portfolio_val / float(mark)
+        else:
+            positions = {
+                sym: max(float(qty), 0.0)
+                for sym, qty in current_positions.items()
+                if np.isfinite(qty) and float(qty) > 0
+            }
+
+        # Target quantities are based on the account value at the execution
+        # event.  A held symbol without a usable open is marked at the prior
+        # close and cannot trade; this is conservative and preserves equity.
+        execution_equity = float(portfolio_val)
+        if cash is not None and np.isfinite(cash):
+            execution_equity = float(cash)
+            for sym, qty in positions.items():
+                op = open_row.get(sym, float("nan"))
+                mark = float(op) if np.isfinite(op) and float(op) > 0 else float(
+                    price_row.get(sym, 0.0)
+                )
+                if np.isfinite(mark) and mark > 0:
+                    execution_equity += qty * mark
 
         for sym in all_syms:
             cur_w = cur_weights.get(sym, 0.0)
@@ -454,19 +493,22 @@ class BacktestEngine:
                 self._skipped_missing_open += 1
                 continue
 
-            delta_usd = abs(delta_w) * portfolio_val
-            if delta_usd < self._min_trade:
+            current_qty = positions.get(sym, 0.0)
+            target_qty = max(tgt_w, 0.0) * execution_equity / exec_price
+            delta_qty = target_qty - current_qty
+            if not np.isfinite(delta_qty):
                 continue
-
-            qty = delta_usd / exec_price
-            if not np.isfinite(qty):
+            side = OrderSide.BUY if delta_qty > 0 else OrderSide.SELL
+            qty = abs(delta_qty)
+            if side is OrderSide.SELL:
+                qty = min(qty, current_qty)
+            if qty * exec_price < self._min_trade:
                 continue
             if self._int_shares:
                 qty = float(int(qty))
             if qty < 1e-6:
                 continue
 
-            side = OrderSide.BUY if delta_w > 0 else OrderSide.SELL
             orders.append(Order(
                 symbol      = sym,
                 side        = side,

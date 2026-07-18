@@ -137,33 +137,34 @@ logger = get_logger("run_backtest")
 
 
 def load_prices(store: MarketDataStore, symbols: list, freq: str = "1d") -> pd.DataFrame:
-    """加载多个 symbol 的收盘价矩阵。"""
-    frames = {}
-    for sym in symbols:
-        try:
-            df = store.read(sym, freq)
-            if df is not None and not df.empty and "close" in df.columns:
-                frames[sym] = df["close"]
-        except Exception as exc:
-            logger.warning("加载 %s 失败: %s", sym, exc)
-    if not frames:
-        return pd.DataFrame()
-    return pd.DataFrame(frames).sort_index()
+    """Load total-return-adjusted closes through the canonical consumer API."""
+    from core.data.price_access import load_adjusted_panel
+
+    panel = load_adjusted_panel(
+        symbols,
+        store.data_dir,
+        freq,
+        adjusted_total_return=True,
+        fallback="local",
+        require_total_return_coverage=True,
+    )
+    return panel["close"]
 
 
 def load_open_prices(store: MarketDataStore, symbols: list) -> pd.DataFrame:
-    """加载多个 symbol 的开盘价矩阵（用于 T+1 成交）。"""
-    frames = {}
-    for sym in symbols:
-        try:
-            df = store.read(sym, "1d")
-            if df is not None and not df.empty and "open" in df.columns:
-                frames[sym] = df["open"]
-        except Exception:
-            pass
-    if not frames:
-        return pd.DataFrame()
-    return pd.DataFrame(frames).sort_index()
+    """Load matching total-return-adjusted opens for T+1 execution."""
+    from core.data.price_access import load_adjusted_panel
+
+    panel = load_adjusted_panel(
+        symbols,
+        store.data_dir,
+        "1d",
+        adjusted_total_return=True,
+        fallback="local",
+        require_total_return_coverage=True,
+    )
+    opens = panel.get("open")
+    return opens if opens is not None else pd.DataFrame()
 
 
 def build_strategies(cfg, price_df: pd.DataFrame, risk_syms: list, def_syms: list,
@@ -215,10 +216,18 @@ def build_strategies(cfg, price_df: pd.DataFrame, risk_syms: list, def_syms: lis
 
 
 def _build_ohlcv_frames(store, symbols: list) -> dict:
-    """Load OHLCV DataFrames per symbol for cross-ticker DSL context."""
+    """Load matching total-return OHLCV for cross-ticker DSL context."""
+    from core.data.price_access import load_adjusted
+
     frames = {}
     for sym in symbols:
-        df = store.read(sym, "1d")
+        df = load_adjusted(
+            sym,
+            store.data_dir,
+            "1d",
+            adjusted_total_return=True,
+            fallback="local",
+        )
         if df is not None and not df.empty:
             cols = [c for c in ("open", "high", "low", "close", "volume") if c in df.columns]
             if cols:
@@ -473,6 +482,7 @@ def run_strategy(
         wf_windows = analyzer.walk_forward(
             signals_df = weights,
             price_df   = price_df,
+            open_df    = open_df,
             benchmark  = benchmark_series,
         )
         if wf_windows:
@@ -609,10 +619,10 @@ def main():
     # uses strict mode in run_paper.py.
     from core.data.vix_loader import load_vix_series
 
-    spy_df    = store.read("SPY", "1d")
-    spy_close = spy_df["close"].reindex(price_df.index, method="ffill") if spy_df is not None and not spy_df.empty else price_df.get("SPY")
-    qqq_df    = store.read("QQQ", "1d")
-    qqq_close = qqq_df["close"].reindex(price_df.index, method="ffill") if qqq_df is not None and not qqq_df.empty else price_df.get("QQQ")
+    # Benchmarks use the exact same total-return basis as the strategy panel.
+    # SPY is the hard benchmark; QQQ remains diagnostic only.
+    spy_close = price_df.get("SPY")
+    qqq_close = price_df.get("QQQ")
 
     # ── Regime ────────────────────────────────────────────────────────────────
     logger.info("计算 regime 序列...")

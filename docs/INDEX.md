@@ -14,6 +14,9 @@ defined at the bottom of this file. Within each category section,
   certification, research-isolation, PAPER, data-lineage, and cleanup paths. It is the
   current blocker ledger for strategy research; flat placement is required by the phase-two
   task contract and intentionally overrides the general new-doc subdirectory convention.
+- [BACKTEST_CERTIFICATION.md](BACKTEST_CERTIFICATION.md) — corrected total-return price,
+  share-conservation, actual-fill-bar, walk-forward input, aggregate risk, and atomic PAPER
+  recovery contract plus the post-fix diagnostic baseline.
 - [CODEX_PROGRESS.md](CODEX_PROGRESS.md) — cumulative first-round history plus current
   phase-two implementation/test status.
 - [AUDIT.md](AUDIT.md), [ARCHITECTURE.md](ARCHITECTURE.md),

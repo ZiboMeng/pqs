@@ -330,6 +330,7 @@ def run_replay(
             try:
                 result = engine.run_day_daily(
                     exec_date=next_date,
+                    signal_date=date_ts,
                     target_wts=target,
                     prev_close=prev_close,
                     exec_open=exec_open,
@@ -458,6 +459,12 @@ def main():
                 cfg.risk.position_limits.max_reference_price_deviation
             ),
             min_cash_fraction=cfg.risk.budget.min_cash,
+            max_daily_loss_fraction=(
+                cfg.risk.session_limits.max_daily_loss_fraction
+            ),
+            max_daily_turnover_fraction=(
+                cfg.risk.session_limits.max_daily_turnover_fraction
+            ),
             symbol_caps=dict(cfg.risk.position_limits.symbol_caps),
             blocked_symbols=frozenset(cfg.universe.blacklist),
             long_only=cfg.risk.long_only,
@@ -476,7 +483,9 @@ def main():
             )
 
         manual_pause_check = _control_pause_check
-        recovered_orders = order_service.quarantine_after_restart()
+        recovered_orders = order_service.quarantine_after_restart(
+            retry_validated_local_orders=True,
+        )
         unresolved = [
             order for order in recovered_orders if order.state is OrderState.UNKNOWN
         ]
@@ -527,21 +536,22 @@ def main():
     # writes no forward/evidence manifest) → correctness fix for the
     # run_all.sh daily/replay paper loop, not a live-soak mutation.
     # 60m reads below stay raw (intraday, separate — like run_mining).
-    from core.data.price_access import load_adjusted
-    frames = {}
-    open_frames = {}
-    for sym in all_syms:
-        try:
-            df = load_adjusted(sym, store.data_dir, "1d")
-            if df is not None and not df.empty:
-                if "close" in df.columns:
-                    frames[sym] = df["close"]
-                if "open" in df.columns:
-                    open_frames[sym] = df["open"]
-        except Exception:
-            pass
-    price_df_1d = pd.DataFrame(frames).sort_index() if frames else pd.DataFrame()
-    open_df_1d = pd.DataFrame(open_frames).sort_index() if open_frames else pd.DataFrame()
+    from core.data.price_access import load_adjusted_panel
+
+    daily_panel = load_adjusted_panel(
+        all_syms,
+        store.data_dir,
+        "1d",
+        adjusted_total_return=True,
+        fallback="local",
+        require_total_return_coverage=True,
+    )
+    price_df_1d = daily_panel["close"]
+    open_df_1d = (
+        daily_panel["open"]
+        if daily_panel.get("open") is not None
+        else pd.DataFrame(index=price_df_1d.index)
+    )
 
     # Regime. VIX mode depends on what we're doing: live/paper must
     # fail-closed if VIX is missing (trading against a 20.0 stub in a

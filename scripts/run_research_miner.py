@@ -103,8 +103,14 @@ def _load_price_volume(
     # split cascade — grand-audit P0-A). MarketDataStore `store` arg
     # retained for signature/back-compat but no longer the price source.
     from core.data.price_access import load_adjusted_panel
-    out = load_adjusted_panel(tradable, cfg.system.paths.data_dir,
-                              freq="1d")
+    out = load_adjusted_panel(
+        tradable,
+        cfg.system.paths.data_dir,
+        freq="1d",
+        adjusted_total_return=True,
+        fallback="local",
+        require_total_return_coverage=True,
+    )
     # Start date
     start = cfg.backtest.start_date or "2007-01-02"
     mask = out["close"].index >= pd.Timestamp(start)

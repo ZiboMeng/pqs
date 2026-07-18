@@ -438,6 +438,7 @@ class IntradayBacktestEngine:
                 portfolio_val=port_val, open_prices=open_prices,
                 signal_date=bar_ts, min_trade_usd=self._min_trade,
                 rebal_thr=self._rebal_thr,
+                current_positions=shares,
             )
 
             if order_filter is not None and orders:
@@ -456,6 +457,7 @@ class IntradayBacktestEngine:
 
             new_fills = self._sim.simulate_fills(
                 orders=orders, open_prices=open_prices, vix=vix, cash=cur_cash,
+                fill_date=bar_times[next_idx],
             )
             for f in new_fills:
                 prev = shares.get(f.symbol, 0.0)
@@ -518,6 +520,7 @@ class IntradayBacktestEngine:
                     eod_prices[order.symbol],
                     vix,
                     cur_cash,
+                    fill_date=pd.Timestamp(bar_times[-1]),
                 )
                 if eod_fill:
                     shares[order.symbol] = max(
@@ -629,6 +632,7 @@ class IntradayBacktestEngine:
                 signal_date   = bar_ts,
                 min_trade_usd = self._min_trade,
                 rebal_thr     = self._rebal_thr,
+                current_positions = shares,
             )
 
             new_fills = self._sim.simulate_fills(
@@ -636,6 +640,7 @@ class IntradayBacktestEngine:
                 open_prices = open_prices,
                 vix         = vix,
                 cash        = cur_cash,
+                fill_date   = next_bar_ts,
             )
 
             for f in new_fills:
@@ -713,6 +718,7 @@ class IntradayBacktestEngine:
             open_prices = close_prices,   # 用收盘价模拟 EOD 成交
             vix         = vix,
             cash        = cash,
+            fill_date   = bar_ts,
         )
 
 
@@ -802,10 +808,16 @@ def _generate_orders(
     signal_date:   pd.Timestamp,
     min_trade_usd: float,
     rebal_thr:     float,
+    current_positions: Optional[Dict[str, float]] = None,
 ) -> List[Order]:
     """从权重差生成委托单（与 BacktestEngine._generate_orders 逻辑一致）。"""
     orders: List[Order] = []
-    all_syms = set(list(cur_weights) + list(tgt_weights))
+    all_syms = sorted(set(list(cur_weights) + list(tgt_weights)))
+    positions = {
+        sym: max(float(qty), 0.0)
+        for sym, qty in (current_positions or {}).items()
+        if np.isfinite(qty) and float(qty) > 0
+    }
 
     for sym in all_syms:
         cur_w   = cur_weights.get(sym, 0.0)
@@ -819,15 +831,17 @@ def _generate_orders(
         if price <= 0:
             continue
 
-        delta_usd = abs(delta_w) * portfolio_val
-        if delta_usd < min_trade_usd:
+        current_qty = positions.get(sym, 0.0)
+        target_qty = max(tgt_w, 0.0) * portfolio_val / price
+        delta_qty = target_qty - current_qty
+        side = OrderSide.BUY if delta_qty > 0 else OrderSide.SELL
+        qty = abs(delta_qty)
+        if side is OrderSide.SELL:
+            qty = min(qty, current_qty)
+        if qty * price < min_trade_usd:
             continue
-
-        qty  = delta_usd / price
         if qty < 1e-6:
             continue
-
-        side = OrderSide.BUY if delta_w > 0 else OrderSide.SELL
         orders.append(Order(
             symbol      = sym,
             side        = side,

@@ -3,29 +3,20 @@
   "baseline_commit": "9ffc1ce564ca18a04554db20a442749e65f24672",
   "baseline_tag": "codex-pre-strategy-research-20260717",
   "branch": "codex/strategy-research-and-paper-v2",
-  "current_phase": "BACKTEST_AND_PAPER_CERTIFICATION_REMEDIATION",
-  "last_completed_task": "Completed the scoped second-round audit, dependency-traced cleanup review, data-boundary review, failure reproductions, and 602-test focused baseline.",
-  "next_task": "Close P0 price-basis and sell-conservation defects, then P1 actual-fill-date, walk-forward parity, aggregate pre-trade risk, and crash-recovery defects before strategy research.",
-  "open_p0": [
-    "P0-01 main backtest bypasses adjusted price access",
-    "P0-02 gap sells can exceed holdings and create cash",
-    "P0-03 dividend/corporate-action return basis and sidecar coverage are incomplete"
-  ],
+  "current_phase": "FAILURE_ATTRIBUTION_AND_HYPOTHESIS_PREREGISTRATION",
+  "last_completed_task": "Closed the certification P0s and execution/PAPER P1s; refreshed and validated 81-symbol dividend coverage; passed 653 tests plus atomic failure injection; ran the corrected full-period diagnostic baseline.",
+  "next_task": "Write strategy-family failure attribution, freeze research splits and acceptance gates, then preregister a small set of economically distinct hypotheses before any candidate evaluation.",
+  "open_p0": [],
   "open_p1": [
-    "P1-01 inferred fill date can differ from actual next available bar",
-    "P1-02 walk-forward omits open prices and does not itself guarantee fold-local fitting",
     "P1-03 legacy rolling holdout is repeatedly visible and not a final sealed holdout",
     "P1-04 historical 2026 sealed period has already been consumed",
-    "P1-05 paper batch risk checks reuse a stale account snapshot",
-    "P1-06 order fill and paper account/checkpoint persistence are not atomic or replayable",
-    "P1-07 regime history lacks confidence/UNKNOWN/cooldown contract",
-    "P1-08 mixed data-source boundaries are not fully captured in experiment lineage"
+    "P1-07 regime history lacks confidence/UNKNOWN/cooldown contract and remains unavailable to new hypotheses unless preregistered and remediated"
   ],
   "candidate_strategies": [],
   "promoted_paper_strategies": [],
   "retired_strategies": [],
-  "last_test_command": "pytest -q tests/unit/backtest tests/unit/execution tests/unit/paper_trading tests/unit/trading tests/integration/test_backtest_paper_consistency.py tests/unit/data/test_price_semantics_regression.py tests/unit/regime/test_regime_detector.py tests/unit/research/test_temporal_split.py tests/unit/research/test_temporal_split_acceptance.py tests/unit/research/test_temporal_split_leak_detection.py tests/unit/research/test_temporal_split_v1_v2_dispatch.py",
-  "last_test_result": "PASS: 601 passed, 1 xfailed, 0 failed in 165.64s. Audit counterexamples identify missing invariants despite the green baseline.",
-  "last_backtest_run": "No phase-two certification run. Phase-one diagnostic results are invalid as certification evidence because the main runner used raw prices and sell sizing can violate share conservation.",
-  "last_updated_utc": "2026-07-18T00:07:39Z"
+  "last_test_command": "pytest -q tests/unit/backtest tests/unit/execution tests/unit/paper_trading tests/unit/trading tests/integration/test_backtest_paper_consistency.py tests/unit/data/test_bar_store.py tests/unit/data/test_price_basis.py tests/unit/data/test_price_semantics_regression.py tests/unit/regime/test_regime_detector.py tests/unit/research/test_temporal_split.py tests/unit/research/test_temporal_split_acceptance.py tests/unit/research/test_temporal_split_leak_detection.py tests/unit/research/test_temporal_split_v1_v2_dispatch.py",
+  "last_test_result": "PASS: 653 passed, 1 xfailed, 0 failed in 123.42s; atomic daily/intraday rollback-and-retry failure injection passed; fatal Ruff/F821 passed.",
+  "last_backtest_run": "Corrected 2007-01-03..2026-07-17 total-return diagnostic: dual momentum CAGR 5.7% IR -0.33 MaxDD -22.0%; trend following -1.5% IR -0.71 MaxDD -30.2%; cross-asset 4.2% IR -0.43 MaxDD -11.1%; multi-factor 8.0% IR -0.23 MaxDD -15.0%; SPY CAGR 10.9%. No promotion.",
+  "last_updated_utc": "2026-07-18T00:36:30Z"
 }
