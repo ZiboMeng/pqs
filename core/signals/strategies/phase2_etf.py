@@ -273,6 +273,14 @@ class SectorRotationStrategy:
     def __init__(self, params: SectorRotationParams | None = None) -> None:
         self.params = params or SectorRotationParams()
 
+    def _allocate_selected(self, row: pd.Series, selected: pd.Series) -> None:
+        """V1 allocation retained exactly for historical reproducibility."""
+        per_sector = 0.70 / len(selected)
+        for symbol in selected.index:
+            row[symbol] = per_sector
+        row["BIL"] = 0.15
+        row["SHY"] = 0.15
+
     def generate(
         self,
         price_df: pd.DataFrame,
@@ -301,11 +309,7 @@ class SectorRotationStrategy:
             if bool(risk_on.loc[date]) and valid.loc[date]:
                 selected = scores.loc[date].dropna().nlargest(self.params.top_n)
                 if not selected.empty:
-                    per_sector = 0.70 / len(selected)
-                    for symbol in selected.index:
-                        row[symbol] = per_sector
-                    row["BIL"] = 0.15
-                    row["SHY"] = 0.15
+                    self._allocate_selected(row, selected)
             if float(row.sum()) == 0.0:
                 row["IEF"] = 0.30
                 row["GLD"] = 0.20
@@ -315,6 +319,21 @@ class SectorRotationStrategy:
 
         weights = _carry_rebalance_targets(raw, _period_end_mask(px.index, "M"))
         return _assert_weight_contract(weights)
+
+
+class SectorRotationV2Strategy(SectorRotationStrategy):
+    """Safety repair that preserves v1 signals and caps sparse selections."""
+
+    strategy_id = "sector_rotation_v2"
+
+    def _allocate_selected(self, row: pd.Series, selected: pd.Series) -> None:
+        sector_budget = min(0.70, 0.35 * len(selected))
+        per_sector = sector_budget / len(selected)
+        for symbol in selected.index:
+            row[symbol] = per_sector
+        defensive_weight = (1.0 - sector_budget) / 2.0
+        row["BIL"] = defensive_weight
+        row["SHY"] = defensive_weight
 
 
 @dataclass(frozen=True)
@@ -401,4 +420,5 @@ __all__ = [
     "EtfReversionStrategy",
     "SectorRotationParams",
     "SectorRotationStrategy",
+    "SectorRotationV2Strategy",
 ]

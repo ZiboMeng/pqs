@@ -9,6 +9,7 @@ from core.signals.strategies.phase2_etf import (
     ControlledGrowthStrategy,
     EtfReversionStrategy,
     SectorRotationStrategy,
+    SectorRotationV2Strategy,
 )
 
 
@@ -73,3 +74,18 @@ def test_phase2_strategies_fail_on_unsorted_or_missing_panel() -> None:
 def test_controlled_growth_tqqq_never_exceeds_frozen_cap() -> None:
     weights = ControlledGrowthStrategy().generate(_panel(600))
     assert float(weights["TQQQ"].max()) <= 0.10
+
+
+def test_sector_rotation_v2_caps_a_single_eligible_sector() -> None:
+    panel = _panel(520)
+    panel["SPY"] = np.linspace(100.0, 220.0, len(panel))
+    panel["XLK"] = np.linspace(100.0, 260.0, len(panel))
+    for symbol in ("XLF", "XLE", "XLV", "XLI", "XLY", "XLP", "XLU", "XLB"):
+        panel[symbol] = np.linspace(220.0, 80.0, len(panel))
+    weights = SectorRotationV2Strategy().generate(panel)
+    sparse = weights[weights["XLK"] > 0.34]
+    assert not sparse.empty
+    assert np.allclose(sparse["XLK"], 0.35)
+    assert np.allclose(sparse["BIL"], 0.325)
+    assert np.allclose(sparse["SHY"], 0.325)
+    assert float(weights.max().max()) <= 0.35

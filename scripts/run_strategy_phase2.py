@@ -45,6 +45,7 @@ from core.signals.strategies.phase2_etf import (
     EtfReversionStrategy,
     SectorRotationParams,
     SectorRotationStrategy,
+    SectorRotationV2Strategy,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -77,6 +78,13 @@ FAMILY_META: dict[str, dict[str, str]] = {
         "strategy_type": "etf_rotation",
         "benchmark": "SPY",
         "hypothesis": "Slow risk-adjusted sector leadership persists after costs with T-bill fallback.",
+    },
+    "sector_rotation_v2": {
+        "version": "v2",
+        "strategy_id": "sector_rotation_v2",
+        "strategy_type": "etf_rotation",
+        "benchmark": "SPY",
+        "hypothesis": "The frozen v1 signal remains viable when sparse selections obey the 35% symbol cap.",
     },
     "etf_reversion": {
         "version": "v1",
@@ -122,6 +130,32 @@ def _grids() -> dict[str, list[dict[str, Any]]]:
     }
 
 
+def _repair_grids() -> dict[str, list[dict[str, Any]]]:
+    return {
+        "sector_rotation_v2": [
+            {
+                "momentum_weights": [0.2, 0.3, 0.5],
+                "top_n": 3,
+                "slow_trend": 168,
+            }
+        ]
+    }
+
+
+def _grid_for_family(family: str) -> list[dict[str, Any]]:
+    grids = {**_grids(), **_repair_grids()}
+    try:
+        return grids[family]
+    except KeyError as exc:
+        raise KeyError(f"unknown phase-two family: {family}") from exc
+
+
+def _selected_grids(families: list[str] | None) -> dict[str, list[dict[str, Any]]]:
+    if families is None:
+        return _grids()
+    return {family: _grid_for_family(family) for family in dict.fromkeys(families)}
+
+
 def _make_strategy(family: str, parameters: Mapping[str, Any]):
     if family == "adaptive_core":
         params = dict(parameters)
@@ -129,10 +163,13 @@ def _make_strategy(family: str, parameters: Mapping[str, Any]):
         return AdaptiveCoreStrategy(AdaptiveCoreParams(**params))
     if family == "controlled_growth":
         return ControlledGrowthStrategy(ControlledGrowthParams(**parameters))
-    if family == "sector_rotation":
+    if family in {"sector_rotation", "sector_rotation_v2"}:
         params = dict(parameters)
         params["momentum_weights"] = tuple(params["momentum_weights"])
-        return SectorRotationStrategy(SectorRotationParams(**params))
+        strategy_class = (
+            SectorRotationV2Strategy if family == "sector_rotation_v2" else SectorRotationStrategy
+        )
+        return strategy_class(SectorRotationParams(**params))
     if family == "etf_reversion":
         return EtfReversionStrategy(EtfReversionParams(**parameters))
     raise KeyError(family)
@@ -229,8 +266,8 @@ def _cost_model(config: CostModelConfig, multiplier: float = 1.0) -> CostModel:
 
 def _all_symbols() -> list[str]:
     symbols: set[str] = set()
-    for family in FAMILY_META:
-        symbols.update(_make_strategy(family, _grids()[family][0]).required_symbols)
+    for family in {**_grids(), **_repair_grids()}:
+        symbols.update(_make_strategy(family, _grid_for_family(family)[0]).required_symbols)
     return sorted(symbols)
 
 
@@ -437,16 +474,22 @@ def _development_qualified_families(
     }
 
 
-def run_development(plan_only: bool = False, revision: str = "d1") -> None:
+def run_development(
+    plan_only: bool = False,
+    revision: str = "d1",
+    families: list[str] | None = None,
+) -> None:
     _assert_source_clean()
     policy = PromotionPolicy.load(POLICY_PATH)
     split = policy.payload["data_protocol"]["development"]
     registry = ExperimentRegistry(REGISTRY_PATH)
-    first_id = f"P2-{revision.upper()}-DEV-ADAPTIVE-CORE-01"
+    grids = _selected_grids(families)
+    first_family = next(iter(grids))
+    first_id = f"P2-{revision.upper()}-DEV-{first_family.upper().replace('_', '-')}-01"
     commit = _locked_or_current_commit(registry, first_id)
     specs: list[ExperimentSpec] = []
     indexed: list[tuple[str, int, dict[str, Any], ExperimentSpec]] = []
-    for family, cells in _grids().items():
+    for family, cells in grids.items():
         for index, parameters in enumerate(cells, start=1):
             experiment_id = f"P2-{revision.upper()}-DEV-{family.upper().replace('_', '-')}-{index:02d}"
             spec = _experiment_spec(
@@ -468,7 +511,7 @@ def run_development(plan_only: bool = False, revision: str = "d1") -> None:
 
     close, open_df, cfg = _load_panel(split["end"], revision)
     effective_start = _effective_start(close, split["start"], policy.payload["data_protocol"]["warmup_bars"])
-    family_results: dict[str, list[dict[str, Any]]] = {family: [] for family in _grids()}
+    family_results: dict[str, list[dict[str, Any]]] = {family: [] for family in grids}
     for family, index, parameters, spec in indexed:
         meta = FAMILY_META[family]
         result_path = RESULT_ROOT / "development" / revision / f"{spec.experiment_id}.json"
@@ -553,7 +596,7 @@ def _neighbor_cells(family: str, selected: Mapping[str, Any]) -> list[dict[str, 
             "breadth_threshold": [0.55, 0.65],
             "qqq_volatility_ceiling": [0.22, 0.28],
         }
-    elif family == "sector_rotation":
+    elif family in {"sector_rotation", "sector_rotation_v2"}:
         axes = {
             "momentum_weights": [[0.2, 0.3, 0.5], [0.3, 0.4, 0.3], [0.4, 0.3, 0.3]],
             "top_n": [2, 3],
@@ -566,7 +609,8 @@ def _neighbor_cells(family: str, selected: Mapping[str, Any]) -> list[dict[str, 
             "hold_sessions": [2, 4],
         }
     neighbors: list[dict[str, Any]] = []
-    for cell in _grids()[family]:
+    neighbor_grid = _grids()["sector_rotation"] if family == "sector_rotation_v2" else _grid_for_family(family)
+    for cell in neighbor_grid:
         differences = 0
         adjacent = True
         for name, values in axes.items():
@@ -824,7 +868,7 @@ def run_validation(plan_only: bool = False, revision: str = "d1") -> None:
             "bootstrap_cagr_95pct": bootstrap,
             "folds": folds,
             "neighbor_results": neighbor_results,
-            "multiple_testing_attempts_family": len(_grids()[family]),
+            "multiple_testing_attempts_family": len(_grid_for_family(family)),
             "pbo": "not_identifiable_from_one_selected_validation_path",
             "deflated_sharpe": "not_claimed; conservative fixed 4% risk-free Sharpe and bounded search used",
         }
@@ -1010,11 +1054,19 @@ def main() -> None:
         default="d1",
         help="immutable data revision included in experiment IDs (for example d2)",
     )
+    parser.add_argument(
+        "--families",
+        nargs="+",
+        choices=sorted({**_grids(), **_repair_grids()}),
+        help="development-only family subset for a separately preregistered iteration",
+    )
     args = parser.parse_args()
     if not args.revision.isalnum():
         parser.error("--revision must be alphanumeric")
+    if args.families and args.stage != "development":
+        parser.error("--families is valid only for development")
     if args.stage == "development":
-        run_development(args.plan_only, args.revision.lower())
+        run_development(args.plan_only, args.revision.lower(), args.families)
     elif args.stage == "validation":
         run_validation(args.plan_only, args.revision.lower())
     else:

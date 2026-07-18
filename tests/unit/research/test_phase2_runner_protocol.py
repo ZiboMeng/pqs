@@ -13,6 +13,7 @@ from scripts.run_strategy_phase2 import (
     _grids,
     _locked_or_current_commit,
     _neighbor_cells,
+    _repair_grids,
 )
 
 
@@ -25,6 +26,11 @@ def test_preregistered_grid_sizes_are_frozen() -> None:
         "etf_reversion": 8,
     }
     assert sum(map(len, grids.values())) == 41
+    assert _repair_grids() == {
+        "sector_rotation_v2": [
+            {"momentum_weights": [0.2, 0.3, 0.5], "top_n": 3, "slow_trend": 168}
+        ]
+    }
 
 
 def test_parameter_neighbors_change_exactly_one_axis() -> None:
