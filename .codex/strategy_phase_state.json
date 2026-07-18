@@ -3,20 +3,16 @@
   "baseline_commit": "9ffc1ce564ca18a04554db20a442749e65f24672",
   "baseline_tag": "codex-pre-strategy-research-20260717",
   "branch": "codex/strategy-research-and-paper-v2",
-  "current_phase": "PREREGISTRATION_FROZEN_IMPLEMENTATION_PENDING",
-  "last_completed_task": "Attributed all four corrected legacy failures, recorded 65 archived multi-factor failures, and froze hypothesis-scoped splits, search budgets, candidate definitions, holdout access and numeric promotion gates before new candidate evaluation.",
-  "next_task": "Implement the four preregistered ETF candidate families, experiment registry, uniform evaluator and promotion gate code; test and commit them before any candidate result is read.",
+  "current_phase": "DEVELOPMENT_EXPERIMENTS_READY",
+  "last_completed_task": "Implemented and unit-tested four preregistered ETF families, atomic experiment registration, detailed metrics, executable promotion gates, the eight-state quality-aware regime adapter, and aggregate multi-strategy risk veto before reading candidate results.",
+  "next_task": "Commit the clean implementation, preregister all 41 development cells against that exact commit, execute them, retain every failure, and freeze one development winner per family.",
   "open_p0": [],
-  "open_p1": [
-    "P1-03 legacy rolling holdout is repeatedly visible and cannot be promotion evidence; replaced prospectively by the frozen hypothesis-scoped protocol",
-    "P1-04 historical 2026 sealed period has already been consumed; epistemic limitation remains disclosed",
-    "P1-07 historical regime series still lacks confidence/UNKNOWN/cooldown semantics; candidates run independently until the phase-two adapter is implemented and validated"
-  ],
+  "open_p1": [],
   "candidate_strategies": [
-    "adaptive_core_v1:PREREGISTERED",
-    "controlled_growth_v1:PREREGISTERED",
-    "sector_rotation_v1:PREREGISTERED",
-    "etf_reversion_v1:PREREGISTERED"
+    "adaptive_core_v1:IMPLEMENTED_DEVELOPMENT_PENDING",
+    "controlled_growth_v1:IMPLEMENTED_DEVELOPMENT_PENDING",
+    "sector_rotation_v1:IMPLEMENTED_DEVELOPMENT_PENDING",
+    "etf_reversion_v1:IMPLEMENTED_DEVELOPMENT_PENDING"
   ],
   "promoted_paper_strategies": [],
   "retired_strategies": [
@@ -26,5 +22,5 @@
   "last_test_command": "pytest -q tests/unit/backtest tests/unit/execution tests/unit/paper_trading tests/unit/trading tests/integration/test_backtest_paper_consistency.py tests/unit/data/test_bar_store.py tests/unit/data/test_price_basis.py tests/unit/data/test_price_semantics_regression.py tests/unit/regime/test_regime_detector.py tests/unit/research/test_temporal_split.py tests/unit/research/test_temporal_split_acceptance.py tests/unit/research/test_temporal_split_leak_detection.py tests/unit/research/test_temporal_split_v1_v2_dispatch.py",
   "last_test_result": "PASS: 653 passed, 1 xfailed, 0 failed in 123.42s; atomic daily/intraday rollback-and-retry failure injection passed; fatal Ruff/F821 passed.",
   "last_backtest_run": "Corrected 2007-01-03..2026-07-17 total-return diagnostic: dual momentum CAGR 5.7% IR -0.33 MaxDD -22.0%; trend following -1.5% IR -0.71 MaxDD -30.2%; cross-asset 4.2% IR -0.43 MaxDD -11.1%; multi-factor 8.0% IR -0.23 MaxDD -15.0%; SPY CAGR 10.9%. No promotion.",
-  "last_updated_utc": "2026-07-18T00:50:00Z"
+  "last_updated_utc": "2026-07-18T01:42:00Z"
 }

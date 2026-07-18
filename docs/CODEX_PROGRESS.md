@@ -1,12 +1,12 @@
 # Codex audit and hardening progress
 
-Last updated: 2026-07-17 (research protocol frozen)
+Last updated: 2026-07-17 (candidate implementation ready)
 
 ## Current phase
 
-Strategy Phase 2 — the scoped audit and certification repairs are complete. Legacy failure
-attribution and the phase-two research protocol are now frozen; candidate implementation is
-next and no strategy is promoted.
+Strategy Phase 2 — audit, certification, failure attribution, preregistration and candidate
+implementation are complete. Development experiments are next; no candidate result has been
+read and no strategy is promoted.
 
 ## Completed
 
@@ -72,18 +72,26 @@ next and no strategy is promoted.
 - Preregistered four economically distinct ETF candidates, 41 bounded development cells in
   total, hypothesis-scoped development/validation/holdout dates, finalist access limits, and
   fixed numeric PAPER gates in `config/strategy_promotion.yaml` before candidate evaluation.
+- Implemented adaptive stable core, capped/cooldown Nasdaq growth, long-lived sector ETF
+  rotation, and daily ETF mean reversion with weight-contract and missing-input tests.
+- Added an atomic experiment registry, common detailed-metrics/robustness runner, executable
+  type-specific promotion policy, limited holdout access ledger, and deterministic bootstrap.
+- Added an eight-state regime adapter with confidence, hysteresis, minimum duration, cooldown,
+  UNKNOWN fail-close and switching/confusion statistics. Added per-strategy risk budgets,
+  conflict resolution, aggregate symbol/gross caps, and a final fail-closed portfolio veto.
+- Passed 17 new tests and scoped Ruff. Scoped mypy reports no errors in new code; its only output
+  is two pre-existing imported-module errors in `source_boundaries.py` and `logging_setup.py`.
 
 ## In progress
 
-- Implement the preregistered candidate families, uniform evaluator, registry and executable
-  promotion gates. Candidate evaluation remains blocked until that implementation is tested and
-  committed so every experiment can name an exact clean code commit.
+- Commit and push the tested implementation, then preregister all development runs against the
+  exact clean commit before loading their evaluation data.
 
 ## Next
 
-1. Implement and test the preregistered families and evaluation/promotion machinery.
-2. Commit the clean implementation, preregister every development run, then evaluate development.
-3. Validate only each family winner on annual forward folds and robustness checks.
+1. Commit the clean implementation, preregister every development run, then evaluate development.
+2. Freeze one winner per family using the predeclared score and commit all failures/results.
+3. Validate only family winners on annual forward folds, 2x cost, delay and neighbor checks.
 4. Admit only qualifying frozen finalists to the limited holdout and PAPER replay.
 
 ## Unresolved issues
