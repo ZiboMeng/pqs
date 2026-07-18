@@ -41,6 +41,8 @@ from core.signals.strategies.phase2_etf import (
     AdaptiveCoreStrategy,
     ControlledGrowthParams,
     ControlledGrowthStrategy,
+    CrashBufferCoreParams,
+    CrashBufferCoreStrategy,
     DefensiveGrowthParams,
     DefensiveGrowthStrategy,
     DualIndexGrowthParams,
@@ -122,6 +124,13 @@ FAMILY_META: dict[str, dict[str, str]] = {
         "benchmark": "QQQ",
         "hypothesis": "High-participation month-end QQQ/SPY trend captures growth with a fixed defensive off-state.",
     },
+    "crash_buffer_core": {
+        "version": "v1",
+        "strategy_id": "crash_buffer_core_v1",
+        "strategy_type": "stable_core",
+        "benchmark": "SPY",
+        "hypothesis": "A diversified core with a daily crash buffer preserves long-horizon equity premia within stable-core loss limits.",
+    },
     "etf_reversion": {
         "version": "v1",
         "strategy_id": "etf_reversion_v1",
@@ -195,6 +204,11 @@ def _repair_grids() -> dict[str, list[dict[str, Any]]]:
             for slow in (168, 252)
             for gross in (0.60, 0.70)
         ],
+        "crash_buffer_core": [
+            {"slow_trend": slow, "qqq_sleeve": sleeve, "cooldown_sessions": 21}
+            for slow in (168, 252)
+            for sleeve in (0.15, 0.20)
+        ],
     }
 
 
@@ -234,6 +248,8 @@ def _make_strategy(family: str, parameters: Mapping[str, Any]):
         return MultiAssetTrendStrategy(MultiAssetTrendParams(**parameters))
     if family == "dual_index_growth":
         return DualIndexGrowthStrategy(DualIndexGrowthParams(**parameters))
+    if family == "crash_buffer_core":
+        return CrashBufferCoreStrategy(CrashBufferCoreParams(**parameters))
     if family == "etf_reversion":
         return EtfReversionStrategy(EtfReversionParams(**parameters))
     raise KeyError(family)
@@ -685,6 +701,11 @@ def _neighbor_cells(family: str, selected: Mapping[str, Any]) -> list[dict[str, 
         axes = {
             "slow_trend": [168, 252],
             "equity_gross": [0.60, 0.70],
+        }
+    elif family == "crash_buffer_core":
+        axes = {
+            "slow_trend": [168, 252],
+            "qqq_sleeve": [0.15, 0.20],
         }
     else:
         axes = {

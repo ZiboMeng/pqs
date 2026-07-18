@@ -585,6 +585,90 @@ class DualIndexGrowthStrategy:
 
 
 @dataclass(frozen=True)
+class CrashBufferCoreParams:
+    slow_trend: int = 252
+    qqq_sleeve: float = 0.20
+    cooldown_sessions: int = 21
+
+    def __post_init__(self) -> None:
+        if self.slow_trend not in {168, 252}:
+            raise ValueError("slow_trend is outside the preregistered grid")
+        if self.qqq_sleeve not in {0.15, 0.20}:
+            raise ValueError("qqq_sleeve is outside the preregistered grid")
+        if self.cooldown_sessions != 21:
+            raise ValueError("cooldown is frozen at 21 sessions")
+
+
+class CrashBufferCoreStrategy:
+    """Diversified stable core with a daily emergency equity exit."""
+
+    strategy_id = "crash_buffer_core_v1"
+    strategy_type = "stable_core"
+    required_symbols = ("SPY", "QQQ", "IEF", "GLD", "BIL", "SHY")
+
+    def __init__(self, params: CrashBufferCoreParams | None = None) -> None:
+        self.params = params or CrashBufferCoreParams()
+
+    def generate(
+        self,
+        price_df: pd.DataFrame,
+        regime_series: pd.Series | None = None,
+    ) -> pd.DataFrame:
+        del regime_series
+        _validate_panel(price_df, self.required_symbols)
+        spy = price_df["SPY"]
+        qqq = price_df["QQQ"]
+        slow = self.params.slow_trend
+        entry = (
+            (spy > spy.rolling(slow).mean())
+            & (spy.pct_change(126) > 0.0)
+            & (qqq > qqq.rolling(200).mean())
+        )
+        emergency = (spy < spy.rolling(63).mean()) | (
+            spy / spy.rolling(63).max() - 1.0 <= -0.075
+        )
+        ready = spy.rolling(max(252, slow)).count() >= max(252, slow)
+        month_end = _period_end_mask(price_df.index, "M")
+        weights = pd.DataFrame(0.0, index=price_df.index, columns=price_df.columns)
+        active = False
+        cooldown = 0
+        for date in price_df.index:
+            if cooldown > 0:
+                cooldown -= 1
+            if active and bool(emergency.loc[date]):
+                active = False
+                cooldown = self.params.cooldown_sessions
+            if (
+                bool(month_end.loc[date])
+                and bool(ready.loc[date])
+                and not active
+                and cooldown == 0
+                and bool(entry.loc[date])
+                and not bool(emergency.loc[date])
+            ):
+                active = True
+            if not bool(ready.loc[date]):
+                continue
+
+            row = weights.loc[date]
+            if active:
+                row["SPY"] = 0.35
+                row["QQQ"] = self.params.qqq_sleeve
+                row["IEF"] = 0.15
+                row["GLD"] = 0.20
+                residual = 1.0 - float(row.sum())
+                row["BIL"] = residual / 2.0
+                row["SHY"] = residual / 2.0
+            else:
+                row["IEF"] = 0.30
+                row["GLD"] = 0.30
+                row["BIL"] = 0.20
+                row["SHY"] = 0.20
+            weights.loc[date] = row
+        return _assert_weight_contract(weights)
+
+
+@dataclass(frozen=True)
 class EtfReversionParams:
     loss_threshold: float = -0.035
     rsi_cutoff: int = 10
@@ -664,6 +748,8 @@ __all__ = [
     "AdaptiveCoreStrategy",
     "ControlledGrowthParams",
     "ControlledGrowthStrategy",
+    "CrashBufferCoreParams",
+    "CrashBufferCoreStrategy",
     "DefensiveGrowthParams",
     "DefensiveGrowthStrategy",
     "DualIndexGrowthParams",

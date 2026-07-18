@@ -7,6 +7,7 @@ import pytest
 from core.signals.strategies.phase2_etf import (
     AdaptiveCoreStrategy,
     ControlledGrowthStrategy,
+    CrashBufferCoreStrategy,
     DefensiveGrowthStrategy,
     DualIndexGrowthStrategy,
     EtfReversionStrategy,
@@ -57,6 +58,7 @@ def _panel(rows: int = 420) -> pd.DataFrame:
         DefensiveGrowthStrategy(),
         MultiAssetTrendStrategy(),
         DualIndexGrowthStrategy(),
+        CrashBufferCoreStrategy(),
     ],
 )
 def test_phase2_strategy_weight_contract(strategy) -> None:
@@ -106,8 +108,30 @@ def test_final_iteration_strategies_are_fully_collateralized_after_warmup() -> N
         DefensiveGrowthStrategy(),
         MultiAssetTrendStrategy(),
         DualIndexGrowthStrategy(),
+        CrashBufferCoreStrategy(),
     ):
         weights = strategy.generate(panel)
         invested = weights.sum(axis=1)
         assert np.allclose(invested[invested > 0.0], 1.0)
         assert float(weights.max().max()) <= 0.35
+
+
+def test_crash_buffer_exits_daily_and_reenters_only_after_cooldown_month_end() -> None:
+    panel = _panel(620)
+    panel.loc[:, "QQQ"] = np.linspace(100.0, 230.0, len(panel))
+    panel.loc[:, "SPY"] = np.linspace(100.0, 220.0, len(panel))
+    baseline = CrashBufferCoreStrategy().generate(panel)
+    active_dates = baseline.index[baseline["SPY"] > 0.0]
+    assert not active_dates.empty
+
+    shock_date = active_dates[0] + pd.offsets.BDay(10)
+    panel.loc[shock_date:, "SPY"] *= 0.90
+    recovery_date = shock_date + pd.offsets.BDay(5)
+    panel.loc[recovery_date:, "SPY"] *= np.linspace(1.15, 1.60, len(panel.loc[recovery_date:]))
+    weights = CrashBufferCoreStrategy().generate(panel)
+
+    assert weights.at[shock_date, "SPY"] == 0.0
+    assert weights.at[shock_date, "IEF"] == pytest.approx(0.30)
+    first_reentry = weights.index[(weights.index > shock_date) & (weights["SPY"] > 0.0)][0]
+    assert len(weights.loc[shock_date:first_reentry].iloc[1:-1]) >= 21
+    assert first_reentry.to_period("M") != weights.index[weights.index.get_loc(first_reentry) + 1].to_period("M")
