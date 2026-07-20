@@ -89,6 +89,22 @@ class TestSimulateFill:
             _order(), open_price=100.0, vix=float("nan"), cash=10_000.0
         ) is None
 
+    def test_subcent_cash_residue_is_zero_but_real_negative_cash_is_rejected(self):
+        sim = ExecutionSimulator(_make_cost_model())
+        sell = sim.simulate_fill(
+            _order(OrderSide.SELL),
+            open_price=100.0,
+            vix=15.0,
+            cash=-1e-12,
+        )
+        assert sell is not None
+        assert sim.simulate_fill(
+            _order(OrderSide.SELL),
+            open_price=100.0,
+            vix=15.0,
+            cash=-1.0,
+        ) is None
+
     def test_zero_qty_returns_none(self):
         sim  = ExecutionSimulator(_make_cost_model())
         fill = sim.simulate_fill(_order(qty=0.0), open_price=100.0, vix=15.0, cash=10_000.0)

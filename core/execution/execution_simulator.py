@@ -150,7 +150,12 @@ class ExecutionSimulator:
         if not np.isfinite(order.qty_shares) or order.qty_shares <= 0:
             return None
 
-        if not np.isfinite(vix) or vix <= 0 or not np.isfinite(cash) or cash < 0:
+        if (
+            not np.isfinite(vix)
+            or vix <= 0
+            or not np.isfinite(cash)
+            or cash < -0.01
+        ):
             logger.warning(
                 "[%s] Invalid execution inputs vix=%s cash=%s — order rejected",
                 order.symbol,
@@ -158,6 +163,10 @@ class ExecutionSimulator:
                 cash,
             )
             return None
+        # Account projections can acquire sub-cent negative residues from
+        # IEEE-754 arithmetic after a full-cash purchase. They are accounting
+        # zero, not margin. Meaningful negative cash remains rejected above.
+        cash = max(float(cash), 0.0)
 
         is_buy     = order.side == OrderSide.BUY
         slip_bps   = self._cost._cfg.get_slippage_bps(order.symbol, self._freq, vix)
