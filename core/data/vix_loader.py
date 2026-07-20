@@ -11,9 +11,9 @@ full-size trades.
 This module centralizes the loading logic with two modes:
 
   - strict:  raise VixDataMissingError if ^VIX is unavailable OR
-             if the VIX value on the most recent bar of the reindex
-             index is NaN. Used for live/paper paths — trade blocked
-             rather than silently sized against a stale constant.
+             the latest target session has no exact, valid VIX bar.
+             Used for live/paper paths — trade blocked rather than
+             silently sized against stale or constant VIX data.
   - lenient: allow ffill + constant-backfill on NaN with a warning
              per run. Used for research/backtest over long histories
              where the missing tail is bounded and known.
@@ -25,6 +25,7 @@ records how many bars were filled from the constant.
 
 from __future__ import annotations
 
+import math
 from typing import Literal
 
 import pandas as pd
@@ -63,9 +64,16 @@ def load_vix_series(
     ------
     VixDataMissingError (strict mode only) if:
       - no ^VIX bars at all exist in the store
-      - the VIX value on target_index[-1] (the most recent decision
-        point) is NaN after ffill
+      - target_index[-1] (the most recent decision point) has no exact,
+        finite, positive VIX observation in the source data
     """
+    target_index = pd.DatetimeIndex(target_index)
+    if target_index.empty:
+        out = pd.Series(index=target_index, dtype=float, name="vix")
+        out.attrs["fallback_bars"] = 0
+        out.attrs["fallback_mode"] = "none"
+        return out
+
     raw_df = None
     if store.get_last_date(symbol, "1d") is not None:
         raw_df = store.read(symbol, "1d")
@@ -88,7 +96,35 @@ def load_vix_series(
         out.attrs["fallback_mode"] = "all_missing"
         return out
 
-    series = raw_df["close"].reindex(target_index, method="ffill")
+    def _session_index(index: pd.Index) -> pd.DatetimeIndex:
+        sessions = pd.DatetimeIndex(pd.to_datetime(index))
+        if sessions.tz is not None:
+            sessions = sessions.tz_localize(None)
+        return sessions.normalize()
+
+    target_sessions = _session_index(target_index)
+    raw_series = pd.to_numeric(raw_df["close"], errors="coerce").copy()
+    raw_series.index = _session_index(raw_series.index)
+    raw_series = raw_series[~raw_series.index.duplicated(keep="last")].sort_index()
+
+    latest_session = target_sessions[-1]
+    if mode == "strict":
+        latest_value = raw_series.get(latest_session)
+        if (
+            latest_value is None
+            or pd.isna(latest_value)
+            or not math.isfinite(float(latest_value))
+            or float(latest_value) <= 0.0
+        ):
+            source_latest = raw_series.index.max() if not raw_series.empty else None
+            raise VixDataMissingError(
+                f"{symbol} has no valid exact observation for latest target "
+                f"session {latest_session.date()} (source latest={source_latest}); "
+                "refusing to trade with stale VIX data."
+            )
+
+    series = raw_series.reindex(target_sessions, method="ffill")
+    series.index = target_index
     n_nan = int(series.isna().sum())
 
     if n_nan == 0:

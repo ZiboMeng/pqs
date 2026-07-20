@@ -18,7 +18,7 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from core.data.vix_loader import load_vix_series, VixDataMissingError
+from core.data.vix_loader import VixDataMissingError, load_vix_series
 
 
 def _make_store(vix_df):
@@ -72,11 +72,25 @@ class TestStrictMode:
         with pytest.raises(VixDataMissingError):
             load_vix_series(store, idx, mode="strict")
 
+    def test_stale_tail_raises_even_when_forward_fill_would_succeed(self):
+        vix = _vix_df("2026-01-02", periods=3, value=15.0)
+        store = _make_store(vix)
+        idx = pd.date_range("2026-01-02", periods=5, freq="B")
+
+        with pytest.raises(VixDataMissingError, match="stale VIX"):
+            load_vix_series(store, idx, mode="strict")
+
     def test_ok_path(self):
         vix = _vix_df("2026-01-02", periods=5, value=15.0)
         store = _make_store(vix)
         out = load_vix_series(store, vix.index, mode="strict")
         assert (out == 15.0).all()
+        assert out.attrs["fallback_bars"] == 0
+
+    def test_empty_target_is_a_valid_empty_request(self):
+        store = _make_store(_vix_df("2026-01-02", periods=3))
+        out = load_vix_series(store, pd.DatetimeIndex([]), mode="strict")
+        assert out.empty
         assert out.attrs["fallback_bars"] == 0
 
 

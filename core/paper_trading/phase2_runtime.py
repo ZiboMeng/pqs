@@ -169,8 +169,8 @@ def load_paper_strategy_spec(
         raise PaperRuntimeError(f"strategy is not enabled and registered: {strategy_id}")
     config_item = configured[strategy_id]
     registry_item = registered[strategy_id]
-    if registry_item.get("status") not in {"RESEARCH_QUALIFIED", "PAPER_APPROVED"}:
-        raise PaperRuntimeError(f"strategy status is not PAPER-eligible: {strategy_id}")
+    if registry_item.get("status") != "PAPER_APPROVED":
+        raise PaperRuntimeError(f"strategy status is not PAPER-approved: {strategy_id}")
     if registry_item.get("live_enabled") is not False:
         raise PaperRuntimeError("registered strategy unexpectedly enables LIVE")
     required_registry_fields = {

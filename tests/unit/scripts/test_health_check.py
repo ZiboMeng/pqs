@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -39,3 +40,21 @@ def test_health_check_reads_sqlite_integrity_without_mutation(tmp_path):
     assert result.returncode == 0
     assert report["checks"]["sqlite"]["quick_check"] == "ok"
     assert db.stat().st_mtime_ns == before
+
+
+def test_health_check_fails_readiness_when_live_is_unexpectedly_enabled(tmp_path):
+    config_dir = tmp_path / "config"
+    shutil.copytree(PROJECT_ROOT / "config", config_dir)
+    system_path = config_dir / "system.yaml"
+    system_path.write_text(
+        system_path.read_text(encoding="utf-8").replace(
+            "live_enabled: false", "live_enabled: true", 1
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_health("--config-dir", str(config_dir))
+    report = json.loads(result.stdout)
+    assert result.returncode == 1
+    assert report["status"] == "failed"
+    assert report["checks"]["live_default"]["status"] == "error"

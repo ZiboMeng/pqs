@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
@@ -17,6 +18,7 @@ from core.paper_trading.paper_trading_engine import PaperTradingEngine
 from core.paper_trading.phase2_runtime import (
     MarketDataQualityError,
     MarketEventGuard,
+    PaperRuntimeError,
     PaperStrategySpec,
     Phase2PaperRuntime,
     load_paper_strategy_spec,
@@ -117,6 +119,23 @@ def _spec() -> PaperStrategySpec:
         ),
         minimum_regime_confidence=0.0,
     )
+
+
+def test_research_qualified_strategy_cannot_cross_paper_boundary(tmp_path) -> None:
+    registry = json.loads(
+        Path("research/registry/strategy_registry.json").read_text(encoding="utf-8")
+    )
+    registry["strategies"][0]["status"] = "RESEARCH_QUALIFIED"
+    registry_path = tmp_path / "strategy_registry.json"
+    registry_path.write_text(json.dumps(registry), encoding="utf-8")
+
+    with pytest.raises(PaperRuntimeError, match="not PAPER-approved"):
+        load_paper_strategy_spec(
+            "config/strategies.paper.yaml",
+            "config/portfolio.paper.yaml",
+            registry_path,
+            strategy_id="dual_index_growth_v1",
+        )
 
 
 def _runtime(

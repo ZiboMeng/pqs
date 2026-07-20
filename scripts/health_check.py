@@ -51,10 +51,10 @@ def main() -> int:
             "live_enabled": config.system.runtime.live_enabled,
         }
         if config.system.runtime.live_enabled:
-            report["status"] = "degraded"
+            report["status"] = "failed"
             report["checks"]["live_default"] = {
-                "status": "warning",
-                "reason": "repository safety default was overridden",
+                "status": "error",
+                "reason": "repository safety default was overridden; refusing readiness",
             }
     except Exception as exc:  # noqa: BLE001
         report["status"] = "failed"
@@ -67,7 +67,7 @@ def main() -> int:
             report["status"] = "failed"
 
     print(json.dumps(report, sort_keys=True))
-    return 0 if report["status"] in {"ok", "degraded"} else 1
+    return 0 if report["status"] == "ok" else 1
 
 
 if __name__ == "__main__":
