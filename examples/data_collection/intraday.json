@@ -1,0 +1,35 @@
+{
+  "batch_id": "synthetic-intraday-20260717-2000",
+  "feed": "intraday",
+  "source": "synthetic_fixture",
+  "data_schema": "intraday_quote_bar_v1",
+  "event_time": "2026-07-17T20:00:00+00:00",
+  "available_time": "2026-07-17T20:00:01+00:00",
+  "received_time": "2026-07-17T20:00:02+00:00",
+  "rows": [
+    {
+      "symbol": "SPY",
+      "interval": "1m",
+      "bar_start": "2026-07-17T19:59:00+00:00",
+      "bar_end": "2026-07-17T20:00:00+00:00",
+      "open": 623.0,
+      "high": 624.2,
+      "low": 622.8,
+      "close": 624.0,
+      "volume": 80000,
+      "bid": 623.99,
+      "ask": 624.01,
+      "session_flag": "REGULAR",
+      "latency_ms": 2000.0,
+      "event_time": "2026-07-17T20:00:00+00:00",
+      "available_time": "2026-07-17T20:00:01+00:00",
+      "received_time": "2026-07-17T20:00:02+00:00",
+      "source": "synthetic_fixture",
+      "quality": ["SYNTHETIC"]
+    }
+  ],
+  "provider_cursor": null,
+  "next_cursor": "synthetic-intraday-complete",
+  "quality_flags": ["SYNTHETIC"],
+  "revision_of": null
+}

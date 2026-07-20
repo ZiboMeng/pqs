@@ -1,0 +1,35 @@
+{
+  "batch_id": "synthetic-daily-20260717",
+  "feed": "daily",
+  "source": "synthetic_fixture",
+  "data_schema": "daily_total_return_v1",
+  "event_time": "2026-07-17T20:00:00+00:00",
+  "available_time": "2026-07-17T20:00:01+00:00",
+  "received_time": "2026-07-17T20:00:02+00:00",
+  "rows": [
+    {
+      "symbol": "SPY",
+      "session": "2026-07-17",
+      "open": 620.0,
+      "high": 625.0,
+      "low": 619.0,
+      "close": 624.0,
+      "adjusted_close": 624.0,
+      "total_return_factor": 1.0,
+      "volume": 50000000,
+      "dividend": 0.0,
+      "split_factor": 1.0,
+      "corporate_action": null,
+      "calendar": "XNYS",
+      "event_time": "2026-07-17T20:00:00+00:00",
+      "available_time": "2026-07-17T20:00:01+00:00",
+      "received_time": "2026-07-17T20:00:02+00:00",
+      "source": "synthetic_fixture",
+      "quality": ["SYNTHETIC"]
+    }
+  ],
+  "provider_cursor": null,
+  "next_cursor": "synthetic-daily-complete",
+  "quality_flags": ["SYNTHETIC"],
+  "revision_of": null
+}

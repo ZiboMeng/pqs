@@ -1,0 +1,35 @@
+schema_version: 1
+mode: COLLECT_ONLY
+strategy_consumption_enabled: false
+live_enabled: false
+
+store:
+  directory: data/collection
+  maximum_batch_bytes: 20000000
+  maximum_rows: 100000
+
+providers:
+  allowed_adapter_types:
+    - file
+    - mock
+  maximum_input_bytes: 20000000
+
+schedules:
+  daily:
+    timezone: America/New_York
+    cron: "15 20 * * 1-5"
+  intraday:
+    timezone: America/New_York
+    cron: "*/5 9-16 * * 1-5"
+  options:
+    timezone: America/New_York
+    cron: "20 16 * * 1-5"
+
+quality_policy:
+  daily_schema: daily_total_return_v1
+  intraday_schema: intraday_quote_bar_v1
+  options_schema: options_chain_v1
+  supported_calendar: XNYS
+  supported_intraday_intervals:
+    - 1m
+    - 5m

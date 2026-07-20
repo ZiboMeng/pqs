@@ -79,6 +79,9 @@ batch/submission/result 均为 0，同 UID/admin 隔离和远端 object lock 未
 
 ## R5 数据采集
 
+状态：完成本地 collect-only 实现（三类固定 schema、file/mock adapter、物理 trusted/quarantine 全局哈希链、
+revision/cursor 恢复和合成 E2E）；真实 provider、真实持续调度和真实批次均为 0。
+
 - 统一 ingestion envelope 和 provider protocol；
 - 日频 total-return/corporate-action file/mock E2E；
 - 日内 quote/bar file/mock E2E，仅采集；

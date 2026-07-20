@@ -10,6 +10,8 @@ defined at the bottom of this file. Within each category section,
 
 ## Active Codex phase-three evidence
 
+- [DATA_COLLECTION.md](DATA_COLLECTION.md) — 日频、1m/5m 与期权统一 envelope、三类时间、
+  append-only trusted/quarantine hash chain、revision/cursor 语义、file/mock 运行方式和零真实 provider 状态。
 - [SEALED_EVIDENCE.md](SEALED_EVIDENCE.md) — append-only/hash-chain store、未来假设
   预注册、四层并发信息预算、隔离固定 summary evaluator、攻击边界和当前零真实 submission 状态。
 - [FORWARD_PAPER.md](FORWARD_PAPER.md) — 三阶段真实事件 lifecycle、lease/fencing、持久
