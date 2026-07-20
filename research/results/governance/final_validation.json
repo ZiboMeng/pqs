@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "status": "PASS",
+  "validated_at_utc": "2026-07-20T23:21:00Z",
+  "branch": "codex/governance-and-semantic-strategy-v4",
+  "code_commit": "1c2ccc9e8bdfbe96e36bf5470b7a46f30e95a9ad",
+  "full_test_command": "/home/zibo/Documents/projects/pqs/.venv/bin/pytest -q",
+  "full_test_summary": "4325 passed, 29 skipped, 1 xfailed, 43 warnings in 1782.39s (0:29:42)",
+  "ci_equivalent_status": "PASS",
+  "checks": {
+    "configuration": {
+      "command": "/home/zibo/Documents/projects/pqs/.venv/bin/python -m core.config.loader --validate",
+      "status": "PASS"
+    },
+    "fatal_lint": {
+      "command": "/home/zibo/Documents/projects/pqs/.venv/bin/ruff check core scripts tests --select E9,F63,F7,F82",
+      "status": "PASS"
+    },
+    "typed_safety_boundary": {
+      "command": "/home/zibo/Documents/projects/pqs/.venv/bin/mypy core/trading core/runtime --no-error-summary",
+      "status": "PASS"
+    },
+    "typed_governance_changes": {
+      "command": "/home/zibo/Documents/projects/pqs/.venv/bin/mypy core/research/governance.py core/operations/control_plane.py core/paper_trading/phase2_runtime.py core/paper_trading/forward_runtime.py --follow-imports=skip --no-error-summary",
+      "status": "PASS"
+    },
+    "bytecode_compilation": {
+      "command": "/home/zibo/Documents/projects/pqs/.venv/bin/python -m compileall -q core scripts tests",
+      "status": "PASS"
+    },
+    "dependency_consistency": {
+      "command": "/home/zibo/Documents/projects/pqs/.venv/bin/pip check",
+      "status": "PASS"
+    },
+    "dependency_vulnerability_audit": {
+      "command": "/home/zibo/Documents/projects/pqs/.venv/bin/pip-audit --progress-spinner off",
+      "status": "PASS",
+      "note": "No known dependency vulnerabilities; the local pqs package is not published on PyPI."
+    },
+    "observation_strategy_artifact": {
+      "command": "/home/zibo/Documents/projects/pqs/.venv/bin/python scripts/freeze_phase3_strategy.py verify",
+      "status": "PASS",
+      "promotion_status": "PAPER_OBSERVATION_ONLY",
+      "artifact_root_sha256": "21a268f103295c0b11243f4264885844b019cdeeab8da89106e83d91a3b306ee"
+    },
+    "deployment_static_contract": {
+      "command": "/home/zibo/Documents/projects/pqs/.venv/bin/python scripts/validate_phase3_deployment.py",
+      "status": "PASS",
+      "cloud_resources_created": false
+    },
+    "git_object_integrity": {
+      "command": "git fsck --full",
+      "status": "PASS",
+      "note": "No corrupt or missing objects; recoverable dangling objects were retained."
+    }
+  },
+  "governance": {
+    "policy_id": "pqs-governance-reconciliation-v1",
+    "historical_strategy_status": "PAPER_APPROVED",
+    "effective_strategy_status": "PAPER_OBSERVATION_ONLY",
+    "review_status": "REVIEW_HOLD",
+    "automatic_promotion_eligible": false,
+    "capital_eligible": false,
+    "primary_benchmark": "SPY",
+    "qqq_role": "diagnostic_only",
+    "automatic_retirement_on_spy_failure": false
+  },
+  "formal_read_only_status": {
+    "mode": "FORWARD_PAPER",
+    "readiness": "NOT_READY",
+    "ready_for_live": false,
+    "trusted_source_batch_bound": false,
+    "real_forward_sessions": 0,
+    "real_broker_writes": 0,
+    "cloud_resources_created": false
+  },
+  "declared_limitations": {
+    "known_xfail": "The frozen strategy does not beat QQQ over the full expanded period; QQQ is diagnostic under the active policy.",
+    "source_binding": "Caller-supplied hashes are rejected until a trusted collector record is the exact runtime-consumed price source.",
+    "expanded_mypy_diagnostic": "A broader import-following check surfaces two pre-existing findings in core/data/source_boundaries.py and core/logging_setup.py; neither file changed in this governance work and the certified typed scopes pass."
+  }
+}
