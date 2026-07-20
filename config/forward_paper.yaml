@@ -1,0 +1,44 @@
+schema_version: 1
+mode: PAPER
+live_enabled: false
+broker_write_enabled: false
+paid_cloud_create_enabled: false
+
+strategy:
+  strategy_id: dual_index_growth_v1
+  artifact: research/registries/strategy_artifacts/dual_index_growth_v1/v1.json
+
+state:
+  directory: data/paper_trading/phase3_forward/dual_index_growth_v1
+  database: forward_state.db
+  broker_database: simulated_broker.db
+  reports_directory: daily_reports
+
+calendar:
+  exchange: NYSE
+  # EOD finalization runs first; the next decision is frozen afterwards.
+  close_buffer_seconds: 600
+  eod_buffer_seconds: 300
+  max_event_lag_seconds: 1800
+
+scheduler:
+  lease_name: phase3-forward-paper
+  lease_ttl_seconds: 120
+
+execution:
+  minimum_trade_usd: 100.0
+  rebalance_threshold: 0.02
+  integer_shares: true
+  market_fill_model: next_open_with_shared_cost_model
+  limit_fill_model: disabled_without_quotes
+
+tracking:
+  benchmark: QQQ
+  control_policy_version: phase3-forward-tracking-v1
+  minimum_performance_sessions: 60
+  minimum_promotion_sessions: 252
+
+broker:
+  adapter: simulated
+  authoritative_snapshot: true
+  external_write_enabled: false

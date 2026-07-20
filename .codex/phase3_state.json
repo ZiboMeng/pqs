@@ -6,8 +6,8 @@
   "baseline_tag": "codex-pre-forward-paper-phase3-20260720",
   "current_branch": "codex/forward-paper-and-sealed-evidence-v3",
   "current_stage": "FORWARD_PAPER_RUNTIME",
-  "last_completed_task": "Built and verified the immutable transitive artifact for dual_index_growth_v1 and enforced artifact identity, component, environment, parameter, universe, schedule, and runtime-mode checks.",
-  "next_task": "Implement the persisted close-decision, next-open execution, and EOD-finalize Forward PAPER lifecycle with lease and fencing.",
+  "last_completed_task": "Implemented and verified the persisted CLOSE_DECISION, next-session OPEN_EXECUTION, and EOD_FINALIZE Forward PAPER lifecycle with atomic state, deterministic order parity, event idempotency, reconciliation gates, and SQLite lease fencing.",
+  "next_task": "Implement frozen forward tracking policy, broker snapshot freshness and read-only authority boundaries, and daily operational evidence.",
   "open_p0": [],
   "open_p1": [],
   "frozen_strategies": [
@@ -29,8 +29,8 @@
     "No trustworthy historical options chain provider is available; options work is collection infrastructure only.",
     "A second strategy remains blocked until at least 252 unseen post-2026-07-17 sessions or a user-authorized disjoint point-in-time evidence protocol exists."
   ],
-  "last_test_command": "pytest -q tests/unit/runtime/test_strategy_artifact.py tests/unit/paper_trading/test_phase2_paper_runtime.py",
-  "last_test_result": "PASS: 19 passed in 4.80s; artifact build, strict verify, idempotent rebuild, and PAPER status smoke passed under the frozen Python 3.13 environment.",
+  "last_test_command": "pytest -q tests/unit/paper_trading/test_forward_runtime.py tests/unit/runtime/test_lease.py tests/unit/execution/test_target_weight_planner.py",
+  "last_test_result": "PASS: 18 passed in 7.37s; Ruff and isolated mypy passed; strict-artifact Forward PAPER status entrypoint smoke passed.",
   "last_deployment_check": "Not started; no paid resource creation authorized.",
-  "last_updated_utc": "2026-07-20T17:57:46Z"
+  "last_updated_utc": "2026-07-20T18:14:50Z"
 }
