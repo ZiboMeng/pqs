@@ -8,6 +8,15 @@ fast path. **New files going forward** land in the per-category subdirs
 defined at the bottom of this file. Within each category section,
 **newest first**.
 
+## Active Codex phase-three evidence
+
+- [PHASE3_PRD.md](PHASE3_PRD.md) — 经独立量化、架构、安全和可运维性审计修订的
+  Phase 3 v1.1 权威需求；明确两阶段因果时序、传递行为 hash、密封证据能力边界、提交预算、
+  lease/fencing、只读 broker 和无付费云资源边界。
+- [PHASE3_AUDIT.md](PHASE3_AUDIT.md) — 2026-07-20 开工前代码、行为、边界、证据、
+  安全、运维和清理审计，以及已关闭的 P0/P1 反例。
+- [PHASE3_ROADMAP.md](PHASE3_ROADMAP.md) — R0-R8 实施顺序、每阶段出口和诚实收口标准。
+
 ## Active Codex phase-two evidence
 
 - [SECOND_ROUND_AUDIT.md](SECOND_ROUND_AUDIT.md) — 2026-07-17 scoped re-audit of the
