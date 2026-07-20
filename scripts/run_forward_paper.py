@@ -244,6 +244,12 @@ def _build_runtime(args: argparse.Namespace):
             close_buffer=timedelta(seconds=calendar_config["close_buffer_seconds"]),
             eod_buffer=timedelta(seconds=calendar_config["eod_buffer_seconds"]),
             max_event_lag=timedelta(seconds=calendar_config["max_event_lag_seconds"]),
+            max_broker_snapshot_age=timedelta(
+                seconds=calendar_config["max_broker_snapshot_age_seconds"]
+            ),
+            max_broker_clock_skew=timedelta(
+                seconds=calendar_config["max_broker_clock_skew_seconds"]
+            ),
         ),
     )
     return runtime, lease, phase3

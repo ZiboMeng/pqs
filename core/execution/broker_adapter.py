@@ -21,15 +21,18 @@ Design principles (per CLAUDE.md):
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import sqlite3
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Dict, List, Optional
+
+import pandas as pd
 
 from core.execution.cost_model import CostModel
 from core.execution.execution_simulator import (
@@ -60,6 +63,41 @@ class ReconcileResult:
     position_mismatches: Dict[str, float] = field(default_factory=dict)  # sym → diff
     cash_mismatch:  float = 0.0
     details:        str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class BrokerAccountSnapshot:
+    """One internally consistent, broker-authoritative account observation."""
+
+    snapshot_id: str
+    source: str
+    observed_at: datetime
+    cash: float
+    positions: Dict[str, float]
+    open_order_ids: frozenset[str]
+    fill_ids: frozenset[str]
+
+    def __post_init__(self) -> None:
+        if not self.snapshot_id.strip() or not self.source.strip():
+            raise ValueError("broker snapshot identity and source are required")
+        if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
+            raise ValueError("broker snapshot time must be timezone-aware")
+        if not math.isfinite(float(self.cash)) or self.cash < -0.01:
+            raise ValueError("broker snapshot cash must be finite and non-negative")
+        invalid_positions = {
+            symbol: quantity
+            for symbol, quantity in self.positions.items()
+            if not str(symbol).strip()
+            or not math.isfinite(float(quantity))
+            or float(quantity) < 0
+        }
+        if invalid_positions:
+            raise ValueError(
+                "broker snapshot positions must be finite and long-only: "
+                f"{invalid_positions}"
+            )
+        if any(not str(value).strip() for value in self.open_order_ids | self.fill_ids):
+            raise ValueError("broker snapshot order and fill identities must be non-empty")
 
 
 # ── ABC ──────────────────────────────────────────────────────────────────────
@@ -121,6 +159,21 @@ class BrokerAdapter(ABC):
                 raise RuntimeError("broker open order has no stable identity")
             identities.add(str(identity))
         return frozenset(identities)
+
+    def get_account_snapshot(
+        self,
+        *,
+        observed_at: datetime | None = None,
+    ) -> BrokerAccountSnapshot:
+        """Return one coherent snapshot with source time and stable identities.
+
+        Phase 3 callers intentionally do not synthesize freshness from the
+        individual legacy getters.  Adapters that cannot provide a coherent
+        snapshot must fail closed by leaving this default in place.
+        """
+
+        del observed_at
+        raise NotImplementedError("broker adapter does not expose authoritative snapshots")
 
 
 # ── SimulatedBrokerAdapter ────────────────────────────────────────────────────
@@ -252,13 +305,17 @@ class SimulatedBrokerAdapter(BrokerAdapter):
             if quantity > 1e-6
         }
         try:
-            self._persist_state(fill_key=fill_key, broker_order_id=order_id)
+            self._persist_state(
+                fill_key=fill_key,
+                broker_order_id=order_id,
+                fill=fill,
+            )
         except Exception:
             self._cash = old_cash
             self._positions = old_positions
             raise
         self._fills.append(fill)
-        self._fill_timestamps.append(datetime.now())
+        self._fill_timestamps.append(datetime.now(UTC))
         self._mirrored_fill_ids[fill_key] = order_id
         return OrderAck(
             order_id=order_id,
@@ -320,14 +377,19 @@ class SimulatedBrokerAdapter(BrokerAdapter):
         self._positions = {s: q for s, q in self._positions.items() if q > 1e-6}
 
         try:
-            self._persist_state()
+            self._persist_state(
+                fill_key=f"submit:{order_id}",
+                broker_order_id=order_id,
+                fill=fill,
+            )
         except Exception:
             self._cash = old_cash
             self._positions = old_positions
             self._open_orders.pop(order_id, None)
             raise
         self._fills.append(fill)
-        self._fill_timestamps.append(datetime.now())
+        self._fill_timestamps.append(datetime.now(UTC))
+        self._mirrored_fill_ids[f"submit:{order_id}"] = order_id
         # Order completes (simulated, no partial fills here)
         self._open_orders.pop(order_id, None)
 
@@ -351,10 +413,42 @@ class SimulatedBrokerAdapter(BrokerAdapter):
         return list(self._open_orders.values())
 
     def get_fills(self, since: datetime) -> List[Fill]:
+        since_utc = self._as_utc(since)
         return [
             f for f, ts in zip(self._fills, self._fill_timestamps)
-            if ts >= since
+            if self._as_utc(ts) >= since_utc
         ]
+
+    def get_account_snapshot(
+        self,
+        *,
+        observed_at: datetime | None = None,
+    ) -> BrokerAccountSnapshot:
+        timestamp = datetime.now(UTC) if observed_at is None else self._as_utc(observed_at)
+        payload = {
+            "cash": float(self._cash),
+            "positions": dict(sorted(self._positions.items())),
+            "open_order_ids": sorted(self.get_open_order_ids()),
+            "fill_ids": sorted(self._mirrored_fill_ids),
+            "observed_at": timestamp.isoformat(),
+        }
+        snapshot_id = hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        source = (
+            f"simulated-sqlite:{self._state_db_path.resolve()}"
+            if self._state_db_path is not None
+            else "simulated-memory"
+        )
+        return BrokerAccountSnapshot(
+            snapshot_id=snapshot_id,
+            source=source,
+            observed_at=timestamp,
+            cash=float(self._cash),
+            positions=dict(self._positions),
+            open_order_ids=self.get_open_order_ids(),
+            fill_ids=frozenset(self._mirrored_fill_ids),
+        )
 
     def reconcile(
         self,
@@ -398,6 +492,12 @@ class SimulatedBrokerAdapter(BrokerAdapter):
                     broker_order_id TEXT NOT NULL,
                     recorded_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS simulated_broker_fills (
+                    fill_key TEXT PRIMARY KEY,
+                    broker_order_id TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    recorded_at TEXT NOT NULL
+                );
                 """
             )
             conn.execute(
@@ -406,7 +506,11 @@ class SimulatedBrokerAdapter(BrokerAdapter):
                     id, cash, positions_json, updated_at
                 ) VALUES (1, ?, ?, ?)
                 """,
-                (self._cash, json.dumps(self._positions, sort_keys=True), datetime.now().isoformat()),
+                (
+                    self._cash,
+                    json.dumps(self._positions, sort_keys=True),
+                    datetime.now(UTC).isoformat(),
+                ),
             )
 
     def _load_persisted_state(self) -> None:
@@ -418,6 +522,12 @@ class SimulatedBrokerAdapter(BrokerAdapter):
             keys = conn.execute(
                 "SELECT fill_key, broker_order_id FROM simulated_broker_fill_keys"
             ).fetchall()
+            fills = conn.execute(
+                """
+                SELECT fill_key, broker_order_id, payload_json, recorded_at
+                FROM simulated_broker_fills ORDER BY recorded_at, fill_key
+                """
+            ).fetchall()
         if row is not None:
             self._cash = float(row[0])
             self._positions = {
@@ -426,6 +536,14 @@ class SimulatedBrokerAdapter(BrokerAdapter):
             }
             self._validate_account_state()
         self._mirrored_fill_ids = {str(key): str(order_id) for key, order_id in keys}
+        self._fills = []
+        self._fill_timestamps = []
+        for fill_key, broker_order_id, payload_json, recorded_at in fills:
+            fill = self._deserialize_fill(json.loads(payload_json))
+            setattr(fill, "broker_fill_id", str(fill_key))
+            setattr(fill.order, "broker_order_id", str(broker_order_id))
+            self._fills.append(fill)
+            self._fill_timestamps.append(datetime.fromisoformat(str(recorded_at)))
 
     @staticmethod
     def _validated_price(price: float) -> float:
@@ -450,21 +568,40 @@ class SimulatedBrokerAdapter(BrokerAdapter):
         *,
         fill_key: str | None = None,
         broker_order_id: str | None = None,
+        fill: Fill | None = None,
     ) -> None:
         if self._state_db_path is None:
             return
         with sqlite3.connect(self._state_db_path) as conn:
             conn.execute("BEGIN IMMEDIATE")
             if fill_key is not None:
-                if broker_order_id is None:
-                    raise ValueError("broker_order_id is required with fill_key")
+                if broker_order_id is None or fill is None:
+                    raise ValueError("broker_order_id and fill are required with fill_key")
+                recorded_at = datetime.now(UTC).isoformat()
                 conn.execute(
                     """
                     INSERT OR IGNORE INTO simulated_broker_fill_keys (
                         fill_key, broker_order_id, recorded_at
                     ) VALUES (?, ?, ?)
                     """,
-                    (fill_key, broker_order_id, datetime.now().isoformat()),
+                    (fill_key, broker_order_id, recorded_at),
+                )
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO simulated_broker_fills (
+                        fill_key, broker_order_id, payload_json, recorded_at
+                    ) VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        fill_key,
+                        broker_order_id,
+                        json.dumps(
+                            self._serialize_fill(fill),
+                            sort_keys=True,
+                            separators=(",", ":"),
+                        ),
+                        recorded_at,
+                    ),
                 )
             conn.execute(
                 """
@@ -475,6 +612,63 @@ class SimulatedBrokerAdapter(BrokerAdapter):
                 (
                     self._cash,
                     json.dumps(self._positions, sort_keys=True),
-                    datetime.now().isoformat(),
+                    datetime.now(UTC).isoformat(),
                 ),
             )
+
+    @staticmethod
+    def _as_utc(value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
+
+    @staticmethod
+    def _serialize_fill(fill: Fill) -> dict:
+        canonical_order_id = getattr(fill.order, "canonical_order_id", None)
+        return {
+            "symbol": fill.symbol,
+            "side": fill.side.value,
+            "ordered_quantity": float(fill.order.qty_shares),
+            "executed_quantity": float(fill.executed_qty),
+            "executed_price": float(fill.executed_price),
+            "signal_date": fill.signal_date.isoformat(),
+            "fill_date": fill.fill_date.isoformat(),
+            "cash_delta": float(fill.cash_delta),
+            "canonical_order_id": canonical_order_id,
+            "cost": {
+                "notional_usd": float(fill.cost_breakdown.notional_usd),
+                "commission_usd": float(fill.cost_breakdown.commission_usd),
+                "slippage_usd": float(fill.cost_breakdown.slippage_usd),
+                "total_cost_usd": float(fill.cost_breakdown.total_cost_usd),
+                "total_bps": float(fill.cost_breakdown.total_bps),
+            },
+        }
+
+    @staticmethod
+    def _deserialize_fill(payload: dict) -> Fill:
+        from core.execution.cost_model import CostBreakdown
+
+        order = Order(
+            symbol=str(payload["symbol"]),
+            side=OrderSide(str(payload["side"])),
+            qty_shares=float(payload["ordered_quantity"]),
+            signal_date=pd.Timestamp(payload["signal_date"]),
+        )
+        if payload.get("canonical_order_id"):
+            setattr(order, "canonical_order_id", str(payload["canonical_order_id"]))
+        cost = payload["cost"]
+        return Fill(
+            order=order,
+            executed_price=float(payload["executed_price"]),
+            executed_qty=float(payload["executed_quantity"]),
+            cost_breakdown=CostBreakdown(
+                symbol=str(payload["symbol"]),
+                notional_usd=float(cost["notional_usd"]),
+                commission_usd=float(cost["commission_usd"]),
+                slippage_usd=float(cost["slippage_usd"]),
+                total_cost_usd=float(cost["total_cost_usd"]),
+                total_bps=float(cost["total_bps"]),
+            ),
+            fill_date=pd.Timestamp(payload["fill_date"]),
+            cash_delta=float(payload["cash_delta"]),
+        )

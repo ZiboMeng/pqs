@@ -81,6 +81,15 @@ class MutableArtifactVerifier:
         return {"artifact_root_sha256": self.root}
 
 
+class StaleSnapshotBroker(SimulatedBrokerAdapter):
+    def get_account_snapshot(self, *, observed_at=None):
+        snapshot = super().get_account_snapshot(observed_at=observed_at)
+        return replace(
+            snapshot,
+            observed_at=snapshot.observed_at - timedelta(minutes=10),
+        )
+
+
 def _cost() -> CostModel:
     return CostModel(
         CostModelConfig(
@@ -139,7 +148,12 @@ def _spec() -> PaperStrategySpec:
     )
 
 
-def _runtime(root: Path, *, future_multiplier: float = 1.0):
+def _runtime(
+    root: Path,
+    *,
+    future_multiplier: float = 1.0,
+    broker_type=SimulatedBrokerAdapter,
+):
     close, opens, vix = _panel(future_multiplier)
     database = root / "forward.db"
     broker_db = root / "broker.db"
@@ -158,7 +172,7 @@ def _runtime(root: Path, *, future_multiplier: float = 1.0):
         ),
     )
     cost = _cost()
-    broker = SimulatedBrokerAdapter(
+    broker = broker_type(
         cost,
         initial_cash=100_000.0,
         state_db_path=broker_db,
@@ -438,3 +452,23 @@ def test_policy_requires_eod_buffer_before_close_buffer() -> None:
             close_buffer=timedelta(minutes=5),
             eod_buffer=timedelta(minutes=5),
         )
+
+
+def test_stale_broker_snapshot_pauses_and_cannot_add_risk(tmp_path) -> None:
+    runtime, clock, token, *_ = _runtime(tmp_path, broker_type=StaleSnapshotBroker)
+    result = runtime.process_close(
+        _event(
+            runtime,
+            clock,
+            ForwardEventPhase.CLOSE_DECISION,
+            SIGNAL_SESSION,
+            "close",
+        ),
+        token,
+    )
+    assert result["reconciliation_passed"] is False
+    assert all(weight == 0.0 for weight in result["approved_target"].values())
+    assert runtime.control_store.is_paused(
+        strategy_id=runtime.spec.strategy_id,
+        symbol="*",
+    )

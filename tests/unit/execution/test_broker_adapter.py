@@ -7,7 +7,7 @@ implementation end-to-end without needing any real broker.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -205,6 +205,12 @@ def test_simulated_broker_state_survives_restart(tmp_path):
     )
     assert restarted.get_cash() == first.get_cash()
     assert restarted.get_positions() == first.get_positions()
+    restored_fills = restarted.get_fills(since=datetime(2000, 1, 1, tzinfo=UTC))
+    assert len(restored_fills) == 1
+    assert restored_fills[0].symbol == "AAPL"
+    snapshot = restarted.get_account_snapshot(observed_at=datetime.now(UTC))
+    assert snapshot.fill_ids
+    assert snapshot.source.startswith("simulated-sqlite:")
 
 
 class TestContractPurity:

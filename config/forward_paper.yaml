@@ -20,6 +20,8 @@ calendar:
   close_buffer_seconds: 600
   eod_buffer_seconds: 300
   max_event_lag_seconds: 1800
+  max_broker_snapshot_age_seconds: 120
+  max_broker_clock_skew_seconds: 5
 
 scheduler:
   lease_name: phase3-forward-paper

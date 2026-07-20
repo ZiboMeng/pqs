@@ -78,9 +78,17 @@ class ForwardRuntimePolicy:
     close_buffer: timedelta = timedelta(minutes=10)
     eod_buffer: timedelta = timedelta(minutes=5)
     max_event_lag: timedelta = timedelta(minutes=30)
+    max_broker_snapshot_age: timedelta = timedelta(minutes=2)
+    max_broker_clock_skew: timedelta = timedelta(seconds=5)
 
     def __post_init__(self) -> None:
-        if min(self.close_buffer, self.eod_buffer, self.max_event_lag) < timedelta(0):
+        if min(
+            self.close_buffer,
+            self.eod_buffer,
+            self.max_event_lag,
+            self.max_broker_snapshot_age,
+            self.max_broker_clock_skew,
+        ) < timedelta(0):
             raise ValueError("forward runtime timing policies cannot be negative")
         if self.close_buffer <= self.eod_buffer:
             raise ValueError("close decision buffer must follow the EOD buffer")
@@ -304,12 +312,18 @@ class ForwardPaperRuntime:
             source="forward_paper_ledger",
         )
         try:
+            broker_snapshot = self.broker.get_account_snapshot(observed_at=now)
+            observed_at = broker_snapshot.observed_at.astimezone(UTC)
+            if observed_at > now + self.policy.max_broker_clock_skew:
+                raise ForwardRuntimeError("broker snapshot time is in the future")
+            if now - observed_at > self.policy.max_broker_snapshot_age:
+                raise ForwardRuntimeError("broker snapshot is stale")
             actual = AccountSnapshot(
-                cash=self.broker.get_cash(),
-                positions=self.broker.get_positions(),
-                open_order_ids=self.broker.get_open_order_ids(),
-                observed_at=now,
-                source="paper_broker",
+                cash=broker_snapshot.cash,
+                positions=broker_snapshot.positions,
+                open_order_ids=broker_snapshot.open_order_ids,
+                observed_at=observed_at,
+                source=broker_snapshot.source,
             )
             return self.reconciliation.reconcile(expected, actual)
         except Exception as exc:
