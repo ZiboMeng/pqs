@@ -303,6 +303,8 @@ class ForwardStateStore:
                 "signal_date": fill.signal_date.isoformat(),
                 "fill_date": fill.fill_date.isoformat(),
                 "notional_usd": fill.notional_usd,
+                "commission_usd": fill.cost_breakdown.commission_usd,
+                "slippage_usd": fill.cost_breakdown.slippage_usd,
             }
             connection.execute(
                 """
@@ -458,6 +460,30 @@ class ForwardStateStore:
         with self._connect() as conn:
             rows = conn.execute("SELECT * FROM forward_nav ORDER BY session").fetchall()
         return [dict(row) for row in rows]
+
+    def fill_summary(self, decision_id: str) -> dict[str, float | int]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT quantity, price, cost, payload_json
+                FROM forward_fills WHERE decision_id = ? ORDER BY fill_id
+                """,
+                (decision_id,),
+            ).fetchall()
+        turnover = 0.0
+        total_cost = 0.0
+        slippage = 0.0
+        for row in rows:
+            payload = json.loads(row["payload_json"])
+            turnover += abs(float(row["quantity"]) * float(row["price"]))
+            total_cost += float(row["cost"])
+            slippage += float(payload.get("slippage_usd", 0.0))
+        return {
+            "fill_count": len(rows),
+            "turnover_usd": turnover,
+            "total_cost_usd": total_cost,
+            "slippage_usd": slippage,
+        }
 
     def status(self) -> dict[str, Any]:
         account = self.account()

@@ -35,6 +35,8 @@
 
 ## R2 三阶段 Forward PAPER
 
+状态：完成（提交 `f456dd8`；三阶段状态机、lease/fencing、CLI 和反例已通过）。
+
 目标：从 replay 升级为真实事件生命周期。
 
 - 定义 injected clock、market event envelope、session calendar；
@@ -48,6 +50,9 @@
 出口：手动时钟 E2E 证明 T 决策在 T+1 数据出现前冻结；重复/乱序/崩溃/双实例不重复订单。
 
 ## R3 Broker authority 与 tracking
+
+状态：完成（持久 broker history、file read-only authority、snapshot freshness、冻结 tracking policy 和
+分类报告已通过；真实 broker 与真实 forward observation 仍按权限/时间边界明确未发生）。
 
 - 持久化 simulated broker fill/open-order history；
 - 添加 file/sandbox-read-only snapshot adapter，写接口硬拒绝；

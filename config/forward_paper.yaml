@@ -37,8 +37,16 @@ execution:
 tracking:
   benchmark: QQQ
   control_policy_version: phase3-forward-tracking-v1
+  annualization_sessions: 252
   minimum_performance_sessions: 60
   minimum_promotion_sessions: 252
+  controls:
+    max_drawdown_abs: 0.25
+    max_annualized_volatility: 0.45
+    max_tracking_error: 0.15
+    max_reconciliation_failures: 0
+    max_missing_rate: 0.0
+    max_reject_rate: 0.20
 
 broker:
   adapter: simulated

@@ -22,8 +22,14 @@ from core.execution.cost_model import CostModel
 from core.execution.execution_simulator import ExecutionSimulator, Fill, Order, OrderSide
 from core.execution.target_weight_planner import TargetWeightOrderPlanner
 from core.paper_trading.forward_state import (
+    ForwardAccount,
     ForwardStateStore,
+    StoredDecision,
     content_hash,
+)
+from core.paper_trading.forward_tracking import (
+    ForwardTrackingObservation,
+    ForwardTrackingStore,
 )
 from core.paper_trading.phase2_runtime import PaperStrategySpec, StrategyProtocol
 from core.portfolio.strategy_allocator import PortfolioAllocator
@@ -183,6 +189,7 @@ class ForwardPaperRuntime:
         report_dir: str | Path,
         calendar: ExchangeSessionCalendar | None = None,
         policy: ForwardRuntimePolicy | None = None,
+        tracking_store: ForwardTrackingStore | None = None,
     ) -> None:
         if spec.status != "PAPER_APPROVED" or spec.artifact_root_sha256 is None:
             raise ForwardRuntimeError("Forward PAPER requires an approved verified artifact")
@@ -214,6 +221,7 @@ class ForwardPaperRuntime:
         self.report_dir.mkdir(parents=True, exist_ok=True)
         self.calendar = calendar or ExchangeSessionCalendar()
         self.policy = policy or ForwardRuntimePolicy()
+        self.tracking_store = tracking_store
         self.reconciliation = ReconciliationService(control_store)
         self._validate_panels()
 
@@ -678,10 +686,11 @@ class ForwardPaperRuntime:
         event_sha = content_hash(event.payload())
         existing = self.state.event_result(event.event_id, event_sha)
         if existing is not None:
+            response = self._with_tracking(existing)
             report_path = self.report_dir / f"{event.session.isoformat()}.json"
             if not report_path.exists():
-                self._atomic_report(report_path, existing)
-            return {**existing, "reused": True}
+                self._atomic_report(report_path, response)
+            return {**response, "reused": True}
         self._validate_event(event, ForwardEventPhase.EOD_FINALIZE)
         self._assert_writer_lease(token)
         decision = self.state.decision_for_execution(event.session.isoformat())
@@ -705,6 +714,15 @@ class ForwardPaperRuntime:
             "missing_open_orders": sorted(reconcile.missing_open_orders),
             "unexpected_open_orders": sorted(reconcile.unexpected_open_orders),
         }
+        tracking_observation = self._tracking_observation(
+            event=event,
+            decision=decision,
+            account=account,
+            equity=equity,
+            eod_close=eod_close,
+            reconciliation_passed=reconcile.passed,
+            processed_at=now,
+        )
         result = {
             "schema_version": 1,
             "mode": "FORWARD_PAPER",
@@ -718,6 +736,10 @@ class ForwardPaperRuntime:
             "equity": equity,
             "daily_pnl": daily_pnl,
             "reconciliation": reconcile_payload,
+            "processed_time_utc": now.isoformat(),
+            "tracking_observation": (
+                None if tracking_observation is None else tracking_observation.payload()
+            ),
             "fencing_token": token.fencing_token,
             "reused": False,
         }
@@ -733,9 +755,92 @@ class ForwardPaperRuntime:
             lease_manager=self.lease_manager,
             now=now,
         )
+        response = self._with_tracking(result)
         report_path = self.report_dir / f"{event.session.isoformat()}.json"
-        self._atomic_report(report_path, result)
-        return {**result, "reused": reused}
+        self._atomic_report(report_path, response)
+        return {**response, "reused": reused}
+
+    def _tracking_observation(
+        self,
+        *,
+        event: MarketEvent,
+        decision: StoredDecision,
+        account: ForwardAccount,
+        equity: float,
+        eod_close: Mapping[str, float],
+        reconciliation_passed: bool,
+        processed_at: datetime,
+    ) -> ForwardTrackingObservation | None:
+        if self.tracking_store is None:
+            return None
+        benchmark = self.tracking_store.policy.benchmark
+        if benchmark not in eod_close:
+            raise ForwardRuntimeError(
+                f"tracking benchmark is absent from the strategy universe: {benchmark}"
+            )
+        signal_session = date.fromisoformat(decision.signal_session)
+        prior_close = self._row(self.close, signal_session, "tracking prior close")
+        benchmark_return = eod_close[benchmark] / prior_close[benchmark] - 1.0
+        fill_summary = self.state.fill_summary(decision.decision_id)
+        decision_orders = [
+            item
+            for item in self.order_store.list_all()
+            if item.intent.decision_id == decision.decision_id
+        ]
+        rejected = sum(item.state is OrderState.REJECTED for item in decision_orders)
+        partial = sum(
+            item.filled_quantity > 0
+            and item.filled_quantity + 1e-9 < item.intent.quantity
+            for item in decision_orders
+        )
+        event_latency = max(
+            (processed_at - event.received_time.astimezone(UTC)).total_seconds(),
+            0.0,
+        )
+        return ForwardTrackingObservation(
+            session=event.session,
+            decision_id=decision.decision_id,
+            starting_equity=float(decision.payload["account_equity_at_decision"]),
+            ending_equity=equity,
+            benchmark_return=benchmark_return,
+            turnover_usd=float(fill_summary["turnover_usd"]),
+            order_count=len(decision_orders),
+            fill_count=int(fill_summary["fill_count"]),
+            rejected_order_count=rejected,
+            partial_fill_count=partial,
+            total_cost_usd=float(fill_summary["total_cost_usd"]),
+            slippage_usd=float(fill_summary["slippage_usd"]),
+            event_latency_seconds=event_latency,
+            missing_data_count=0,
+            downtime_seconds=0.0,
+            reconciliation_passed=reconciliation_passed,
+            regime=str(decision.payload["regime"]),
+            gross_target=sum(
+                abs(float(value))
+                for value in decision.payload["approved_target"].values()
+            ),
+            positions=account.positions,
+            # A separate certified backtest reference provider has not yet
+            # produced this session.  Null is explicit and cannot be mistaken
+            # for a zero tracking error.
+            backtest_reference_return=None,
+        )
+
+    def _with_tracking(self, result: Mapping[str, Any]) -> dict[str, Any]:
+        response = dict(result)
+        payload = response.get("tracking_observation")
+        if self.tracking_store is None or payload is None:
+            return response
+        observation = ForwardTrackingObservation.from_payload(payload)
+        self.tracking_store.record(observation)
+        report = self.tracking_store.report()
+        response["tracking"] = report
+        if report["review_required"]:
+            controls = ",".join(
+                item["control"] for item in report["control_breaches"]
+            )
+            self._pause(f"forward tracking control breach: {controls}")
+        return response
 
     @staticmethod
     def _atomic_report(path: Path, payload: Mapping[str, Any]) -> None:

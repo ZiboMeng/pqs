@@ -329,21 +329,28 @@ class SimulatedBrokerAdapter(BrokerAdapter):
     def submit_order(self, order: Order) -> OrderAck:
         # Look up (or default) fill price
         sym = order.symbol
+        order_id = uuid.uuid4().hex[:12]
         if sym in self._next_fill_prices:
             price = self._next_fill_prices.pop(sym)
         elif self._default_price is not None:
             price = self._default_price
         else:
+            self._persist_order(
+                order_id,
+                order,
+                status="REJECTED",
+                reason="no fill price configured",
+            )
             return OrderAck(
-                order_id="", order=order,
+                order_id=order_id, order=order,
                 submitted_at=datetime.now(),
                 status="REJECTED",
                 reject_reason="no fill price configured "
                               "(use set_next_fill_price or set_default_fill_price)",
             )
 
-        order_id = uuid.uuid4().hex[:12]
         if order.side == OrderSide.SELL and order.qty_shares > self._positions.get(sym, 0.0) + 1e-6:
+            self._persist_order(order_id, order, status="REJECTED", reason="oversell")
             return OrderAck(
                 order_id=order_id,
                 order=order,
@@ -352,12 +359,19 @@ class SimulatedBrokerAdapter(BrokerAdapter):
                 reject_reason="sell order exceeds long position",
             )
         self._open_orders[order_id] = order
+        self._persist_order(order_id, order, status="SUBMITTED")
 
         # Simulate fill immediately using ExecutionSimulator
         fill = self._sim.simulate_fill(order, price, vix=15.0, cash=self._cash)
         if fill is None:
             # Insufficient cash / qty → REJECTED
             self._open_orders.pop(order_id, None)
+            self._persist_order(
+                order_id,
+                order,
+                status="REJECTED",
+                reason="execution simulator declined",
+            )
             return OrderAck(
                 order_id=order_id, order=order,
                 submitted_at=datetime.now(),
@@ -401,7 +415,11 @@ class SimulatedBrokerAdapter(BrokerAdapter):
     def cancel_order(self, order_id: str) -> bool:
         # Simulated adapter fills immediately, so there's nothing to cancel
         # unless the order is still pending (shouldn't happen here).
-        return self._open_orders.pop(order_id, None) is not None
+        order = self._open_orders.pop(order_id, None)
+        if order is None:
+            return False
+        self._persist_order(order_id, order, status="CANCELLED")
+        return True
 
     def get_positions(self) -> Dict[str, float]:
         return dict(self._positions)
@@ -498,6 +516,15 @@ class SimulatedBrokerAdapter(BrokerAdapter):
                     payload_json TEXT NOT NULL,
                     recorded_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS simulated_broker_orders (
+                    broker_order_id TEXT PRIMARY KEY,
+                    canonical_order_id TEXT,
+                    payload_json TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    reject_reason TEXT,
+                    submitted_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
                 """
             )
             conn.execute(
@@ -528,6 +555,12 @@ class SimulatedBrokerAdapter(BrokerAdapter):
                 FROM simulated_broker_fills ORDER BY recorded_at, fill_key
                 """
             ).fetchall()
+            open_orders = conn.execute(
+                """
+                SELECT broker_order_id, payload_json FROM simulated_broker_orders
+                WHERE status = 'SUBMITTED' ORDER BY submitted_at, broker_order_id
+                """
+            ).fetchall()
         if row is not None:
             self._cash = float(row[0])
             self._positions = {
@@ -536,6 +569,11 @@ class SimulatedBrokerAdapter(BrokerAdapter):
             }
             self._validate_account_state()
         self._mirrored_fill_ids = {str(key): str(order_id) for key, order_id in keys}
+        self._open_orders = {}
+        for broker_order_id, payload_json in open_orders:
+            order = self._deserialize_order(json.loads(payload_json))
+            setattr(order, "broker_order_id", str(broker_order_id))
+            self._open_orders[str(broker_order_id)] = order
         self._fills = []
         self._fill_timestamps = []
         for fill_key, broker_order_id, payload_json, recorded_at in fills:
@@ -603,6 +641,26 @@ class SimulatedBrokerAdapter(BrokerAdapter):
                         recorded_at,
                     ),
                 )
+                order_payload = self._serialize_order(fill.order)
+                conn.execute(
+                    """
+                    INSERT INTO simulated_broker_orders (
+                        broker_order_id, canonical_order_id, payload_json,
+                        status, reject_reason, submitted_at, updated_at
+                    ) VALUES (?, ?, ?, 'FILLED', NULL, ?, ?)
+                    ON CONFLICT(broker_order_id) DO UPDATE SET
+                        payload_json=excluded.payload_json,
+                        status='FILLED', reject_reason=NULL,
+                        updated_at=excluded.updated_at
+                    """,
+                    (
+                        broker_order_id,
+                        order_payload.get("canonical_order_id"),
+                        json.dumps(order_payload, sort_keys=True, separators=(",", ":")),
+                        recorded_at,
+                        recorded_at,
+                    ),
+                )
             conn.execute(
                 """
                 UPDATE simulated_broker_state
@@ -613,6 +671,45 @@ class SimulatedBrokerAdapter(BrokerAdapter):
                     self._cash,
                     json.dumps(self._positions, sort_keys=True),
                     datetime.now(UTC).isoformat(),
+                ),
+            )
+
+    def _persist_order(
+        self,
+        broker_order_id: str,
+        order: Order,
+        *,
+        status: str,
+        reason: str | None = None,
+    ) -> None:
+        if self._state_db_path is None:
+            return
+        if status not in {"SUBMITTED", "FILLED", "REJECTED", "CANCELLED", "UNKNOWN"}:
+            raise ValueError(f"unsupported simulated broker order status: {status}")
+        now = datetime.now(UTC).isoformat()
+        payload = self._serialize_order(order)
+        with sqlite3.connect(self._state_db_path) as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute(
+                """
+                INSERT INTO simulated_broker_orders (
+                    broker_order_id, canonical_order_id, payload_json,
+                    status, reject_reason, submitted_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(broker_order_id) DO UPDATE SET
+                    payload_json=excluded.payload_json,
+                    status=excluded.status,
+                    reject_reason=excluded.reject_reason,
+                    updated_at=excluded.updated_at
+                """,
+                (
+                    broker_order_id,
+                    payload.get("canonical_order_id"),
+                    json.dumps(payload, sort_keys=True, separators=(",", ":")),
+                    status,
+                    reason,
+                    now,
+                    now,
                 ),
             )
 
@@ -643,6 +740,30 @@ class SimulatedBrokerAdapter(BrokerAdapter):
                 "total_bps": float(fill.cost_breakdown.total_bps),
             },
         }
+
+    @staticmethod
+    def _serialize_order(order: Order) -> dict:
+        return {
+            "symbol": order.symbol,
+            "side": order.side.value,
+            "quantity": float(order.qty_shares),
+            "signal_date": order.signal_date.isoformat(),
+            "comment": order.comment,
+            "canonical_order_id": getattr(order, "canonical_order_id", None),
+        }
+
+    @staticmethod
+    def _deserialize_order(payload: dict) -> Order:
+        order = Order(
+            symbol=str(payload["symbol"]),
+            side=OrderSide(str(payload["side"])),
+            qty_shares=float(payload["quantity"]),
+            signal_date=pd.Timestamp(payload["signal_date"]),
+            comment=str(payload.get("comment", "")),
+        )
+        if payload.get("canonical_order_id"):
+            setattr(order, "canonical_order_id", str(payload["canonical_order_id"]))
+        return order
 
     @staticmethod
     def _deserialize_fill(payload: dict) -> Fill:

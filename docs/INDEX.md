@@ -10,6 +10,8 @@ defined at the bottom of this file. Within each category section,
 
 ## Active Codex phase-three evidence
 
+- [FORWARD_PAPER.md](FORWARD_PAPER.md) — 三阶段真实事件 lifecycle、lease/fencing、持久
+  broker authority、tracking policy、恢复语义、运行命令和未具备能力的权威操作契约。
 - [PHASE3_PRD.md](PHASE3_PRD.md) — 经独立量化、架构、安全和可运维性审计修订的
   Phase 3 v1.1 权威需求；明确两阶段因果时序、传递行为 hash、密封证据能力边界、提交预算、
   lease/fencing、只读 broker 和无付费云资源边界。

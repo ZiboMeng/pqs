@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, replace
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -12,7 +12,7 @@ import pytest
 
 from core.config.loader import load_config
 from core.config.schemas.cost_model import CostModelConfig, CostTierConfig
-from core.execution.broker_adapter import SimulatedBrokerAdapter
+from core.execution.broker_adapter import OrderAck, SimulatedBrokerAdapter
 from core.execution.cost_model import CostModel
 from core.execution.execution_simulator import ExecutionSimulator
 from core.execution.target_weight_planner import (
@@ -28,6 +28,10 @@ from core.paper_trading.forward_runtime import (
     MarketEvent,
 )
 from core.paper_trading.forward_state import ForwardStateStore
+from core.paper_trading.forward_tracking import (
+    ForwardTrackingPolicy,
+    ForwardTrackingStore,
+)
 from core.paper_trading.phase2_runtime import PaperStrategySpec
 from core.portfolio.strategy_allocator import (
     AggregateExposurePolicy,
@@ -88,6 +92,22 @@ class StaleSnapshotBroker(SimulatedBrokerAdapter):
             snapshot,
             observed_at=snapshot.observed_at - timedelta(minutes=10),
         )
+
+
+class UnknownOutcomeBroker(SimulatedBrokerAdapter):
+    def mirror_fill(self, fill):
+        return OrderAck(
+            order_id="broker-unknown",
+            order=fill.order,
+            submitted_at=datetime.now(UTC),
+            status="UNKNOWN",
+        )
+
+
+class TimeoutOutcomeBroker(SimulatedBrokerAdapter):
+    def mirror_fill(self, fill):
+        del fill
+        raise TimeoutError("injected broker timeout")
 
 
 def _cost() -> CostModel:
@@ -160,6 +180,22 @@ def _runtime(
     order_store = OrderStore(database)
     controls = TradingControlStore(database)
     state = ForwardStateStore(database, initial_capital=100_000.0)
+    tracking = ForwardTrackingStore(
+        database,
+        ForwardTrackingPolicy(
+            policy_id="tracking-v1",
+            benchmark="QQQ",
+            annualization_sessions=252,
+            minimum_performance_sessions=2,
+            minimum_promotion_sessions=252,
+            max_drawdown_abs=0.25,
+            max_annualized_volatility=0.45,
+            max_tracking_error=0.15,
+            max_reconciliation_failures=0,
+            max_missing_rate=0.0,
+            max_reject_rate=0.20,
+        ),
+    )
     lease = SQLiteLeaseManager(database)
     service = OrderRegistrationService(
         order_store,
@@ -215,6 +251,7 @@ def _runtime(
         clock=clock,
         report_dir=root / "reports",
         calendar=calendar,
+        tracking_store=tracking,
     )
     token = lease.acquire(
         "forward-paper",
@@ -271,6 +308,8 @@ def test_forward_three_stage_lifecycle_is_causal_idempotent_and_recoverable(tmp_
     eod_result = runtime.process_eod(eod_event, token)
     assert eod_result["reconciliation"]["passed"] is True
     assert runtime.state.decision(SIGNAL_SESSION.isoformat()).state == "FINALIZED"
+    assert eod_result["tracking"]["n_forward_sessions"] == 1
+    assert eod_result["tracking"]["promotion"]["eligible"] is False
     report = tmp_path / "reports" / f"{EXECUTION_SESSION.isoformat()}.json"
     assert report.exists()
 
@@ -468,6 +507,47 @@ def test_stale_broker_snapshot_pauses_and_cannot_add_risk(tmp_path) -> None:
     )
     assert result["reconciliation_passed"] is False
     assert all(weight == 0.0 for weight in result["approved_target"].values())
+    assert runtime.control_store.is_paused(
+        strategy_id=runtime.spec.strategy_id,
+        symbol="*",
+    )
+
+
+@pytest.mark.parametrize(
+    ("broker_type", "match"),
+    [
+        (UnknownOutcomeBroker, "rejected mirrored fill"),
+        (TimeoutOutcomeBroker, "injected broker timeout"),
+    ],
+)
+def test_uncertain_broker_outcome_pauses_without_local_execution_commit(
+    tmp_path,
+    broker_type,
+    match,
+) -> None:
+    runtime, clock, token, *_ = _runtime(tmp_path, broker_type=broker_type)
+    runtime.process_close(
+        _event(
+            runtime,
+            clock,
+            ForwardEventPhase.CLOSE_DECISION,
+            SIGNAL_SESSION,
+            "close",
+        ),
+        token,
+    )
+    with pytest.raises((ForwardRuntimeError, TimeoutError), match=match):
+        runtime.process_open(
+            _event(
+                runtime,
+                clock,
+                ForwardEventPhase.OPEN_EXECUTION,
+                EXECUTION_SESSION,
+                "open",
+            ),
+            token,
+        )
+    assert runtime.state.decision(SIGNAL_SESSION.isoformat()).state == "FROZEN"
     assert runtime.control_store.is_paused(
         strategy_id=runtime.spec.strategy_id,
         symbol="*",

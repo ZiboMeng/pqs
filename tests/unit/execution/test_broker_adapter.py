@@ -213,6 +213,35 @@ def test_simulated_broker_state_survives_restart(tmp_path):
     assert snapshot.source.startswith("simulated-sqlite:")
 
 
+def test_submitted_open_order_history_survives_injected_crash(tmp_path, monkeypatch):
+    state_db = tmp_path / "broker.db"
+    first = SimulatedBrokerAdapter(
+        cost_model=_cost(),
+        initial_cash=100_000.0,
+        state_db_path=state_db,
+    )
+    first.set_default_fill_price(100.0)
+
+    def crash_after_submit(*args, **kwargs):
+        del args, kwargs
+        raise RuntimeError("injected broker crash")
+
+    monkeypatch.setattr(first._sim, "simulate_fill", crash_after_submit)
+    with pytest.raises(RuntimeError, match="injected broker crash"):
+        first.submit_order(_mk_order("AAPL", OrderSide.BUY, 10))
+
+    restarted = SimulatedBrokerAdapter(
+        cost_model=_cost(),
+        initial_cash=1.0,
+        state_db_path=state_db,
+    )
+    assert len(restarted.get_open_orders()) == 1
+    assert len(restarted.get_open_order_ids()) == 1
+    order_id = next(iter(restarted.get_open_order_ids()))
+    assert restarted.cancel_order(order_id)
+    assert restarted.get_open_order_ids() == frozenset()
+
+
 class TestContractPurity:
     """BrokerAdapter must NOT expose any strategy-layer concern — only
     order submission, position/cash queries, reconcile. Strategy code

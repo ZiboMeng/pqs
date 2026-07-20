@@ -38,6 +38,10 @@ from core.paper_trading.forward_runtime import (  # noqa: E402
     SystemClock,
 )
 from core.paper_trading.forward_state import ForwardStateStore  # noqa: E402
+from core.paper_trading.forward_tracking import (  # noqa: E402
+    ForwardTrackingPolicy,
+    ForwardTrackingStore,
+)
 from core.paper_trading.phase2_runtime import (  # noqa: E402
     StrategyProtocol,
     load_paper_strategy_spec,
@@ -133,6 +137,10 @@ def _build_runtime(args: argparse.Namespace):
     order_store = OrderStore(database)
     controls = TradingControlStore(database)
     state = ForwardStateStore(database, initial_capital=initial_capital)
+    tracking = ForwardTrackingStore(
+        database,
+        ForwardTrackingPolicy.from_mapping(phase3["tracking"]),
+    )
     lease = SQLiteLeaseManager(database)
     limits = portfolio["aggregate_limits"]
     order_service = OrderRegistrationService(
@@ -251,6 +259,7 @@ def _build_runtime(args: argparse.Namespace):
                 seconds=calendar_config["max_broker_clock_skew_seconds"]
             ),
         ),
+        tracking_store=tracking,
     )
     return runtime, lease, phase3
 
@@ -278,6 +287,11 @@ def main() -> int:
                 "live_enabled": False,
                 "artifact_root_sha256": runtime.spec.artifact_root_sha256,
                 "state": runtime.state.status(),
+                "tracking": (
+                    None
+                    if runtime.tracking_store is None
+                    else runtime.tracking_store.report()
+                ),
             }
         else:
             required = {
