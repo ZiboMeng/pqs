@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "phase": "PHASE_3",
+  "baseline_branch": "codex/strategy-research-and-paper-v2",
+  "baseline_commit": "3b9baf8d34b890ca3520f37b28ef55ab9d63cfdc",
+  "baseline_tag": "codex-pre-forward-paper-phase3-20260720",
+  "current_branch": "codex/forward-paper-and-sealed-evidence-v3",
+  "current_stage": "PRE_IMPLEMENTATION_AUDIT",
+  "last_completed_task": "Verified and preserved the Phase 2 baseline, pushed the Phase 3 rollback tag, and created the independent Phase 3 branch.",
+  "next_task": "Run the quick baseline and complete a code-and-behavior audit before freezing the revised Phase 3 PRD or implementing features.",
+  "open_p0": [],
+  "open_p1": [],
+  "frozen_strategies": [],
+  "paper_enabled_strategies": [
+    "dual_index_growth_v1"
+  ],
+  "sealed_submissions": [],
+  "external_blockers": [
+    "No paid cloud account is authorized; deployment work is limited to local/IaC/static smoke validation.",
+    "No real broker credentials or write permission are authorized; only mock, sandbox-read-only, or file adapters may be implemented.",
+    "No trustworthy historical options chain provider is available; options work is collection infrastructure only.",
+    "A second strategy remains blocked until at least 252 unseen post-2026-07-17 sessions or a user-authorized disjoint point-in-time evidence protocol exists."
+  ],
+  "last_test_command": ".venv/bin/pytest -q tests/unit/research/test_phase2_registry_promotion.py tests/unit/paper_trading/test_phase2_paper_runtime.py tests/unit/paper_trading/test_broker_adapter_integration.py tests/unit/paper_trading/test_pretrade_boundary.py tests/unit/trading/test_order_kernel.py tests/unit/trading/test_controls.py tests/unit/trading/test_reconciliation.py tests/unit/risk/test_kill_switch.py tests/unit/execution/test_execution_simulator.py",
+  "last_test_result": "PASS: 92 passed in 8.77s; focused Ruff and pip check passed.",
+  "last_deployment_check": "Not started; no paid resource creation authorized.",
+  "last_updated_utc": "2026-07-20T17:38:33Z"
+}
