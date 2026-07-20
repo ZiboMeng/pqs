@@ -1,7 +1,9 @@
 # PQS Phase 3 云端 PAPER 部署准备报告
 
-日期：2026-07-20  
-状态：`PREPARED_AND_LOCAL_SMOKE_TESTED`，不是 `DEPLOYED`  
+日期：2026-07-20
+
+状态：`PREPARED_AND_LOCAL_SMOKE_TESTED`，不是 `DEPLOYED`
+
 适用模式：`FORWARD_PAPER`，`live_enabled=false`
 
 ## 1. 结论
