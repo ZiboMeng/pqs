@@ -65,6 +65,9 @@ def _runtime(args: argparse.Namespace) -> tuple[Phase2PaperRuntime, OrderStore]:
         ROOT / "config/portfolio.paper.yaml",
         ROOT / "research/registry/strategy_registry.json",
         strategy_id=args.strategy_id,
+        artifact_path=ROOT / args.strategy_artifact,
+        repo_root=ROOT,
+        verify_artifact_environment=not args.skip_artifact_environment,
     )
     if spec.strategy_id != "dual_index_growth_v1":
         raise ValueError(f"unsupported phase-two PAPER strategy: {spec.strategy_id}")
@@ -238,6 +241,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("replay", "status"))
     parser.add_argument("--strategy-id", default="dual_index_growth_v1")
+    parser.add_argument(
+        "--strategy-artifact",
+        default=(
+            "research/registries/strategy_artifacts/"
+            "dual_index_growth_v1/v1.json"
+        ),
+    )
+    parser.add_argument("--skip-artifact-environment", action="store_true")
     parser.add_argument("--from-date", default="2023-01-03")
     parser.add_argument("--to-date", default="2023-12-29")
     parser.add_argument(

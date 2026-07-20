@@ -19,6 +19,7 @@ from core.paper_trading.paper_trading_engine import PaperTradingEngine
 from core.portfolio.strategy_allocator import PortfolioAllocator
 from core.regime.phase2_regime import Phase2RegimeAdapter, fail_closed_regime_scale
 from core.regime.regime_detector import RegimeDetector
+from core.runtime.strategy_artifact import verify_strategy_artifact
 from core.trading.controls import ControlScope, TradingControlStore
 from core.trading.order import OrderState
 from core.trading.reconciliation import (
@@ -62,6 +63,7 @@ class PaperStrategySpec:
     max_gross_exposure: float
     max_turnover: float
     priority: int
+    artifact_root_sha256: str | None = None
 
 
 @dataclass(frozen=True)
@@ -148,6 +150,9 @@ def load_paper_strategy_spec(
     registry_path: str | Path,
     *,
     strategy_id: str,
+    artifact_path: str | Path | None = None,
+    repo_root: str | Path | None = None,
+    verify_artifact_environment: bool = True,
 ) -> PaperStrategySpec:
     strategy_config = _load_yaml(strategy_config_path)
     portfolio_config = _load_yaml(portfolio_config_path)
@@ -173,6 +178,8 @@ def load_paper_strategy_spec(
         raise PaperRuntimeError(f"strategy status is not PAPER-approved: {strategy_id}")
     if registry_item.get("live_enabled") is not False:
         raise PaperRuntimeError("registered strategy unexpectedly enables LIVE")
+    if config_item.get("schedule") != registry_item.get("schedule"):
+        raise PaperRuntimeError("strategy schedule drift between PAPER config and registry")
     required_registry_fields = {
         "asset_universe",
         "schedule",
@@ -190,6 +197,30 @@ def load_paper_strategy_spec(
     budget = portfolio_config.get("strategy_budgets", {}).get(strategy_id)
     if not isinstance(budget, dict):
         raise PaperRuntimeError(f"portfolio budget missing for {strategy_id}")
+    artifact_root_sha256 = None
+    if artifact_path is not None:
+        if repo_root is None:
+            raise PaperRuntimeError("repo_root is required when verifying a strategy artifact")
+        try:
+            artifact = verify_strategy_artifact(
+                artifact_path,
+                repo_root=repo_root,
+                expected_strategy_id=strategy_id,
+                expected_strategy_version=str(registry_item["version"]),
+                expected_promotion_status="PAPER_APPROVED",
+                verify_environment=verify_artifact_environment,
+            )
+        except Exception as exc:
+            raise PaperRuntimeError(f"strategy artifact verification failed: {exc}") from exc
+        if artifact.get("strategy_parameters") != config_item.get("parameters"):
+            raise PaperRuntimeError("strategy parameters drift from approved artifact")
+        if artifact.get("universe") != sorted(
+            str(symbol).upper() for symbol in registry_item["asset_universe"]
+        ):
+            raise PaperRuntimeError("strategy universe drifts from approved artifact")
+        if artifact.get("schedule") != config_item.get("schedule"):
+            raise PaperRuntimeError("strategy schedule drifts from approved artifact")
+        artifact_root_sha256 = str(artifact["artifact_root_sha256"])
     return PaperStrategySpec(
         strategy_id=strategy_id,
         version=str(registry_item["version"]),
@@ -204,6 +235,7 @@ def load_paper_strategy_spec(
         max_gross_exposure=float(budget["max_gross_exposure"]),
         max_turnover=float(budget["max_turnover"]),
         priority=int(budget["priority"]),
+        artifact_root_sha256=artifact_root_sha256,
     )
 
 

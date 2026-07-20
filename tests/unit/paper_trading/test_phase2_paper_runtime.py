@@ -151,6 +151,23 @@ def test_research_qualified_strategy_cannot_cross_paper_boundary(tmp_path) -> No
         )
 
 
+def test_schedule_drift_between_config_and_registry_is_rejected(tmp_path) -> None:
+    registry = json.loads(
+        Path("research/registry/strategy_registry.json").read_text(encoding="utf-8")
+    )
+    registry["strategies"][0]["schedule"]["decision_frequency"] = "weekly"
+    registry_path = tmp_path / "strategy_registry.json"
+    registry_path.write_text(json.dumps(registry), encoding="utf-8")
+
+    with pytest.raises(PaperRuntimeError, match="schedule drift"):
+        load_paper_strategy_spec(
+            "config/strategies.paper.yaml",
+            "config/portfolio.paper.yaml",
+            registry_path,
+            strategy_id="dual_index_growth_v1",
+        )
+
+
 def _runtime(
     root: Path,
     *,
