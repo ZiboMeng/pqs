@@ -10,6 +10,10 @@ defined at the bottom of this file. Within each category section,
 
 ## Active Codex phase-three evidence
 
+- [PHASE3_FINAL_REPORT.md](PHASE3_FINAL_REPORT.md) — Phase 3 最终 PRD 反向映射、完整回归、
+  量化限制、机器认证和真实外部状态；结论为本地代码完成，非云部署或 LIVE 就绪。
+- [CLOUD_PAPER_DEPLOYMENT.md](CLOUD_PAPER_DEPLOYMENT.md) — 非 root/只读容器、Compose、
+  Kubernetes/IaC、备份恢复的已验证范围、部署门和未部署边界。
 - [PHASE3_OPERATIONS.md](PHASE3_OPERATIONS.md) — 启动、日常运行、事故、崩溃恢复、
   备份/恢复、优雅关闭/回滚和明确禁止项的 PAPER runbook。
 - [CONTROL_PLANE.md](CONTROL_PLANE.md) — 真正只读 status/readiness、显式确认和 request-id

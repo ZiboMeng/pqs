@@ -11,7 +11,7 @@
 
 ## R0 基线与开工审计
 
-状态：完成（全量回归最终结果待阶段收口回填）。
+状态：完成。开工基线和阶段最终全量回归均通过；最终结果见 R8 与 `PHASE3_FINAL_REPORT.md`。
 
 - 推送 Phase 2 基线和回退标签；
 - 创建独立 Phase 3 分支和状态文件；
@@ -122,6 +122,10 @@ revision/cursor 恢复和合成 E2E）；真实 provider、真实持续调度和
 出口：本地可用工具范围内 build/start/health/restart/volume persistence smoke 通过，IaC 静态验证通过。
 
 ## R8 最终验证与诚实收口
+
+状态：完成。最终全量回归 `4320 passed, 23 skipped, 1 xfailed`；23 个 skip 和唯一 xfail 均已逐项
+审计。CI 等价、安全、artifact、部署静态检查通过；机器认证、云部署准备报告和最终报告已生成。正式
+runtime/broker 仍未初始化，真实 forward/sealed/collection 均为 0，readiness 如实保持 NOT_READY。
 
 - 执行全部必测反例和故障注入；
 - 运行全量 pytest、CI 等价 Ruff/mypy、config、artifact、pip check/audit；
