@@ -93,6 +93,10 @@ revision/cursor 恢复和合成 E2E）；真实 provider、真实持续调度和
 
 ## R6 控制面、告警与运维
 
+状态：完成本地实现（只读聚合状态、严格 readiness、显式确认的幂等操作、只读持久状态对账、16-rule
+冻结告警政策、durable local dedup/ack/resolve 和 runbook）；外部通知 adapter 未配置，正式 runtime/broker
+尚未初始化，故当前 readiness 如实为 NOT_READY。
+
 - 只读 CLI/API status snapshot；
 - pause/resume/reconcile 显式确认和审计；
 - durable local alert sink、dedup、severity、ack/resolution；

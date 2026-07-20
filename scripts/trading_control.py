@@ -11,6 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from core.operations.control_plane import OperatorControlStore
 from core.trading.controls import ControlScope, TradingControlStore
 
 
@@ -22,6 +23,8 @@ def main() -> int:
     parser.add_argument("--key", default="")
     parser.add_argument("--reason")
     parser.add_argument("--operator")
+    parser.add_argument("--request-id")
+    parser.add_argument("--confirm")
     args = parser.parse_args()
 
     store = TradingControlStore(args.db_path)
@@ -36,6 +39,7 @@ def main() -> int:
             ("--scope", args.scope),
             ("--reason", args.reason),
             ("--operator", args.operator),
+            ("--request-id", args.request_id),
         )
         if not value
     ]
@@ -44,13 +48,17 @@ def main() -> int:
     scope = ControlScope(args.scope)
     if scope is not ControlScope.GLOBAL and not args.key.strip():
         parser.error(f"{args.action} with {scope.value} requires --key")
+    expected_confirmation = f"YES:{args.request_id}"
+    if args.confirm != expected_confirmation:
+        parser.error(f"{args.action} requires --confirm {expected_confirmation}")
 
-    control = store.set_paused(
+    control = OperatorControlStore(args.db_path).set_paused(
         scope,
         args.key,
         paused=args.action == "pause",
         reason=args.reason,
         updated_by=args.operator,
+        request_id=args.request_id,
     )
     print(json.dumps(asdict(control), default=str, sort_keys=True))
     return 0

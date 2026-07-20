@@ -1,0 +1,33 @@
+schema_version: 1
+mode: PAPER
+live_enabled: false
+
+store:
+  database: data/paper_trading/phase3_forward/dual_index_growth_v1/alerts.db
+
+policy:
+  policy_id: phase3-operational-alerts-v1
+  maximum_summary_length: 240
+  maximum_details_bytes: 4096
+  maximum_schedule_lag_seconds: 900
+  maximum_data_age_seconds: 1800
+  maximum_broker_snapshot_age_seconds: 120
+  maximum_daily_loss_fraction: 0.03
+  maximum_drawdown_fraction: 0.20
+  rules:
+    missed_schedule: {severity: ERROR}
+    data_stale: {severity: ERROR}
+    data_missing: {severity: ERROR}
+    data_out_of_order: {severity: ERROR}
+    artifact_drift: {severity: CRITICAL}
+    broker_snapshot_stale: {severity: CRITICAL}
+    order_unknown: {severity: CRITICAL}
+    order_duplicate: {severity: CRITICAL}
+    reconciliation_failure: {severity: CRITICAL}
+    nav_invalid: {severity: CRITICAL}
+    risk_breach: {severity: CRITICAL}
+    daily_loss: {severity: ERROR}
+    drawdown: {severity: CRITICAL}
+    database_failure: {severity: CRITICAL}
+    registry_anomaly: {severity: CRITICAL}
+    live_true: {severity: CRITICAL}

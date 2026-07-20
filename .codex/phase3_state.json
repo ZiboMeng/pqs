@@ -5,9 +5,9 @@
   "baseline_commit": "3b9baf8d34b890ca3520f37b28ef55ab9d63cfdc",
   "baseline_tag": "codex-pre-forward-paper-phase3-20260720",
   "current_branch": "codex/forward-paper-and-sealed-evidence-v3",
-  "current_stage": "CONTROL_PLANE",
-  "last_completed_task": "Implemented the collect-only Phase 3 data boundary: exact daily/intraday/options schemas, three event-time fields, injectable file/mock providers, physical trusted/quarantine partitions in one verified append-only hash chain, revision lineage, trusted-only cursor recovery, and synthetic end-to-end manifests.",
-  "next_task": "Implement the read-only control plane, explicit audited pause/resume/reconcile actions, durable deduplicated local alerts, and readiness coverage across artifact, lease, broker, data, sealed, risk, database, and LIVE boundaries.",
+  "current_stage": "DEPLOYMENT_PREPARATION",
+  "last_completed_task": "Implemented the Phase 3 operations boundary: genuinely read-only aggregate status/readiness, exact-confirmation request-idempotent pause/resume/reconcile, resume blockers, read-only persisted broker reconciliation with automatic pause, a hash-frozen 16-rule alert policy, durable concurrent dedup/ack/resolve, and operations/control-plane runbooks. The approved strategy artifact was reverified unchanged after rejecting an attempted frozen-component edit.",
+  "next_task": "Prepare non-root read-only-root deployment assets, persistent volume and graceful-shutdown smoke, static IaC with least privilege, backup/restore/rollback tooling, and honest local tool-availability evidence without creating paid cloud resources.",
   "open_p0": [],
   "open_p1": [],
   "frozen_strategies": [
@@ -29,8 +29,8 @@
     "No trustworthy historical options chain provider is available; options work is collection infrastructure only.",
     "A second strategy remains blocked until at least 252 unseen post-2026-07-17 sessions or a user-authorized disjoint point-in-time evidence protocol exists."
   ],
-  "last_test_command": "pytest -q tests/unit/data/test_phase3_collection.py tests/unit/options/test_data_models.py",
-  "last_test_result": "PASS: 20 passed in 0.66s including 15/15 Phase 3 collection tests; targeted Ruff and mypy passed. File/mock CLI smoke wrote three synthetic trusted batches to an isolated temporary store with a valid global chain. The formal store reports zero real records and no real provider. Opening baseline full suite also passed 4246 with 4 skipped and 1 xfailed.",
+  "last_test_command": "pytest -q <105-test Phase 3 forward/broker/artifact/sealed/collection/control/alert safety set>",
+  "last_test_result": "PASS: 105 passed in 19.85s. Targeted Ruff, mypy, and compileall passed. Approved artifact root 7d1c...a553c verifies unchanged. Formal durable alert policy is initialized with zero active alerts; formal runtime and broker remain uninitialized, so readiness honestly reports NOT_READY. Opening baseline full suite also passed 4246 with 4 skipped and 1 xfailed.",
   "last_deployment_check": "Not started; no paid resource creation authorized.",
-  "last_updated_utc": "2026-07-20T18:49:57Z"
+  "last_updated_utc": "2026-07-20T19:04:25Z"
 }

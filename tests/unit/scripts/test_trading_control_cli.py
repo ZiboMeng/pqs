@@ -30,6 +30,10 @@ def test_operator_can_pause_inspect_and_resume_global_control(tmp_path):
         "incident",
         "--operator",
         "oncall-a",
+        "--request-id",
+        "pause-1",
+        "--confirm",
+        "YES:pause-1",
     )
     assert paused.returncode == 0
     assert json.loads(paused.stdout)["paused"] is True
@@ -46,6 +50,10 @@ def test_operator_can_pause_inspect_and_resume_global_control(tmp_path):
         "reconciled",
         "--operator",
         "oncall-b",
+        "--request-id",
+        "resume-1",
+        "--confirm",
+        "YES:resume-1",
     )
     assert resumed.returncode == 0
     assert json.loads(resumed.stdout)["paused"] is False

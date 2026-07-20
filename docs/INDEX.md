@@ -10,6 +10,10 @@ defined at the bottom of this file. Within each category section,
 
 ## Active Codex phase-three evidence
 
+- [PHASE3_OPERATIONS.md](PHASE3_OPERATIONS.md) — 启动、日常运行、事故、崩溃恢复、
+  备份/恢复、优雅关闭/回滚和明确禁止项的 PAPER runbook。
+- [CONTROL_PLANE.md](CONTROL_PLANE.md) — 真正只读 status/readiness、显式确认和 request-id
+  幂等 pause/resume/reconcile、冻结告警政策、本地 durable dedup sink 和 LIVE fail-closed 边界。
 - [DATA_COLLECTION.md](DATA_COLLECTION.md) — 日频、1m/5m 与期权统一 envelope、三类时间、
   append-only trusted/quarantine hash chain、revision/cursor 语义、file/mock 运行方式和零真实 provider 状态。
 - [SEALED_EVIDENCE.md](SEALED_EVIDENCE.md) — append-only/hash-chain store、未来假设
