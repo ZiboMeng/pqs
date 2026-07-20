@@ -1,0 +1,63 @@
+schema_version: 1
+program_id: governed-semantic-ml-mining-v1
+evidence_scope: DEVELOPMENT_ONLY
+automatic_promotion_eligible: false
+observed_through: '2026-07-17'
+
+company_pool:
+  max_symbols: 300
+  exchanges: [Nasdaq, NYSE]
+  min_history_sessions_at_snapshot: 756
+  freshness_calendar_days: 5
+  min_price: 5.0
+  trailing_liquidity_sessions: 63
+  min_median_dollar_volume: 20000000.0
+  source: sec_company_tickers_exchange
+
+dynamic_eligibility:
+  min_history_sessions: 252
+  lookback_sessions: 63
+  min_observation_density: 0.95
+  min_price: 5.0
+  min_median_dollar_volume: 20000000.0
+
+models:
+  allowed_first_round: [rule_rank, linear_rank, xgb_rank_ndcg]
+  seed: 42
+  primary_label: market_residual_rank_21d
+  secondary_event_label: market_residual_return_5d
+
+constructions:
+  - active_top10_control
+  - spy35_active65_equal_top10
+  - spy35_active65_rank_vol_top10
+
+execution:
+  decision: close
+  fill: next_open
+  base_cost_bps: 30.0
+  stress_multipliers: [1.0, 2.0, 3.0]
+  max_gross_exposure: 1.0
+  active_single_name_cap: 0.10
+  spy_weight: 0.35
+
+forward_freeze_gate:
+  min_after_cost_excess_vs_spy: 0.0
+  min_positive_rolling_window_fraction: 0.60
+  max_drawdown_vs_spy_multiplier: 1.25
+  max_sibling_nav_correlation: 0.70
+  near_miss_min_annualized_excess: -0.01
+  near_miss_disposition: REVIEW_HOLD
+
+semantic:
+  forms: [8-K, 10-Q, 10-K]
+  eight_k_items: ['2.02', '7.01']
+  historical_execution: next_session_open_after_acceptance
+  representation_ladder:
+    - structured_event_baseline
+    - lexical_tfidf
+    - frozen_finbert
+    - semantic_novelty
+    - train_only_embedding_clusters
+    - schema_constrained_llm_extraction
+  llm_direct_weighting_allowed: false
