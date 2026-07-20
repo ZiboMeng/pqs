@@ -37,6 +37,7 @@
 - operational raw/store DB：`data/sealed_evidence/`（git ignored）
 
 配置固定为 `mode=PAPER`、`live_enabled=false`。sealed evaluator 不接触 broker、LIVE 或付费云资源。
+当前 allowlist 的 benchmark policy 为 `spy_total_return_after_costs_v1`；QQQ 不再具有 gate 权限。
 
 ## 3. Append-only store
 
@@ -93,7 +94,8 @@ sealed_batch_id
 metric_policy_id / benchmark_policy_id / cost_policy_id
 ```
 
-artifact path 必须 repo-relative、不能 traversal。evaluation 前重新验证传递 artifact 根 hash、全部 component、
+artifact path 必须 repo-relative、不能 traversal。当前 runtime submission 必须引用治理绑定的 observation
+artifact，而非历史 `v1.json`。evaluation 前重新验证传递 artifact 根 hash、全部 component、
 策略/version 和精确 Python/package 环境。artifact root 是预算维度，因此仅改 strategy/version 名字不能获得
 新额度。
 

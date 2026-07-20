@@ -33,6 +33,6 @@ evaluator:
       maximum_beta: 1.25
       maximum_annualized_volatility: 0.45
   allowed_benchmark_policies:
-    - qqq_close_to_close_v1
+    - spy_total_return_after_costs_v1
   allowed_cost_policies:
     - frozen_artifact_cost_v1

@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from core.runtime.strategy_artifact import canonical_json, sha256_bytes
-
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
+from core.runtime.strategy_artifact import canonical_json, sha256_bytes  # noqa: E402
 from certify_phase3_runtime import (  # noqa: E402
     ROOT,
     RuntimeCertificationError,

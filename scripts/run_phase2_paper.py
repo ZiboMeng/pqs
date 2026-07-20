@@ -246,7 +246,7 @@ def main() -> int:
         "--strategy-artifact",
         default=(
             "research/registries/strategy_artifacts/"
-            "dual_index_growth_v1/v1.json"
+            "dual_index_growth_v1/observation_v1.json"
         ),
     )
     parser.add_argument("--skip-artifact-environment", action="store_true")

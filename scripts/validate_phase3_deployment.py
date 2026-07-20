@@ -144,9 +144,10 @@ def _validate_runtime_lock() -> dict[str, Any]:
         name, version = line.split("==", 1)
         lock[name.lower()] = version
     artifact = json.loads(
-        (ROOT / "research/registries/strategy_artifacts/dual_index_growth_v1/v1.json").read_text(
-            encoding="utf-8"
-        )
+        (
+            ROOT
+            / "research/registries/strategy_artifacts/dual_index_growth_v1/observation_v1.json"
+        ).read_text(encoding="utf-8")
     )
     normalized = {
         "PyYAML": "pyyaml",
