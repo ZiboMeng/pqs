@@ -1,9 +1,19 @@
 _generated_by: dev/scripts/ml_redo/universe_v2_coverage_audit.py
-_doc: "R-P4ext expanded_v2 \u2014 data-driven (~1k target); N set by coverage audit,\
-  \ NOT external index membership. D6: executable/expanded_v1 unaffected."
+_doc: >-
+  R-P4ext expanded_v2 development candidate pool. It was selected once with
+  data through 2024-12-31 and is not point-in-time membership. It may support
+  model development, but it must not be presented as a historical OOS universe.
+  D6: executable/expanded_v1 unaffected.
 n_symbols: 1000
-selection_rule: train-window start<=2009, n_train_rows>=3000, completeness>=0.95,
-  top median dollar-vol up to 1000
+universe_role: research_candidate_pool_only
+evidence_scope: DEVELOPMENT_ONLY
+point_in_time_membership: false
+forbid_historical_oos_claim: true
+selection_window_end: '2024-12-31'
+selection_rule: >-
+  rows through 2024-12-31; n_train_rows>=2000; completeness over each
+  symbol's own observed span>=0.90; top median dollar-volume up to 1000;
+  no start-date hard filter
 symbols:
 - A
 - AA

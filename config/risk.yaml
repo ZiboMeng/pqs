@@ -37,6 +37,20 @@ position_limits:
     TSLA:  0.10
     TQQQ:  0.10
     SOXL:  0.10
+    ERX:   0.10
+    FAS:   0.10
+    GUSH:  0.10
+    JNUG:  0.10
+    LABU:  0.10
+    NUGT:  0.10
+    QLD:   0.10
+    SPXL:  0.10
+    SSO:   0.10
+    TECL:  0.10
+    TNA:   0.10
+    UCO:   0.10
+    UDOW:  0.10
+    UPRO:  0.10
 
 budget:
   core:     0.58   # SPY, QQQ, GLD

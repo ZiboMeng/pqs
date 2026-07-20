@@ -70,7 +70,15 @@ def test_universe_names_constant():
 
 
 # ── audit 20260708 P0-1: blacklist must NOT be bypassable via expanded_* ──
-_INVERSE_BLACKLISTED = {"SQQQ", "SOXS", "SPXU", "SPXS", "SDS", "TZA"}
+_INVERSE_BLACKLISTED = {
+    "DUST", "JDST", "LABD", "QID", "SCO", "SDOW", "SDS", "SH",
+    "SOXS", "SPXS", "SPXU", "SQQQ", "SVXY", "TBT", "TZA",
+}
+
+_LEVERAGED_LONGS_IN_V2 = {
+    "ERX", "FAS", "GUSH", "JNUG", "LABU", "NUGT", "QLD", "SOXL",
+    "SPXL", "SSO", "TECL", "TNA", "TQQQ", "UCO", "UDOW", "UPRO",
+}
 
 
 @pytest.mark.parametrize("name", ["expanded_v1", "expanded_v2"])
@@ -97,5 +105,10 @@ def test_expanded_keeps_leveraged_long_not_blacklisted():
     doc = yaml.safe_load((_CONFIG / "universe_expanded_v2.yaml").read_text()) or {}
     listed = set(doc.get("symbols", []))
     syms = set(resolve_universe("expanded_v2"))
-    for lev in {"TQQQ", "SOXL", "SPXL", "UPRO"} & listed:
+    cfg = load_config(_CONFIG)
+    risk_doc = yaml.safe_load((_CONFIG / "risk.yaml").read_text())
+    symbol_caps = risk_doc["position_limits"]["symbol_caps"]
+    for lev in _LEVERAGED_LONGS_IN_V2 & listed:
         assert lev in syms, f"leveraged-long {lev} was wrongly dropped"
+        assert lev in cfg.universe.high_risk_symbols.symbols
+        assert float(symbol_caps[lev]) <= 0.10

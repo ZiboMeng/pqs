@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 
 import pytest
+import yaml
 
 from core.universe.universe_resolver import (
     UNIVERSE_NAMES,
@@ -36,6 +37,20 @@ def test_coverage_audit_schema():
         assert "n_train_rows" in r and "completeness" in r
     # sealed discipline recorded
     assert "sealed 2026 never read" in a["sealed_discipline"]
+
+
+def test_expanded_v2_is_honestly_scoped_as_non_pit_development_pool():
+    doc = yaml.safe_load(
+        (_PROJ / "config" / "universe_expanded_v2.yaml").read_text())
+    assert doc["universe_role"] == "research_candidate_pool_only"
+    assert doc["evidence_scope"] == "DEVELOPMENT_ONLY"
+    assert doc["point_in_time_membership"] is False
+    assert doc["forbid_historical_oos_claim"] is True
+    assert str(doc["selection_window_end"]) == "2024-12-31"
+    rule = doc["selection_rule"]
+    assert "n_train_rows>=2000" in rule
+    assert ">=0.90" in rule
+    assert "no start-date hard filter" in rule
 
 
 # RP4-A2 --------------------------------------------------------------

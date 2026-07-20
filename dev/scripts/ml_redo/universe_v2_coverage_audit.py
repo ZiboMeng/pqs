@@ -1,11 +1,14 @@
-"""R-P4ext — polygon coverage audit → universe_expanded_v2 (~1k).
+"""R-P4ext — polygon coverage audit → expanded_v2 development pool (~1k).
 
 Per supplementary PRD §8.5. The locally-ingested polygon daily store
 holds ~25k symbols; a ~1000-name universe is data-feasible. N is set
 by DATA (coverage + completeness + liquidity thresholds), NOT pulled
 from an external index-membership list (which would be time-sensitive
 and a sealed-window risk). Membership-by-data => no current-year market
-query, sealed 2026 untouched.
+query, sealed 2026 untouched. This one-time pool is selected through
+``_TRAIN_END``; it is NOT point-in-time membership and MUST NOT be used to
+label an earlier period OOS. A causal mining harness must apply trailing-only
+eligibility at each decision date on top of this pool.
 
 temporal_split discipline: all stats computed on the TRAIN window only
 (<= train_end, default 2024-12-31). Validation/sealed bars never read
@@ -149,12 +152,21 @@ def main() -> int:
 
     uni_yaml = {
         "_generated_by": "dev/scripts/ml_redo/universe_v2_coverage_audit.py",
-        "_doc": "R-P4ext expanded_v2 — data-driven (~1k target); N set by "
-                "coverage audit, NOT external index membership. D6: "
+        "_doc": "R-P4ext expanded_v2 development candidate pool. It was "
+                "selected once through 2024-12-31 and is not point-in-time "
+                "membership. It may support model development, but it must "
+                "not be presented as a historical OOS universe. D6: "
                 "executable/expanded_v1 unaffected.",
         "n_symbols": len(sel_syms),
-        "selection_rule": "train-window start<=2009, n_train_rows>=3000, "
-                          "completeness>=0.95, top median dollar-vol up to 1000",
+        "universe_role": "research_candidate_pool_only",
+        "evidence_scope": "DEVELOPMENT_ONLY",
+        "point_in_time_membership": False,
+        "forbid_historical_oos_claim": True,
+        "selection_window_end": str(_TRAIN_END.date()),
+        "selection_rule": "rows through 2024-12-31; n_train_rows>=2000; "
+                          "completeness over each symbol's own observed "
+                          "span>=0.90; top median dollar-volume up to 1000; "
+                          "no start-date hard filter",
         "symbols": sel_syms,
     }
     out_yaml = _PROJ / "config" / "universe_expanded_v2.yaml"

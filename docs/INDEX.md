@@ -10,6 +10,12 @@ defined at the bottom of this file. Within each category section,
 
 ## Active Codex phase-three evidence
 
+- [audit/20260720-strategy-mining-preflight-audit.md](audit/20260720-strategy-mining-preflight-audit.md) —
+  策略挖掘前独立审计：expanded_v2 回看选择、inverse 漏网、total-return 覆盖、ML/PEAD/LLM
+  边界和算力实测，以及为何先修数据/组合/台账而非继续堆模型。
+- [prd/20260720-governed-semantic-ml-mining-prd.md](prd/20260720-governed-semantic-ml-mining-prd.md) —
+  当前挖掘权威 PRD：动态 eligibility、自动 trial ledger、rule/linear/XGB 同口径比较、SEC filing
+  semantic 阶梯、SPY core + active construction、候选冻结和同日起并行 forward。
 - [memos/20260720-governance-reconciliation.md](memos/20260720-governance-reconciliation.md) —
   当前有效治理：SPY 自动晋升硬门、`REVIEW_HOLD` 非自动淘汰、历史批准与当前权限分离、
   已读区间不可重新密封，以及真实 forward 的 source-batch/时间因果阻断项。

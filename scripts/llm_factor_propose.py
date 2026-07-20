@@ -48,23 +48,23 @@ import argparse
 import importlib
 import json
 import sys
+from dataclasses import asdict
 from pathlib import Path
+
+import pandas as pd
+import yaml
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from dataclasses import asdict
-
-import pandas as pd
-
 from core.config.loader import load_config
-from core.data.market_data_store import MarketDataStore
+from core.data.bar_store import BarStore
 from core.factors.factor_generator import generate_all_factors
 from core.factors.llm_candidate import (
     CandidateValidationError,
     load_candidate_from_yaml,
     run_funnel,
 )
-from core.logging_setup import setup_logging, get_logger
+from core.logging_setup import get_logger, setup_logging
 
 setup_logging()
 logger = get_logger("llm_factor_propose")
@@ -81,7 +81,12 @@ def _resolve_compute_fn(path: str):
     return getattr(mod, func_name)
 
 
-def _load_price_and_factors(cfg, n_symbols: int = 15):
+def _load_price_and_factors(
+    cfg,
+    n_symbols: int = 15,
+    start: str = "2012-01-01",
+    end: str | None = None,
+):
     """Minimal universe + factor snapshot for dedup + IC.
 
     PRD 20260423 R16: now loads OHLCV (not just close) and passes
@@ -98,7 +103,7 @@ def _load_price_and_factors(cfg, n_symbols: int = 15):
     a 15-symbol panel compared to the 79-symbol expanded universe.
     Use `--universe-size full` to load the whole expanded set.
     """
-    store = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
+    store = BarStore(root=Path(cfg.system.paths.data_dir))
     uni = cfg.universe
     all_syms = list(dict.fromkeys(
         list(uni.seed_pool) + list(uni.sector_etfs) +
@@ -110,7 +115,21 @@ def _load_price_and_factors(cfg, n_symbols: int = 15):
     # = len(symbols) via --universe-size full.
     closes, opens, highs, lows, volumes = {}, {}, {}, {}, {}
     for s in symbols[:n_symbols]:
-        df = store.read(s, "1d")
+        # Governance pricing contract: factor values consume the canonical
+        # adjusted-total-return view through BarStore. MarketDataStore.read()
+        # exposes raw storage and previously made this LLM funnel inconsistent
+        # with the canonical mining/backtest price basis.
+        df = store.load(
+            s,
+            freq="1d",
+            adjusted=True,
+            # The broad development pool does not yet have certified
+            # distribution-query coverage. Keep every symbol on one honest
+            # split-adjusted PRICE-return basis; promotion-grade total-return
+            # evaluation must use price_basis.validate_total_return_coverage.
+            adjusted_total_return=False,
+            fallback="local",
+        )
         if df is None or df.empty or "close" not in df.columns:
             continue
         closes[s] = df["close"]
@@ -123,7 +142,9 @@ def _load_price_and_factors(cfg, n_symbols: int = 15):
         if "volume" in df.columns:
             volumes[s] = df["volume"]
     price_df = pd.DataFrame(closes).sort_index()
-    price_df = price_df.loc[price_df.index >= "2022-01-01"]
+    price_df = price_df.loc[price_df.index >= pd.Timestamp(start)]
+    if end is not None:
+        price_df = price_df.loc[price_df.index <= pd.Timestamp(end)]
     open_df = pd.DataFrame(opens).reindex_like(price_df) if opens else None
     high_df = pd.DataFrame(highs).reindex_like(price_df) if highs else None
     low_df = pd.DataFrame(lows).reindex_like(price_df) if lows else None
@@ -151,6 +172,11 @@ def main():
                              "(shape + leakage check only; no dedup/IC)")
     parser.add_argument("--out-dir", default="data/ml/llm_candidates",
                         help="Where to write verdict JSON")
+    parser.add_argument("--start", default="2012-01-01",
+                        help="Development interval start (inclusive)")
+    parser.add_argument("--end", default=None,
+                        help="Development interval end (inclusive). Defaults "
+                             "to research_governance.observed_through.")
     parser.add_argument("--universe-size", default="15",
                         help="Number of symbols to load for IC screen "
                              "(int, or 'full' for the complete expanded "
@@ -200,7 +226,12 @@ def main():
                 raise SystemExit(
                     f"--universe-size must be int or 'full', got {args.universe_size!r}"
                 )
-        price_df, existing, extra_panels = _load_price_and_factors(cfg, n_symbols=n_syms)
+        if args.end is None:
+            governance = yaml.safe_load(
+                (Path(args.config_dir) / "research_governance.yaml").read_text())
+            args.end = governance["research_boundary"]["observed_through"]
+        price_df, existing, extra_panels = _load_price_and_factors(
+            cfg, n_symbols=n_syms, start=args.start, end=args.end)
         n_extra = sum(1 for v in extra_panels.values() if v is not None)
         logger.info(
             "Data loaded: price_df %s, %d existing factors, %d extra panels",
@@ -235,6 +266,13 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "candidate.yaml").write_text(cand.to_yaml())
     verdict_doc = {
+        "evidence_scope": "DEVELOPMENT_ONLY",
+        "automatic_promotion_eligible": False,
+        "data_interval": {"start": args.start, "end": args.end},
+        "pricing_semantics": (
+            "BarStore split-adjusted price return; distribution coverage "
+            "not certified; development-only"
+        ),
         "verdict":         verdict.verdict,
         "reason":          verdict.reason,
         "leakage_issues":  verdict.leakage_issues,

@@ -206,12 +206,21 @@ data_sensitivity:
 # universe_resolver.py (applied to expanded_v1/v2 additions too — audit
 # 20260708 P0-1: previously SQQQ leaked via --universe expanded_*).
 blacklist:
+  - SH     # -1x S&P 500 (inverse)
+  - QID    # -2x Nasdaq-100 (inverse)
+  - SDOW   # -3x Dow (inverse)
   - SQQQ   # -3x Nasdaq-100 (inverse)
   - SOXS   # -3x semiconductors (inverse)
   - SPXU   # -3x S&P 500 (inverse)
   - SPXS   # -3x S&P 500 (inverse)
   - SDS    # -2x S&P 500 (inverse)
   - TZA    # -3x small-cap (inverse)
+  - DUST   # -2x gold miners (inverse)
+  - JDST   # -2x junior gold miners (inverse)
+  - LABD   # -3x biotech (inverse)
+  - SCO    # -2x crude oil (inverse)
+  - SVXY   # short VIX futures exposure (short-equivalent)
+  - TBT    # -2x long Treasury (inverse)
 
 # Point-in-time: first trade dates for survivorship bias prevention
 # Symbols only enter candidate pool after first_trade_date + min_history_days
@@ -250,7 +259,12 @@ first_trade_dates:
   SLV: "2006-04-28"
 
 high_risk_symbols:
-  symbols: [TQQQ, SOXL]
+  # Leveraged-long products remain economically long, but every one present
+  # in expanded_v2 is governed by the same 10% single-name cap. Inverse and
+  # short-equivalent products belong in `blacklist`, never in this list.
+  symbols:
+    [TQQQ, SOXL, ERX, FAS, GUSH, JNUG, LABU, NUGT, QLD, SPXL, SSO,
+     TECL, TNA, UCO, UDOW, UPRO]
   max_single_weight: 0.10
   max_total_weight: 0.12
   require_risk_on_regime: true
