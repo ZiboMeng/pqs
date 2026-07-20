@@ -21,6 +21,14 @@ Authoritative machine record: `research/registry/strategy_registry.json`.
   25%, data provenance change, timing/cost drift, or reconciliation failure.
 - Default configuration: enabled only in `config/strategies.paper.yaml`.
 - LIVE: `false` in every phase-two config and registry record.
+- Phase 3 frozen artifact:
+  `research/registries/strategy_artifacts/dual_index_growth_v1/v1.json`.
+- Artifact root SHA256:
+  `7d1c2d96ea06f051f298331a6a9a8a5bc6e0b85af72fd158e8524cc56b0a553c`.
+- Artifact build commit: `f8f3050b76867b10e8dc992d7c284e940ca95e64`.
+- The artifact freezes the transitive strategy, configuration, regime,
+  allocator, risk, cost/execution, data-contract, runtime, dependency and
+  promotion-evidence closure. Runtime drift fails closed.
 
 Evidence:
 
