@@ -14,6 +14,7 @@ from core.config.loader import load_config
 from core.config.schemas.cost_model import CostModelConfig, CostTierConfig
 from core.execution.broker_adapter import OrderAck, SimulatedBrokerAdapter
 from core.execution.cost_model import CostModel
+from core.execution.execution_simulator import Order, OrderSide
 from core.paper_trading.paper_trading_engine import PaperTradingEngine
 from core.paper_trading.phase2_runtime import (
     MarketDataQualityError,
@@ -70,6 +71,18 @@ class UnknownBroker(SimulatedBrokerAdapter):
             submitted_at=datetime.now(),
             status="UNKNOWN",
         )
+
+
+class UnexpectedOpenOrderBroker(SimulatedBrokerAdapter):
+    def get_open_orders(self):
+        order = Order(
+            symbol="SPY",
+            side=OrderSide.BUY,
+            qty_shares=1.0,
+            signal_date=pd.Timestamp("2020-01-01"),
+        )
+        setattr(order, "broker_order_id", "unexpected-broker-order")
+        return [order]
 
 
 def _panel(rows: int = 340) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
@@ -282,6 +295,21 @@ def test_broker_unknown_isolates_account(tmp_path) -> None:
         strategy_id=runtime.spec.strategy_id,
         symbol="*",
     )
+
+
+def test_unexpected_broker_open_order_is_not_hidden(tmp_path) -> None:
+    runtime, _ = _runtime(tmp_path, broker_type=UnexpectedOpenOrderBroker)
+    assert runtime._reconciliation_ok is False
+    assert runtime.control_store.is_paused(
+        strategy_id=runtime.spec.strategy_id,
+        symbol="*",
+    )
+
+    date = runtime.close.index[260]
+    report = runtime.run_range(date, date)[0].payload
+    assert report["reconciliation"]["unexpected_open_orders"] == [
+        "unexpected-broker-order"
+    ]
 
 
 def test_daily_report_includes_pretrade_rejection_reason(tmp_path) -> None:

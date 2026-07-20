@@ -18,6 +18,7 @@ These tests verify:
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pandas as pd
@@ -230,6 +231,37 @@ class TestMirrorDailyPath:
         broker.mirror_fill(result.trades[0])
         assert broker.get_cash() == cash_after
         assert broker.get_positions() == positions_after
+
+    def test_distinct_partial_callbacks_share_order_without_collapsing(self, tmp_path):
+        cm = _zero_cost_model()
+        engine = _make_engine(tmp_path, cm)
+        result = engine.run_day_daily(
+            exec_date=pd.Timestamp("2024-01-02"),
+            target_wts={"AAPL": 0.5},
+            prev_close={"AAPL": 100.0},
+            exec_open={"AAPL": 100.0},
+            eod_close={"AAPL": 100.0},
+        )
+        original = result.trades[0]
+        setattr(original.order, "canonical_order_id", "ord-partial")
+        first = replace(
+            original,
+            executed_qty=100.0,
+            cash_delta=-10_000.0,
+        )
+        second = replace(
+            original,
+            executed_qty=50.0,
+            cash_delta=-5_000.0,
+        )
+        broker = SimulatedBrokerAdapter(cost_model=cm, initial_cash=100_000.0)
+
+        broker.mirror_fill(first)
+        broker.mirror_fill(first)
+        broker.mirror_fill(second)
+
+        assert broker.get_positions() == {"AAPL": 150.0}
+        assert broker.get_cash() == 85_000.0
 
     def test_partial_fill_is_mirrored_and_reconciled_exactly(self, tmp_path):
         cm = _nonzero_cost_model()

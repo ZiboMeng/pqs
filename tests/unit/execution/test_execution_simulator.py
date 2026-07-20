@@ -5,7 +5,10 @@ import pandas as pd
 from core.config.schemas.cost_model import CostModelConfig, CostTierConfig
 from core.execution.cost_model import CostModel
 from core.execution.execution_simulator import (
-    ExecutionSimulator, Fill, Order, OrderSide,
+    ExecutionSimulator,
+    Fill,
+    Order,
+    OrderSide,
 )
 
 
@@ -73,6 +76,18 @@ class TestSimulateFill:
         sim  = ExecutionSimulator(_make_cost_model())
         fill = sim.simulate_fill(_order(), open_price=0.0, vix=15.0, cash=10_000.0)
         assert fill is None
+
+    def test_nonfinite_inputs_return_none(self):
+        sim = ExecutionSimulator(_make_cost_model())
+        assert sim.simulate_fill(
+            _order(), open_price=float("inf"), vix=15.0, cash=10_000.0
+        ) is None
+        assert sim.simulate_fill(
+            _order(qty=float("inf")), open_price=100.0, vix=15.0, cash=10_000.0
+        ) is None
+        assert sim.simulate_fill(
+            _order(), open_price=100.0, vix=float("nan"), cash=10_000.0
+        ) is None
 
     def test_zero_qty_returns_none(self):
         sim  = ExecutionSimulator(_make_cost_model())

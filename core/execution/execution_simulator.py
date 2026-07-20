@@ -143,11 +143,20 @@ class ExecutionSimulator:
         -------
         Fill 对象，若委托被拒绝则返回 None（附日志警告）。
         """
-        if open_price <= 0 or np.isnan(open_price):
+        if not np.isfinite(open_price) or open_price <= 0:
             logger.warning("[%s] Invalid open price %.4f — order rejected", order.symbol, open_price)
             return None
 
-        if order.qty_shares <= 0:
+        if not np.isfinite(order.qty_shares) or order.qty_shares <= 0:
+            return None
+
+        if not np.isfinite(vix) or vix <= 0 or not np.isfinite(cash) or cash < 0:
+            logger.warning(
+                "[%s] Invalid execution inputs vix=%s cash=%s — order rejected",
+                order.symbol,
+                vix,
+                cash,
+            )
             return None
 
         is_buy     = order.side == OrderSide.BUY

@@ -22,6 +22,7 @@ Design principles (per CLAUDE.md):
 from __future__ import annotations
 
 import json
+import math
 import sqlite3
 import uuid
 from abc import ABC, abstractmethod
@@ -103,6 +104,24 @@ class BrokerAdapter(ABC):
         """Compare our book against broker's. Caller passes the
         engine's expected state; adapter returns mismatches."""
 
+    def get_open_order_ids(self) -> frozenset[str]:
+        """Return stable identities for broker-authoritative open orders.
+
+        Adapters must attach either ``broker_order_id`` or
+        ``canonical_order_id`` to each returned order. Refusing an order with
+        no stable identity is safer than silently omitting it from account
+        reconciliation.
+        """
+        identities: set[str] = set()
+        for order in self.get_open_orders():
+            identity = getattr(order, "broker_order_id", None) or getattr(
+                order, "canonical_order_id", None
+            )
+            if not identity:
+                raise RuntimeError("broker open order has no stable identity")
+            identities.add(str(identity))
+        return frozenset(identities)
+
 
 # ── SimulatedBrokerAdapter ────────────────────────────────────────────────────
 
@@ -132,6 +151,7 @@ class SimulatedBrokerAdapter(BrokerAdapter):
         )
         self._cash: float = initial_cash
         self._positions: Dict[str, float] = dict(initial_positions or {})
+        self._validate_account_state()
 
         self._open_orders: Dict[str, Order] = {}  # order_id → Order
         self._fills: List[Fill] = []              # chronological
@@ -151,11 +171,11 @@ class SimulatedBrokerAdapter(BrokerAdapter):
     def set_next_fill_price(self, symbol: str, price: float) -> None:
         """Pin the fill price for the NEXT submit_order on `symbol`.
         Simplifies deterministic tests. Consumed on use."""
-        self._next_fill_prices[symbol] = float(price)
+        self._next_fill_prices[symbol] = self._validated_price(price)
 
     def set_default_fill_price(self, price: float) -> None:
         """Fallback price when no per-symbol override is set."""
-        self._default_price = float(price)
+        self._default_price = self._validated_price(price)
 
     def mirror_fill(self, fill: Fill) -> OrderAck:
         """Book an already-simulated PAPER fill exactly once.
@@ -167,11 +187,19 @@ class SimulatedBrokerAdapter(BrokerAdapter):
         makes a duplicate broker callback idempotent.
         """
         canonical_id = getattr(fill.order, "canonical_order_id", None)
-        fill_key = str(canonical_id or (
-            f"{fill.symbol}:{fill.side.value}:{fill.signal_date.isoformat()}:"
+        execution_id = getattr(fill, "broker_fill_id", None) or getattr(
+            fill, "execution_id", None
+        )
+        execution_signature = execution_id or (
             f"{fill.fill_date.isoformat()}:{fill.executed_qty:.12g}:"
-            f"{fill.executed_price:.12g}"
-        ))
+            f"{fill.executed_price:.12g}:{fill.cash_delta:.12g}"
+        )
+        fill_key = (
+            f"{canonical_id}:{execution_signature}"
+            if canonical_id
+            else f"{fill.symbol}:{fill.side.value}:{fill.signal_date.isoformat()}:"
+            f"{execution_signature}"
+        )
         existing_id = self._mirrored_fill_ids.get(fill_key)
         if existing_id is not None:
             return OrderAck(
@@ -181,10 +209,38 @@ class SimulatedBrokerAdapter(BrokerAdapter):
                 status="ACCEPTED",
             )
 
+        if not all(
+            math.isfinite(float(value))
+            for value in (fill.executed_qty, fill.executed_price, fill.cash_delta)
+        ) or fill.executed_qty <= 0 or fill.executed_price <= 0:
+            return OrderAck(
+                order_id="",
+                order=fill.order,
+                submitted_at=datetime.now(),
+                status="REJECTED",
+                reject_reason="fill contains invalid numeric values",
+            )
+
         order_id = uuid.uuid4().hex[:12]
         old_cash = self._cash
         old_positions = dict(self._positions)
         previous = self._positions.get(fill.symbol, 0.0)
+        if fill.side == OrderSide.SELL and fill.executed_qty > previous + 1e-6:
+            return OrderAck(
+                order_id=order_id,
+                order=fill.order,
+                submitted_at=datetime.now(),
+                status="REJECTED",
+                reject_reason="sell fill exceeds long position",
+            )
+        if fill.side == OrderSide.BUY and self._cash + fill.cash_delta < -0.01:
+            return OrderAck(
+                order_id=order_id,
+                order=fill.order,
+                submitted_at=datetime.now(),
+                status="REJECTED",
+                reject_reason="buy fill would create negative cash",
+            )
         if fill.side == OrderSide.BUY:
             self._positions[fill.symbol] = previous + fill.executed_qty
         else:
@@ -230,6 +286,14 @@ class SimulatedBrokerAdapter(BrokerAdapter):
             )
 
         order_id = uuid.uuid4().hex[:12]
+        if order.side == OrderSide.SELL and order.qty_shares > self._positions.get(sym, 0.0) + 1e-6:
+            return OrderAck(
+                order_id=order_id,
+                order=order,
+                submitted_at=datetime.now(),
+                status="REJECTED",
+                reject_reason="sell order exceeds long position",
+            )
         self._open_orders[order_id] = order
 
         # Simulate fill immediately using ExecutionSimulator
@@ -360,7 +424,26 @@ class SimulatedBrokerAdapter(BrokerAdapter):
                 str(symbol): float(quantity)
                 for symbol, quantity in json.loads(row[1]).items()
             }
+            self._validate_account_state()
         self._mirrored_fill_ids = {str(key): str(order_id) for key, order_id in keys}
+
+    @staticmethod
+    def _validated_price(price: float) -> float:
+        value = float(price)
+        if not math.isfinite(value) or value <= 0:
+            raise ValueError("fill price must be finite and positive")
+        return value
+
+    def _validate_account_state(self) -> None:
+        if not math.isfinite(float(self._cash)) or self._cash < -0.01:
+            raise ValueError("broker cash must be finite and non-negative")
+        invalid = {
+            str(symbol): quantity
+            for symbol, quantity in self._positions.items()
+            if not math.isfinite(float(quantity)) or float(quantity) < 0
+        }
+        if invalid:
+            raise ValueError(f"broker positions must be finite and long-only: {invalid}")
 
     def _persist_state(
         self,

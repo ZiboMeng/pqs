@@ -17,6 +17,24 @@ class AccountSnapshot:
     observed_at: datetime
     source: str
 
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.cash) or self.cash < -0.01:
+            raise ValueError("snapshot cash must be finite and non-negative")
+        invalid_positions = {
+            symbol: quantity
+            for symbol, quantity in self.positions.items()
+            if not math.isfinite(float(quantity)) or float(quantity) < 0
+        }
+        if invalid_positions:
+            raise ValueError(
+                "snapshot positions must be finite and long-only: "
+                f"{invalid_positions}"
+            )
+        if any(not str(order_id).strip() for order_id in self.open_order_ids):
+            raise ValueError("snapshot open-order identities must be non-empty")
+        if not self.source.strip():
+            raise ValueError("snapshot source is required")
+
 
 @dataclass(frozen=True, slots=True)
 class ReconciliationResult:

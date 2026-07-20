@@ -141,11 +141,18 @@ class OrderRegistrationService:
                 if current.state is OrderState.VALIDATED:
                     self.mark_submitted(order_id, connection=conn)
                 self.mark_acknowledged(order_id, connection=conn)
-                self.mark_fill(
+                fill_result = self.mark_fill(
                     order_id,
                     float(filled_quantity),
                     connection=conn,
                 )
+                if fill_result.state is OrderState.PARTIALLY_FILLED:
+                    self._store.transition(
+                        order_id,
+                        OrderState.CANCELLED,
+                        reason="simulator_unfilled_remainder_cancelled",
+                        connection=conn,
+                    )
             persist(conn)
 
     def quarantine_after_restart(

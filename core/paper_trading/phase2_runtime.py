@@ -399,7 +399,7 @@ class Phase2PaperRuntime:
 
     def _authoritative_reconcile(self) -> ReconciliationResult:
         expected_orders = frozenset(
-            order.intent.order_id
+            order.broker_order_id or order.intent.order_id
             for order in self.order_store.list_nonterminal()
             if order.state not in {OrderState.CREATED, OrderState.VALIDATED}
         )
@@ -415,7 +415,7 @@ class Phase2PaperRuntime:
             actual = AccountSnapshot(
                 cash=self.broker.get_cash(),
                 positions=self.broker.get_positions(),
-                open_order_ids=frozenset(),
+                open_order_ids=self.broker.get_open_order_ids(),
                 observed_at=now,
                 source="simulated_broker",
             )
@@ -515,6 +515,10 @@ class Phase2PaperRuntime:
                 "passed": reconcile_result.passed,
                 "cash_difference": reconcile_result.cash_difference,
                 "position_differences": reconcile_result.position_differences,
+                "missing_open_orders": sorted(reconcile_result.missing_open_orders),
+                "unexpected_open_orders": sorted(
+                    reconcile_result.unexpected_open_orders
+                ),
                 "eod_check_ok": eod_check["ok"],
                 "eod_warnings": eod_check["warnings"],
             },

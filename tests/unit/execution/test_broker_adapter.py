@@ -85,12 +85,31 @@ class TestSubmitAckFillRoundtrip:
         # ExecutionSimulator may adjust fill qty; position strictly below 50
         assert pos.get("AAPL", 0) < 50.0
 
+    def test_sell_cannot_create_cash_without_a_long_position(self):
+        ba = SimulatedBrokerAdapter(
+            cost_model=_cost(), initial_cash=100_000.0,
+        )
+        ba.set_default_fill_price(100.0)
+        cash_before = ba.get_cash()
+
+        ack = ba.submit_order(_mk_order("AAPL", OrderSide.SELL, 20))
+
+        assert ack.status == "REJECTED"
+        assert "exceeds long position" in ack.reject_reason
+        assert ba.get_cash() == cash_before
+        assert ba.get_positions() == {}
+
     def test_no_fill_price_configured_rejects(self):
         ba = SimulatedBrokerAdapter(cost_model=_cost())
         order = _mk_order()
         ack = ba.submit_order(order)
         assert ack.status == "REJECTED"
         assert "price" in ack.reject_reason.lower()
+
+    def test_invalid_configured_price_is_rejected_at_boundary(self):
+        ba = SimulatedBrokerAdapter(cost_model=_cost())
+        with pytest.raises(ValueError, match="finite and positive"):
+            ba.set_default_fill_price(float("inf"))
 
 
 class TestReconcile:

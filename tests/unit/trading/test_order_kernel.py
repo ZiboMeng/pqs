@@ -255,6 +255,24 @@ def test_registration_service_durably_records_veto_and_deduplicates(tmp_path):
     assert duplicate.risk_decision is None
 
 
+def test_simulator_partial_fill_closes_unfilled_remainder_atomically(tmp_path):
+    store = OrderStore(tmp_path / "orders.db")
+    service = OrderRegistrationService(store, PreTradeRiskEngine(RiskLimits()))
+    order = intent(quantity=10)
+    assert service.register(order, snapshot()).order.state is OrderState.VALIDATED
+
+    service.commit_simulated_execution([(order.order_id, 4.0)], persist=lambda conn: None)
+
+    completed = store.get(order.order_id)
+    assert completed is not None
+    assert completed.state is OrderState.CANCELLED
+    assert completed.filled_quantity == 4.0
+    assert [event["to_state"] for event in store.events(order.order_id)][-2:] == [
+        "PARTIALLY_FILLED",
+        "CANCELLED",
+    ]
+
+
 def test_restart_quarantines_possibly_submitted_orders_without_retry(tmp_path):
     store = OrderStore(tmp_path / "orders.db")
     service = OrderRegistrationService(store, PreTradeRiskEngine(RiskLimits()))

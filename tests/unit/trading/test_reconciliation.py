@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import pytest
+
 from core.trading.controls import TradingControlStore
 from core.trading.reconciliation import AccountSnapshot, ReconciliationService
 
@@ -45,3 +47,9 @@ def test_any_mismatch_fails_and_automatically_sets_global_pause(tmp_path):
     event = controls.events()[-1]
     assert event["updated_by"] == "system:reconciliation"
     assert "automatic reconciliation isolation" in event["reason"]
+
+
+@pytest.mark.parametrize("quantity", [float("nan"), float("inf"), -1.0])
+def test_invalid_or_short_snapshot_position_fails_before_comparison(quantity):
+    with pytest.raises(ValueError, match="finite and long-only"):
+        snapshot(positions={"SPY": quantity})
