@@ -65,6 +65,19 @@ sealed governance/batches 和 reports。备份后在隔离目录执行：
 - control-plane status；
 - 只读 reconcile。
 
+本地 volume 示例：
+
+```bash
+.venv/bin/python scripts/phase3_backup.py backup \
+  --source data/paper_trading/phase3_forward/dual_index_growth_v1 \
+  --destination /safe/off-volume/pqs-state-YYYYMMDD
+.venv/bin/python scripts/phase3_backup.py verify \
+  --backup /safe/off-volume/pqs-state-YYYYMMDD
+```
+
+restore 只允许不存在的新目录，并要求 `--confirm RESTORE:<manifest_sha256>`；先在隔离目录完成全部验证，
+再由人工切换 volume。不要把 backup 放在 source 里面，也不要把同一磁盘目录称作灾备。
+
 恢复必须先 GLOBAL pause，以新目录启动并验证，再原子切换显式 volume。不得用空 DB 覆盖旧 DB，不得删除
 quarantine、alert、operator request 或 lease audit 来“恢复绿色”。R7 会提供本地备份/恢复脚本和容器卷 smoke。
 

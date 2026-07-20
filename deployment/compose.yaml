@@ -1,0 +1,50 @@
+name: pqs-phase3
+
+services:
+  phase3-monitor:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: pqs-phase3:local
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 30s
+    user: "10001:10001"
+    read_only: true
+    environment:
+      PQS_DATA_DIR: /app/data
+      PQS_PHASE3_STATE_DIR: /app/state
+      PQS_DEPLOYMENT_VERSION: local-compose-unreleased
+    volumes:
+      - phase3-state:/app/state
+      - market-data:/app/data
+      - reports:/app/reports
+      - logs:/app/logs
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=1770
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 4g
+    cpus: 2.0
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - scripts/phase3_liveness.py
+        - --heartbeat
+        - /app/state/supervisor_heartbeat.json
+        - --maximum-age-seconds
+        - "180"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  phase3-state: {}
+  market-data: {}
+  reports: {}
+  logs: {}

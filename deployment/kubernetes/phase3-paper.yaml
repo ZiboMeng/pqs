@@ -1,0 +1,121 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pqs-paper
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pqs-phase3-state
+  namespace: pqs-paper
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: pqs-phase3-monitor
+  namespace: pqs-paper
+spec:
+  serviceName: pqs-phase3-monitor
+  replicas: 1
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: pqs-phase3-monitor
+  template:
+    metadata:
+      labels:
+        app: pqs-phase3-monitor
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: monitor
+          # Replace the all-zero template digest with the signed build digest.
+          image: pqs-phase3@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          imagePullPolicy: IfNotPresent
+          env:
+            - {name: PQS_DATA_DIR, value: /app/data}
+            - {name: PQS_PHASE3_STATE_DIR, value: /app/state}
+            - {name: PQS_DEPLOYMENT_VERSION, value: replace-at-deploy}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests: {cpu: 250m, memory: 512Mi}
+            limits: {cpu: "2", memory: 4Gi}
+          volumeMounts:
+            - {name: state, mountPath: /app/state, subPath: state}
+            - {name: state, mountPath: /app/data, subPath: data}
+            - {name: state, mountPath: /app/reports, subPath: reports}
+            - {name: state, mountPath: /app/logs, subPath: logs}
+            - {name: tmp, mountPath: /tmp}
+          livenessProbe:
+            exec:
+              command:
+                - python
+                - scripts/phase3_liveness.py
+                - --heartbeat
+                - /app/state/supervisor_heartbeat.json
+                - --maximum-age-seconds
+                - "180"
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - python
+                - scripts/phase3_control.py
+                - readiness
+                - --state-dir
+                - /app/state
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 2
+      volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: pqs-phase3-state
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pqs-phase3-monitor
+  namespace: pqs-paper
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: pqs-phase3-monitor
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pqs-phase3-default-deny
+  namespace: pqs-paper
+spec:
+  podSelector:
+    matchLabels:
+      app: pqs-phase3-monitor
+  policyTypes: [Ingress, Egress]

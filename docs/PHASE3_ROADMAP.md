@@ -109,6 +109,10 @@ revision/cursor 恢复和合成 E2E）；真实 provider、真实持续调度和
 
 ## R7 部署准备
 
+状态：完成 deployment preparation 和本地进程/volume smoke；Docker/Podman、kubectl、Terraform/OpenTofu
+在本机均缺失，故未实际 build/start 容器或 plan/apply IaC，Kubernetes image digest 仍为明确的全零模板，
+云资源创建数为 0。
+
 - 更新非 root Docker image 和 Phase 3 entrypoint；
 - 添加 compose/local smoke、只读 mount、持久卷和 shutdown；
 - 添加 Terraform/OpenTofu 或等价 IaC 模块及静态校验；

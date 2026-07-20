@@ -1,0 +1,17 @@
+schema_version: 1
+mode: PAPER
+live_enabled: false
+supervisor:
+  command: scripts/phase3_supervisor.py
+  interval_seconds: 60
+  heartbeat: /app/state/supervisor_heartbeat.json
+  maximum_heartbeat_age_seconds: 180
+alert_evaluation:
+  command: scripts/phase3_control.py evaluate-alerts
+  policy: config/alerts.yaml
+readiness:
+  command: scripts/phase3_control.py readiness
+  live_ready_allowed: false
+external_notifications:
+  configured: false
+  fallback: durable_local_sqlite

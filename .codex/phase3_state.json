@@ -5,9 +5,9 @@
   "baseline_commit": "3b9baf8d34b890ca3520f37b28ef55ab9d63cfdc",
   "baseline_tag": "codex-pre-forward-paper-phase3-20260720",
   "current_branch": "codex/forward-paper-and-sealed-evidence-v3",
-  "current_stage": "DEPLOYMENT_PREPARATION",
-  "last_completed_task": "Implemented the Phase 3 operations boundary: genuinely read-only aggregate status/readiness, exact-confirmation request-idempotent pause/resume/reconcile, resume blockers, read-only persisted broker reconciliation with automatic pause, a hash-frozen 16-rule alert policy, durable concurrent dedup/ack/resolve, and operations/control-plane runbooks. The approved strategy artifact was reverified unchanged after rejecting an attempted frozen-component edit.",
-  "next_task": "Prepare non-root read-only-root deployment assets, persistent volume and graceful-shutdown smoke, static IaC with least privilege, backup/restore/rollback tooling, and honest local tool-availability evidence without creating paid cloud resources.",
+  "current_stage": "FINAL_VALIDATION",
+  "last_completed_task": "Prepared a pinned Python 3.13.12 non-root/read-only-root image, hardened Compose and singleton Kubernetes templates, a provider-free Terraform deployment contract, a graceful monitor-only supervisor/liveness boundary, runtime dependency lock, and non-overwriting SQLite-aware backup/verify/restore. Static validation and local process/heartbeat/restart/SIGTERM/volume restore smoke passed; no container, IaC, or cloud tool was available or used.",
+  "next_task": "Run the final full-suite and CI-equivalent audit, validate all configs/artifacts/docs/secrets/external-state claims, create the forward-runtime certification manifest and final deployment/final reports, update state/index, and push the final logical commits.",
   "open_p0": [],
   "open_p1": [],
   "frozen_strategies": [
@@ -29,8 +29,8 @@
     "No trustworthy historical options chain provider is available; options work is collection infrastructure only.",
     "A second strategy remains blocked until at least 252 unseen post-2026-07-17 sessions or a user-authorized disjoint point-in-time evidence protocol exists."
   ],
-  "last_test_command": "pytest -q <105-test Phase 3 forward/broker/artifact/sealed/collection/control/alert safety set>",
-  "last_test_result": "PASS: 105 passed in 19.85s. Targeted Ruff, mypy, and compileall passed. Approved artifact root 7d1c...a553c verifies unchanged. Formal durable alert policy is initialized with zero active alerts; formal runtime and broker remain uninitialized, so readiness honestly reports NOT_READY. Opening baseline full suite also passed 4246 with 4 skipped and 1 xfailed.",
-  "last_deployment_check": "Not started; no paid resource creation authorized.",
-  "last_updated_utc": "2026-07-20T19:04:25Z"
+  "last_test_command": "pytest -q <107-test Phase 3 deployment/forward/broker/artifact/sealed/collection/control/alert safety set>",
+  "last_test_result": "PASS: 107 passed in 20.71s. Deployment static validator, targeted Ruff/mypy/format, approved artifact verification, supervisor heartbeat/liveness/restart/SIGTERM, and SQLite backup/verify/non-overwriting restore all passed. Opening baseline full suite also passed 4246 with 4 skipped and 1 xfailed.",
+  "last_deployment_check": "PREPARED/LOCAL-SMOKE-TESTED ONLY: static Docker/Compose/Kubernetes/Terraform contract PASS and local supervisor/volume restore PASS. Docker, Podman, kubectl, Terraform, and OpenTofu are unavailable; image digest remains a template; no container was built and no cloud resource was created.",
+  "last_updated_utc": "2026-07-20T19:12:46Z"
 }
