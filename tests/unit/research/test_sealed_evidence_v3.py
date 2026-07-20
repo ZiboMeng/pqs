@@ -24,9 +24,9 @@ from core.research.sealed_evidence import (
 )
 
 ARTIFACT_PATH = (
-    "research/registries/strategy_artifacts/dual_index_growth_v1/v1.json"
+    "research/registries/strategy_artifacts/dual_index_growth_v1/observation_v1.json"
 )
-ARTIFACT_ROOT = "7d1c2d96ea06f051f298331a6a9a8a5bc6e0b85af72fd158e8524cc56b0a553c"
+ARTIFACT_ROOT = "21a268f103295c0b11243f4264885844b019cdeeab8da89106e83d91a3b306ee"
 EVENT_TIME = datetime(2026, 7, 21, 20, 0, tzinfo=UTC)
 
 
@@ -93,7 +93,7 @@ def _submission(submission_id: str = "submission-1", **changes):
         "artifact_root_sha256": ARTIFACT_ROOT,
         "sealed_batch_id": "batch-1",
         "metric_policy_id": "daily_return_summary_v1",
-        "benchmark_policy_id": "qqq_close_to_close_v1",
+        "benchmark_policy_id": "spy_total_return_after_costs_v1",
         "cost_policy_id": "frozen_artifact_cost_v1",
     }
     values.update(changes)
@@ -133,7 +133,7 @@ def _evaluator(tmp_path: Path, store, governance, **changes):
                 "maximum_annualized_volatility": 10.0,
             }
         },
-        "allowed_benchmark_policies": ["qqq_close_to_close_v1"],
+        "allowed_benchmark_policies": ["spy_total_return_after_costs_v1"],
         "allowed_cost_policies": ["frozen_artifact_cost_v1"],
     }
     values.update(changes)
