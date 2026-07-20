@@ -5,9 +5,9 @@
   "baseline_commit": "3b9baf8d34b890ca3520f37b28ef55ab9d63cfdc",
   "baseline_tag": "codex-pre-forward-paper-phase3-20260720",
   "current_branch": "codex/forward-paper-and-sealed-evidence-v3",
-  "current_stage": "SEALED_EVIDENCE",
-  "last_completed_task": "Completed Forward PAPER R2/R3: three-stage lifecycle, lease fencing, persisted simulated broker order/fill history, read-only file snapshot authority, freshness-aware reconciliation, and immutable categorized tracking with no automatic promotion.",
-  "next_task": "Implement append-only hash-chained sealed store, preregistration, alias-resistant concurrent submission budgets, and scrubbed evaluator output boundaries.",
+  "current_stage": "DATA_COLLECTION",
+  "last_completed_task": "Implemented the local sealed evidence boundary: atomic hash-chained batches, revision lineage, tracked future preregistration, immutable artifact-bound submissions, four-level concurrent budgets, frozen evaluator policy, scrubbed subprocess summaries, and audited infrastructure refunds.",
+  "next_task": "Implement daily, intraday, and options ingestion contracts with append-only raw batches, revision/quarantine lineage, and mock/file end-to-end adapters.",
   "open_p0": [],
   "open_p1": [],
   "frozen_strategies": [
@@ -29,8 +29,8 @@
     "No trustworthy historical options chain provider is available; options work is collection infrastructure only.",
     "A second strategy remains blocked until at least 252 unseen post-2026-07-17 sessions or a user-authorized disjoint point-in-time evidence protocol exists."
   ],
-  "last_test_command": "pytest -q tests/unit/execution/test_broker_adapter.py tests/unit/execution/test_read_only_broker.py tests/unit/paper_trading/test_broker_adapter_integration.py tests/unit/paper_trading/test_phase2_paper_runtime.py tests/unit/paper_trading/test_forward_tracking.py tests/unit/paper_trading/test_forward_runtime.py tests/unit/runtime/test_lease.py tests/unit/execution/test_target_weight_planner.py",
-  "last_test_result": "PASS: 67 passed in 21.13s; full Ruff and isolated mypy passed; strict-artifact status smoke reports frozen tracking hash and zero honest forward sessions.",
+  "last_test_command": "pytest -q tests/unit/research/test_sealed_evidence_v3.py tests/unit/research/test_sealed_ledger.py tests/unit/runtime/test_strategy_artifact.py",
+  "last_test_result": "PASS: 42 passed in 5.06s including 16/16 sealed-specific tests; Ruff/mypy passed; status smoke reports one preregistered future hypothesis, zero batches/submissions/attempts, and no raw output. Opening baseline full suite also passed 4246 with 4 skipped and 1 xfailed.",
   "last_deployment_check": "Not started; no paid resource creation authorized.",
-  "last_updated_utc": "2026-07-20T18:25:49Z"
+  "last_updated_utc": "2026-07-20T18:37:55Z"
 }

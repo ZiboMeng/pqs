@@ -1,0 +1,38 @@
+schema_version: 1
+mode: PAPER
+live_enabled: false
+
+store:
+  directory: data/sealed_evidence/batches
+  maximum_batch_bytes: 10000000
+  maximum_rows: 100000
+
+governance:
+  database: data/sealed_evidence/governance.db
+  hypothesis_registry: research/registries/hypothesis_registry.json
+  submissions_directory: research/submissions
+  results_directory: research/sealed_results
+
+budget_policy:
+  policy_id: phase3-sealed-budget-v1
+  global_attempts: 20
+  family_attempts: 8
+  lineage_attempts: 4
+  artifact_version_attempts: 2
+
+evaluator:
+  timeout_seconds: 30
+  maximum_output_bytes: 100000
+  worker: core/research/sealed_worker.py
+  metric_policies:
+    daily_return_summary_v1:
+      annualization_sessions: 252
+      minimum_sessions: 60
+      maximum_drawdown_abs: 0.25
+      minimum_sharpe: 0.0
+      maximum_beta: 1.25
+      maximum_annualized_volatility: 0.45
+  allowed_benchmark_policies:
+    - qqq_close_to_close_v1
+  allowed_cost_policies:
+    - frozen_artifact_cost_v1

@@ -47,6 +47,9 @@ artifacts/
 
 # Paper trading runtime state (PnL DB, alignment reports, checkpoints)
 data/paper_trading/
+# Phase 3 raw sealed batches, locks, and governance state are operational
+# evidence and may contain unreleased rows; only fixed summaries are tracked.
+data/sealed_evidence/
 
 # Dev-process artifacts (baseline snapshots, coverage reports, etc.)
 dev/artifacts/

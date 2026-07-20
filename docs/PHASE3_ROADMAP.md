@@ -65,6 +65,9 @@
 
 ## R4 Sealed evidence
 
+状态：完成本地实现（store、registry、budget、subprocess evaluator 和 16 个专项反例通过）；真实 future
+batch/submission/result 均为 0，同 UID/admin 隔离和远端 object lock 未声称具备。
+
 - 实现 atomic append-only batch、content hash、previous hash、revision lineage；
 - 防 path traversal、symlink、覆盖和链断；
 - 建立 preregistration/submission registry；

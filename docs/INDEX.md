@@ -10,6 +10,8 @@ defined at the bottom of this file. Within each category section,
 
 ## Active Codex phase-three evidence
 
+- [SEALED_EVIDENCE.md](SEALED_EVIDENCE.md) — append-only/hash-chain store、未来假设
+  预注册、四层并发信息预算、隔离固定 summary evaluator、攻击边界和当前零真实 submission 状态。
 - [FORWARD_PAPER.md](FORWARD_PAPER.md) — 三阶段真实事件 lifecycle、lease/fencing、持久
   broker authority、tracking policy、恢复语义、运行命令和未具备能力的权威操作契约。
 - [PHASE3_PRD.md](PHASE3_PRD.md) — 经独立量化、架构、安全和可运维性审计修订的

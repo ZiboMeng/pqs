@@ -136,7 +136,9 @@ hash-chain、原子 append、冲突拒绝和 evaluator capability boundary；若
 - Git fsck：无损坏；仅有可回收 dangling objects，不执行破坏性清理。
 - 全仓 Ruff 完整规则存在 2,323 项历史格式/命名/未使用告警。CI 有意只阻止 fatal rules；本阶段不做
   与功能无关的全仓机械重排，以免制造巨大无关 diff。新增/修改文件执行完整 Ruff。
-- 全量 pytest：运行中；完成后在本文件和最终报告记录准确计数，不用部分结果冒充全量通过。
+- 开工基线全量 pytest：`4246 passed, 4 skipped, 1 xfailed`，43 warnings，耗时 2290.76 秒；无失败。
+  该进程在 Phase 3 新测试加入前收集了 4251 项，因此只作为开工基线，不冒充最终全量回归；最终阶段
+  会重新 collection 并执行包含所有 Phase 3 测试的完整 suite。
 
 ## 9. 审计出口
 

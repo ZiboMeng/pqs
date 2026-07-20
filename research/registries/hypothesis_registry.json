@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "created_at_utc": "2026-07-20T18:35:00+00:00",
+  "registrations": [
+    {
+      "hypothesis_id": "spy_defensive_vol_target_v1",
+      "family_id": "defensive_allocation",
+      "lineage_id": "spy_defensive_vol_target",
+      "title": "SPY volatility-target defensive allocation",
+      "economic_rationale": "A preregistered daily long-only allocation that reduces broad-equity exposure when ex-ante volatility and independently observed stress rise may improve drawdown control without using leveraged inverse ETFs.",
+      "eligible_data_start": "2026-07-21",
+      "evidence_origin": "FUTURE_UNSEEN",
+      "registered_at_utc": "2026-07-20T18:35:00+00:00",
+      "registration_sha256": "4eb64f489ef0db1e61ef905c968376db5deb48de9f9e5fa0d96bcbad3900df7f"
+    }
+  ],
+  "registry_sha256": "73bde9947ce5e0ade32077d66136b2e43110cb933efdc393db825b6c057fbe39"
+}
