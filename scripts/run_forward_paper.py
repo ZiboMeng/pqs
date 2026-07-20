@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import socket
 import sys
 from datetime import UTC, datetime, timedelta
@@ -84,6 +85,26 @@ def _parse_time(value: str) -> datetime:
     return parsed.astimezone(UTC)
 
 
+def _assert_real_event_source_contract_ready(source_batch_sha256: str) -> None:
+    """Fail closed until trusted collection records are the consumed price source."""
+
+    if not re.fullmatch(r"[0-9a-f]{64}", source_batch_sha256):
+        raise ValueError("source batch SHA-256 must contain 64 lowercase hex characters")
+    collection = _yaml(ROOT / "config/data_collection.yaml")
+    binding = collection.get("runtime_binding")
+    if (
+        collection.get("strategy_consumption_enabled") is not True
+        or not isinstance(binding, dict)
+        or binding.get("enabled") is not True
+        or binding.get("verifier") != "collection_record_sha256"
+        or binding.get("consumed_price_loader") != "collection_store"
+    ):
+        raise ValueError(
+            "real Forward PAPER events are blocked: trusted collection records are not "
+            "yet bound to the exact prices consumed by the runtime"
+        )
+
+
 def _build_runtime(args: argparse.Namespace):
     phase3 = _yaml(ROOT / "config/forward_paper.yaml")
     if phase3.get("schema_version") != 1:
@@ -108,6 +129,7 @@ def _build_runtime(args: argparse.Namespace):
         artifact_path=artifact_path,
         repo_root=ROOT,
         verify_artifact_environment=True,
+        governance_path=ROOT / phase3["strategy"]["governance_policy"],
     )
     panel = load_adjusted_panel(
         list(spec.asset_universe),
@@ -184,7 +206,7 @@ def _build_runtime(args: argparse.Namespace):
             repo_root=ROOT,
             expected_strategy_id=spec.strategy_id,
             expected_strategy_version=spec.version,
-            expected_promotion_status="PAPER_APPROVED",
+            expected_promotion_status=spec.status,
             verify_environment=True,
         )
 
@@ -279,6 +301,19 @@ def main() -> int:
     token = None
     lease = None
     try:
+        if args.command == "run-once":
+            required = {
+                "phase": args.phase,
+                "session": args.session,
+                "event_id": args.event_id,
+                "source_batch_sha256": args.source_batch_sha256,
+                "available_at": args.available_at,
+                "received_at": args.received_at,
+            }
+            missing = [name for name, value in required.items() if value is None]
+            if missing:
+                raise ValueError(f"run-once missing arguments: {missing}")
+            _assert_real_event_source_contract_ready(args.source_batch_sha256)
         runtime, lease, config = _build_runtime(args)
         if args.command == "status":
             result = {
@@ -294,17 +329,6 @@ def main() -> int:
                 ),
             }
         else:
-            required = {
-                "phase": args.phase,
-                "session": args.session,
-                "event_id": args.event_id,
-                "source_batch_sha256": args.source_batch_sha256,
-                "available_at": args.available_at,
-                "received_at": args.received_at,
-            }
-            missing = [name for name, value in required.items() if value is None]
-            if missing:
-                raise ValueError(f"run-once missing arguments: {missing}")
             phase = {
                 "close": ForwardEventPhase.CLOSE_DECISION,
                 "open": ForwardEventPhase.OPEN_EXECUTION,

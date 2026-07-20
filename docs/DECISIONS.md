@@ -59,3 +59,27 @@
 - 选择：保留一个 `PAPER_APPROVED`，不制造第二个。当前搜索在 2026-07-17 数据截止处关闭。
 - 解锁：等待至少 252 个新的、未见的未来 sessions，或由用户明确批准采用不重叠的
   point-in-time 数据与新协议；不得仅降低 gate 或重看 2024–2026 holdout。
+
+## ADR-010：历史晋升事实与当前有效权限分离
+
+- 证据：`dual_index_growth_v1` 确实按 Phase 2 冻结规则通过 28/28 gate；但该规则的
+  `growth_engine` 分支没有项目级 SPY 收益超额硬门，最终 holdout CAGR 15.31%，同期
+  SPY 24.79%。
+- 选择：历史 `PAPER_APPROVED` 记录和 `v1.json` 不改写；治理 overlay 将当前身份解析为
+  `PAPER_OBSERVATION_ONLY / REVIEW_HOLD`，禁止自动晋升和资本资格，允许冻结模拟观察。
+- 原因：同时保护审计真实性和当前授权正确性，避免“改历史”或“错误继承权限”。
+
+## ADR-011：SPY 硬门失败进入 REVIEW_HOLD，不自动淘汰
+
+- 选择：自动晋升必须在同口径、计入策略成本后跑赢 SPY；QQQ 只做诊断。
+- 选择：未跑赢不自动 DROP。低回撤等显著风险优势可进入人工 near-miss 评审，但须补充
+  风险匹配被动组合、DSR/PBO/CPCV 与 forward 证据。
+- 约束：人工例外需要用户显式批准，并永久标记为 exception，不得改写成原 gate PASS。
+
+## ADR-012：已读区间不能通过改名重新密封
+
+- 证据：2024-01-02 至 2026-07-17 已被 d2r2/d2r3/d2r5 三个 finalist 依次访问。
+- 选择：该区间标记为 `OBSERVED_NOT_PRISTINE`；旧 split 标记为
+  `CONSUMED_NOT_PRISTINE`。新名称、版本号或 hash 不恢复信息新颖性。
+- 运行约束：正式 forward 前必须验证 trusted source batch 与时间因果性；Yahoo 收盘后
+  日线不能冒充可在同一已过去开盘成交的实时证据。

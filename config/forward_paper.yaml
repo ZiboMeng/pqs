@@ -6,7 +6,8 @@ paid_cloud_create_enabled: false
 
 strategy:
   strategy_id: dual_index_growth_v1
-  artifact: research/registries/strategy_artifacts/dual_index_growth_v1/v1.json
+  artifact: research/registries/strategy_artifacts/dual_index_growth_v1/observation_v1.json
+  governance_policy: config/research_governance.yaml
 
 state:
   directory: data/paper_trading/phase3_forward/dual_index_growth_v1
@@ -35,8 +36,8 @@ execution:
   limit_fill_model: disabled_without_quotes
 
 tracking:
-  benchmark: QQQ
-  control_policy_version: phase3-forward-tracking-v1
+  benchmark: SPY
+  control_policy_version: phase3-forward-tracking-v2-governance-reconciled
   annualization_sessions: 252
   minimum_performance_sessions: 60
   minimum_promotion_sessions: 252

@@ -1,5 +1,11 @@
 # Phase-two final report
 
+> Historical snapshot notice (2026-07-20): this report accurately records the
+> Phase 2 decision under `phase2-paper-promotion-v1`. Current effective authority
+> is superseded by `config/research_governance.yaml`: the strategy is
+> `PAPER_OBSERVATION_ONLY / REVIEW_HOLD`, not capital or automatic-promotion
+> eligible. See `docs/memos/20260720-governance-reconciliation.md`.
+
 Date: 2026-07-17 (America/Los_Angeles)
 
 Branch: `codex/strategy-research-and-paper-v2`

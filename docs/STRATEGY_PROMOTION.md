@@ -1,5 +1,12 @@
 # Phase-two strategy promotion
 
+> Historical record notice (2026-07-20): the decision below remains immutable
+> evidence of the Phase 2 policy outcome. It no longer grants current automatic
+> promotion or capital authority. The active overlay resolves this strategy to
+> `PAPER_OBSERVATION_ONLY / REVIEW_HOLD`; see
+> `docs/memos/20260720-governance-reconciliation.md` and
+> `config/research_governance.yaml`.
+
 The frozen policy is `config/strategy_promotion.yaml`; the executable evaluator
 is `core/research/phase2/promotion.py`; the fail-closed PAPER transition is
 `core/research/phase2/paper_promotion.py`.

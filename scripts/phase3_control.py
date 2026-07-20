@@ -118,6 +118,7 @@ def _components(state_dir_override: str | None):
         strategy_artifact=_path(str(forward["strategy"]["artifact"])),
         strategy_registry=ROOT / "research/registry/strategy_registry.json",
         hypothesis_registry=_path(str(sealed["governance"]["hypothesis_registry"])),
+        governance_policy=ROOT / str(forward["strategy"]["governance_policy"]),
     )
     live_flags = {
         "system": bool(system["runtime"]["live_enabled"]),

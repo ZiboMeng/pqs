@@ -68,6 +68,7 @@ def _runtime(args: argparse.Namespace) -> tuple[Phase2PaperRuntime, OrderStore]:
         artifact_path=ROOT / args.strategy_artifact,
         repo_root=ROOT,
         verify_artifact_environment=not args.skip_artifact_environment,
+        governance_path=ROOT / "config/research_governance.yaml",
     )
     if spec.strategy_id != "dual_index_growth_v1":
         raise ValueError(f"unsupported phase-two PAPER strategy: {spec.strategy_id}")

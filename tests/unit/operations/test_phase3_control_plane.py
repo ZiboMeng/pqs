@@ -144,6 +144,7 @@ def test_readiness_fails_live_pause_and_missing_operational_state() -> None:
     assert readiness["ready_for_live"] is False
     assert "live_disabled_everywhere" in readiness["failed_gates"]
     assert "global_not_paused" in readiness["failed_gates"]
+    assert "trusted_source_batch_bound" in readiness["failed_gates"]
 
 
 def test_reconcile_result_is_json_serializable(tmp_path: Path) -> None:

@@ -19,6 +19,7 @@ from core.paper_trading.paper_trading_engine import PaperTradingEngine
 from core.portfolio.strategy_allocator import PortfolioAllocator
 from core.regime.phase2_regime import Phase2RegimeAdapter, fail_closed_regime_scale
 from core.regime.regime_detector import RegimeDetector
+from core.research.governance import GovernanceError, resolve_strategy_governance
 from core.runtime.strategy_artifact import verify_strategy_artifact
 from core.trading.controls import ControlScope, TradingControlStore
 from core.trading.order import OrderState
@@ -64,6 +65,13 @@ class PaperStrategySpec:
     max_turnover: float
     priority: int
     artifact_root_sha256: str | None = None
+    historical_promotion_status: str | None = None
+    governance_policy_id: str | None = None
+    governance_policy_sha256: str | None = None
+    governance_decision_sha256: str | None = None
+    review_status: str | None = None
+    automatic_promotion_eligible: bool = False
+    capital_eligible: bool = False
 
 
 @dataclass(frozen=True)
@@ -153,6 +161,7 @@ def load_paper_strategy_spec(
     artifact_path: str | Path | None = None,
     repo_root: str | Path | None = None,
     verify_artifact_environment: bool = True,
+    governance_path: str | Path | None = None,
 ) -> PaperStrategySpec:
     strategy_config = _load_yaml(strategy_config_path)
     portfolio_config = _load_yaml(portfolio_config_path)
@@ -197,6 +206,30 @@ def load_paper_strategy_spec(
     budget = portfolio_config.get("strategy_budgets", {}).get(strategy_id)
     if not isinstance(budget, dict):
         raise PaperRuntimeError(f"portfolio budget missing for {strategy_id}")
+    historical_status = str(registry_item["status"])
+    effective_status = historical_status
+    governance = None
+    if governance_path is not None:
+        try:
+            governance = resolve_strategy_governance(
+                strategy_id,
+                historical_status,
+                path=governance_path,
+            )
+        except GovernanceError as exc:
+            raise PaperRuntimeError(f"strategy governance verification failed: {exc}") from exc
+        if not governance.paper_observation_enabled:
+            raise PaperRuntimeError(f"strategy governance disables PAPER: {strategy_id}")
+        if governance.effective_status not in {
+            "PAPER_APPROVED",
+            "PAPER_OBSERVATION_ONLY",
+        }:
+            raise PaperRuntimeError(
+                f"strategy governance status is not PAPER-runnable: "
+                f"{governance.effective_status}"
+            )
+        effective_status = governance.effective_status
+
     artifact_root_sha256 = None
     if artifact_path is not None:
         if repo_root is None:
@@ -207,7 +240,7 @@ def load_paper_strategy_spec(
                 repo_root=repo_root,
                 expected_strategy_id=strategy_id,
                 expected_strategy_version=str(registry_item["version"]),
-                expected_promotion_status="PAPER_APPROVED",
+                expected_promotion_status=effective_status,
                 verify_environment=verify_artifact_environment,
             )
         except Exception as exc:
@@ -224,7 +257,7 @@ def load_paper_strategy_spec(
     return PaperStrategySpec(
         strategy_id=strategy_id,
         version=str(registry_item["version"]),
-        status=str(registry_item["status"]),
+        status=effective_status,
         strategy_type=str(registry_item["strategy_type"]),
         asset_universe=tuple(str(symbol) for symbol in registry_item["asset_universe"]),
         parameters=dict(config_item["parameters"]),
@@ -236,6 +269,19 @@ def load_paper_strategy_spec(
         max_turnover=float(budget["max_turnover"]),
         priority=int(budget["priority"]),
         artifact_root_sha256=artifact_root_sha256,
+        historical_promotion_status=historical_status,
+        governance_policy_id=None if governance is None else governance.policy_id,
+        governance_policy_sha256=(
+            None if governance is None else governance.policy_sha256
+        ),
+        governance_decision_sha256=(
+            None if governance is None else governance.decision_sha256
+        ),
+        review_status=None if governance is None else governance.review_status,
+        automatic_promotion_eligible=(
+            False if governance is None else governance.automatic_promotion_eligible
+        ),
+        capital_eligible=False if governance is None else governance.capital_eligible,
     )
 
 
@@ -496,6 +542,12 @@ class Phase2PaperRuntime:
             "schema_version": 1,
             "strategy_id": self.spec.strategy_id,
             "status_at_run": self.spec.status,
+            "historical_promotion_status": self.spec.historical_promotion_status,
+            "governance_policy_id": self.spec.governance_policy_id,
+            "governance_policy_sha256": self.spec.governance_policy_sha256,
+            "governance_decision_sha256": self.spec.governance_decision_sha256,
+            "automatic_promotion_eligible": self.spec.automatic_promotion_eligible,
+            "capital_eligible": self.spec.capital_eligible,
             "mode": "PAPER_REPLAY",
             "live_enabled": False,
             "signal_date": items["signal_date"].date().isoformat(),
@@ -600,6 +652,12 @@ class Phase2PaperRuntime:
             "schema_version": 1,
             "strategy_id": self.spec.strategy_id,
             "status_at_run": self.spec.status,
+            "historical_promotion_status": self.spec.historical_promotion_status,
+            "governance_policy_id": self.spec.governance_policy_id,
+            "governance_policy_sha256": self.spec.governance_policy_sha256,
+            "governance_decision_sha256": self.spec.governance_decision_sha256,
+            "automatic_promotion_eligible": self.spec.automatic_promotion_eligible,
+            "capital_eligible": self.spec.capital_eligible,
             "mode": "PAPER_REPLAY",
             "live_enabled": False,
             "signal_date": signal_date.date().isoformat(),

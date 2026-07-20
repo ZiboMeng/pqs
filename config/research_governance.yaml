@@ -1,0 +1,62 @@
+schema_version: 1
+policy_id: pqs-governance-reconciliation-v1
+approved_at_utc: "2026-07-20T22:22:54Z"
+authority: user_explicit_direction
+
+benchmark:
+  primary: SPY
+  comparison_basis: total_return_after_strategy_costs
+  automatic_promotion_requires_positive_excess: true
+  automatic_retirement_on_failure: false
+  failure_disposition: REVIEW_HOLD
+  qqq_role: diagnostic_only
+  risk_matched_passive_required_for_review: true
+  manual_exception_requires_explicit_user_approval: true
+  manual_exception_must_not_be_relabelled_as_gate_pass: true
+
+research_boundary:
+  observed_through: "2026-07-17"
+  next_unseen_session_must_be_after: "2026-07-17"
+  legacy_split_name: alternating_regime_holdout_v1
+  legacy_split_status: CONSUMED_NOT_PRISTINE
+  require_new_protocol_id: true
+  forbid_name_bump_as_novelty_reset: true
+  observed_intervals:
+    - start: "2024-01-02"
+      end: "2026-07-17"
+      status: OBSERVED_NOT_PRISTINE
+      forbid_sealed_claim: true
+      evidence:
+        - research/holdout/phase2_access_log.json
+        - research/results/phase2/holdout/summary_d2r2.json
+        - research/results/phase2/holdout/summary_d2r3.json
+        - research/results/phase2/holdout/summary_d2r5.json
+
+strategy_decisions:
+  - strategy_id: dual_index_growth_v1
+    historical_status: PAPER_APPROVED
+    effective_status: PAPER_OBSERVATION_ONLY
+    review_status: REVIEW_HOLD
+    paper_observation_enabled: true
+    automatic_promotion_eligible: false
+    capital_eligible: false
+    reason: >-
+      The historical Phase 2 policy omitted the project-level SPY hard gate for
+      growth_engine, and the project opened the same 2024-2026 calendar interval
+      for three successive finalist families. The artifact remains useful for
+      frozen PAPER forward observation but is not valid evidence of investable
+      alpha.
+    evidence:
+      - research/registry/promotion_registry.json
+      - research/results/phase2/holdout/summary_d2r5.json
+      - docs/memos/20260720-governance-reconciliation.md
+
+forward_authority:
+  execution_runtime: core/paper_trading/forward_runtime.py
+  legacy_research_forward_status: EVIDENCE_ONLY_NOT_EXECUTION_AUTHORITY
+  source_batch_binding_required_before_real_session: true
+
+cloud:
+  status: PARKED
+  paid_resource_creation_enabled: false
+  templates_are_runtime_authority: false

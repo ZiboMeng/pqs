@@ -84,6 +84,44 @@ def test_live_or_extra_runtime_mode_cannot_inherit_paper_approval(tmp_path) -> N
         _artifact(tmp_path, allowed_runtime_modes=["PAPER", "LIVE"])
 
 
+def test_observation_only_artifact_must_bind_governance(tmp_path) -> None:
+    with pytest.raises(StrategyArtifactError, match="bind a governance"):
+        _artifact(tmp_path, promotion_status="PAPER_OBSERVATION_ONLY")
+
+    components, evidence = _files(tmp_path)
+    governance = tmp_path / "governance.yaml"
+    governance.write_text("policy_id: test\n", encoding="utf-8")
+    components["governance"] = [governance.name]
+    artifact = _artifact(
+        tmp_path,
+        promotion_status="PAPER_OBSERVATION_ONLY",
+        component_paths=components,
+        promotion_evidence_paths=evidence,
+    )
+    verified = verify_strategy_artifact(
+        artifact,
+        repo_root=tmp_path,
+        expected_promotion_status="PAPER_OBSERVATION_ONLY",
+        verify_environment=False,
+    )
+    assert "governance" in verified["component_role_hashes"]
+
+
+def test_observation_only_artifact_cannot_enable_live(tmp_path) -> None:
+    components, evidence = _files(tmp_path)
+    governance = tmp_path / "governance.yaml"
+    governance.write_text("policy_id: test\n", encoding="utf-8")
+    components["governance"] = [governance.name]
+    with pytest.raises(StrategyArtifactError, match="PAPER only"):
+        _artifact(
+            tmp_path,
+            promotion_status="PAPER_OBSERVATION_ONLY",
+            component_paths=components,
+            promotion_evidence_paths=evidence,
+            live_enabled=True,
+        )
+
+
 def test_symlink_and_parent_escape_are_rejected(tmp_path) -> None:
     components, evidence = _files(tmp_path)
     outside = tmp_path.parent / "outside-artifact.txt"

@@ -127,11 +127,14 @@ def build_strategy_artifact(
     if not strategy_id.strip() or not strategy_version.strip():
         raise StrategyArtifactError("strategy id and version are required")
     modes = sorted({str(mode).upper() for mode in allowed_runtime_modes})
-    if promotion_status == "PAPER_APPROVED" and (
-        live_enabled or modes != ["PAPER"]
-    ):
+    paper_statuses = {"PAPER_APPROVED", "PAPER_OBSERVATION_ONLY"}
+    if promotion_status in paper_statuses and (live_enabled or modes != ["PAPER"]):
         raise StrategyArtifactError(
-            "PAPER-approved artifact must allow PAPER only and keep LIVE disabled"
+            "PAPER artifact must allow PAPER only and keep LIVE disabled"
+        )
+    if promotion_status == "PAPER_OBSERVATION_ONLY" and "governance" not in component_paths:
+        raise StrategyArtifactError(
+            "PAPER-observation artifact must bind a governance component role"
         )
     missing_roles = sorted(REQUIRED_COMPONENT_ROLES - set(component_paths))
     if missing_roles:
@@ -243,11 +246,12 @@ def verify_strategy_artifact(
             raise StrategyArtifactError(
                 f"strategy artifact {field} mismatch: {payload.get(field)!r} != {expected!r}"
             )
-    if payload.get("promotion_status") == "PAPER_APPROVED" and (
+    promotion_status = payload.get("promotion_status")
+    if promotion_status in {"PAPER_APPROVED", "PAPER_OBSERVATION_ONLY"} and (
         payload.get("live_enabled") is not False
         or payload.get("allowed_runtime_modes") != ["PAPER"]
     ):
-        raise StrategyArtifactError("approved PAPER artifact violates runtime-mode boundary")
+        raise StrategyArtifactError("PAPER artifact violates runtime-mode boundary")
 
     root = Path(repo_root)
     components = payload.get("components")
@@ -269,6 +273,10 @@ def verify_strategy_artifact(
     missing_roles = sorted(REQUIRED_COMPONENT_ROLES - observed_roles)
     if missing_roles:
         raise StrategyArtifactError(f"verified artifact roles missing: {missing_roles}")
+    if promotion_status == "PAPER_OBSERVATION_ONLY" and "governance" not in observed_roles:
+        raise StrategyArtifactError(
+            "verified PAPER-observation artifact does not bind governance"
+        )
 
     expected_role_hashes = {
         role: _records_hash([item for item in components if item.get("role") == role])

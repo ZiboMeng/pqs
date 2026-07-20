@@ -19,7 +19,7 @@ DB、取得 lease、改变订单或创建控制记录。状态输出包括：
 - PAPER readiness gates，以及恒为 false 的 `ready_for_live`。
 
 `status` 返回成功只表示快照成功生成；是否可处理 PAPER 事件必须看 `readiness.status`。当前正式状态为
-`NOT_READY`：artifact/registries/sealed/collection/alerts 正常，但 forward state 与 simulated broker DB 尚未由真实
+`NOT_READY`：artifact/registries/sealed/collection/alerts 正常，但 trusted source batch 尚未绑定，且 forward state 与 simulated broker DB 尚未由真实
 forward lifecycle 初始化。它不表示部署或实盘就绪。
 
 ```bash

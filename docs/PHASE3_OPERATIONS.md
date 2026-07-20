@@ -11,13 +11,16 @@
 4. 运行 `.venv/bin/python scripts/phase3_control.py evaluate-alerts`，再运行 `readiness`。
 5. 若 readiness 不是 `READY`，停止；不能用 resume 绕过 failed gates。
 
-当前正式 forward state/broker DB 尚未初始化，所以第 4 步预期为 `NOT_READY`。只有真正启动本地 PAPER runtime
-并完成其初始化后才可能改变，不得手工创建空表伪造 READY。
+当前正式 forward state/broker DB 尚未初始化，且 collector trusted record 尚未绑定到 runtime 实际消费的
+价格，所以第 4 步预期为 `NOT_READY`。初始化数据库不能消除 `trusted_source_batch_bound`；不得手工建表、
+编辑配置或填入任意 hash 伪造 READY。
 
 ## 2. 日常运行
 
 Forward 事件严格按 `FORWARD_PAPER.md`：T close decision、T+1 open execution、T+1 EOD finalize。scheduler
 必须持有单实例 lease；每个外部市场事件使用唯一 event ID、source batch hash 和真实 available/received time。
+在 source-binding bridge 实现并认证前，`run-once` 会在创建 state 之前失败；不得把直接 runtime 测试或
+历史 replay 作为绕过入口。
 运行单阶段前后均保存：
 
 ```bash

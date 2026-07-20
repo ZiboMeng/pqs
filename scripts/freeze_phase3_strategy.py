@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build or verify the Phase 3 artifact for dual_index_growth_v1."""
+"""Build or verify the governance-bound Phase 3 observation artifact."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from core.research.governance import resolve_strategy_governance  # noqa: E402
 from core.runtime.strategy_artifact import (  # noqa: E402
     StrategyArtifactError,
     build_strategy_artifact,
@@ -27,7 +28,7 @@ from core.runtime.strategy_artifact import (  # noqa: E402
 
 STRATEGY_ID = "dual_index_growth_v1"
 ARTIFACT_PATH = Path(
-    "research/registries/strategy_artifacts/dual_index_growth_v1/v1.json"
+    "research/registries/strategy_artifacts/dual_index_growth_v1/observation_v1.json"
 )
 COMPONENT_PATHS = {
     "strategy": ["core/signals/strategies/phase2_etf.py"],
@@ -69,6 +70,10 @@ COMPONENT_PATHS = {
         "core/trading/store.py",
         "scripts/run_phase2_paper.py",
     ],
+    "governance": [
+        "config/research_governance.yaml",
+        "core/research/governance.py",
+    ],
     "dependency": ["pyproject.toml", "requirements.txt"],
 }
 EVIDENCE_PATHS = [
@@ -99,7 +104,7 @@ def _git_commit() -> str:
     return result.stdout.strip()
 
 
-def _inputs() -> tuple[dict[str, Any], dict[str, Any]]:
+def _inputs() -> tuple[dict[str, Any], dict[str, Any], str]:
     strategy_config = _yaml(ROOT / "config/strategies.paper.yaml")
     registry = json.loads(
         (ROOT / "research/registry/strategy_registry.json").read_text(encoding="utf-8")
@@ -114,16 +119,28 @@ def _inputs() -> tuple[dict[str, Any], dict[str, Any]]:
         raise StrategyArtifactError("strategy is not enabled and PAPER-approved")
     if configured.get("schedule") != registered.get("schedule"):
         raise StrategyArtifactError("strategy schedule drift between config and registry")
-    return configured, registered
+    governance = resolve_strategy_governance(
+        STRATEGY_ID,
+        str(registered["status"]),
+        path=ROOT / "config/research_governance.yaml",
+    )
+    if (
+        governance.effective_status != "PAPER_OBSERVATION_ONLY"
+        or governance.paper_observation_enabled is not True
+        or governance.automatic_promotion_eligible is not False
+        or governance.capital_eligible is not False
+    ):
+        raise StrategyArtifactError("strategy governance is not safe for observation-only PAPER")
+    return configured, registered, governance.effective_status
 
 
 def build() -> dict[str, Any]:
-    configured, registered = _inputs()
+    configured, registered, effective_status = _inputs()
     return build_strategy_artifact(
         repo_root=ROOT,
         strategy_id=STRATEGY_ID,
         strategy_version=str(registered["version"]),
-        promotion_status=str(registered["status"]),
+        promotion_status=effective_status,
         allowed_runtime_modes=["PAPER"],
         live_enabled=False,
         component_paths=COMPONENT_PATHS,
@@ -153,7 +170,7 @@ def main() -> int:
                     repo_root=ROOT,
                     expected_strategy_id=STRATEGY_ID,
                     expected_strategy_version="v1",
-                    expected_promotion_status="PAPER_APPROVED",
+                    expected_promotion_status="PAPER_OBSERVATION_ONLY",
                     verify_environment=not args.skip_environment,
                 )
                 path, reused = target, True
@@ -172,7 +189,7 @@ def main() -> int:
                 repo_root=ROOT,
                 expected_strategy_id=STRATEGY_ID,
                 expected_strategy_version="v1",
-                expected_promotion_status="PAPER_APPROVED",
+                expected_promotion_status="PAPER_OBSERVATION_ONLY",
                 verify_environment=not args.skip_environment,
             )
             result = {

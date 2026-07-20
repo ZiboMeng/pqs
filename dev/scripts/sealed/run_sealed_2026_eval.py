@@ -32,7 +32,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-PROJ = Path("/home/zibo/Documents/projects/pqs")
+PROJ = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJ))
 sys.path.insert(0, str(PROJ / "dev" / "scripts" / "cycle06"))
 
@@ -79,6 +79,7 @@ def main() -> int:
     from core.factors.base_masks import research_mask_default
     from core.factors.factor_generator import generate_all_factors
     from core.mining.research_miner import ResearchCompositeSpec
+    from core.research.governance import assert_sealed_interval_available
     from core.research.harness import HarnessConfig, evaluate_composite_spec
     from core.research.risk_cluster_map import (
         ASSET_CLASS_BY_CLUSTER, CROSS_ASSET_RISK_CLUSTER_MAP,
@@ -86,6 +87,14 @@ def main() -> int:
     )
     from core.research.sealed_ledger import run_sealed_eval_record
     from core.research.temporal_split import load_temporal_split
+
+    split_cfg = load_temporal_split(PROJ / "config" / "temporal_split.yaml")
+    assert_sealed_interval_available(
+        split_name=split_cfg.split_name,
+        start="2026-01-01",
+        end="2026-07-17",
+        path=PROJ / "config" / "research_governance.yaml",
+    )
 
     print("=== SEALED 2026 single-shot evaluation ===")
     print(f"Mode: {'RECORD (consumes holdout)' if args.record else 'compute-only'}")
@@ -143,7 +152,6 @@ def main() -> int:
     spy = panel["close"].get("SPY")
     qqq = panel["close"].get("QQQ")
 
-    split_cfg = load_temporal_split(PROJ / "config" / "temporal_split.yaml")
     git_sha = _git_sha()
 
     results = []

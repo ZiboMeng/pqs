@@ -22,6 +22,13 @@
 
 ### Benchmark Outperformance Rule [REVISED 2026-05-02 — QQQ deprecated]
 
+**2026-07-20 effective governance:** `config/research_governance.yaml` is the
+machine-enforced authority when historical promotion records conflict with this
+benchmark invariant. `dual_index_growth_v1` is currently
+`PAPER_OBSERVATION_ONLY / REVIEW_HOLD`; the Phase 2 `PAPER_APPROVED` record is
+retained as history and grants neither capital nor automatic-promotion rights.
+See `docs/memos/20260720-governance-reconciliation.md`.
+
 **硬目标：策略收益必须长期跑赢 SPY** (full period + 2025 holdout, both HARD)。**QQQ 作为 diagnostic reference，非 hard gate** —— sector-concentrated benchmark 的 outperformance 是 active strategy bet (NOT invariant).
 
 | Evaluation Scope | vs SPY | vs QQQ |

@@ -27,6 +27,12 @@ def test_runtime_certification_covers_every_phase3_role() -> None:
     )
     verify_payload(payload)
     assert payload["status"] == "CODE_CERTIFIED_LOCAL_ONLY"
+    assert payload["certification_schema_version"] == 2
+    assert payload["effective_strategy_artifact"]["promotion_status"] == (
+        "PAPER_OBSERVATION_ONLY"
+    )
+    assert payload["historical_strategy_artifact"]["runtime_authority"] is False
+    assert payload["governance"]["capital_eligible"] is False
     assert payload["external_state"]["real_forward_sessions"] == 0
     assert payload["external_state"]["cloud_deployed"] is False
     assert {record["role"] for record in payload["components"]} == {
@@ -34,6 +40,7 @@ def test_runtime_certification_covers_every_phase3_role() -> None:
         "sealed_evidence",
         "collection",
         "operations",
+        "governance",
         "deployment",
         "policy",
         "certifier",

@@ -173,6 +173,8 @@ def _runtime(
     *,
     future_multiplier: float = 1.0,
     broker_type=SimulatedBrokerAdapter,
+    governance_status: str = "PAPER_APPROVED",
+    capital_eligible: bool = False,
 ):
     close, opens, vix = _panel(future_multiplier)
     database = root / "forward.db"
@@ -184,7 +186,7 @@ def _runtime(
         database,
         ForwardTrackingPolicy(
             policy_id="tracking-v1",
-            benchmark="QQQ",
+            benchmark="SPY",
             annualization_sessions=252,
             minimum_performance_sessions=2,
             minimum_promotion_sessions=252,
@@ -220,7 +222,15 @@ def _runtime(
     clock = MutableClock(close_time + timedelta(minutes=5))
     cfg = load_config("config")
     runtime = ForwardPaperRuntime(
-        spec=_spec(),
+        spec=replace(
+            _spec(),
+            status=governance_status,
+            historical_promotion_status="PAPER_APPROVED",
+            governance_policy_id="pqs-governance-reconciliation-v1",
+            governance_policy_sha256="a" * 64,
+            governance_decision_sha256="b" * 64,
+            capital_eligible=capital_eligible,
+        ),
         strategy=strategy,
         close=close,
         open_prices=opens,
@@ -260,6 +270,22 @@ def _runtime(
         ttl=timedelta(days=3),
     )
     return runtime, clock, token, strategy, verifier, order_store
+
+
+def test_observation_only_status_runs_paper_but_refuses_capital_flag(tmp_path) -> None:
+    runtime, *_ = _runtime(
+        tmp_path / "observation",
+        governance_status="PAPER_OBSERVATION_ONLY",
+    )
+    assert runtime.spec.status == "PAPER_OBSERVATION_ONLY"
+    assert runtime.spec.capital_eligible is False
+
+    with pytest.raises(ForwardRuntimeError, match="cannot be capital eligible"):
+        _runtime(
+            tmp_path / "capital",
+            governance_status="PAPER_OBSERVATION_ONLY",
+            capital_eligible=True,
+        )
 
 
 def _event(runtime, clock, phase, session, event_id):

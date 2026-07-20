@@ -19,10 +19,20 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from core.runtime.strategy_artifact import canonical_json, sha256_bytes  # noqa: E402
+from core.research.governance import resolve_strategy_governance  # noqa: E402
+from core.runtime.strategy_artifact import (  # noqa: E402
+    canonical_json,
+    sha256_bytes,
+    verify_strategy_artifact,
+)
 
-OUTPUT = ROOT / "research/registries/runtime_certifications/phase3_forward_v1.json"
-FROZEN_STRATEGY = ROOT / "research/registries/strategy_artifacts/dual_index_growth_v1/v1.json"
+OUTPUT = ROOT / "research/registries/runtime_certifications/phase3_forward_observation_v2.json"
+FROZEN_STRATEGY = ROOT / (
+    "research/registries/strategy_artifacts/dual_index_growth_v1/observation_v1.json"
+)
+HISTORICAL_STRATEGY = ROOT / (
+    "research/registries/strategy_artifacts/dual_index_growth_v1/v1.json"
+)
 COMPONENTS = {
     "runtime": [
         "core/runtime/lease.py",
@@ -51,6 +61,11 @@ COMPONENTS = {
         "core/operations/control_plane.py",
         "scripts/phase3_control.py",
         "config/alerts.yaml",
+    ],
+    "governance": [
+        "config/research_governance.yaml",
+        "core/research/governance.py",
+        "docs/memos/20260720-governance-reconciliation.md",
     ],
     "deployment": [
         "Dockerfile",
@@ -134,7 +149,20 @@ def build_payload(
     evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
     if not isinstance(evidence, dict) or evidence.get("status") != "PASS":
         raise RuntimeCertificationError("final validation evidence must be a PASS object")
-    strategy = json.loads(FROZEN_STRATEGY.read_text(encoding="utf-8"))
+    strategy = verify_strategy_artifact(
+        FROZEN_STRATEGY,
+        repo_root=ROOT,
+        expected_strategy_id="dual_index_growth_v1",
+        expected_strategy_version="v1",
+        expected_promotion_status="PAPER_OBSERVATION_ONLY",
+        verify_environment=True,
+    )
+    historical_strategy = json.loads(HISTORICAL_STRATEGY.read_text(encoding="utf-8"))
+    governance = resolve_strategy_governance(
+        "dual_index_growth_v1",
+        str(historical_strategy["promotion_status"]),
+        path=ROOT / "config/research_governance.yaml",
+    )
     components = [
         _record(path, role) for role, paths in sorted(COMPONENTS.items()) for path in sorted(paths)
     ]
@@ -145,8 +173,8 @@ def build_payload(
         for role in sorted(COMPONENTS)
     }
     payload: dict[str, Any] = {
-        "certification_schema_version": 1,
-        "certification_id": "phase3_forward_runtime_v1",
+        "certification_schema_version": 2,
+        "certification_id": "phase3_forward_observation_runtime_v2",
         "status": "CODE_CERTIFIED_LOCAL_ONLY",
         "mode": "PAPER",
         "live_enabled": False,
@@ -156,10 +184,27 @@ def build_payload(
         "created_at_utc": created_at_utc,
         "python_version": platform.python_version(),
         "environment": _environment(),
-        "approved_strategy_artifact": {
+        "effective_strategy_artifact": {
             "path": str(FROZEN_STRATEGY.relative_to(ROOT)),
             "artifact_root_sha256": strategy["artifact_root_sha256"],
             "file_sha256": sha256_bytes(FROZEN_STRATEGY.read_bytes()),
+            "promotion_status": strategy["promotion_status"],
+        },
+        "historical_strategy_artifact": {
+            "path": str(HISTORICAL_STRATEGY.relative_to(ROOT)),
+            "artifact_root_sha256": historical_strategy["artifact_root_sha256"],
+            "file_sha256": sha256_bytes(HISTORICAL_STRATEGY.read_bytes()),
+            "promotion_status": historical_strategy["promotion_status"],
+            "runtime_authority": False,
+        },
+        "governance": {
+            "policy_id": governance.policy_id,
+            "policy_sha256": governance.policy_sha256,
+            "decision_sha256": governance.decision_sha256,
+            "effective_status": governance.effective_status,
+            "review_status": governance.review_status,
+            "automatic_promotion_eligible": governance.automatic_promotion_eligible,
+            "capital_eligible": governance.capital_eligible,
         },
         "components": components,
         "component_role_hashes": role_hashes,
@@ -190,7 +235,9 @@ def verify_payload(payload: Mapping[str, Any], *, verify_environment: bool = Tru
     if root_hash != sha256_bytes(canonical_json(unsigned)):
         raise RuntimeCertificationError("runtime certification root hash mismatch")
     if (
-        payload.get("status") != "CODE_CERTIFIED_LOCAL_ONLY"
+        payload.get("certification_schema_version") != 2
+        or payload.get("certification_id") != "phase3_forward_observation_runtime_v2"
+        or payload.get("status") != "CODE_CERTIFIED_LOCAL_ONLY"
         or payload.get("mode") != "PAPER"
         or payload.get("live_enabled") is not False
         or payload.get("broker_write_enabled") is not False
@@ -225,14 +272,52 @@ def verify_payload(payload: Mapping[str, Any], *, verify_environment: bool = Tru
     evidence_path = _safe_repo_file(str(evidence.get("path", "")))
     if sha256_bytes(evidence_path.read_bytes()) != evidence.get("sha256"):
         raise RuntimeCertificationError("final validation evidence drifted")
-    strategy = payload.get("approved_strategy_artifact")
+    strategy = payload.get("effective_strategy_artifact")
     if not isinstance(strategy, dict):
-        raise RuntimeCertificationError("approved strategy reference is absent")
-    frozen = json.loads(FROZEN_STRATEGY.read_text(encoding="utf-8"))
+        raise RuntimeCertificationError("effective strategy reference is absent")
+    frozen = verify_strategy_artifact(
+        FROZEN_STRATEGY,
+        repo_root=ROOT,
+        expected_strategy_id="dual_index_growth_v1",
+        expected_strategy_version="v1",
+        expected_promotion_status="PAPER_OBSERVATION_ONLY",
+        verify_environment=verify_environment,
+    )
     if strategy.get("artifact_root_sha256") != frozen.get("artifact_root_sha256") or strategy.get(
         "file_sha256"
     ) != sha256_bytes(FROZEN_STRATEGY.read_bytes()):
-        raise RuntimeCertificationError("approved strategy artifact reference drifted")
+        raise RuntimeCertificationError("effective strategy artifact reference drifted")
+    if strategy.get("promotion_status") != "PAPER_OBSERVATION_ONLY":
+        raise RuntimeCertificationError("effective strategy status is not observation-only")
+
+    historical = payload.get("historical_strategy_artifact")
+    historical_frozen = json.loads(HISTORICAL_STRATEGY.read_text(encoding="utf-8"))
+    if not isinstance(historical, dict) or (
+        historical.get("artifact_root_sha256")
+        != historical_frozen.get("artifact_root_sha256")
+        or historical.get("file_sha256")
+        != sha256_bytes(HISTORICAL_STRATEGY.read_bytes())
+        or historical.get("runtime_authority") is not False
+    ):
+        raise RuntimeCertificationError("historical strategy artifact reference drifted")
+
+    governance = payload.get("governance")
+    decision = resolve_strategy_governance(
+        "dual_index_growth_v1",
+        str(historical_frozen["promotion_status"]),
+        path=ROOT / "config/research_governance.yaml",
+    )
+    expected_governance = {
+        "policy_id": decision.policy_id,
+        "policy_sha256": decision.policy_sha256,
+        "decision_sha256": decision.decision_sha256,
+        "effective_status": decision.effective_status,
+        "review_status": decision.review_status,
+        "automatic_promotion_eligible": decision.automatic_promotion_eligible,
+        "capital_eligible": decision.capital_eligible,
+    }
+    if governance != expected_governance:
+        raise RuntimeCertificationError("runtime governance decision drifted")
     if verify_environment and (
         payload.get("python_version") != platform.python_version()
         or payload.get("environment") != _environment()

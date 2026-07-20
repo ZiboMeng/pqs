@@ -151,6 +151,24 @@ def test_research_qualified_strategy_cannot_cross_paper_boundary(tmp_path) -> No
         )
 
 
+def test_governance_overlay_downgrades_historical_approval_to_observation() -> None:
+    spec = load_paper_strategy_spec(
+        "config/strategies.paper.yaml",
+        "config/portfolio.paper.yaml",
+        "research/registry/strategy_registry.json",
+        strategy_id="dual_index_growth_v1",
+        governance_path="config/research_governance.yaml",
+    )
+    assert spec.status == "PAPER_OBSERVATION_ONLY"
+    assert spec.historical_promotion_status == "PAPER_APPROVED"
+    assert spec.review_status == "REVIEW_HOLD"
+    assert spec.automatic_promotion_eligible is False
+    assert spec.capital_eligible is False
+    assert spec.governance_policy_id == "pqs-governance-reconciliation-v1"
+    assert spec.governance_policy_sha256 is not None
+    assert spec.governance_decision_sha256 is not None
+
+
 def test_schedule_drift_between_config_and_registry_is_rejected(tmp_path) -> None:
     registry = json.loads(
         Path("research/registry/strategy_registry.json").read_text(encoding="utf-8")

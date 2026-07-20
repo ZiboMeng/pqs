@@ -3,6 +3,14 @@ mode: COLLECT_ONLY
 strategy_consumption_enabled: false
 live_enabled: false
 
+# No production consumer exists yet. Flipping one boolean is intentionally not
+# sufficient: runtime support must bind the exact verified record to the prices
+# consumed by the strategy and prove event-time availability.
+runtime_binding:
+  enabled: false
+  verifier: not_implemented
+  consumed_price_loader: not_implemented
+
 store:
   directory: data/collection
   maximum_batch_bytes: 20000000

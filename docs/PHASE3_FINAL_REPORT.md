@@ -1,5 +1,11 @@
 # PQS Phase 3 最终审计与交付报告
 
+> 历史快照说明（2026-07-20）：本报告准确记录 Phase 3 当时的交付状态，但其中
+> `PAPER_APPROVED`/approved-artifact 的当前权限表述已由
+> `config/research_governance.yaml` 覆盖。有效身份现为
+> `PAPER_OBSERVATION_ONLY / REVIEW_HOLD`；详见
+> `docs/memos/20260720-governance-reconciliation.md`。
+
 日期：2026-07-20
 
 分支：`codex/forward-paper-and-sealed-evidence-v3`

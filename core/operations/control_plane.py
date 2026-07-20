@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Mapping
 
+from core.research.governance import resolve_strategy_governance
 from core.runtime.strategy_artifact import canonical_json, sha256_bytes, verify_strategy_artifact
 from core.trading.controls import ControlScope, TradingControlStore
 
@@ -251,6 +252,7 @@ class ControlPlanePaths:
     strategy_artifact: Path
     strategy_registry: Path
     hypothesis_registry: Path
+    governance_policy: Path | None = None
 
 
 def _collection_summary(root: Path) -> dict[str, Any]:
@@ -259,6 +261,7 @@ def _collection_summary(root: Path) -> dict[str, Any]:
             "status": "not_initialized",
             "mode": "COLLECT_ONLY",
             "strategy_consumption_enabled": False,
+            "runtime_source_binding_verified": False,
         }
     counts: dict[str, dict[str, int]] = {}
     invalid_paths: list[str] = []
@@ -278,6 +281,7 @@ def _collection_summary(root: Path) -> dict[str, Any]:
         "status": "error" if invalid_paths else "present",
         "mode": "COLLECT_ONLY",
         "strategy_consumption_enabled": False,
+        "runtime_source_binding_verified": False,
         "counts": counts,
         "invalid_paths": invalid_paths,
         "note": "read-only status counts records; the ingestion process verifies the locked hash chain",
@@ -347,12 +351,28 @@ class Phase3StatusReader:
 
     def _artifact(self) -> dict[str, Any]:
         try:
+            strategy_registry = _load_json_regular(self.paths.strategy_registry)
+            matches = [
+                item
+                for item in strategy_registry.get("strategies", [])
+                if isinstance(item, dict) and item.get("strategy_id") == self.strategy_id
+            ]
+            if len(matches) != 1:
+                raise ControlPlaneError("strategy registry has no unique matching strategy")
+            historical_status = str(matches[0].get("status"))
+            effective_status = historical_status
+            if self.paths.governance_policy is not None:
+                effective_status = resolve_strategy_governance(
+                    self.strategy_id,
+                    historical_status,
+                    path=self.paths.governance_policy,
+                ).effective_status
             verified = verify_strategy_artifact(
                 self.paths.strategy_artifact,
                 repo_root=self.paths.repo_root,
                 expected_strategy_id=self.strategy_id,
                 expected_strategy_version=self.strategy_version,
-                expected_promotion_status="PAPER_APPROVED",
+                expected_promotion_status=effective_status,
                 verify_environment=True,
             )
             return {
@@ -373,16 +393,49 @@ class Phase3StatusReader:
                 for item in strategies
                 if isinstance(item, dict) and item.get("strategy_id") == self.strategy_id
             ]
+            historical_status = None if not matches else str(matches[0].get("status"))
+            effective_status = historical_status
+            review_status = None
+            automatic_promotion_eligible = None
+            capital_eligible = None
+            governance_policy_id = None
+            governance_policy_sha256 = None
+            governance_decision_sha256 = None
+            paper_observation_enabled = historical_status == "PAPER_APPROVED"
+            if len(matches) == 1 and self.paths.governance_policy is not None:
+                decision = resolve_strategy_governance(
+                    self.strategy_id,
+                    historical_status or "",
+                    path=self.paths.governance_policy,
+                )
+                effective_status = decision.effective_status
+                review_status = decision.review_status
+                automatic_promotion_eligible = decision.automatic_promotion_eligible
+                capital_eligible = decision.capital_eligible
+                governance_policy_id = decision.policy_id
+                governance_policy_sha256 = decision.policy_sha256
+                governance_decision_sha256 = decision.decision_sha256
+                paper_observation_enabled = decision.paper_observation_enabled
             valid = (
                 len(matches) == 1
-                and matches[0].get("status") == "PAPER_APPROVED"
+                and historical_status == "PAPER_APPROVED"
+                and effective_status in {"PAPER_APPROVED", "PAPER_OBSERVATION_ONLY"}
+                and paper_observation_enabled
                 and matches[0].get("live_enabled") is False
                 and isinstance(hypothesis, dict)
             )
             return {
                 "status": "ok" if valid else "error",
                 "strategy_matches": len(matches),
-                "strategy_status": None if not matches else matches[0].get("status"),
+                "strategy_status": effective_status,
+                "historical_strategy_status": historical_status,
+                "review_status": review_status,
+                "paper_observation_enabled": paper_observation_enabled,
+                "automatic_promotion_eligible": automatic_promotion_eligible,
+                "capital_eligible": capital_eligible,
+                "governance_policy_id": governance_policy_id,
+                "governance_policy_sha256": governance_policy_sha256,
+                "governance_decision_sha256": governance_decision_sha256,
                 "strategy_live_enabled": (None if not matches else matches[0].get("live_enabled")),
                 "hypothesis_count": len(hypothesis.get("registrations", [])),
             }
@@ -637,6 +690,9 @@ def readiness_from_snapshot(snapshot: Mapping[str, Any]) -> dict[str, Any]:
         "durable_alert_sink_healthy": snapshot["alerts"]["database"]["status"] == "ok",
         "sealed_governance_healthy": (snapshot["sealed_evidence"]["governance"]["status"] == "ok"),
         "collection_boundary_not_corrupt": (snapshot["data_collection"]["status"] != "error"),
+        "trusted_source_batch_bound": (
+            snapshot["data_collection"].get("runtime_source_binding_verified") is True
+        ),
         "global_not_paused": not global_paused,
         "reconciliation_clean_or_not_yet_observed": reconciliation_ok,
         "no_active_critical_alert": snapshot["alerts"]["critical_count"] == 0,

@@ -191,8 +191,12 @@ class ForwardPaperRuntime:
         policy: ForwardRuntimePolicy | None = None,
         tracking_store: ForwardTrackingStore | None = None,
     ) -> None:
-        if spec.status != "PAPER_APPROVED" or spec.artifact_root_sha256 is None:
-            raise ForwardRuntimeError("Forward PAPER requires an approved verified artifact")
+        if spec.status not in {"PAPER_APPROVED", "PAPER_OBSERVATION_ONLY"}:
+            raise ForwardRuntimeError("Forward PAPER requires a governance-authorized status")
+        if spec.status == "PAPER_OBSERVATION_ONLY" and spec.capital_eligible:
+            raise ForwardRuntimeError("observation-only PAPER cannot be capital eligible")
+        if spec.artifact_root_sha256 is None:
+            raise ForwardRuntimeError("Forward PAPER requires a verified historical artifact")
         if order_store.db_path.resolve() != state_store.db_path.resolve():
             raise ForwardRuntimeError("order and forward state must share one atomic database")
         if lease_manager.db_path.resolve() != state_store.db_path.resolve():
@@ -424,6 +428,13 @@ class ForwardPaperRuntime:
         decision_core = {
             "strategy_id": self.spec.strategy_id,
             "strategy_version": self.spec.version,
+            "effective_governance_status": self.spec.status,
+            "historical_promotion_status": self.spec.historical_promotion_status,
+            "governance_policy_id": self.spec.governance_policy_id,
+            "governance_policy_sha256": self.spec.governance_policy_sha256,
+            "governance_decision_sha256": self.spec.governance_decision_sha256,
+            "automatic_promotion_eligible": self.spec.automatic_promotion_eligible,
+            "capital_eligible": self.spec.capital_eligible,
             "artifact_root_sha256": artifact["artifact_root_sha256"],
             "signal_session": event.session.isoformat(),
             "execution_session": execution_session.isoformat(),

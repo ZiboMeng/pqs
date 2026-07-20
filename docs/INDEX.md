@@ -10,6 +10,9 @@ defined at the bottom of this file. Within each category section,
 
 ## Active Codex phase-three evidence
 
+- [memos/20260720-governance-reconciliation.md](memos/20260720-governance-reconciliation.md) —
+  当前有效治理：SPY 自动晋升硬门、`REVIEW_HOLD` 非自动淘汰、历史批准与当前权限分离、
+  已读区间不可重新密封，以及真实 forward 的 source-batch/时间因果阻断项。
 - [PHASE3_FINAL_REPORT.md](PHASE3_FINAL_REPORT.md) — Phase 3 最终 PRD 反向映射、完整回归、
   量化限制、机器认证和真实外部状态；结论为本地代码完成，非云部署或 LIVE 就绪。
 - [CLOUD_PAPER_DEPLOYMENT.md](CLOUD_PAPER_DEPLOYMENT.md) — 非 root/只读容器、Compose、

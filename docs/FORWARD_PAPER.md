@@ -1,6 +1,6 @@
 # PQS Phase 3 Forward PAPER 运行与证据契约
 
-版本：v1
+版本：v2（governance reconciliation）
 
 日期：2026-07-20
 
@@ -38,8 +38,13 @@ replay 天数计作 forward 时长，也不授权真实券商或 LIVE。
 - tracking：`core/paper_trading/forward_tracking.py`
 - file broker authority：`core/execution/read_only_broker.py`
 
-运行入口每次启动都严格验证策略 artifact 的根 hash、全部传递组件、参数、universe、schedule 和精确
+运行入口每次启动都严格验证 observation artifact 的根 hash、全部传递组件、参数、universe、schedule 和精确
 Python/package 环境。CLI 不提供跳过 artifact 环境校验的生产开关。
+
+当前 `run-once` 明确 fail-closed：collector 仍是 `COLLECT_ONLY`，本地策略价格 loader 并未消费并验证
+collector record，所以调用者提供任意 64 位 hash 不能建立数据血缘。只有未来实现“验证 trusted record →
+读取该 record 的 rows → 证明 phase 时间可用 → 将同一 record hash 写入事件”的闭环后，才允许真实事件。
+直接调用 runtime 的单元/合成 E2E 只证明状态机，不计作真实 forward。
 
 配置边界必须同时满足：
 
@@ -142,7 +147,7 @@ limit 会失败并要求新的隔离版本，不能在看到 forward 结果后�
 
 当前 policy：
 
-- benchmark：QQQ；annualization：252 sessions；
+- benchmark：SPY；annualization：252 sessions；QQQ 仅诊断；
 - performance minimum：60 sessions；promotion evidence minimum：252 sessions；
 - max drawdown：25%；max annualized volatility：45%；
 - max backtest-to-forward tracking error：15%；
@@ -169,7 +174,7 @@ slippage、orders/fills/rejects/partials、latency、missing/downtime 和 reconc
 .venv/bin/python scripts/run_forward_paper.py status
 ```
 
-单阶段事件：
+单阶段事件（当前会被 source-binding gate 拒绝，保留为未来接口示例）：
 
 ```bash
 .venv/bin/python scripts/run_forward_paper.py run-once \
@@ -181,8 +186,9 @@ slippage、orders/fills/rejects/partials、latency、missing/downtime 和 reconc
   --received-at 2026-07-20T20:10:03Z
 ```
 
-`open` 与 `eod` 使用同一参数结构。操作者必须使用真实 provider batch identity 和 source timestamps；
-CLI 不替操作者把旧历史事件改标成当前 forward event。旧 event 会因 stale gate 失败。
+`open` 与 `eod` 使用同一参数结构。仅提供真实 provider batch identity 仍不够；runtime 必须实际消费该
+trusted record。当前不得通过编辑 `config/data_collection.yaml` 或伪造目录来打开该门。旧 event 也会因
+stale gate 失败。
 
 ## 8. 恢复与故障处理
 
@@ -209,6 +215,7 @@ control breach 分类和禁止自动 promotion。
 ## 10. 尚未声称具备
 
 - 没有真实 forward observation，当前 `n_forward_sessions=0`；
+- collector record 尚未与 runtime 实际消费的价格绑定，`run-once` 硬阻断；
 - 没有真实 broker sandbox 账号或任何写权限；
 - 没有 certified future-session backtest reference，因此 tracking error 暂为 unavailable；
 - 没有在云端启动 scheduler 或付费资源；
