@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "status": "PASS",
+  "validated_at_utc": "2026-07-20T19:51:28Z",
+  "branch": "codex/forward-paper-and-sealed-evidence-v3",
+  "code_commit": "ead2f692a936227d7176dfc08cbf4835d7108609",
+  "full_test_command": ".venv/bin/pytest -q",
+  "full_test_summary": "4320 passed, 23 skipped, 1 xfailed, 43 warnings in 1977.48s (0:32:57)",
+  "ci_equivalent_status": "PASS",
+  "checks": {
+    "configuration": {
+      "command": ".venv/bin/python -m core.config.loader --validate",
+      "status": "PASS"
+    },
+    "fatal_lint": {
+      "command": ".venv/bin/ruff check core scripts tests --select E9,F63,F7,F82",
+      "status": "PASS"
+    },
+    "typed_safety_boundary": {
+      "command": ".venv/bin/mypy core/trading core/runtime --no-error-summary",
+      "status": "PASS"
+    },
+    "bytecode_compilation": {
+      "command": ".venv/bin/python -m compileall -q core scripts tests",
+      "status": "PASS"
+    },
+    "dependency_consistency": {
+      "command": ".venv/bin/pip check",
+      "status": "PASS"
+    },
+    "dependency_vulnerability_audit": {
+      "command": ".venv/bin/pip-audit --progress-spinner off",
+      "status": "PASS",
+      "note": "No known dependency vulnerabilities; the local pqs package is not published on PyPI and was therefore not audited as a third-party package."
+    },
+    "approved_strategy_artifact": {
+      "command": ".venv/bin/python scripts/freeze_phase3_strategy.py verify",
+      "status": "PASS",
+      "artifact_root_sha256": "7d1c2d96ea06f051f298331a6a9a8a5bc6e0b85af72fd158e8524cc56b0a553c"
+    },
+    "deployment_static_contract": {
+      "command": ".venv/bin/python scripts/validate_phase3_deployment.py",
+      "status": "PASS"
+    },
+    "tracked_secret_signature_scan": {
+      "status": "PASS",
+      "scope": "repository files excluding ignored runtime data and .git",
+      "signatures": [
+        "AWS access key",
+        "private-key header",
+        "OpenAI-style secret",
+        "GitHub token"
+      ]
+    },
+    "git_object_integrity": {
+      "command": "git fsck --full",
+      "status": "PASS",
+      "recoverable_dangling_objects": {
+        "total": 24,
+        "commits": 5,
+        "blobs": 16,
+        "trees": 3
+      },
+      "note": "No corrupt or missing Git objects. Dangling objects were retained because cleanup is destructive and unnecessary."
+    }
+  },
+  "skip_analysis": {
+    "total": 23,
+    "optional_torch_unavailable": 20,
+    "options_only_branch_gate_not_applicable": 2,
+    "expanded_v1_already_built_idempotency_case": 1,
+    "unexpected_or_unexplained": 0
+  },
+  "expected_failure_analysis": {
+    "total": 1,
+    "test": "tests/integration/test_backtest_paper_consistency.py::TestQQQOutperformance::test_full_period_cagr_beats_qqq",
+    "reason": "The frozen conservative strategy has not demonstrated stable full-period CAGR outperformance versus QQQ on the expanded universe; its holdout assertion still passes. This remains an explicit unresolved quantitative limitation."
+  },
+  "warning_analysis": {
+    "total": 43,
+    "unexpected": 0,
+    "categories": {
+      "intentional_invalid_price_log_case": 1,
+      "constant_series_correlation_case": 38,
+      "simulated_model_crash_case": 1,
+      "calendar_embargo_fallback_case": 2,
+      "invalid_datetime_input_case": 1
+    }
+  },
+  "formal_read_only_status": {
+    "mode": "FORWARD_PAPER",
+    "readiness": "NOT_READY",
+    "ready_for_live": false,
+    "failed_readiness_gates": [
+      "broker_database_healthy",
+      "runtime_account_initialized",
+      "runtime_database_healthy"
+    ],
+    "approved_strategy_artifact": "PASS",
+    "active_alerts": 0,
+    "critical_alerts": 0,
+    "hypotheses_preregistered": 1
+  },
+  "external_state": {
+    "live_enabled": false,
+    "broker_write_enabled": false,
+    "real_forward_sessions": 0,
+    "runtime_database_initialized": false,
+    "broker_database_initialized": false,
+    "real_sealed_batches": 0,
+    "real_sealed_submissions": 0,
+    "sealed_evaluation_attempts": 0,
+    "real_collection_batches": 0,
+    "real_collection_provider_configured": false,
+    "strategy_consumes_phase3_collection": false,
+    "container_built": false,
+    "kubernetes_deployed": false,
+    "terraform_or_opentofu_applied": false,
+    "cloud_resources_created": false,
+    "second_strategy_promoted": false,
+    "available_deployment_tools": []
+  }
+}
