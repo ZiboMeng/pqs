@@ -60,6 +60,40 @@ def test_event_label_uses_execution_open_and_fifth_session_close():
     assert labels.loc[event_date, "C"] > labels.loc[event_date, "A"]
 
 
+def test_event_label_excludes_entry_ex_date_cash_and_includes_later_cash():
+    sessions = pd.bdate_range("2024-01-02", periods=12)
+    symbols = ["A", "B", "C"]
+    close = pd.DataFrame(
+        {symbol: 100.0 + np.arange(len(sessions)) for symbol in symbols},
+        index=sessions,
+    )
+    open_ = close - 0.5
+    market_close = pd.Series(100.0 + np.arange(len(sessions)), index=sessions)
+    market_open = market_close - 0.25
+    event_date = sessions[5]
+    mask = pd.DataFrame(
+        True, index=pd.DatetimeIndex([event_date]), columns=symbols)
+    cash = pd.DataFrame(0.0, index=sessions, columns=symbols)
+    cash.loc[event_date, "B"] = 50.0
+    cash.loc[sessions[7], "A"] = 10.0
+    market_cash = pd.Series(0.0, index=sessions)
+    total_return_close = close.copy()
+    total_return_close.loc[sessions[7]:, "A"] *= (
+        close.loc[sessions[7], "A"] + 10.0
+    ) / close.loc[sessions[7], "A"]
+    labels = make_event_open_to_close_residual_rank_labels(
+        open_, close, market_open, market_close, mask,
+        holding_sessions=5,
+        beta_window_sessions=3,
+        cash_distributions=cash,
+        market_cash_distributions=market_cash,
+        total_return_close_prices=total_return_close,
+        market_total_return_close=market_close,
+    )
+    assert labels.loc[event_date, "A"] > labels.loc[event_date, "B"]
+    assert labels.loc[event_date, "B"] == labels.loc[event_date, "C"]
+
+
 def test_event_eligibility_uses_previous_close_not_execution_day_close():
     sessions = pd.bdate_range("2024-01-02", periods=4)
     daily = pd.DataFrame(

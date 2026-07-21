@@ -154,6 +154,7 @@ class BacktestEngine:
         regime_series:    Optional[pd.Series] = None,
         benchmark_series: Optional[pd.Series] = None,
         rebalance_dates:  Optional[Iterable[pd.Timestamp]] = None,
+        cash_distributions_df: Optional[pd.DataFrame] = None,
     ) -> BacktestResult:
         """
         执行回测。
@@ -169,6 +170,9 @@ class BacktestEngine:
         rebalance_dates : 可选的显式 T-close 决策日期。提供时，只允许这些
                           日期生成 T+1-open 订单；非决策日仅持有，不会为了
                           维持 forward-filled 目标权重而隐式日频再平衡。
+        cash_distributions_df : 每股现金分配矩阵，必须完整覆盖回测日期和
+                          price_df columns。T+1 除息现金在 T+1 open 成交前只
+                          记给隔夜持仓；当日 open 新买入不享有该现金。
         """
         # 对齐所有日期轴
         dates = signals_df.index.intersection(price_df.index)
@@ -213,6 +217,44 @@ class BacktestEngine:
                            "执行价代理（有小幅偏差但无 lookahead）")
             opens = prices.copy()
 
+        if cash_distributions_df is None:
+            cash_distributions = pd.DataFrame(
+                0.0, index=dates, columns=prices.columns)
+        else:
+            if not isinstance(cash_distributions_df.index, pd.DatetimeIndex):
+                raise TypeError("cash_distributions_df requires DatetimeIndex")
+            distribution_index = cash_distributions_df.index
+            if distribution_index.tz is not None:
+                distribution_index = distribution_index.tz_localize(None)
+            distribution_index = distribution_index.normalize()
+            if (
+                distribution_index.has_duplicates
+                or not distribution_index.is_monotonic_increasing
+            ):
+                raise ValueError(
+                    "cash_distributions_df index must be sorted and unique")
+            distributions_input = cash_distributions_df.copy()
+            distributions_input.index = distribution_index
+            missing_distribution_dates = dates.difference(
+                distributions_input.index)
+            missing_distribution_symbols = prices.columns.difference(
+                distributions_input.columns)
+            if len(missing_distribution_dates) or len(missing_distribution_symbols):
+                raise ValueError(
+                    "cash_distributions_df does not fully cover prices: "
+                    f"dates={list(missing_distribution_dates[:5])} "
+                    f"symbols={list(missing_distribution_symbols[:5])}"
+                )
+            cash_distributions = distributions_input.reindex(
+                index=dates, columns=prices.columns)
+            if (
+                cash_distributions.isna().any().any()
+                or not np.isfinite(cash_distributions.to_numpy()).all()
+                or bool((cash_distributions < 0).any().any())
+            ):
+                raise ValueError(
+                    "cash_distributions_df must be finite and non-negative")
+
         vix = vix_series.reindex(dates, method="ffill").fillna(_DEFAULT_VIX) \
               if vix_series is not None \
               else pd.Series(_DEFAULT_VIX, index=dates)
@@ -225,6 +267,8 @@ class BacktestEngine:
         position_records: list = []
         cash_records:     list = []
         all_fills:        List[Fill] = []
+        total_cash_distributions = 0.0
+        cash_distribution_credits = 0
 
         # Ghost-position cleanup state (P1.6): per-symbol counters for
         # consecutive days with missing open, plus last known valid
@@ -351,7 +395,22 @@ class BacktestEngine:
             else:
                 tgt_weights = dict(cur_weights)
 
-            # 4. 生成换仓订单（若明日有开盘价）
+            # 4. 将 T+1 除息现金记给 T close 已持有的份额。现金在 T+1
+            # open 成交前到账；T+1 open 新买入不享有这次分配，卖出仍享有。
+            if i < len(dates) - 1:
+                next_date = dates[i + 1]
+                distribution_row = cash_distributions.loc[next_date]
+                distribution_credit = 0.0
+                for sym, qty in shares.items():
+                    amount = float(distribution_row.get(sym, 0.0))
+                    if amount > 0:
+                        distribution_credit += qty * amount
+                        cash_distribution_credits += 1
+                if distribution_credit > 0:
+                    cash += distribution_credit
+                    total_cash_distributions += distribution_credit
+
+            # 5. 生成换仓订单（若明日有开盘价）
             if i < len(dates) - 1 and should_rebalance:
                 next_date  = dates[i + 1]
                 open_row   = opens.loc[next_date] if next_date in opens.index else pd.Series(dtype=float)
@@ -389,7 +448,7 @@ class BacktestEngine:
                 # 清除零仓位
                 shares = {s: q for s, q in shares.items() if q > 1e-6}
 
-            # 5. 记录快照（全部用 pre-fill 状态，与 portfolio_value 同时点对齐）
+            # 6. 记录快照（全部用 pre-fill 状态，与 portfolio_value 同时点对齐）
             equity_records.append(portfolio_value)
             cash_records.append(cash_snapshot)
 
@@ -406,6 +465,9 @@ class BacktestEngine:
 
         bench = benchmark_series.reindex(equity_curve.index, method="ffill") if benchmark_series is not None else None
         metrics = compute_metrics(equity_curve, initial_capital=self._capital, benchmark=bench)
+        metrics["cash_distributions_usd"] = float(total_cash_distributions)
+        metrics["cash_distribution_credits"] = float(
+            cash_distribution_credits)
 
         # M12 concentration metrics (codex Round-5): always exposed in
         # BacktestResult.metrics so research / acceptance flows can

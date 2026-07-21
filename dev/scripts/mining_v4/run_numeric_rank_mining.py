@@ -69,6 +69,10 @@ RULE_ORIENTATIONS = {
     "vol_63": -1.0,
 }
 
+EXACT_CASH_PRICE_BASIS = (
+    "YAHOO_SPLIT_ADJUSTED_OHLC_PLUS_EXACT_CASH_LEDGER_V2"
+)
+
 
 def _git_commit() -> str:
     return subprocess.check_output(
@@ -136,6 +140,7 @@ def _validate_snapshot_manifest(
     allowed_bases = {
         "RAW_OHLCV_WITH_SPLITS_APPLIED_AT_READ_TIME",
         "YAHOO_SPLIT_ADJUSTED_OHLC_PLUS_CASH_EVENT_TOTAL_RETURN_V1",
+        EXACT_CASH_PRICE_BASIS,
     }
     if manifest.get("price_basis") not in allowed_bases:
         raise RuntimeError("snapshot price basis is not governed")
@@ -281,6 +286,63 @@ def _load_panel(
     return panel, missing
 
 
+def _load_exact_cash_panel(
+    data_root: Path,
+    symbols: list[str],
+    *,
+    start: str,
+    end: str,
+) -> tuple[dict[str, pd.DataFrame], list[str]]:
+    manifest = json.loads((data_root / "manifest.json").read_text())
+    if manifest.get("price_basis") != EXACT_CASH_PRICE_BASIS:
+        raise PriceBasisError("snapshot does not provide an exact cash ledger")
+    required = {
+        "open", "high", "low", "close", "volume",
+        "cash_distribution", "total_return_close",
+    }
+    series: dict[str, dict[str, pd.Series]] = {
+        name: {} for name in sorted(required)
+    }
+    missing: list[str] = []
+    start_date = pd.Timestamp(start)
+    end_date = pd.Timestamp(end)
+    for position, symbol in enumerate(symbols, start=1):
+        if position % 50 == 0 or position == len(symbols):
+            print(f"  loading exact cash bars {position}/{len(symbols)}", flush=True)
+        path = data_root / "daily" / f"{_safe_symbol(symbol)}.parquet"
+        if not path.exists():
+            missing.append(symbol)
+            continue
+        frame = pd.read_parquet(path)
+        absent = required - set(frame)
+        if absent:
+            raise PriceBasisError(
+                f"{symbol} lacks exact cash columns: {sorted(absent)}")
+        frame = frame.loc[
+            (frame.index >= start_date) & (frame.index <= end_date),
+            sorted(required),
+        ]
+        if frame.empty:
+            missing.append(symbol)
+            continue
+        for name in required:
+            series[name][symbol] = frame[name]
+    close = pd.DataFrame(series["close"]).sort_index()
+    loaded = [symbol for symbol in symbols if symbol in close]
+    panel: dict[str, pd.DataFrame] = {}
+    for name in required:
+        panel[name] = pd.DataFrame(series[name]).reindex(
+            index=close.index, columns=loaded,
+        )
+    panel["cash_distribution"] = panel["cash_distribution"].fillna(0.0)
+    if (
+        not np.isfinite(panel["cash_distribution"].to_numpy()).all()
+        or bool((panel["cash_distribution"] < 0).any().any())
+    ):
+        raise PriceBasisError("exact cash ledger contains invalid amounts")
+    return panel, missing
+
+
 def _embedded_total_return_evidence(
     data_root: Path,
     symbols: list[str],
@@ -290,9 +352,11 @@ def _embedded_total_return_evidence(
 ) -> dict[str, Any] | None:
     manifest_path = data_root / "manifest.json"
     manifest = json.loads(manifest_path.read_text())
-    if manifest.get("price_basis") != (
-        "YAHOO_SPLIT_ADJUSTED_OHLC_PLUS_CASH_EVENT_TOTAL_RETURN_V1"
-    ):
+    basis = manifest.get("price_basis")
+    if basis not in {
+        "YAHOO_SPLIT_ADJUSTED_OHLC_PLUS_CASH_EVENT_TOTAL_RETURN_V1",
+        EXACT_CASH_PRICE_BASIS,
+    }:
         return None
     eligible = set(manifest.get("eligible_symbols", []))
     missing = sorted(set(symbols) - eligible)
@@ -302,14 +366,22 @@ def _embedded_total_return_evidence(
         )
     if manifest.get("through") != through:
         raise PriceBasisError("embedded total-return cutoff differs from request")
-    required = {
-        "total_return_open", "total_return_high", "total_return_low",
-        "total_return_close",
-    }
+    required = (
+        {"total_return_close"}
+        if basis == EXACT_CASH_PRICE_BASIS
+        else {
+            "total_return_open", "total_return_high", "total_return_low",
+            "total_return_close",
+        }
+    )
     if set(manifest.get("total_return_columns", [])) != required:
         raise PriceBasisError("embedded total-return columns are incomplete")
+    if basis == EXACT_CASH_PRICE_BASIS and manifest.get(
+        "cash_distribution_column"
+    ) != "cash_distribution":
+        raise PriceBasisError("embedded exact cash ledger column is missing")
     return {
-        "basis": manifest["price_basis"],
+        "basis": basis,
         "symbols": symbols,
         "coverage_start": str(from_date.date()),
         "coverage_end": through,
@@ -405,13 +477,23 @@ def _run_portfolios(
     constructions: list[str],
 ) -> dict[str, Any]:
     symbols = candidates + ["SPY"]
-    panel, missing = _load_panel(
-        data_root,
-        symbols,
-        start=str(first_date.date()),
-        end=str(end_date.date()),
-        total_return=True,
-    )
+    manifest = json.loads((data_root / "manifest.json").read_text())
+    exact_cash = manifest.get("price_basis") == EXACT_CASH_PRICE_BASIS
+    if exact_cash:
+        panel, missing = _load_exact_cash_panel(
+            data_root,
+            symbols,
+            start=str(first_date.date()),
+            end=str(end_date.date()),
+        )
+    else:
+        panel, missing = _load_panel(
+            data_root,
+            symbols,
+            start=str(first_date.date()),
+            end=str(end_date.date()),
+            total_return=True,
+        )
     if missing:
         raise RuntimeError(f"total-return panel missing symbols: {missing}")
     daily_index = panel["close"].index
@@ -431,6 +513,8 @@ def _run_portfolios(
             panel["close"],
             open_df=panel["open"],
             rebalance_dates=[first_date],
+            cash_distributions_df=(
+                panel["cash_distribution"] if exact_cash else None),
         )
         for model_name, score in predictions.items():
             usable = score.loc[score.index >= first_date].dropna(how="all")
@@ -460,8 +544,13 @@ def _run_portfolios(
                     signals,
                     panel["close"],
                     open_df=panel["open"],
-                    benchmark_series=panel["close"]["SPY"],
+                    benchmark_series=(
+                        panel["total_return_close"]["SPY"]
+                        if exact_cash else panel["close"]["SPY"]
+                    ),
                     rebalance_dates=decision_weights.index,
+                    cash_distributions_df=(
+                        panel["cash_distribution"] if exact_cash else None),
                 )
                 key = f"{model_name}/{construction}/{cost_bps:g}bps"
                 metrics = {
@@ -478,6 +567,8 @@ def _run_portfolios(
                     "n_trades": result.n_trades,
                     "total_commission_usd": result.total_commission_usd,
                     "total_slippage_usd": result.total_slippage_usd,
+                    "cash_distributions_usd": result.metrics.get(
+                        "cash_distributions_usd", 0.0),
                     "independent_trial": registration.independent_trial,
                 }
                 results[key] = _finite(metrics)
@@ -536,14 +627,23 @@ def main() -> int:
     end_year = int(model_config["development_end_year"])
     load_start = "2007-01-01"
     load_end = f"{end_year}-12-31"
+    exact_cash = snapshot_manifest.get("price_basis") == EXACT_CASH_PRICE_BASIS
     print(f"[1/6] loading {len(all_symbols)} split-adjusted price series")
-    panel_all, missing = _load_panel(
-        data_root,
-        all_symbols,
-        start=load_start,
-        end=load_end,
-        total_return=False,
-    )
+    if exact_cash:
+        panel_all, missing = _load_exact_cash_panel(
+            data_root,
+            all_symbols,
+            start=load_start,
+            end=load_end,
+        )
+    else:
+        panel_all, missing = _load_panel(
+            data_root,
+            all_symbols,
+            start=load_start,
+            end=load_end,
+            total_return=False,
+        )
     if "SPY" in missing or "SPY" not in panel_all["close"]:
         raise RuntimeError("SPY is unavailable from the governed local source")
     loaded_candidates = [
@@ -555,7 +655,8 @@ def main() -> int:
         name: frame.loc[:, loaded_candidates]
         for name, frame in panel_all.items()
     }
-    market = panel_all["close"]["SPY"]
+    return_close = panel_all.get("total_return_close", panel_all["close"])
+    market = return_close["SPY"]
     print(f"  loaded candidates={len(loaded_candidates)} missing={len(missing)}")
 
     print("  verifying immutable snapshot manifest and per-file hashes")
@@ -580,7 +681,7 @@ def main() -> int:
         candidate_panel["close"], candidate_panel["volume"], eligibility_config)
     features_daily = build_causal_numeric_features(candidate_panel, market)
     labels_daily = make_residualized_rank_labels(
-        candidate_panel["close"],
+        candidate_panel.get("total_return_close", candidate_panel["close"]),
         int(model_config["label_horizon_sessions"]),
         market,
         beta_window=int(model_config["beta_window_sessions"]),
@@ -774,8 +875,14 @@ def main() -> int:
         "data_files_hashed": files_hashed,
         "snapshot_evidence": snapshot_evidence,
         "pricing": {
-            "signal_and_label_basis": "split_adjusted_price_return",
-            "portfolio_required_basis": "split_and_distribution_adjusted_total_return",
+            "signal_and_label_basis": (
+                "exact_cash_close_to_close_total_return"
+                if exact_cash else "split_adjusted_price_return"
+            ),
+            "portfolio_required_basis": (
+                "split_adjusted_raw_ohlc_plus_exact_cash_account_credit"
+                if exact_cash else "split_and_distribution_adjusted_total_return"
+            ),
             "portfolio_preflight": portfolio_preflight,
         },
         "panel": {

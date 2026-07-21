@@ -48,18 +48,33 @@ def build_causal_numeric_features(
 
     _validate_panel(panel)
     close = panel["close"].astype(float)
+    return_close = panel.get("total_return_close", close).astype(float)
+    if not return_close.index.equals(close.index) or not return_close.columns.equals(
+        close.columns
+    ):
+        raise ValueError("total_return_close is not aligned with close")
+    cash_distribution = panel.get(
+        "cash_distribution",
+        pd.DataFrame(0.0, index=close.index, columns=close.columns),
+    ).astype(float)
+    if (
+        not cash_distribution.index.equals(close.index)
+        or not cash_distribution.columns.equals(close.columns)
+    ):
+        raise ValueError("cash_distribution is not aligned with close")
     open_ = panel["open"].astype(float)
     high = panel["high"].astype(float)
     low = panel["low"].astype(float)
     volume = panel["volume"].astype(float)
     market = market_close.reindex(close.index).astype(float)
-    returns = close.pct_change(fill_method=None)
+    returns = return_close.pct_change(fill_method=None)
     market_returns = market.pct_change(fill_method=None)
     dollar_volume = close * volume
 
     features: dict[str, pd.DataFrame] = {}
     for window in (5, 21, 63, 126, 252):
-        features[f"mom_{window}"] = close.div(close.shift(window)) - 1.0
+        features[f"mom_{window}"] = (
+            return_close.div(return_close.shift(window)) - 1.0)
     for window in (21, 63, 126):
         features[f"rs_spy_{window}"] = features[f"mom_{window}"].sub(
             market.div(market.shift(window)).sub(1.0), axis=0)
@@ -73,13 +88,13 @@ def build_causal_numeric_features(
         63, min_periods=63).skew()
 
     for window in (63, 126, 252):
-        rolling_high = close.rolling(window, min_periods=window).max()
-        rolling_low = close.rolling(window, min_periods=window).min()
+        rolling_high = return_close.rolling(window, min_periods=window).max()
+        rolling_low = return_close.rolling(window, min_periods=window).min()
         width = rolling_high - rolling_low
-        features[f"close_pos_{window}"] = (close - rolling_low).div(
+        features[f"close_pos_{window}"] = (return_close - rolling_low).div(
             width.where(width > 0))
-    features["drawdown_126"] = close.div(
-        close.rolling(126, min_periods=126).max()) - 1.0
+    features["drawdown_126"] = return_close.div(
+        return_close.rolling(126, min_periods=126).max()) - 1.0
 
     path_length = returns.abs().rolling(63, min_periods=63).sum()
     features["trend_efficiency_63"] = features["mom_63"].div(
@@ -110,18 +125,19 @@ def build_causal_numeric_features(
 
     previous_close = close.shift(1)
     features["overnight_gap_mean_5"] = (
-        open_.div(previous_close).sub(1.0)
+        open_.add(cash_distribution).div(previous_close).sub(1.0)
         .rolling(5, min_periods=5).mean()
     )
     features["intraday_return_mean_5"] = (
         close.div(open_.where(open_ > 0)).sub(1.0)
         .rolling(5, min_periods=5).mean()
     )
+    ex_cash_reference = previous_close.sub(cash_distribution)
     true_range = pd.DataFrame(
         np.maximum.reduce([
             (high - low).to_numpy(),
-            (high - previous_close).abs().to_numpy(),
-            (low - previous_close).abs().to_numpy(),
+            (high - ex_cash_reference).abs().to_numpy(),
+            (low - ex_cash_reference).abs().to_numpy(),
         ]),
         index=close.index,
         columns=close.columns,

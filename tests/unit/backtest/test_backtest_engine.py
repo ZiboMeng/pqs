@@ -413,3 +413,51 @@ class TestSnapshotAlignment:
                 f"{dt}: equity={result.equity_curve.loc[dt]:.6f} != "
                 f"cash+positions={recon:.6f} — snapshot off-by-one"
             )
+
+
+class TestCashDistributionAccounting:
+    @staticmethod
+    def _zero_cost() -> CostModel:
+        return CostModel(CostModelConfig(tiers={
+            "default": CostTierConfig(
+                symbols=[], commission_bps=0.0,
+                slippage_interday_bps=0.0, slippage_intraday_bps=0.0,
+            ),
+        }))
+
+    def test_credits_dividend_to_overnight_holder_before_ex_date_open(self):
+        dates = pd.bdate_range("2024-01-02", periods=4)
+        close = pd.DataFrame({"A": [100.0, 100.0, 90.0, 90.0]}, index=dates)
+        signals = pd.DataFrame(0.0, index=dates, columns=["A"])
+        signals.loc[dates[0], "A"] = 1.0
+        cash_events = pd.DataFrame(0.0, index=dates, columns=["A"])
+        cash_events.loc[dates[2], "A"] = 10.0
+        result = BacktestEngine(
+            self._zero_cost(), initial_capital=100_000.0,
+            min_trade_usd=0.0, rebalance_threshold=0.0,
+        ).run(
+            signals, close, open_df=close,
+            rebalance_dates=[dates[0]],
+            cash_distributions_df=cash_events,
+        )
+        assert result.equity_curve.loc[dates[2]] == pytest.approx(100_000.0)
+        assert result.metrics["cash_distributions_usd"] == pytest.approx(10_000.0)
+        assert result.metrics["cash_distribution_credits"] == 1.0
+
+    def test_does_not_credit_ex_date_open_buyer(self):
+        dates = pd.bdate_range("2024-01-02", periods=3)
+        close = pd.DataFrame({"A": [100.0, 90.0, 90.0]}, index=dates)
+        signals = pd.DataFrame(0.0, index=dates, columns=["A"])
+        signals.loc[dates[0], "A"] = 1.0
+        cash_events = pd.DataFrame(0.0, index=dates, columns=["A"])
+        cash_events.loc[dates[1], "A"] = 10.0
+        result = BacktestEngine(
+            self._zero_cost(), initial_capital=100_000.0,
+            min_trade_usd=0.0, rebalance_threshold=0.0,
+        ).run(
+            signals, close, open_df=close,
+            rebalance_dates=[dates[0]],
+            cash_distributions_df=cash_events,
+        )
+        assert result.equity_curve.loc[dates[1]] == pytest.approx(100_000.0)
+        assert result.metrics["cash_distributions_usd"] == 0.0

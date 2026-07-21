@@ -25,10 +25,12 @@ from core.research.sec_event_portfolio import (  # noqa: E402
 )
 from core.research.trial_ledger import AppendOnlyTrialLedger  # noqa: E402
 from dev.scripts.mining_v4.run_numeric_rank_mining import (  # noqa: E402
+    EXACT_CASH_PRICE_BASIS,
     _atomic_json,
     _flat_cost_model,
     _git_commit,
     _hash_price_inputs,
+    _load_exact_cash_panel,
     _load_panel,
     _portfolio_trial_intent,
     _rolling_excess_fraction,
@@ -126,10 +128,15 @@ def main() -> int:
         symbols=all_symbols,
         through="2024-12-31",
     )
-    panel, missing = _load_panel(
-        data_root, all_symbols, start="2019-01-01", end="2024-12-31",
-        total_return=True,
-    )
+    exact_cash = snapshot_manifest.get("price_basis") == EXACT_CASH_PRICE_BASIS
+    if exact_cash:
+        panel, missing = _load_exact_cash_panel(
+            data_root, all_symbols, start="2019-01-01", end="2024-12-31")
+    else:
+        panel, missing = _load_panel(
+            data_root, all_symbols, start="2019-01-01", end="2024-12-31",
+            total_return=True,
+        )
     if missing:
         raise RuntimeError(f"event portfolio total-return panel missing: {missing}")
     prediction_long = pd.read_parquet(predictions_path)
@@ -177,6 +184,10 @@ def main() -> int:
         ]
         close = panel["close"].loc[daily_index]
         open_ = panel["open"].loc[daily_index]
+        cash_distributions = (
+            panel["cash_distribution"].loc[daily_index]
+            if exact_cash else None
+        )
         decisions = overlay.decision_weights.loc[
             overlay.decision_weights.index.intersection(daily_index)
         ]
@@ -219,8 +230,15 @@ def main() -> int:
                 cost_model, initial_capital=100_000.0,
                 min_trade_usd=0.0, rebalance_threshold=0.0,
             ).run(
-                signals, close, open_df=open_, benchmark_series=close["SPY"],
+                signals,
+                close,
+                open_df=open_,
+                benchmark_series=(
+                    panel["total_return_close"].loc[daily_index, "SPY"]
+                    if exact_cash else close["SPY"]
+                ),
                 rebalance_dates=decisions.index,
+                cash_distributions_df=cash_distributions,
             )
             benchmark = BacktestEngine(
                 cost_model, initial_capital=100_000.0,
@@ -228,6 +246,8 @@ def main() -> int:
             ).run(
                 spy_signals, close[["SPY"]], open_df=open_[["SPY"]],
                 rebalance_dates=[first_decision],
+                cash_distributions_df=(
+                    cash_distributions[["SPY"]] if exact_cash else None),
             )
             outcome = {
                 "model": model_name,
@@ -255,6 +275,8 @@ def main() -> int:
                 "n_trades": strategy.n_trades,
                 "total_commission_usd": strategy.total_commission_usd,
                 "total_slippage_usd": strategy.total_slippage_usd,
+                "cash_distributions_usd": strategy.metrics.get(
+                    "cash_distributions_usd", 0.0),
             }
             outcome["gate_evaluation"] = _gate_checks(
                 strategy_metrics=strategy.metrics,
@@ -290,6 +312,17 @@ def main() -> int:
         "config_sha256": config_hash,
         "pool_artifact_sha256": pool["artifact_sha256"],
         "snapshot_evidence": snapshot_evidence,
+        "pricing": {
+            "basis": (
+                "split_adjusted_raw_ohlc_plus_exact_cash_account_credit"
+                if exact_cash else "embedded_total_return_ohlc"
+            ),
+            "double_count_prevention": (
+                "portfolio marks and fills use raw split-adjusted prices; "
+                "cash ledger is credited separately"
+                if exact_cash else None
+            ),
+        },
         "construction": {
             "id": construction,
             "execution": "strict next open after SEC acceptance",

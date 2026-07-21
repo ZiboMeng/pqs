@@ -34,10 +34,12 @@ from core.research.sec_event_features import (  # noqa: E402
 )
 from core.research.trial_ledger import AppendOnlyTrialLedger  # noqa: E402
 from dev.scripts.mining_v4.run_numeric_rank_mining import (  # noqa: E402
+    EXACT_CASH_PRICE_BASIS,
     _atomic_json,
     _atomic_parquet,
     _git_commit,
     _hash_price_inputs,
+    _load_exact_cash_panel,
     _load_panel,
     _portfolio_trial_intent,
     _sha256_file,
@@ -139,13 +141,22 @@ def main() -> int:
     ledger = AppendOnlyTrialLedger(Path(args.ledger).resolve())
 
     print("[1/5] validating raw price snapshot and SEC response hash chain")
-    panel_all, missing = _load_panel(
-        data_root,
-        all_symbols,
-        start="2007-01-01",
-        end=load_end,
-        total_return=False,
-    )
+    exact_cash = snapshot_manifest.get("price_basis") == EXACT_CASH_PRICE_BASIS
+    if exact_cash:
+        panel_all, missing = _load_exact_cash_panel(
+            data_root,
+            all_symbols,
+            start="2007-01-01",
+            end=load_end,
+        )
+    else:
+        panel_all, missing = _load_panel(
+            data_root,
+            all_symbols,
+            start="2007-01-01",
+            end=load_end,
+            total_return=False,
+        )
     if missing:
         raise RuntimeError(f"price snapshot missing symbols: {missing}")
     snapshot_evidence = _validate_snapshot_manifest(
@@ -193,6 +204,12 @@ def main() -> int:
         structured.event_mask,
         holding_sessions=holding_sessions,
         beta_window_sessions=int(config["models"]["beta_window_sessions"]),
+        cash_distributions=candidate_panel.get("cash_distribution"),
+        market_cash_distributions=(
+            panel_all["cash_distribution"]["SPY"] if exact_cash else None),
+        total_return_close_prices=candidate_panel.get("total_return_close"),
+        market_total_return_close=(
+            panel_all["total_return_close"]["SPY"] if exact_cash else None),
     )
     eligibility = event_eligibility_from_previous_close(
         daily_eligibility, structured.event_mask)
@@ -322,7 +339,10 @@ def main() -> int:
             "feature_availability": "SEC acceptanceDateTime",
             "execution_contract": "strictly next exchange session open",
             "label": "open_to_fifth_session_close_market_residual_rank",
-            "basis": "split_adjusted_price_return",
+            "basis": (
+                "exact_cash_open_to_close_account_return"
+                if exact_cash else "split_adjusted_price_return"
+            ),
             "portfolio_evaluation": "NOT_RUN_SIGNAL_DIAGNOSTIC_STAGE",
         },
         "coverage": {

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from core.research.feature_clustering import fit_feature_correlation_clusters
 from core.research.mining_v4_features import (
@@ -65,6 +66,44 @@ def test_month_end_dates_require_available_benchmark():
     assert dates[0] == index[index.month == 1][-1]
     assert dates[1] == index[index.month == 2][-2]
     assert dates[2] == index[index.month == 3][-1]
+
+
+def test_numeric_features_use_exact_cash_returns_without_faking_liquidity():
+    panel = _panel(n_days=80, n_symbols=2)
+    event_date = panel["close"].index[40]
+    previous_date = panel["close"].index[39]
+    panel["close"].loc[previous_date, "S1"] = 100.0
+    panel["open"].loc[event_date, "S1"] = 90.0
+    panel["high"].loc[event_date, "S1"] = 91.0
+    panel["low"].loc[event_date, "S1"] = 89.0
+    panel["close"].loc[event_date, "S1"] = 90.0
+    panel["cash_distribution"] = pd.DataFrame(
+        0.0, index=panel["close"].index, columns=panel["close"].columns,
+    )
+    panel["cash_distribution"].loc[event_date, "S1"] = 10.0
+    exact_return_close = panel["close"].copy()
+    exact_return_close.loc[event_date:, "S1"] *= 100.0 / 90.0
+    panel["total_return_close"] = exact_return_close
+
+    features = build_causal_numeric_features(
+        panel, exact_return_close["S0"],
+    )
+
+    assert features["mom_5"].loc[event_date, "S1"] == pytest.approx(
+        exact_return_close.loc[event_date, "S1"]
+        / exact_return_close.loc[panel["close"].index[35], "S1"]
+        - 1.0
+    )
+    expected_gap = (
+        panel["open"]["S1"].add(panel["cash_distribution"]["S1"])
+        .div(panel["close"]["S1"].shift(1))
+        .sub(1.0)
+        .rolling(5, min_periods=5)
+        .mean()
+    )
+    assert features["overnight_gap_mean_5"].loc[event_date, "S1"] == pytest.approx(
+        expected_gap.loc[event_date]
+    )
 
 
 def test_feature_clustering_is_fit_only_on_supplied_training_dates():

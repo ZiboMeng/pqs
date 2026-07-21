@@ -223,8 +223,18 @@ def make_event_open_to_close_residual_rank_labels(
     *,
     holding_sessions: int = 5,
     beta_window_sessions: int = 252,
+    cash_distributions: pd.DataFrame | None = None,
+    market_cash_distributions: pd.Series | None = None,
+    total_return_close_prices: pd.DataFrame | None = None,
+    market_total_return_close: pd.Series | None = None,
 ) -> pd.DataFrame:
-    """Rank open(T) to close(T+h-1) residual returns for event cohorts."""
+    """Rank cash-aware open(T) to close(T+h-1) residual returns.
+
+    A position bought at the execution-date open is not entitled to a cash
+    distribution whose ex-date is that same session. Distributions from the
+    following session through the exit session are added to terminal cash.
+    Optional total-return close series are used only for trailing beta.
+    """
 
     if holding_sessions < 1 or beta_window_sessions < 2:
         raise ValueError("holding and beta windows must be positive")
@@ -239,8 +249,50 @@ def make_event_open_to_close_residual_rank_labels(
         raise KeyError(f"event dates absent from price sessions: {list(missing_dates[:5])}")
     market_open = market_open.reindex(sessions)
     market_close = market_close.reindex(sessions)
-    stock_returns = close_prices.pct_change(fill_method=None)
-    market_returns = market_close.pct_change(fill_method=None)
+    if cash_distributions is None:
+        cash = pd.DataFrame(
+            0.0, index=sessions, columns=close_prices.columns)
+    else:
+        if (
+            not cash_distributions.index.equals(sessions)
+            or not cash_distributions.columns.equals(close_prices.columns)
+        ):
+            raise ValueError("cash distributions must align with stock prices")
+        cash = cash_distributions.astype(float)
+    if market_cash_distributions is None:
+        market_cash = pd.Series(0.0, index=sessions)
+    else:
+        if not market_cash_distributions.index.equals(sessions):
+            raise ValueError("market cash distributions must align with sessions")
+        market_cash = market_cash_distributions.astype(float)
+    if (
+        not np.isfinite(cash.to_numpy()).all()
+        or not np.isfinite(market_cash.to_numpy()).all()
+        or bool((cash < 0).any().any())
+        or bool((market_cash < 0).any())
+    ):
+        raise ValueError("cash distributions must be finite and non-negative")
+    beta_close = (
+        close_prices
+        if total_return_close_prices is None
+        else total_return_close_prices
+    )
+    if (
+        not beta_close.index.equals(sessions)
+        or not beta_close.columns.equals(close_prices.columns)
+    ):
+        raise ValueError("total-return stock closes must align with prices")
+    if (
+        market_total_return_close is not None
+        and not market_total_return_close.index.equals(sessions)
+    ):
+        raise ValueError("total-return market close must align with sessions")
+    beta_market_close = (
+        market_close if market_total_return_close is None
+        else market_total_return_close
+    )
+    stock_returns = beta_close.pct_change(fill_method=None)
+    market_returns = beta_market_close.pct_change(fill_method=None)
     beta = stock_returns.rolling(
         beta_window_sessions, min_periods=beta_window_sessions,
     ).cov(market_returns).div(
@@ -256,8 +308,16 @@ def make_event_open_to_close_residual_rank_labels(
         if exit_position >= len(sessions):
             continue
         exit_date = sessions[exit_position]
-        stock_return = close_prices.loc[exit_date].div(open_prices.loc[date]) - 1.0
-        market_return = market_close.loc[exit_date] / market_open.loc[date] - 1.0
+        entitled_slice = sessions[position + 1:exit_position + 1]
+        terminal_cash = cash.loc[entitled_slice].sum(axis=0)
+        market_terminal_cash = float(market_cash.loc[entitled_slice].sum())
+        stock_return = close_prices.loc[exit_date].add(
+            terminal_cash).div(open_prices.loc[date]) - 1.0
+        market_return = (
+            (market_close.loc[exit_date] + market_terminal_cash)
+            / market_open.loc[date]
+            - 1.0
+        )
         value = stock_return - beta.loc[date] * market_return
         residual.loc[date] = value.where(event_mask.loc[date])
     return residual.rank(axis=1, pct=True)
