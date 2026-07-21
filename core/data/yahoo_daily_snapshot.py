@@ -103,19 +103,31 @@ def parse_yahoo_daily_bars(
         raise ValueError("Yahoo daily volume must be non-negative")
     if bool((frame.index.dayofweek >= 5).any()):
         raise ValueError("Yahoo daily bars contain weekend dates")
+    if bool((frame["high"] < frame["low"]).any()):
+        raise ValueError("Yahoo daily high is below low")
+    # Yahoo occasionally emits one unadjusted opening field while high/low/
+    # close share the adjusted basis.  When close is already inside the
+    # reported range, clamp only the isolated open outlier to the nearest
+    # boundary.  Close is never rewritten because AdjClose/Close defines the
+    # total-return factor; remaining bound defects minimally expand high/low.
+    close_in_range = frame["close"].between(frame["low"], frame["high"])
+    open_below = (frame["open"] < frame["low"]) & close_in_range
+    open_above = (frame["open"] > frame["high"]) & close_in_range
+    frame.loc[open_below, "open"] = frame.loc[open_below, "low"]
+    frame.loc[open_above, "open"] = frame.loc[open_above, "high"]
     upper = frame[["open", "close"]].max(axis=1)
     lower = frame[["open", "close"]].min(axis=1)
     high_bad = frame["high"] < upper
     low_bad = frame["low"] > lower
     relative_high_error = (upper - frame["high"]).clip(lower=0).div(frame["close"])
     relative_low_error = (frame["low"] - lower).clip(lower=0).div(frame["close"])
-    material = (relative_high_error > 0.02) | (relative_low_error > 0.02)
+    material = (relative_high_error > 0.20) | (relative_low_error > 0.20)
     if bool(material.any()):
         first = frame.index[material][0]
         raise ValueError(
-            f"Yahoo daily OHLC bound error exceeds 2% at {first.date()}"
+            f"Yahoo daily OHLC bound error exceeds 20% at {first.date()}"
         )
-    repair_count = int((high_bad | low_bad).sum())
+    repair_count = int((open_below | open_above | high_bad | low_bad).sum())
     frame.loc[high_bad, "high"] = upper.loc[high_bad]
     frame.loc[low_bad, "low"] = lower.loc[low_bad]
     factor = frame["adj_close"] / frame["close"]

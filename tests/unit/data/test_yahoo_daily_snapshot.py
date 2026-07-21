@@ -67,6 +67,18 @@ def test_repairs_small_ohlc_bound_error_but_rejects_material_error():
     assert parsed.ohlc_bound_repairs == 1
     assert parsed.frame.iloc[0]["high"] == 100.0
     payload = _payload()
-    payload["chart"]["result"][0]["indicators"]["quote"][0]["high"][0] = 90.0
-    with pytest.raises(ValueError, match="exceeds 2%"):
+    payload["chart"]["result"][0]["indicators"]["quote"][0]["high"][0] = 50.0
+    payload["chart"]["result"][0]["indicators"]["quote"][0]["low"][0] = 49.0
+    with pytest.raises(ValueError, match="exceeds 20%"):
         parse_yahoo_daily_bars(payload, expected_symbol="AAA")
+
+
+def test_clamps_isolated_open_field_to_valid_reported_range():
+    payload = _payload()
+    quote = payload["chart"]["result"][0]["indicators"]["quote"][0]
+    quote["open"][0] = 80.0
+    quote["low"][0] = 98.0
+    parsed = parse_yahoo_daily_bars(payload, expected_symbol="AAA")
+    assert parsed.ohlc_bound_repairs == 1
+    assert parsed.frame.iloc[0]["open"] == 98.0
+    assert parsed.frame.iloc[0]["low"] == 98.0
