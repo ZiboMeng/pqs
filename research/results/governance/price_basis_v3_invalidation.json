@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "status": "INVALIDATED_FOR_RESEARCH_CONCLUSIONS",
+  "created_at_utc": "2026-07-21T03:19:03Z",
+  "automatic_promotion_eligible": false,
+  "invalid_snapshot": {
+    "snapshot_id": "raw_daily_snapshot_v3",
+    "manifest_sha256": "8fcb2a97d6a6353ed8c889f99d2e303315c976e1ae8b81224e13f76c1e9d8386",
+    "root_cause": "The snapshot mixed unadjusted split-discontinuous series with retrospectively split-adjusted series. Applying the canonical split sidecar uniformly therefore left some series unadjusted and double-adjusted others.",
+    "scope": "All signal, label, IC, ablation, and portfolio conclusions computed from this snapshot are invalid. Calendar and OHLC validation did not certify a homogeneous price basis."
+  },
+  "invalidated_reports": [
+    {
+      "path": "research/results/governed_numeric_rank_raw_snapshot_v3.json",
+      "sha256": "9e9becb93686c7b197d9969202f02b65352267fbde31b4d170540333c567c2a9"
+    },
+    {
+      "path": "research/results/governed_sec_structured_event_v2.json",
+      "sha256": "22bc95a4c466268d8a97994c95c6de2bf1d9e44b08a5ab09c031280b44cf212c"
+    },
+    {
+      "path": "research/results/governed_sec_8k_lexical_v1.json",
+      "sha256": "1e0a311cd15d0871af3c984a276fa960388554a35dca7a445865cf46c456394e"
+    }
+  ],
+  "superseding_snapshot": {
+    "snapshot_id": "yahoo_cash_total_return_2007_2024_v5",
+    "manifest_sha256": "411ec970276bcd88f44c874d18993f20532159a736692f4540a2670e30428009",
+    "price_basis": "YAHOO_SPLIT_ADJUSTED_OHLC_PLUS_CASH_EVENT_TOTAL_RETURN_V1",
+    "excluded_ambiguous_symbols": [
+      "ASML",
+      "DHR",
+      "JCI",
+      "TMUS",
+      "TSM"
+    ]
+  },
+  "superseding_reports": [
+    {
+      "path": "research/results/governed_numeric_rank_yahoo_cash_v5.json",
+      "sha256": "feee69992e61d22d0078dc14d00e49a17f402ea251b549d59221e6e27be951a2"
+    },
+    {
+      "path": "research/results/governed_sec_structured_yahoo_cash_v5.json",
+      "sha256": "f783a44e64c0778666cfb5a66ef60442dc1494cac6f5ace1672c92a99ec9169a"
+    },
+    {
+      "path": "research/results/governed_sec_8k_lexical_yahoo_cash_v5.json",
+      "sha256": "ac9496f31f61ec58b42c4d81aa500ce16fd0cf3c0deba2d0176143396ffe5a75"
+    },
+    {
+      "path": "research/results/governed_sec_event_portfolio_yahoo_cash_v5.json",
+      "sha256": "bf4cf0256602bc1885877667185236ad8a431590e49b6176b4029ceaa22d1c32"
+    }
+  ],
+  "retention_policy": "Invalidated reports and their ledger trials are retained as immutable audit evidence. They must not be cited as valid research results, used for model selection, or removed from multiplicity accounting."
+}

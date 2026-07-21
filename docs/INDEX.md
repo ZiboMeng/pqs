@@ -10,6 +10,9 @@ defined at the bottom of this file. Within each category section,
 
 ## Active Codex phase-three evidence
 
+- [audit/20260720-mining-v4-governance-and-execution-audit.md](audit/20260720-mining-v4-governance-and-execution-audit.md) —
+  价格口径二次审计、`v3` 结果失效、Yahoo cash-total-return `v5`、numeric/SEC/text
+  有效重跑、含成本事件组合与本轮不晋升结论。
 - [audit/20260720-strategy-mining-preflight-audit.md](audit/20260720-strategy-mining-preflight-audit.md) —
   策略挖掘前独立审计：expanded_v2 回看选择、inverse 漏网、total-return 覆盖、ML/PEAD/LLM
   边界和算力实测，以及为何先修数据/组合/台账而非继续堆模型。
