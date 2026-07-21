@@ -82,3 +82,23 @@ def test_panel_shape_and_config_fail_closed():
         build_dynamic_eligibility_mask(close, volume.iloc[:-1], _cfg())
     with pytest.raises(ValueError, match="density"):
         DynamicEligibilityConfig(min_observation_density=0.0)
+
+
+def test_remote_pre_gap_ticker_history_is_not_credited_to_new_listing():
+    idx = pd.bdate_range("2020-01-01", periods=16)
+    close = pd.DataFrame({"REUSED": np.nan}, index=idx)
+    volume = pd.DataFrame({"REUSED": np.nan}, index=idx)
+    close.loc[idx[:5], "REUSED"] = 10.0
+    volume.loc[idx[:5], "REUSED"] = 1_000_000.0
+    close.loc[idx[11:], "REUSED"] = 20.0
+    volume.loc[idx[11:], "REUSED"] = 1_000_000.0
+    config = DynamicEligibilityConfig(
+        min_history_sessions=5,
+        lookback_sessions=3,
+        min_observation_density=1.0,
+        min_price=5.0,
+        min_median_dollar_volume=1_000_000.0,
+    )
+    mask = build_dynamic_eligibility_mask(close, volume, config)
+    assert not mask.loc[idx[14], "REUSED"]
+    assert mask.loc[idx[15], "REUSED"]

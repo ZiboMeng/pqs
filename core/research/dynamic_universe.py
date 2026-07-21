@@ -73,7 +73,18 @@ def build_dynamic_eligibility_mask(
     _validate_panels(close, volume)
 
     finite = close.notna() & volume.notna() & (close > 0) & (volume >= 0)
-    history = finite.cumsum()
+    # A lifetime cumsum is unsafe for ticker reuse and re-listings: an old
+    # issuer's observations can otherwise be credited to the current issuer
+    # after a multi-year gap (NU is a real-store example).  Define history as
+    # coverage over the latest ``min_history_sessions`` benchmark sessions.
+    # This also prevents a remote pre-gap fragment from accelerating entry.
+    min_history_obs = ceil(
+        cfg.min_history_sessions * cfg.min_observation_density)
+    history_observations = finite.rolling(
+        cfg.min_history_sessions,
+        min_periods=cfg.min_history_sessions,
+    ).sum()
+    sufficient_recent_history = history_observations >= min_history_obs
     min_obs = ceil(cfg.lookback_sessions * cfg.min_observation_density)
     observations = finite.rolling(
         cfg.lookback_sessions, min_periods=1).sum()
@@ -86,7 +97,7 @@ def build_dynamic_eligibility_mask(
 
     eligible = (
         finite
-        & (history >= cfg.min_history_sessions)
+        & sufficient_recent_history
         & (density >= cfg.min_observation_density)
         & (close >= cfg.min_price)
         & (median_dollar_volume >= cfg.min_median_dollar_volume)

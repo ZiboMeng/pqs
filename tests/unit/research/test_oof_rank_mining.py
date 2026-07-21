@@ -62,3 +62,35 @@ def test_oof_predictions_exist_only_in_validation_windows():
     assert result.predictions.loc[result.predictions.index.year < 2015].isna().all().all()
     assert result.predictions.loc[result.predictions.index.year >= 2015].notna().all().all()
     assert all(fold.rank_ic > 0.8 for fold in result.folds)
+
+
+def test_empty_validation_cross_section_is_a_failed_fold_not_zero_ic_success():
+    daily_index = pd.bdate_range("2010-01-01", "2015-12-31")
+    monthly = pd.DatetimeIndex(
+        pd.Series(daily_index, index=daily_index)
+        .groupby([daily_index.year, daily_index.month]).last().to_numpy()
+    )
+    columns = ["A", "B", "C"]
+    feature = pd.DataFrame(1.0, index=monthly, columns=columns)
+    labels = feature.copy()
+    labels.loc[labels.index.year == 2015] = np.nan
+    eligibility = pd.DataFrame(True, index=monthly, columns=columns)
+    result = run_oof_rank_mining(
+        lambda: RuleRankModel({"signal": 1.0}),
+        WalkForwardConfig(
+            start_year=2010,
+            end_year=2015,
+            train_window_years=5,
+            val_window_years=1,
+            step_years=1,
+        ),
+        {"signal": feature},
+        labels,
+        eligibility,
+        daily_trading_index=daily_index,
+        cluster_features=False,
+        sealed_years=(),
+    )
+    assert result.successful_folds == 0
+    assert result.folds[0].validation_observations == 0
+    assert "no cross-section" in str(result.folds[0].error)

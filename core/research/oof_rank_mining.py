@@ -90,6 +90,12 @@ def run_oof_rank_mining(
         val_labels = labels.loc[val_dates].where(eligibility.loc[val_dates])
         selected = tuple(sorted(features))
         try:
+            valid_validation_bars = val_labels.notna().sum(axis=1) >= 3
+            if not bool(valid_validation_bars.any()):
+                raise ValueError(
+                    "validation slice has no cross-section with at least "
+                    "3 eligible forward labels"
+                )
             if cluster_features:
                 cluster_fit = fit_feature_correlation_clusters(
                     features,
@@ -112,6 +118,12 @@ def run_oof_rank_mining(
             model.fit(train_features, train_labels)
             predicted = model.predict_rank(val_features).reindex_like(val_labels)
             predicted = predicted.where(eligibility.loc[val_dates])
+            paired = predicted.notna() & val_labels.notna()
+            if not bool((paired.sum(axis=1) >= 3).any()):
+                raise ValueError(
+                    "model produced no validation cross-section with at least "
+                    "3 prediction/label pairs"
+                )
             predictions.loc[val_dates] = predicted
             fold_results.append(OOFFoldResult(
                 fold_idx=fold.fold_idx,
