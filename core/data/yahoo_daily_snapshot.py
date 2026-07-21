@@ -18,6 +18,7 @@ from core.data.yahoo_corporate_actions import (
 class YahooDailyBars:
     vendor_symbol: str
     frame: pd.DataFrame
+    ohlc_bound_repairs: int
 
 
 def _single_result(
@@ -102,11 +103,21 @@ def parse_yahoo_daily_bars(
         raise ValueError("Yahoo daily volume must be non-negative")
     if bool((frame.index.dayofweek >= 5).any()):
         raise ValueError("Yahoo daily bars contain weekend dates")
-    tolerance = frame["close"].abs().clip(lower=1.0) * 5e-5
-    if bool((frame["high"] + tolerance < frame[["open", "close"]].max(axis=1)).any()):
-        raise ValueError("Yahoo daily high violates OHLC bounds")
-    if bool((frame["low"] - tolerance > frame[["open", "close"]].min(axis=1)).any()):
-        raise ValueError("Yahoo daily low violates OHLC bounds")
+    upper = frame[["open", "close"]].max(axis=1)
+    lower = frame[["open", "close"]].min(axis=1)
+    high_bad = frame["high"] < upper
+    low_bad = frame["low"] > lower
+    relative_high_error = (upper - frame["high"]).clip(lower=0).div(frame["close"])
+    relative_low_error = (frame["low"] - lower).clip(lower=0).div(frame["close"])
+    material = (relative_high_error > 0.02) | (relative_low_error > 0.02)
+    if bool(material.any()):
+        first = frame.index[material][0]
+        raise ValueError(
+            f"Yahoo daily OHLC bound error exceeds 2% at {first.date()}"
+        )
+    repair_count = int((high_bad | low_bad).sum())
+    frame.loc[high_bad, "high"] = upper.loc[high_bad]
+    frame.loc[low_bad, "low"] = lower.loc[low_bad]
     factor = frame["adj_close"] / frame["close"]
     if bool((factor <= 0).any()) or not np.isfinite(factor.to_numpy()).all():
         raise ValueError("Yahoo adjustment factor must be finite and positive")
@@ -120,6 +131,7 @@ def parse_yahoo_daily_bars(
     return YahooDailyBars(
         vendor_symbol=yahoo_symbol(expected_symbol),
         frame=frame,
+        ohlc_bound_repairs=repair_count,
     )
 
 

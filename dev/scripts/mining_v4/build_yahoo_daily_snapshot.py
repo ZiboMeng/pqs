@@ -269,6 +269,7 @@ def main() -> int:
             "rows": len(parsed.frame),
             "first_date": str(parsed.frame.index.min().date()),
             "last_date": str(parsed.frame.index.max().date()),
+            "ohlc_bound_repairs": parsed.ohlc_bound_repairs,
             "corporate_actions_match": cross_query_match,
         }
         _append_journal(journal_path, row)
@@ -340,6 +341,9 @@ def main() -> int:
         "responses": len(symbols),
         "response_bytes": sum(journal[symbol]["response_bytes"] for symbol in symbols),
         "raw_response_identity_sha256": _sha256_json(raw_identity),
+        "ohlc_bound_repairs": sum(
+            journal[symbol]["ohlc_bound_repairs"] for symbol in symbols
+        ),
         "corporate_action_cross_query_mismatch_symbols": [
             symbol for symbol in symbols
             if not journal[symbol]["corporate_actions_match"]

@@ -40,6 +40,7 @@ def test_parses_split_adjusted_and_total_return_ohlc():
     assert frame.iloc[0]["total_return_close"] == 90.0
     assert frame.iloc[0]["total_return_open"] == pytest.approx(89.1)
     assert frame.iloc[1]["total_return_high"] == pytest.approx(92.7)
+    assert parsed.ohlc_bound_repairs == 0
 
 
 def test_rejects_missing_values_and_symbol_mismatch():
@@ -57,3 +58,15 @@ def test_corporate_action_consistency_is_order_independent_but_value_sensitive()
     assert corporate_actions_match(left, right, expected_symbol="AAA")
     right["chart"]["result"][0]["events"]["dividends"]["1"]["amount"] = 2.0
     assert not corporate_actions_match(left, right, expected_symbol="AAA")
+
+
+def test_repairs_small_ohlc_bound_error_but_rejects_material_error():
+    payload = _payload()
+    payload["chart"]["result"][0]["indicators"]["quote"][0]["high"][0] = 99.5
+    parsed = parse_yahoo_daily_bars(payload, expected_symbol="AAA")
+    assert parsed.ohlc_bound_repairs == 1
+    assert parsed.frame.iloc[0]["high"] == 100.0
+    payload = _payload()
+    payload["chart"]["result"][0]["indicators"]["quote"][0]["high"][0] = 90.0
+    with pytest.raises(ValueError, match="exceeds 2%"):
+        parse_yahoo_daily_bars(payload, expected_symbol="AAA")
