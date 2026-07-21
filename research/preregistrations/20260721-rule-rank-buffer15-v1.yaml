@@ -1,0 +1,58 @@
+schema_version: 1
+registration_id: rule-rank-buffer15-v1
+created_at_utc: '2026-07-21T18:31:15Z'
+status: LOCKED_BEFORE_OUTCOME
+evidence_scope: DEVELOPMENT_ONLY_POST_SELECTION
+automatic_promotion_eligible: false
+historical_oos_claim_allowed: false
+
+hypothesis: >-
+  Keeping an incumbent rule-rank name until it falls below rank 15, and
+  rebalancing only when the Top-10 membership changes, will reduce trading
+  costs while retaining enough of the observed SPY-relative development edge.
+
+post_selection_disclosure: >-
+  The rule family, the SPY 35% anchor, and the equal-weight Top-10 baseline
+  were selected after observing 2015-2024 development results. This
+  registration constrains only one additional construction and does not turn
+  historical results into independent out-of-sample evidence. Confirmation
+  requires future observations after this registration timestamp.
+
+construction:
+  top_k: 10
+  exit_rank: 15
+  spy_weight: 0.35
+  active_target: 0.65
+  active_single_name_cap: 0.10
+  rebalance: membership_change_only
+
+costs_bps: [30.0, 60.0, 90.0]
+primary_cost_bps: 30.0
+primary_development_checks:
+  min_after_cost_excess_vs_spy: 0.0
+  min_positive_252d_rolling_window_fraction: 0.60
+  max_drawdown_vs_spy_multiplier: 1.25
+automatic_drop_on_failure: false
+
+fixed_inputs:
+  model: rule_rank
+  source_construction: spy35_active65_equal_top10
+  decision_cadence: month_end_close
+  execution: next_session_open
+  development_period: ['2015-01-01', '2024-12-31']
+  universe: current-company-pool-with-v6-fail-closed-exclusions
+  price_basis: YAHOO_SPLIT_ADJUSTED_OHLC_PLUS_EXACT_CASH_LEDGER_V2
+
+evidence:
+  implementation_commit: ebb3d46e0e9ef231360fe544f6463fd044998bde
+  implementation_driver_sha256: e6c4e725e9bd6f48d9bde7f312091cdcb0b54a9f4da178afdc5da85d18f193bd
+  portfolio_module_sha256: 3a05a3edb779db92ab34fdd7b67c23d13aec414d0e6309cc70304264686da66a
+  snapshot_manifest_sha256: c8382dfbddfe2522c37558bb2f3c573fefedb3893c803d80abe1db9b93e80c46
+  source_numeric_report_sha256: 45199e882f42a0847ffcbfd27c07c6bd4a9e4fd65d844c8255c9a9ac541f3c4b
+  source_predictions_sha256: ee10574f14510954242ded85e2720e4827343664ab6a05e20bb971d72093a313
+
+forbidden_after_registration:
+  - changing top_k, exit_rank, anchor weight, cap, or rebalance trigger
+  - trying sibling buffers before recording this outcome
+  - replacing the rule score or adding a semantic/ML overlay
+  - claiming promotion or historical OOS validation from this run
