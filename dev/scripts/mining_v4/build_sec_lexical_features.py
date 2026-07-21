@@ -119,6 +119,8 @@ def main() -> int:
                 PROJ / "core" / "research" / "sec_lexical_features.py"),
             "document_corpus_id": document_manifest.get("corpus_id"),
             "document_manifest_sha256": _sha256_file(document_manifest_path),
+            "filing_manifest_sha256": document_manifest.get(
+                "filing_manifest_sha256"),
             "documents": len(frame),
             "parse_pass": int(frame["parse_status"].eq("PASS").sum()),
             "parse_missing": int(frame["parse_status"].ne("PASS").sum()),
