@@ -110,6 +110,56 @@ def _hash_price_inputs(data_root: Path, symbols: list[str]) -> tuple[str, int]:
     return digest.hexdigest(), count
 
 
+def _validate_snapshot_manifest(
+    data_root: Path,
+    *,
+    pool_hash: str,
+    symbols: list[str],
+    through: str,
+) -> dict[str, Any]:
+    path = data_root / "manifest.json"
+    if not path.exists():
+        raise RuntimeError(
+            f"governed numeric mining requires snapshot manifest: {path}")
+    manifest = json.loads(path.read_text())
+    if manifest.get("pool_artifact_sha256") != pool_hash:
+        raise RuntimeError("snapshot pool hash differs from frozen company pool")
+    if manifest.get("through") != through:
+        raise RuntimeError(
+            f"snapshot through={manifest.get('through')} does not equal {through}")
+    if manifest.get("price_basis") != (
+        "RAW_OHLCV_WITH_SPLITS_APPLIED_AT_READ_TIME"
+    ):
+        raise RuntimeError("snapshot price basis is not governed raw OHLCV")
+    rows = manifest.get("symbols")
+    if not isinstance(rows, list):
+        raise RuntimeError("snapshot manifest lacks per-symbol evidence rows")
+    by_symbol = {row.get("symbol"): row for row in rows}
+    if set(by_symbol) != set(symbols):
+        raise RuntimeError("snapshot manifest symbol set differs from requested pool")
+    for symbol in symbols:
+        daily_path = data_root / "daily" / f"{_safe_symbol(symbol)}.parquet"
+        if not daily_path.exists():
+            raise RuntimeError(f"snapshot daily file is missing for {symbol}")
+        actual = _sha256_file(daily_path)
+        if actual != by_symbol[symbol].get("output_sha256"):
+            raise RuntimeError(f"snapshot daily hash mismatch for {symbol}")
+    splits_path = data_root / "ref" / "splits.parquet"
+    if _sha256_file(splits_path) != manifest.get("splits_sha256"):
+        raise RuntimeError("snapshot splits hash differs from manifest")
+    return {
+        "path": "manifest.json",
+        "sha256": _sha256_file(path),
+        "snapshot_id": manifest.get("snapshot_id"),
+        "builder_commit": manifest.get("builder_commit"),
+        "builder_script_sha256": manifest.get("builder_script_sha256"),
+        "repair_module_sha256": manifest.get("repair_module_sha256"),
+        "price_basis": manifest.get("price_basis"),
+        "through": manifest.get("through"),
+        "symbols_verified": len(symbols),
+    }
+
+
 def _atomic_parquet(frame: pd.DataFrame, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, name = tempfile.mkstemp(
@@ -423,6 +473,14 @@ def main() -> int:
     market = panel_all["close"]["SPY"]
     print(f"  loaded candidates={len(loaded_candidates)} missing={len(missing)}")
 
+    print("  verifying immutable snapshot manifest and per-file hashes")
+    snapshot_evidence = _validate_snapshot_manifest(
+        data_root,
+        pool_hash=pool["artifact_sha256"],
+        symbols=all_symbols,
+        through=load_end,
+    )
+
     print("[2/6] building causal eligibility, features, and 21-session labels")
     eligibility_doc = config["dynamic_eligibility"]
     eligibility_config = DynamicEligibilityConfig(
@@ -532,6 +590,9 @@ def main() -> int:
             if successful else None,
             "mean_rank_ir": float(np.mean([fold.rank_ir for fold in successful]))
             if successful else None,
+            "positive_rank_ic_fold_fraction": (
+                float(np.mean([fold.rank_ic > 0 for fold in successful]))
+                if successful else None),
             "folds": folds,
         }
         model_reports[model_name] = _finite(summary)
@@ -544,7 +605,7 @@ def main() -> int:
     print("[4/6] publishing OOF predictions")
     prediction_long = pd.concat(
         {
-            model: frame.stack().rename("score")
+            model: frame.stack().dropna().rename("score")
             for model, frame in predictions.items()
         },
         names=["model", "date", "symbol"],
@@ -616,6 +677,7 @@ def main() -> int:
         "config_sha256": config_hash,
         "data_input_sha256": data_hash,
         "data_files_hashed": files_hashed,
+        "snapshot_evidence": snapshot_evidence,
         "pricing": {
             "signal_and_label_basis": "split_adjusted_price_return",
             "portfolio_required_basis": "split_and_distribution_adjusted_total_return",
@@ -629,6 +691,12 @@ def main() -> int:
             "last_date": str(panel_all["close"].index.max().date()),
             "decision_dates": len(decisions),
             "eligible_cells": int(eligibility.sum().sum()),
+            "eligible_cells_by_year": {
+                str(year): int(
+                    eligibility.loc[eligibility.index.year == year]
+                    .to_numpy().sum())
+                for year in sorted(set(eligibility.index.year))
+            },
             "feature_count": len(features),
             "feature_names": sorted(features),
             "label": "market_residual_rank_21d",
