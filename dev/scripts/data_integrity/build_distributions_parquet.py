@@ -48,7 +48,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -57,24 +59,25 @@ import numpy as np
 import pandas as pd
 
 PROJ = Path(__file__).resolve().parents[3]
-DEFAULT_OUTPUT = PROJ / "data" / "ref" / "distributions.parquet"
-DEFAULT_COVERAGE_OUTPUT = PROJ / "data" / "ref" / "distribution_coverage.parquet"
-SPLITS_PATH = PROJ / "data" / "ref" / "splits.parquet"
+DEFAULT_DATA_ROOT = PROJ / "data"
 
 DEFAULT_SOURCE_TAG = f"yfinance_dividends_{datetime.now(timezone.utc):%Y_%m}"
 
 
-def _splits_table_sha() -> str:
+def _splits_table_sha(data_root: Path = DEFAULT_DATA_ROOT) -> str:
     """sha256[:16] of splits.parquet bytes — invariant tracker."""
-    if not SPLITS_PATH.exists():
+    splits_path = data_root / "ref" / "splits.parquet"
+    if not splits_path.exists():
         return "no_splits_table"
-    return hashlib.sha256(SPLITS_PATH.read_bytes()).hexdigest()[:16]
+    return hashlib.sha256(splits_path.read_bytes()).hexdigest()[:16]
 
 
 def _fetch_distributions_yfinance(
     symbol: str,
     start: Optional[str] = None,
     end: Optional[str] = None,
+    *,
+    data_root: Path = DEFAULT_DATA_ROOT,
 ) -> pd.DataFrame:
     """Fetch one symbol's dividend history + the close on the trading day
     BEFORE each ex-date. Returns DataFrame ready for sidecar write.
@@ -100,7 +103,7 @@ def _fetch_distributions_yfinance(
     sys.path.insert(0, str(PROJ))
     from core.data.bar_store import BarStore
 
-    store = BarStore(root=PROJ / "data")
+    store = BarStore(root=data_root)
     ticker = yf.Ticker(symbol)
 
     divs = ticker.dividends
@@ -156,7 +159,7 @@ def _fetch_distributions_yfinance(
 
     # Build sidecar rows
     pulled_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    sha = _splits_table_sha()
+    sha = _splits_table_sha(data_root)
     rows = []
     for ex_date, cash_amount in divs.items():
         # Find prior trading day close. We use close_series index — find
@@ -194,6 +197,39 @@ def _fetch_distributions_yfinance(
     return df
 
 
+def _merge_distributions(
+    existing: pd.DataFrame,
+    new: pd.DataFrame,
+    *,
+    requested_symbols: set[str],
+) -> pd.DataFrame:
+    """Replace every requested symbol, including verified zero-event results."""
+
+    if not existing.empty:
+        existing = existing[
+            ~existing["symbol"].astype(str).str.upper().isin(requested_symbols)
+        ]
+    combined = pd.concat([existing, new], ignore_index=True)
+    if combined.empty:
+        return combined
+    return combined.sort_values(["symbol", "ex_date"]).reset_index(drop=True)
+
+
+def _atomic_to_parquet(frame: pd.DataFrame, path: Path) -> None:
+    """Publish one complete parquet by atomic rename on the same filesystem."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    os.close(descriptor)
+    temporary = Path(temporary_name)
+    try:
+        frame.to_parquet(temporary, index=False)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--symbols", nargs="+", required=True,
@@ -202,22 +238,34 @@ def main():
                     help="Earliest ex_date (default: all history)")
     ap.add_argument("--end", default=None,
                     help="Latest ex_date (default: all history)")
-    ap.add_argument("--output", default=str(DEFAULT_OUTPUT),
-                    help=f"Output parquet (default: {DEFAULT_OUTPUT})")
-    ap.add_argument("--coverage-output", default=str(DEFAULT_COVERAGE_OUTPUT),
-                    help="Per-symbol query coverage sidecar")
+    ap.add_argument("--data-root", default=str(DEFAULT_DATA_ROOT),
+                    help="Data root containing ref/splits.parquet and daily bars")
+    ap.add_argument("--output", default=None,
+                    help="Output parquet (default: <data-root>/ref/distributions.parquet)")
+    ap.add_argument("--coverage-output", default=None,
+                    help="Coverage sidecar (default: <data-root>/ref/distribution_coverage.parquet)")
     ap.add_argument("--dry-run", action="store_true",
                     help="Print summary without writing parquet")
     ap.add_argument("--append", action="store_true",
                     help="If output exists, merge (replace by symbol)")
     args = ap.parse_args()
 
-    out_path = Path(args.output)
-    coverage_path = Path(args.coverage_output)
+    data_root = Path(args.data_root).resolve()
+    out_path = (
+        Path(args.output).resolve()
+        if args.output else data_root / "ref" / "distributions.parquet"
+    )
+    coverage_path = (
+        Path(args.coverage_output).resolve()
+        if args.coverage_output else data_root / "ref" / "distribution_coverage.parquet"
+    )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     coverage_path.parent.mkdir(parents=True, exist_ok=True)
 
-    print(f"[distributions builder] sha(splits.parquet)={_splits_table_sha()}")
+    split_sha = _splits_table_sha(data_root)
+    if split_sha == "no_splits_table":
+        raise FileNotFoundError(data_root / "ref" / "splits.parquet")
+    print(f"[distributions builder] sha(splits.parquet)={split_sha}")
     print(f"[distributions builder] symbols: {args.symbols}")
     print(f"[distributions builder] range: {args.start or 'all'} → {args.end or 'all'}")
 
@@ -227,7 +275,8 @@ def main():
         print(f"  fetching {sym}...")
         checked_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         try:
-            df = _fetch_distributions_yfinance(sym, start=args.start, end=args.end)
+            df = _fetch_distributions_yfinance(
+                sym, start=args.start, end=args.end, data_root=data_root)
             status = "OK"
             error = ""
         except Exception as exc:  # fail the certification run after recording all symbols
@@ -259,7 +308,7 @@ def main():
             "last_ex_date": (
                 pd.Timestamp(df["ex_date"].max()) if not df.empty else pd.NaT
             ),
-            "splits_table_sha": _splits_table_sha(),
+            "splits_table_sha": split_sha,
         })
 
     new_df = pd.concat(all_rows, ignore_index=True) if all_rows else pd.DataFrame()
@@ -275,27 +324,29 @@ def main():
 
     if had_errors:
         # Never publish a partially refreshed certification sidecar.  The
-        # coverage rows are still written for diagnosis, but distributions
-        # remain untouched and the command exits non-zero.
-        coverage_df.to_parquet(coverage_path, index=False)
-        print(f"[distributions builder] coverage contains errors; wrote {coverage_path}")
-        print("[distributions builder] distributions NOT modified")
+        # canonical coverage and distributions both remain untouched.  Errors
+        # go to a timestamped diagnostic artifact instead.
+        error_stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        error_path = (
+            data_root / "audit" / f"distribution_coverage_errors_{error_stamp}.parquet"
+        )
+        _atomic_to_parquet(coverage_df, error_path)
+        print(f"[distributions builder] coverage contains errors; wrote {error_path}")
+        print("[distributions builder] canonical sidecars NOT modified")
         return 2
 
     # Merge with existing if requested
-    if new_df.empty:
-        out_df = pd.read_parquet(out_path) if out_path.exists() else new_df
-    elif args.append and out_path.exists():
-        existing = pd.read_parquet(out_path)
-        # Drop existing rows for symbols we're rewriting
-        keep_mask = ~existing["symbol"].isin(new_df["symbol"].unique())
-        existing = existing[keep_mask]
-        out_df = pd.concat([existing, new_df], ignore_index=True)
+    requested_symbols = {str(symbol).upper() for symbol in args.symbols}
+    if args.append:
+        existing = pd.read_parquet(out_path) if out_path.exists() else pd.DataFrame()
+        out_df = _merge_distributions(
+            existing, new_df, requested_symbols=requested_symbols)
     else:
         out_df = new_df
 
-    out_df = out_df.sort_values(["symbol", "ex_date"]).reset_index(drop=True)
-    out_df.to_parquet(out_path, index=False)
+    if not out_df.empty:
+        out_df = out_df.sort_values(["symbol", "ex_date"]).reset_index(drop=True)
+    _atomic_to_parquet(out_df, out_path)
     if args.append and coverage_path.exists():
         existing_coverage = pd.read_parquet(coverage_path)
         existing_coverage = existing_coverage[
@@ -303,14 +354,14 @@ def main():
         ]
         coverage_df = pd.concat([existing_coverage, coverage_df], ignore_index=True)
     coverage_df = coverage_df.sort_values("symbol").reset_index(drop=True)
-    coverage_df.to_parquet(coverage_path, index=False)
+    _atomic_to_parquet(coverage_df, coverage_path)
     print(f"\n[distributions builder] wrote {len(out_df)} rows to {out_path}")
     if not out_df.empty:
         print(f"  per-symbol counts:\n{out_df.groupby('symbol').size().to_string()}")
     print(f"[distributions builder] wrote {len(coverage_df)} coverage rows to {coverage_path}")
 
     # Provenance write to bar_provenance.parquet
-    prov_path = PROJ / "data" / "ref" / "bar_provenance.parquet"
+    prov_path = data_root / "ref" / "bar_provenance.parquet"
     if prov_path.exists() and not new_df.empty:
         prov = pd.read_parquet(prov_path)
         prov_rows = []
@@ -333,7 +384,7 @@ def main():
         )
         prov = prov[keep_mask]
         prov_out = pd.concat([prov, prov_new], ignore_index=True)
-        prov_out.to_parquet(prov_path, index=False)
+        _atomic_to_parquet(prov_out, prov_path)
         print(f"[distributions builder] provenance updated: "
               f"+{len(prov_new)} rows in {prov_path}")
 
