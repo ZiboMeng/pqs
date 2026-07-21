@@ -141,3 +141,28 @@ def test_market_snapshot_preserves_sec_ticker_and_price_basis(monkeypatch):
     assert failed == []
     assert snapshot["ticker"].unique().tolist() == ["AAA", "BRK.B"]
     assert list(snapshot) == ["ticker", "date", "close", "volume"]
+
+
+def test_history_prefilter_uses_only_rows_through_cutoff(tmp_path, monkeypatch):
+    bars = _bars(100.0, 1_000_000.0, n=4)
+    future = pd.DataFrame(
+        {"close": [100.0, 100.0], "volume": [1_000_000.0, 1_000_000.0]},
+        index=pd.to_datetime(["2026-07-20", "2026-07-21"]),
+    )
+    monkeypatch.setattr(
+        build_company_pool,
+        "_load_local_bars",
+        lambda _root, _ticker: pd.concat([bars, future]),
+    )
+    assert build_company_pool._has_required_local_history(
+        tmp_path,
+        "AAA",
+        cutoff=pd.Timestamp("2026-07-17"),
+        minimum_sessions=4,
+    )
+    assert not build_company_pool._has_required_local_history(
+        tmp_path,
+        "AAA",
+        cutoff=pd.Timestamp("2026-07-17"),
+        minimum_sessions=5,
+    )

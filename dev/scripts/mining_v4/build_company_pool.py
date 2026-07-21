@@ -66,6 +66,27 @@ def _snapshot_candidate_tickers(
     return sorted(tickers)
 
 
+def _has_required_local_history(
+    data_root: Path,
+    ticker: str,
+    *,
+    cutoff: pd.Timestamp,
+    minimum_sessions: int,
+) -> bool:
+    """Apply only the selector's history prerequisite before remote fetch."""
+
+    bars = _load_local_bars(data_root, ticker)
+    if bars is None or bars.empty:
+        return False
+    if not isinstance(bars.index, pd.DatetimeIndex):
+        return False
+    index = pd.DatetimeIndex(bars.index).tz_localize(None).normalize()
+    bars = bars.set_axis(index).loc[index <= cutoff]
+    bars = bars.dropna(subset=["close", "volume"])
+    bars = bars[(bars["close"] > 0) & (bars["volume"] >= 0)]
+    return len(bars) >= minimum_sessions
+
+
 def _fetch_market_snapshot(
     tickers: list[str],
     *,
@@ -208,6 +229,20 @@ def main() -> int:
     else:
         snapshot_tickers = _snapshot_candidate_tickers(
             records, pool_cfg, excluded_set)
+        snapshot_tickers = [
+            ticker
+            for ticker in snapshot_tickers
+            if _has_required_local_history(
+                data_root,
+                ticker,
+                cutoff=cutoff,
+                minimum_sessions=pool_cfg.min_history_sessions_at_snapshot,
+            )
+        ]
+        print(
+            f"market snapshot history prefilter: {len(snapshot_tickers)} symbols",
+            flush=True,
+        )
         snapshot, snapshot_failed = _fetch_market_snapshot(
             snapshot_tickers,
             start=snapshot_start,
