@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pandas as pd
 import pytest
 
@@ -9,6 +11,7 @@ from core.research.company_pool import (
     parse_sec_company_tickers,
     select_company_pool,
 )
+from dev.scripts.mining_v4 import build_company_pool
 
 
 def _bars(price: float, volume: float, *, n: int = 8, end: str = "2026-07-17"):
@@ -100,3 +103,41 @@ def test_artifact_hash_is_order_stable_and_content_sensitive():
     two = canonical_artifact_hash({"a": 1, "b": 2})
     assert one == two
     assert one != canonical_artifact_hash({"a": 1, "b": 3})
+
+
+def test_snapshot_candidate_list_is_a_filtered_superset():
+    records = [
+        {"cik": 1, "name": "A Inc", "ticker": "AAA", "exchange": "NYSE"},
+        {"cik": 2, "name": "SPDR ETF", "ticker": "FUND", "exchange": "NYSE"},
+        {"cik": 3, "name": "Blocked", "ticker": "BAD", "exchange": "Nasdaq"},
+        {"cik": 4, "name": "OTC Inc", "ticker": "OTC", "exchange": "OTC"},
+    ]
+    assert build_company_pool._snapshot_candidate_tickers(
+        records, _config(), {"BAD"}) == ["AAA"]
+
+
+def test_market_snapshot_preserves_sec_ticker_and_price_basis(monkeypatch):
+    class FakeProvider:
+        def __init__(self, *, auto_adjust, progress):
+            assert auto_adjust is False
+            assert progress is False
+
+        def fetch_daily(self, symbols, *, start, end):
+            assert symbols == ["AAA", "BRK-B"]
+            assert end == pd.Timestamp("2026-07-18")
+            return {
+                symbol: SimpleNamespace(df=_bars(100.0, 1_000_000.0, n=3))
+                for symbol in symbols
+            }
+
+    monkeypatch.setattr(build_company_pool, "YFinanceProvider", FakeProvider)
+    snapshot, failed = build_company_pool._fetch_market_snapshot(
+        ["AAA", "BRK.B"],
+        start=pd.Timestamp("2026-07-01"),
+        end_exclusive=pd.Timestamp("2026-07-18"),
+        batch_size=100,
+        pause_seconds=0.0,
+    )
+    assert failed == []
+    assert snapshot["ticker"].unique().tolist() == ["AAA", "BRK.B"]
+    assert list(snapshot) == ["ticker", "date", "close", "volume"]
