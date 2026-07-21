@@ -34,7 +34,7 @@ PRD: docs/prd/20260520-prd_rank_first_ml_pipeline.md §P4.4
 """
 from __future__ import annotations
 
-from typing import Iterable, Tuple
+from typing import Iterable
 
 import numpy as np
 import pandas as pd
@@ -157,7 +157,10 @@ def make_residualized_rank_labels(
     market = market_series.reindex(price_df.index)
     fwd_mkt = market.shift(-horizon_days).div(market) - 1.0
     beta = _rolling_market_beta(
-        price_df.pct_change(), market.pct_change(), beta_window)
+        price_df.pct_change(fill_method=None),
+        market.pct_change(fill_method=None),
+        beta_window,
+    )
     residual = fwd_ret.sub(beta.mul(fwd_mkt, axis=0))
     return residual.rank(axis=1, pct=True)
 
