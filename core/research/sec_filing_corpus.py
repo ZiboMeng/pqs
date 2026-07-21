@@ -78,7 +78,8 @@ def parse_recent_submissions(
                 f"{ticker} {accession}: acceptanceDateTime must be timezone-aware")
         acceptance = acceptance.tz_convert("UTC")
         document = str(columns["primaryDocument"][idx] or "")
-        _validate_primary_document(document)
+        if document:
+            _validate_primary_document(document)
         records.append(FilingMetadata(
             ticker=ticker,
             cik=int(cik),

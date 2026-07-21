@@ -48,3 +48,12 @@ def test_parser_rejects_unsafe_primary_document():
     payload["filings"]["recent"]["primaryDocument"][0] = "../secret"
     with pytest.raises(ValueError, match="unsafe"):
         parse_recent_submissions(payload, ticker="ABC", cik=1)
+
+
+def test_missing_primary_document_is_kept_for_structured_metadata_only():
+    payload = _payload()
+    payload["filings"]["recent"]["primaryDocument"][0] = ""
+    records = parse_recent_submissions(payload, ticker="ABC", cik=1)
+    assert records[0].primary_document == ""
+    with pytest.raises(ValueError, match="unsafe"):
+        filing_document_url(records[0])
