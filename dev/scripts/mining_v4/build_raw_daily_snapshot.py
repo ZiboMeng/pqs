@@ -203,7 +203,7 @@ def main() -> int:
         shutil.copy2(splits_source, building / "ref" / "splits.parquet")
         manifest = {
             "schema_version": 1,
-            "snapshot_id": "mining-v4-raw-daily-v1",
+            "snapshot_id": output_root.name,
             "created_at_utc": datetime.now(timezone.utc).isoformat(),
             "builder_commit": _git_commit(),
             "builder_script_sha256": _sha256(Path(__file__).resolve()),
