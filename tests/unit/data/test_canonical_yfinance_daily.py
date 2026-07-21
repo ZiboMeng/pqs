@@ -65,6 +65,8 @@ def test_finalize_manifest_stamps_reference_hashes(tmp_path) -> None:
         "splits.parquet",
         "distributions.parquet",
         "distribution_coverage.parquet",
+        "split_coverage.parquet",
+        "split_verification_events.parquet",
         "daily_source_boundaries.parquet",
     ):
         pd.DataFrame({"value": [1]}).to_parquet(ref / name)

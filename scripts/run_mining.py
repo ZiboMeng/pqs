@@ -39,12 +39,12 @@ import pandas as pd
 from core.config.loader import load_config
 from core.data.market_data_store import MarketDataStore
 from core.execution.cost_model import CostModel
-from core.regime.regime_detector import RegimeDetector
-from core.mining.strategy_space import ALL_SPACES
-from core.mining.evaluator import MiningEvaluator
+from core.logging_setup import get_logger, setup_logging
 from core.mining.archive import MiningArchive
+from core.mining.evaluator import MiningEvaluator
 from core.mining.miner import StrategyMiner
-from core.logging_setup import setup_logging, get_logger
+from core.mining.strategy_space import ALL_SPACES
+from core.regime.regime_detector import RegimeDetector
 
 setup_logging()
 logger = get_logger("run_mining")
@@ -74,6 +74,7 @@ def load_prices(store: MarketDataStore, symbols: list) -> pd.DataFrame:
     validate_total_return_coverage(
         store.data_dir,
         list(panel.columns),
+        from_date=panel.index.min(),
         through=panel.index.max(),
     )
     return panel
@@ -128,7 +129,7 @@ def main():
                 logger.info("存档为空，请先运行挖掘。")
         else:
             header = (
-                f"策略挖掘排行榜 Top 30"
+                "策略挖掘排行榜 Top 30"
                 + (f"（lineage={args.lineage_filter}）" if args.lineage_filter else "")
             )
             print(f"\n=== {header} ===")

@@ -79,7 +79,8 @@ mask 必须通过 prefix-invariance 测试：在末尾追加未来 bars，不得
 
 - feature 可以使用统一 split-adjusted price-return basis；
 - 组合收益、SPY gate、候选冻结必须是 distribution-adjusted total return；
-- 目标 pool 每个标的必须有 successful corporate-action query coverage through cutoff；
+- 目标 pool 每个标的必须有 successful split 与 distribution query coverage，且同时覆盖历史起点和 cutoff；
+- split coverage 必须逐事件日期/比例与 canonical table 对账；“事件表里没有该 ticker”不能视为零拆股证明；
 - `validate_total_return_coverage()` 不通过时，portfolio run fail-closed；
 - 所有 source manifest、split/distribution hash 和 observed cutoff 写入结果。
 

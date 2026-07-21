@@ -92,6 +92,7 @@ def load_adjusted_panel(
         validate_total_return_coverage(
             root,
             list(out["close"].columns),
+            from_date=out["close"].index.min(),
             through=out["close"].index.max(),
         )
     return out

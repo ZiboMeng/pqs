@@ -150,6 +150,8 @@ def finalize_manifest(path: Path, data_root: Path) -> dict:
         "splits.parquet",
         "distributions.parquet",
         "distribution_coverage.parquet",
+        "split_coverage.parquet",
+        "split_verification_events.parquet",
         "daily_source_boundaries.parquet",
     ):
         ref_path = data_root / "ref" / name

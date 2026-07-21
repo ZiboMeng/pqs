@@ -79,6 +79,12 @@ expanded_v2 的覆盖实测：
 split-adjusted price-return 开发诊断，但任何和 SPY 比收益的组合结论必须先扩展 corporate-action coverage
 并通过该 validator。
 
+2026-07-20 的治理复核进一步发现：旧 validator 只校验全局 `splits.parquet` hash，没有逐标的证明
+“查询成功但确实无拆股”。已新增 `split_coverage.parquet` 与逐日期/比例 vendor-canonical 对账；coverage
+必须同时覆盖请求的历史起点和终点。冻结的 300 公司池当前只有 41/300 distribution query coverage，
+128/300 在 split 事件表中出现过（后者仍不代表其余 172 家已查询）。在新 sidecar 完成前，组合收益
+和 SPY gate 会机械 fail-closed；受 Yahoo rate-limit 影响的查询只能记为 provider error，不能记为零事件。
+
 ### P1-A：旧 ML portfolio metric 与正式执行语义不完全一致
 
 `portfolio_metrics()` 用权重 shift(1) 乘 close-to-close return，因果上不前视，但没有精确模拟信号后
