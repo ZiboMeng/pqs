@@ -105,6 +105,23 @@ def test_artifact_hash_is_order_stable_and_content_sensitive():
     assert one != canonical_artifact_hash({"a": 1, "b": 3})
 
 
+def test_selection_keeps_only_most_liquid_share_class_per_cik():
+    records = [
+        {"cik": 1, "name": "Alphabet Inc", "ticker": "GOOG", "exchange": "Nasdaq"},
+        {"cik": 1, "name": "Alphabet Inc", "ticker": "GOOGL", "exchange": "Nasdaq"},
+        {"cik": 2, "name": "Other Inc", "ticker": "OTHR", "exchange": "NYSE"},
+    ]
+    bars = {
+        "GOOG": _bars(100.0, 2_000_000.0),
+        "GOOGL": _bars(100.0, 3_000_000.0),
+        "OTHR": _bars(100.0, 1_000_000.0),
+    }
+    result = select_company_pool(
+        records, bars.get, price_as_of="2026-07-17", config=_config())
+    assert [row["ticker"] for row in result.selected] == ["GOOGL", "OTHR"]
+    assert result.rejection_counts["duplicate_cik_share_class"] == 1
+
+
 def test_snapshot_candidate_list_is_a_filtered_superset():
     records = [
         {"cik": 1, "name": "A Inc", "ticker": "AAA", "exchange": "NYSE"},
@@ -141,6 +158,27 @@ def test_market_snapshot_preserves_sec_ticker_and_price_basis(monkeypatch):
     assert failed == []
     assert snapshot["ticker"].unique().tolist() == ["AAA", "BRK.B"]
     assert list(snapshot) == ["ticker", "date", "close", "volume"]
+
+
+def test_market_snapshot_records_all_nan_symbol_as_failed(monkeypatch):
+    class FakeProvider:
+        def __init__(self, *, auto_adjust, progress):
+            pass
+
+        def fetch_daily(self, symbols, *, start, end):
+            bad = _bars(100.0, 1_000_000.0, n=3)
+            bad.loc[:, ["close", "volume"]] = float("nan")
+            return {"BAD": SimpleNamespace(df=bad)}
+
+    monkeypatch.setattr(build_company_pool, "YFinanceProvider", FakeProvider)
+    with pytest.raises(RuntimeError, match="no usable symbols"):
+        build_company_pool._fetch_market_snapshot(
+            ["BAD"],
+            start=pd.Timestamp("2026-07-01"),
+            end_exclusive=pd.Timestamp("2026-07-18"),
+            batch_size=100,
+            pause_seconds=0.0,
+        )
 
 
 def test_history_prefilter_uses_only_rows_through_cutoff(tmp_path, monkeypatch):

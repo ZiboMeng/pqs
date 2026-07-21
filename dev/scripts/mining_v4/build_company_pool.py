@@ -126,7 +126,11 @@ def _fetch_market_snapshot(
             if wrapped is None or wrapped.df.empty:
                 failed.append(sec_symbol)
                 continue
-            frame = wrapped.df[["close", "volume"]].copy()
+            frame = wrapped.df[["close", "volume"]].dropna(
+                subset=["close", "volume"])
+            if frame.empty:
+                failed.append(sec_symbol)
+                continue
             frame = frame.loc[frame.index <= end_exclusive - pd.Timedelta(days=1)]
             frame.insert(0, "date", frame.index)
             frame.insert(0, "ticker", sec_symbol)
@@ -150,6 +154,7 @@ def _read_snapshot(path: Path) -> pd.DataFrame:
     snapshot = snapshot[list(sorted(required))].copy()
     snapshot["ticker"] = snapshot["ticker"].astype(str).str.upper()
     snapshot["date"] = pd.to_datetime(snapshot["date"]).dt.tz_localize(None)
+    snapshot = snapshot.dropna(subset=["close", "volume"])
     return snapshot.sort_values(["ticker", "date"]).reset_index(drop=True)
 
 
@@ -203,10 +208,12 @@ def main() -> int:
         min_price=float(pool_doc["min_price"]),
         trailing_liquidity_sessions=int(pool_doc["trailing_liquidity_sessions"]),
         min_median_dollar_volume=float(pool_doc["min_median_dollar_volume"]),
+        one_ticker_per_cik=bool(pool_doc["one_ticker_per_cik"]),
         excluded_name_patterns=tuple(pool_doc["excluded_name_patterns"]),
     )
     excluded = list(universe.get("blacklist", []))
     excluded += list(universe.get("high_risk_symbols", {}).get("symbols", []))
+    excluded += list(pool_doc.get("excluded_symbols", []))
     excluded_set = {str(symbol).upper() for symbol in excluded}
 
     response = requests.get(
@@ -307,6 +314,7 @@ def main() -> int:
             "n_rows": int(len(snapshot)),
             "n_symbols": int(snapshot["ticker"].nunique()),
             "failed_symbols": snapshot_failed,
+            "failed_symbols_complete": snapshot_mode == "fetched",
         },
         "selection_config": asdict(pool_cfg),
         "project_excluded_symbols": sorted(set(excluded)),

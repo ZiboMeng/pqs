@@ -25,6 +25,7 @@ class CompanyPoolConfig:
     min_price: float = 5.0
     trailing_liquidity_sessions: int = 63
     min_median_dollar_volume: float = 20_000_000.0
+    one_ticker_per_cik: bool = True
     excluded_name_patterns: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -169,6 +170,17 @@ def select_company_pool(
 
     candidates.sort(
         key=lambda row: (-row["median_dollar_volume_63"], row["ticker"]))
+    if config.one_ticker_per_cik:
+        unique_companies: list[dict[str, Any]] = []
+        seen_ciks: set[int] = set()
+        for candidate in candidates:
+            cik = int(candidate["cik"])
+            if cik in seen_ciks:
+                rejection["duplicate_cik_share_class"] += 1
+                continue
+            seen_ciks.add(cik)
+            unique_companies.append(candidate)
+        candidates = unique_companies
     selected = tuple(candidates[:config.max_symbols])
     rejection["liquidity_rank_below_max_symbols"] += max(
         0, len(candidates) - len(selected))
