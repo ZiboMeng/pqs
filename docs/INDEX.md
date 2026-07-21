@@ -10,6 +10,15 @@ defined at the bottom of this file. Within each category section,
 
 ## Active Codex phase-three evidence
 
+- [audit/20260721-profitable_strategies_gates_and_short_review.md](audit/20260721-profitable_strategies_gates_and_short_review.md) —
+  对盈利策略/gate 调研的独立复审：更正 PUT 与 vol-targeting 证据、GRS/MDD/延迟门语义，
+  收敛统计 gate，并批准隔离的 `SHORT_RESEARCH_ONLY` lane、拒绝直接打开现有 long-only 路径。
+- [memos/20260721-next-step-qualification-evidence-and-mining.md](memos/20260721-next-step-qualification-evidence-and-mining.md) —
+  已定稿的下一步：先让 miner 产出 canonical qualification artifact，再比较 rule/linear/XGB/
+  structured/semantic 候选；同步定义 short feasibility 边界但不授权 production/live。
+- [audit/20260721-codex-independent-reaudit-and-hardening.md](audit/20260721-codex-independent-reaudit-and-hardening.md) —
+  对上一轮审计逐调用链复核后的治理加固：SPY/total-return/after-cost 单一自动晋升口径、
+  candidate-bound overfit/replay evidence、PAPER drift fail-closed，以及未重签已消耗证据的边界。
 - [audit/20260721-exact-cash-revalidation-and-next-round.md](audit/20260721-exact-cash-revalidation-and-next-round.md) —
   当前有效审计：作废近似现金 `v5`，建立精确现金账户 `v6`，重跑 numeric/SEC/text/event，
   完成唯一预注册 Buffer-15 实验，并给出文本表示层下一步边界。

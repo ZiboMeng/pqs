@@ -3,8 +3,8 @@
 - 当前真实业务模式为 PAPER；任何名为 `live` 的旧 CLI 都只表示 paper 的当日 bar
   执行，不表示真实 Broker。
 - 继续遵守 long-only、no-margin、no-short；不自动启用裸期权或 0DTE。
-- SPY 是 stable-core/rotation 的 primary benchmark；growth-engine 使用 QQQ 作为冻结的
-  相对 Calmar、beta 和风险增量 hard-gate benchmark。
+- SPY total return 是所有自动晋升类型唯一的 primary benchmark；QQQ 仅保留为
+  growth-engine 的相对 Calmar、beta 和风险增量 diagnostic，不参与自动晋升 PASS。
 - 本地开发可使用 SQLite；接口必须允许未来替换 PostgreSQL。
 - 无 Broker/商业 options 数据时继续实现标准接口、fixtures、Mock/PaperBroker，不阻塞
   其他工程工作。
