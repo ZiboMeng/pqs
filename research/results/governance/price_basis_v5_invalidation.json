@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "status": "INVALIDATED_FOR_RESEARCH_CONCLUSIONS",
+  "created_at_utc": "2026-07-21T18:40:00Z",
+  "automatic_promotion_eligible": false,
+  "invalid_snapshot": {
+    "snapshot_id": "yahoo_cash_total_return_2007_2024_v5",
+    "manifest_sha256": "411ec970276bcd88f44c874d18993f20532159a736692f4540a2670e30428009",
+    "root_cause": "The snapshot back-adjusted OHLC with the vendor-style factor 1 - cash_distribution_t / previous_close. That is only an approximation. Exact holder accounting is (close_t + cash_distribution_t) / previous_close - 1, and an execution portfolio must credit per-share cash only to positions held before the ex-date open.",
+    "scope": "All v5 numeric features and labels excluded cash distributions, SEC event labels excluded entitled in-holding-period cash, and portfolio OHLC used an approximate synthetic total-return basis. The v5 reports are retained as historical audit evidence but cannot support model selection, gate passage, promotion, or forward admission.",
+    "material_example": {
+      "symbol": "KDP",
+      "ex_date": "2018-07-10",
+      "cash_distribution": 103.75,
+      "previous_close": 123.66000366210938,
+      "cash_to_previous_close": 0.8389939910036571,
+      "v5_daily_return_error_abs": 0.0960775
+    }
+  },
+  "invalidated_reports": [
+    {
+      "path": "research/results/governed_numeric_rank_yahoo_cash_v5.json",
+      "sha256": "feee69992e61d22d0078dc14d00e49a17f402ea251b549d59221e6e27be951a2"
+    },
+    {
+      "path": "research/results/governed_sec_structured_yahoo_cash_v5.json",
+      "sha256": "f783a44e64c0778666cfb5a66ef60442dc1494cac6f5ace1672c92a99ec9169a"
+    },
+    {
+      "path": "research/results/governed_sec_8k_lexical_yahoo_cash_v5.json",
+      "sha256": "ac9496f31f61ec58b42c4d81aa500ce16fd0cf3c0deba2d0176143396ffe5a75"
+    },
+    {
+      "path": "research/results/governed_sec_event_portfolio_yahoo_cash_v5.json",
+      "sha256": "bf4cf0256602bc1885877667185236ad8a431590e49b6176b4029ceaa22d1c32"
+    }
+  ],
+  "superseding_snapshot": {
+    "snapshot_id": "yahoo_exact_cash_ledger_2007_2024_v6",
+    "manifest_sha256": "c8382dfbddfe2522c37558bb2f3c573fefedb3893c803d80abe1db9b93e80c46",
+    "price_basis": "YAHOO_SPLIT_ADJUSTED_OHLC_PLUS_EXACT_CASH_LEDGER_V2",
+    "cash_distribution_events": 11799,
+    "exact_recurrence_max_abs_error": 4.440892098500626e-16,
+    "excluded_ambiguous_symbols": [
+      "ASML",
+      "DHR",
+      "JCI",
+      "TMUS",
+      "TSM"
+    ]
+  },
+  "superseding_reports": [
+    {
+      "path": "research/results/governed_numeric_rank_exact_cash_v6.json",
+      "sha256": "45199e882f42a0847ffcbfd27c07c6bd4a9e4fd65d844c8255c9a9ac541f3c4b"
+    },
+    {
+      "path": "research/results/governed_sec_structured_exact_cash_v6.json",
+      "sha256": "9959b2d02f5d04035c8c3c8c90c89ae3048fc49a3473942fbc53f10cd36d8ac4"
+    },
+    {
+      "path": "research/results/governed_sec_8k_lexical_exact_cash_v6.json",
+      "sha256": "92f3f6deeabe13938314bf85312cdb7eb036986b618955f2b59e9251749316f0"
+    },
+    {
+      "path": "research/results/governed_sec_event_portfolio_exact_cash_v6.json",
+      "sha256": "1b9d9f0b943d963dacbc279783b41615a3dab7dd685300861d5daba9e6f1adb4"
+    }
+  ],
+  "invalidation_chain": {
+    "prior_invalid_snapshot": "raw_daily_snapshot_v3",
+    "prior_record": "research/results/governance/price_basis_v3_invalidation.json",
+    "interpretation": "v6 supersedes v5, which had previously superseded v3. Neither invalidated generation becomes valid through this chain."
+  },
+  "retention_policy": "Invalidated reports and their append-only ledger trials remain immutable audit evidence and stay in multiplicity accounting. They must not be deleted, cited as valid research results, or used to reset trial counts."
+}

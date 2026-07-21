@@ -53,5 +53,9 @@
       "sha256": "bf4cf0256602bc1885877667185236ad8a431590e49b6176b4029ceaa22d1c32"
     }
   ],
-  "retention_policy": "Invalidated reports and their ledger trials are retained as immutable audit evidence. They must not be cited as valid research results, used for model selection, or removed from multiplicity accounting."
+  "retention_policy": "Invalidated reports and their ledger trials are retained as immutable audit evidence. They must not be cited as valid research results, used for model selection, or removed from multiplicity accounting.",
+  "subsequent_supersession": {
+    "record": "research/results/governance/price_basis_v5_invalidation.json",
+    "note": "The v5 snapshot listed above was itself invalidated after an exact cash-accounting audit; v6 is the current development-only replacement."
+  }
 }

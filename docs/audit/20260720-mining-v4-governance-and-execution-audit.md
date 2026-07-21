@@ -1,5 +1,7 @@
 # Mining v4 治理、价格口径修复与策略挖掘审计
 
+> **后续作废通知（2026-07-21）：** 本文对 `v5` 总回报口径和基于它的研究结论已被精确现金复审推翻，只保留为历史审计证据。当前有效记录见 `docs/audit/20260721-exact-cash-revalidation-and-next-round.md` 和 `research/results/governance/price_basis_v5_invalidation.json`。
+
 日期：2026-07-20（America/Los_Angeles）
 
 分支：`codex/governance-and-semantic-strategy-v4`
