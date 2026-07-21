@@ -24,14 +24,17 @@ BacktestEngine: 日线级别向量化回测引擎。
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 import numpy as np
 import pandas as pd
 
 from core.execution.cost_model import CostModel
 from core.execution.execution_simulator import (
-    ExecutionSimulator, Fill, Order, OrderSide,
+    ExecutionSimulator,
+    Fill,
+    Order,
+    OrderSide,
 )
 from core.logging_setup import get_logger
 
@@ -150,6 +153,7 @@ class BacktestEngine:
         vix_series:       Optional[pd.Series] = None,
         regime_series:    Optional[pd.Series] = None,
         benchmark_series: Optional[pd.Series] = None,
+        rebalance_dates:  Optional[Iterable[pd.Timestamp]] = None,
     ) -> BacktestResult:
         """
         执行回测。
@@ -162,6 +166,9 @@ class BacktestEngine:
         vix_series    : VIX 日序列；若为 None，则使用默认值 15.0
         regime_series : RegimeState 字符串序列（可选）；
                         按当前 regime 约束最大总敞口（Q5-C：BacktestEngine 层 regime 感知）
+        rebalance_dates : 可选的显式 T-close 决策日期。提供时，只允许这些
+                          日期生成 T+1-open 订单；非决策日仅持有，不会为了
+                          维持 forward-filled 目标权重而隐式日频再平衡。
         """
         # 对齐所有日期轴
         dates = signals_df.index.intersection(price_df.index)
@@ -171,6 +178,19 @@ class BacktestEngine:
 
         signals  = signals_df.loc[dates]
         prices   = price_df.loc[dates]
+        explicit_rebalance_dates: set[pd.Timestamp] | None = None
+        if rebalance_dates is not None:
+            requested = pd.DatetimeIndex(rebalance_dates)
+            if requested.tz is not None:
+                requested = requested.tz_localize(None)
+            requested = requested.normalize()
+            missing_rebalance_dates = requested.difference(dates)
+            if len(missing_rebalance_dates):
+                raise ValueError(
+                    "rebalance_dates are absent from the backtest panel: "
+                    f"{[str(value) for value in missing_rebalance_dates[:5]]}"
+                )
+            explicit_rebalance_dates = set(requested)
 
         # Regime 总敞口约束（Q5-C）：按当前 regime 缩放信号权重
         if regime_series is not None:
@@ -319,13 +339,20 @@ class BacktestEngine:
                     cur_weights[sym] = (qty * p) / portfolio_value
 
             # 3. 目标权重（T日信号）
-            sig_row = signals.loc[date].fillna(0.0)
-            tgt_weights: Dict[str, float] = {
-                sym: float(w) for sym, w in sig_row.items() if w > 0
-            }
+            should_rebalance = (
+                explicit_rebalance_dates is None
+                or pd.Timestamp(date).normalize() in explicit_rebalance_dates
+            )
+            if should_rebalance:
+                sig_row = signals.loc[date].fillna(0.0)
+                tgt_weights: Dict[str, float] = {
+                    sym: float(w) for sym, w in sig_row.items() if w > 0
+                }
+            else:
+                tgt_weights = dict(cur_weights)
 
             # 4. 生成换仓订单（若明日有开盘价）
-            if i < len(dates) - 1:
+            if i < len(dates) - 1 and should_rebalance:
                 next_date  = dates[i + 1]
                 open_row   = opens.loc[next_date] if next_date in opens.index else pd.Series(dtype=float)
                 vix_val    = float(vix.loc[date])
@@ -569,9 +596,9 @@ def compute_metrics(
     # numerically-degenerate windows. Per D4 semantics: replace inf/−inf with
     # NaN and WARN (not silent) so the near-flat window is visible but does
     # not pollute aggregation via dropna at the call site.
-    _STD_FLOOR = 1e-8
+    _std_floor = 1e-8
     _std = float(excess.std())
-    if _std > _STD_FLOOR:
+    if _std > _std_floor:
         sharpe = float(excess.mean() / excess.std() * np.sqrt(annualization))
         if not np.isfinite(sharpe):
             logger.warning(
@@ -584,12 +611,12 @@ def compute_metrics(
             logger.warning(
                 "compute_metrics: near-flat series (std=%.2e ≤ %.0e floor); "
                 "clamping Sharpe to NaN to prevent astronomical value",
-                _std, _STD_FLOOR,
+                _std, _std_floor,
             )
         sharpe = np.nan
 
     downside = returns[returns < rf_daily]
-    if len(downside) > 1 and float(downside.std()) > _STD_FLOOR:
+    if len(downside) > 1 and float(downside.std()) > _std_floor:
         sortino = float(excess.mean() / downside.std() * np.sqrt(annualization))
         if not np.isfinite(sortino):
             logger.warning(

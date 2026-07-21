@@ -6,10 +6,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from core.backtest.backtest_engine import BacktestEngine, BacktestResult, compute_metrics
 from core.config.schemas.cost_model import CostModelConfig, CostTierConfig
 from core.execution.cost_model import CostModel
-from core.backtest.backtest_engine import BacktestEngine, BacktestResult, compute_metrics
-
 
 # ── 辅助函数 ──────────────────────────────────────────────────────────────────
 
@@ -182,7 +181,7 @@ class TestBacktestEngineRun:
         signals = pd.DataFrame({"A": [1.0] * 5}, index=idx)
 
         engine = BacktestEngine(zero_cost, initial_capital=10000)
-        result = engine.run(signals, close, open_df=open_df)
+        engine.run(signals, close, open_df=open_df)
         # Some orders skipped (NaN days) but the valid-open days should fill
         assert engine._skipped_missing_open > 0
 
@@ -227,6 +226,45 @@ class TestBacktestEngineRun:
         r_low  = low.run(signals, price)
         r_high = high.run(signals, price)
         assert r_high.n_trades <= r_low.n_trades
+
+    def test_explicit_rebalance_dates_prevent_implicit_daily_rebalancing(self):
+        zero_cost = CostModel(CostModelConfig(tiers={
+            "default": CostTierConfig(
+                symbols=[], commission_bps=0, slippage_interday_bps=0,
+                slippage_intraday_bps=0,
+            )
+        }))
+        idx = pd.bdate_range("2024-01-02", periods=8)
+        close = pd.DataFrame({"A": 100.0, "B": 100.0}, index=idx)
+        signals = pd.DataFrame(0.0, index=idx, columns=["A", "B"])
+        signals.loc[idx[0], "A"] = 1.0
+        signals.loc[idx[4], "B"] = 1.0
+        engine = BacktestEngine(
+            zero_cost,
+            initial_capital=10_000.0,
+            min_trade_usd=0.0,
+            rebalance_threshold=0.0,
+        )
+        result = engine.run(
+            signals,
+            close,
+            open_df=close,
+            rebalance_dates=[idx[0], idx[4]],
+        )
+        assert {fill.signal_date for fill in result.trades} == {idx[0], idx[4]}
+        assert result.positions.loc[idx[4], "A"] > 0
+        assert result.positions.loc[idx[5], "B"] > 0
+
+    def test_explicit_rebalance_date_must_exist_in_panel(self):
+        price = _make_price_df(10)
+        signals = _make_signals(price)
+        engine = BacktestEngine(_make_cost_model())
+        with pytest.raises(ValueError, match="absent"):
+            engine.run(
+                signals,
+                price,
+                rebalance_dates=[pd.Timestamp("1999-01-04")],
+            )
 
     def test_bullish_signals_grow_equity(self):
         """持续上涨行情 + 满仓信号 → 期末权益应高于初始资金。"""
