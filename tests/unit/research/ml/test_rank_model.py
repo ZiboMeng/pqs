@@ -40,6 +40,17 @@ class TestHelpers:
         row_means = std.mean(axis=1).dropna()
         assert (row_means.abs() < 1e-9).all()
 
+    def test_constant_row_maps_to_zero_without_filling_missing_cells(self):
+        panel = pd.DataFrame(
+            [[2.0, 2.0, np.nan]],
+            index=pd.DatetimeIndex(["2024-01-02"]),
+            columns=["A", "B", "C"],
+        )
+        standardized = _cross_sectional_standardize(panel)
+        assert standardized.loc["2024-01-02", "A"] == 0.0
+        assert standardized.loc["2024-01-02", "B"] == 0.0
+        assert pd.isna(standardized.loc["2024-01-02", "C"])
+
     def test_cross_sectional_rank_in_unit_interval(self, synth_panel):
         feats, _ = synth_panel
         r = _cross_sectional_rank(feats["feat_a"])

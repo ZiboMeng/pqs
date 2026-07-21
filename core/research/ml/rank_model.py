@@ -66,7 +66,11 @@ def _cross_sectional_standardize(panel: pd.DataFrame) -> pd.DataFrame:
     """
     mu = panel.mean(axis=1)
     sigma = panel.std(axis=1)
-    sigma = sigma.replace(0, np.nan)  # avoid div-by-zero
+    # A feature that is constant within one cross-section carries zero
+    # information for that bar, but it must not invalidate every other
+    # feature for the same observations.  Map finite zero-variance values to
+    # zero while preserving genuinely missing cells as NaN.
+    sigma = sigma.mask(sigma == 0, 1.0)
     standardized = panel.sub(mu, axis=0).div(sigma, axis=0)
     return standardized
 
