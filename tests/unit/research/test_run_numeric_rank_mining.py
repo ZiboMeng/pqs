@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 
 from dev.scripts.mining_v4.run_numeric_rank_mining import (
+    _portfolio_trial_intent,
     _validate_snapshot_manifest,
 )
 
@@ -64,3 +65,23 @@ def test_snapshot_manifest_rejects_post_build_daily_mutation(tmp_path: Path):
             symbols=["AAA", "SPY"],
             through="2024-12-31",
         )
+
+
+def test_trial_intent_allows_event_label_contract():
+    intent = _portfolio_trial_intent(
+        trial_id="trial",
+        model_name="model",
+        construction="signal_only",
+        cost_bps=0.0,
+        universe_hash="universe",
+        data_hash="data",
+        config_hash="config",
+        code_commit="commit",
+        feature_id="features",
+        start="2020-01-01",
+        end="2024-12-31",
+        observed_through="2026-07-17",
+        seed=42,
+        label_id="open_to_fifth_session_close_market_residual_rank",
+    )
+    assert intent.label_id == "open_to_fifth_session_close_market_residual_rank"

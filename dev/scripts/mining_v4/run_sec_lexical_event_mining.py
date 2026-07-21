@@ -288,6 +288,7 @@ def main() -> int:
                 seed=seed,
                 hypothesis_family="sec_8k_lexical_event_rank_signal",
                 execution_id="next_session_open_after_sec_acceptance",
+                label_id="open_to_fifth_session_close_market_residual_rank",
             ))
             result = run_oof_rank_mining(
                 factory, walk_config, model_features, labels, eligibility,

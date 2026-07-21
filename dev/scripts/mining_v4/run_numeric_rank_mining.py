@@ -290,6 +290,7 @@ def _portfolio_trial_intent(
     seed: int,
     hypothesis_family: str = "numeric_rank_portfolio",
     execution_id: str = "month_end_close_to_next_session_open",
+    label_id: str = "market_residual_rank_21d",
 ) -> TrialIntent:
     return TrialIntent(
         trial_id=trial_id,
@@ -301,7 +302,7 @@ def _portfolio_trial_intent(
         code_commit=code_commit,
         feature_id=feature_id,
         model_id=model_name,
-        label_id="market_residual_rank_21d",
+        label_id=label_id,
         construction_id=construction,
         cost_id=f"flat_one_way_{cost_bps:g}bps",
         execution_id=execution_id,

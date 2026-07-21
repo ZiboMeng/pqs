@@ -254,6 +254,7 @@ def main() -> int:
             cost_bps=0.0,
             hypothesis_family="sec_structured_event_rank_signal",
             execution_id="next_session_open_after_sec_acceptance",
+            label_id="open_to_fifth_session_close_market_residual_rank",
             **intent_common,
         ))
         result = run_oof_rank_mining(
