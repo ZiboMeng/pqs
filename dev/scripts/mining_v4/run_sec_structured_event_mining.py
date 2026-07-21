@@ -84,7 +84,12 @@ def _validate_corpus(
     if not provenance["http_status"].eq(200).all():
         raise RuntimeError("SEC corpus contains a non-200 response")
     for row in provenance.itertuples(index=False):
-        raw = corpus_root / "raw_submissions" / f"CIK{int(row.cik):010d}.json"
+        raw_relative_path = getattr(row, "raw_relative_path", None)
+        raw = (
+            corpus_root / str(raw_relative_path)
+            if raw_relative_path
+            else corpus_root / "raw_submissions" / f"CIK{int(row.cik):010d}.json"
+        )
         if _sha256_file(raw) != row.response_sha256:
             raise RuntimeError(f"SEC raw response hash mismatch for CIK {row.cik}")
     metadata = pd.read_parquet(metadata_path)

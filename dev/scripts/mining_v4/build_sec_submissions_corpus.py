@@ -29,6 +29,7 @@ from core.research.sec_filing_corpus import (  # noqa: E402
 )
 
 SEC_SUBMISSIONS = "https://data.sec.gov/submissions/CIK{cik:010d}.json"
+SEC_SUBMISSION_FILE = "https://data.sec.gov/submissions/{name}"
 
 
 def _sha256_bytes(payload: bytes) -> str:
@@ -100,6 +101,8 @@ def main() -> int:
     parser.add_argument("--output-root", required=True)
     parser.add_argument("--user-agent", default=DEFAULT_USER_AGENT)
     parser.add_argument("--requests-per-second", type=float, default=7.0)
+    parser.add_argument("--history-start", default="2015-01-01")
+    parser.add_argument("--history-end", default="2024-12-31")
     args = parser.parse_args()
     if not 0 < args.requests_per_second <= 10:
         raise ValueError("SEC requests-per-second must be in (0, 10]")
@@ -114,6 +117,8 @@ def main() -> int:
         prefix=f".{output_root.name}.building.", dir=output_root.parent))
     raw_dir = building / "raw_submissions"
     raw_dir.mkdir()
+    shard_dir = raw_dir / "shards"
+    shard_dir.mkdir()
     session = requests.Session()
     min_interval = 1.0 / args.requests_per_second
     last_request_at = float("-inf")
@@ -147,8 +152,56 @@ def main() -> int:
                 "last_modified": response.headers.get("Last-Modified"),
                 "response_bytes": len(content),
                 "response_sha256": _sha256_bytes(content),
-                "selected_recent_filings": len(records),
+                "selected_filings": len(records),
+                "response_kind": "main_recent",
+                "source_name": raw_path.name,
+                "raw_relative_path": str(raw_path.relative_to(building)),
             })
+            shards = payload.get("filings", {}).get("files", [])
+            for shard in shards:
+                filing_from = str(shard.get("filingFrom", ""))
+                filing_to = str(shard.get("filingTo", ""))
+                if (
+                    not filing_from
+                    or not filing_to
+                    or filing_to < args.history_start
+                    or filing_from > args.history_end
+                ):
+                    continue
+                shard_name = str(shard.get("name", ""))
+                if not shard_name.startswith(f"CIK{cik:010d}-submissions-"):
+                    raise ValueError(
+                        f"CIK {cik}: unsafe or mismatched shard {shard_name!r}")
+                shard_url = SEC_SUBMISSION_FILE.format(name=shard_name)
+                shard_response, last_request_at = _fetch(
+                    session,
+                    url=shard_url,
+                    user_agent=args.user_agent,
+                    last_request_at=last_request_at,
+                    min_interval_seconds=min_interval,
+                )
+                shard_content = shard_response.content
+                shard_payload = shard_response.json()
+                shard_records = parse_recent_submissions(
+                    shard_payload, ticker=ticker, cik=cik)
+                shard_path = shard_dir / shard_name
+                shard_path.write_bytes(shard_content)
+                all_records.extend(shard_records)
+                response_rows.append({
+                    "ticker": ticker,
+                    "cik": cik,
+                    "url": shard_url,
+                    "http_status": shard_response.status_code,
+                    "content_type": shard_response.headers.get("Content-Type"),
+                    "etag": shard_response.headers.get("ETag"),
+                    "last_modified": shard_response.headers.get("Last-Modified"),
+                    "response_bytes": len(shard_content),
+                    "response_sha256": _sha256_bytes(shard_content),
+                    "selected_filings": len(shard_records),
+                    "response_kind": "historical_shard",
+                    "source_name": shard_name,
+                    "raw_relative_path": str(shard_path.relative_to(building)),
+                })
             if position % 25 == 0 or position == len(pool["selected"]):
                 print(
                     f"fetched {position}/{len(pool['selected'])} "
@@ -172,10 +225,18 @@ def main() -> int:
             "parser_module_sha256": _sha256_file(
                 PROJ / "core" / "research" / "sec_filing_corpus.py"),
             "pool_artifact_sha256": pool["artifact_sha256"],
-            "source": "SEC submissions recent endpoint",
+            "source": "SEC submissions main endpoint plus overlapping historical shards",
             "source_base": "https://data.sec.gov/submissions/",
+            "historical_shards_included": True,
+            "historical_shard_overlap_start": args.history_start,
+            "historical_shard_overlap_end": args.history_end,
             "requests_per_second_cap": args.requests_per_second,
             "raw_responses": len(response_rows),
+            "main_responses": sum(
+                row["response_kind"] == "main_recent" for row in response_rows),
+            "historical_shard_responses": sum(
+                row["response_kind"] == "historical_shard"
+                for row in response_rows),
             "selected_filings": len(metadata),
             "forms": metadata["form"].value_counts().sort_index().to_dict(),
             "first_acceptance_utc": (

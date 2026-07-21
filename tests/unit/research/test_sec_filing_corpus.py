@@ -71,3 +71,9 @@ def test_same_cik_accession_duplicate_fails_closed():
     record = parse_recent_submissions(_payload(), ticker="ABC", cik=1)[0]
     with pytest.raises(ValueError, match="CIK/accession"):
         records_frame([record, record])
+
+
+def test_historical_shard_top_level_arrays_are_parsed():
+    shard = _payload()["filings"]["recent"]
+    records = parse_recent_submissions(shard, ticker="ABC", cik=1)
+    assert [record.form for record in records] == ["8-K", "10-Q"]

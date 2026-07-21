@@ -46,11 +46,15 @@ def parse_recent_submissions(
     """Parse governed recent filings without using filing/report date as time."""
 
     filings = payload.get("filings")
-    if not isinstance(filings, Mapping):
-        raise ValueError("SEC submissions response lacks filings object")
-    recent = filings.get("recent")
-    if not isinstance(recent, Mapping):
-        raise ValueError("SEC submissions response lacks filings.recent object")
+    if isinstance(filings, Mapping) and isinstance(filings.get("recent"), Mapping):
+        recent = filings["recent"]
+    elif isinstance(payload.get("accessionNumber"), list):
+        # Historical submissions shard files expose the same column arrays at
+        # the JSON top level rather than under filings.recent.
+        recent = payload
+    else:
+        raise ValueError(
+            "SEC response is neither a main submissions object nor a shard")
     accessions = recent.get("accessionNumber")
     if not isinstance(accessions, list):
         raise ValueError("SEC submissions recent.accessionNumber must be a list")
