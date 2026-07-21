@@ -90,3 +90,14 @@ def test_error_path_fail_closed_not_silent():
     assert res.overall_passed is False
     g = [x for x in res.gates if x.name == "cpcv_distribution_acceptance"][0]
     assert g.passed is False
+
+
+def test_automatic_promotion_requires_cpcv_inputs():
+    res = run_split_acceptance(
+        {"automatic_promotion_intent": True},
+        "core_alpha",
+        split_path="d",
+    )
+    gate = res.gate_named("cpcv_distribution_acceptance")
+    assert gate is not None and gate.passed is False
+    assert res.overall_passed is False

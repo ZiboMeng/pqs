@@ -7,23 +7,25 @@ A spec_id from the mining archive is considered promotable only if it passes
 ALL gates below. Each gate is a boolean with supporting diagnostic values;
 the aggregate verdict (`overall_passed`) is `all(gate.passed for gate in ...)`.
 
-**Pack v2 (2026-04-21, post-rollback)** — history: v1 trusted archive row as
+**Pack v3 (2026-07-21)** — history: v1 trusted archive row as
 authoritative evidence, but a real promote attempt revealed that archive's
 `quick_cagr` / `qqq_full_period_excess` fields come from the **quick 70%
 data fraction**, not a full-period backtest. A spec that looked great in
 the quick window can underperform QQQ on full period.
 
-v2 adds gate 10 `full_period_fresh_backtest` — re-runs MultiFactorStrategy
-with spec params on full price panel, computes actual CAGR vs QQQ CAGR, and
-fails if strategy doesn't beat QQQ on current data. This makes the pack
-more expensive (1-2 min) but structurally honest.
+v3 re-runs MultiFactorStrategy on split-adjusted execution prices plus an
+exact cash-distribution ledger, compares after-cost performance with a costed
+SPY buy-and-hold portfolio, treats QQQ as diagnostic, and requires a bound
+lookahead/overfit/paper-alignment artifact for automatic promotion.
 
-Set `run_fresh_backtest=False` for unit tests with synthetic archives.
+Set `run_fresh_backtest=False` only for diagnostic/unit-test packs; automatic
+promotion treats it as a failure.
 """
 from __future__ import annotations
 
 import json
 import sqlite3
+import subprocess
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -42,6 +44,7 @@ class GateResult:
     values: Dict[str, Any] = field(default_factory=dict)
     threshold: Dict[str, Any] = field(default_factory=dict)
     notes: str = ""
+    binding: bool = True
 
     def as_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -57,6 +60,8 @@ class AcceptancePackResult:
     overall_passed: bool
     evaluated_at: str
     archive_evidence_only: bool = True
+    promotion_evidence_path: str = ""
+    promotion_evidence_sha256: str = ""
     notes: str = ""
 
     def as_dict(self) -> Dict[str, Any]:
@@ -69,14 +74,17 @@ class AcceptancePackResult:
             "overall_passed": self.overall_passed,
             "evaluated_at": self.evaluated_at,
             "archive_evidence_only": self.archive_evidence_only,
+            "promotion_evidence_path": self.promotion_evidence_path,
+            "promotion_evidence_sha256": self.promotion_evidence_sha256,
             "notes": self.notes,
         }
 
     def summary_line(self) -> str:
-        n_pass = sum(1 for g in self.gates if g.passed)
+        binding = [gate for gate in self.gates if gate.binding]
+        n_pass = sum(1 for gate in binding if gate.passed)
         return (
             f"AcceptancePack {self.spec_id[:12]} ({self.strategy_type}, "
-            f"{self.lineage_tag}): {n_pass}/{len(self.gates)} gates passed, "
+            f"{self.lineage_tag}): {n_pass}/{len(binding)} binding gates passed, "
             f"overall={'PASS' if self.overall_passed else 'FAIL'}"
         )
 
@@ -193,13 +201,12 @@ def _fetch_trial_row(archive_db: Path, spec_id: str) -> Dict[str, Any]:
 
 
 def _run_fresh_full_period_check(trial: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Re-run MultiFactorStrategy with spec params on current full price panel.
+    """Re-run on split-adjusted execution prices plus exact cash ledgers.
 
-    Returns dict with keys {strategy_cagr, qqq_cagr, excess, passed} or None
-    if data unavailable / strategy not multi_factor / any runtime error.
-
-    This is expensive (1-2 min on 53-symbol universe × 19 years). Called
-    only when pack is invoked with run_fresh_backtest=True.
+    Signals consume an exact total-return close recurrence, while portfolio
+    execution consumes as-traded split-adjusted OHLC and credits per-share
+    cash only to eligible overnight holders. SPY is a costed buy-and-hold
+    portfolio on the same dates and data basis; QQQ is diagnostic only.
     """
     try:
         from pathlib import Path as _P
@@ -207,6 +214,11 @@ def _run_fresh_full_period_check(trial: Dict[str, Any]) -> Optional[Dict[str, An
         import pandas as _pd
         from core.config.loader import load_config
         from core.data.market_data_store import MarketDataStore
+        from core.data.price_access import load_adjusted_panel
+        from core.data.cash_distribution_access import (
+            build_total_return_close_panel,
+            load_cash_distribution_panel,
+        )
         from core.regime.regime_detector import RegimeDetector
         from core.data.vix_loader import load_vix_series
         from core.signals.strategies.multi_factor import MultiFactorStrategy
@@ -249,67 +261,110 @@ def _run_fresh_full_period_check(trial: Dict[str, Any]) -> Optional[Dict[str, An
         risk_syms = [s for s in all_syms if s not in def_syms
                      and s not in ["TQQQ", "SOXL"] and s not in uni.blacklist]
 
-        frames = {}
-        open_frames = {}
-        for sym in all_syms:
-            df = store.read(sym, "1d")
-            if df is not None and not df.empty and "close" in df.columns:
-                frames[sym] = df["close"]
-                if "open" in df.columns:
-                    open_frames[sym] = df["open"]
-        price_df = _pd.DataFrame(frames).sort_index()
-        open_df = _pd.DataFrame(open_frames).sort_index() if open_frames else None
-        if price_df.empty or "SPY" not in price_df.columns or "QQQ" not in price_df.columns:
+        panel = load_adjusted_panel(
+            all_syms,
+            store.data_dir,
+            "1d",
+            adjusted_total_return=False,
+            fallback="local",
+        )
+        execution_close = panel["close"]
+        open_df = panel["open"]
+        if (
+            execution_close.empty
+            or open_df is None
+            or "SPY" not in execution_close.columns
+            or "QQQ" not in execution_close.columns
+        ):
             return {"error": "price data unavailable"}
-
-        spy = price_df["SPY"]
-        qqq = price_df["QQQ"]
-        vix = load_vix_series(store, price_df.index, mode="lenient")
-        regime = RegimeDetector(cfg.regime).classify_series(spy, vix)
+        open_df = open_df.reindex(
+            index=execution_close.index, columns=execution_close.columns)
+        cash = load_cash_distribution_panel(
+            store.data_dir,
+            list(execution_close.columns),
+            execution_close.index,
+            validate_coverage=True,
+        )
+        total_return_close = build_total_return_close_panel(execution_close, cash)
+        risk_syms = [symbol for symbol in risk_syms if symbol in total_return_close]
+        if not risk_syms:
+            return {"error": "no risk-universe symbols on certified price basis"}
+        spy_total_return = total_return_close["SPY"]
+        vix = load_vix_series(store, execution_close.index, mode="lenient")
+        regime = RegimeDetector(cfg.regime).classify_series(spy_total_return, vix)
 
         strat = MultiFactorStrategy(
             symbols=risk_syms, factor_weights=factor_weights, **ctor_params,
         )
-        signals = strat.generate(price_df, regime)
+        signals = strat.generate(total_return_close, regime)
         constructor = PortfolioConstructor(use_vol_parity=False)
         weights = constructor.build(
-            raw_signals=signals, price_df=price_df, regime_series=regime,
+            raw_signals=signals,
+            price_df=total_return_close,
+            regime_series=regime,
         )
         cost = CostModel(cfg.cost_model)
         engine = BacktestEngine(cost_model=cost, initial_capital=10000)
         bt = engine.run(
-            signals_df=weights, price_df=price_df, open_df=open_df,
-            regime_series=regime, benchmark_series=spy,
+            signals_df=weights,
+            price_df=execution_close,
+            open_df=open_df,
+            regime_series=regime,
+            cash_distributions_df=cash,
         )
-        # BacktestEngine may produce NaN in last bar (stale-data edge case);
-        # drop trailing NaN before computing CAGR so fresh check is robust.
+        if engine._skipped_missing_open:
+            return {
+                "error": (
+                    "fresh backtest attempted orders with missing execution opens: "
+                    f"{engine._skipped_missing_open}"
+                )
+            }
+
+        def _buy_and_hold(symbol: str):
+            decision = _pd.DataFrame(
+                {symbol: [1.0]},
+                index=_pd.DatetimeIndex([execution_close.index[0]]),
+            )
+            target = decision.reindex(execution_close.index).ffill()
+            benchmark_engine = BacktestEngine(
+                cost_model=cost,
+                initial_capital=10000,
+                min_trade_usd=0.0,
+                rebalance_threshold=0.0,
+            )
+            result = benchmark_engine.run(
+                signals_df=target,
+                price_df=execution_close[[symbol]],
+                open_df=open_df[[symbol]],
+                rebalance_dates=[execution_close.index[0]],
+                cash_distributions_df=cash[[symbol]],
+            )
+            if benchmark_engine._skipped_missing_open:
+                raise RuntimeError(f"{symbol} benchmark has missing execution open")
+            return result
+
+        spy_result = _buy_and_hold("SPY")
+        qqq_result = _buy_and_hold("QQQ")
         equity_clean = bt.equity_curve.dropna()
-        metrics = compute_metrics(equity_clean, benchmark=spy)
-        # compute_metrics() uses lowercase 'cagr' key
+        spy_equity = spy_result.equity_curve.reindex(equity_clean.index)
+        metrics = compute_metrics(equity_clean, benchmark=spy_equity)
         strat_cagr_raw = metrics.get("cagr", metrics.get("CAGR", 0))
         strat_cagr = float(strat_cagr_raw) if strat_cagr_raw is not None else float("nan")
-
-        # Align QQQ window to backtest equity range for apples-to-apples
-        bt_idx = bt.equity_curve.index if not bt.equity_curve.empty else qqq.index
-        qqq_aligned = qqq.reindex(bt_idx, method="ffill").dropna()
-        if len(qqq_aligned) < 2:
-            return {"error": "QQQ window too short after alignment"}
-        years = (qqq_aligned.index[-1] - qqq_aligned.index[0]).days / 365.25
-        qqq_cagr = float(
-            (qqq_aligned.iloc[-1] / qqq_aligned.iloc[0]) ** (1 / max(years, 0.01)) - 1
-        )
+        spy_cagr = float(spy_result.metrics.get("cagr", float("nan")))
+        qqq_cagr = float(qqq_result.metrics.get("cagr", float("nan")))
 
         # NaN-safe comparison: NaN excess → fail-closed
         import math
-        if math.isnan(strat_cagr) or math.isnan(qqq_cagr):
+        if math.isnan(strat_cagr) or math.isnan(spy_cagr):
             return {
                 "strategy_cagr": strat_cagr,
+                "spy_cagr": spy_cagr,
                 "qqq_cagr": qqq_cagr,
                 "excess": float("nan"),
                 "passed": False,
-                "note": "NaN in CAGR; BacktestEngine may have produced invalid equity curve",
+                "note": "NaN in strategy/SPY CAGR; fail-closed",
             }
-        excess = strat_cagr - qqq_cagr
+        excess = strat_cagr - spy_cagr
         # M12 concentration metrics from the freshly-computed weight matrix.
         # These pass through verbatim from BacktestResult.metrics
         # (populated by core.backtest.concentration_metrics during run()).
@@ -317,11 +372,17 @@ def _run_fresh_full_period_check(trial: Dict[str, Any]) -> Optional[Dict[str, An
         m12_top3 = bt.metrics.get("m12_top3_weight_max")
         return {
             "strategy_cagr": strat_cagr,
+            "spy_cagr": spy_cagr,
             "qqq_cagr": qqq_cagr,
             "excess": excess,
             "passed": excess > 0,
+            "strategy_max_drawdown": metrics.get("max_drawdown"),
+            "spy_max_drawdown": spy_result.metrics.get("max_drawdown"),
             "m12_top1_weight_max": m12_top1,
             "m12_top3_weight_max": m12_top3,
+            "price_basis": "split_adjusted_execution_plus_exact_cash_ledger",
+            "benchmark_symbol": "SPY",
+            "strategy_costs_included": True,
         }
     except Exception as exc:
         return {"error": f"fresh backtest failed: {exc}"}
@@ -330,6 +391,9 @@ def _run_fresh_full_period_check(trial: Dict[str, Any]) -> Optional[Dict[str, An
 def _build_gates(
     trial: Dict[str, Any],
     fresh_check: Optional[Dict[str, Any]] = None,
+    *,
+    promotion_evidence: Any = None,
+    automatic_promotion: bool = False,
 ) -> List[GateResult]:
     """Construct the gates from a trial row (and optional fresh check)."""
     gates: List[GateResult] = []
@@ -380,13 +444,17 @@ def _build_gates(
     # Archive row may not always have this (legacy trials); treat None as skipped.
     div = trial.get("passed_diversity")
     if div is None:
-        # Diversity passed by default if no promoted to compare against.
         gates.append(GateResult(
             name="diversity",
-            passed=True,
+            passed=not automatic_promotion,
             values={"diversity_corr": trial.get("diversity_corr")},
             threshold={"note": "Not evaluated against current promoted set"},
-            notes="SKIP-PASS (no prior promoted to correlate against)",
+            notes=(
+                "FAIL — automatic promotion requires measured diversity"
+                if automatic_promotion
+                else "DIAGNOSTIC SKIP — no prior promoted strategy to compare"
+            ),
+            binding=automatic_promotion,
         ))
     else:
         gates.append(GateResult(
@@ -410,29 +478,51 @@ def _build_gates(
     ))
 
     # Gate 6: MaxDD absolute + relative
-    max_dd = trial.get("quick_max_dd")
-    # quick_max_dd is stored as positive (e.g. 0.30 means -30%); convert.
+    max_dd = (
+        fresh_check.get("strategy_max_drawdown")
+        if fresh_check and "strategy_max_drawdown" in fresh_check
+        else trial.get("quick_max_dd")
+    )
     strat_dd_signed = -abs(max_dd) if max_dd is not None else None
-    passed_dd = strat_dd_signed is None or (strat_dd_signed >= _THRESHOLDS["maxdd_abs_floor"])
+    spy_dd = fresh_check.get("spy_max_drawdown") if fresh_check else None
+    relative_ratio = None
+    if strat_dd_signed is not None and spy_dd not in (None, 0):
+        relative_ratio = abs(float(strat_dd_signed)) / abs(float(spy_dd))
+    absolute_passed = (
+        strat_dd_signed is not None
+        and strat_dd_signed >= _THRESHOLDS["maxdd_abs_floor"]
+    )
+    passed_dd = absolute_passed and (
+        not automatic_promotion
+        or (
+            relative_ratio is not None
+            and relative_ratio <= _THRESHOLDS["maxdd_rel_multiplier"]
+        )
+    )
     gates.append(GateResult(
         name="max_drawdown",
         passed=passed_dd,
-        values={"max_dd": strat_dd_signed},
+        values={
+            "max_dd": strat_dd_signed,
+            "spy_max_dd": spy_dd,
+            "relative_ratio": relative_ratio,
+        },
         threshold={
             "abs_floor": _THRESHOLDS["maxdd_abs_floor"],
             "rel_vs_spy_multiplier": _THRESHOLDS["maxdd_rel_multiplier"],
         },
-        notes=("Relative-to-SPY check requires benchmark data; "
-               "v1 acceptance pack enforces absolute floor only."),
+        notes=(
+            "Absolute and relative-to-SPY drawdown checks are both binding."
+            if automatic_promotion
+            else "Diagnostic pack enforces the historical absolute drawdown floor."
+        ),
     ))
 
     # Gate 7: M12 concentration enforcement (codex Round-5).
     # When a fresh backtest is available, use the per-date top-1 / top-3
     # weight maxima to enforce the hard ceilings (40% / 70%). When no
-    # fresh backtest is available, fall back to skip-PASS with an
-    # explicit note — Gate 7 cannot adjudicate concentration without
-    # the realized weight matrix, and refusing to score it would
-    # block all archive-only acceptance runs.
+    # fresh backtest is available, report an explicit non-binding diagnostic
+    # gap. Automatic promotion treats the same missing evidence as a failure.
     from core.backtest.concentration_metrics import (
         DEFAULT_TOP1_CEILING,
         DEFAULT_TOP3_CEILING,
@@ -487,32 +577,74 @@ def _build_gates(
     else:
         gates.append(GateResult(
             name="concentration",
-            passed=True,
+            passed=not automatic_promotion,
             values={"m12_top1_weight_max": None, "m12_top3_weight_max": None},
             threshold={
                 "top1_ceiling": DEFAULT_TOP1_CEILING,
                 "top3_ceiling": DEFAULT_TOP3_CEILING,
             },
             notes=(
-                "SKIP-PASS — no fresh backtest available "
-                "(run_fresh_backtest=False or non-multi_factor strategy); "
-                "concentration not re-validated. Re-run with "
-                "run_fresh_backtest=True to enforce."
+                "FAIL — automatic promotion requires fresh concentration evidence"
+                if automatic_promotion
+                else "DIAGNOSTIC SKIP — fresh concentration evidence unavailable"
             ),
+            binding=automatic_promotion,
         ))
 
-    # Gate 8: Paper-backtest alignment — skipped in v1 pack (runtime contract
-    # in M1 ensures same strategy instance in both). Future v2: run a small
-    # replay + diff.
+    evidence_failures = (
+        tuple(promotion_evidence.failed_checks)
+        if promotion_evidence is not None
+        else ("promotion_evidence_missing",)
+    )
+    evidence_payload = (
+        promotion_evidence.payload
+        if promotion_evidence is not None
+        else {}
+    )
+    lookahead_passed = bool(evidence_payload.get("lookahead")) and not any(
+        item.startswith("lookahead_") for item in evidence_failures
+    )
+    overfit_passed = bool(evidence_payload.get("overfit")) and not any(
+        item.startswith("overfit_") for item in evidence_failures
+    )
     gates.append(GateResult(
-        name="paper_backtest_alignment",
-        passed=True,
-        values={},
-        threshold={"max_equity_drift_bps": 10},
-        notes="SKIP-PASS in pack v1; contract enforced by M1 single-source-of-truth + M3 alignment check.",
+        name="lookahead_evidence",
+        passed=lookahead_passed,
+        values={"failed_checks": list(evidence_failures)},
+        threshold={"candidate_bound_test_artifact": True},
+        notes="Candidate-bound test evidence; a boolean attestation is insufficient.",
+        binding=automatic_promotion,
+    ))
+    gates.append(GateResult(
+        name="overfit_evidence",
+        passed=overfit_passed,
+        values={"failed_checks": list(evidence_failures)},
+        threshold={"dsr_pbo_minbtl_cpcv": "all required"},
+        notes="Prospective automatic promotion only; legacy absence is not a pass.",
+        binding=automatic_promotion,
     ))
 
-    # Gate 9: QQQ hard gate (from archive quick_eval excess)
+    alignment_passed = bool(evidence_payload.get("paper_backtest_alignment")) and not any(
+        item.startswith("paper_backtest_alignment_") for item in evidence_failures
+    )
+    gates.append(GateResult(
+        name="paper_backtest_alignment",
+        passed=alignment_passed,
+        values={"failed_checks": list(evidence_failures)},
+        threshold={"max_equity_drift_bps": 10},
+        notes="Requires a hashed candidate-specific replay/diff artifact.",
+        binding=automatic_promotion,
+    ))
+    gates.append(GateResult(
+        name="bound_promotion_evidence",
+        passed=bool(promotion_evidence is not None and promotion_evidence.passed),
+        values={"failed_checks": list(evidence_failures)},
+        threshold={"all_evidence_controls_pass": True},
+        notes="Missing or stale evidence routes to REVIEW_HOLD.",
+        binding=automatic_promotion,
+    ))
+
+    # Gate 9: legacy QQQ diagnostic (from archive quick_eval excess)
     passed_qqq = bool(trial.get("passed_qqq_gate"))
     gates.append(GateResult(
         name="qqq_hard_gate_archive",
@@ -527,25 +659,27 @@ def _build_gates(
             "min_holdout": _THRESHOLDS["qqq_min_holdout_excess"],
             "min_oos_avg": _THRESHOLDS["qqq_min_oos_avg_excess"],
         },
-        notes="Archive quick_eval excess (70% data); supplemented by gate 10 fresh-backtest.",
+        notes="Diagnostic only under active SPY-primary governance.",
+        binding=False,
     ))
 
-    # Gate 10: Fresh full-period backtest vs QQQ (pack v2, 2026-04-21 rollout)
+    # Gate 10: fresh full-period exact-cash strategy vs costed SPY buy-and-hold.
     if fresh_check is None:
         gates.append(GateResult(
             name="full_period_fresh_backtest",
-            passed=True,  # skip-pass when not requested
+            passed=False,
             values={"skipped": True},
-            threshold={"strategy_cagr_gt_qqq_cagr": True},
-            notes="SKIP-PASS — fresh backtest not requested (run_fresh_backtest=False); use CLI default to enforce.",
+            threshold={"strategy_cagr_gt_spy_cagr": True},
+            notes="Fresh backtest is mandatory for automatic promotion.",
+            binding=automatic_promotion,
         ))
     elif "error" in fresh_check:
         gates.append(GateResult(
             name="full_period_fresh_backtest",
             passed=False,  # error on fresh → fail closed
             values={"error": fresh_check["error"]},
-            threshold={"strategy_cagr_gt_qqq_cagr": True},
-            notes="Fresh backtest errored; cannot verify CAGR > QQQ on current data. Fail-closed.",
+            threshold={"strategy_cagr_gt_spy_cagr": True},
+            notes="Fresh backtest errored; cannot verify CAGR > SPY on current data. Fail-closed.",
         ))
     else:
         gates.append(GateResult(
@@ -553,14 +687,15 @@ def _build_gates(
             passed=bool(fresh_check.get("passed")),
             values={
                 "strategy_cagr": fresh_check.get("strategy_cagr"),
+                "spy_cagr": fresh_check.get("spy_cagr"),
                 "qqq_cagr": fresh_check.get("qqq_cagr"),
                 "excess": fresh_check.get("excess"),
+                "price_basis": fresh_check.get("price_basis"),
             },
-            threshold={"strategy_cagr_gt_qqq_cagr": True},
+            threshold={"strategy_cagr_gt_spy_cagr": True},
             notes=(
-                "Re-ran full-period backtest with spec params on current data. "
-                "This catches specs whose archive quick_eval excess was inflated "
-                "by only using first 70% of data."
+                "Exact-cash, split-adjusted execution comparison against a "
+                "costed SPY buy-and-hold portfolio."
             ),
         ))
 
@@ -571,12 +706,16 @@ def run_acceptance_pack(
     spec_id: str,
     archive_db: str | Path = "data/mining/archive.db",
     run_fresh_backtest: bool = True,
+    *,
+    automatic_promotion: bool = False,
+    promotion_evidence_path: str | Path | None = None,
+    repo_root: str | Path | None = None,
 ) -> AcceptancePackResult:
     """Build an AcceptancePackResult for a given spec_id.
 
     Reads the archive trial row as authoritative historical evidence, and
-    (v2, if run_fresh_backtest=True) runs a fresh full-period backtest to
-    verify CAGR beats QQQ on current data.
+    A diagnostic pack may omit expensive or prospective evidence. Automatic
+    promotion mode never treats omission as a pass.
     """
     archive_path = Path(archive_db)
     trial = _fetch_trial_row(archive_path, spec_id)
@@ -585,7 +724,34 @@ def run_acceptance_pack(
     if run_fresh_backtest:
         fresh_check = _run_fresh_full_period_check(trial)
 
-    gates = _build_gates(trial, fresh_check=fresh_check)
+    root = (
+        Path(repo_root).resolve()
+        if repo_root is not None
+        else Path(__file__).resolve().parents[2]
+    )
+    promotion_evidence = None
+    if promotion_evidence_path is not None or automatic_promotion:
+        from core.research.promotion.evidence import validate_promotion_evidence
+
+        try:
+            commit = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"], cwd=root, text=True,
+            ).strip()
+        except (OSError, subprocess.CalledProcessError):
+            commit = None
+        promotion_evidence = validate_promotion_evidence(
+            promotion_evidence_path,
+            expected_candidate_id=trial["spec_id"],
+            repo_root=root,
+            expected_code_commit=commit,
+        )
+
+    gates = _build_gates(
+        trial,
+        fresh_check=fresh_check,
+        promotion_evidence=promotion_evidence,
+        automatic_promotion=automatic_promotion,
+    )
     try:
         params = json.loads(trial.get("params_json") or "{}")
     except Exception:
@@ -597,15 +763,20 @@ def run_acceptance_pack(
         lineage_tag=trial.get("lineage_tag", ""),
         params=params,
         gates=gates,
-        overall_passed=all(g.passed for g in gates),
+        overall_passed=all(g.passed for g in gates if g.binding),
         evaluated_at=datetime.now(timezone.utc).isoformat(),
         archive_evidence_only=(not run_fresh_backtest),
+        promotion_evidence_path=(
+            promotion_evidence.artifact_path if promotion_evidence else ""
+        ),
+        promotion_evidence_sha256=(
+            promotion_evidence.artifact_sha256 if promotion_evidence else ""
+        ),
         notes=(
-            "Pack v2: archive row evidence + optional fresh full-period "
-            "backtest. Concentration / paper-backtest alignment gates are "
-            "skip-pass (enforced elsewhere). Gate 10 'full_period_fresh_backtest' "
-            "catches specs whose archive quick_eval (70% data) overstated "
-            "CAGR vs full-period reality."
+            "Pack v3: QQQ is diagnostic; automatic promotion requires an "
+            "exact-cash fresh SPY comparison plus bound lookahead, overfit, "
+            "and paper/backtest-alignment evidence. Missing evidence routes "
+            "to REVIEW_HOLD and is never a skip-pass."
         ),
     )
 

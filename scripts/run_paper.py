@@ -392,6 +392,12 @@ def main():
                              "value; only enable with explicit intent.")
     args = parser.parse_args()
 
+    if args.mode == "live" and args.ignore_alignment_check:
+        parser.error(
+            "--ignore-alignment-check is not permitted for live PAPER; "
+            "resolve and certify the drift before resuming"
+        )
+
     cfg   = load_config(Path(args.config_dir))
     store = create_default_store(cfg)
 

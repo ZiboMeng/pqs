@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,7 @@ import yaml
 from core.research.phase2.paper_promotion import promote
 from core.research.phase2.promotion import CandidateEvidence, PromotionPolicy
 from core.research.phase2.registry import ExperimentRegistry, ExperimentSpec
+from core.research.promotion.evidence import REQUIRED_BOUND_SOURCES, sha256_file
 
 
 def _spec(commit: str = "abc123") -> ExperimentSpec:
@@ -91,6 +93,7 @@ def test_decision_correction_preserves_audit_history(tmp_path) -> None:
 
 
 def test_frozen_promotion_policy_is_executable() -> None:
+    commit = "a" * 40
     policy = PromotionPolicy.load()
     evidence = CandidateEvidence(
         strategy_id="adaptive_core_v1",
@@ -105,7 +108,7 @@ def test_frozen_promotion_policy_is_executable() -> None:
             "best_year_positive_pnl_fraction": 0.30,
             "annual_turnover": 1.0,
         },
-        benchmark_metrics={"calmar": 0.30, "max_drawdown": -0.30},
+        benchmark_metrics={"cagr": 0.05, "calmar": 0.30, "max_drawdown": -0.30},
         robustness={
             "positive_walk_forward_fraction": 0.80,
             "cost_2x_cagr": 0.07,
@@ -117,7 +120,18 @@ def test_frozen_promotion_policy_is_executable() -> None:
         controls={
             "unresolved_p0": 0,
             "unresolved_research_p1": 0,
-            "no_known_lookahead": True,
+            "lookahead_evidence": {
+                "passed": True,
+                "artifact_sha256": "b" * 64,
+                "code_commit": commit,
+                "tests": ["timing"],
+            },
+            "overfit_evidence": {
+                "passed": True,
+                "minimum_backtest_length_passed": True,
+                "cpcv_passed": True,
+                "artifact_sha256": "d" * 64,
+            },
             "missing_data_fail_closed": True,
             "stale_data_fail_closed": True,
             "deterministic_rerun": True,
@@ -126,8 +140,12 @@ def test_frozen_promotion_policy_is_executable() -> None:
             "paper_replay": True,
             "live_disabled": True,
         },
+        benchmark_symbol="SPY",
+        comparison_basis="total_return_after_strategy_costs",
+        strategy_costs_included=True,
+        code_commit=commit,
     )
-    decision = policy.evaluate(evidence)
+    decision = policy.evaluate(evidence, include_operational=False)
     assert decision.eligible, decision.failed_gates
 
 
@@ -151,6 +169,11 @@ def _write_json(path: Path, payload: object) -> None:
 
 
 def _paper_promotion_fixture(tmp_path: Path) -> dict[str, object]:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    root = Path(__file__).resolve().parents[3]
+    shutil.copy(root / "config/strategy_promotion.yaml", config_dir)
+    shutil.copy(root / "config/research_governance.yaml", config_dir)
     validation = tmp_path / "validation.json"
     holdout = tmp_path / "holdout.json"
     operational = tmp_path / "operational.json"
@@ -183,10 +206,22 @@ def _paper_promotion_fixture(tmp_path: Path) -> dict[str, object]:
         "worst_stress_drawdown": -0.15,
         "max_tqqq_weight": 0.0,
     }
+    commit = "c" * 40
     controls = {
         "unresolved_p0": 0,
         "unresolved_research_p1": 0,
-        "no_known_lookahead": True,
+        "lookahead_evidence": {
+            "passed": True,
+            "artifact_sha256": "a" * 64,
+            "code_commit": commit,
+            "tests": ["timing"],
+        },
+        "overfit_evidence": {
+            "passed": True,
+            "minimum_backtest_length_passed": True,
+            "cpcv_passed": True,
+            "artifact_sha256": "b" * 64,
+        },
         "deterministic_rerun": True,
         "live_disabled": True,
         "cooldown_test": True,
@@ -227,9 +262,56 @@ def _paper_promotion_fixture(tmp_path: Path) -> dict[str, object]:
                     "holdout_gate_pass": True,
                     "logic_frozen_after_access": True,
                     "metrics": metrics,
-                    "benchmark_metrics": {"calmar": 0.30},
+                    "benchmark_metrics": {"cagr": 0.08, "calmar": 0.30},
                     "validation_robustness": robustness,
                 }
+            },
+        },
+    )
+    alignment = tmp_path / "alignment.json"
+    _write_json(alignment, {"passed": True, "max_equity_drift_bps": 0.5})
+    source_hashes = {}
+    for relative in REQUIRED_BOUND_SOURCES:
+        source = tmp_path / relative
+        source.parent.mkdir(parents=True, exist_ok=True)
+        if not source.exists():
+            source.write_text(f"fixture for {relative}\n", encoding="utf-8")
+        source_hashes[relative] = sha256_file(source)
+    qualification = tmp_path / "qualification.json"
+    _write_json(qualification, {"candidate_id": "dual_index_growth_v1"})
+    promotion_evidence = tmp_path / "promotion_evidence.json"
+    _write_json(
+        promotion_evidence,
+        {
+            "schema_version": 1,
+            "candidate_id": "dual_index_growth_v1",
+            "code_commit": commit,
+            "benchmark": {
+                "symbol": "SPY",
+                "comparison_basis": "total_return_after_strategy_costs",
+                "strategy_costs_included": True,
+            },
+            "lookahead": {
+                "passed": True,
+                "test_exit_code": 0,
+                "tests": ["timing"],
+                "source_hashes": source_hashes,
+            },
+            "overfit": {
+                "honest_n_trials": 20,
+                "deflated_sharpe_probability": 0.97,
+                "probability_backtest_overfitting": 0.20,
+                "minimum_backtest_length_passed": True,
+                "cpcv_passed": True,
+                "cpcv_n_folds": 10,
+                "artifact_path": str(qualification.relative_to(tmp_path)),
+                "artifact_sha256": sha256_file(qualification),
+            },
+            "paper_backtest_alignment": {
+                "passed": True,
+                "max_equity_drift_bps": 0.5,
+                "artifact_path": str(alignment),
+                "artifact_sha256": sha256_file(alignment),
             },
         },
     )
@@ -238,10 +320,11 @@ def _paper_promotion_fixture(tmp_path: Path) -> dict[str, object]:
         {
             "schema_version": 1,
             "strategy_id": "dual_index_growth_v1",
-            "code_commit": "tested",
+            "code_commit": commit,
             "status": "PASS",
             "checks": {"faults": True},
             "operational_controls": operational_controls,
+            "promotion_evidence_path": str(promotion_evidence),
         },
     )
     _write_json(
@@ -261,14 +344,14 @@ def _paper_promotion_fixture(tmp_path: Path) -> dict[str, object]:
     )
     _write_json(promotions, {"schema_version": 1, "promotions": []})
     return {
-        "policy_path": Path("config/strategy_promotion.yaml"),
+        "policy_path": config_dir / "strategy_promotion.yaml",
         "validation_path": validation,
         "holdout_path": holdout,
         "operational_path": operational,
         "strategy_registry_path": strategies,
         "promotion_registry_path": promotions,
         "config_paths": config_paths,
-        "code_commit": "candidate",
+        "code_commit": commit,
     }
 
 

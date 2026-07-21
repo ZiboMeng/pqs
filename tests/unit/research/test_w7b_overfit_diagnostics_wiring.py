@@ -85,3 +85,26 @@ def test_pbo_computed_when_matrix_supplied():
     assert od["pbo"]["pbo"] is not None
     assert 0.0 <= od["pbo"]["pbo"] <= 1.0
     assert od["pbo"]["auto_kill"] is False
+
+
+def test_automatic_promotion_cannot_treat_missing_pbo_as_pass(monkeypatch):
+    monkeypatch.setattr(tsa, "evaluate_candidate",
+                        lambda m, c, role: _bare_result())
+    monkeypatch.setattr(tsa, "load_temporal_split", lambda p: object())
+    rng = np.random.default_rng(9)
+    returns = 0.001 + 0.01 * rng.standard_normal(2500)
+    result = run_split_acceptance(
+        {
+            "automatic_promotion_intent": True,
+            "overfit_inputs": {
+                "strat_ret_d": returns.tolist(),
+                "honest_n_trials": 20,
+                "actual_years": 10.0,
+            },
+        },
+        "core_alpha",
+        split_path="dummy",
+    )
+    gate = result.gate_named("automatic_promotion_overfit_panel")
+    assert gate is not None and not gate.passed
+    assert result.overall_passed is False

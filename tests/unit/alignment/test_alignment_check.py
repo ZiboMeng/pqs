@@ -92,8 +92,11 @@ factor_weights:
 validation:
   post_fix_validated: true
   passed_oos_gate: true
+  passed_spy_gate: true
   passed_qqq_gate: true
   passed_paper_backtest_alignment: true
+  promotion_evidence_path: "research/evidence/test.json"
+  promotion_evidence_sha256: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
 fingerprints:
   universe_hash: "deadbeef" * 8
   factor_registry_hash: "cafebabe" * 8

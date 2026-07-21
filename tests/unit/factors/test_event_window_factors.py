@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from core.data.macro_event_calendar import (
+    MacroEventCalendarError,
     first_friday_of_month, second_tuesday_of_month,
     generate_nfp_dates, generate_cpi_dates,
     generate_fomc_dates_heuristic, load_calendar, window_flag_panel,
@@ -17,7 +18,7 @@ from core.factors.event_window_factors import (
 )
 
 
-class TestNFPExactRule:
+class TestNFPHeuristicRule:
     def test_first_friday_known(self):
         """NFP rule: first Friday of month. Verified manually."""
         cases = [
@@ -53,14 +54,16 @@ class TestRegistration:
 class TestComputeFactors:
     def test_factors_produced(self):
         idx = pd.bdate_range("2024-01-01", "2024-12-31")
-        out = compute_event_window_factors(idx, ["AAPL", "MSFT"])
+        out = compute_event_window_factors(
+            idx, ["AAPL", "MSFT"], calendar_mode="heuristic")
         for n in EVENT_WINDOW_FACTOR_NAMES:
             assert n in out
             assert out[n].shape == (len(idx), 2)
 
     def test_pre_nfp_marks_thu_friday(self):
         idx = pd.bdate_range("2024-01-01", "2024-01-31")
-        out = compute_event_window_factors(idx, ["AAPL"])
+        out = compute_event_window_factors(
+            idx, ["AAPL"], calendar_mode="heuristic")
         nfp = out["pre_nfp_window_flag"]["AAPL"]
         # 2024-01-05 is first Friday → bars [Thu Jan 4, Fri Jan 5] flagged
         assert nfp.loc["2024-01-04"] == 1.0
@@ -69,7 +72,8 @@ class TestComputeFactors:
 
     def test_broadcast_identical(self):
         idx = pd.bdate_range("2024-01-01", "2024-03-31")
-        out = compute_event_window_factors(idx, ["A", "B", "C"])
+        out = compute_event_window_factors(
+            idx, ["A", "B", "C"], calendar_mode="heuristic")
         for n, df in out.items():
             for col in df.columns[1:]:
                 assert (df[col] == df[df.columns[0]]).all()
@@ -82,6 +86,32 @@ class TestYAMLOverride:
         custom_fomc = ["2024-06-12", "2024-09-18"]
         with open(yaml_path, "w") as f:
             yaml.safe_dump({"fomc": custom_fomc}, f)
-        cal = load_calendar(yaml_path=str(yaml_path), start_year=2024, end_year=2024)
+        cal = load_calendar(
+            yaml_path=str(yaml_path), start_year=2024, end_year=2024,
+            mode="heuristic",
+        )
         assert len(cal["fomc"]) == 2
         assert cal["fomc"][0] == pd.Timestamp("2024-06-12")
+
+    def test_precise_mode_rejects_partial_calendar(self, tmp_path):
+        yaml_path = tmp_path / "macro.yaml"
+        yaml_path.write_text("fomc:\n  - 2024-06-12\n", encoding="utf-8")
+        with pytest.raises(MacroEventCalendarError, match="cpi"):
+            load_calendar(
+                yaml_path=str(yaml_path), start_year=2024, end_year=2024,
+                mode="precise",
+            )
+
+    def test_precise_mode_rejects_missing_requested_year(self, tmp_path):
+        yaml_path = tmp_path / "macro.yaml"
+        yaml_path.write_text(
+            "fomc: ['2024-01-31']\n"
+            "cpi: ['2024-01-11']\n"
+            "nfp: ['2024-01-05']\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(MacroEventCalendarError, match="lacks years"):
+            load_calendar(
+                yaml_path=str(yaml_path), start_year=2024, end_year=2025,
+                mode="precise",
+            )

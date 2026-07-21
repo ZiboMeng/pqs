@@ -64,6 +64,7 @@ RESULT_ROOT = ROOT / "research/results/phase2"
 HOLDOUT_ACCESS_PATH = ROOT / "research/holdout/phase2_access_log.json"
 DATA_MANIFEST_PATH = ROOT / "research/registry/phase2_data_manifest.json"
 POLICY_PATH = ROOT / "config/strategy_promotion.yaml"
+QUALIFICATION_EVIDENCE_ROOT = ROOT / "research/evidence/qualification"
 SEED = 20260717
 
 
@@ -79,7 +80,7 @@ FAMILY_META: dict[str, dict[str, str]] = {
         "version": "v1",
         "strategy_id": "controlled_growth_v1",
         "strategy_type": "growth_engine",
-        "benchmark": "QQQ",
+        "benchmark": "SPY",
         "hypothesis": "Breadth and volatility gating makes a capped TQQQ growth sleeve additive to QQQ.",
     },
     "sector_rotation": {
@@ -107,7 +108,7 @@ FAMILY_META: dict[str, dict[str, str]] = {
         "version": "v1",
         "strategy_id": "defensive_growth_v1",
         "strategy_type": "growth_engine",
-        "benchmark": "QQQ",
+        "benchmark": "SPY",
         "hypothesis": "An unlevered weekly Nasdaq state machine retains growth while explicit defensive sleeves limit drawdown.",
     },
     "multi_asset_trend": {
@@ -121,7 +122,7 @@ FAMILY_META: dict[str, dict[str, str]] = {
         "version": "v1",
         "strategy_id": "dual_index_growth_v1",
         "strategy_type": "growth_engine",
-        "benchmark": "QQQ",
+        "benchmark": "SPY",
         "hypothesis": "High-participation month-end QQQ/SPY trend captures growth with a fixed defensive off-state.",
     },
     "crash_buffer_core": {
@@ -740,11 +741,69 @@ def _stress_drawdowns(equity: pd.Series, policy: PromotionPolicy) -> dict[str, f
     return values
 
 
-def _research_controls(strategy_type: str, deterministic: bool) -> dict[str, Any]:
+def _research_controls(
+    strategy_id: str,
+    code_commit: str,
+    deterministic: bool,
+) -> dict[str, Any]:
+    """Load candidate-bound qualification evidence; absence fails closed."""
+
+    evidence_path = QUALIFICATION_EVIDENCE_ROOT / f"{strategy_id}.json"
+    lookahead: dict[str, Any] = {"passed": False}
+    overfit: dict[str, Any] = {"passed": False}
+    if evidence_path.is_file():
+        try:
+            payload = _load_json(evidence_path)
+            if (
+                payload.get("candidate_id") == strategy_id
+                and payload.get("code_commit") == code_commit
+            ):
+                artifact_sha = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+                raw_lookahead = payload.get("lookahead")
+                raw_overfit = payload.get("overfit")
+                if isinstance(raw_lookahead, dict):
+                    lookahead = {
+                        **raw_lookahead,
+                        "artifact_sha256": artifact_sha,
+                        "code_commit": code_commit,
+                    }
+                if isinstance(raw_overfit, dict):
+                    from core.research.governance import load_research_governance
+
+                    evidence_policy = load_research_governance(
+                        ROOT / "config/research_governance.yaml"
+                    ).automatic_promotion_evidence
+                    try:
+                        dsr = float(raw_overfit.get(
+                            "deflated_sharpe_probability"))
+                        pbo = float(raw_overfit.get(
+                            "probability_backtest_overfitting"))
+                        cpcv_folds = int(raw_overfit.get("cpcv_n_folds", 0))
+                    except (TypeError, ValueError):
+                        dsr = float("nan")
+                        pbo = float("nan")
+                        cpcv_folds = 0
+                    overfit_passed = (
+                        np.isfinite(dsr)
+                        and dsr >= evidence_policy.min_deflated_sharpe_probability
+                        and np.isfinite(pbo)
+                        and pbo <= evidence_policy.max_probability_backtest_overfitting
+                        and raw_overfit.get("minimum_backtest_length_passed") is True
+                        and raw_overfit.get("cpcv_passed") is True
+                        and cpcv_folds >= evidence_policy.minimum_cpcv_folds
+                    )
+                    overfit = {
+                        **raw_overfit,
+                        "passed": overfit_passed,
+                        "artifact_sha256": artifact_sha,
+                    }
+        except (OSError, ValueError, json.JSONDecodeError):
+            pass
     return {
         "unresolved_p0": 0,
         "unresolved_research_p1": 0,
-        "no_known_lookahead": True,
+        "lookahead_evidence": lookahead,
+        "overfit_evidence": overfit,
         "deterministic_rerun": deterministic,
         "live_disabled": True,
         "cooldown_test": True,
@@ -978,7 +1037,7 @@ def run_validation(plan_only: bool = False, revision: str = "d1") -> None:
             "deflated_sharpe": "not_claimed; conservative fixed 4% risk-free Sharpe and bounded search used",
         }
         benchmark_metrics = _benchmark_metrics(close[meta["benchmark"]], effective_start, split["end"])
-        controls = _research_controls(meta["strategy_type"], deterministic)
+        controls = _research_controls(meta["strategy_id"], commit, deterministic)
         evidence = CandidateEvidence(
             strategy_id=meta["strategy_id"],
             strategy_type=meta["strategy_type"],
@@ -986,6 +1045,10 @@ def run_validation(plan_only: bool = False, revision: str = "d1") -> None:
             benchmark_metrics=benchmark_metrics,
             robustness=robustness,
             controls=controls,
+            benchmark_symbol="SPY",
+            comparison_basis="total_return_after_strategy_costs",
+            strategy_costs_included=True,
+            code_commit=commit,
         )
         decision = policy.evaluate(evidence, include_operational=False)
         summary["families"][family] = {
@@ -1125,6 +1188,10 @@ def run_holdout(plan_only: bool = False, revision: str = "d1") -> None:
                 benchmark_metrics=benchmark_metrics,
                 robustness=prior["robustness"],
                 controls=prior["controls"],
+                benchmark_symbol="SPY",
+                comparison_basis="total_return_after_strategy_costs",
+                strategy_costs_included=True,
+                code_commit=commit,
             )
             return policy.evaluate(evidence, include_operational=False).eligible
 
@@ -1142,6 +1209,10 @@ def run_holdout(plan_only: bool = False, revision: str = "d1") -> None:
             benchmark_metrics=benchmark_metrics,
             robustness=prior["robustness"],
             controls=prior["controls"],
+            benchmark_symbol="SPY",
+            comparison_basis="total_return_after_strategy_costs",
+            strategy_costs_included=True,
+            code_commit=commit,
         )
         decision = policy.evaluate(evidence, include_operational=False)
         summary["families"][family] = {

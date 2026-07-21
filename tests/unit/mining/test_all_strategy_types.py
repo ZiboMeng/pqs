@@ -163,10 +163,9 @@ class TestArchivePreservesStrategyType:
 
 
 class TestTierAssignmentTypeAgnostic:
-    """_assign_tier must demote trials of ANY type when passed_qqq_gate
-    is False. The gate can't be bypassed by strategy type."""
+    """Active SPY-primary policy treats QQQ consistently across types."""
 
-    def test_gate_fail_forces_D_across_types(self):
+    def test_qqq_diagnostic_does_not_demote_any_strategy_type(self):
         from core.mining.evaluator import MiningEvaluator
         from core.config.loader import load_config
         from core.execution.cost_model import CostModel
@@ -182,10 +181,9 @@ class TestTierAssignmentTypeAgnostic:
             r.oos_is_sharpe_ratio = 0.8
             r.passed_robustness = True
             r.passed_holdout = True
-            r.passed_qqq_gate = False  # THE gate flag
+            r.passed_qqq_gate = False
             tier = ev._assign_tier(r)
-            assert tier == "D", (
+            assert tier == "A", (
                 f"strategy_type={stype}: _assign_tier returned {tier} "
-                "when passed_qqq_gate=False; gate must apply regardless "
-                "of strategy type"
+                "when QQQ is diagnostic-only under active governance"
             )

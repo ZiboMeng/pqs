@@ -13,6 +13,7 @@ import json
 import sqlite3
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -123,10 +124,10 @@ def _create_archive(tmp_path: Path, rows: list[dict]) -> Path:
 
 
 def test_perfect_trial_all_gates_pass():
-    # Pack v2: gate 10 fresh_backtest = skip-PASS when fresh_check=None
+    # Diagnostic mode exposes missing prospective evidence without binding it.
     gates = _build_gates(_PERFECT_TRIAL, fresh_check=None)
-    assert len(gates) == 10
-    assert all(g.passed for g in gates), f"expected all pass, got: {[(g.name, g.passed) for g in gates]}"
+    assert len(gates) == 13
+    assert all(g.passed for g in gates if g.binding)
 
 
 def test_failing_trial_multiple_gates_fail():
@@ -140,7 +141,8 @@ def test_failing_trial_multiple_gates_fail():
 
 def test_fresh_backtest_gate_passes_when_positive_excess():
     """Gate 10 passes when fresh_check.passed=True."""
-    fresh = {"strategy_cagr": 0.22, "qqq_cagr": 0.18, "excess": 0.04, "passed": True}
+    fresh = {"strategy_cagr": 0.22, "spy_cagr": 0.18, "qqq_cagr": 0.20,
+             "excess": 0.04, "passed": True}
     gates = _build_gates(_PERFECT_TRIAL, fresh_check=fresh)
     fresh_gate = next(g for g in gates if g.name == "full_period_fresh_backtest")
     assert fresh_gate.passed
@@ -148,9 +150,9 @@ def test_fresh_backtest_gate_passes_when_positive_excess():
 
 
 def test_fresh_backtest_gate_fails_when_negative_excess():
-    """Gate 10 catches specs where fresh run shows CAGR < QQQ, even if
-    archive claimed otherwise — this is the v2 enhancement."""
-    fresh = {"strategy_cagr": 0.14, "qqq_cagr": 0.176, "excess": -0.036, "passed": False}
+    """Gate 10 catches a fresh strategy that trails costed SPY."""
+    fresh = {"strategy_cagr": 0.14, "spy_cagr": 0.176, "qqq_cagr": 0.20,
+             "excess": -0.036, "passed": False}
     gates = _build_gates(_PERFECT_TRIAL, fresh_check=fresh)
     fresh_gate = next(g for g in gates if g.name == "full_period_fresh_backtest")
     assert not fresh_gate.passed
@@ -165,11 +167,11 @@ def test_fresh_backtest_gate_fails_on_error():
     assert "error" in fresh_gate.values
 
 
-def test_fresh_backtest_gate_skip_pass_when_none():
-    """When run_fresh_backtest=False, gate 10 is skip-pass (green)."""
+def test_fresh_backtest_gate_is_nonbinding_failure_in_diagnostic_mode():
     gates = _build_gates(_PERFECT_TRIAL, fresh_check=None)
     fresh_gate = next(g for g in gates if g.name == "full_period_fresh_backtest")
-    assert fresh_gate.passed
+    assert not fresh_gate.passed
+    assert not fresh_gate.binding
     assert fresh_gate.values.get("skipped") is True
 
 
@@ -182,7 +184,8 @@ def test_concentration_gate_skip_pass_when_no_fresh_backtest():
     gates = _build_gates(_PERFECT_TRIAL, fresh_check=None)
     g = next(g for g in gates if g.name == "concentration")
     assert g.passed is True
-    assert "SKIP-PASS" in g.notes
+    assert "DIAGNOSTIC SKIP" in g.notes
+    assert not g.binding
     assert g.values.get("m12_top1_weight_max") is None
     assert g.values.get("m12_top3_weight_max") is None
 
@@ -306,8 +309,57 @@ def test_diversity_gate_defaults_pass_when_missing():
     trial["passed_diversity"] = None
     gates = _build_gates(trial)
     div_gate = next(g for g in gates if g.name == "diversity")
-    assert div_gate.passed  # skip-pass semantics
-    assert "SKIP-PASS" in div_gate.notes
+    assert div_gate.passed
+    assert not div_gate.binding
+    assert "DIAGNOSTIC SKIP" in div_gate.notes
+
+
+def test_automatic_promotion_requires_bound_evidence_but_not_qqq():
+    trial = dict(_PERFECT_TRIAL)
+    trial["passed_qqq_gate"] = 0
+    fresh = {
+        "strategy_cagr": 0.20,
+        "spy_cagr": 0.15,
+        "qqq_cagr": 0.25,
+        "excess": 0.05,
+        "passed": True,
+        "strategy_max_drawdown": -0.10,
+        "spy_max_drawdown": -0.12,
+        "m12_top1_weight_max": 0.30,
+        "m12_top3_weight_max": 0.60,
+    }
+    evidence = SimpleNamespace(
+        passed=True,
+        failed_checks=(),
+        payload={
+            "lookahead": {"passed": True},
+            "overfit": {"cpcv_passed": True},
+            "paper_backtest_alignment": {"passed": True},
+        },
+    )
+    gates = _build_gates(
+        trial,
+        fresh_check=fresh,
+        promotion_evidence=evidence,
+        automatic_promotion=True,
+    )
+    assert all(gate.passed for gate in gates if gate.binding)
+    qqq = next(gate for gate in gates if gate.name == "qqq_hard_gate_archive")
+    assert not qqq.passed
+    assert not qqq.binding
+
+
+def test_automatic_promotion_missing_evidence_fails_closed():
+    gates = _build_gates(
+        _PERFECT_TRIAL,
+        fresh_check=None,
+        automatic_promotion=True,
+    )
+    failed = {gate.name for gate in gates if gate.binding and not gate.passed}
+    assert "lookahead_evidence" in failed
+    assert "overfit_evidence" in failed
+    assert "paper_backtest_alignment" in failed
+    assert "full_period_fresh_backtest" in failed
 
 
 # ---------------------------------------------------------------------------
@@ -321,7 +373,7 @@ def test_run_pack_exact_match(tmp_path):
     result = run_acceptance_pack("perfect_trial_123", archive_db=db, run_fresh_backtest=False)
     assert result.spec_id == "perfect_trial_123"
     assert result.overall_passed is True
-    assert len(result.gates) == 10  # 9 archive gates + 1 fresh_backtest (skip-pass)
+    assert len(result.gates) == 13
 
 
 def test_run_pack_prefix_match(tmp_path):
@@ -377,7 +429,7 @@ def test_write_artifact_json_roundtrip(tmp_path):
     loaded = json.loads(out.read_text())
     assert loaded["spec_id"] == "perfect_trial_123"
     assert loaded["overall_passed"] is True
-    assert len(loaded["gates"]) == 10  # 9 archive + 1 fresh skip-pass
+    assert len(loaded["gates"]) == 13
 
 
 def test_summary_line_format(tmp_path):
@@ -386,4 +438,4 @@ def test_summary_line_format(tmp_path):
     line = result.summary_line()
     assert "perfect_tria" in line  # first 12 chars
     assert "PASS" in line
-    assert "10/10" in line  # v2: 10 gates total
+    assert "binding gates passed" in line

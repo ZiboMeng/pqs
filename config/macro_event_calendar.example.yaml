@@ -1,0 +1,7 @@
+# Copy to macro_event_calendar.yaml only after dates have been curated from
+# authoritative release calendars. Precise mode requires all three non-empty
+# arrays with coverage for every requested research year; this example is
+# intentionally invalid as runtime evidence.
+fomc: []
+cpi: []
+nfp: []

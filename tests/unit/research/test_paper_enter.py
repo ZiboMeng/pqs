@@ -86,7 +86,6 @@ def test_paper_enter_idempotent_on_s2(tmp_path):
         sys.executable, "scripts/paper_enter.py",
         "--candidate-id", "pe_idem",
         "--registry-db", str(reg_db),
-        "--skip-paper-run-check",   # bypass the prereq since we faked it
     ])
     assert result.returncode == 0
     assert "Already at S2" in result.stdout
@@ -102,8 +101,6 @@ def test_paper_enter_refuses_s0_candidate(tmp_path):
         sys.executable, "scripts/paper_enter.py",
         "--candidate-id", "pe_s0",
         "--registry-db", str(reg_db),
-        "--skip-paper-run-check",
-        "--skip-drift-report-check",
     ], check=False)
     assert result.returncode == 1
     combined = (result.stderr + result.stdout).lower()
@@ -120,8 +117,6 @@ def test_paper_enter_refuses_revoked(tmp_path):
         sys.executable, "scripts/paper_enter.py",
         "--candidate-id", "pe_rev",
         "--registry-db", str(reg_db),
-        "--skip-paper-run-check",
-        "--skip-drift-report-check",
     ], check=False)
     assert result.returncode == 1
 
@@ -174,10 +169,8 @@ def test_paper_enter_refuses_no_drift_report(tmp_path):
         shutil.rmtree(run_dir.parent, ignore_errors=True)
 
 
-def test_paper_enter_skip_flags_work(tmp_path):
-    """--skip-paper-run-check + --skip-drift-report-check allows a
-    S1 candidate without paper artifacts to transition (documented
-    escape hatch)."""
+def test_paper_enter_skip_flags_are_refused(tmp_path):
+    """Legacy skip flags cannot manufacture PAPER evidence."""
     reg_db = tmp_path / "reg.db"
     _register_candidate(reg_db, "pe_skip", CandidateStatus.S1_CANDIDATE)
     result = _run([
@@ -186,10 +179,10 @@ def test_paper_enter_skip_flags_work(tmp_path):
         "--registry-db", str(reg_db),
         "--skip-paper-run-check",
         "--skip-drift-report-check",
-    ])
-    assert result.returncode == 0
+    ], check=False)
+    assert result.returncode == 1
     reg = CandidateRegistry(reg_db)
-    assert reg.get("pe_skip").status == CandidateStatus.S2_PAPER
+    assert reg.get("pe_skip").status == CandidateStatus.S1_CANDIDATE
 
 
 # ── S2 → S3 boundary ────────────────────────────────────────────────────────

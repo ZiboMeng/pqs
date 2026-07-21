@@ -768,6 +768,7 @@ def run_split_acceptance(
     that pin a specific yaml for reproducibility).
     """
     from pathlib import Path as _P
+    import math as _math
     from core.research.temporal_split import resolve_split_path
     if split_path:
         path = _P(split_path)
@@ -775,6 +776,14 @@ def run_split_acceptance(
         path = resolve_split_path(role=role, freeze_date=freeze_date)
     cfg = load_temporal_split(path)
     res = evaluate_candidate(metrics, cfg, role)
+    automatic_promotion_intent = metrics.get("automatic_promotion_intent") is True
+    evidence_policy = None
+    if automatic_promotion_intent:
+        from core.research.governance import load_research_governance
+
+        governance_path = _P(__file__).resolve().parents[2] / "config/research_governance.yaml"
+        evidence_policy = load_research_governance(
+            governance_path).automatic_promotion_evidence
     # P0-B W7b wiring at the canonical production evaluator. ONLY new-
     # cycle callers put "overfit_inputs" in metrics → diagnostics
     # attached. Absent (every legacy/cycle06-08 metrics dict) → res
@@ -793,6 +802,37 @@ def run_split_acceptance(
             res.overfit_diagnostics = {
                 "error": f"{type(e).__name__}: {e}",
                 "note": "overfit panel failed — NOT a silent pass"}
+    if automatic_promotion_intent:
+        diagnostics = res.overfit_diagnostics or {}
+        dsr = diagnostics.get("dsr")
+        pbo_payload = diagnostics.get("pbo")
+        pbo = pbo_payload.get("pbo") if isinstance(pbo_payload, dict) else None
+        minbtl = diagnostics.get("min_btl_gate")
+        dsr_passed = (
+            isinstance(dsr, (int, float))
+            and _math.isfinite(float(dsr))
+            and float(dsr) >= evidence_policy.min_deflated_sharpe_probability
+        )
+        pbo_passed = (
+            isinstance(pbo, (int, float))
+            and _math.isfinite(float(pbo))
+            and float(pbo) <= evidence_policy.max_probability_backtest_overfitting
+        )
+        minbtl_passed = isinstance(minbtl, dict) and minbtl.get("passed") is True
+        overfit_passed = dsr_passed and pbo_passed and minbtl_passed
+        res.gates.append(SplitGateResult(
+            name="automatic_promotion_overfit_panel",
+            passed=overfit_passed,
+            values={"dsr": dsr, "pbo": pbo, "min_btl": minbtl},
+            threshold={
+                "min_dsr": evidence_policy.min_deflated_sharpe_probability,
+                "max_pbo": evidence_policy.max_probability_backtest_overfitting,
+                "minimum_backtest_length_passed": True,
+            },
+            notes="DSR, PBO and MinBTL are binding for automatic promotion.",
+        ))
+        if not overfit_passed:
+            res.overall_passed = False
 
     # P0-B W7c/d: CPCV-distribution fold acceptance (G4) as a BINDING
     # gate, new-cycle-only. Same lazy-migration contract: only new-cycle
@@ -820,6 +860,20 @@ def run_split_acceptance(
             insufficient = bool(dist.get("insufficient"))
             icw = dist.get("ic_sample_weighted")
             passed = (not insufficient) and icw is not None and icw > min_ic
+            if automatic_promotion_intent:
+                cpcv_dsr = dist.get("dsr")
+                cpcv_pbo = dist.get("pbo")
+                passed = passed and (
+                    isinstance(cpcv_dsr, (int, float))
+                    and _math.isfinite(float(cpcv_dsr))
+                    and float(cpcv_dsr)
+                    >= evidence_policy.min_deflated_sharpe_probability
+                    and isinstance(cpcv_pbo, (int, float))
+                    and _math.isfinite(float(cpcv_pbo))
+                    and float(cpcv_pbo)
+                    <= evidence_policy.max_probability_backtest_overfitting
+                    and int(dist.get("n_folds", 0)) >= evidence_policy.minimum_cpcv_folds
+                )
             gate = SplitGateResult(
                 name="cpcv_distribution_acceptance",
                 passed=passed,
@@ -829,7 +883,12 @@ def run_split_acceptance(
                         "dsr": dist.get("dsr"),
                         "pbo_red_flag": dist.get("pbo_red_flag")},
                 threshold={"min_ic_sample_weighted": min_ic,
-                           "not_insufficient": True},
+                           "not_insufficient": True,
+                           **({
+                               "min_dsr": evidence_policy.min_deflated_sharpe_probability,
+                               "max_pbo": evidence_policy.max_probability_backtest_overfitting,
+                               "minimum_folds": evidence_policy.minimum_cpcv_folds,
+                           } if automatic_promotion_intent else {})},
                 notes="W7c/d new-cycle CPCV fold acceptance "
                       "(purged+embargo; replaces contiguous-year for "
                       "new cycles). fail-closed on insufficient.")
@@ -844,4 +903,13 @@ def run_split_acceptance(
                 name="cpcv_distribution_acceptance", passed=False,
                 notes=f"CPCV eval errored: {type(e).__name__}"))
             res.overall_passed = False       # fail-closed on error
+    elif automatic_promotion_intent:
+        res.gates.append(SplitGateResult(
+            name="cpcv_distribution_acceptance",
+            passed=False,
+            values={"missing": "cpcv_inputs"},
+            threshold={"required_for_automatic_promotion": True},
+            notes="CPCV evidence missing; automatic promotion fails closed.",
+        ))
+        res.overall_passed = False
     return res

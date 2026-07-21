@@ -239,7 +239,7 @@ def _build_factor_panel_map(
                 added += 1
         logger.info("Event window factors merged: %d", added)
     except Exception as e:
-        logger.warning("Event window factor compute failed: %s", e)
+        raise RuntimeError("Event window factors require a precise calendar") from e
 
     # Round F signal-confirmation multi-bar factors
     try:

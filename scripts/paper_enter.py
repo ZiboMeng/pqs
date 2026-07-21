@@ -8,8 +8,8 @@ Pipeline (S1 Research Candidate → S2 Paper Candidate):
           data/paper_runs/<candidate_id>/ (i.e. the candidate has
           actually been dry-run through run_paper_candidate.py, not
           just sitting frozen)
-        + optionally: at least 1 drift_report_*.md exists in a paper
-          run dir (reproducibility verified)
+        + at least 1 drift_report_*.md exists in a paper run dir
+          (reproducibility verified)
             -> transition S1 -> S2
 
 Hard invariants:
@@ -21,11 +21,6 @@ Usage:
     # Happy path — candidate has at least one paper run + drift report
     python scripts/paper_enter.py \
         --candidate-id rcm_v1_defensive_composite_01
-
-    # Bypass drift-report check (e.g. for a fresh candidate)
-    python scripts/paper_enter.py \
-        --candidate-id my_cand \
-        --skip-drift-report-check
 
 The RCMv1 candidate is already at S1 via R3 migration. This script
 transitions it to S2 once paper artifacts + drift report exist (which
@@ -101,17 +96,19 @@ def main() -> int:
     parser.add_argument("--registry-db", default=_DEFAULT_REGISTRY_DB)
     parser.add_argument(
         "--skip-paper-run-check", action="store_true",
-        help="Bypass the 'paper run must exist' gate. Use only if the "
-             "candidate has a documented reason to skip paper "
-             "validation before S2.",
+        help="Deprecated and refused: a PAPER transition requires a run",
     )
     parser.add_argument(
         "--skip-drift-report-check", action="store_true",
-        help="Bypass the 'drift report must exist' gate. Allowed when "
-             "the candidate is fresh and reproducibility is not yet "
-             "at stake.",
+        help="Deprecated and refused: a PAPER transition requires drift evidence",
     )
     args = parser.parse_args()
+
+    if args.skip_paper_run_check or args.skip_drift_report_check:
+        logger.error(
+            "PAPER evidence gates cannot be skipped; produce the run and drift report"
+        )
+        return 1
 
     registry = CandidateRegistry(args.registry_db)
     try:
@@ -140,11 +137,10 @@ def main() -> int:
 
     # Paper run gate
     has_run, run_dir = _has_paper_run(args.candidate_id)
-    if not has_run and not args.skip_paper_run_check:
+    if not has_run:
         logger.error(
             "No paper run directory found under %s/%s. Run "
-            "scripts/run_paper_candidate.py first, or pass "
-            "--skip-paper-run-check with documented justification.",
+            "scripts/run_paper_candidate.py first.",
             _DEFAULT_PAPER_ROOT, args.candidate_id,
         )
         return 1
@@ -152,12 +148,11 @@ def main() -> int:
         logger.info("Found paper run: %s", run_dir)
 
     # Drift report gate
-    if has_run and not args.skip_drift_report_check:
+    if has_run:
         if not _has_drift_report(run_dir):
             logger.error(
                 "Paper run %s has no drift_report_*.md. Run "
-                "scripts/paper_drift_report.py first, or pass "
-                "--skip-drift-report-check.",
+                "scripts/paper_drift_report.py first.",
                 run_dir,
             )
             return 1

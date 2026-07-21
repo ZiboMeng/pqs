@@ -1,3 +1,7 @@
+# Legacy/descriptive risk-policy draft only. This file is not consumed by the
+# macro event factor runtime. Precise factor research reads
+# config/macro_event_calendar.yaml and fails closed when that curated file is
+# absent; heuristic dates require an explicit code-level opt-in.
 event_calendar:
   recurring_events:
     fomc:

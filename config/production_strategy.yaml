@@ -77,8 +77,11 @@ factor_weights:
 validation:
   post_fix_validated: false       # post-P0.1-fix revalidated
   passed_oos_gate: false          # OOS IR >= 0.20 in walk-forward
-  passed_qqq_gate: false          # CAGR > QQQ on full + holdout + OOS avg
+  passed_spy_gate: false          # strict positive CAGR excess vs costed SPY
+  passed_qqq_gate: false          # legacy QQQ diagnostic; never binding
   passed_paper_backtest_alignment: false
+  promotion_evidence_path: ""
+  promotion_evidence_sha256: ""
   notes: |
     R33 weights pre-date apply_extra_shift=False default. Current post-fix
     codebase may not reproduce pre-fix OOS numbers. Pending post-fix

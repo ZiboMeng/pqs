@@ -409,7 +409,8 @@ pqs/
 │   ├── cost_model.yaml          - 交易成本参数
 │   ├── regime.yaml              - 市场状态分类阈值
 │   ├── reporting.yaml           - 报告风格
-│   ├── events.yaml              - 事件日历
+│   ├── events.yaml              - 遗留事件风险草案（非 runtime calendar）
+│   ├── macro_event_calendar.example.yaml - 精确事件日历模板；缺正式文件时 fail-closed
 │   ├── notify.yaml              - 消息推送 (微信 / Server 酱)
 │   ├── cross_ticker_rules.yaml  - 跨标的声明式规则 DSL (PRD M4, enabled:true, 5 rules)
 │   ├── temporal_split.yaml      - Track A alternating_regime_holdout_v1 (train/validation/sealed splits + role gates + stress slices)
@@ -1287,7 +1288,9 @@ notify:
 ```
 
 ### 9.8 `reporting.yaml`, `events.yaml`
-风格 / 事件日历，通常不碰。
+`reporting.yaml` 控制报告风格。`events.yaml` 是未接入 runtime 的遗留风险草案；
+事件窗因子的精确日期来自经核验的 `config/macro_event_calendar.yaml`，缺失时
+fail-closed。启发式日期必须由研究调用方显式选择，不能静默冒充真实日历。
 
 ### 9.9 `cross_ticker_rules.yaml` (PRD M4, M10 production-integrated)
 

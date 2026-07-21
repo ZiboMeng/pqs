@@ -11,18 +11,20 @@ Workflow:
 
 Safety:
   - Without --promote flag, only shows dry-run diff
-  - Without --force, refuses to promote a spec_id that fails acceptance
-  - Even --force requires --yes-i-know-what-im-doing to avoid footgun
+  - Automatic gates cannot be bypassed with --force
+  - Promotion requires candidate-bound lookahead/overfit/alignment evidence
 
 Usage:
-  python scripts/promote_strategy.py --spec-id 81f5cdaa053e --dry-run
-  python scripts/promote_strategy.py --spec-id 81f5 --promote
-  python scripts/promote_strategy.py --spec-id X --promote --force --yes-i-know-what-im-doing
+  python scripts/promote_strategy.py --spec-id 81f5 --dry-run --promotion-evidence path.json
+  python scripts/promote_strategy.py --spec-id X --promote --promotion-evidence path.json
 """
 from __future__ import annotations
 
 import argparse
+import os
+import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -92,6 +94,8 @@ def _build_promoted_yaml(
     fingerprints = _compute_fingerprints(universe_name)
     now = datetime.now(timezone.utc).isoformat()
 
+    gates = {gate.name: gate for gate in pack.gates}
+    qqq_diagnostic = gates.get("qqq_hard_gate_archive")
     return {
         "schema_version": "1.0",
         "status": "active",
@@ -108,8 +112,15 @@ def _build_promoted_yaml(
         "validation": {
             "post_fix_validated": True,
             "passed_oos_gate": True,
-            "passed_qqq_gate": True,
-            "passed_paper_backtest_alignment": True,
+            "passed_spy_gate": gates["full_period_fresh_backtest"].passed,
+            "passed_qqq_gate": bool(
+                qqq_diagnostic and qqq_diagnostic.passed
+            ),
+            "passed_paper_backtest_alignment": gates[
+                "paper_backtest_alignment"
+            ].passed,
+            "promotion_evidence_path": pack.promotion_evidence_path,
+            "promotion_evidence_sha256": pack.promotion_evidence_sha256,
             "notes": f"Promoted via scripts/promote_strategy.py at {now} after acceptance pack PASS.",
         },
         "fingerprints": fingerprints,
@@ -153,22 +164,58 @@ def main() -> int:
     parser.add_argument("--promote", action="store_true",
                         help="Actually write the new yaml (requires --dry-run complement)")
     parser.add_argument("--force", action="store_true",
-                        help="Allow promote even if acceptance pack FAILS (requires --yes-i-know-what-im-doing)")
+                        help="Deprecated and refused: automatic gates cannot be bypassed")
     parser.add_argument("--yes-i-know-what-im-doing", action="store_true",
                         dest="confirm_force")
     parser.add_argument("--skip-fresh-backtest", action="store_true",
-                        help="Skip pack v2 gate 10. Debug only; not for real promote.")
+                        help="Deprecated and refused: fresh SPY check is mandatory")
+    parser.add_argument(
+        "--promotion-evidence",
+        default=None,
+        help="Candidate-bound promotion evidence JSON (required for --promote)",
+    )
     args = parser.parse_args()
 
     if not args.dry_run and not args.promote:
         print("ERROR: must pass --dry-run or --promote", file=sys.stderr)
+        return 2
+    if args.skip_fresh_backtest:
+        print("ERROR: automatic promotion cannot skip the fresh SPY backtest", file=sys.stderr)
+        return 2
+    if args.force or args.confirm_force:
+        print(
+            "ERROR: automatic promotion gates cannot be bypassed; a manual "
+            "exception requires a separately reviewed governance decision",
+            file=sys.stderr,
+        )
+        return 2
+    if args.promote:
+        tracked_changes = subprocess.check_output(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=ROOT,
+            text=True,
+        ).strip()
+        if tracked_changes:
+            print(
+                "ERROR: tracked worktree must be clean before automatic promotion",
+                file=sys.stderr,
+            )
+            return 2
+    if not args.promotion_evidence:
+        print(
+            "ERROR: --promotion-evidence is required for promotion dry-run or write",
+            file=sys.stderr,
+        )
         return 2
 
     # Run acceptance pack
     try:
         pack = run_acceptance_pack(
             args.spec_id, archive_db=args.archive_db,
-            run_fresh_backtest=not args.skip_fresh_backtest,
+            run_fresh_backtest=True,
+            automatic_promotion=True,
+            promotion_evidence_path=args.promotion_evidence,
+            repo_root=ROOT,
         )
     except AcceptancePackError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
@@ -176,27 +223,23 @@ def main() -> int:
 
     print(pack.summary_line())
     for g in pack.gates:
-        mark = "✅" if g.passed else "❌"
+        mark = "✅" if g.passed else ("❌" if g.binding else "ℹ️")
         print(f"  {mark} {g.name}")
 
     # Verdict
     if not pack.overall_passed:
-        if not args.force:
-            print("\nRefusing to promote — acceptance pack FAILED. "
-                  "Pass --force --yes-i-know-what-im-doing to override (not recommended).",
-                  file=sys.stderr)
-            return 1
-        if not args.confirm_force:
-            print("\n--force provided without --yes-i-know-what-im-doing. Aborting.",
-                  file=sys.stderr)
-            return 2
-        print("\nWARNING: proceeding despite acceptance pack FAILURE (--force active)")
+        print(
+            "\nRefusing to promote — one or more binding gates failed. "
+            "The candidate remains REVIEW_HOLD.",
+            file=sys.stderr,
+        )
+        return 1
 
     # Build proposed yaml
     rationale = args.rationale or (
         f"Promoted from archive (spec_id={pack.spec_id[:12]}, "
         f"lineage={pack.lineage_tag}). Acceptance pack "
-        f"{'PASSED' if pack.overall_passed else 'FAILED (force)'} on "
+        f"PASSED on "
         f"{datetime.now(timezone.utc).isoformat()}."
     )
     try:
@@ -214,12 +257,32 @@ def main() -> int:
 
     # Actual write
     _show_dry_run(proposed, target_path)
-    target_path.write_text(yaml.safe_dump(proposed, default_flow_style=False, sort_keys=False))
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{target_path.name}.", dir=target_path.parent,
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            yaml.safe_dump(
+                proposed,
+                handle,
+                default_flow_style=False,
+                sort_keys=False,
+            )
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, target_path)
+    finally:
+        temporary.unlink(missing_ok=True)
     print(f"\n✅ Wrote {target_path}")
     print("Next steps:")
     print("  1. git diff config/production_strategy.yaml   # review change")
     print("  2. pytest -q                                   # sanity")
-    print("  3. git add config/production_strategy.yaml")
+    print(
+        "  3. git add config/production_strategy.yaml "
+        f"{pack.promotion_evidence_path}"
+    )
     print(f'  4. git commit -m "promote {pack.spec_id[:12]} to production"')
     return 0
 

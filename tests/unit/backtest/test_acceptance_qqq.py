@@ -1,13 +1,4 @@
-"""Tests for QQQ hard gate at the acceptance/report layer (closeout
-2026-04-20).
-
-The mining evaluator already enforces the QQQ gate (P0.4), but the
-acceptance layer (WindowAnalyzer.acceptance_check + master_report
-output) previously only compared vs SPY. After this closeout the
-acceptance layer mirrors the evaluator: if the strategy doesn't at
-least match QQQ, acceptance fails — report + evaluator cannot
-disagree on whether a strategy is promotable.
-"""
+"""QQQ diagnostic behavior at the acceptance/report layer."""
 
 from __future__ import annotations
 
@@ -64,31 +55,28 @@ class TestAcceptanceQQQGate:
         assert ar.passed_qqq_gate is True
         assert ar.qqq_excess_return > 0
 
-    def test_beat_spy_but_lose_to_qqq_fails_gate(self):
-        """Strategy beats SPY but LOSES to QQQ — classic case that the
-        evaluator and acceptance layer must BOTH flag."""
+    def test_beat_spy_but_lose_to_qqq_remains_spy_pass(self):
+        """QQQ underperformance is recorded but cannot override SPY."""
         result = _make_backtest_result(n_days=504, cagr=0.10)
         spy = _series_with_cagr(504, 0.04)   # strat beats SPY by +6%
         qqq = _series_with_cagr(504, 0.15)   # strat loses to QQQ by -5%
         analyzer = _analyzer()
         ar = analyzer.acceptance_check(result, spy, qqq_benchmark=qqq)
+        without_qqq = analyzer.acceptance_check(result, spy)
         assert ar.passed_qqq_gate is False
         assert ar.qqq_excess_return < 0
-        assert not ar.passed, (
-            "strategy should FAIL acceptance when it loses to QQQ "
-            f"(failed_criteria={ar.failed_criteria})"
-        )
-        # The specific failure should be in the list
-        assert any("qqq_excess" in f for f in ar.failed_criteria)
+        assert ar.passed is without_qqq.passed
+        assert ar.failed_criteria == without_qqq.failed_criteria
+        assert not any("qqq_excess" in f for f in ar.failed_criteria)
 
     def test_no_qqq_benchmark_preserves_legacy_behavior(self):
         result = _make_backtest_result(n_days=504, cagr=0.15)
         spy = _series_with_cagr(504, 0.08)
         analyzer = _analyzer()
         ar = analyzer.acceptance_check(result, spy)
-        # Legacy: no QQQ check → gate defaults to True + NaN excess
+        # Unavailable diagnostics are not reported as a fake pass.
         assert np.isnan(ar.qqq_excess_return)
-        assert ar.passed_qqq_gate is True
+        assert ar.passed_qqq_gate is False
 
     def test_configurable_min_excess_threshold(self):
         """min_qqq_excess allows tightening or loosening the gate."""
@@ -111,7 +99,7 @@ class TestAcceptanceQQQGate:
 class TestReportSurfacing:
     """master_report_builder captures qqq_excess + passed_qqq_gate into
     the acceptance dict; master_report renders a dedicated row for the
-    QQQ hard gate."""
+    QQQ diagnostic."""
 
     def test_builder_captures_qqq_fields(self):
         from core.reporting.master_report_builder import MasterReportBuilder

@@ -62,8 +62,11 @@ def _base_yaml() -> dict:
         "validation": {
             "post_fix_validated": False,
             "passed_oos_gate": False,
+            "passed_spy_gate": False,
             "passed_qqq_gate": False,
             "passed_paper_backtest_alignment": False,
+            "promotion_evidence_path": "",
+            "promotion_evidence_sha256": "",
             "notes": "",
         },
         "fingerprints": {"universe_hash": "", "factor_registry_hash": "", "config_hash": ""},
@@ -84,8 +87,11 @@ def _active_yaml(_base_yaml) -> dict:
     y["validation"] = {
         "post_fix_validated": True,
         "passed_oos_gate": True,
+        "passed_spy_gate": True,
         "passed_qqq_gate": True,
         "passed_paper_backtest_alignment": True,
+        "promotion_evidence_path": "research/evidence/promotion/test.json",
+        "promotion_evidence_sha256": "e" * 64,
         "notes": "ok",
     }
     y["fingerprints"] = {
@@ -163,6 +169,18 @@ def test_active_requires_all_validation_passed(_active_yaml):
     assert "validation" in str(exc_info.value).lower()
 
 
+def test_active_requires_explicit_spy_gate(_active_yaml):
+    _active_yaml["validation"]["passed_spy_gate"] = False
+    with pytest.raises(Exception, match="passed_spy_gate"):
+        ProductionStrategyConfig(**_active_yaml)
+
+
+def test_active_requires_bound_promotion_evidence(_active_yaml):
+    _active_yaml["validation"]["promotion_evidence_sha256"] = ""
+    with pytest.raises(Exception, match="promotion evidence"):
+        ProductionStrategyConfig(**_active_yaml)
+
+
 def test_qqq_gate_is_diagnostic_not_required(_active_yaml):
     # QQQ deprecated as a HARD gate 2026-05-02 (docs/memos/20260502-qqq_benchmark_deprecation.md).
     # passed_qqq_gate=False must NOT block promotion when all real gates pass.
@@ -216,6 +234,15 @@ def test_load_valid_file(_base_yaml, tmp_path):
     p.write_text(yaml.safe_dump(_base_yaml))
     cfg = load_production_strategy(p)
     assert cfg.status == "conservative_default"
+
+
+def test_load_active_revalidates_evidence_file(_active_yaml, tmp_path):
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    p = config_dir / "production_strategy.yaml"
+    p.write_text(yaml.safe_dump(_active_yaml))
+    with pytest.raises(ProductionStrategyError, match="promotion evidence"):
+        load_production_strategy(p)
 
 
 def test_load_malformed_yaml_raises(tmp_path):

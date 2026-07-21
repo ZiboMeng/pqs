@@ -1,13 +1,10 @@
-"""QQQ hard gate tests (P0.4, 2026-04-20).
-
-Enforces CLAUDE.md "QQQ Outperformance Rule": a strategy that beats SPY
-but loses to QQQ must be non-promotable.
+"""Legacy QQQ diagnostic tests under active SPY-primary governance.
 
 Covers:
   1. _check_qqq_gate computes excess on 3 windows
-  2. Gate failure demotes tier to "D" even if all other stages pass
+  2. Diagnostic failure does not demote under the active policy
   3. Default thresholds (0.0) — strategy must at least match QQQ
-  4. passed_qqq_gate=True when no qqq_series passed (gate disabled)
+  4. unavailable diagnostics are not stamped True
   5. config plumbing: mining config → MiningEvaluator → tier assignment
 """
 
@@ -62,16 +59,18 @@ def _eval_result_with_all_pass(passed_qqq_gate=True) -> EvalResult:
 
 
 class TestAssignTierWithQQQGate:
-    def test_gate_failure_forces_D(self):
-        """Even with every other stage passing, QQQ gate failure must
-        demote to D (non-promotable)."""
+    def test_diagnostic_failure_does_not_force_D(self):
         ev = _make_evaluator()
         r = _eval_result_with_all_pass(passed_qqq_gate=False)
         tier = ev._assign_tier(r)
-        assert tier == "D", (
-            f"expected D when QQQ gate fails, got {tier} — "
-            "QQQ gate is not actually blocking promotion"
-        )
+        assert tier in ("S", "A")
+
+    def test_explicit_legacy_policy_can_restore_gate(self, monkeypatch):
+        import core.research.evaluation_policy as policy
+        monkeypatch.setattr(policy, "is_mining_qqq_disabled", lambda: False)
+        ev = _make_evaluator()
+        assert ev._assign_tier(
+            _eval_result_with_all_pass(passed_qqq_gate=False)) == "D"
 
     def test_gate_pass_allows_S_when_robust(self):
         ev = _make_evaluator()
@@ -81,12 +80,9 @@ class TestAssignTierWithQQQGate:
         # → S tier (IR threshold for S is 0.5)
         assert tier in ("S", "A"), f"unexpected tier {tier} with all pass"
 
-    def test_gate_default_is_true_when_disabled(self):
-        """If evaluate() is called without qqq_series, passed_qqq_gate
-        stays True (gate effectively disabled — back-compat)."""
+    def test_diagnostic_default_is_false_when_unavailable(self):
         r = EvalResult(spec_id="x", strategy_type="multi_factor", params={})
-        # Default before any stage is passed_qqq_gate=True (gate off)
-        assert r.passed_qqq_gate is True
+        assert r.passed_qqq_gate is False
 
 
 class TestCheckQQQGateDirectly:

@@ -168,6 +168,11 @@ def promote(
         benchmark_metrics=holdout_item["benchmark_metrics"],
         robustness=holdout_item["validation_robustness"],
         controls=controls,
+        benchmark_symbol="SPY",
+        comparison_basis="total_return_after_strategy_costs",
+        strategy_costs_included=True,
+        code_commit=code_commit,
+        promotion_evidence_path=operational.get("promotion_evidence_path"),
     )
     decision = policy.evaluate(evidence, include_operational=True)
     if not decision.eligible:

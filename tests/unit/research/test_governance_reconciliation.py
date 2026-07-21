@@ -9,6 +9,7 @@ import yaml
 from core.research.governance import (
     GovernanceError,
     assert_sealed_interval_available,
+    evaluate_automatic_promotion_benchmark,
     load_research_governance,
     resolve_strategy_governance,
 )
@@ -25,6 +26,37 @@ def test_active_policy_preserves_spy_gate_without_automatic_drop() -> None:
     assert policy.benchmark.failure_disposition == "REVIEW_HOLD"
     assert policy.benchmark.risk_matched_passive_required_for_review is True
     assert policy.benchmark.qqq_role == "diagnostic_only"
+
+
+def test_automatic_benchmark_gate_is_strict_and_basis_bound() -> None:
+    passed = evaluate_automatic_promotion_benchmark(
+        strategy_cagr=0.11,
+        benchmark_cagr=0.10,
+        benchmark_symbol="SPY",
+        comparison_basis="total_return_after_strategy_costs",
+        strategy_costs_included=True,
+        path=POLICY,
+    )
+    assert passed.passed
+    equal = evaluate_automatic_promotion_benchmark(
+        strategy_cagr=0.10,
+        benchmark_cagr=0.10,
+        benchmark_symbol="SPY",
+        comparison_basis="total_return_after_strategy_costs",
+        strategy_costs_included=True,
+        path=POLICY,
+    )
+    assert not equal.passed
+    assert equal.disposition == "REVIEW_HOLD"
+    wrong_basis = evaluate_automatic_promotion_benchmark(
+        strategy_cagr=0.20,
+        benchmark_cagr=0.10,
+        benchmark_symbol="QQQ",
+        comparison_basis="raw_close",
+        strategy_costs_included=False,
+        path=POLICY,
+    )
+    assert not wrong_basis.passed
 
 
 def test_dual_index_is_observation_only_and_never_capital_eligible() -> None:

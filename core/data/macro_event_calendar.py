@@ -3,8 +3,8 @@
 PRD 2026-05-12 Bucket A T1 batch 3 deferred items (Round D).
 
 Calendar generation strategy:
-  - **NFP** (Non-Farm Payrolls): exact rule — first Friday of each month.
-    Generated algorithmically.
+  - **NFP** (Non-Farm Payrolls): heuristic first-Friday rule. Holidays and
+    exceptional releases mean this is not an authoritative calendar.
   - **CPI** (Consumer Price Index): approximation — second Tuesday of
     each month (real release day varies between 8th-15th business day
     of the month). Window-flag factor robustness: 2-day window catches
@@ -16,11 +16,8 @@ Calendar generation strategy:
     strings) for higher precision.
 
 Caveats:
-  - For mining / IC research, the heuristic approximation is acceptable
-    (alpha-on-anticipation captures ±2 trading day window anyway).
-  - For execution-grade timing, FOMC dates MUST be curated from
-    federalreserve.gov. NFP / CPI heuristics are within ±2 trading
-    days of truth.
+  - Precise mode is the default and fails closed unless a curated calendar is
+    supplied. Heuristics require an explicit ``mode="heuristic"`` opt-in.
   - Pre-2020 emergency FOMC meetings (March 2020 covid, January 2008
     inter-meeting cut) are NOT in heuristic — only yaml-override path
     catches them.
@@ -30,7 +27,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Literal
 
 import pandas as pd
 import yaml
@@ -38,8 +35,12 @@ import yaml
 logger = logging.getLogger(__name__)
 
 
+class MacroEventCalendarError(RuntimeError):
+    """Raised when precise event research lacks a curated calendar."""
+
+
 def first_friday_of_month(year: int, month: int) -> pd.Timestamp:
-    """Return the first Friday of a calendar month (NFP release rule)."""
+    """Return the heuristic first-Friday NFP date for a month."""
     first = pd.Timestamp(year=year, month=month, day=1)
     # weekday(): Monday=0 ... Sunday=6. Friday=4.
     days_to_friday = (4 - first.weekday()) % 7
@@ -59,7 +60,7 @@ def second_tuesday_of_month(year: int, month: int) -> pd.Timestamp:
 
 
 def generate_nfp_dates(start_year: int, end_year: int) -> List[pd.Timestamp]:
-    """All first-Fridays in range [start_year, end_year] inclusive."""
+    """Heuristic first-Fridays in range [start_year, end_year] inclusive."""
     out = []
     for y in range(start_year, end_year + 1):
         for m in range(1, 13):
@@ -107,8 +108,10 @@ def load_calendar(
     yaml_path: str = "config/macro_event_calendar.yaml",
     start_year: int = 2008,
     end_year: int = 2027,
+    *,
+    mode: Literal["precise", "heuristic"] = "precise",
 ) -> dict[str, List[pd.Timestamp]]:
-    """Load macro event calendar; yaml overrides supersede heuristics.
+    """Load a curated calendar or an explicitly requested heuristic one.
 
     Returns:
         {
@@ -117,21 +120,60 @@ def load_calendar(
             'nfp':  [Timestamp, ...],
         }
     """
+    if mode not in {"precise", "heuristic"}:
+        raise ValueError(f"unsupported macro event calendar mode: {mode}")
     calendar = {
         "fomc": generate_fomc_dates_heuristic(start_year, end_year),
         "cpi": generate_cpi_dates(start_year, end_year),
         "nfp": generate_nfp_dates(start_year, end_year),
     }
     path = Path(yaml_path)
-    if path.exists():
-        with open(path) as f:
-            data = yaml.safe_load(f) or {}
-        for key in ("fomc", "cpi", "nfp"):
-            if key in data and data[key]:
-                # yaml dates override heuristic
-                override = [pd.Timestamp(d) for d in data[key]]
-                calendar[key] = sorted(override)
-                logger.info("Loaded %d %s dates from yaml override", len(override), key)
+    if not path.exists():
+        if mode == "precise":
+            raise MacroEventCalendarError(
+                f"precise macro event calendar is missing: {path}; "
+                "heuristics require explicit mode='heuristic'"
+            )
+        logger.warning("Using explicit heuristic macro event calendar: %s", path)
+        return calendar
+    try:
+        with open(path, encoding="utf-8") as handle:
+            data = yaml.safe_load(handle) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        raise MacroEventCalendarError(f"cannot load macro event calendar: {path}") from exc
+    if not isinstance(data, dict):
+        raise MacroEventCalendarError("macro event calendar must be a mapping")
+    for key in ("fomc", "cpi", "nfp"):
+        raw = data.get(key)
+        if raw:
+            try:
+                override = sorted(
+                    pd.Timestamp(value).tz_localize(None).normalize()
+                    for value in raw
+                )
+            except (TypeError, ValueError) as exc:
+                raise MacroEventCalendarError(
+                    f"invalid {key} event date"
+                ) from exc
+            if any(pd.isna(value) for value in override):
+                raise MacroEventCalendarError(f"invalid {key} event date")
+            if len(override) != len(set(override)):
+                raise MacroEventCalendarError(f"duplicate {key} event dates")
+            if mode == "precise":
+                covered_years = {value.year for value in override}
+                missing_years = sorted(
+                    set(range(start_year, end_year + 1)) - covered_years
+                )
+                if missing_years:
+                    raise MacroEventCalendarError(
+                        f"precise {key} calendar lacks years: {missing_years}"
+                    )
+            calendar[key] = override
+            logger.info("Loaded %d %s dates from yaml", len(override), key)
+        elif mode == "precise":
+            raise MacroEventCalendarError(
+                f"precise macro event calendar lacks non-empty '{key}' dates"
+            )
     return calendar
 
 

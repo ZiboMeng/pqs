@@ -23,11 +23,10 @@ logging:
 # live_only_fail: when true, fail mode ONLY blocks live paper, not
 #   backtest/research. Recommended default for safety.
 #
-# Phase 1 (current, 2026-04-21): mode=warn. After 2-week observation
-# of warn-mode artifacts at data/paper_trading/alignment_*.json,
-# flip to mode=fail without breaking research paths.
+# The warn-only observation period has elapsed. PAPER live now fails closed
+# on fingerprint drift; backtest/research remain warning-only.
 alignment:
-  mode: warn
+  mode: fail
   live_only_fail: true
 
 # Real-capital execution is an independent runtime mode. The existing

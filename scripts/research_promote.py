@@ -22,7 +22,6 @@ Usage:
         --decision-memo-path docs/20260424-rcm_v1_s1_candidate_memo.md
     # optional:
     #   --acceptance-json <path>   # default: auto-discover by trial_id
-    #   --force                    # skip stub-detection (discouraged)
 
 The RCMv1 candidate is already at S1 via R3 migration; running this
 against it is rejected ("already at S1"), which is the correct no-op
@@ -173,9 +172,12 @@ def main() -> int:
                              "by source_trial_id")
     parser.add_argument("--registry-db", default=_DEFAULT_REGISTRY_DB)
     parser.add_argument("--force", action="store_true",
-                        help="Skip stub-detection (discouraged; use only "
-                             "if you understand why a stub summary is OK)")
+                        help="Deprecated and refused: stub evidence is never promotable")
     args = parser.parse_args()
+
+    if args.force:
+        logger.error("--force is disabled; replace stub summaries with real evidence")
+        return 1
 
     # Guardrail: we're not writing to production
     _assert_no_production_writes(Path(args.registry_db))
@@ -217,20 +219,18 @@ def main() -> int:
         logger.error("Frozen spec file missing: %s", rec.frozen_spec_path)
         return 1
 
-    # Hard block: stub summaries (unless --force)
-    if not args.force:
-        for name in ("benchmark_relative_summary", "oos_holdout_summary",
-                     "robustness_summary"):
-            if _contains_stub(getattr(spec, name)):
-                logger.error(
-                    "HARD BLOCK: %s still contains freeze-time stub. "
-                    "Run scripts/acceptance_research_composite.py to "
-                    "produce real evidence, edit the frozen YAML to "
-                    "replace the stub, then re-run promote. "
-                    "(Use --force to skip this check; discouraged.)",
-                    name,
-                )
-                return 1
+    # Hard block: a freeze-time stub can never stand in for evidence.
+    for name in ("benchmark_relative_summary", "oos_holdout_summary",
+                 "robustness_summary"):
+        if _contains_stub(getattr(spec, name)):
+            logger.error(
+                "HARD BLOCK: %s still contains freeze-time stub. "
+                "Run scripts/acceptance_research_composite.py to "
+                "produce real evidence, edit the frozen YAML to "
+                "replace the stub, then re-run promote.",
+                name,
+            )
+            return 1
 
     # Validate decision memo
     ok, err = _check_decision_memo(args.decision_memo_path)

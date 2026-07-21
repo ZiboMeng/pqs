@@ -252,9 +252,8 @@ RESEARCH_FACTORS: FrozenSet[str] = frozenset({
     "yield_curve_10y_2y", "fed_funds_yoy_change", "dxy_zscore_60d",
     "wti_yoy_pct", "vix_zscore_60d", "cpi_yoy_pct",
     # Bucket A T1 batch 3 — event-window factors (PRD 20260512 Round D).
-    # NFP rule exact (first Friday of month); CPI heuristic (~2nd
-    # Tuesday); FOMC heuristic (~8 meetings/year fixed weeks). User
-    # can override via config/macro_event_calendar.yaml for precision.
+    # Precise mode requires config/macro_event_calendar.yaml. Legacy
+    # heuristics remain available only through an explicit research opt-in.
     "pre_fomc_window_flag", "post_fomc_window_flag",
     "pre_cpi_window_flag", "pre_nfp_window_flag",
     # Signal-conf MVP Phase 1 multi-bar factors (PRD 20260512 Round F).

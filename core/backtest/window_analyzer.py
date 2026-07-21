@@ -94,11 +94,10 @@ class AcceptanceResult:
     ir:                float    # 信息比率
     details:           Dict[str, float] = field(default_factory=dict)
     failed_criteria:   List[str]  = field(default_factory=list)
-    # QQQ hard gate (closeout 2026-04-20). Mirrors the mining
-    # evaluator's gate at the acceptance layer so report + evaluator
-    # cannot disagree. NaN when no qqq_benchmark was passed.
+    # QQQ diagnostic retained for historical reports. It never participates
+    # in ``passed`` under the active SPY-primary governance policy.
     qqq_excess_return: float = float("nan")
-    passed_qqq_gate:   bool  = True
+    passed_qqq_gate:   bool  = False
 
     def __str__(self) -> str:
         status = "PASS ★" if self.passed else "FAIL ✗"
@@ -107,7 +106,7 @@ class AcceptanceResult:
             q_status = "✓" if self.passed_qqq_gate else "✗"
             qqq_line = (
                 f"\n  vs QQQ        = {self.qqq_excess_return:+.2%} "
-                f"(hard gate {q_status})"
+                f"(diagnostic {q_status})"
             )
         return (
             f"[{status}] Tier D Acceptance\n"
@@ -452,10 +451,9 @@ class WindowAnalyzer:
         ----------
         result         : BacktestEngine.run() 的输出
         benchmark      : primary benchmark equity curve (usually SPY close)
-        qqq_benchmark  : optional QQQ close series. When supplied, a QQQ
-                         hard gate is evaluated alongside the SPY-based
-                         checks (closeout 2026-04-20). Strategy must
-                         beat QQQ by at least `min_qqq_excess` (default 0).
+        qqq_benchmark  : optional QQQ close series. When supplied, QQQ excess
+                         is recorded as a diagnostic only. It never changes the
+                         SPY-primary acceptance verdict.
         min_qqq_excess : CAGR excess threshold vs QQQ (default 0 =
                          "strategy must at least match QQQ").
         """
@@ -504,12 +502,10 @@ class WindowAnalyzer:
         if np.isnan(dd_ratio) or dd_ratio > tier_d_thresholds.max_dd_vs_spy_multiplier:
             failed.append(f"dd_ratio={dd_ratio:.2f} > {tier_d_thresholds.max_dd_vs_spy_multiplier}")
 
-        # QQQ hard gate (closeout 2026-04-20). Mirrors the mining-
-        # evaluator gate so report + evaluator stay aligned: a
-        # strategy that loses to QQQ fails acceptance regardless of
-        # SPY outperformance.
+        # QQQ is diagnostic only. ``passed_qqq_gate`` preserves the legacy
+        # field name and records whether the diagnostic threshold was met.
         qqq_excess = float("nan")
-        passed_qqq_gate = True
+        passed_qqq_gate = False
         if qqq_benchmark is not None and not qqq_benchmark.empty:
             qqq_common = strat_eq.index.intersection(qqq_benchmark.index)
             if len(qqq_common) > 1:
@@ -523,12 +519,7 @@ class WindowAnalyzer:
                 q_cagr = qqq_m.get("cagr", np.nan)
                 if not (np.isnan(s_cagr) or np.isnan(q_cagr)):
                     qqq_excess = s_cagr - q_cagr
-                    if qqq_excess < min_qqq_excess:
-                        passed_qqq_gate = False
-                        failed.append(
-                            f"qqq_excess={qqq_excess:+.2%} < "
-                            f"{min_qqq_excess:+.2%}"
-                        )
+                    passed_qqq_gate = qqq_excess >= min_qqq_excess
 
         return AcceptanceResult(
             passed            = len(failed) == 0,

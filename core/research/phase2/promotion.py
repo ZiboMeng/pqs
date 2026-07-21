@@ -8,6 +8,9 @@ from typing import Any, Mapping
 
 import yaml
 
+from core.research.governance import evaluate_automatic_promotion_benchmark
+from core.research.promotion.evidence import validate_promotion_evidence
+
 
 @dataclass(frozen=True)
 class CandidateEvidence:
@@ -17,6 +20,11 @@ class CandidateEvidence:
     benchmark_metrics: Mapping[str, Any]
     robustness: Mapping[str, Any]
     controls: Mapping[str, Any]
+    benchmark_symbol: str = ""
+    comparison_basis: str = ""
+    strategy_costs_included: bool = False
+    code_commit: str = ""
+    promotion_evidence_path: str | None = None
 
 
 @dataclass(frozen=True)
@@ -25,6 +33,7 @@ class GateResult:
     passed: bool
     actual: Any
     required: Any
+    binding: bool = True
 
 
 @dataclass(frozen=True)
@@ -35,12 +44,22 @@ class PromotionDecision:
 
     @property
     def failed_gates(self) -> tuple[str, ...]:
-        return tuple(gate.name for gate in self.gates if not gate.passed)
+        return tuple(
+            gate.name for gate in self.gates if gate.binding and not gate.passed
+        )
 
 
 class PromotionPolicy:
-    def __init__(self, payload: Mapping[str, Any]) -> None:
+    def __init__(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        source_path: str | Path = "config/strategy_promotion.yaml",
+    ) -> None:
         self.payload = dict(payload)
+        self.source_path = Path(source_path).resolve()
+        self.repo_root = self.source_path.parents[1]
+        self.governance_path = self.repo_root / "config/research_governance.yaml"
         if self.payload.get("schema_version") != 1:
             raise ValueError("unsupported strategy promotion policy schema")
         if not self.payload.get("frozen_before_candidate_results"):
@@ -51,7 +70,7 @@ class PromotionPolicy:
         payload = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
         if not isinstance(payload, dict):
             raise ValueError("promotion policy must be a mapping")
-        return cls(payload)
+        return cls(payload, source_path=path)
 
     def evaluate(
         self,
@@ -69,20 +88,79 @@ class PromotionPolicy:
         c = evidence.controls
         gates: list[GateResult] = []
 
-        def minimum(name: str, actual: Any, required: float) -> None:
+        def minimum(
+            name: str,
+            actual: Any,
+            required: float,
+            *,
+            binding: bool = True,
+        ) -> None:
             value = float(actual) if actual is not None else float("-inf")
-            gates.append(GateResult(name, value >= float(required), actual, required))
+            gates.append(
+                GateResult(name, value >= float(required), actual, required, binding)
+            )
 
-        def maximum(name: str, actual: Any, required: float) -> None:
+        def maximum(
+            name: str,
+            actual: Any,
+            required: float,
+            *,
+            binding: bool = True,
+        ) -> None:
             value = float(actual) if actual is not None else float("inf")
-            gates.append(GateResult(name, value <= float(required), actual, required))
+            gates.append(
+                GateResult(name, value <= float(required), actual, required, binding)
+            )
 
-        def required_true(name: str, actual: Any) -> None:
-            gates.append(GateResult(name, bool(actual), actual, True))
+        def required_true(
+            name: str,
+            actual: Any,
+            *,
+            binding: bool = True,
+        ) -> None:
+            gates.append(GateResult(name, bool(actual), actual, True, binding))
 
         maximum("unresolved_p0", c.get("unresolved_p0"), common["unresolved_p0_max"])
         maximum("unresolved_research_p1", c.get("unresolved_research_p1"), common["unresolved_research_p1_max"])
-        required_true("no_known_lookahead", c.get("no_known_lookahead"))
+        lookahead = c.get("lookahead_evidence")
+        lookahead_valid = (
+            isinstance(lookahead, Mapping)
+            and lookahead.get("passed") is True
+            and isinstance(lookahead.get("artifact_sha256"), str)
+            and len(lookahead["artifact_sha256"]) == 64
+            and lookahead.get("code_commit") == evidence.code_commit
+            and isinstance(lookahead.get("tests"), (list, tuple))
+            and bool(lookahead.get("tests"))
+        )
+        required_true("lookahead_evidence", lookahead_valid)
+
+        overfit = c.get("overfit_evidence")
+        overfit_valid = (
+            isinstance(overfit, Mapping)
+            and overfit.get("passed") is True
+            and overfit.get("minimum_backtest_length_passed") is True
+            and overfit.get("cpcv_passed") is True
+            and isinstance(overfit.get("artifact_sha256"), str)
+            and len(overfit["artifact_sha256"]) == 64
+        )
+        required_true("overfit_evidence", overfit_valid)
+
+        benchmark_gate = evaluate_automatic_promotion_benchmark(
+            strategy_cagr=m.get("cagr"),
+            benchmark_cagr=b.get("cagr"),
+            benchmark_symbol=evidence.benchmark_symbol,
+            comparison_basis=evidence.comparison_basis,
+            strategy_costs_included=evidence.strategy_costs_included,
+            path=self.governance_path,
+        )
+        gates.append(
+            GateResult(
+                "cagr_excess_vs_spy",
+                benchmark_gate.passed,
+                benchmark_gate.cagr_excess,
+                "> 0.0 on total_return_after_strategy_costs",
+            )
+        )
         minimum("validation_cagr", m.get("cagr"), max(common["min_validation_cagr"], type_gates["min_validation_cagr"]))
         minimum("validation_sharpe", m.get("sharpe"), max(common["min_validation_sharpe"], type_gates["min_validation_sharpe"]))
         minimum("validation_sortino", m.get("sortino"), max(common["min_validation_sortino"], type_gates["min_validation_sortino"]))
@@ -112,10 +190,16 @@ class PromotionPolicy:
         elif evidence.strategy_type == "growth_engine":
             minimum(
                 "calmar_improvement_vs_qqq",
-                float(m.get("calmar", 0.0)) - float(b.get("calmar", 0.0)),
+                r.get("calmar_improvement_vs_qqq"),
                 type_gates["min_calmar_improvement_vs_qqq"],
+                binding=False,
             )
-            maximum("beta_to_qqq", m.get("beta"), type_gates["max_beta_to_qqq"])
+            maximum(
+                "beta_to_qqq",
+                m.get("beta_to_qqq"),
+                type_gates["max_beta_to_qqq"],
+                binding=False,
+            )
             maximum("tqqq_weight", r.get("max_tqqq_weight"), type_gates["max_tqqq_weight"])
             required_true("cooldown_test", c.get("cooldown_test"))
             required_true("risk_on_gate_test", c.get("risk_on_gate_test"))
@@ -139,8 +223,19 @@ class PromotionPolicy:
             required_true("risk_veto_test", c.get("risk_veto_test"))
             required_true("restart_idempotency_test", c.get("restart_idempotency_test"))
             required_true("paper_replay", c.get("paper_replay"))
+            promotion_evidence = validate_promotion_evidence(
+                evidence.promotion_evidence_path,
+                expected_candidate_id=evidence.strategy_id,
+                repo_root=self.repo_root,
+                expected_code_commit=evidence.code_commit or None,
+                governance_path=self.governance_path,
+            )
+            required_true(
+                "bound_promotion_evidence",
+                promotion_evidence.passed,
+            )
         return PromotionDecision(
             strategy_id=evidence.strategy_id,
-            eligible=all(gate.passed for gate in gates),
+            eligible=all(gate.passed for gate in gates if gate.binding),
             gates=tuple(gates),
         )

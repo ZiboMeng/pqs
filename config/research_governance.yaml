@@ -14,6 +14,20 @@ benchmark:
   manual_exception_requires_explicit_user_approval: true
   manual_exception_must_not_be_relabelled_as_gate_pass: true
 
+automatic_promotion_evidence:
+  schema_version: 1
+  require_bound_artifact: true
+  require_clean_code_commit: true
+  require_lookahead_test_pass: true
+  min_deflated_sharpe_probability: 0.95
+  max_probability_backtest_overfitting: 0.50
+  require_minimum_backtest_length_pass: true
+  require_cpcv_pass: true
+  minimum_cpcv_folds: 2
+  require_paper_backtest_alignment: true
+  max_paper_backtest_equity_drift_bps: 10.0
+  failure_disposition: REVIEW_HOLD
+
 research_boundary:
   observed_through: "2026-07-17"
   next_unseen_session_must_be_after: "2026-07-17"

@@ -46,21 +46,25 @@ class ProductionStrategySource(BaseModel):
 class ProductionStrategyValidation(BaseModel):
     post_fix_validated: bool = False
     passed_oos_gate: bool = False
+    passed_spy_gate: bool = False
     passed_qqq_gate: bool = False  # DIAGNOSTIC ONLY (2026-05-02 QQQ deprecation) — recorded, NOT gated
     passed_paper_backtest_alignment: bool = False
+    promotion_evidence_path: str = ""
+    promotion_evidence_sha256: str = ""
     notes: str = ""
 
     @property
     def all_passed(self) -> bool:
-        # QQQ deprecated as a HARD gate 2026-05-02 (docs/memos/20260502-qqq_benchmark_deprecation.md;
-        # CLAUDE.md Invariant + Benchmark Outperformance Rule). `passed_qqq_gate` is retained as a
-        # recorded DIAGNOSTIC field but MUST NOT block promotion — a SPY-beating strategy that lags
-        # QQQ (an active sector-tilt bet, not an invariant) is promotable. SPY hard-gate lives in the
-        # Track-A/temporal-split acceptance path (post_fix_validated + passed_oos_gate).
+        # QQQ is diagnostic only. Active status requires an explicit SPY gate
+        # plus a cryptographically bound evidence artifact; neither may be
+        # inferred from the generic OOS flag.
         return (
             self.post_fix_validated
             and self.passed_oos_gate
+            and self.passed_spy_gate
             and self.passed_paper_backtest_alignment
+            and bool(self.promotion_evidence_path)
+            and len(self.promotion_evidence_sha256) == 64
         )
 
 
@@ -173,7 +177,8 @@ class ProductionStrategyConfig(BaseModel):
             if not self.validation.all_passed:
                 raise ValueError(
                     "status=active requires validation.{post_fix_validated, passed_oos_gate, "
-                    "passed_paper_backtest_alignment} all true "
+                    "passed_spy_gate, passed_paper_backtest_alignment} all true and "
+                    "candidate-bound promotion evidence "
                     "(passed_qqq_gate is DIAGNOSTIC only per 2026-05-02 QQQ deprecation, not gated)"
                 )
             if not self.fingerprints.all_filled:
@@ -225,9 +230,40 @@ def load_production_strategy(
     except yaml.YAMLError as exc:
         raise ProductionStrategyError(f"Failed to parse {p}: {exc}") from exc
     try:
-        return ProductionStrategyConfig(**raw)
+        config = ProductionStrategyConfig(**raw)
     except Exception as exc:
         raise ProductionStrategyError(f"Invalid schema in {p}: {exc}") from exc
+    if config.status == "active":
+        # Schema booleans are not evidence. Re-validate the referenced
+        # candidate-bound artifact and its recorded digest on every load so a
+        # hand-edited path/hash cannot turn into execution authority.
+        from core.research.promotion.evidence import (
+            sha256_file,
+            validate_promotion_evidence,
+        )
+
+        resolved_config = p.resolve()
+        root = (
+            resolved_config.parent.parent
+            if resolved_config.parent.name == "config"
+            else resolved_config.parent
+        )
+        evidence = validate_promotion_evidence(
+            config.validation.promotion_evidence_path,
+            expected_candidate_id=config.source.spec_id,
+            repo_root=root,
+        )
+        if not evidence.passed:
+            raise ProductionStrategyError(
+                "Active production strategy has invalid promotion evidence: "
+                + ", ".join(evidence.failed_checks)
+            )
+        evidence_path = root / evidence.artifact_path
+        if sha256_file(evidence_path) != config.validation.promotion_evidence_sha256:
+            raise ProductionStrategyError(
+                "Active production strategy promotion evidence hash mismatch"
+            )
+    return config
 
 
 # ---------------------------------------------------------------------------

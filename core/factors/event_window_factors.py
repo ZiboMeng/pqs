@@ -19,7 +19,7 @@ depending on regime).
 from __future__ import annotations
 
 import logging
-from typing import Dict, List
+from typing import Dict, List, Literal
 
 import pandas as pd
 
@@ -40,6 +40,7 @@ def compute_event_window_factors(
     daily_idx: pd.DatetimeIndex,
     tickers: List[str],
     yaml_path: str = "config/macro_event_calendar.yaml",
+    calendar_mode: Literal["precise", "heuristic"] = "precise",
 ) -> Dict[str, pd.DataFrame]:
     # Audit Ω2 E1 fix: empty daily_idx → return empty panels gracefully
     if len(daily_idx) == 0:
@@ -49,6 +50,7 @@ def compute_event_window_factors(
         yaml_path=yaml_path,
         start_year=int(daily_idx.min().year) - 1,
         end_year=int(daily_idx.max().year) + 1,
+        mode=calendar_mode,
     )
     factors: Dict[str, pd.DataFrame] = {}
     factors["pre_fomc_window_flag"] = window_flag_panel(

@@ -165,8 +165,8 @@ def test_promote_rejects_stub_summaries(tmp_path):
     assert "hard block" in combined or "stub" in combined
 
 
-def test_promote_force_overrides_stub_check(tmp_path):
-    """--force disables stub detection (discouraged but supported)."""
+def test_promote_force_cannot_override_stub_check(tmp_path):
+    """--force is retained for CLI compatibility but is refused."""
     registry_db, spec_path, memo, accept = _setup_s0_candidate(
         tmp_path, stubbed=True,
     )
@@ -177,8 +177,9 @@ def test_promote_force_overrides_stub_check(tmp_path):
         "--acceptance-json", str(accept),
         "--registry-db", str(registry_db),
         "--force",
-    ])
-    assert result.returncode == 0
+    ], check=False)
+    assert result.returncode == 1
+    assert "force is disabled" in (result.stderr + result.stdout).lower()
 
 
 def test_promote_rejects_missing_memo(tmp_path):

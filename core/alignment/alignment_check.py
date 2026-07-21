@@ -147,7 +147,10 @@ def check_alignment(
         ps_cfg = load_production_strategy(root / DEFAULT_CONFIG_PATH)
         exists = True
     except ProductionStrategyError as exc:
-        warnings_list.append(f"Cannot load production_strategy.yaml: {exc}")
+        message = f"Cannot load production_strategy.yaml: {exc}"
+        if mode == AlignmentMode.FAIL:
+            raise AlignmentCheckError(message) from exc
+        warnings_list.append(message)
         return AlignmentReport(
             timestamp=ts,
             mode=mode,

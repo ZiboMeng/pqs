@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -29,6 +30,30 @@ class BenchmarkPolicy(BaseModel):
     risk_matched_passive_required_for_review: Literal[True]
     manual_exception_requires_explicit_user_approval: Literal[True]
     manual_exception_must_not_be_relabelled_as_gate_pass: Literal[True]
+
+
+class AutomaticPromotionEvidencePolicy(BaseModel):
+    """Evidence required for a new automatic promotion decision.
+
+    These controls apply prospectively.  Historical artifacts remain
+    immutable, but absence of the evidence below can never be interpreted as
+    an automatic pass for a new promotion.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal[1]
+    require_bound_artifact: Literal[True]
+    require_clean_code_commit: Literal[True]
+    require_lookahead_test_pass: Literal[True]
+    min_deflated_sharpe_probability: float = Field(ge=0.0, le=1.0)
+    max_probability_backtest_overfitting: float = Field(ge=0.0, le=1.0)
+    require_minimum_backtest_length_pass: Literal[True]
+    require_cpcv_pass: Literal[True]
+    minimum_cpcv_folds: int = Field(ge=2)
+    require_paper_backtest_alignment: Literal[True]
+    max_paper_backtest_equity_drift_bps: float = Field(ge=0.0)
+    failure_disposition: Literal["REVIEW_HOLD"]
 
 
 class ObservedInterval(BaseModel):
@@ -118,6 +143,7 @@ class ResearchGovernancePolicy(BaseModel):
     approved_at_utc: str = Field(min_length=1)
     authority: Literal["user_explicit_direction"]
     benchmark: BenchmarkPolicy
+    automatic_promotion_evidence: AutomaticPromotionEvidencePolicy
     research_boundary: ResearchBoundary
     strategy_decisions: list[StrategyDecision] = Field(min_length=1)
     forward_authority: ForwardAuthority
@@ -143,6 +169,19 @@ class EffectiveStrategyGovernance:
     policy_id: str
     policy_sha256: str
     decision_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class AutomaticBenchmarkGate:
+    benchmark_symbol: str
+    comparison_basis: str
+    strategy_costs_included: bool
+    strategy_cagr: float | None
+    benchmark_cagr: float | None
+    cagr_excess: float | None
+    passed: bool
+    disposition: str
+    reason: str
 
 
 def _canonical_json(payload: object) -> bytes:
@@ -208,6 +247,62 @@ def resolve_strategy_governance(
     )
 
 
+def evaluate_automatic_promotion_benchmark(
+    *,
+    strategy_cagr: object,
+    benchmark_cagr: object,
+    benchmark_symbol: str,
+    comparison_basis: str,
+    strategy_costs_included: bool,
+    path: str | Path = "config/research_governance.yaml",
+) -> AutomaticBenchmarkGate:
+    """Apply the project-wide SPY return gate on a declared price basis.
+
+    The comparison is deliberately strict: equality is not outperformance.
+    A failure is a ``REVIEW_HOLD`` rather than automatic retirement.
+    """
+
+    policy = load_research_governance(path).benchmark
+
+    def finite(value: object) -> float | None:
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return None
+        return number if math.isfinite(number) else None
+
+    strategy = finite(strategy_cagr)
+    benchmark = finite(benchmark_cagr)
+    symbol = str(benchmark_symbol).upper()
+    basis = str(comparison_basis)
+    excess = None if strategy is None or benchmark is None else strategy - benchmark
+    reasons: list[str] = []
+    if symbol != policy.primary:
+        reasons.append(f"primary benchmark must be {policy.primary}, got {symbol or 'missing'}")
+    if basis != policy.comparison_basis:
+        reasons.append(
+            f"comparison basis must be {policy.comparison_basis}, got {basis or 'missing'}"
+        )
+    if strategy_costs_included is not True:
+        reasons.append("strategy returns must include costs")
+    if excess is None:
+        reasons.append("strategy or benchmark CAGR is missing/non-finite")
+    elif excess <= 0.0:
+        reasons.append(f"SPY CAGR excess must be strictly positive, got {excess:+.8f}")
+    passed = not reasons
+    return AutomaticBenchmarkGate(
+        benchmark_symbol=symbol,
+        comparison_basis=basis,
+        strategy_costs_included=bool(strategy_costs_included),
+        strategy_cagr=strategy,
+        benchmark_cagr=benchmark,
+        cagr_excess=excess,
+        passed=passed,
+        disposition="AUTOMATIC_GATE_PASS" if passed else policy.failure_disposition,
+        reason="; ".join(reasons) if reasons else "strict positive CAGR excess vs SPY",
+    )
+
+
 def assert_sealed_interval_available(
     *,
     split_name: str,
@@ -235,4 +330,3 @@ def assert_sealed_interval_available(
                 f"requested sealed interval {start_date}..{end_date} overlaps observed data "
                 f"{interval.start}..{interval.end}"
             )
-

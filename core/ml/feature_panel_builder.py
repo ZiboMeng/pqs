@@ -166,7 +166,7 @@ def build_multi_path_factors(
                 factors[n] = edf
         logger.info("Event-window factors merged")
     except Exception as e:
-        logger.warning("Event-window compute failed: %s", e)
+        raise RuntimeError("Event-window factors unavailable on precise calendar") from e
 
     # Round F signal-confirmation
     try:

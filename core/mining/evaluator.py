@@ -96,13 +96,12 @@ class EvalResult:
     # OOS/IS overfit ratio
     oos_is_sharpe_ratio: float = float("nan")
 
-    # Stage 6: QQQ hard gate (P0.4, 2026-04-20).
-    # Excess CAGR/return vs QQQ across 3 windows — all must clear their
-    # threshold for promotion. None → gate disabled (legacy runs).
+    # Stage 6: legacy QQQ diagnostic. The field name is retained for archive
+    # compatibility; active governance never lets it determine promotion.
     qqq_full_period_excess: float = float("nan")
     qqq_holdout_excess:     float = float("nan")
     qqq_oos_avg_excess:     float = float("nan")
-    passed_qqq_gate:        bool  = True  # True when gate disabled OR cleared
+    passed_qqq_gate:        bool  = False
 
     # Overall
     tier:            str   = "D"
@@ -162,10 +161,9 @@ class MiningEvaluator:
         wf_test_bars_by_type: Optional[Dict[str, int]] = None,
         min_oos_is_sharpe_ratio: float = 0.50,
         defensive_window_dd_mult: float = 1.3,
-        # QQQ hard gate (P0.4, 2026-04-20). When a qqq_series is passed
-        # to evaluate(), strategies must clear all three thresholds or
-        # be demoted to tier "D" (non-promotable). Defaults = 0.0, i.e.
-        # strategy CAGR must be ≥ QQQ on each window.
+        # Legacy QQQ diagnostic thresholds. Active governance records these
+        # comparisons but does not use them for tier assignment. They bind
+        # only if the versioned evaluation policy is explicitly rolled back.
         min_cagr_excess_vs_qqq:       float = 0.0,
         min_holdout_excess_vs_qqq:    float = 0.0,
         min_avg_oos_excess_vs_qqq:    float = 0.0,
@@ -395,31 +393,18 @@ class MiningEvaluator:
             result.passed_holdout = True
             logger.debug("Holdout data too short (%d bars), skipping holdout check", len(holdout_df))
 
-        # ── Stage 6: QQQ hard gate (P0.4, 2026-04-20) ─────────────────────────
-        # When qqq_series provided, compute excess at 3 windows. All
-        # three must meet their threshold or tier is demoted to "D".
-        #
-        # 2026-05-14 P0.a (Codex audit): if config/evaluation_policy.yaml
-        # has `qqq_governance.mining_evaluator_qqq_disabled: true`, skip the
-        # gate evaluation and always pass. Excess metrics still computed
-        # in `_check_qqq_gate` callsite for diagnostic record. Disables
-        # the QQQ HARD gate at the OLD MiningEvaluator code path per
-        # 2026-05-02 QQQ deprecation memo.
-        from core.research.evaluation_policy import is_mining_qqq_disabled
-        if is_mining_qqq_disabled():
-            result.passed_qqq_gate = True
-            logger.debug(
-                "QQQ gate disabled per evaluation_policy.yaml "
-                "(qqq_mining_evaluator_disabled=true)"
-            )
-        elif qqq_series is not None and result.equity_curve is not None \
+        # ── Stage 6: QQQ diagnostic (never binding under active policy) ───────
+        # Compute it when data exists so "diagnostic" means measured, not a
+        # forced True. `_assign_tier` consults the policy before deciding
+        # whether this legacy field may bind.
+        if qqq_series is not None and result.equity_curve is not None \
                 and not result.equity_curve.empty:
             result.passed_qqq_gate = self._check_qqq_gate(
                 result, price_df, holdout_df, qqq_series,
                 non_holdout_df, spec, risk_universe, def_universe,
             )
         else:
-            result.passed_qqq_gate = True  # gate disabled when no qqq
+            result.passed_qqq_gate = False
 
         # ── Tier & score ──────────────────────────────────────────────────────
         result.tier            = self._assign_tier(result)
@@ -836,11 +821,11 @@ class MiningEvaluator:
         risk_universe,
         def_universe,
     ) -> bool:
-        """Evaluate the QQQ hard gate on 3 windows (约束: QQQ
-        Outperformance Rule, CLAUDE.md).
+        """Compute the legacy QQQ three-window diagnostic.
 
-        All three must clear their configured threshold for the gate
-        to pass; failure flips tier to "D". Windows:
+        All three must clear their configured threshold for the diagnostic
+        to read true. Active SPY-primary governance does not demote on this
+        result; an explicit legacy policy rollback may make it binding.
 
           1. Full-period (price_df) excess CAGR
           2. Holdout (last 252 bars) excess return
@@ -979,13 +964,10 @@ class MiningEvaluator:
             or r.oos_is_sharpe_ratio < self._min_oos_is_ratio
         ):
             return "D"
-        # QQQ tier-kill (legacy P0.4). DEPRECATED 2026-05-02: when
-        # config/evaluation_policy.yaml qqq_governance.mining_evaluator_qqq_disabled
-        # is true (default), `passed_qqq_gate` is forced True at the eval callsite
-        # (see :409 is_mining_qqq_disabled) so this branch is DEAD — QQQ is
-        # diagnostic, not a gate. Retained only so a deliberate policy re-enable
-        # restores the legacy behavior. See docs/memos/20260502-qqq_benchmark_deprecation.md.
-        if not r.passed_qqq_gate:
+        # QQQ is diagnostic under the active policy. Retain the old branch only
+        # for an explicit, versioned rollback of that policy.
+        from core.research.evaluation_policy import is_mining_qqq_disabled
+        if not is_mining_qqq_disabled() and not r.passed_qqq_gate:
             return "D"
         if not r.passed_holdout:
             return "C"
@@ -1032,4 +1014,3 @@ class MiningEvaluator:
         if not np.isnan(r.oos_is_sharpe_ratio) and r.oos_is_sharpe_ratio < 0.5:
             score -= 2.0
         return score
-

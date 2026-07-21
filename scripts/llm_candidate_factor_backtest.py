@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
-"""LLM-Round 5 tool: simplified 1-factor backtest + §5.3 cost stress +
-QQQ hard gate for LLM candidates.
+"""LLM candidate pre-qualification: one-factor backtest + cost stress.
 
 Closes the last two validation stages from PRD §5.3 that deep_check
 (Round 3) does not cover:
 
   - Cost stress: 1x vs 2x base cost — ensures 2x lowers CAGR directionally
-  - QQQ hard gate: strategy CAGR > QQQ CAGR full-period AND holdout
-    (last 252d), per QQQ Outperformance Rule
+  - SPY primary screen: strategy CAGR > SPY CAGR full-period AND holdout
+  - QQQ relative performance is retained as a non-binding diagnostic
 
 Strategy construction (deliberately simple for candidate validation):
   - Long-only equal-weighted top-K names by factor rank
@@ -45,7 +44,8 @@ import numpy as np
 import pandas as pd
 
 from core.config.loader import load_config
-from core.data.market_data_store import MarketDataStore
+from core.data.price_access import load_adjusted, load_adjusted_panel
+from core.data.price_basis import validate_total_return_coverage
 from core.factors.llm_candidate import load_candidate_from_yaml
 from core.logging_setup import get_logger, setup_logging
 
@@ -59,7 +59,7 @@ def _resolve_compute_fn(path: str):
 
 
 def _load_universe_prices(cfg, universe_size: int, start: str) -> pd.DataFrame:
-    store = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
+    data_dir = Path(cfg.system.paths.data_dir)
     uni = cfg.universe
     all_syms = list(dict.fromkeys(
         list(uni.seed_pool) + list(uni.sector_etfs) +
@@ -67,20 +67,35 @@ def _load_universe_prices(cfg, universe_size: int, start: str) -> pd.DataFrame:
     ))
     symbols = [s for s in all_syms
                if s not in uni.blacklist and s not in uni.macro_reference]
-    pf = {}
-    for s in symbols[:universe_size]:
-        df = store.read(s, "1d")
-        if df is not None and not df.empty and "close" in df.columns:
-            pf[s] = df["close"]
-    price_df = pd.DataFrame(pf).sort_index()
+    panel = load_adjusted_panel(
+        symbols[:universe_size],
+        data_dir,
+        "1d",
+        adjusted_total_return=True,
+        fallback="local",
+        require_total_return_coverage=True,
+    )
+    price_df = panel["close"]
     return price_df.loc[price_df.index >= start]
 
 
 def _load_benchmark(cfg, index: pd.DatetimeIndex, symbol: str) -> pd.Series:
-    store = MarketDataStore(data_dir=Path(cfg.system.paths.data_dir))
-    df = store.read(symbol, "1d")
+    data_dir = Path(cfg.system.paths.data_dir)
+    df = load_adjusted(
+        symbol,
+        data_dir,
+        "1d",
+        adjusted_total_return=True,
+        fallback="local",
+    )
     if df is None or df.empty:
-        raise RuntimeError(f"{symbol} data unavailable for QQQ gate")
+        raise RuntimeError(f"{symbol} total-return data unavailable")
+    validate_total_return_coverage(
+        data_dir,
+        [symbol],
+        from_date=index.min(),
+        through=index.max(),
+    )
     return df["close"].reindex(index).ffill()
 
 
@@ -222,14 +237,19 @@ def main():
     spy_stats = _perf_stats(spy / spy.iloc[0])
     qqq_stats = _perf_stats(qqq / qqq.iloc[0])
 
-    # QQQ hard gate: full-period + holdout (last 252d)
+    # SPY primary screen + QQQ diagnostic on the same holdout.
     eq = r1["equity"]
     holdout_start = eq.index[-252] if len(eq) > 252 else eq.index[0]
     strat_hold = _perf_stats(eq, start=holdout_start)
+    spy_hold = _perf_stats(spy, start=holdout_start)
     qqq_hold = _perf_stats(qqq, start=holdout_start)
 
-    # Verdict per PRD QQQ rule + cost stress + MaxDD invariant:
+    # This is a research pre-qualification only. Automatic promotion later
+    # re-runs the exact-cash acceptance pack and cannot consume this verdict
+    # as promotion authority.
     cost_stress_directional = stats_2x["cagr"] < stats_1x["cagr"]
+    spy_full_pass = stats_1x["cagr"] > spy_stats["cagr"]
+    spy_holdout_pass = strat_hold["cagr"] > spy_hold["cagr"]
     qqq_full_pass = stats_1x["cagr"] > qqq_stats["cagr"]
     qqq_holdout_pass = strat_hold["cagr"] > qqq_hold["cagr"]
     # PRD invariant (CLAUDE.md §Invariant Constraints):
@@ -240,8 +260,8 @@ def main():
     rel_dd_pass = stats_1x["max_dd"] >= 1.5 * spy_stats["max_dd"]
     max_dd_pass = abs_dd_pass and rel_dd_pass
     overall = (
-        cost_stress_directional and qqq_full_pass
-        and qqq_holdout_pass and max_dd_pass
+        cost_stress_directional and spy_full_pass
+        and spy_holdout_pass and max_dd_pass
     )
 
     out_dir = Path(args.out_dir) / cand.factor_name
@@ -258,9 +278,18 @@ def main():
         "spy":              spy_stats,
         "qqq":              qqq_stats,
         "strat_holdout":    strat_hold,
+        "spy_holdout":      spy_hold,
         "qqq_holdout":      qqq_hold,
+        "governance": {
+            "primary_benchmark": "SPY",
+            "qqq_role": "diagnostic_only",
+            "automatic_promotion_eligible": False,
+            "price_basis": "split_and_distribution_adjusted_total_return",
+        },
         "gates":            {
             "cost_stress_directional": bool(cost_stress_directional),
+            "spy_full_pass":           bool(spy_full_pass),
+            "spy_holdout_pass":        bool(spy_holdout_pass),
             "qqq_full_pass":           bool(qqq_full_pass),
             "qqq_holdout_pass":        bool(qqq_holdout_pass),
             "max_dd_abs_pass":         bool(abs_dd_pass),
@@ -293,16 +322,23 @@ def main():
     print()
     print(f"Holdout (last 252d):")
     print(f"  Strategy CAGR: {strat_hold['cagr']:+.2%}")
+    print(f"  SPY CAGR     : {spy_hold['cagr']:+.2%}")
     print(f"  QQQ CAGR     : {qqq_hold['cagr']:+.2%}")
     print()
     print("─" * 72)
     print(f"Cost stress (2x < 1x CAGR): "
           f"{'PASS' if cost_stress_directional else 'FAIL'} "
           f"(Δ={stats_2x['cagr'] - stats_1x['cagr']:+.4%})")
-    print(f"QQQ full-period gate      : "
+    print(f"SPY full-period gate      : "
+          f"{'PASS' if spy_full_pass else 'FAIL'} "
+          f"(Δ={stats_1x['cagr'] - spy_stats['cagr']:+.4%})")
+    print(f"SPY holdout 252d gate     : "
+          f"{'PASS' if spy_holdout_pass else 'FAIL'} "
+          f"(Δ={strat_hold['cagr'] - spy_hold['cagr']:+.4%})")
+    print(f"QQQ full-period diagnostic: "
           f"{'PASS' if qqq_full_pass else 'FAIL'} "
           f"(Δ={stats_1x['cagr'] - qqq_stats['cagr']:+.4%})")
-    print(f"QQQ holdout 252d gate     : "
+    print(f"QQQ holdout diagnostic    : "
           f"{'PASS' if qqq_holdout_pass else 'FAIL'} "
           f"(Δ={strat_hold['cagr'] - qqq_hold['cagr']:+.4%})")
     print(f"MaxDD abs (≥ -25%)        : "
