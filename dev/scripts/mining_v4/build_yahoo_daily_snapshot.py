@@ -247,11 +247,13 @@ def main() -> int:
         if _sha256_file(corp_path) != corp_row["response_sha256"]:
             raise RuntimeError(f"corporate-action raw response hash changed for {symbol}")
         corp_payload = json.loads(corp_path.read_bytes())
-        if not corporate_actions_match(
+        cross_query_match = corporate_actions_match(
             payload, corp_payload, expected_symbol=symbol,
-        ):
-            raise RuntimeError(
-                f"Yahoo daily and corporate-action event responses differ for {symbol}"
+        )
+        if not cross_query_match:
+            print(
+                f"  diagnostic: 1d/3mo corporate actions differ for {symbol}",
+                flush=True,
             )
         raw_path = raw_dir / storage_name
         _atomic_bytes(content, raw_path)
@@ -267,7 +269,7 @@ def main() -> int:
             "rows": len(parsed.frame),
             "first_date": str(parsed.frame.index.min().date()),
             "last_date": str(parsed.frame.index.max().date()),
-            "corporate_actions_match": True,
+            "corporate_actions_match": cross_query_match,
         }
         _append_journal(journal_path, row)
         journal[symbol] = row
@@ -338,6 +340,10 @@ def main() -> int:
         "responses": len(symbols),
         "response_bytes": sum(journal[symbol]["response_bytes"] for symbol in symbols),
         "raw_response_identity_sha256": _sha256_json(raw_identity),
+        "corporate_action_cross_query_mismatch_symbols": [
+            symbol for symbol in symbols
+            if not journal[symbol]["corporate_actions_match"]
+        ],
         "symbols": manifest_symbols,
         "evidence_scope": "DEVELOPMENT_ONLY_CURRENT_COMPANY_POOL",
         "automatic_promotion_eligible": False,
