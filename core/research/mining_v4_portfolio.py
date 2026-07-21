@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
@@ -12,6 +13,13 @@ Construction = Literal[
     "spy35_active65_equal_top10",
     "spy35_active65_rank_vol_top10",
 ]
+
+
+@dataclass(frozen=True, slots=True)
+class BufferedConstruction:
+    decision_weights: pd.DataFrame
+    evaluated_decision_dates: int
+    membership_change_dates: int
 
 
 def _capped_allocate(
@@ -110,4 +118,90 @@ def expand_decision_signals(
     return signals
 
 
-__all__ = ["Construction", "build_decision_weights", "expand_decision_signals"]
+def build_buffered_membership_weights(
+    scores: pd.DataFrame,
+    *,
+    top_k: int = 10,
+    exit_rank: int = 15,
+    spy_symbol: str = "SPY",
+    spy_weight: float = 0.35,
+    active_single_name_cap: float = 0.10,
+) -> BufferedConstruction:
+    """Build a rank-buffered book and rebalance only on membership changes.
+
+    At the first decision the highest ``top_k`` names enter. At later
+    decisions an incumbent remains while its deterministic cross-sectional
+    rank is at most ``exit_rank``; vacancies are filled from the best-ranked
+    non-incumbents. A target row is emitted only when the membership set
+    changes, so the backtest does not rebalance merely to undo weight drift.
+    """
+
+    if top_k < 1 or exit_rank < top_k:
+        raise ValueError("exit_rank must be at least top_k")
+    if not 0 <= spy_weight <= 1 or not 0 < active_single_name_cap <= 1:
+        raise ValueError("invalid portfolio weight constraint")
+    if not isinstance(scores.index, pd.DatetimeIndex):
+        raise TypeError("scores require DatetimeIndex")
+    if scores.index.has_duplicates or not scores.index.is_monotonic_increasing:
+        raise ValueError("score dates must be sorted and unique")
+    if spy_symbol in scores.columns:
+        raise ValueError("SPY anchor cannot also be an active score column")
+
+    columns = [*scores.columns, spy_symbol]
+    emitted: list[pd.Series] = []
+    emitted_dates: list[pd.Timestamp] = []
+    incumbents: list[str] = []
+    previous_members: frozenset[str] = frozenset()
+    active_target = 1.0 - spy_weight
+    for date in scores.index:
+        row = scores.loc[date].replace([np.inf, -np.inf], np.nan).dropna()
+        ranked = row.sort_values(ascending=False, kind="mergesort")
+        rank_by_symbol = pd.Series(
+            np.arange(1, len(ranked) + 1), index=ranked.index)
+        retained = [
+            symbol for symbol in incumbents
+            if symbol in rank_by_symbol
+            and int(rank_by_symbol.loc[symbol]) <= exit_rank
+        ]
+        selected = list(retained)
+        for symbol in ranked.index:
+            if symbol not in selected:
+                selected.append(str(symbol))
+            if len(selected) == top_k:
+                break
+        incumbents = selected
+        members = frozenset(selected)
+        if emitted_dates and members == previous_members:
+            continue
+        target = pd.Series(0.0, index=columns, name=date)
+        if selected:
+            preference = pd.Series(1.0, index=selected)
+            active = _capped_allocate(
+                preference,
+                target=active_target,
+                cap=active_single_name_cap,
+            )
+            target.loc[active.index] = active
+        target.loc[spy_symbol] = spy_weight
+        emitted.append(target)
+        emitted_dates.append(pd.Timestamp(date))
+        previous_members = members
+    decision_weights = pd.DataFrame(
+        emitted,
+        index=pd.DatetimeIndex(emitted_dates),
+        columns=columns,
+    )
+    return BufferedConstruction(
+        decision_weights=decision_weights,
+        evaluated_decision_dates=len(scores),
+        membership_change_dates=len(decision_weights),
+    )
+
+
+__all__ = [
+    "BufferedConstruction",
+    "Construction",
+    "build_buffered_membership_weights",
+    "build_decision_weights",
+    "expand_decision_signals",
+]

@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 from core.research.mining_v4_portfolio import (
+    build_buffered_membership_weights,
     build_decision_weights,
     expand_decision_signals,
 )
@@ -61,3 +62,37 @@ def test_expanded_signals_trade_only_on_decision_rows():
     signals = expand_decision_signals(weights, daily)
     assert (signals.loc[weights.index] == weights).all().all()
     assert (signals.drop(index=weights.index) == 0.0).all().all()
+
+
+def test_rank_buffer_retains_incumbent_until_it_falls_below_exit_rank():
+    dates = pd.date_range("2024-01-31", periods=3, freq="ME")
+    columns = [f"S{i:02d}" for i in range(16)]
+    scores = pd.DataFrame(
+        np.tile(np.arange(16, 0, -1, dtype=float), (3, 1)),
+        index=dates,
+        columns=columns,
+    )
+    # S09 starts at rank 10, then remains inside the rank-15 exit buffer.
+    scores.loc[dates[1], "S09"] = 4.5
+    # It finally drops to rank 16 and must be replaced by the best outsider.
+    scores.loc[dates[2], "S09"] = 0.0
+    result = build_buffered_membership_weights(scores)
+
+    assert result.evaluated_decision_dates == 3
+    assert result.membership_change_dates == 2
+    assert result.decision_weights.index.tolist() == [dates[0], dates[2]]
+    first = result.decision_weights.loc[dates[0]]
+    final = result.decision_weights.loc[dates[2]]
+    assert first["S09"] == pytest.approx(0.065)
+    assert final["S09"] == 0.0
+    assert final["S10"] == pytest.approx(0.065)
+    assert np.allclose(result.decision_weights.sum(axis=1), 1.0)
+    assert (result.decision_weights["SPY"] == 0.35).all()
+
+
+def test_rank_buffer_rejects_active_spy_and_invalid_exit_rank():
+    scores, _ = _scores()
+    with pytest.raises(ValueError, match="exit_rank"):
+        build_buffered_membership_weights(scores, top_k=10, exit_rank=9)
+    with pytest.raises(ValueError, match="anchor"):
+        build_buffered_membership_weights(scores.assign(SPY=1.0))
