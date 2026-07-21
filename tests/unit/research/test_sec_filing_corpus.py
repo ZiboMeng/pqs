@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from core.research.sec_filing_corpus import (
@@ -57,3 +59,15 @@ def test_missing_primary_document_is_kept_for_structured_metadata_only():
     assert records[0].primary_document == ""
     with pytest.raises(ValueError, match="unsafe"):
         filing_document_url(records[0])
+
+
+def test_same_accession_for_different_cik_is_a_valid_cofiling():
+    record = parse_recent_submissions(_payload(), ticker="ABC", cik=1)[0]
+    cofiled = replace(record, ticker="XYZ", cik=2)
+    assert len(records_frame([record, cofiled])) == 2
+
+
+def test_same_cik_accession_duplicate_fails_closed():
+    record = parse_recent_submissions(_payload(), ticker="ABC", cik=1)[0]
+    with pytest.raises(ValueError, match="CIK/accession"):
+        records_frame([record, record])

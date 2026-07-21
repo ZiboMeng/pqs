@@ -121,10 +121,12 @@ def records_frame(records: list[FilingMetadata]) -> pd.DataFrame:
     frame = pd.DataFrame([asdict(record) for record in records], columns=columns)
     if frame.empty:
         return frame
-    if frame["accession_number"].duplicated().any():
+    duplicate_key = frame.duplicated(["cik", "accession_number"])
+    if duplicate_key.any():
         duplicates = frame.loc[
-            frame["accession_number"].duplicated(), "accession_number"].tolist()
-        raise ValueError(f"duplicate SEC accessions: {duplicates[:5]}")
+            duplicate_key, ["cik", "accession_number"]
+        ].astype(str).agg(":".join, axis=1).tolist()
+        raise ValueError(f"duplicate SEC CIK/accession keys: {duplicates[:5]}")
     frame["acceptance_datetime_utc"] = pd.to_datetime(
         frame["acceptance_datetime_utc"], utc=True)
     return frame.sort_values(
