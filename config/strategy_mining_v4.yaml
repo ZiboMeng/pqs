@@ -41,6 +41,15 @@ models:
   seed: 42
   primary_label: market_residual_rank_21d
   secondary_event_label: market_residual_return_5d
+  decision_cadence: month_end
+  label_horizon_sessions: 21
+  beta_window_sessions: 252
+  development_start_year: 2010
+  development_end_year: 2024
+  train_window_years: 5
+  validation_window_years: 1
+  step_years: 1
+  feature_correlation_threshold: 0.85
 
 constructions:
   - active_top10_control
