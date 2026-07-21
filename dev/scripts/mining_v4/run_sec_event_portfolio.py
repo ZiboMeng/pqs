@@ -185,7 +185,10 @@ def main() -> int:
             {"SPY": [1.0]}, index=pd.DatetimeIndex([first_decision]),
         )
         spy_signals = expand_decision_signals(spy_decision, daily_index)
-        for cost_bps in (30.0, 60.0, 90.0):
+        # Zero cost is a mechanism diagnostic, never a promotion scenario.
+        # It separates a weak signal from a potentially useful but
+        # untradeable high-turnover signal without tuning the construction.
+        for cost_bps in (0.0, 30.0, 60.0, 90.0):
             trial_id = f"{run_stamp}-{model_name}-event-overlay-{cost_bps:g}bps"
             registration = ledger.register_intent(_portfolio_trial_intent(
                 trial_id=trial_id,
@@ -303,6 +306,7 @@ def main() -> int:
         },
         "gate_policy": {
             "primary_cost_bps": 30.0,
+            "frictionless_control_cost_bps": 0.0,
             "thresholds": gate_config,
             "primary_cost_passes": primary_cost_passes,
             "automatic_drop_on_failure": False,
