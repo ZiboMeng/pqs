@@ -124,7 +124,12 @@ def main() -> int:
     config_path = (PROJ / args.config).resolve()
     pool = json.loads(pool_path.read_text())
     config = yaml.safe_load(config_path.read_text())
-    candidates = [row["ticker"] for row in pool["selected"]]
+    pool_candidates = [row["ticker"] for row in pool["selected"]]
+    snapshot_manifest = json.loads((data_root / "manifest.json").read_text())
+    excluded_candidates = sorted(snapshot_manifest.get("excluded_symbols", []))
+    candidates = [
+        symbol for symbol in pool_candidates if symbol not in excluded_candidates
+    ]
     all_symbols = candidates + ["SPY"]
     development_start_year = 2015
     development_end_year = int(config["models"]["development_end_year"])
@@ -318,9 +323,11 @@ def main() -> int:
             "execution_contract": "strictly next exchange session open",
             "label": "open_to_fifth_session_close_market_residual_rank",
             "basis": "split_adjusted_price_return",
-            "portfolio_evaluation": "NOT_RUN_TOTAL_RETURN_COVERAGE_BLOCKED",
+            "portfolio_evaluation": "NOT_RUN_SIGNAL_DIAGNOSTIC_STAGE",
         },
         "coverage": {
+            "frozen_pool_companies": len(pool_candidates),
+            "corporate_action_excluded_companies": excluded_candidates,
             "pool_companies": len(candidates),
             "companies_with_governed_forms": len(metadata_tickers),
             "unsupported_or_zero_governed_form_tickers": sorted(
