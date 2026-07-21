@@ -14,6 +14,14 @@ class StructuredEventPanel:
     features: dict[str, pd.DataFrame]
     event_mask: pd.DataFrame
     event_records: pd.DataFrame
+    filing_records: pd.DataFrame
+
+
+@dataclass(frozen=True, slots=True)
+class LexicalEventPanel:
+    features: dict[str, pd.DataFrame]
+    event_mask: pd.DataFrame
+    joined_filing_records: int
 
 
 def _validate_sessions(sessions: pd.DatetimeIndex) -> None:
@@ -152,6 +160,57 @@ def build_structured_event_panel(
         features=features,
         event_mask=event_mask,
         event_records=aggregated,
+        filing_records=frame,
+    )
+
+
+def build_lexical_event_panel(
+    structured: StructuredEventPanel,
+    lexical_features: pd.DataFrame,
+    symbols: Sequence[str],
+    *,
+    lexical_feature_names: Sequence[str],
+) -> LexicalEventPanel:
+    """Join immutable per-document features to causal filing event bundles."""
+
+    keys = ["cik", "accession_number", "primary_document"]
+    required = set(keys) | {"parse_status"} | set(lexical_feature_names)
+    missing = required - set(lexical_features)
+    if missing:
+        raise ValueError(f"lexical artifact lacks columns: {sorted(missing)}")
+    lexical = lexical_features[lexical_features["parse_status"].eq("PASS")].copy()
+    if lexical.duplicated(keys).any():
+        raise ValueError("lexical artifact has duplicate CIK/accession/document keys")
+    filing = structured.filing_records.copy()
+    joined = filing.merge(
+        lexical[keys + list(lexical_feature_names)],
+        on=keys,
+        how="inner",
+        validate="many_to_one",
+    )
+    if joined.empty:
+        raise ValueError("no filing records match PASS lexical documents")
+    group_keys = ["execution_date", "ticker"]
+    aggregations = {
+        name: (name, "mean") for name in lexical_feature_names
+    }
+    aggregated = joined.groupby(group_keys, sort=True).agg(**aggregations)
+    aggregated["text_document_count_log1p"] = np.log1p(
+        joined.groupby(group_keys).size())
+    aggregated = aggregated.reset_index()
+    dates = pd.DatetimeIndex(sorted(aggregated["execution_date"].unique()))
+    columns = list(symbols)
+    feature_names = list(lexical_feature_names) + ["text_document_count_log1p"]
+    features = {
+        name: aggregated.pivot(
+            index="execution_date", columns="ticker", values=name,
+        ).reindex(index=dates, columns=columns)
+        for name in feature_names
+    }
+    return LexicalEventPanel(
+        features=features,
+        event_mask=features[feature_names[0]].notna(),
+        joined_filing_records=len(joined),
     )
 
 
@@ -224,7 +283,9 @@ def event_eligibility_from_previous_close(
 
 
 __all__ = [
+    "LexicalEventPanel",
     "StructuredEventPanel",
+    "build_lexical_event_panel",
     "build_structured_event_panel",
     "event_eligibility_from_previous_close",
     "make_event_open_to_close_residual_rank_labels",

@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 from core.research.sec_event_features import (
+    build_lexical_event_panel,
     build_structured_event_panel,
     event_eligibility_from_previous_close,
     make_event_open_to_close_residual_rank_labels,
@@ -67,3 +68,23 @@ def test_event_eligibility_uses_previous_close_not_execution_day_close():
         {"A": [True]}, index=pd.DatetimeIndex([sessions[2]]))
     eligible = event_eligibility_from_previous_close(daily, event)
     assert eligible.loc[sessions[2], "A"]
+
+
+def test_lexical_documents_join_by_permanent_filing_key():
+    sessions = pd.bdate_range("2024-01-02", "2024-01-12")
+    structured = build_structured_event_panel(
+        _metadata(), sessions, ["A", "B", "C"],
+        development_start="2024-01-01", development_end="2024-12-31")
+    lexical = _metadata()[
+        ["cik", "accession_number", "primary_document"]].copy()
+    lexical["parse_status"] = ["PASS", "MISSING", "PASS"]
+    lexical["tone"] = [1.0, 99.0, -1.0]
+    panel = build_lexical_event_panel(
+        structured,
+        lexical,
+        ["A", "B", "C"],
+        lexical_feature_names=["tone"],
+    )
+    assert panel.joined_filing_records == 2
+    assert panel.event_mask.loc["2024-01-08", ["A", "C"]].all()
+    assert not panel.event_mask.loc["2024-01-08", "B"]
