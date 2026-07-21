@@ -104,9 +104,15 @@ def _hash_price_inputs(data_root: Path, symbols: list[str]) -> tuple[str, int]:
         digest.update(symbol.encode("utf-8"))
         digest.update(bytes.fromhex(_sha256_file(path)))
         count += 1
-    split_path = data_root / "ref" / "splits.parquet"
-    digest.update(b"splits.parquet")
-    digest.update(bytes.fromhex(_sha256_file(split_path)))
+    manifest_path = data_root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    if manifest.get("price_basis") == "RAW_OHLCV_WITH_SPLITS_APPLIED_AT_READ_TIME":
+        split_path = data_root / "ref" / "splits.parquet"
+        digest.update(b"splits.parquet")
+        digest.update(bytes.fromhex(_sha256_file(split_path)))
+    else:
+        digest.update(b"manifest.json")
+        digest.update(bytes.fromhex(_sha256_file(manifest_path)))
     return digest.hexdigest(), count
 
 
@@ -127,26 +133,29 @@ def _validate_snapshot_manifest(
     if manifest.get("through") != through:
         raise RuntimeError(
             f"snapshot through={manifest.get('through')} does not equal {through}")
-    if manifest.get("price_basis") != (
-        "RAW_OHLCV_WITH_SPLITS_APPLIED_AT_READ_TIME"
-    ):
-        raise RuntimeError("snapshot price basis is not governed raw OHLCV")
+    allowed_bases = {
+        "RAW_OHLCV_WITH_SPLITS_APPLIED_AT_READ_TIME",
+        "YAHOO_SPLIT_ADJUSTED_OHLC_PLUS_CASH_EVENT_TOTAL_RETURN_V1",
+    }
+    if manifest.get("price_basis") not in allowed_bases:
+        raise RuntimeError("snapshot price basis is not governed")
     rows = manifest.get("symbols")
     if not isinstance(rows, list):
         raise RuntimeError("snapshot manifest lacks per-symbol evidence rows")
     by_symbol = {row.get("symbol"): row for row in rows}
-    if set(by_symbol) != set(symbols):
-        raise RuntimeError("snapshot manifest symbol set differs from requested pool")
-    for symbol in symbols:
+    if not set(symbols).issubset(by_symbol):
+        raise RuntimeError("snapshot manifest lacks requested pool symbols")
+    for symbol in by_symbol:
         daily_path = data_root / "daily" / f"{_safe_symbol(symbol)}.parquet"
         if not daily_path.exists():
             raise RuntimeError(f"snapshot daily file is missing for {symbol}")
         actual = _sha256_file(daily_path)
         if actual != by_symbol[symbol].get("output_sha256"):
             raise RuntimeError(f"snapshot daily hash mismatch for {symbol}")
-    splits_path = data_root / "ref" / "splits.parquet"
-    if _sha256_file(splits_path) != manifest.get("splits_sha256"):
-        raise RuntimeError("snapshot splits hash differs from manifest")
+    if manifest.get("price_basis") == "RAW_OHLCV_WITH_SPLITS_APPLIED_AT_READ_TIME":
+        splits_path = data_root / "ref" / "splits.parquet"
+        if _sha256_file(splits_path) != manifest.get("splits_sha256"):
+            raise RuntimeError("snapshot splits hash differs from manifest")
     return {
         "path": "manifest.json",
         "sha256": _sha256_file(path),
@@ -154,9 +163,12 @@ def _validate_snapshot_manifest(
         "builder_commit": manifest.get("builder_commit"),
         "builder_script_sha256": manifest.get("builder_script_sha256"),
         "repair_module_sha256": manifest.get("repair_module_sha256"),
+        "adjustment_module_sha256": manifest.get("adjustment_module_sha256"),
         "price_basis": manifest.get("price_basis"),
         "through": manifest.get("through"),
         "symbols_verified": len(symbols),
+        "manifest_files_verified": len(by_symbol),
+        "excluded_symbols": manifest.get("excluded_symbols", []),
     }
 
 
@@ -211,6 +223,10 @@ def _load_panel(
     end: str,
     total_return: bool,
 ) -> tuple[dict[str, pd.DataFrame], list[str]]:
+    manifest = json.loads((data_root / "manifest.json").read_text())
+    embedded = manifest.get("price_basis") == (
+        "YAHOO_SPLIT_ADJUSTED_OHLC_PLUS_CASH_EVENT_TOTAL_RETURN_V1"
+    )
     store = BarStore(root=data_root)
     frames: dict[str, dict[str, pd.Series]] = {
         name: {} for name in ("open", "high", "low", "close", "volume")
@@ -220,16 +236,35 @@ def _load_panel(
     for position, symbol in enumerate(symbols, start=1):
         if position % 50 == 0 or position == len(symbols):
             print(f"  loading bars {position}/{len(symbols)}", flush=True)
-        frame = store.load(
-            symbol,
-            freq="1d",
-            adjusted=True,
-            adjusted_total_return=total_return,
-            start=start,
-            end=end,
-            as_of=cutoff,
-            fallback="local",
-        )
+        if embedded:
+            daily_path = data_root / "daily" / f"{_safe_symbol(symbol)}.parquet"
+            if not daily_path.exists():
+                frame = pd.DataFrame()
+            else:
+                stored = pd.read_parquet(daily_path)
+                stored = stored[
+                    (stored.index >= pd.Timestamp(start))
+                    & (stored.index <= cutoff)
+                ]
+                if total_return:
+                    frame = pd.DataFrame({
+                        name: stored[f"total_return_{name}"]
+                        for name in ("open", "high", "low", "close")
+                    }, index=stored.index)
+                    frame["volume"] = stored["volume"]
+                else:
+                    frame = stored[["open", "high", "low", "close", "volume"]]
+        else:
+            frame = store.load(
+                symbol,
+                freq="1d",
+                adjusted=True,
+                adjusted_total_return=total_return,
+                start=start,
+                end=end,
+                as_of=cutoff,
+                fallback="local",
+            )
         if frame.empty or "close" not in frame:
             missing.append(symbol)
             continue
@@ -244,6 +279,49 @@ def _load_panel(
         panel[name] = pd.DataFrame(frames[name]).reindex(
             index=close.index, columns=loaded)
     return panel, missing
+
+
+def _embedded_total_return_evidence(
+    data_root: Path,
+    symbols: list[str],
+    *,
+    from_date: pd.Timestamp,
+    through: str,
+) -> dict[str, Any] | None:
+    manifest_path = data_root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    if manifest.get("price_basis") != (
+        "YAHOO_SPLIT_ADJUSTED_OHLC_PLUS_CASH_EVENT_TOTAL_RETURN_V1"
+    ):
+        return None
+    eligible = set(manifest.get("eligible_symbols", []))
+    missing = sorted(set(symbols) - eligible)
+    if missing:
+        raise PriceBasisError(
+            f"embedded total-return snapshot excludes requested symbols: {missing}"
+        )
+    if manifest.get("through") != through:
+        raise PriceBasisError("embedded total-return cutoff differs from request")
+    required = {
+        "total_return_open", "total_return_high", "total_return_low",
+        "total_return_close",
+    }
+    if set(manifest.get("total_return_columns", [])) != required:
+        raise PriceBasisError("embedded total-return columns are incomplete")
+    return {
+        "basis": manifest["price_basis"],
+        "symbols": symbols,
+        "coverage_start": str(from_date.date()),
+        "coverage_end": through,
+        "source_snapshot_manifest_sha256": manifest.get(
+            "source_snapshot_manifest_sha256"),
+        "cash_distribution_events_applied": manifest.get(
+            "cash_distribution_events_applied"),
+        "cash_distribution_events_skipped_pre_history": manifest.get(
+            "cash_distribution_events_skipped_pre_history"),
+        "excluded_symbols": manifest.get("excluded_symbols", []),
+        "manifest_sha256": _sha256_file(manifest_path),
+    }
 
 
 def _flat_cost_model(cost_bps: float) -> CostModel:
@@ -446,7 +524,13 @@ def main() -> int:
     )
     ledger = AppendOnlyTrialLedger(ledger_path)
 
-    candidates = [row["ticker"] for row in pool["selected"]]
+    pool_candidates = [row["ticker"] for row in pool["selected"]]
+    snapshot_manifest = json.loads((data_root / "manifest.json").read_text())
+    snapshot_excluded = set(snapshot_manifest.get("excluded_symbols", []))
+    candidates = [
+        symbol for symbol in pool_candidates if symbol not in snapshot_excluded
+    ]
+    excluded_candidates = sorted(set(pool_candidates) - set(candidates))
     all_symbols = candidates + ["SPY"]
     start_year = int(model_config["development_start_year"])
     end_year = int(model_config["development_end_year"])
@@ -620,15 +704,25 @@ def main() -> int:
         raise RuntimeError("no validation decision dates were generated")
     first_validation_date = first_validation_dates[0]
     try:
-        evidence = validate_total_return_coverage(
+        embedded_evidence = _embedded_total_return_evidence(
             data_root,
             loaded_candidates + ["SPY"],
             from_date=first_validation_date,
             through=load_end,
         )
+        evidence = (
+            embedded_evidence
+            if embedded_evidence is not None
+            else asdict(validate_total_return_coverage(
+                data_root,
+                loaded_candidates + ["SPY"],
+                from_date=first_validation_date,
+                through=load_end,
+            ))
+        )
         portfolio_preflight: dict[str, Any] = {
             "status": "PASS",
-            "evidence": _finite(asdict(evidence)),
+            "evidence": _finite(evidence),
         }
     except PriceBasisError as exc:
         portfolio_preflight = {
@@ -685,7 +779,9 @@ def main() -> int:
             "portfolio_preflight": portfolio_preflight,
         },
         "panel": {
+            "frozen_pool_companies": len(pool_candidates),
             "requested_companies": len(candidates),
+            "corporate_action_excluded_companies": excluded_candidates,
             "loaded_companies": len(loaded_candidates),
             "missing_symbols": missing,
             "first_date": str(panel_all["close"].index.min().date()),
