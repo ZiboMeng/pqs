@@ -24,6 +24,10 @@ data/factors/
 data/ref/
 data/ml/
 data/mining/
+# Governed research corpora, immutable price snapshots, OOF predictions, and
+# append-only trial ledgers are large local evidence. Compact reports and
+# machine-readable invalidation records live under research/results instead.
+data/research/mining_v4/
 data/.yf_cache/
 data/_catalog.parquet
 data/baseline/
