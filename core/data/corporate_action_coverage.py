@@ -8,6 +8,13 @@ import numpy as np
 import pandas as pd
 
 
+def _empty_split_events(ratio_column: str) -> pd.DataFrame:
+    return pd.DataFrame({
+        "date": pd.Series(dtype="datetime64[ns]"),
+        ratio_column: pd.Series(dtype="float64"),
+    })
+
+
 @dataclass(frozen=True, slots=True)
 class SplitComparison:
     status: str
@@ -48,7 +55,7 @@ def normalize_canonical_splits(
     end_date = pd.Timestamp(end).tz_localize(None).normalize()
     frame = frame[(frame["date"] >= start_date) & (frame["date"] <= end_date)]
     if frame.empty:
-        return pd.DataFrame(columns=["date", "canonical_ratio"])
+        return _empty_split_events("canonical_ratio")
     grouped = frame.groupby("date", as_index=False)["ratio"].prod()
     return grouped.rename(columns={"ratio": "canonical_ratio"})
 
@@ -62,7 +69,7 @@ def normalize_vendor_splits(
     """Return economically effective vendor ratios by NY event date."""
 
     if splits is None or len(splits) == 0:
-        return pd.DataFrame(columns=["date", "vendor_ratio"])
+        return _empty_split_events("vendor_ratio")
     series = splits.copy()
     index = pd.DatetimeIndex(pd.to_datetime(series.index))
     if index.tz is not None:
@@ -81,7 +88,7 @@ def normalize_vendor_splits(
     end_date = pd.Timestamp(end).tz_localize(None).normalize()
     frame = frame[(frame["date"] >= start_date) & (frame["date"] <= end_date)]
     if frame.empty:
-        return pd.DataFrame(columns=["date", "vendor_ratio"])
+        return _empty_split_events("vendor_ratio")
     return frame.groupby("date", as_index=False)["vendor_ratio"].prod()
 
 

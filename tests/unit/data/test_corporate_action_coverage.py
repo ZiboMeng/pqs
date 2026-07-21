@@ -60,6 +60,26 @@ def test_timezone_vendor_event_normalizes_to_new_york_date():
     assert normalized.loc[0, "date"] == pd.Timestamp("2020-01-02")
 
 
+def test_split_comparison_handles_typed_empty_canonical_table():
+    canonical = normalize_canonical_splits(
+        pd.DataFrame(columns=["symbol", "date", "from", "to"]),
+        "AAA",
+        start="2020-01-01",
+        end="2024-12-31",
+    )
+    vendor = normalize_vendor_splits(
+        pd.Series(
+            [2.0],
+            index=pd.DatetimeIndex(["2024-01-02"], tz="America/New_York"),
+        ),
+        start="2020-01-01",
+        end="2024-12-31",
+    )
+    result = compare_split_events(canonical, vendor)
+    assert result.status == "MISMATCH"
+    assert result.vendor_only_count == 1
+
+
 def test_non_append_query_error_preserves_existing_coverage(tmp_path, monkeypatch):
     ref = tmp_path / "ref"
     ref.mkdir()
