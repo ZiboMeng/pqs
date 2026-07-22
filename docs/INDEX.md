@@ -10,6 +10,9 @@ defined at the bottom of this file. Within each category section,
 
 ## Active Codex phase-three evidence
 
+- [memos/20260721-next-stage-audited-action-plan.md](memos/20260721-next-stage-audited-action-plan.md) —
+  审计后的下一阶段可执行顺序：先做 append-only trial ledger 与 canonical qualification
+  重算，再做共享 score 的 long-only/short constructions、隔离 Short PAPER 和同日起并行 forward。
 - [audit/20260721-profitable_strategies_gates_and_short_review.md](audit/20260721-profitable_strategies_gates_and_short_review.md) —
   对盈利策略/gate 调研的独立复审：更正 PUT 与 vol-targeting 证据、GRS/MDD/延迟门语义，
   收敛统计 gate，并批准隔离的 `SHORT_RESEARCH_ONLY` lane、拒绝直接打开现有 long-only 路径。
