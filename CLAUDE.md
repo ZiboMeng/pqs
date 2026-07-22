@@ -3,7 +3,12 @@
 ## Phase C: Continuous Development PRD (v3)
 
 ### System Identity
-个人量化研究与模拟交易系统。目标：长期可持续跑赢 SPY，并在每个对齐评估年度保持优于 SPY 的 MaxDD。绝对 MaxDD 与 stress-slice MaxDD 必须完整报告，但不再作为晋升硬阈值。**QQQ 作为 sector-tilt diagnostic reference，非 hard outperformance gate**（per `docs/memos/20260502-qqq_benchmark_deprecation.md`）。
+个人量化研究与模拟交易系统。目标：长期可持续跑赢 SPY，并按
+`config/research_governance.yaml` schema v3 的 Balanced Drawdown D1–D5 证明风险品质。
+绝对 MaxDD 与 stress-slice MaxDD 必须完整报告；原始策略的晋升门是多期限相对
+回撤门，部署账户另须满足 15%–20% 运营目标与压力路径 MaxDD<=25% 的绝对风险
+合同。**QQQ 作为 sector-tilt diagnostic reference，非 hard outperformance gate**（per
+`docs/memos/20260502-qqq_benchmark_deprecation.md`）。
 
 ### Invariant Constraints (NEVER violate without explicit user approval)
 - long-only, no-margin, no-short
@@ -17,7 +22,7 @@
 - Must preserve backtest-execution consistency
 - Chinese reporting, English code naming
 - Initial capital ~$10,000, **target scale $100K (10x in 5-10 years)** [REVISED 2026-05-02 — $1M+ aspiration deprecated as fund-grade-not-individual-realistic]
-- MaxDD promotion gate: **strategy after-cost MaxDD must be strictly better than SPY in every aligned calendar year**, including every frozen cost-stress scenario. Absolute and stress-slice MaxDD remain diagnostics, not hard caps. [REVISED 2026-07-22 by explicit user direction]
+- MaxDD promotion gate: **strategy must pass Balanced Drawdown D1–D5 under every binding cost scenario**: full-period strict relative MaxDD, month-end rolling 36-month win fraction, every SPY-defined material episode, monthly downside capture, and annual 3pp material-harm veto. It does **not** require strict dominance in every calendar year. [REVISED 2026-07-22 by explicit user direction; machine authority: `config/research_governance.yaml` schema v3]
 - **Outperforming SPY does not waive drawdown, crisis-resilience, or long-only risk constraints**
 
 ### Benchmark Outperformance Rule [REVISED 2026-05-02 — QQQ deprecated]
@@ -51,7 +56,8 @@ See `docs/memos/20260720-governance-reconciliation.md`.
 **Risk guardrails** (current):
 - No concentration in ≤3 symbols
 - Position limits per config/risk.yaml respected
-- MaxDD strictly better than SPY in every aligned evaluation year; absolute and named stress-slice drawdowns remain mandatory diagnostics
+- Raw strategy must pass Balanced Drawdown D1–D5; calendar-year MaxDD remains fully reported and may not underperform SPY by more than 3pp in any aligned year, but annual strict dominance is not a hard gate
+- A deployed account must separately satisfy the 15%–20% operating target and ≤25% replayable stress-path contract before `RISK_GOVERNED_PAPER_ELIGIBLE`; incomplete path evidence permits shadow observation only
 - Regime-based risk scaling enabled
 
 **Master report must:**
@@ -62,13 +68,15 @@ See `docs/memos/20260720-governance-reconciliation.md`.
 
 #### Drawdown comparison policy [REVISED 2026-07-22]
 
-The former absolute 20%/25% promotion caps are superseded prospectively by a
-relative rule: every aligned calendar-year after-cost MaxDD must be strictly
-better than SPY, including all frozen cost-stress scenarios. Named crisis-slice
-and full-period absolute MaxDD values remain mandatory report fields and manual
-risk diagnostics; they cannot silently block or pass promotion. Historical
-locked split artifacts retain their original rules as historical evidence and
-must not be rewritten.
+The former calendar-year all-win rule is superseded prospectively by Balanced
+Drawdown D1–D5: full-period relative MaxDD, month-end trailing 36-month relative
+MaxDD consistency, every SPY-defined ≥15% drawdown episode, monthly downside
+capture below 100%, and an annual material-harm veto of at most 3 percentage
+points. All binding candidate cost scenarios must pass. Raw-strategy absolute
+MaxDD remains a mandatory diagnostic, while a separate deployed-account layer
+enforces the 15%–20% operating target and ≤25% replayable stress-path contract.
+Historical locked split artifacts retain their original rules as historical
+evidence and must not be rewritten.
 
 #### Diversifier Role Additional Constraints [SIMPLIFIED 2026-05-02]
 
@@ -80,13 +88,13 @@ must not be rewritten.
 - Anti-sibling NAV correlation: raw NAV < 0.70 vs all anchors, residual NAV < 0.50
 - Anti-sibling factor overlap: `factor_overlap_with_active_core = 0`
 - Cross-asset utilization: `non_equity_weight_avg ≥ 15%`
-- Per-validation-year MaxDD strictly better than same-year SPY (hard); absolute 18%/20% values are diagnostic only
+- Balanced Drawdown D1–D5 applies without a hidden calendar-year all-win override; role-specific correlation and utilization constraints remain additive
 
 **Standard rules** (apply to ALL roles, including diversifier):
 - Full-period vs SPY > 0 (HARD)
 - 2025 holdout vs SPY > 0 (HARD)
-- Per-validation-year MaxDD strictly better than same-year SPY (hard)
-- Stress-slice absolute MaxDD reported as diagnostic, with no absolute hard cap
+- Balanced Drawdown D1–D5 under all binding cost scenarios (HARD)
+- Raw stress-slice absolute MaxDD reported; deployed-account absolute risk is governed separately by the path-capable account contract
 - Concentration: M12 top1 ≤ 40%, top3 ≤ 70%
 - Long-only / no-short / no-margin invariants
 
