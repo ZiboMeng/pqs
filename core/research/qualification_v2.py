@@ -230,9 +230,11 @@ def recompute_qualification(
         if abs(benchmark_mdd) > 0 else float("inf")
     )
     sharpe = _annualized_sharpe(candidate)
+    active_sharpe = _annualized_sharpe(active)
+    active_trial_matrix = trial_matrix - benchmark[:, np.newaxis]
     trial_sharpes = np.asarray(
-        [_annualized_sharpe(trial_matrix[:, index]) / math.sqrt(TRADING_DAYS)
-         for index in range(trial_matrix.shape[1])],
+        [_annualized_sharpe(active_trial_matrix[:, index]) / math.sqrt(TRADING_DAYS)
+         for index in range(active_trial_matrix.shape[1])],
         dtype=float,
     )
     finite_trial_sharpes = trial_sharpes[np.isfinite(trial_sharpes)]
@@ -241,13 +243,13 @@ def recompute_qualification(
         if len(finite_trial_sharpes) >= 2 else None
     )
     dsr = deflated_sharpe_ratio(
-        candidate,
+        active,
         raw_independent_n,
         sr_trials_std=sr_trials_std,
     )
-    pbo = probability_backtest_overfitting(trial_matrix)
+    pbo = probability_backtest_overfitting(active_trial_matrix)
     min_btl = check_min_backtest_length(
-        sharpe,
+        active_sharpe,
         raw_independent_n,
         actual_years=len(candidate) / TRADING_DAYS,
     )
@@ -310,7 +312,7 @@ def recompute_qualification(
         ),
         "candidate_specific_timing": timing_passed,
     }
-    effective_n = effective_n_trials_onc(trial_matrix)
+    effective_n = effective_n_trials_onc(active_trial_matrix)
     return {
         "candidate_id": bundle.get("candidate_id"),
         "evidence_scope": "DEVELOPMENT_ONLY",
@@ -319,6 +321,7 @@ def recompute_qualification(
         "raw_independent_n": raw_independent_n,
         "successful_trials_in_performance_matrix": int(trial_matrix.shape[1]),
         "effective_n_diagnostic_only": effective_n,
+        "binding_return_basis": "after_cost_candidate_minus_spy_active_returns",
         "candidate": {
             "cagr": candidate_cagr,
             "annualized_sharpe": sharpe,
@@ -331,6 +334,7 @@ def recompute_qualification(
         },
         "active": {
             "cagr_excess_vs_spy": candidate_cagr - benchmark_cagr,
+            "annualized_sharpe": active_sharpe,
             "rolling_252d_excess_fraction": rolling,
             "max_drawdown_vs_spy_ratio": mdd_ratio,
             "mean_confidence_interval": _newey_west_mean_ci(active),

@@ -10,6 +10,9 @@ defined at the bottom of this file. Within each category section,
 
 ## Active Codex phase-three evidence
 
+- [audit/20260721-diverse-mining-preexecution-audit.md](audit/20260721-diverse-mining-preexecution-audit.md) —
+  30 轮执行前的数据、holdout、trial-N、active-return 统计、short/LLM 可行性与算力审计，
+  冻结了 5 个 formal candidates 或最多 30 轮的退出语义。
 - [prd/20260721-short-paper-research-lane-prd.md](prd/20260721-short-paper-research-lane-prd.md) —
   隔离 short PAPER 的 signed account、borrow/locate、margin、Rule 201、recall、公司行动、
   source-batch 和同日起 forward 契约；当前历史 borrow 不足时严格为 `RESEARCH_INCOMPLETE`。

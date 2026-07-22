@@ -1,0 +1,68 @@
+schema_version: 1
+campaign_id: diverse-mining-20260721-v1
+status: PREREGISTERED_BEFORE_COMPUTE
+evidence_scope: DEVELOPMENT_ONLY
+automatic_promotion_eligible: false
+observed_through: '2026-07-17'
+historical_data_end: '2024-12-31'
+exit_rule:
+  formal_candidate_definition: FROZEN_FORWARD_CANDIDATE
+  stop_when_formal_candidates: 5
+  maximum_rounds: 30
+  note: >-
+    Formal means canonical Qualification V2 PASS plus immutable freeze manifest.
+    Synthetic short, blocked LLM, near-miss and REVIEW_HOLD do not count.
+data:
+  snapshot_id: yahoo_exact_cash_ledger_2007_2024_v6
+  snapshot_manifest_sha256: c8382dfbddfe2522c37558bb2f3c573fefedb3893c803d80abe1db9b93e80c46
+  pool_path: research/universes/semantic_ml_company_pool_v1.json
+  pool_file_sha256: 9ed1e370c8bb7d2827c65085d7117757a7058c7d046319c1d02c2d9301a2cef8
+  numeric_oof_sha256: ee10574f14510954242ded85e2720e4827343664ab6a05e20bb971d72093a313
+  semantic_oof_sha256: 03d4f4eb67951780a8a4ccdc4a9e9c8440e47721c5f723eb8165767c3f68e1a7
+  development_start: '2015-01-01'
+  common_qualification_start: '2020-01-01'
+execution:
+  decision: month_end_close
+  fill: next_session_open
+  exact_cash_distributions: true
+  cost_stress_bps: [30.0, 60.0, 90.0]
+  rolling_window_sessions: 252
+  spy_primary_benchmark: true
+selection:
+  min_cagr_excess_vs_spy: 0.0
+  min_rolling_excess_fraction: 0.60
+  max_drawdown_vs_spy_multiplier: 1.25
+  one_frozen_sibling_per_family: true
+  max_candidate_return_correlation: 0.70
+  near_miss_disposition: REVIEW_HOLD
+rounds:
+  - {round: 1, id: mom_balanced_active, family: momentum_balanced, kind: rule, construction: active, features: {mom_126: 1.0, mom_252: 1.0, rs_spy_63: 1.0, trend_efficiency_63: 1.0, drawdown_126: 0.5}}
+  - {round: 2, id: mom_12_1_active, family: momentum_12_1, kind: rule, construction: active, features: {mom_252: 1.0, mom_21: -0.35, mom_126: 0.5}}
+  - {round: 3, id: residual_momentum_active, family: residual_momentum, kind: rule, construction: active, features: {rs_spy_63: 1.0, rs_spy_126: 1.0, beta_63: -0.25, idio_vol_63: -0.25}}
+  - {round: 4, id: trend_quality_active, family: trend_quality, kind: rule, construction: active, features: {trend_efficiency_63: 1.0, close_pos_252: 1.0, mom_126: 0.5, vol_63: -0.35}}
+  - {round: 5, id: low_vol_active, family: low_volatility, kind: rule, construction: active, features: {vol_63: -1.0, downside_vol_63: -1.0, beta_63: -0.5, drawdown_126: 0.5}}
+  - {round: 6, id: defensive_momentum_active, family: defensive_momentum, kind: rule, construction: active, features: {mom_126: 1.0, rs_spy_126: 0.5, vol_63: -0.75, downside_vol_63: -0.5}}
+  - {round: 7, id: reversal_liquid_active, family: short_reversal_liquid, kind: rule, construction: active, features: {reversal_5: 1.0, dollar_volume_trend_20_63: 0.5, vol_21: -0.25}}
+  - {round: 8, id: volume_confirmed_active, family: volume_confirmed_momentum, kind: rule, construction: active, features: {mom_126: 1.0, volume_z_20: 0.5, dollar_volume_trend_20_63: 0.5, trend_efficiency_63: 0.5}}
+  - {round: 9, id: liquidity_adjusted_active, family: liquidity_adjusted_momentum, kind: rule, construction: active, features: {mom_126: 1.0, amihud_illiquidity_63: -0.5, vol_63: -0.25}}
+  - {round: 10, id: multihorizon_consensus_active, family: multihorizon_consensus, kind: rule, construction: active, features: {mom_21: 0.25, mom_63: 0.5, mom_126: 1.0, mom_252: 1.0}}
+  - {round: 11, id: mom_balanced_hybrid, family: momentum_balanced, kind: rule, construction: hybrid, features: {mom_126: 1.0, mom_252: 1.0, rs_spy_63: 1.0, trend_efficiency_63: 1.0, drawdown_126: 0.5}}
+  - {round: 12, id: mom_12_1_hybrid, family: momentum_12_1, kind: rule, construction: hybrid, features: {mom_252: 1.0, mom_21: -0.35, mom_126: 0.5}}
+  - {round: 13, id: residual_momentum_hybrid, family: residual_momentum, kind: rule, construction: hybrid, features: {rs_spy_63: 1.0, rs_spy_126: 1.0, beta_63: -0.25, idio_vol_63: -0.25}}
+  - {round: 14, id: trend_quality_hybrid, family: trend_quality, kind: rule, construction: hybrid, features: {trend_efficiency_63: 1.0, close_pos_252: 1.0, mom_126: 0.5, vol_63: -0.35}}
+  - {round: 15, id: low_vol_hybrid, family: low_volatility, kind: rule, construction: hybrid, features: {vol_63: -1.0, downside_vol_63: -1.0, beta_63: -0.5, drawdown_126: 0.5}}
+  - {round: 16, id: defensive_momentum_hybrid, family: defensive_momentum, kind: rule, construction: hybrid, features: {mom_126: 1.0, rs_spy_126: 0.5, vol_63: -0.75, downside_vol_63: -0.5}}
+  - {round: 17, id: reversal_liquid_hybrid, family: short_reversal_liquid, kind: rule, construction: hybrid, features: {reversal_5: 1.0, dollar_volume_trend_20_63: 0.5, vol_21: -0.25}}
+  - {round: 18, id: multihorizon_consensus_hybrid, family: multihorizon_consensus, kind: rule, construction: hybrid, features: {mom_21: 0.25, mom_63: 0.5, mom_126: 1.0, mom_252: 1.0}}
+  - {round: 19, id: mom_balanced_buffer15, family: momentum_buffered, kind: rule, construction: buffer15, features: {mom_126: 1.0, mom_252: 1.0, rs_spy_63: 1.0, trend_efficiency_63: 1.0, drawdown_126: 0.5}}
+  - {round: 20, id: residual_momentum_buffer15, family: residual_buffered, kind: rule, construction: buffer15, features: {rs_spy_63: 1.0, rs_spy_126: 1.0, beta_63: -0.25, idio_vol_63: -0.25}}
+  - {round: 21, id: dual_momentum_regime, family: dual_momentum_overlay, kind: rule, construction: dual_momentum, features: {mom_126: 1.0, mom_252: 1.0, trend_efficiency_63: 0.5}}
+  - {round: 22, id: volatility_regime_overlay, family: volatility_overlay, kind: rule, construction: vol_regime, features: {mom_126: 1.0, rs_spy_126: 1.0, vol_63: -0.5}}
+  - {round: 23, id: oof_rule_rank, family: oof_rule_rank, kind: pretrained_prediction, construction: hybrid, model: rule_rank}
+  - {round: 24, id: oof_linear_rank, family: oof_linear_rank, kind: pretrained_prediction, construction: rank_vol, model: linear_rank}
+  - {round: 25, id: oof_xgb_rank, family: oof_xgb_rank, kind: pretrained_prediction, construction: rank_vol, model: xgb_rank_ndcg}
+  - {round: 26, id: oof_rule_linear_ensemble, family: oof_rank_ensemble, kind: prediction_ensemble, construction: hybrid, models: [rule_rank, linear_rank]}
+  - {round: 27, id: sec_structured_lexical_event, family: sec_semantic_event, kind: semantic_event, construction: event_overlay, model: structured_plus_lexical__linear_rank}
+  - {round: 28, id: synthetic_long_short_momentum, family: long_short_momentum, kind: synthetic_short, construction: market_neutral, features: {mom_126: 1.0, mom_252: 1.0, rs_spy_63: 1.0}}
+  - {round: 29, id: synthetic_long_short_residual, family: long_short_residual, kind: synthetic_short, construction: market_neutral, features: {rs_spy_63: 1.0, rs_spy_126: 1.0, beta_63: -0.5}}
+  - {round: 30, id: schema_constrained_llm_extraction, family: llm_semantic_extraction, kind: blocked_feasibility, construction: none, blocker: NO_FROZEN_LLM_RESPONSE_CORPUS_OR_VERSIONED_PROVIDER_CACHE}
