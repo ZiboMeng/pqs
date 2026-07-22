@@ -1,35 +1,66 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "artifact_type": "NON_PROMOTING_REVIEW_HOLD",
   "campaign_id": "diverse-mining-20260721-v1",
   "source_report": {
     "path": "research/results/mining_campaign_20260721_v1_authoritative/campaign_report.json",
     "sha256": "85016714484f2fd03b8d940e295d2f73232f730eeb12c870ded9804d1d4e3f43"
   },
-  "selection_note": "Descriptive post-run queue: exactly one canonical gate failed. This is not a gate override or a new mining trial.",
-  "status": "REVIEW_HOLD_NOT_FORMAL",
+  "selection_note": "Exploratory post-run queue: exactly one LEGACY Qualification V2 gate failed. The label is not a claim that current canonical qualification was nearly passed.",
+  "status": "REVIEW_HOLD_EXPLORATORY_NOT_FORMAL",
   "counts_toward_formal_exit": false,
   "paper_eligible": false,
+  "automatic_promotion_eligible": false,
+  "current_governance": {
+    "policy_id": "pqs-governance-reconciliation-v2",
+    "required_qualification_schema": 3,
+    "annual_drawdown_rule": "abs(candidate after-cost MaxDD) < abs(SPY MaxDD) in every aligned calendar year and every frozen cost-stress scenario",
+    "absolute_drawdown_hard_gate_enabled": false,
+    "legacy_v2_is_current_qualification": false
+  },
+  "campaign_evidence_caveats": [
+    "DEVELOPMENT_ONLY_CURRENT_COMPANY_SURVIVORSHIP_BIASED",
+    "NO_2025_OR_2026_OUT_OF_SAMPLE_RESULT",
+    "CORRECTIVE_2015_2024_REPLAY_DEVIATES_FROM_PREREGISTERED_2020_2024_COMMON_QUALIFICATION_START",
+    "LEGACY_V2_DID_NOT_APPLY_CURRENT_ANNUAL_SPY_RELATIVE_DRAWDOWN_GATE",
+    "CPCV_SPLITS_ARE_DEVELOPMENT_STABILITY_DIAGNOSTICS_NOT_OOS"
+  ],
   "candidates": [
     {
       "candidate_id": "dual_momentum_regime",
       "qualification_path": "research/results/mining_campaign_20260721_v1_authoritative/qualifications/dual_momentum_regime.json",
       "qualification_sha256": "8c7dda845a1e4cb70c26a764023ebd3d7b5573eb29f18a82f9617893bf4a90d7",
-      "failed_canonical_gates": [
+      "legacy_v2_failed_gates": [
         "deflated_sharpe_probability"
       ],
       "deflated_sharpe_probability": 0.38669982080940146,
-      "required_deflated_sharpe_probability": 0.95
+      "required_deflated_sharpe_probability": 0.95,
+      "full_period_max_drawdown_diagnostic": -0.3602806428718396,
+      "current_annual_drawdown_base_assessment": {
+        "passed": false,
+        "passed_years": [2016, 2022],
+        "failed_years": [2015, 2017, 2018, 2019, 2020, 2021, 2023, 2024],
+        "cost_stress_scenarios_assessed": false,
+        "reason": "LEGACY_INPUT_LACKS_MATCHED_DAILY_SPY_RETURNS_FOR_EVERY_COST_SCENARIO"
+      }
     },
     {
       "candidate_id": "mom_balanced_buffer15",
       "qualification_path": "research/results/mining_campaign_20260721_v1_authoritative/qualifications/mom_balanced_buffer15.json",
       "qualification_sha256": "ca81df141905485250fcab8eb58b13e6fec895a3b3a804c0b5a1feddc9c130b6",
-      "failed_canonical_gates": [
+      "legacy_v2_failed_gates": [
         "deflated_sharpe_probability"
       ],
       "deflated_sharpe_probability": 0.29362612049268155,
-      "required_deflated_sharpe_probability": 0.95
+      "required_deflated_sharpe_probability": 0.95,
+      "full_period_max_drawdown_diagnostic": -0.3585521901271057,
+      "current_annual_drawdown_base_assessment": {
+        "passed": false,
+        "passed_years": [2022],
+        "failed_years": [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2023, 2024],
+        "cost_stress_scenarios_assessed": false,
+        "reason": "LEGACY_INPUT_LACKS_MATCHED_DAILY_SPY_RETURNS_FOR_EVERY_COST_SCENARIO"
+      }
     }
   ]
 }

@@ -18,8 +18,8 @@ from typing import Any, Mapping
 from core.research.governance import load_research_governance
 from core.research.qualification_v2 import (
     canonical_sha256,
-    validate_qualification_artifact,
 )
+from core.research.qualification_v3 import validate_qualification_artifact
 
 REQUIRED_BOUND_SOURCES = (
     "config/backtest.yaml",
@@ -44,6 +44,7 @@ REQUIRED_BOUND_SOURCES = (
     "core/research/phase2/promotion.py",
     "core/research/promotion/evidence.py",
     "core/research/qualification_v2.py",
+    "core/research/qualification_v3.py",
     "core/research/temporal_split_acceptance.py",
     "core/signals/strategies/multi_factor.py",
     "scripts/promote_strategy.py",
@@ -135,7 +136,7 @@ def validate_promotion_evidence(
         policy = None
 
     if payload:
-        if payload.get("schema_version") != 2:
+        if payload.get("schema_version") != 3:
             failed.append("promotion_evidence_schema")
         if payload.get("candidate_id") != expected_candidate_id:
             failed.append("promotion_evidence_candidate_mismatch")
@@ -188,9 +189,9 @@ def validate_promotion_evidence(
                     ):
                         failed.append(f"lookahead_source_hash_mismatch:{relative}")
 
-        qualification = payload.get("qualification_v2")
+        qualification = payload.get("qualification_v3")
         if not isinstance(qualification, dict):
-            failed.append("qualification_v2_missing")
+            failed.append("qualification_v3_missing")
         else:
             source = _resolve_reference(root, qualification.get("artifact_path"))
             expected_sha = qualification.get("artifact_sha256")
@@ -201,7 +202,7 @@ def validate_promotion_evidence(
                 or not isinstance(expected_sha, str)
                 or sha256_file(source) != expected_sha
             ):
-                failed.append("qualification_v2_artifact_mismatch")
+                failed.append("qualification_v3_artifact_mismatch")
             else:
                 canonical = validate_qualification_artifact(
                     source,
@@ -212,13 +213,28 @@ def validate_promotion_evidence(
                 )
                 if not canonical.passed:
                     failed.extend(
-                        f"qualification_v2:{item}"
+                        f"qualification_v3:{item}"
                         for item in canonical.failed_checks
                     )
                 if qualification.get("computed_sha256") != canonical_sha256(
                     canonical.recomputed
                 ):
-                    failed.append("qualification_v2_computed_digest_mismatch")
+                    failed.append("qualification_v3_computed_digest_mismatch")
+                canonical_gates = canonical.recomputed.get("gates") or {}
+                annual_passed = (
+                    canonical_gates.get(
+                        "annual_max_drawdown_strictly_better_than_spy"
+                    ) is True
+                    and canonical_gates.get(
+                        "annual_cost_stress_max_drawdown_strictly_better_than_spy"
+                    ) is True
+                )
+                if qualification.get("annual_drawdown_gate_passed") is not annual_passed:
+                    failed.append("qualification_v3_annual_drawdown_summary_mismatch")
+                if qualification.get("annual_drawdown_gate_passed") is not True:
+                    failed.append("qualification_v3_annual_drawdown_failed")
+                if qualification.get("absolute_drawdown_gate_enabled") is not False:
+                    failed.append("qualification_v3_hidden_absolute_drawdown_gate")
 
         alignment = payload.get("paper_backtest_alignment")
         if not isinstance(alignment, dict):

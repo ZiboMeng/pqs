@@ -3,7 +3,7 @@
 ## Phase C: Continuous Development PRD (v3)
 
 ### System Identity
-个人量化研究与模拟交易系统。目标：长期可持续跑赢 SPY，保持低回撤（15%-20%），具备黑天鹅韧性（2008-style 场景 MaxDD ≤ 25%）。**QQQ 作为 sector-tilt diagnostic reference，非 hard outperformance gate**（per `docs/memos/20260502-qqq_benchmark_deprecation.md`）。
+个人量化研究与模拟交易系统。目标：长期可持续跑赢 SPY，并在每个对齐评估年度保持优于 SPY 的 MaxDD。绝对 MaxDD 与 stress-slice MaxDD 必须完整报告，但不再作为晋升硬阈值。**QQQ 作为 sector-tilt diagnostic reference，非 hard outperformance gate**（per `docs/memos/20260502-qqq_benchmark_deprecation.md`）。
 
 ### Invariant Constraints (NEVER violate without explicit user approval)
 - long-only, no-margin, no-short
@@ -17,12 +17,12 @@
 - Must preserve backtest-execution consistency
 - Chinese reporting, English code naming
 - Initial capital ~$10,000, **target scale $100K (10x in 5-10 years)** [REVISED 2026-05-02 — $1M+ aspiration deprecated as fund-grade-not-individual-realistic]
-- Max drawdown target 15%-20%, not worse than SPY in crisis; **2008-style scenario MaxDD ≤ 25% (testable via stress slices)** [QUANTIFIED 2026-05-02]
+- MaxDD promotion gate: **strategy after-cost MaxDD must be strictly better than SPY in every aligned calendar year**, including every frozen cost-stress scenario. Absolute and stress-slice MaxDD remain diagnostics, not hard caps. [REVISED 2026-07-22 by explicit user direction]
 - **Outperforming SPY does not waive drawdown, crisis-resilience, or long-only risk constraints**
 
 ### Benchmark Outperformance Rule [REVISED 2026-05-02 — QQQ deprecated]
 
-**2026-07-20 effective governance:** `config/research_governance.yaml` is the
+**2026-07-22 effective governance:** `config/research_governance.yaml` is the
 machine-enforced authority when historical promotion records conflict with this
 benchmark invariant. `dual_index_growth_v1` is currently
 `PAPER_OBSERVATION_ONLY / REVIEW_HOLD`; the Phase 2 `PAPER_APPROVED` record is
@@ -46,10 +46,10 @@ See `docs/memos/20260720-governance-reconciliation.md`.
 - Industry / academic norm: long-only US large-cap benchmark = S&P 500 / Russell 1000, NOT QQQ
 - 5 mining cycles' sibling-by-NAV convergence root-caused by infeasibility of (beat QQQ AND MaxDD ≤ 20%)
 
-**Risk guardrails** (unchanged from prior version):
+**Risk guardrails** (current):
 - No concentration in ≤3 symbols
 - Position limits per config/risk.yaml respected
-- MaxDD not materially worse than SPY (and 2008-style scenario MaxDD ≤ 25% per `Black Swan Quantification` below)
+- MaxDD strictly better than SPY in every aligned evaluation year; absolute and named stress-slice drawdowns remain mandatory diagnostics
 - Regime-based risk scaling enabled
 
 **Master report must:**
@@ -58,12 +58,15 @@ See `docs/memos/20260720-governance-reconciliation.md`.
 - Display QQQ excess in strategy summary as informational
 - Flag "fails QQQ diagnostic" as info note (NOT a gate)
 
-#### Black Swan Quantification [QUANTIFIED 2026-05-02]
+#### Drawdown comparison policy [REVISED 2026-07-22]
 
-Pre-2026-05-02 invariant said "黑天鹅韧性" without testable threshold.
-Replaced by:
-- **Stress slice MaxDD ≤ 25%** for 2008-equivalent regime (lehman/covid_flash/rate_hike_2022)
-- Future: regime-conditional Monte Carlo per stress test (TBD post-Trial-9 forward)
+The former absolute 20%/25% promotion caps are superseded prospectively by a
+relative rule: every aligned calendar-year after-cost MaxDD must be strictly
+better than SPY, including all frozen cost-stress scenarios. Named crisis-slice
+and full-period absolute MaxDD values remain mandatory report fields and manual
+risk diagnostics; they cannot silently block or pass promotion. Historical
+locked split artifacts retain their original rules as historical evidence and
+must not be rewritten.
 
 #### Diversifier Role Additional Constraints [SIMPLIFIED 2026-05-02]
 
@@ -75,13 +78,13 @@ Replaced by:
 - Anti-sibling NAV correlation: raw NAV < 0.70 vs all anchors, residual NAV < 0.50
 - Anti-sibling factor overlap: `factor_overlap_with_active_core = 0`
 - Cross-asset utilization: `non_equity_weight_avg ≥ 15%`
-- Per-validation-year MaxDD ≤ 20% (hard) / ≤ 18% (soft warn with TD60 self-clearing per D10c)
+- Per-validation-year MaxDD strictly better than same-year SPY (hard); absolute 18%/20% values are diagnostic only
 
 **Standard rules** (apply to ALL roles, including diversifier):
 - Full-period vs SPY > 0 (HARD)
 - 2025 holdout vs SPY > 0 (HARD)
-- Per-validation-year MaxDD ≤ 20% (hard)
-- Stress slice MaxDD ≤ 25%
+- Per-validation-year MaxDD strictly better than same-year SPY (hard)
+- Stress-slice absolute MaxDD reported as diagnostic, with no absolute hard cap
 - Concentration: M12 top1 ≤ 40%, top3 ≤ 70%
 - Long-only / no-short / no-margin invariants
 

@@ -333,7 +333,10 @@ def test_automatic_promotion_requires_bound_evidence_but_not_qqq():
         failed_checks=(),
         payload={
             "lookahead": {"passed": True},
-            "overfit": {"cpcv_passed": True},
+            "qualification_v3": {
+                "annual_drawdown_gate_passed": True,
+                "absolute_drawdown_gate_enabled": False,
+            },
             "paper_backtest_alignment": {"passed": True},
         },
     )

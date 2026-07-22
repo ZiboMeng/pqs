@@ -7,6 +7,16 @@
 > `docs/memos/20260720-governance-reconciliation.md` and
 > `config/research_governance.yaml`.
 
+## Prospective authority after 2026-07-22
+
+New automatic promotions must bind a Qualification V3 artifact. MaxDD passes
+only when the after-cost strategy drawdown magnitude is strictly smaller than
+SPY in every aligned calendar year and every frozen cost-stress scenario.
+Full-period and named stress-slice absolute MaxDD remain mandatory diagnostics,
+not hard caps. Legacy quick/Phase-2 absolute drawdown gates are retained in
+historical reports but are non-binding under governance policy
+`pqs-governance-reconciliation-v2`.
+
 The frozen policy is `config/strategy_promotion.yaml`; the executable evaluator
 is `core/research/phase2/promotion.py`; the fail-closed PAPER transition is
 `core/research/phase2/paper_promotion.py`.

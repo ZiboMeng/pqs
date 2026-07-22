@@ -226,7 +226,7 @@ def _runtime(
             _spec(),
             status=governance_status,
             historical_promotion_status="PAPER_APPROVED",
-            governance_policy_id="pqs-governance-reconciliation-v1",
+            governance_policy_id="pqs-governance-reconciliation-v2",
             governance_policy_sha256="a" * 64,
             governance_decision_sha256="b" * 64,
             capital_eligible=capital_eligible,

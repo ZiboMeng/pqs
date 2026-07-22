@@ -32,6 +32,24 @@ class BenchmarkPolicy(BaseModel):
     manual_exception_must_not_be_relabelled_as_gate_pass: Literal[True]
 
 
+class AnnualDrawdownComparisonPolicy(BaseModel):
+    """Prospective drawdown gate authorized by the user on 2026-07-22.
+
+    Promotion compares aligned after-cost calendar-year drawdowns with SPY.
+    Absolute drawdown caps remain reportable diagnostics, never hidden gates.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    benchmark: Literal["SPY"]
+    comparison_basis: Literal["aligned_calendar_year_after_cost_returns"]
+    require_every_year_strictly_better: Literal[True]
+    require_all_cost_stress_scenarios: Literal[True]
+    absolute_max_drawdown_gate_enabled: Literal[False]
+    stress_slice_absolute_drawdown_gate_enabled: Literal[False]
+    report_absolute_drawdowns: Literal[True]
+
+
 class AutomaticPromotionEvidencePolicy(BaseModel):
     """Evidence required for a new automatic promotion decision.
 
@@ -42,7 +60,7 @@ class AutomaticPromotionEvidencePolicy(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: Literal[1]
+    schema_version: Literal[2]
     require_bound_artifact: Literal[True]
     require_clean_code_commit: Literal[True]
     require_lookahead_test_pass: Literal[True]
@@ -51,6 +69,7 @@ class AutomaticPromotionEvidencePolicy(BaseModel):
     require_minimum_backtest_length_pass: Literal[True]
     require_cpcv_pass: Literal[True]
     minimum_cpcv_folds: int = Field(ge=2)
+    annual_drawdown_comparison: AnnualDrawdownComparisonPolicy
     require_paper_backtest_alignment: Literal[True]
     max_paper_backtest_equity_drift_bps: float = Field(ge=0.0)
     failure_disposition: Literal["REVIEW_HOLD"]
@@ -138,7 +157,7 @@ class CloudPolicy(BaseModel):
 class ResearchGovernancePolicy(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: Literal[1]
+    schema_version: Literal[2]
     policy_id: str = Field(min_length=1)
     approved_at_utc: str = Field(min_length=1)
     authority: Literal["user_explicit_direction"]

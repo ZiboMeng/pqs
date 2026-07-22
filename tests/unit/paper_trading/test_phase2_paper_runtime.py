@@ -164,7 +164,7 @@ def test_governance_overlay_downgrades_historical_approval_to_observation() -> N
     assert spec.review_status == "REVIEW_HOLD"
     assert spec.automatic_promotion_eligible is False
     assert spec.capital_eligible is False
-    assert spec.governance_policy_id == "pqs-governance-reconciliation-v1"
+    assert spec.governance_policy_id == "pqs-governance-reconciliation-v2"
     assert spec.governance_policy_sha256 is not None
     assert spec.governance_decision_sha256 is not None
 

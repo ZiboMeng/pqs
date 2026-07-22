@@ -10,6 +10,10 @@ defined at the bottom of this file. Within each category section,
 
 ## Active Codex phase-three evidence
 
+- [audit/20260722-v4-independent-verification-disposition.md](audit/20260722-v4-independent-verification-disposition.md) —
+  独立审计逐项处置：接受机械复算，纠正 DSR/beta/不可行性过度推断，记录 2015 replay 的预注册偏离。
+- [memos/20260722-annual-spy-relative-drawdown-governance.md](memos/20260722-annual-spy-relative-drawdown-governance.md) —
+  用户显式 MaxDD 新治理：逐年、逐成本情景严格优于 SPY；绝对回撤只报告不作硬门；新晋升走 Qualification V3。
 - [audit/20260721-diverse-mining-final-audit.md](audit/20260721-diverse-mining-final-audit.md) —
   30 轮多样化挖掘的最终权威审计：0 formal、2 个仅 DSR 失败的 REVIEW_HOLD、short/LLM
   诚实未完成，以及两次自审纠错、ledger/qualification 独立复算和明确出口。

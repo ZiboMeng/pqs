@@ -1,6 +1,6 @@
-schema_version: 1
-policy_id: pqs-governance-reconciliation-v1
-approved_at_utc: "2026-07-20T22:22:54Z"
+schema_version: 2
+policy_id: pqs-governance-reconciliation-v2
+approved_at_utc: "2026-07-22T00:00:00-07:00"
 authority: user_explicit_direction
 
 benchmark:
@@ -15,7 +15,7 @@ benchmark:
   manual_exception_must_not_be_relabelled_as_gate_pass: true
 
 automatic_promotion_evidence:
-  schema_version: 1
+  schema_version: 2
   require_bound_artifact: true
   require_clean_code_commit: true
   require_lookahead_test_pass: true
@@ -24,6 +24,14 @@ automatic_promotion_evidence:
   require_minimum_backtest_length_pass: true
   require_cpcv_pass: true
   minimum_cpcv_folds: 2
+  annual_drawdown_comparison:
+    benchmark: SPY
+    comparison_basis: aligned_calendar_year_after_cost_returns
+    require_every_year_strictly_better: true
+    require_all_cost_stress_scenarios: true
+    absolute_max_drawdown_gate_enabled: false
+    stress_slice_absolute_drawdown_gate_enabled: false
+    report_absolute_drawdowns: true
   require_paper_backtest_alignment: true
   max_paper_backtest_equity_drift_bps: 10.0
   failure_disposition: REVIEW_HOLD

@@ -397,20 +397,41 @@ def _build_gates(
 ) -> List[GateResult]:
     """Construct the gates from a trial row (and optional fresh check)."""
     gates: List[GateResult] = []
+    evidence_payload = (
+        promotion_evidence.payload
+        if promotion_evidence is not None
+        else {}
+    )
 
     # Gate 1: Quick evaluation
     qs, qdd, qcagr = trial.get("quick_sharpe"), trial.get("quick_max_dd"), trial.get("quick_cagr")
     passed_quick = bool(trial.get("passed_quick"))
+    current_quick_passed = (
+        qs is not None
+        and float(qs) >= _THRESHOLDS["quick_min_sharpe"]
+        and qcagr is not None
+        and float(qcagr) > 0.0
+    ) if automatic_promotion else passed_quick
     gates.append(GateResult(
         name="quick",
-        passed=passed_quick,
+        passed=current_quick_passed,
         values={"sharpe": qs, "max_dd": qdd, "cagr": qcagr},
-        threshold={
-            "min_sharpe": _THRESHOLDS["quick_min_sharpe"],
-            "max_drawdown": _THRESHOLDS["quick_max_drawdown"],
-        },
-        notes="Full-period backtest passes min Sharpe / CAGR / MaxDD" if passed_quick
-              else "Failed quick gate (see mining evaluator stage 1)",
+        threshold=(
+            {"min_sharpe": _THRESHOLDS["quick_min_sharpe"], "min_cagr": 0.0}
+            if automatic_promotion
+            else {
+                "min_sharpe": _THRESHOLDS["quick_min_sharpe"],
+                "max_drawdown": _THRESHOLDS["quick_max_drawdown"],
+            }
+        ),
+        notes=(
+            "LEGACY DIAGNOSTIC — quick gate may contain an absolute MaxDD cap; "
+            "Qualification V3 is authoritative for automatic promotion."
+            if automatic_promotion
+            else "Full-period backtest passes min Sharpe / CAGR / MaxDD"
+            if passed_quick
+            else "Failed quick gate (see mining evaluator stage 1)"
+        ),
     ))
 
     # Gate 2: OOS walk-forward
@@ -434,10 +455,13 @@ def _build_gates(
     )
     gates.append(GateResult(
         name="robustness",
-        passed=(reg and cost and par and stress),
+        passed=(reg and cost and par and (stress or automatic_promotion)),
         values={"regime_robust": reg, "cost_robust": cost,
                 "param_robust": par, "stress_passed": stress},
-        threshold={"all_four_required": True},
+        threshold={
+            "regime_cost_parameter_required": True,
+            "legacy_absolute_stress_flag_binding": not automatic_promotion,
+        },
     ))
 
     # Gate 4: Diversity (correlation with existing promoted)
@@ -466,15 +490,31 @@ def _build_gates(
 
     # Gate 5: Holdout (last 252d)
     passed_hold = bool(trial.get("passed_holdout"))
+    holdout_ir = trial.get("holdout_ir")
+    holdout_excess = trial.get("holdout_excess_return")
+    current_holdout_passed = (
+        holdout_ir is not None
+        and float(holdout_ir) >= _THRESHOLDS["min_holdout_ir"]
+        and holdout_excess is not None
+        and float(holdout_excess) > 0.0
+    ) if automatic_promotion else passed_hold
     gates.append(GateResult(
         name="holdout",
-        passed=passed_hold,
+        passed=current_holdout_passed,
         values={
             "holdout_ir": trial.get("holdout_ir"),
             "holdout_excess": trial.get("holdout_excess_return"),
             "holdout_max_dd": trial.get("holdout_max_dd"),
         },
-        threshold={"min_ir": _THRESHOLDS["min_holdout_ir"]},
+        threshold=(
+            {"min_ir": _THRESHOLDS["min_holdout_ir"], "min_excess_vs_spy": 0.0}
+            if automatic_promotion
+            else {"min_ir": _THRESHOLDS["min_holdout_ir"]}
+        ),
+        notes=(
+            "LEGACY DIAGNOSTIC — current holdout authority is the bound V3 evaluation contract."
+            if automatic_promotion else ""
+        ),
     ))
 
     # Gate 6: MaxDD absolute + relative
@@ -492,13 +532,27 @@ def _build_gates(
         strat_dd_signed is not None
         and strat_dd_signed >= _THRESHOLDS["maxdd_abs_floor"]
     )
-    passed_dd = absolute_passed and (
-        not automatic_promotion
-        or (
-            relative_ratio is not None
-            and relative_ratio <= _THRESHOLDS["maxdd_rel_multiplier"]
+    qualification_summary = evidence_payload.get("qualification_v3") or {}
+    if automatic_promotion:
+        passed_dd = (
+            qualification_summary.get("annual_drawdown_gate_passed") is True
+            and qualification_summary.get("absolute_drawdown_gate_enabled") is False
         )
-    )
+        drawdown_threshold = {
+            "every_aligned_calendar_year_strictly_better_than_spy": True,
+            "all_frozen_cost_stress_scenarios": True,
+            "absolute_drawdown_hard_gate": False,
+        }
+        drawdown_notes = (
+            "Qualification V3 annual SPY-relative drawdown gate; full-period "
+            "absolute values are diagnostics only."
+        )
+    else:
+        passed_dd = absolute_passed
+        drawdown_threshold = {
+            "legacy_abs_floor": _THRESHOLDS["maxdd_abs_floor"],
+        }
+        drawdown_notes = "Historical diagnostic pack absolute drawdown floor."
     gates.append(GateResult(
         name="max_drawdown",
         passed=passed_dd,
@@ -507,15 +561,8 @@ def _build_gates(
             "spy_max_dd": spy_dd,
             "relative_ratio": relative_ratio,
         },
-        threshold={
-            "abs_floor": _THRESHOLDS["maxdd_abs_floor"],
-            "rel_vs_spy_multiplier": _THRESHOLDS["maxdd_rel_multiplier"],
-        },
-        notes=(
-            "Absolute and relative-to-SPY drawdown checks are both binding."
-            if automatic_promotion
-            else "Diagnostic pack enforces the historical absolute drawdown floor."
-        ),
+        threshold=drawdown_threshold,
+        notes=drawdown_notes,
     ))
 
     # Gate 7: M12 concentration enforcement (codex Round-5).
@@ -596,16 +643,11 @@ def _build_gates(
         if promotion_evidence is not None
         else ("promotion_evidence_missing",)
     )
-    evidence_payload = (
-        promotion_evidence.payload
-        if promotion_evidence is not None
-        else {}
-    )
     lookahead_passed = bool(evidence_payload.get("lookahead")) and not any(
         item.startswith("lookahead_") for item in evidence_failures
     )
-    overfit_passed = bool(evidence_payload.get("overfit")) and not any(
-        item.startswith("overfit_") for item in evidence_failures
+    overfit_passed = bool(evidence_payload.get("qualification_v3")) and not any(
+        item.startswith("qualification_v3") for item in evidence_failures
     )
     gates.append(GateResult(
         name="lookahead_evidence",

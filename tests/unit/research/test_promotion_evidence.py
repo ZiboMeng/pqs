@@ -10,7 +10,7 @@ from core.research.promotion.evidence import (
     validate_promotion_evidence,
 )
 from tests.unit.research._qualification_fixture import (
-    write_passing_qualification_v2,
+    write_passing_qualification_v3,
 )
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -28,7 +28,7 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path]:
             source.write_text(f"fixture for {relative}\n", encoding="utf-8")
         source_hashes[relative] = sha256_file(source)
     source = tmp_path / REQUIRED_BOUND_SOURCES[0]
-    qualification = write_passing_qualification_v2(
+    qualification = write_passing_qualification_v3(
         tmp_path, candidate_id="candidate-1", code_commit=COMMIT)
     alignment = tmp_path / "alignment.json"
     alignment.write_text(
@@ -38,7 +38,7 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path]:
     evidence = tmp_path / "evidence.json"
     evidence.write_text(
         json.dumps({
-            "schema_version": 2,
+            "schema_version": 3,
             "candidate_id": "candidate-1",
             "code_commit": COMMIT,
             "benchmark": {
@@ -52,11 +52,13 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path]:
                 "tests": ["timing"],
                 "source_hashes": source_hashes,
             },
-            "qualification_v2": {
+            "qualification_v3": {
                 "artifact_path": str(qualification.relative_to(tmp_path)),
                 "artifact_sha256": sha256_file(qualification),
                 "computed_sha256": json.loads(
                     qualification.read_text())["computed_sha256"],
+                "annual_drawdown_gate_passed": True,
+                "absolute_drawdown_gate_enabled": False,
             },
             "paper_backtest_alignment": {
                 "passed": True,
@@ -99,7 +101,7 @@ def test_source_drift_fails_closed(tmp_path: Path) -> None:
 def test_qualification_digest_tamper_routes_to_hold(tmp_path: Path) -> None:
     evidence, _ = _fixture(tmp_path)
     payload = json.loads(evidence.read_text())
-    payload["qualification_v2"]["computed_sha256"] = "0" * 64
+    payload["qualification_v3"]["computed_sha256"] = "0" * 64
     evidence.write_text(json.dumps(payload), encoding="utf-8")
     result = validate_promotion_evidence(
         evidence,
@@ -108,7 +110,7 @@ def test_qualification_digest_tamper_routes_to_hold(tmp_path: Path) -> None:
         expected_code_commit=COMMIT,
     )
     assert not result.passed
-    assert "qualification_v2_computed_digest_mismatch" in result.failed_checks
+    assert "qualification_v3_computed_digest_mismatch" in result.failed_checks
 
 
 def test_missing_evidence_is_never_a_pass(tmp_path: Path) -> None:

@@ -83,3 +83,13 @@
   `CONSUMED_NOT_PRISTINE`。新名称、版本号或 hash 不恢复信息新颖性。
 - 运行约束：正式 forward 前必须验证 trusted source batch 与时间因果性；Yahoo 收盘后
   日线不能冒充可在同一已过去开盘成交的实时证据。
+
+## ADR-013：MaxDD 晋升门改为逐年严格优于 SPY
+
+- 用户显式决定（2026-07-22）：不再用 20%/25% 等绝对 MaxDD 数字作晋升硬门。
+- 选择：在每个对齐日历年，策略计入成本后的 MaxDD 绝对值必须严格小于同年 SPY；所有
+  冻结成本压力情景都必须逐年满足，任一年失败即不能晋升。
+- 报告义务：full-period、calendar-year、named stress-slice 的绝对 MaxDD 仍必须完整披露，
+  但不得作为隐藏的 pass/fail 阈值。
+- 版本边界：已锁定的 historical split/artifact 不改写；新自动晋升只接受 Qualification V3。
+- 原因：用同期市场状态校准回撤难度，同时保留“每一年风险都优于直接持有 SPY”的明确要求。

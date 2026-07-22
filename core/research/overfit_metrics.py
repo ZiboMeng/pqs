@@ -3,7 +3,8 @@
 Per literature review §1.C [S13][S14] (Bailey & López de Prado). With
 many trials the best Sharpe among unskilled strategies is positive by
 chance (False Strategy Theorem). Every redo attempt must report DSR
-(skill-probability after correcting for #trials + non-normality) and
+(selection-adjusted PSR statistic after correcting for #trials and
+non-normality) and
 PBO (combinatorially-symmetric rank-degradation probability).
 """
 from __future__ import annotations
@@ -62,10 +63,13 @@ def deflated_sharpe_ratio(
     n_trials: int,
     sr_trials_std: float | None = None,
 ) -> dict:
-    """DSR = P(true SR > 0 | observed SR, #trials, skew, kurtosis). [S13]
+    """DSR/PSR statistic for SR exceeding a selection-adjusted threshold. [S13]
 
     ``returns`` = the strategy's per-period returns. ``n_trials`` = how
-    many configs were tried to find it (selection-bias correction).
+    many configs were tried to find it (selection-bias correction).  The
+    resulting probability-like statistic is relative to ``sr0`` (the expected
+    maximum SR under multiple trials), not a posterior probability that the
+    true Sharpe is above zero.
     ``sr_trials_std`` = std of Sharpe across those trials (if known);
     falls back to the analytic 1/sqrt(T) when not supplied.
     """
