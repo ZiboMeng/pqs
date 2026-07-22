@@ -1,0 +1,3572 @@
+{
+  "automatic_promotion_eligible": false,
+  "candidate_id": "spy70_qmlv30_risk",
+  "capital_eligible": false,
+  "code_commit": "b4a7a856d58d991ce24db30973e5154e3f854d4f",
+  "composite_trial_universe": {
+    "incomplete_trial_ids": [],
+    "independent_content_hashes_sha256": "d853ab46bf37e4a2eb353b7ebc8bdfc4d14db2d88984cb1d32d99da146977cdf",
+    "ledgers": [
+      {
+        "event_count": 118,
+        "head_event_hash": "d056cbee3a5d276855c72c78f71c70fda273eef02ffb3d222750d0a087d6a276",
+        "path": "research/results/mining_campaign_20260721_v1/trial_ledger.jsonl",
+        "raw_independent_n_local": 30,
+        "role": "historical",
+        "sha256": "a2215c21d17280a3d867a20999cd2a92d33bc4d397cc40b443ff6790efbe1de1"
+      },
+      {
+        "event_count": 104,
+        "head_event_hash": "ee8b0d7aa1a545c88bdeebb28b6d6cfd7dee4b189836949d96180244d78efff1",
+        "path": "research/results/mining_v5_balanced_20260722_v1/trial_ledger.jsonl",
+        "raw_independent_n_local": 30,
+        "role": "current",
+        "sha256": "25eb6d234da0ee69a1a42fec73d8278a1a72f90909670b51669d203016244d90"
+      }
+    ],
+    "raw_independent_n": 60,
+    "schema_version": 1
+  },
+  "computed": {
+    "account_deployment": {
+      "absolute_risk_contract_passed": false,
+      "capital_eligible": false,
+      "failed_checks": [
+        "account_risk_evidence_missing",
+        "account_risk_path_capable_evidence_required",
+        "account_risk_path_capability_unproven",
+        "account_risk_operating_target_outside_15_20pct",
+        "account_risk_runtime_thresholds_mismatch",
+        "account_risk_next_session_execution_passed",
+        "account_risk_future_mutation_passed",
+        "account_risk_deterministic_replay_passed",
+        "account_risk_paper_replay_passed",
+        "account_risk_stress_paths_missing",
+        "account_risk_stress_scenario_set_mismatch",
+        "account_risk_path_source_hashes_missing",
+        "account_risk_invalid_path:gfc_2008",
+        "account_risk_invalid_path:covid_2020",
+        "account_risk_invalid_path:rate_hike_2022"
+      ],
+      "metrics": {
+        "gap_overshoot_not_guaranteed": true,
+        "operating_max_drawdown_target": null,
+        "required_path_scenarios": [
+          "gfc_2008",
+          "covid_2020",
+          "rate_hike_2022"
+        ],
+        "runtime_thresholds": {
+          "alert": 0.15,
+          "derisk": 0.2,
+          "halt": 0.25
+        },
+        "stress_path_max_drawdown": 0.25,
+        "stress_paths": {
+          "covid_2020": {
+            "max_drawdown": null,
+            "passed": false
+          },
+          "gfc_2008": {
+            "max_drawdown": null,
+            "passed": false
+          },
+          "rate_hike_2022": {
+            "max_drawdown": null,
+            "passed": false
+          }
+        }
+      },
+      "status": "SHADOW_PAPER_OBSERVATION"
+    },
+    "active": {
+      "annualized_sharpe": -0.5076863061380085,
+      "beta_alpha": {
+        "annualized_alpha": 0.012950008563096686,
+        "annualized_alpha_ci95_high": 0.049417810890742445,
+        "annualized_alpha_ci95_low": -0.023517793764549072,
+        "beta": 0.5361453230434675
+      },
+      "cagr_excess_vs_spy": -0.046180314503184716,
+      "max_drawdown_vs_spy_ratio": 0.5188116235306702,
+      "mean_confidence_interval": {
+        "annualized_ci95_high": 0.003822514463459215,
+        "annualized_ci95_low": -0.10602876125087372,
+        "annualized_mean": -0.051103123393707255,
+        "daily_mean": -0.000202790172197251,
+        "newey_west_lag": 5
+      },
+      "rolling_252d_excess_fraction": 0.21598939929328623
+    },
+    "automatic_promotion_eligible": false,
+    "balanced_drawdown": {
+      "annual_all_years_strict_dominance": false,
+      "raw_strategy_absolute_cap_enabled": false,
+      "scenario_metrics": {
+        "base_30bps": {
+          "annual_material_harm": {
+            "annual_win_fraction_diagnostic": 0.8,
+            "max_extra_drawdown_pp": 3.0,
+            "passed": true,
+            "years": [
+              {
+                "candidate_max_drawdown": -0.12239259272671732,
+                "extra_drawdown_pp": 0.32901302327341675,
+                "passed": true,
+                "sessions": 252,
+                "spy_max_drawdown": -0.11910246249398315,
+                "strictly_better_than_spy": false,
+                "year": 2015
+              },
+              {
+                "candidate_max_drawdown": -0.07100795766519341,
+                "extra_drawdown_pp": -3.20478867946995,
+                "passed": true,
+                "sessions": 252,
+                "spy_max_drawdown": -0.10305584445989291,
+                "strictly_better_than_spy": true,
+                "year": 2016
+              },
+              {
+                "candidate_max_drawdown": -0.021723580344783833,
+                "extra_drawdown_pp": -0.4369934237695605,
+                "passed": true,
+                "sessions": 251,
+                "spy_max_drawdown": -0.026093514582479438,
+                "strictly_better_than_spy": true,
+                "year": 2017
+              },
+              {
+                "candidate_max_drawdown": -0.13977371284576212,
+                "extra_drawdown_pp": -5.361408742271889,
+                "passed": true,
+                "sessions": 251,
+                "spy_max_drawdown": -0.193387800268481,
+                "strictly_better_than_spy": true,
+                "year": 2018
+              },
+              {
+                "candidate_max_drawdown": -0.058398657993650405,
+                "extra_drawdown_pp": -0.7785035969104181,
+                "passed": true,
+                "sessions": 252,
+                "spy_max_drawdown": -0.06618369396275459,
+                "strictly_better_than_spy": true,
+                "year": 2019
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661688,
+                "extra_drawdown_pp": -16.215958620552794,
+                "passed": true,
+                "sessions": 253,
+                "spy_max_drawdown": -0.33699813656214483,
+                "strictly_better_than_spy": true,
+                "year": 2020
+              },
+              {
+                "candidate_max_drawdown": -0.05305983417103333,
+                "extra_drawdown_pp": 0.194822920603277,
+                "passed": true,
+                "sessions": 252,
+                "spy_max_drawdown": -0.05111160496500056,
+                "strictly_better_than_spy": false,
+                "year": 2021
+              },
+              {
+                "candidate_max_drawdown": -0.13350594129382354,
+                "extra_drawdown_pp": -11.146650069905927,
+                "passed": true,
+                "sessions": 251,
+                "spy_max_drawdown": -0.24497244199288282,
+                "strictly_better_than_spy": true,
+                "year": 2022
+              },
+              {
+                "candidate_max_drawdown": -0.07615260607032337,
+                "extra_drawdown_pp": -2.355191083708963,
+                "passed": true,
+                "sessions": 250,
+                "spy_max_drawdown": -0.099704516907413,
+                "strictly_better_than_spy": true,
+                "year": 2023
+              },
+              {
+                "candidate_max_drawdown": -0.08145202058511303,
+                "extra_drawdown_pp": -0.2604173339119442,
+                "passed": true,
+                "sessions": 252,
+                "spy_max_drawdown": -0.08405619392423247,
+                "strictly_better_than_spy": true,
+                "year": 2024
+              }
+            ]
+          },
+          "cagr": 0.08411843463289181,
+          "cagr_excess_vs_spy": -0.046180314503184716,
+          "downside_capture": {
+            "candidate_annualized_down_month_return": -0.2948515300699025,
+            "downside_capture": 0.7480001456575294,
+            "negative_spy_months": 37,
+            "passed": true,
+            "spy_annualized_down_month_return": -0.3941864607669472
+          },
+          "drawdown_gates": {
+            "D1_full_period": true,
+            "D2_rolling_36m": true,
+            "D3_material_episodes": true,
+            "D4_downside_capture": true,
+            "D5_annual_material_harm": true
+          },
+          "full_period": {
+            "candidate_max_drawdown": -0.17483855035661677,
+            "passed": true,
+            "spy_max_drawdown": -0.3369981365621446
+          },
+          "material_episodes": {
+            "benchmark_defined": true,
+            "episode_count": 3,
+            "episodes": [
+              {
+                "candidate_max_drawdown": -0.139773712845762,
+                "end": "2019-04-12",
+                "end_index_exclusive": 1077,
+                "ended_by": "recovery",
+                "passed": true,
+                "spy_max_drawdown": -0.19338780026848124,
+                "start": "2018-09-20",
+                "start_index": 937,
+                "trigger": 0.15
+              },
+              {
+                "candidate_max_drawdown": -0.1748385503566171,
+                "end": "2020-08-10",
+                "end_index_exclusive": 1411,
+                "ended_by": "recovery",
+                "passed": true,
+                "spy_max_drawdown": -0.3369981365621446,
+                "start": "2020-02-19",
+                "start_index": 1291,
+                "trigger": 0.15
+              },
+              {
+                "candidate_max_drawdown": -0.14049280716465862,
+                "end": "2023-12-13",
+                "end_index_exclusive": 2253,
+                "ended_by": "recovery",
+                "passed": true,
+                "spy_max_drawdown": -0.24497244199288248,
+                "start": "2022-01-03",
+                "start_index": 1764,
+                "trigger": 0.15
+              }
+            ],
+            "material_trigger": 0.15,
+            "passed": true
+          },
+          "rolling_36m": {
+            "conservative_non_overlapping_effective_count": 3,
+            "drawdown_win_fraction": 0.9058823529411765,
+            "excess_positive_fraction": 0.011764705882352941,
+            "sample_at_month_end": true,
+            "window_count": 85,
+            "window_months": 36,
+            "windows": [
+              {
+                "candidate_max_drawdown": -0.1587876213021041,
+                "candidate_return": 0.20435355988746795,
+                "drawdown_won": false,
+                "end_index_exclusive": 755,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.1300609643636076,
+                "spy_return": 0.3801255376926753,
+                "start_index": 0,
+                "window_end": "2017-12-29"
+              },
+              {
+                "candidate_max_drawdown": -0.15878762130210433,
+                "candidate_return": 0.31048870604268086,
+                "drawdown_won": false,
+                "end_index_exclusive": 776,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.13006096436360692,
+                "spy_return": 0.5024239731323663,
+                "start_index": 20,
+                "window_end": "2018-01-31"
+              },
+              {
+                "candidate_max_drawdown": -0.15878762130210433,
+                "candidate_return": 0.20696307978727058,
+                "drawdown_won": false,
+                "end_index_exclusive": 795,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.13006096436360692,
+                "spy_return": 0.3707526193946784,
+                "start_index": 39,
+                "window_end": "2018-02-28"
+              },
+              {
+                "candidate_max_drawdown": -0.15878762130210533,
+                "candidate_return": 0.2060736585237113,
+                "drawdown_won": false,
+                "end_index_exclusive": 816,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.13006096436360803,
+                "spy_return": 0.3544989913578025,
+                "start_index": 61,
+                "window_end": "2018-03-29"
+              },
+              {
+                "candidate_max_drawdown": -0.1587876213021039,
+                "candidate_return": 0.20139977051133728,
+                "drawdown_won": false,
+                "end_index_exclusive": 837,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.1300609643636078,
+                "spy_return": 0.34824085432855867,
+                "start_index": 82,
+                "window_end": "2018-04-30"
+              },
+              {
+                "candidate_max_drawdown": -0.15749408143723787,
+                "candidate_return": 0.19895327772138538,
+                "drawdown_won": false,
+                "end_index_exclusive": 859,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.13006096436360803,
+                "spy_return": 0.3634861576384001,
+                "start_index": 102,
+                "window_end": "2018-05-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1494011116874382,
+                "candidate_return": 0.22208182665687737,
+                "drawdown_won": false,
+                "end_index_exclusive": 880,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.1300609643636076,
+                "spy_return": 0.3997371791132234,
+                "start_index": 124,
+                "window_end": "2018-06-29"
+              },
+              {
+                "candidate_max_drawdown": -0.14605978695310384,
+                "candidate_return": 0.24629201617102403,
+                "drawdown_won": false,
+                "end_index_exclusive": 901,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.12811364270946624,
+                "spy_return": 0.41952659326896335,
+                "start_index": 146,
+                "window_end": "2018-07-31"
+              },
+              {
+                "candidate_max_drawdown": -0.10006002891181742,
+                "candidate_return": 0.3744863105060945,
+                "drawdown_won": true,
+                "end_index_exclusive": 924,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.12811364270946524,
+                "spy_return": 0.5599146670593405,
+                "start_index": 167,
+                "window_end": "2018-08-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1000600289118172,
+                "candidate_return": 0.4200336793370958,
+                "drawdown_won": true,
+                "end_index_exclusive": 943,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.12811364270946557,
+                "spy_return": 0.6101451819848032,
+                "start_index": 188,
+                "window_end": "2018-09-28"
+              },
+              {
+                "candidate_max_drawdown": -0.10006002891181753,
+                "candidate_return": 0.2947051499699602,
+                "drawdown_won": true,
+                "end_index_exclusive": 966,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.12811364270946524,
+                "spy_return": 0.3813777064884547,
+                "start_index": 210,
+                "window_end": "2018-10-31"
+              },
+              {
+                "candidate_max_drawdown": -0.10006002891181742,
+                "candidate_return": 0.30104270732363414,
+                "drawdown_won": true,
+                "end_index_exclusive": 987,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.12678931182889341,
+                "spy_return": 0.4018772203283485,
+                "start_index": 230,
+                "window_end": "2018-11-30"
+              },
+              {
+                "candidate_max_drawdown": -0.1397737128457619,
+                "candidate_return": 0.2576887247527848,
+                "drawdown_won": true,
+                "end_index_exclusive": 1006,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.1933878002684809,
+                "spy_return": 0.3009457645744382,
+                "start_index": 252,
+                "window_end": "2018-12-31"
+              },
+              {
+                "candidate_max_drawdown": -0.13977371284576234,
+                "candidate_return": 0.3287822506448965,
+                "drawdown_won": true,
+                "end_index_exclusive": 1027,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848124,
+                "spy_return": 0.47872758608957966,
+                "start_index": 271,
+                "window_end": "2019-01-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1397737128457618,
+                "candidate_return": 0.3507944415205795,
+                "drawdown_won": true,
+                "end_index_exclusive": 1046,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848135,
+                "spy_return": 0.5279237356462108,
+                "start_index": 291,
+                "window_end": "2019-02-28"
+              },
+              {
+                "candidate_max_drawdown": -0.139773712845762,
+                "candidate_return": 0.3417276330778729,
+                "drawdown_won": true,
+                "end_index_exclusive": 1067,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848157,
+                "spy_return": 0.4575351141003028,
+                "start_index": 313,
+                "window_end": "2019-03-29"
+              },
+              {
+                "candidate_max_drawdown": -0.1397737128457618,
+                "candidate_return": 0.3848088815576616,
+                "drawdown_won": true,
+                "end_index_exclusive": 1088,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848124,
+                "spy_return": 0.5111232239687926,
+                "start_index": 334,
+                "window_end": "2019-04-30"
+              },
+              {
+                "candidate_max_drawdown": -0.1397737128457618,
+                "candidate_return": 0.28876451674181625,
+                "drawdown_won": true,
+                "end_index_exclusive": 1110,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848146,
+                "spy_return": 0.39109247293959215,
+                "start_index": 355,
+                "window_end": "2019-05-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1397737128457629,
+                "candidate_return": 0.36093742552673724,
+                "drawdown_won": true,
+                "end_index_exclusive": 1130,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848168,
+                "spy_return": 0.48272163477361674,
+                "start_index": 377,
+                "window_end": "2019-06-28"
+              },
+              {
+                "candidate_max_drawdown": -0.13977371284576212,
+                "candidate_return": 0.34853738546822055,
+                "drawdown_won": true,
+                "end_index_exclusive": 1152,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848068,
+                "spy_return": 0.4521768207497767,
+                "start_index": 397,
+                "window_end": "2019-07-31"
+              },
+              {
+                "candidate_max_drawdown": -0.13977371284576223,
+                "candidate_return": 0.33834561237352245,
+                "drawdown_won": true,
+                "end_index_exclusive": 1174,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848135,
+                "spy_return": 0.4261546102317275,
+                "start_index": 420,
+                "window_end": "2019-08-30"
+              },
+              {
+                "candidate_max_drawdown": -0.1397737128457619,
+                "candidate_return": 0.34682927308394373,
+                "drawdown_won": true,
+                "end_index_exclusive": 1194,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848124,
+                "spy_return": 0.45382358416464696,
+                "start_index": 441,
+                "window_end": "2019-09-30"
+              },
+              {
+                "candidate_max_drawdown": -0.13977371284576268,
+                "candidate_return": 0.39329764502583275,
+                "drawdown_won": true,
+                "end_index_exclusive": 1217,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848112,
+                "spy_return": 0.5121765015521687,
+                "start_index": 462,
+                "window_end": "2019-10-31"
+              },
+              {
+                "candidate_max_drawdown": -0.13977371284576257,
+                "candidate_return": 0.39800239296258977,
+                "drawdown_won": true,
+                "end_index_exclusive": 1237,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848146,
+                "spy_return": 0.5112428586607376,
+                "start_index": 483,
+                "window_end": "2019-11-29"
+              },
+              {
+                "candidate_max_drawdown": -0.13977371284576223,
+                "candidate_return": 0.4068109888243818,
+                "drawdown_won": true,
+                "end_index_exclusive": 1258,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.1933878002684809,
+                "spy_return": 0.5242033579669334,
+                "start_index": 504,
+                "window_end": "2019-12-31"
+              },
+              {
+                "candidate_max_drawdown": -0.13977371284576245,
+                "candidate_return": 0.3889032705409379,
+                "drawdown_won": true,
+                "end_index_exclusive": 1279,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.193387800268482,
+                "spy_return": 0.4968030241839918,
+                "start_index": 524,
+                "window_end": "2020-01-31"
+              },
+              {
+                "candidate_max_drawdown": -0.139773712845762,
+                "candidate_return": 0.22840641099818448,
+                "drawdown_won": true,
+                "end_index_exclusive": 1298,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848112,
+                "spy_return": 0.3261990786274491,
+                "start_index": 543,
+                "window_end": "2020-02-28"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661655,
+                "candidate_return": 0.18988330838856515,
+                "drawdown_won": true,
+                "end_index_exclusive": 1320,
+                "excess_positive": true,
+                "spy_max_drawdown": -0.3369981365621445,
+                "spy_return": 0.15944235206042578,
+                "start_index": 566,
+                "window_end": "2020-03-31"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661733,
+                "candidate_return": 0.19804633411320727,
+                "drawdown_won": true,
+                "end_index_exclusive": 1341,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.2938296836249328,
+                "start_index": 585,
+                "window_end": "2020-04-30"
+              },
+              {
+                "candidate_max_drawdown": -0.174838550356617,
+                "candidate_return": 0.19213429207036548,
+                "drawdown_won": true,
+                "end_index_exclusive": 1361,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621445,
+                "spy_return": 0.33661107237226684,
+                "start_index": 607,
+                "window_end": "2020-05-29"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661655,
+                "candidate_return": 0.19090870446173547,
+                "drawdown_won": true,
+                "end_index_exclusive": 1383,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214495,
+                "spy_return": 0.35173358940576827,
+                "start_index": 629,
+                "window_end": "2020-06-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661688,
+                "candidate_return": 0.19648854387399983,
+                "drawdown_won": true,
+                "end_index_exclusive": 1405,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214495,
+                "spy_return": 0.40251267885939246,
+                "start_index": 649,
+                "window_end": "2020-07-31"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661677,
+                "candidate_return": 0.24450471864596635,
+                "drawdown_won": true,
+                "end_index_exclusive": 1426,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.4960384026075628,
+                "start_index": 672,
+                "window_end": "2020-08-31"
+              },
+              {
+                "candidate_max_drawdown": -0.174838550356617,
+                "candidate_return": 0.18565583310474465,
+                "drawdown_won": true,
+                "end_index_exclusive": 1447,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621446,
+                "spy_return": 0.41165377466994,
+                "start_index": 692,
+                "window_end": "2020-09-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661688,
+                "candidate_return": 0.1362584642811533,
+                "drawdown_won": true,
+                "end_index_exclusive": 1469,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.3447680048586539,
+                "start_index": 714,
+                "window_end": "2020-10-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661666,
+                "candidate_return": 0.1844832159717129,
+                "drawdown_won": true,
+                "end_index_exclusive": 1489,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621445,
+                "spy_return": 0.4468241600797094,
+                "start_index": 735,
+                "window_end": "2020-11-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661655,
+                "candidate_return": 0.20241831657098452,
+                "drawdown_won": true,
+                "end_index_exclusive": 1511,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621447,
+                "spy_return": 0.4825351522247785,
+                "start_index": 755,
+                "window_end": "2020-12-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1748385503566171,
+                "candidate_return": 0.12515172627903826,
+                "drawdown_won": true,
+                "end_index_exclusive": 1530,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.38913687545734477,
+                "start_index": 776,
+                "window_end": "2021-01-29"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661677,
+                "candidate_return": 0.18831610494527062,
+                "drawdown_won": true,
+                "end_index_exclusive": 1549,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621446,
+                "spy_return": 0.4816353807743483,
+                "start_index": 795,
+                "window_end": "2021-02-26"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661666,
+                "candidate_return": 0.25423470740915977,
+                "drawdown_won": true,
+                "end_index_exclusive": 1572,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621446,
+                "spy_return": 0.5925697951867006,
+                "start_index": 816,
+                "window_end": "2021-03-31"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661722,
+                "candidate_return": 0.3162267556305236,
+                "drawdown_won": true,
+                "end_index_exclusive": 1593,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.6682117153044556,
+                "start_index": 837,
+                "window_end": "2021-04-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661677,
+                "candidate_return": 0.30620182758067016,
+                "drawdown_won": true,
+                "end_index_exclusive": 1613,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214495,
+                "spy_return": 0.6393150823363816,
+                "start_index": 859,
+                "window_end": "2021-05-28"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661655,
+                "candidate_return": 0.33514631756247293,
+                "drawdown_won": true,
+                "end_index_exclusive": 1635,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621445,
+                "spy_return": 0.6665616986102778,
+                "start_index": 880,
+                "window_end": "2021-06-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661677,
+                "candidate_return": 0.3224932545957109,
+                "drawdown_won": true,
+                "end_index_exclusive": 1656,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621444,
+                "spy_return": 0.6462584325658436,
+                "start_index": 901,
+                "window_end": "2021-07-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661688,
+                "candidate_return": 0.3156705285559378,
+                "drawdown_won": true,
+                "end_index_exclusive": 1678,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.6428124919521547,
+                "start_index": 924,
+                "window_end": "2021-08-31"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661733,
+                "candidate_return": 0.24407058038012175,
+                "drawdown_won": true,
+                "end_index_exclusive": 1699,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.5570337896161055,
+                "start_index": 943,
+                "window_end": "2021-09-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661655,
+                "candidate_return": 0.4323421656482169,
+                "drawdown_won": true,
+                "end_index_exclusive": 1720,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621447,
+                "spy_return": 0.7899757902701094,
+                "start_index": 966,
+                "window_end": "2021-10-29"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661666,
+                "candidate_return": 0.4094226387305926,
+                "drawdown_won": true,
+                "end_index_exclusive": 1741,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.7432574595410977,
+                "start_index": 987,
+                "window_end": "2021-11-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661677,
+                "candidate_return": 0.5415203852665706,
+                "drawdown_won": true,
+                "end_index_exclusive": 1763,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621445,
+                "spy_return": 0.9998062726967076,
+                "start_index": 1006,
+                "window_end": "2021-12-31"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661666,
+                "candidate_return": 0.4364919072354736,
+                "drawdown_won": true,
+                "end_index_exclusive": 1783,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214506,
+                "spy_return": 0.7539064047237904,
+                "start_index": 1027,
+                "window_end": "2022-01-31"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661677,
+                "candidate_return": 0.3984879915877082,
+                "drawdown_won": true,
+                "end_index_exclusive": 1802,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214495,
+                "spy_return": 0.6486926184956998,
+                "start_index": 1046,
+                "window_end": "2022-02-28"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661677,
+                "candidate_return": 0.41423641296214675,
+                "drawdown_won": true,
+                "end_index_exclusive": 1825,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214506,
+                "spy_return": 0.6802339206375165,
+                "start_index": 1067,
+                "window_end": "2022-03-31"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661666,
+                "candidate_return": 0.2890433140584514,
+                "drawdown_won": true,
+                "end_index_exclusive": 1845,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.4726021006515444,
+                "start_index": 1088,
+                "window_end": "2022-04-29"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661677,
+                "candidate_return": 0.36168825116908576,
+                "drawdown_won": true,
+                "end_index_exclusive": 1866,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621446,
+                "spy_return": 0.576458779832022,
+                "start_index": 1110,
+                "window_end": "2022-05-31"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661722,
+                "candidate_return": 0.25251215929357596,
+                "drawdown_won": true,
+                "end_index_exclusive": 1887,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621447,
+                "spy_return": 0.3523354638684053,
+                "start_index": 1130,
+                "window_end": "2022-06-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661688,
+                "candidate_return": 0.2597255487138481,
+                "drawdown_won": true,
+                "end_index_exclusive": 1907,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621445,
+                "spy_return": 0.45487175715259553,
+                "start_index": 1152,
+                "window_end": "2022-07-29"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661666,
+                "candidate_return": 0.2637492944751991,
+                "drawdown_won": true,
+                "end_index_exclusive": 1930,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621446,
+                "spy_return": 0.41927356605943866,
+                "start_index": 1174,
+                "window_end": "2022-08-31"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661677,
+                "candidate_return": 0.23056148429883505,
+                "drawdown_won": true,
+                "end_index_exclusive": 1951,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621445,
+                "spy_return": 0.26349502785965995,
+                "start_index": 1194,
+                "window_end": "2022-09-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661688,
+                "candidate_return": 0.23921704908079677,
+                "drawdown_won": true,
+                "end_index_exclusive": 1972,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621447,
+                "spy_return": 0.33664030576940784,
+                "start_index": 1217,
+                "window_end": "2022-10-31"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661688,
+                "candidate_return": 0.2199968959046572,
+                "drawdown_won": true,
+                "end_index_exclusive": 1993,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214495,
+                "spy_return": 0.3616566050836054,
+                "start_index": 1237,
+                "window_end": "2022-11-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661688,
+                "candidate_return": 0.15687889123528542,
+                "drawdown_won": true,
+                "end_index_exclusive": 2014,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.2470505538583887,
+                "start_index": 1258,
+                "window_end": "2022-12-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17483855035661688,
+                "candidate_return": 0.16799932110416593,
+                "drawdown_won": true,
+                "end_index_exclusive": 2034,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621447,
+                "spy_return": 0.32600976234926815,
+                "start_index": 1279,
+                "window_end": "2023-01-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1355703106803876,
+                "candidate_return": 0.2445555303630509,
+                "drawdown_won": true,
+                "end_index_exclusive": 2053,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.28300179457111174,
+                "spy_return": 0.403803480005825,
+                "start_index": 1298,
+                "window_end": "2023-02-28"
+              },
+              {
+                "candidate_max_drawdown": -0.14254053076829298,
+                "candidate_return": 0.3035270773788712,
+                "drawdown_won": true,
+                "end_index_exclusive": 2076,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288282,
+                "spy_return": 0.6632246496520515,
+                "start_index": 1320,
+                "window_end": "2023-03-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1425405307682931,
+                "candidate_return": 0.29580443433233183,
+                "drawdown_won": true,
+                "end_index_exclusive": 2095,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288182,
+                "spy_return": 0.4993959283765306,
+                "start_index": 1341,
+                "window_end": "2023-04-28"
+              },
+              {
+                "candidate_max_drawdown": -0.14254053076829332,
+                "candidate_return": 0.2734140121192452,
+                "drawdown_won": true,
+                "end_index_exclusive": 2117,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928826,
+                "spy_return": 0.4378124777261412,
+                "start_index": 1361,
+                "window_end": "2023-05-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1425405307682922,
+                "candidate_return": 0.34796503775663745,
+                "drawdown_won": true,
+                "end_index_exclusive": 2138,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928826,
+                "spy_return": 0.5042856371078621,
+                "start_index": 1383,
+                "window_end": "2023-06-30"
+              },
+              {
+                "candidate_max_drawdown": -0.14254053076829376,
+                "candidate_return": 0.3534237606721473,
+                "drawdown_won": true,
+                "end_index_exclusive": 2158,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928816,
+                "spy_return": 0.46712367670924726,
+                "start_index": 1405,
+                "window_end": "2023-07-31"
+              },
+              {
+                "candidate_max_drawdown": -0.14254053076829176,
+                "candidate_return": 0.2793332477962154,
+                "drawdown_won": true,
+                "end_index_exclusive": 2181,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288248,
+                "spy_return": 0.34911616674923995,
+                "start_index": 1426,
+                "window_end": "2023-08-31"
+              },
+              {
+                "candidate_max_drawdown": -0.14254053076829154,
+                "candidate_return": 0.2561564394754303,
+                "drawdown_won": true,
+                "end_index_exclusive": 2201,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288248,
+                "spy_return": 0.33510822362447,
+                "start_index": 1447,
+                "window_end": "2023-09-29"
+              },
+              {
+                "candidate_max_drawdown": -0.14254053076829287,
+                "candidate_return": 0.2626759000975907,
+                "drawdown_won": true,
+                "end_index_exclusive": 2223,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288293,
+                "spy_return": 0.33952399916063336,
+                "start_index": 1469,
+                "window_end": "2023-10-31"
+              },
+              {
+                "candidate_max_drawdown": -0.14254053076829232,
+                "candidate_return": 0.22951465368439172,
+                "drawdown_won": true,
+                "end_index_exclusive": 2244,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288293,
+                "spy_return": 0.31846298973608334,
+                "start_index": 1489,
+                "window_end": "2023-11-30"
+              },
+              {
+                "candidate_max_drawdown": -0.1425405307682931,
+                "candidate_return": 0.24960345462426847,
+                "drawdown_won": true,
+                "end_index_exclusive": 2264,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928827,
+                "spy_return": 0.3293918268568219,
+                "start_index": 1511,
+                "window_end": "2023-12-29"
+              },
+              {
+                "candidate_max_drawdown": -0.14254053076829265,
+                "candidate_return": 0.2917886294282632,
+                "drawdown_won": true,
+                "end_index_exclusive": 2285,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288148,
+                "spy_return": 0.364468859983504,
+                "start_index": 1530,
+                "window_end": "2024-01-31"
+              },
+              {
+                "candidate_max_drawdown": -0.14254053076829387,
+                "candidate_return": 0.33603999117790706,
+                "drawdown_won": true,
+                "end_index_exclusive": 2305,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928836,
+                "spy_return": 0.39683645581714355,
+                "start_index": 1549,
+                "window_end": "2024-02-29"
+              },
+              {
+                "candidate_max_drawdown": -0.14254053076829254,
+                "candidate_return": 0.32673616945219486,
+                "drawdown_won": true,
+                "end_index_exclusive": 2325,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288248,
+                "spy_return": 0.3798917899683263,
+                "start_index": 1572,
+                "window_end": "2024-03-28"
+              },
+              {
+                "candidate_max_drawdown": -0.14254053076829198,
+                "candidate_return": 0.20938123653728713,
+                "drawdown_won": true,
+                "end_index_exclusive": 2347,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288237,
+                "spy_return": 0.25770908076967713,
+                "start_index": 1593,
+                "window_end": "2024-04-30"
+              },
+              {
+                "candidate_max_drawdown": -0.1425405307682922,
+                "candidate_return": 0.2625152372242694,
+                "drawdown_won": true,
+                "end_index_exclusive": 2369,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288204,
+                "spy_return": 0.31270428544223505,
+                "start_index": 1613,
+                "window_end": "2024-05-31"
+              },
+              {
+                "candidate_max_drawdown": -0.14254053076829298,
+                "candidate_return": 0.2769041344295984,
+                "drawdown_won": true,
+                "end_index_exclusive": 2388,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928826,
+                "spy_return": 0.32915246679848487,
+                "start_index": 1635,
+                "window_end": "2024-06-28"
+              },
+              {
+                "candidate_max_drawdown": -0.14254053076829298,
+                "candidate_return": 0.2592257466079688,
+                "drawdown_won": true,
+                "end_index_exclusive": 2410,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928827,
+                "spy_return": 0.31318911652700354,
+                "start_index": 1656,
+                "window_end": "2024-07-31"
+              },
+              {
+                "candidate_max_drawdown": -0.14254053076829398,
+                "candidate_return": 0.2573369800104903,
+                "drawdown_won": true,
+                "end_index_exclusive": 2432,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288226,
+                "spy_return": 0.30503491165844765,
+                "start_index": 1678,
+                "window_end": "2024-08-30"
+              },
+              {
+                "candidate_max_drawdown": -0.1425405307682931,
+                "candidate_return": 0.33825708004461585,
+                "drawdown_won": true,
+                "end_index_exclusive": 2452,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288226,
+                "spy_return": 0.39754517180971427,
+                "start_index": 1699,
+                "window_end": "2024-09-30"
+              },
+              {
+                "candidate_max_drawdown": -0.14254053076829243,
+                "candidate_return": 0.23781904407542975,
+                "drawdown_won": true,
+                "end_index_exclusive": 2475,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928827,
+                "spy_return": 0.2942639150342523,
+                "start_index": 1720,
+                "window_end": "2024-10-31"
+              },
+              {
+                "candidate_max_drawdown": -0.14254053076829254,
+                "candidate_return": 0.32615059639879296,
+                "drawdown_won": true,
+                "end_index_exclusive": 2495,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288304,
+                "spy_return": 0.3825539604296808,
+                "start_index": 1741,
+                "window_end": "2024-11-29"
+              },
+              {
+                "candidate_max_drawdown": -0.14049280716465884,
+                "candidate_return": 0.2340726814579166,
+                "drawdown_won": true,
+                "end_index_exclusive": 2516,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288282,
+                "spy_return": 0.2895463979442039,
+                "start_index": 1763,
+                "window_end": "2024-12-31"
+              }
+            ]
+          }
+        },
+        "double_60bps": {
+          "annual_material_harm": {
+            "annual_win_fraction_diagnostic": 0.8,
+            "max_extra_drawdown_pp": 3.0,
+            "passed": true,
+            "years": [
+              {
+                "candidate_max_drawdown": -0.12762217599507875,
+                "extra_drawdown_pp": 0.8519713501095594,
+                "passed": true,
+                "sessions": 252,
+                "spy_max_drawdown": -0.11910246249398315,
+                "strictly_better_than_spy": false,
+                "year": 2015
+              },
+              {
+                "candidate_max_drawdown": -0.07148274251648934,
+                "extra_drawdown_pp": -3.157310194340357,
+                "passed": true,
+                "sessions": 252,
+                "spy_max_drawdown": -0.10305584445989291,
+                "strictly_better_than_spy": true,
+                "year": 2016
+              },
+              {
+                "candidate_max_drawdown": -0.021746504336800365,
+                "extra_drawdown_pp": -0.43470102456790727,
+                "passed": true,
+                "sessions": 251,
+                "spy_max_drawdown": -0.026093514582479438,
+                "strictly_better_than_spy": true,
+                "year": 2017
+              },
+              {
+                "candidate_max_drawdown": -0.1447711351162706,
+                "extra_drawdown_pp": -4.861666515221041,
+                "passed": true,
+                "sessions": 251,
+                "spy_max_drawdown": -0.193387800268481,
+                "strictly_better_than_spy": true,
+                "year": 2018
+              },
+              {
+                "candidate_max_drawdown": -0.058405307811875806,
+                "extra_drawdown_pp": -0.777838615087878,
+                "passed": true,
+                "sessions": 252,
+                "spy_max_drawdown": -0.06618369396275459,
+                "strictly_better_than_spy": true,
+                "year": 2019
+              },
+              {
+                "candidate_max_drawdown": -0.1787832013983005,
+                "extra_drawdown_pp": -15.821493516384432,
+                "passed": true,
+                "sessions": 253,
+                "spy_max_drawdown": -0.33699813656214483,
+                "strictly_better_than_spy": true,
+                "year": 2020
+              },
+              {
+                "candidate_max_drawdown": -0.053073458566551435,
+                "extra_drawdown_pp": 0.1961853601550878,
+                "passed": true,
+                "sessions": 252,
+                "spy_max_drawdown": -0.05111160496500056,
+                "strictly_better_than_spy": false,
+                "year": 2021
+              },
+              {
+                "candidate_max_drawdown": -0.13844129453636056,
+                "extra_drawdown_pp": -10.653114745652225,
+                "passed": true,
+                "sessions": 251,
+                "spy_max_drawdown": -0.24497244199288282,
+                "strictly_better_than_spy": true,
+                "year": 2022
+              },
+              {
+                "candidate_max_drawdown": -0.07897965533808271,
+                "extra_drawdown_pp": -2.072486156933029,
+                "passed": true,
+                "sessions": 250,
+                "spy_max_drawdown": -0.099704516907413,
+                "strictly_better_than_spy": true,
+                "year": 2023
+              },
+              {
+                "candidate_max_drawdown": -0.08147151436239009,
+                "extra_drawdown_pp": -0.25846795618423846,
+                "passed": true,
+                "sessions": 252,
+                "spy_max_drawdown": -0.08405619392423247,
+                "strictly_better_than_spy": true,
+                "year": 2024
+              }
+            ]
+          },
+          "cagr": 0.07455234557090473,
+          "cagr_excess_vs_spy": -0.0557464035651718,
+          "downside_capture": {
+            "candidate_annualized_down_month_return": -0.3038775246794535,
+            "downside_capture": 0.77089792502821,
+            "negative_spy_months": 37,
+            "passed": true,
+            "spy_annualized_down_month_return": -0.3941864607669472
+          },
+          "drawdown_gates": {
+            "D1_full_period": true,
+            "D2_rolling_36m": true,
+            "D3_material_episodes": true,
+            "D4_downside_capture": true,
+            "D5_annual_material_harm": true
+          },
+          "full_period": {
+            "candidate_max_drawdown": -0.17878320139830028,
+            "passed": true,
+            "spy_max_drawdown": -0.3369981365621446
+          },
+          "material_episodes": {
+            "benchmark_defined": true,
+            "episode_count": 3,
+            "episodes": [
+              {
+                "candidate_max_drawdown": -0.14477113511627093,
+                "end": "2019-04-12",
+                "end_index_exclusive": 1077,
+                "ended_by": "recovery",
+                "passed": true,
+                "spy_max_drawdown": -0.19338780026848124,
+                "start": "2018-09-20",
+                "start_index": 937,
+                "trigger": 0.15
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830028,
+                "end": "2020-08-10",
+                "end_index_exclusive": 1411,
+                "ended_by": "recovery",
+                "passed": true,
+                "spy_max_drawdown": -0.3369981365621446,
+                "start": "2020-02-19",
+                "start_index": 1291,
+                "trigger": 0.15
+              },
+              {
+                "candidate_max_drawdown": -0.15118545458671284,
+                "end": "2023-12-13",
+                "end_index_exclusive": 2253,
+                "ended_by": "recovery",
+                "passed": true,
+                "spy_max_drawdown": -0.24497244199288248,
+                "start": "2022-01-03",
+                "start_index": 1764,
+                "trigger": 0.15
+              }
+            ],
+            "material_trigger": 0.15,
+            "passed": true
+          },
+          "rolling_36m": {
+            "conservative_non_overlapping_effective_count": 3,
+            "drawdown_win_fraction": 0.9058823529411765,
+            "excess_positive_fraction": 0.0,
+            "sample_at_month_end": true,
+            "window_count": 85,
+            "window_months": 36,
+            "windows": [
+              {
+                "candidate_max_drawdown": -0.17115463621480576,
+                "candidate_return": 0.1696282066235073,
+                "drawdown_won": false,
+                "end_index_exclusive": 755,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.1300609643636076,
+                "spy_return": 0.3801255376926753,
+                "start_index": 0,
+                "window_end": "2017-12-29"
+              },
+              {
+                "candidate_max_drawdown": -0.1711546362148062,
+                "candidate_return": 0.2765649653290223,
+                "drawdown_won": false,
+                "end_index_exclusive": 776,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.13006096436360692,
+                "spy_return": 0.5024239731323663,
+                "start_index": 20,
+                "window_end": "2018-01-31"
+              },
+              {
+                "candidate_max_drawdown": -0.17115463621480564,
+                "candidate_return": 0.17609534413795958,
+                "drawdown_won": false,
+                "end_index_exclusive": 795,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.13006096436360692,
+                "spy_return": 0.3707526193946784,
+                "start_index": 39,
+                "window_end": "2018-02-28"
+              },
+              {
+                "candidate_max_drawdown": -0.17115463621480487,
+                "candidate_return": 0.17281323608215904,
+                "drawdown_won": false,
+                "end_index_exclusive": 816,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.13006096436360803,
+                "spy_return": 0.3544989913578025,
+                "start_index": 61,
+                "window_end": "2018-03-29"
+              },
+              {
+                "candidate_max_drawdown": -0.17115463621480476,
+                "candidate_return": 0.1678423797886628,
+                "drawdown_won": false,
+                "end_index_exclusive": 837,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.1300609643636078,
+                "spy_return": 0.34824085432855867,
+                "start_index": 82,
+                "window_end": "2018-04-30"
+              },
+              {
+                "candidate_max_drawdown": -0.16987153162365698,
+                "candidate_return": 0.16546580947836897,
+                "drawdown_won": false,
+                "end_index_exclusive": 859,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.13006096436360803,
+                "spy_return": 0.3634861576384001,
+                "start_index": 102,
+                "window_end": "2018-05-31"
+              },
+              {
+                "candidate_max_drawdown": -0.15943462340296632,
+                "candidate_return": 0.18486957877069154,
+                "drawdown_won": false,
+                "end_index_exclusive": 880,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.1300609643636076,
+                "spy_return": 0.3997371791132234,
+                "start_index": 124,
+                "window_end": "2018-06-29"
+              },
+              {
+                "candidate_max_drawdown": -0.15612242656578001,
+                "candidate_return": 0.21143553595627407,
+                "drawdown_won": false,
+                "end_index_exclusive": 901,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.12811364270946624,
+                "spy_return": 0.41952659326896335,
+                "start_index": 146,
+                "window_end": "2018-07-31"
+              },
+              {
+                "candidate_max_drawdown": -0.10007563796071894,
+                "candidate_return": 0.3400034372539835,
+                "drawdown_won": true,
+                "end_index_exclusive": 924,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.12811364270946524,
+                "spy_return": 0.5599146670593405,
+                "start_index": 167,
+                "window_end": "2018-08-31"
+              },
+              {
+                "candidate_max_drawdown": -0.10007563796071905,
+                "candidate_return": 0.3906356787729741,
+                "drawdown_won": true,
+                "end_index_exclusive": 943,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.12811364270946557,
+                "spy_return": 0.6101451819848032,
+                "start_index": 188,
+                "window_end": "2018-09-28"
+              },
+              {
+                "candidate_max_drawdown": -0.10007563796071883,
+                "candidate_return": 0.2679029450227828,
+                "drawdown_won": true,
+                "end_index_exclusive": 966,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.12811364270946524,
+                "spy_return": 0.3813777064884547,
+                "start_index": 210,
+                "window_end": "2018-10-31"
+              },
+              {
+                "candidate_max_drawdown": -0.10007563796071883,
+                "candidate_return": 0.2716462354148814,
+                "drawdown_won": true,
+                "end_index_exclusive": 987,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.12678931182889341,
+                "spy_return": 0.4018772203283485,
+                "start_index": 230,
+                "window_end": "2018-11-30"
+              },
+              {
+                "candidate_max_drawdown": -0.14477113511627138,
+                "candidate_return": 0.2292025433043514,
+                "drawdown_won": true,
+                "end_index_exclusive": 1006,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.1933878002684809,
+                "spy_return": 0.3009457645744382,
+                "start_index": 252,
+                "window_end": "2018-12-31"
+              },
+              {
+                "candidate_max_drawdown": -0.14477113511627115,
+                "candidate_return": 0.29769821050994305,
+                "drawdown_won": true,
+                "end_index_exclusive": 1027,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848124,
+                "spy_return": 0.47872758608957966,
+                "start_index": 271,
+                "window_end": "2019-01-31"
+              },
+              {
+                "candidate_max_drawdown": -0.14477113511627093,
+                "candidate_return": 0.32352893395740345,
+                "drawdown_won": true,
+                "end_index_exclusive": 1046,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848135,
+                "spy_return": 0.5279237356462108,
+                "start_index": 291,
+                "window_end": "2019-02-28"
+              },
+              {
+                "candidate_max_drawdown": -0.14477113511627104,
+                "candidate_return": 0.3110485214416161,
+                "drawdown_won": true,
+                "end_index_exclusive": 1067,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848157,
+                "spy_return": 0.4575351141003028,
+                "start_index": 313,
+                "window_end": "2019-03-29"
+              },
+              {
+                "candidate_max_drawdown": -0.14477113511627093,
+                "candidate_return": 0.3553571468395875,
+                "drawdown_won": true,
+                "end_index_exclusive": 1088,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848124,
+                "spy_return": 0.5111232239687926,
+                "start_index": 334,
+                "window_end": "2019-04-30"
+              },
+              {
+                "candidate_max_drawdown": -0.1447711351162715,
+                "candidate_return": 0.26269417356131863,
+                "drawdown_won": true,
+                "end_index_exclusive": 1110,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848146,
+                "spy_return": 0.39109247293959215,
+                "start_index": 355,
+                "window_end": "2019-05-31"
+              },
+              {
+                "candidate_max_drawdown": -0.14477113511627104,
+                "candidate_return": 0.3333720594379035,
+                "drawdown_won": true,
+                "end_index_exclusive": 1130,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848168,
+                "spy_return": 0.48272163477361674,
+                "start_index": 377,
+                "window_end": "2019-06-28"
+              },
+              {
+                "candidate_max_drawdown": -0.1447711351162706,
+                "candidate_return": 0.32280723572025116,
+                "drawdown_won": true,
+                "end_index_exclusive": 1152,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848068,
+                "spy_return": 0.4521768207497767,
+                "start_index": 397,
+                "window_end": "2019-07-31"
+              },
+              {
+                "candidate_max_drawdown": -0.14477113511627104,
+                "candidate_return": 0.31436182480280905,
+                "drawdown_won": true,
+                "end_index_exclusive": 1174,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848135,
+                "spy_return": 0.4261546102317275,
+                "start_index": 420,
+                "window_end": "2019-08-30"
+              },
+              {
+                "candidate_max_drawdown": -0.14477113511627127,
+                "candidate_return": 0.3199377827927501,
+                "drawdown_won": true,
+                "end_index_exclusive": 1194,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848124,
+                "spy_return": 0.45382358416464696,
+                "start_index": 441,
+                "window_end": "2019-09-30"
+              },
+              {
+                "candidate_max_drawdown": -0.14477113511627104,
+                "candidate_return": 0.3626999435364606,
+                "drawdown_won": true,
+                "end_index_exclusive": 1217,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848112,
+                "spy_return": 0.5121765015521687,
+                "start_index": 462,
+                "window_end": "2019-10-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1447711351162716,
+                "candidate_return": 0.3668095881783213,
+                "drawdown_won": true,
+                "end_index_exclusive": 1237,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848146,
+                "spy_return": 0.5112428586607376,
+                "start_index": 483,
+                "window_end": "2019-11-29"
+              },
+              {
+                "candidate_max_drawdown": -0.14477113511626993,
+                "candidate_return": 0.37496825675023837,
+                "drawdown_won": true,
+                "end_index_exclusive": 1258,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.1933878002684809,
+                "spy_return": 0.5242033579669334,
+                "start_index": 504,
+                "window_end": "2019-12-31"
+              },
+              {
+                "candidate_max_drawdown": -0.14477113511627115,
+                "candidate_return": 0.3574695407273951,
+                "drawdown_won": true,
+                "end_index_exclusive": 1279,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.193387800268482,
+                "spy_return": 0.4968030241839918,
+                "start_index": 524,
+                "window_end": "2020-01-31"
+              },
+              {
+                "candidate_max_drawdown": -0.14477113511627104,
+                "candidate_return": 0.20058351779341832,
+                "drawdown_won": true,
+                "end_index_exclusive": 1298,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848112,
+                "spy_return": 0.3261990786274491,
+                "start_index": 543,
+                "window_end": "2020-02-28"
+              },
+              {
+                "candidate_max_drawdown": -0.1787832013983004,
+                "candidate_return": 0.157553263494572,
+                "drawdown_won": true,
+                "end_index_exclusive": 1320,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621445,
+                "spy_return": 0.15944235206042578,
+                "start_index": 566,
+                "window_end": "2020-03-31"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830106,
+                "candidate_return": 0.16510630311883356,
+                "drawdown_won": true,
+                "end_index_exclusive": 1341,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.2938296836249328,
+                "start_index": 585,
+                "window_end": "2020-04-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830028,
+                "candidate_return": 0.15890603709365103,
+                "drawdown_won": true,
+                "end_index_exclusive": 1361,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621445,
+                "spy_return": 0.33661107237226684,
+                "start_index": 607,
+                "window_end": "2020-05-29"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830062,
+                "candidate_return": 0.15769235298656037,
+                "drawdown_won": true,
+                "end_index_exclusive": 1383,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214495,
+                "spy_return": 0.35173358940576827,
+                "start_index": 629,
+                "window_end": "2020-06-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830028,
+                "candidate_return": 0.16156327109389612,
+                "drawdown_won": true,
+                "end_index_exclusive": 1405,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214495,
+                "spy_return": 0.40251267885939246,
+                "start_index": 649,
+                "window_end": "2020-07-31"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830006,
+                "candidate_return": 0.20673098750048524,
+                "drawdown_won": true,
+                "end_index_exclusive": 1426,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.4960384026075628,
+                "start_index": 672,
+                "window_end": "2020-08-31"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830062,
+                "candidate_return": 0.14913473296337387,
+                "drawdown_won": true,
+                "end_index_exclusive": 1447,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621446,
+                "spy_return": 0.41165377466994,
+                "start_index": 692,
+                "window_end": "2020-09-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830017,
+                "candidate_return": 0.10013607367347643,
+                "drawdown_won": true,
+                "end_index_exclusive": 1469,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.3447680048586539,
+                "start_index": 714,
+                "window_end": "2020-10-30"
+              },
+              {
+                "candidate_max_drawdown": -0.1787832013983005,
+                "candidate_return": 0.14605932635415741,
+                "drawdown_won": true,
+                "end_index_exclusive": 1489,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621445,
+                "spy_return": 0.4468241600797094,
+                "start_index": 735,
+                "window_end": "2020-11-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139829995,
+                "candidate_return": 0.1632212173823473,
+                "drawdown_won": true,
+                "end_index_exclusive": 1511,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621447,
+                "spy_return": 0.4825351522247785,
+                "start_index": 755,
+                "window_end": "2020-12-31"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830028,
+                "candidate_return": 0.0871781780320029,
+                "drawdown_won": true,
+                "end_index_exclusive": 1530,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.38913687545734477,
+                "start_index": 776,
+                "window_end": "2021-01-29"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830017,
+                "candidate_return": 0.14812943626726494,
+                "drawdown_won": true,
+                "end_index_exclusive": 1549,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621446,
+                "spy_return": 0.4816353807743483,
+                "start_index": 795,
+                "window_end": "2021-02-26"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830028,
+                "candidate_return": 0.21493079017349448,
+                "drawdown_won": true,
+                "end_index_exclusive": 1572,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621446,
+                "spy_return": 0.5925697951867006,
+                "start_index": 816,
+                "window_end": "2021-03-31"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139829995,
+                "candidate_return": 0.275313473533201,
+                "drawdown_won": true,
+                "end_index_exclusive": 1593,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.6682117153044556,
+                "start_index": 837,
+                "window_end": "2021-04-30"
+              },
+              {
+                "candidate_max_drawdown": -0.1787832013983004,
+                "candidate_return": 0.2654076237619767,
+                "drawdown_won": true,
+                "end_index_exclusive": 1613,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214495,
+                "spy_return": 0.6393150823363816,
+                "start_index": 859,
+                "window_end": "2021-05-28"
+              },
+              {
+                "candidate_max_drawdown": -0.1787832013983005,
+                "candidate_return": 0.29681326217567205,
+                "drawdown_won": true,
+                "end_index_exclusive": 1635,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621445,
+                "spy_return": 0.6665616986102778,
+                "start_index": 880,
+                "window_end": "2021-06-30"
+              },
+              {
+                "candidate_max_drawdown": -0.1787832013983005,
+                "candidate_return": 0.28500589028483625,
+                "drawdown_won": true,
+                "end_index_exclusive": 1656,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621444,
+                "spy_return": 0.6462584325658436,
+                "start_index": 901,
+                "window_end": "2021-07-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830028,
+                "candidate_return": 0.27838259841545887,
+                "drawdown_won": true,
+                "end_index_exclusive": 1678,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.6428124919521547,
+                "start_index": 924,
+                "window_end": "2021-08-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1787832013983005,
+                "candidate_return": 0.20881835075751587,
+                "drawdown_won": true,
+                "end_index_exclusive": 1699,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.5570337896161055,
+                "start_index": 943,
+                "window_end": "2021-09-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830028,
+                "candidate_return": 0.39175390721858827,
+                "drawdown_won": true,
+                "end_index_exclusive": 1720,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621447,
+                "spy_return": 0.7899757902701094,
+                "start_index": 966,
+                "window_end": "2021-10-29"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830073,
+                "candidate_return": 0.3756058874423154,
+                "drawdown_won": true,
+                "end_index_exclusive": 1741,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.7432574595410977,
+                "start_index": 987,
+                "window_end": "2021-11-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830028,
+                "candidate_return": 0.506556254632667,
+                "drawdown_won": true,
+                "end_index_exclusive": 1763,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621445,
+                "spy_return": 0.9998062726967076,
+                "start_index": 1006,
+                "window_end": "2021-12-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1787832013983004,
+                "candidate_return": 0.4048000403795853,
+                "drawdown_won": true,
+                "end_index_exclusive": 1783,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214506,
+                "spy_return": 0.7539064047237904,
+                "start_index": 1027,
+                "window_end": "2022-01-31"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830017,
+                "candidate_return": 0.3645064125195676,
+                "drawdown_won": true,
+                "end_index_exclusive": 1802,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214495,
+                "spy_return": 0.6486926184956998,
+                "start_index": 1046,
+                "window_end": "2022-02-28"
+              },
+              {
+                "candidate_max_drawdown": -0.1787832013983005,
+                "candidate_return": 0.3836386791030191,
+                "drawdown_won": true,
+                "end_index_exclusive": 1825,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214506,
+                "spy_return": 0.6802339206375165,
+                "start_index": 1067,
+                "window_end": "2022-03-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1787832013983004,
+                "candidate_return": 0.26219414588493306,
+                "drawdown_won": true,
+                "end_index_exclusive": 1845,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.4726021006515444,
+                "start_index": 1088,
+                "window_end": "2022-04-29"
+              },
+              {
+                "candidate_max_drawdown": -0.1787832013983005,
+                "candidate_return": 0.33035901232304776,
+                "drawdown_won": true,
+                "end_index_exclusive": 1866,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621446,
+                "spy_return": 0.576458779832022,
+                "start_index": 1110,
+                "window_end": "2022-05-31"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830006,
+                "candidate_return": 0.22373404026025145,
+                "drawdown_won": true,
+                "end_index_exclusive": 1887,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621447,
+                "spy_return": 0.3523354638684053,
+                "start_index": 1130,
+                "window_end": "2022-06-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830062,
+                "candidate_return": 0.23067658998888962,
+                "drawdown_won": true,
+                "end_index_exclusive": 1907,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621445,
+                "spy_return": 0.45487175715259553,
+                "start_index": 1152,
+                "window_end": "2022-07-29"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830006,
+                "candidate_return": 0.23450869234334548,
+                "drawdown_won": true,
+                "end_index_exclusive": 1930,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621446,
+                "spy_return": 0.41927356605943866,
+                "start_index": 1174,
+                "window_end": "2022-08-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1787832013983005,
+                "candidate_return": 0.20459160094206563,
+                "drawdown_won": true,
+                "end_index_exclusive": 1951,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621445,
+                "spy_return": 0.26349502785965995,
+                "start_index": 1194,
+                "window_end": "2022-09-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830028,
+                "candidate_return": 0.21544933972128,
+                "drawdown_won": true,
+                "end_index_exclusive": 1972,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621447,
+                "spy_return": 0.33664030576940784,
+                "start_index": 1217,
+                "window_end": "2022-10-31"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830028,
+                "candidate_return": 0.1969274487513597,
+                "drawdown_won": true,
+                "end_index_exclusive": 1993,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214495,
+                "spy_return": 0.3616566050836054,
+                "start_index": 1237,
+                "window_end": "2022-11-30"
+              },
+              {
+                "candidate_max_drawdown": -0.1787832013983005,
+                "candidate_return": 0.13381517181659142,
+                "drawdown_won": true,
+                "end_index_exclusive": 2014,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.2470505538583887,
+                "start_index": 1258,
+                "window_end": "2022-12-30"
+              },
+              {
+                "candidate_max_drawdown": -0.17878320139830017,
+                "candidate_return": 0.14315775707043854,
+                "drawdown_won": true,
+                "end_index_exclusive": 2034,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621447,
+                "spy_return": 0.32600976234926815,
+                "start_index": 1279,
+                "window_end": "2023-01-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1409978087771856,
+                "candidate_return": 0.21497966008433367,
+                "drawdown_won": true,
+                "end_index_exclusive": 2053,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.28300179457111174,
+                "spy_return": 0.403803480005825,
+                "start_index": 1298,
+                "window_end": "2023-02-28"
+              },
+              {
+                "candidate_max_drawdown": -0.15370415291731454,
+                "candidate_return": 0.27705170036170834,
+                "drawdown_won": true,
+                "end_index_exclusive": 2076,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288282,
+                "spy_return": 0.6632246496520515,
+                "start_index": 1320,
+                "window_end": "2023-03-31"
+              },
+              {
+                "candidate_max_drawdown": -0.15370415291731476,
+                "candidate_return": 0.26775414744044124,
+                "drawdown_won": true,
+                "end_index_exclusive": 2095,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288182,
+                "spy_return": 0.4993959283765306,
+                "start_index": 1341,
+                "window_end": "2023-04-28"
+              },
+              {
+                "candidate_max_drawdown": -0.15370415291731554,
+                "candidate_return": 0.2452412496151719,
+                "drawdown_won": true,
+                "end_index_exclusive": 2117,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928826,
+                "spy_return": 0.4378124777261412,
+                "start_index": 1361,
+                "window_end": "2023-05-31"
+              },
+              {
+                "candidate_max_drawdown": -0.15370415291731376,
+                "candidate_return": 0.3178216078336269,
+                "drawdown_won": true,
+                "end_index_exclusive": 2138,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928826,
+                "spy_return": 0.5042856371078621,
+                "start_index": 1383,
+                "window_end": "2023-06-30"
+              },
+              {
+                "candidate_max_drawdown": -0.15370415291731598,
+                "candidate_return": 0.32492921805571107,
+                "drawdown_won": true,
+                "end_index_exclusive": 2158,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928816,
+                "spy_return": 0.46712367670924726,
+                "start_index": 1405,
+                "window_end": "2023-07-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1537041529173142,
+                "candidate_return": 0.2538902874011564,
+                "drawdown_won": true,
+                "end_index_exclusive": 2181,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288248,
+                "spy_return": 0.34911616674923995,
+                "start_index": 1426,
+                "window_end": "2023-08-31"
+              },
+              {
+                "candidate_max_drawdown": -0.15370415291731543,
+                "candidate_return": 0.231737912759729,
+                "drawdown_won": true,
+                "end_index_exclusive": 2201,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288248,
+                "spy_return": 0.33510822362447,
+                "start_index": 1447,
+                "window_end": "2023-09-29"
+              },
+              {
+                "candidate_max_drawdown": -0.15370415291731532,
+                "candidate_return": 0.23569538051711425,
+                "drawdown_won": true,
+                "end_index_exclusive": 2223,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288293,
+                "spy_return": 0.33952399916063336,
+                "start_index": 1469,
+                "window_end": "2023-10-31"
+              },
+              {
+                "candidate_max_drawdown": -0.15370415291731498,
+                "candidate_return": 0.20407032046877593,
+                "drawdown_won": true,
+                "end_index_exclusive": 2244,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288293,
+                "spy_return": 0.31846298973608334,
+                "start_index": 1489,
+                "window_end": "2023-11-30"
+              },
+              {
+                "candidate_max_drawdown": -0.15370415291731587,
+                "candidate_return": 0.2205036359151309,
+                "drawdown_won": true,
+                "end_index_exclusive": 2264,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928827,
+                "spy_return": 0.3293918268568219,
+                "start_index": 1511,
+                "window_end": "2023-12-29"
+              },
+              {
+                "candidate_max_drawdown": -0.1537041529173151,
+                "candidate_return": 0.26316628149272736,
+                "drawdown_won": true,
+                "end_index_exclusive": 2285,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288148,
+                "spy_return": 0.364468859983504,
+                "start_index": 1530,
+                "window_end": "2024-01-31"
+              },
+              {
+                "candidate_max_drawdown": -0.15370415291731365,
+                "candidate_return": 0.3065215588818224,
+                "drawdown_won": true,
+                "end_index_exclusive": 2305,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928836,
+                "spy_return": 0.39683645581714355,
+                "start_index": 1549,
+                "window_end": "2024-02-29"
+              },
+              {
+                "candidate_max_drawdown": -0.15370415291731454,
+                "candidate_return": 0.2974609349381694,
+                "drawdown_won": true,
+                "end_index_exclusive": 2325,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288248,
+                "spy_return": 0.3798917899683263,
+                "start_index": 1572,
+                "window_end": "2024-03-28"
+              },
+              {
+                "candidate_max_drawdown": -0.15370415291731454,
+                "candidate_return": 0.1828226758215541,
+                "drawdown_won": true,
+                "end_index_exclusive": 2347,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288237,
+                "spy_return": 0.25770908076967713,
+                "start_index": 1593,
+                "window_end": "2024-04-30"
+              },
+              {
+                "candidate_max_drawdown": -0.15370415291731399,
+                "candidate_return": 0.23498102373229734,
+                "drawdown_won": true,
+                "end_index_exclusive": 2369,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288204,
+                "spy_return": 0.31270428544223505,
+                "start_index": 1613,
+                "window_end": "2024-05-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1537041529173142,
+                "candidate_return": 0.24904899869963226,
+                "drawdown_won": true,
+                "end_index_exclusive": 2388,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928826,
+                "spy_return": 0.32915246679848487,
+                "start_index": 1635,
+                "window_end": "2024-06-28"
+              },
+              {
+                "candidate_max_drawdown": -0.15370415291731543,
+                "candidate_return": 0.23175747206989117,
+                "drawdown_won": true,
+                "end_index_exclusive": 2410,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928827,
+                "spy_return": 0.31318911652700354,
+                "start_index": 1656,
+                "window_end": "2024-07-31"
+              },
+              {
+                "candidate_max_drawdown": -0.15370415291731487,
+                "candidate_return": 0.22989870354635356,
+                "drawdown_won": true,
+                "end_index_exclusive": 2432,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288226,
+                "spy_return": 0.30503491165844765,
+                "start_index": 1678,
+                "window_end": "2024-08-30"
+              },
+              {
+                "candidate_max_drawdown": -0.15370415291731454,
+                "candidate_return": 0.3075202508092201,
+                "drawdown_won": true,
+                "end_index_exclusive": 2452,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288226,
+                "spy_return": 0.39754517180971427,
+                "start_index": 1699,
+                "window_end": "2024-09-30"
+              },
+              {
+                "candidate_max_drawdown": -0.1537041529173141,
+                "candidate_return": 0.20837485867010264,
+                "drawdown_won": true,
+                "end_index_exclusive": 2475,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928827,
+                "spy_return": 0.2942639150342523,
+                "start_index": 1720,
+                "window_end": "2024-10-31"
+              },
+              {
+                "candidate_max_drawdown": -0.15370415291731498,
+                "candidate_return": 0.2942214574680413,
+                "drawdown_won": true,
+                "end_index_exclusive": 2495,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288304,
+                "spy_return": 0.3825539604296808,
+                "start_index": 1741,
+                "window_end": "2024-11-29"
+              },
+              {
+                "candidate_max_drawdown": -0.15118545458671073,
+                "candidate_return": 0.20437537285648588,
+                "drawdown_won": true,
+                "end_index_exclusive": 2516,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288282,
+                "spy_return": 0.2895463979442039,
+                "start_index": 1763,
+                "window_end": "2024-12-31"
+              }
+            ]
+          }
+        },
+        "triple_90bps": {
+          "annual_material_harm": {
+            "annual_win_fraction_diagnostic": 0.8,
+            "max_extra_drawdown_pp": 3.0,
+            "passed": true,
+            "years": [
+              {
+                "candidate_max_drawdown": -0.134503324560033,
+                "extra_drawdown_pp": 1.5400862066049847,
+                "passed": true,
+                "sessions": 252,
+                "spy_max_drawdown": -0.11910246249398315,
+                "strictly_better_than_spy": false,
+                "year": 2015
+              },
+              {
+                "candidate_max_drawdown": -0.07195327285466901,
+                "extra_drawdown_pp": -3.1102571605223894,
+                "passed": true,
+                "sessions": 252,
+                "spy_max_drawdown": -0.10305584445989291,
+                "strictly_better_than_spy": true,
+                "year": 2016
+              },
+              {
+                "candidate_max_drawdown": -0.02176924252383039,
+                "extra_drawdown_pp": -0.4324272058649048,
+                "passed": true,
+                "sessions": 251,
+                "spy_max_drawdown": -0.026093514582479438,
+                "strictly_better_than_spy": true,
+                "year": 2017
+              },
+              {
+                "candidate_max_drawdown": -0.1497173356279532,
+                "extra_drawdown_pp": -4.367046464052782,
+                "passed": true,
+                "sessions": 251,
+                "spy_max_drawdown": -0.193387800268481,
+                "strictly_better_than_spy": true,
+                "year": 2018
+              },
+              {
+                "candidate_max_drawdown": -0.059666246723904526,
+                "extra_drawdown_pp": -0.651744723885006,
+                "passed": true,
+                "sessions": 252,
+                "spy_max_drawdown": -0.06618369396275459,
+                "strictly_better_than_spy": true,
+                "year": 2019
+              },
+              {
+                "candidate_max_drawdown": -0.18270439617083534,
+                "extra_drawdown_pp": -15.42937403913095,
+                "passed": true,
+                "sessions": 253,
+                "spy_max_drawdown": -0.33699813656214483,
+                "strictly_better_than_spy": true,
+                "year": 2020
+              },
+              {
+                "candidate_max_drawdown": -0.05308701088403467,
+                "extra_drawdown_pp": 0.19754059190341122,
+                "passed": true,
+                "sessions": 252,
+                "spy_max_drawdown": -0.05111160496500056,
+                "strictly_better_than_spy": false,
+                "year": 2021
+              },
+              {
+                "candidate_max_drawdown": -0.14342249066968604,
+                "extra_drawdown_pp": -10.154995132319677,
+                "passed": true,
+                "sessions": 251,
+                "spy_max_drawdown": -0.24497244199288282,
+                "strictly_better_than_spy": true,
+                "year": 2022
+              },
+              {
+                "candidate_max_drawdown": -0.08178972474192181,
+                "extra_drawdown_pp": -1.791479216549119,
+                "passed": true,
+                "sessions": 250,
+                "spy_max_drawdown": -0.099704516907413,
+                "strictly_better_than_spy": true,
+                "year": 2023
+              },
+              {
+                "candidate_max_drawdown": -0.08149086369582847,
+                "extra_drawdown_pp": -0.25653302284039947,
+                "passed": true,
+                "sessions": 252,
+                "spy_max_drawdown": -0.08405619392423247,
+                "strictly_better_than_spy": true,
+                "year": 2024
+              }
+            ]
+          },
+          "cagr": 0.06508849836832575,
+          "cagr_excess_vs_spy": -0.06521025076775078,
+          "downside_capture": {
+            "candidate_annualized_down_month_return": -0.31276082280604633,
+            "downside_capture": 0.7934337019022027,
+            "negative_spy_months": 37,
+            "passed": true,
+            "spy_annualized_down_month_return": -0.3941864607669472
+          },
+          "drawdown_gates": {
+            "D1_full_period": true,
+            "D2_rolling_36m": true,
+            "D3_material_episodes": true,
+            "D4_downside_capture": true,
+            "D5_annual_material_harm": true
+          },
+          "full_period": {
+            "candidate_max_drawdown": -0.18330602780204008,
+            "passed": true,
+            "spy_max_drawdown": -0.3369981365621446
+          },
+          "material_episodes": {
+            "benchmark_defined": true,
+            "episode_count": 3,
+            "episodes": [
+              {
+                "candidate_max_drawdown": -0.14971733562795309,
+                "end": "2019-04-12",
+                "end_index_exclusive": 1077,
+                "ended_by": "recovery",
+                "passed": true,
+                "spy_max_drawdown": -0.19338780026848124,
+                "start": "2018-09-20",
+                "start_index": 937,
+                "trigger": 0.15
+              },
+              {
+                "candidate_max_drawdown": -0.18270439617083478,
+                "end": "2020-08-10",
+                "end_index_exclusive": 1411,
+                "ended_by": "recovery",
+                "passed": true,
+                "spy_max_drawdown": -0.3369981365621446,
+                "start": "2020-02-19",
+                "start_index": 1291,
+                "trigger": 0.15
+              },
+              {
+                "candidate_max_drawdown": -0.16167755625565983,
+                "end": "2023-12-13",
+                "end_index_exclusive": 2253,
+                "ended_by": "recovery",
+                "passed": true,
+                "spy_max_drawdown": -0.24497244199288248,
+                "start": "2022-01-03",
+                "start_index": 1764,
+                "trigger": 0.15
+              }
+            ],
+            "material_trigger": 0.15,
+            "passed": true
+          },
+          "rolling_36m": {
+            "conservative_non_overlapping_effective_count": 3,
+            "drawdown_win_fraction": 0.9058823529411765,
+            "excess_positive_fraction": 0.0,
+            "sample_at_month_end": true,
+            "window_count": 85,
+            "window_months": 36,
+            "windows": [
+              {
+                "candidate_max_drawdown": -0.18330602780204008,
+                "candidate_return": 0.13594613992917193,
+                "drawdown_won": false,
+                "end_index_exclusive": 755,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.1300609643636076,
+                "spy_return": 0.3801255376926753,
+                "start_index": 0,
+                "window_end": "2017-12-29"
+              },
+              {
+                "candidate_max_drawdown": -0.18330602780203997,
+                "candidate_return": 0.24355445937178177,
+                "drawdown_won": false,
+                "end_index_exclusive": 776,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.13006096436360692,
+                "spy_return": 0.5024239731323663,
+                "start_index": 20,
+                "window_end": "2018-01-31"
+              },
+              {
+                "candidate_max_drawdown": -0.18330602780204097,
+                "candidate_return": 0.14606824690769615,
+                "drawdown_won": false,
+                "end_index_exclusive": 795,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.13006096436360692,
+                "spy_return": 0.3707526193946784,
+                "start_index": 39,
+                "window_end": "2018-02-28"
+              },
+              {
+                "candidate_max_drawdown": -0.18330602780204086,
+                "candidate_return": 0.14053086573263518,
+                "drawdown_won": false,
+                "end_index_exclusive": 816,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.13006096436360803,
+                "spy_return": 0.3544989913578025,
+                "start_index": 61,
+                "window_end": "2018-03-29"
+              },
+              {
+                "candidate_max_drawdown": -0.18330602780203964,
+                "candidate_return": 0.1352656302191746,
+                "drawdown_won": false,
+                "end_index_exclusive": 837,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.1300609643636078,
+                "spy_return": 0.34824085432855867,
+                "start_index": 82,
+                "window_end": "2018-04-30"
+              },
+              {
+                "candidate_max_drawdown": -0.18203329760782516,
+                "candidate_return": 0.13295444722782124,
+                "drawdown_won": false,
+                "end_index_exclusive": 859,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.13006096436360803,
+                "spy_return": 0.3634861576384001,
+                "start_index": 102,
+                "window_end": "2018-05-31"
+              },
+              {
+                "candidate_max_drawdown": -0.16932279620018975,
+                "candidate_return": 0.14884167336880583,
+                "drawdown_won": false,
+                "end_index_exclusive": 880,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.1300609643636076,
+                "spy_return": 0.3997371791132234,
+                "start_index": 124,
+                "window_end": "2018-06-29"
+              },
+              {
+                "candidate_max_drawdown": -0.16603939915273203,
+                "candidate_return": 0.17759624254823714,
+                "drawdown_won": false,
+                "end_index_exclusive": 901,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.12811364270946624,
+                "spy_return": 0.41952659326896335,
+                "start_index": 146,
+                "window_end": "2018-07-31"
+              },
+              {
+                "candidate_max_drawdown": -0.10606653051496295,
+                "candidate_return": 0.30639266674647514,
+                "drawdown_won": true,
+                "end_index_exclusive": 924,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.12811364270946524,
+                "spy_return": 0.5599146670593405,
+                "start_index": 167,
+                "window_end": "2018-08-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1000912720637509,
+                "candidate_return": 0.3618445446269618,
+                "drawdown_won": true,
+                "end_index_exclusive": 943,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.12811364270946557,
+                "spy_return": 0.6101451819848032,
+                "start_index": 188,
+                "window_end": "2018-09-28"
+              },
+              {
+                "candidate_max_drawdown": -0.10009127206375112,
+                "candidate_return": 0.24166843847855346,
+                "drawdown_won": true,
+                "end_index_exclusive": 966,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.12811364270946524,
+                "spy_return": 0.3813777064884547,
+                "start_index": 210,
+                "window_end": "2018-10-31"
+              },
+              {
+                "candidate_max_drawdown": -0.10009127206375079,
+                "candidate_return": 0.2429234840714738,
+                "drawdown_won": true,
+                "end_index_exclusive": 987,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.12678931182889341,
+                "spy_return": 0.4018772203283485,
+                "start_index": 230,
+                "window_end": "2018-11-30"
+              },
+              {
+                "candidate_max_drawdown": -0.1497173356279532,
+                "candidate_return": 0.2013985488412673,
+                "drawdown_won": true,
+                "end_index_exclusive": 1006,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.1933878002684809,
+                "spy_return": 0.3009457645744382,
+                "start_index": 252,
+                "window_end": "2018-12-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1497173356279532,
+                "candidate_return": 0.2673930779282827,
+                "drawdown_won": true,
+                "end_index_exclusive": 1027,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848124,
+                "spy_return": 0.47872758608957966,
+                "start_index": 271,
+                "window_end": "2019-01-31"
+              },
+              {
+                "candidate_max_drawdown": -0.14971733562795342,
+                "candidate_return": 0.29685733139066106,
+                "drawdown_won": true,
+                "end_index_exclusive": 1046,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848135,
+                "spy_return": 0.5279237356462108,
+                "start_index": 291,
+                "window_end": "2019-02-28"
+              },
+              {
+                "candidate_max_drawdown": -0.1497173356279532,
+                "candidate_return": 0.28113841154635466,
+                "drawdown_won": true,
+                "end_index_exclusive": 1067,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848157,
+                "spy_return": 0.4575351141003028,
+                "start_index": 313,
+                "window_end": "2019-03-29"
+              },
+              {
+                "candidate_max_drawdown": -0.1497173356279533,
+                "candidate_return": 0.3265872314750693,
+                "drawdown_won": true,
+                "end_index_exclusive": 1088,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848124,
+                "spy_return": 0.5111232239687926,
+                "start_index": 334,
+                "window_end": "2019-04-30"
+              },
+              {
+                "candidate_max_drawdown": -0.1497173356279532,
+                "candidate_return": 0.2371848696423613,
+                "drawdown_won": true,
+                "end_index_exclusive": 1110,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848146,
+                "spy_return": 0.39109247293959215,
+                "start_index": 355,
+                "window_end": "2019-05-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1497173356279533,
+                "candidate_return": 0.3064158086575093,
+                "drawdown_won": true,
+                "end_index_exclusive": 1130,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848168,
+                "spy_return": 0.48272163477361674,
+                "start_index": 377,
+                "window_end": "2019-06-28"
+              },
+              {
+                "candidate_max_drawdown": -0.14971733562795408,
+                "candidate_return": 0.29761106863407405,
+                "drawdown_won": true,
+                "end_index_exclusive": 1152,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848068,
+                "spy_return": 0.4521768207497767,
+                "start_index": 397,
+                "window_end": "2019-07-31"
+              },
+              {
+                "candidate_max_drawdown": -0.14971733562795297,
+                "candidate_return": 0.29082904939043486,
+                "drawdown_won": true,
+                "end_index_exclusive": 1174,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848135,
+                "spy_return": 0.4261546102317275,
+                "start_index": 420,
+                "window_end": "2019-08-30"
+              },
+              {
+                "candidate_max_drawdown": -0.14971733562795297,
+                "candidate_return": 0.2936290802618997,
+                "drawdown_won": true,
+                "end_index_exclusive": 1194,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848124,
+                "spy_return": 0.45382358416464696,
+                "start_index": 441,
+                "window_end": "2019-09-30"
+              },
+              {
+                "candidate_max_drawdown": -0.14971733562795342,
+                "candidate_return": 0.3328534180126097,
+                "drawdown_won": true,
+                "end_index_exclusive": 1217,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848112,
+                "spy_return": 0.5121765015521687,
+                "start_index": 462,
+                "window_end": "2019-10-31"
+              },
+              {
+                "candidate_max_drawdown": -0.14971733562795342,
+                "candidate_return": 0.3363584751623887,
+                "drawdown_won": true,
+                "end_index_exclusive": 1237,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848146,
+                "spy_return": 0.5112428586607376,
+                "start_index": 483,
+                "window_end": "2019-11-29"
+              },
+              {
+                "candidate_max_drawdown": -0.1497173356279532,
+                "candidate_return": 0.34387672767639654,
+                "drawdown_won": true,
+                "end_index_exclusive": 1258,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.1933878002684809,
+                "spy_return": 0.5242033579669334,
+                "start_index": 504,
+                "window_end": "2019-12-31"
+              },
+              {
+                "candidate_max_drawdown": -0.14971733562795297,
+                "candidate_return": 0.3267772693312345,
+                "drawdown_won": true,
+                "end_index_exclusive": 1279,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.193387800268482,
+                "spy_return": 0.4968030241839918,
+                "start_index": 524,
+                "window_end": "2020-01-31"
+              },
+              {
+                "candidate_max_drawdown": -0.14971733562795364,
+                "candidate_return": 0.1734176850670075,
+                "drawdown_won": true,
+                "end_index_exclusive": 1298,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.19338780026848112,
+                "spy_return": 0.3261990786274491,
+                "start_index": 543,
+                "window_end": "2020-02-28"
+              },
+              {
+                "candidate_max_drawdown": -0.18270439617083456,
+                "candidate_return": 0.1261343299280131,
+                "drawdown_won": true,
+                "end_index_exclusive": 1320,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621445,
+                "spy_return": 0.15944235206042578,
+                "start_index": 566,
+                "window_end": "2020-03-31"
+              },
+              {
+                "candidate_max_drawdown": -0.182704396170835,
+                "candidate_return": 0.133092955433453,
+                "drawdown_won": true,
+                "end_index_exclusive": 1341,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.2938296836249328,
+                "start_index": 585,
+                "window_end": "2020-04-30"
+              },
+              {
+                "candidate_max_drawdown": -0.18270439617083467,
+                "candidate_return": 0.12662784221400725,
+                "drawdown_won": true,
+                "end_index_exclusive": 1361,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621445,
+                "spy_return": 0.33661107237226684,
+                "start_index": 607,
+                "window_end": "2020-05-29"
+              },
+              {
+                "candidate_max_drawdown": -0.182704396170835,
+                "candidate_return": 0.12542422505279505,
+                "drawdown_won": true,
+                "end_index_exclusive": 1383,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214495,
+                "spy_return": 0.35173358940576827,
+                "start_index": 629,
+                "window_end": "2020-06-30"
+              },
+              {
+                "candidate_max_drawdown": -0.182704396170835,
+                "candidate_return": 0.12768606566517415,
+                "drawdown_won": true,
+                "end_index_exclusive": 1405,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214495,
+                "spy_return": 0.40251267885939246,
+                "start_index": 649,
+                "window_end": "2020-07-31"
+              },
+              {
+                "candidate_max_drawdown": -0.18270439617083511,
+                "candidate_return": 0.17013081784879103,
+                "drawdown_won": true,
+                "end_index_exclusive": 1426,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.4960384026075628,
+                "start_index": 672,
+                "window_end": "2020-08-31"
+              },
+              {
+                "candidate_max_drawdown": -0.18270439617083478,
+                "candidate_return": 0.11376239568229907,
+                "drawdown_won": true,
+                "end_index_exclusive": 1447,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621446,
+                "spy_return": 0.41165377466994,
+                "start_index": 692,
+                "window_end": "2020-09-30"
+              },
+              {
+                "candidate_max_drawdown": -0.182704396170835,
+                "candidate_return": 0.06519148799815411,
+                "drawdown_won": true,
+                "end_index_exclusive": 1469,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.3447680048586539,
+                "start_index": 714,
+                "window_end": "2020-10-30"
+              },
+              {
+                "candidate_max_drawdown": -0.18270439617083456,
+                "candidate_return": 0.10892474146520703,
+                "drawdown_won": true,
+                "end_index_exclusive": 1489,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621445,
+                "spy_return": 0.4468241600797094,
+                "start_index": 735,
+                "window_end": "2020-11-30"
+              },
+              {
+                "candidate_max_drawdown": -0.182704396170835,
+                "candidate_return": 0.12533722027895844,
+                "drawdown_won": true,
+                "end_index_exclusive": 1511,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621447,
+                "spy_return": 0.4825351522247785,
+                "start_index": 755,
+                "window_end": "2020-12-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1827043961708349,
+                "candidate_return": 0.05052329102512165,
+                "drawdown_won": true,
+                "end_index_exclusive": 1530,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.38913687545734477,
+                "start_index": 776,
+                "window_end": "2021-01-29"
+              },
+              {
+                "candidate_max_drawdown": -0.182704396170835,
+                "candidate_return": 0.10933893335936729,
+                "drawdown_won": true,
+                "end_index_exclusive": 1549,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621446,
+                "spy_return": 0.4816353807743483,
+                "start_index": 795,
+                "window_end": "2021-02-26"
+              },
+              {
+                "candidate_max_drawdown": -0.18270439617083456,
+                "candidate_return": 0.17688797399770606,
+                "drawdown_won": true,
+                "end_index_exclusive": 1572,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621446,
+                "spy_return": 0.5925697951867006,
+                "start_index": 816,
+                "window_end": "2021-03-31"
+              },
+              {
+                "candidate_max_drawdown": -0.182704396170835,
+                "candidate_return": 0.23572265745242316,
+                "drawdown_won": true,
+                "end_index_exclusive": 1593,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.6682117153044556,
+                "start_index": 837,
+                "window_end": "2021-04-30"
+              },
+              {
+                "candidate_max_drawdown": -0.1827043961708349,
+                "candidate_return": 0.22594154150937018,
+                "drawdown_won": true,
+                "end_index_exclusive": 1613,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214495,
+                "spy_return": 0.6393150823363816,
+                "start_index": 859,
+                "window_end": "2021-05-28"
+              },
+              {
+                "candidate_max_drawdown": -0.18270439617083478,
+                "candidate_return": 0.25962283267262154,
+                "drawdown_won": true,
+                "end_index_exclusive": 1635,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621445,
+                "spy_return": 0.6665616986102778,
+                "start_index": 880,
+                "window_end": "2021-06-30"
+              },
+              {
+                "candidate_max_drawdown": -0.1827043961708349,
+                "candidate_return": 0.24862263790257577,
+                "drawdown_won": true,
+                "end_index_exclusive": 1656,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621444,
+                "spy_return": 0.6462584325658436,
+                "start_index": 901,
+                "window_end": "2021-07-30"
+              },
+              {
+                "candidate_max_drawdown": -0.18270439617083456,
+                "candidate_return": 0.24219736496555866,
+                "drawdown_won": true,
+                "end_index_exclusive": 1678,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.6428124919521547,
+                "start_index": 924,
+                "window_end": "2021-08-31"
+              },
+              {
+                "candidate_max_drawdown": -0.18270439617083511,
+                "candidate_return": 0.17460847298075022,
+                "drawdown_won": true,
+                "end_index_exclusive": 1699,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.5570337896161055,
+                "start_index": 943,
+                "window_end": "2021-09-30"
+              },
+              {
+                "candidate_max_drawdown": -0.18270439617083467,
+                "candidate_return": 0.3523658247247219,
+                "drawdown_won": true,
+                "end_index_exclusive": 1720,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621447,
+                "spy_return": 0.7899757902701094,
+                "start_index": 966,
+                "window_end": "2021-10-29"
+              },
+              {
+                "candidate_max_drawdown": -0.182704396170835,
+                "candidate_return": 0.34264128693679763,
+                "drawdown_won": true,
+                "end_index_exclusive": 1741,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.7432574595410977,
+                "start_index": 987,
+                "window_end": "2021-11-30"
+              },
+              {
+                "candidate_max_drawdown": -0.18270439617083445,
+                "candidate_return": 0.47240082534356853,
+                "drawdown_won": true,
+                "end_index_exclusive": 1763,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621445,
+                "spy_return": 0.9998062726967076,
+                "start_index": 1006,
+                "window_end": "2021-12-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1827043961708349,
+                "candidate_return": 0.3738069536844846,
+                "drawdown_won": true,
+                "end_index_exclusive": 1783,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214506,
+                "spy_return": 0.7539064047237904,
+                "start_index": 1027,
+                "window_end": "2022-01-31"
+              },
+              {
+                "candidate_max_drawdown": -0.18270439617083511,
+                "candidate_return": 0.3313569516832049,
+                "drawdown_won": true,
+                "end_index_exclusive": 1802,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214495,
+                "spy_return": 0.6486926184956998,
+                "start_index": 1046,
+                "window_end": "2022-02-28"
+              },
+              {
+                "candidate_max_drawdown": -0.1827043961708349,
+                "candidate_return": 0.3537170062807484,
+                "drawdown_won": true,
+                "end_index_exclusive": 1825,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214506,
+                "spy_return": 0.6802339206375165,
+                "start_index": 1067,
+                "window_end": "2022-03-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1827043961708349,
+                "candidate_return": 0.23592480151752238,
+                "drawdown_won": true,
+                "end_index_exclusive": 1845,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.4726021006515444,
+                "start_index": 1088,
+                "window_end": "2022-04-29"
+              },
+              {
+                "candidate_max_drawdown": -0.18270439617083478,
+                "candidate_return": 0.29980943694977347,
+                "drawdown_won": true,
+                "end_index_exclusive": 1866,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621446,
+                "spy_return": 0.576458779832022,
+                "start_index": 1110,
+                "window_end": "2022-05-31"
+              },
+              {
+                "candidate_max_drawdown": -0.18270439617083478,
+                "candidate_return": 0.19566306375790998,
+                "drawdown_won": true,
+                "end_index_exclusive": 1887,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621447,
+                "spy_return": 0.3523354638684053,
+                "start_index": 1130,
+                "window_end": "2022-06-30"
+              },
+              {
+                "candidate_max_drawdown": -0.1827043961708349,
+                "candidate_return": 0.2023443888298304,
+                "drawdown_won": true,
+                "end_index_exclusive": 1907,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621445,
+                "spy_return": 0.45487175715259553,
+                "start_index": 1152,
+                "window_end": "2022-07-29"
+              },
+              {
+                "candidate_max_drawdown": -0.182704396170835,
+                "candidate_return": 0.20599314691319948,
+                "drawdown_won": true,
+                "end_index_exclusive": 1930,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621446,
+                "spy_return": 0.41927356605943866,
+                "start_index": 1174,
+                "window_end": "2022-08-31"
+              },
+              {
+                "candidate_max_drawdown": -0.182704396170835,
+                "candidate_return": 0.1792081526629814,
+                "drawdown_won": true,
+                "end_index_exclusive": 1951,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621445,
+                "spy_return": 0.26349502785965995,
+                "start_index": 1194,
+                "window_end": "2022-09-30"
+              },
+              {
+                "candidate_max_drawdown": -0.18270439617083478,
+                "candidate_return": 0.19214780512032958,
+                "drawdown_won": true,
+                "end_index_exclusive": 1972,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621447,
+                "spy_return": 0.33664030576940784,
+                "start_index": 1217,
+                "window_end": "2022-10-31"
+              },
+              {
+                "candidate_max_drawdown": -0.18270439617083467,
+                "candidate_return": 0.174335653353892,
+                "drawdown_won": true,
+                "end_index_exclusive": 1993,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214495,
+                "spy_return": 0.3616566050836054,
+                "start_index": 1237,
+                "window_end": "2022-11-30"
+              },
+              {
+                "candidate_max_drawdown": -0.18270439617083534,
+                "candidate_return": 0.11127055772897831,
+                "drawdown_won": true,
+                "end_index_exclusive": 2014,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.33699813656214483,
+                "spy_return": 0.2470505538583887,
+                "start_index": 1258,
+                "window_end": "2022-12-30"
+              },
+              {
+                "candidate_max_drawdown": -0.18270439617083467,
+                "candidate_return": 0.11892071669210957,
+                "drawdown_won": true,
+                "end_index_exclusive": 2034,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.3369981365621447,
+                "spy_return": 0.32600976234926815,
+                "start_index": 1279,
+                "window_end": "2023-01-31"
+              },
+              {
+                "candidate_max_drawdown": -0.1509634749270573,
+                "candidate_return": 0.18620229758760298,
+                "drawdown_won": true,
+                "end_index_exclusive": 2053,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.28300179457111174,
+                "spy_return": 0.403803480005825,
+                "start_index": 1298,
+                "window_end": "2023-02-28"
+              },
+              {
+                "candidate_max_drawdown": -0.16465251832479466,
+                "candidate_return": 0.25122563755092875,
+                "drawdown_won": true,
+                "end_index_exclusive": 2076,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288282,
+                "spy_return": 0.6632246496520515,
+                "start_index": 1320,
+                "window_end": "2023-03-31"
+              },
+              {
+                "candidate_max_drawdown": -0.16465251832479644,
+                "candidate_return": 0.24045174876584308,
+                "drawdown_won": true,
+                "end_index_exclusive": 2095,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288182,
+                "spy_return": 0.4993959283765306,
+                "start_index": 1341,
+                "window_end": "2023-04-28"
+              },
+              {
+                "candidate_max_drawdown": -0.16465251832479577,
+                "candidate_return": 0.21782696312596972,
+                "drawdown_won": true,
+                "end_index_exclusive": 2117,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928826,
+                "spy_return": 0.4378124777261412,
+                "start_index": 1361,
+                "window_end": "2023-05-31"
+              },
+              {
+                "candidate_max_drawdown": -0.16465251832479533,
+                "candidate_return": 0.2884989909612421,
+                "drawdown_won": true,
+                "end_index_exclusive": 2138,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928826,
+                "spy_return": 0.5042856371078621,
+                "start_index": 1383,
+                "window_end": "2023-06-30"
+              },
+              {
+                "candidate_max_drawdown": -0.16465251832479477,
+                "candidate_return": 0.29717406759750054,
+                "drawdown_won": true,
+                "end_index_exclusive": 2158,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928816,
+                "spy_return": 0.46712367670924726,
+                "start_index": 1405,
+                "window_end": "2023-07-31"
+              },
+              {
+                "candidate_max_drawdown": -0.16465251832479588,
+                "candidate_return": 0.22908817597922249,
+                "drawdown_won": true,
+                "end_index_exclusive": 2181,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288248,
+                "spy_return": 0.34911616674923995,
+                "start_index": 1426,
+                "window_end": "2023-08-31"
+              },
+              {
+                "candidate_max_drawdown": -0.164652518324795,
+                "candidate_return": 0.20792877443179214,
+                "drawdown_won": true,
+                "end_index_exclusive": 2201,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288248,
+                "spy_return": 0.33510822362447,
+                "start_index": 1447,
+                "window_end": "2023-09-29"
+              },
+              {
+                "candidate_max_drawdown": -0.1646525183247951,
+                "candidate_return": 0.20942932850092966,
+                "drawdown_won": true,
+                "end_index_exclusive": 2223,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288293,
+                "spy_return": 0.33952399916063336,
+                "start_index": 1469,
+                "window_end": "2023-10-31"
+              },
+              {
+                "candidate_max_drawdown": -0.16465251832479344,
+                "candidate_return": 0.17926185688547092,
+                "drawdown_won": true,
+                "end_index_exclusive": 2244,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288293,
+                "spy_return": 0.31846298973608334,
+                "start_index": 1489,
+                "window_end": "2023-11-30"
+              },
+              {
+                "candidate_max_drawdown": -0.16465251832479477,
+                "candidate_return": 0.1922108669352085,
+                "drawdown_won": true,
+                "end_index_exclusive": 2264,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928827,
+                "spy_return": 0.3293918268568219,
+                "start_index": 1511,
+                "window_end": "2023-12-29"
+              },
+              {
+                "candidate_max_drawdown": -0.1646525183247931,
+                "candidate_return": 0.2352702807169571,
+                "drawdown_won": true,
+                "end_index_exclusive": 2285,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288148,
+                "spy_return": 0.364468859983504,
+                "start_index": 1530,
+                "window_end": "2024-01-31"
+              },
+              {
+                "candidate_max_drawdown": -0.16465251832479588,
+                "candidate_return": 0.2777530256431391,
+                "drawdown_won": true,
+                "end_index_exclusive": 2305,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928836,
+                "spy_return": 0.39683645581714355,
+                "start_index": 1549,
+                "window_end": "2024-02-29"
+              },
+              {
+                "candidate_max_drawdown": -0.16465251832479455,
+                "candidate_return": 0.268928504824117,
+                "drawdown_won": true,
+                "end_index_exclusive": 2325,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288248,
+                "spy_return": 0.3798917899683263,
+                "start_index": 1572,
+                "window_end": "2024-03-28"
+              },
+              {
+                "candidate_max_drawdown": -0.16465251832479577,
+                "candidate_return": 0.15693495158421134,
+                "drawdown_won": true,
+                "end_index_exclusive": 2347,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288237,
+                "spy_return": 0.25770908076967713,
+                "start_index": 1593,
+                "window_end": "2024-04-30"
+              },
+              {
+                "candidate_max_drawdown": -0.16465251832479622,
+                "candidate_return": 0.2081377713071444,
+                "drawdown_won": true,
+                "end_index_exclusive": 2369,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288204,
+                "spy_return": 0.31270428544223505,
+                "start_index": 1613,
+                "window_end": "2024-05-31"
+              },
+              {
+                "candidate_max_drawdown": -0.16465251832479488,
+                "candidate_return": 0.22189567762401974,
+                "drawdown_won": true,
+                "end_index_exclusive": 2388,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928826,
+                "spy_return": 0.32915246679848487,
+                "start_index": 1635,
+                "window_end": "2024-06-28"
+              },
+              {
+                "candidate_max_drawdown": -0.16465251832479533,
+                "candidate_return": 0.20498123054425488,
+                "drawdown_won": true,
+                "end_index_exclusive": 2410,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928827,
+                "spy_return": 0.31318911652700354,
+                "start_index": 1656,
+                "window_end": "2024-07-31"
+              },
+              {
+                "candidate_max_drawdown": -0.16465251832479577,
+                "candidate_return": 0.2031518477060823,
+                "drawdown_won": true,
+                "end_index_exclusive": 2432,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288226,
+                "spy_return": 0.30503491165844765,
+                "start_index": 1678,
+                "window_end": "2024-08-30"
+              },
+              {
+                "candidate_max_drawdown": -0.16465251832479622,
+                "candidate_return": 0.27759486150821755,
+                "drawdown_won": true,
+                "end_index_exclusive": 2452,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288226,
+                "spy_return": 0.39754517180971427,
+                "start_index": 1699,
+                "window_end": "2024-09-30"
+              },
+              {
+                "candidate_max_drawdown": -0.16465251832479533,
+                "candidate_return": 0.17974666314272958,
+                "drawdown_won": true,
+                "end_index_exclusive": 2475,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.2449724419928827,
+                "spy_return": 0.2942639150342523,
+                "start_index": 1720,
+                "window_end": "2024-10-31"
+              },
+              {
+                "candidate_max_drawdown": -0.16465251832479444,
+                "candidate_return": 0.26318631850779517,
+                "drawdown_won": true,
+                "end_index_exclusive": 2495,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288304,
+                "spy_return": 0.3825539604296808,
+                "start_index": 1741,
+                "window_end": "2024-11-29"
+              },
+              {
+                "candidate_max_drawdown": -0.1616775562556596,
+                "candidate_return": 0.17550597489207065,
+                "drawdown_won": true,
+                "end_index_exclusive": 2516,
+                "excess_positive": false,
+                "spy_max_drawdown": -0.24497244199288282,
+                "spy_return": 0.2895463979442039,
+                "start_index": 1763,
+                "window_end": "2024-12-31"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "benchmark": {
+      "cagr": 0.13029874913607653,
+      "cost_policy": "costless_total_return_hurdle",
+      "max_drawdown": -0.3369981365621446,
+      "return_basis": "split_and_distribution_adjusted_total_return",
+      "returns_sha256": "1ae1c7c3d217b91921e93005c5eb5c13997f55d0a1c34aed359710e08ef474a8",
+      "source_path": "research/protocols/mining_v5/canonical_spy_total_return.json",
+      "source_sha256": "4b6aca573ada57feded1b167c9054408a10c70c57f0082f596d6b2f29773de8a",
+      "symbol": "SPY"
+    },
+    "candidate": {
+      "annualized_sharpe": 0.7819384878400457,
+      "cagr": 0.08411843463289181,
+      "max_drawdown": -0.17483855035661677
+    },
+    "candidate_id": "spy70_qmlv30_risk",
+    "capital_eligible": false,
+    "evidence_scope": "DEVELOPMENT_ONLY",
+    "formal_research_status": "REVIEW_HOLD",
+    "gates": {
+      "balanced_drawdown_all_scenarios": true,
+      "base_30bps_cagr_strictly_greater_than_spy": false,
+      "base_30bps_rolling_36m_excess_fraction": false,
+      "candidate_specific_timing": true,
+      "deflated_sharpe_probability": false,
+      "development_return_distribution_stability": false,
+      "double_60bps_cagr_not_less_than_spy": false,
+      "double_60bps_rolling_36m_excess_fraction": false,
+      "minimum_backtest_length": false,
+      "probability_backtest_overfitting": true
+    },
+    "overfit": {
+      "cpcv": {
+        "active_sharpe_by_split": [
+          -0.8727820069343595,
+          -1.2327619514144499,
+          -0.7167560827729059,
+          -0.5024440200708195,
+          -1.2881749655440473,
+          -0.6211839792780173,
+          -0.4026908986908703,
+          -0.06534029970210661,
+          -0.5289761218359879,
+          -0.6338164663681961,
+          -0.39193783038663393,
+          -1.0223260674297234,
+          -0.39808096591772846,
+          -0.5425617905206678,
+          -0.2590620364594083
+        ],
+        "annualized_active_mean_by_split": [
+          -0.04096458473417946,
+          -0.07516087561590049,
+          -0.0989231588212675,
+          -0.05170121029671067,
+          -0.05934743345109732,
+          -0.029766410680103685,
+          -0.05347452387958074,
+          -0.006252575355023905,
+          -0.013952968515300535,
+          -0.08765590422596756,
+          -0.040490239311094335,
+          -0.04814070621289912,
+          -0.06421114944211195,
+          -0.07184246206116439,
+          -0.024676797146291184
+        ],
+        "embargo_frac": 0.01,
+        "evidence_role": "DEVELOPMENT_STABILITY_DIAGNOSTIC_NOT_OOS",
+        "horizon": 63,
+        "k_test": 2,
+        "median_annualized_active_mean": -0.05170121029671067,
+        "model_refit_per_split": false,
+        "n_groups": 6,
+        "n_paths": 5,
+        "n_splits": 15,
+        "passed": false,
+        "positive_active_split_fraction": 0.0,
+        "training_legs_used": false
+      },
+      "deflated_sharpe": {
+        "T": 2516,
+        "deflated_sharpe": 0.009431226275940452,
+        "kurtosis": 47.07326675664,
+        "n_trials": 60,
+        "not_probability_true_sharpe_above_zero": true,
+        "probability_statement": "PSR_STATISTIC_FOR_SR_EXCEEDING_MULTIPLE_TESTING_ADJUSTED_SR0",
+        "sharpe": -0.03198123119224226,
+        "skew": 0.45243173840369033,
+        "sr0": 0.015453866291972946
+      },
+      "minimum_backtest_length": {
+        "actual_years": 9.984126984126984,
+        "expected_max_sr_annual": 2.8615885665909766,
+        "min_btl_years": 31.770458704676443,
+        "n_trials": 60,
+        "passed": false,
+        "reason": "backtest_shorter_than_min_btl",
+        "safety_multiple": 1.0
+      },
+      "probability_backtest_overfitting": {
+        "S": 10,
+        "mean_logit": 1.3775930359299466,
+        "n_combinations": 252,
+        "pbo": 0.08333333333333333
+      }
+    },
+    "paper_status": "REVIEW_HOLD",
+    "qualification_passed": false,
+    "qualification_schema_version": 4,
+    "raw_independent_n": 60,
+    "research_qualification_passed": false,
+    "triple_90bps_cagr_excess_diagnostic": -0.06521025076775078
+  },
+  "computed_sha256": "d2a19778f27bb85f84fe2f105261d666659be65a571727de936be30eadba77d4",
+  "evaluation_contract": {
+    "path": "research/protocols/mining_v5/evaluation_contract_v2.yaml",
+    "sha256": "6a7179cbfd1026653dcec8cc14ee418be0c497350c1379ac984165f0a5c46bd7"
+  },
+  "evidence_scope": "DEVELOPMENT_ONLY",
+  "governance": {
+    "path": "config/research_governance.yaml",
+    "sha256": "c8fb8abaccc17fcf3f22438735be6e0ab9e54772c98621c0a1b797e63d62d7b0"
+  },
+  "input_bundle": {
+    "path": "research/results/mining_v5_balanced_20260722_v1/qualification_inputs/spy70_qmlv30_risk.json",
+    "sha256": "fe6539964d8d1f423a5f93e3e6b8534735f5a1786b1d940ce76b278691a8689c"
+  },
+  "observed_through": "2026-07-17",
+  "schema_version": 4,
+  "trial_ledger": {
+    "event_count": 104,
+    "head_event_hash": "ee8b0d7aa1a545c88bdeebb28b6d6cfd7dee4b189836949d96180244d78efff1",
+    "incomplete_trial_ids": [],
+    "independent_content_hashes_sha256": "801d65a859c384a8e44f1377a0bffac84595e85db6cbf815d3e26dc8cd47fecc",
+    "ledger_sha256": "25eb6d234da0ee69a1a42fec73d8278a1a72f90909670b51669d203016244d90",
+    "path": "research/results/mining_v5_balanced_20260722_v1/trial_ledger.jsonl",
+    "raw_independent_n": 30,
+    "schema_version": 1,
+    "terminal_counts": {
+      "ABORTED": 0,
+      "FAILED": 29,
+      "INTENT": 0,
+      "OUTCOME": 12
+    }
+  }
+}
