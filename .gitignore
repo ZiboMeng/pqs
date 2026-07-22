@@ -28,6 +28,8 @@ data/mining/
 # append-only trial ledgers are large local evidence. Compact reports and
 # machine-readable invalidation records live under research/results instead.
 data/research/mining_v4/
+# Mining V5 compact manifests are tracked; large immutable daily snapshots are local.
+data/research/mining_v5/**/daily/
 data/.yf_cache/
 data/_catalog.parquet
 data/baseline/

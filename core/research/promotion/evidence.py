@@ -19,7 +19,7 @@ from core.research.governance import load_research_governance
 from core.research.qualification_v2 import (
     canonical_sha256,
 )
-from core.research.qualification_v3 import validate_qualification_artifact
+from core.research.qualification_v4 import validate_qualification_artifact
 
 REQUIRED_BOUND_SOURCES = (
     "config/backtest.yaml",
@@ -45,10 +45,21 @@ REQUIRED_BOUND_SOURCES = (
     "core/research/promotion/evidence.py",
     "core/research/qualification_v2.py",
     "core/research/qualification_v3.py",
+    "core/research/qualification_v4.py",
+    "core/research/evaluation_contract_v2.py",
+    "core/research/account_deployment_risk.py",
+    "core/research/canonical_benchmark.py",
+    "core/research/composite_trial_universe.py",
+    "core/research/mining_v5_campaign.py",
     "core/research/temporal_split_acceptance.py",
     "core/signals/strategies/multi_factor.py",
     "scripts/promote_strategy.py",
     "scripts/run_strategy_phase2.py",
+    "scripts/build_canonical_spy_benchmark.py",
+    "scripts/build_qualification_v4.py",
+    "scripts/build_v5_track_a_snapshot.py",
+    "scripts/freeze_v5_evaluation_contract.py",
+    "scripts/run_mining_v5_campaign.py",
 )
 
 
@@ -136,7 +147,7 @@ def validate_promotion_evidence(
         policy = None
 
     if payload:
-        if payload.get("schema_version") != 3:
+        if payload.get("schema_version") != 4:
             failed.append("promotion_evidence_schema")
         if payload.get("candidate_id") != expected_candidate_id:
             failed.append("promotion_evidence_candidate_mismatch")
@@ -189,9 +200,9 @@ def validate_promotion_evidence(
                     ):
                         failed.append(f"lookahead_source_hash_mismatch:{relative}")
 
-        qualification = payload.get("qualification_v3")
+        qualification = payload.get("qualification_v4")
         if not isinstance(qualification, dict):
-            failed.append("qualification_v3_missing")
+            failed.append("qualification_v4_missing")
         else:
             source = _resolve_reference(root, qualification.get("artifact_path"))
             expected_sha = qualification.get("artifact_sha256")
@@ -202,7 +213,7 @@ def validate_promotion_evidence(
                 or not isinstance(expected_sha, str)
                 or sha256_file(source) != expected_sha
             ):
-                failed.append("qualification_v3_artifact_mismatch")
+                failed.append("qualification_v4_artifact_mismatch")
             else:
                 canonical = validate_qualification_artifact(
                     source,
@@ -213,28 +224,38 @@ def validate_promotion_evidence(
                 )
                 if not canonical.passed:
                     failed.extend(
-                        f"qualification_v3:{item}"
+                        f"qualification_v4:{item}"
                         for item in canonical.failed_checks
                     )
                 if qualification.get("computed_sha256") != canonical_sha256(
                     canonical.recomputed
                 ):
-                    failed.append("qualification_v3_computed_digest_mismatch")
+                    failed.append("qualification_v4_computed_digest_mismatch")
                 canonical_gates = canonical.recomputed.get("gates") or {}
-                annual_passed = (
-                    canonical_gates.get(
-                        "annual_max_drawdown_strictly_better_than_spy"
-                    ) is True
-                    and canonical_gates.get(
-                        "annual_cost_stress_max_drawdown_strictly_better_than_spy"
-                    ) is True
-                )
-                if qualification.get("annual_drawdown_gate_passed") is not annual_passed:
-                    failed.append("qualification_v3_annual_drawdown_summary_mismatch")
-                if qualification.get("annual_drawdown_gate_passed") is not True:
-                    failed.append("qualification_v3_annual_drawdown_failed")
-                if qualification.get("absolute_drawdown_gate_enabled") is not False:
-                    failed.append("qualification_v3_hidden_absolute_drawdown_gate")
+                balanced_passed = canonical_gates.get(
+                    "balanced_drawdown_all_scenarios"
+                ) is True
+                if qualification.get(
+                    "balanced_drawdown_gate_passed"
+                ) is not balanced_passed:
+                    failed.append(
+                        "qualification_v4_balanced_drawdown_summary_mismatch"
+                    )
+                if qualification.get("balanced_drawdown_gate_passed") is not True:
+                    failed.append("qualification_v4_balanced_drawdown_failed")
+                if qualification.get("raw_absolute_drawdown_gate_enabled") is not False:
+                    failed.append("qualification_v4_hidden_raw_absolute_drawdown_gate")
+                account_passed = (
+                    canonical.recomputed.get("account_deployment") or {}
+                ).get("absolute_risk_contract_passed") is True
+                if qualification.get(
+                    "account_deployment_risk_passed"
+                ) is not account_passed:
+                    failed.append(
+                        "qualification_v4_account_risk_summary_mismatch"
+                    )
+                if qualification.get("account_deployment_risk_passed") is not True:
+                    failed.append("qualification_v4_account_risk_incomplete")
 
         alignment = payload.get("paper_backtest_alignment")
         if not isinstance(alignment, dict):

@@ -1,0 +1,73 @@
+schema_version: 2
+protocol_id: pqs-mining-v5-balanced-v1
+governance_policy_id: pqs-governance-reconciliation-v3
+evaluation_start: '2015-01-02'
+evaluation_end: '2024-12-31'
+return_dates_sha256: b475218825932123cf889f5a10d15c4c2757b874f602bc4fc817a5ba631b652a
+month_end_dates_sha256: a1e5f1455fccfc430c76791e047e55e8c912e62a459bb741d1a4a9a17ead8e14
+calendar_years:
+- 2015
+- 2016
+- 2017
+- 2018
+- 2019
+- 2020
+- 2021
+- 2022
+- 2023
+- 2024
+minimum_history_sessions: 756
+float_comparison_tolerance: 1.0e-12
+cost_scenarios:
+- name: base_30bps
+  execution_cost_bps: 30.0
+- name: double_60bps
+  execution_cost_bps: 60.0
+- name: triple_90bps
+  execution_cost_bps: 90.0
+benchmark:
+  symbol: SPY
+  return_basis: split_and_distribution_adjusted_total_return
+  cost_policy: costless_total_return_hurdle
+  distributions: reinvested
+  source_path: research/protocols/mining_v5/canonical_spy_total_return.json
+  source_sha256: 4b6aca573ada57feded1b167c9054408a10c70c57f0082f596d6b2f29773de8a
+  returns_sha256: 1ae1c7c3d217b91921e93005c5eb5c13997f55d0a1c34aed359710e08ef474a8
+return_gates:
+  base_30bps_cagr_strictly_greater_than_spy: true
+  double_60bps_cagr_not_less_than_spy: true
+  triple_90bps_cagr_role: diagnostic
+  rolling_window_months: 36
+  rolling_sample_at_month_end: true
+  min_rolling_excess_positive_fraction: 0.6
+  rolling_252_session_role: diagnostic
+drawdown_gates:
+  full_period_strictly_better: true
+  rolling_window_months: 36
+  rolling_sample_at_month_end: true
+  min_rolling_win_fraction: 0.6
+  effective_count_method: conservative_non_overlapping_36m
+  material_episode_trigger: 0.15
+  every_material_episode_strictly_better: true
+  monthly_downside_capture_strict_max: 1.0
+  annual_material_harm_max_pp: 3.0
+  annual_all_years_strict_dominance: false
+  apply_to_all_cost_scenarios: true
+  raw_strategy_absolute_cap_enabled: false
+account_risk:
+  research_candidate_gate: false
+  paper_status_on_incomplete: SHADOW_PAPER_OBSERVATION
+  operating_target_min: 0.15
+  operating_target_max: 0.2
+  stress_path_max_drawdown: 0.25
+  required_path_scenarios:
+  - gfc_2008
+  - covid_2020
+  - rate_hike_2022
+  terminal_weighted_shock_can_pass: false
+  capital_eligible_in_this_phase: false
+cpcv:
+  n_groups: 6
+  k_test: 2
+  horizon: 63
+  embargo_frac: 0.01

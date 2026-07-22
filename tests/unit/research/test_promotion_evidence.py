@@ -9,9 +9,7 @@ from core.research.promotion.evidence import (
     sha256_file,
     validate_promotion_evidence,
 )
-from tests.unit.research._qualification_fixture import (
-    write_passing_qualification_v3,
-)
+from tests.unit.research.test_qualification_v4 import _write_fixture
 
 ROOT = Path(__file__).resolve().parents[3]
 COMMIT = "a" * 40
@@ -28,8 +26,12 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path]:
             source.write_text(f"fixture for {relative}\n", encoding="utf-8")
         source_hashes[relative] = sha256_file(source)
     source = tmp_path / REQUIRED_BOUND_SOURCES[0]
-    qualification = write_passing_qualification_v3(
-        tmp_path, candidate_id="candidate-1", code_commit=COMMIT)
+    qualification, _, _ = _write_fixture(
+        tmp_path, candidate_id="candidate-1", with_account_risk=True
+    )
+    qualification_payload = json.loads(qualification.read_text())
+    qualification_payload["code_commit"] = COMMIT
+    qualification.write_text(json.dumps(qualification_payload), encoding="utf-8")
     alignment = tmp_path / "alignment.json"
     alignment.write_text(
         json.dumps({"passed": True, "max_equity_drift_bps": 0.5}),
@@ -38,7 +40,7 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path]:
     evidence = tmp_path / "evidence.json"
     evidence.write_text(
         json.dumps({
-            "schema_version": 3,
+            "schema_version": 4,
             "candidate_id": "candidate-1",
             "code_commit": COMMIT,
             "benchmark": {
@@ -52,13 +54,14 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path]:
                 "tests": ["timing"],
                 "source_hashes": source_hashes,
             },
-            "qualification_v3": {
+            "qualification_v4": {
                 "artifact_path": str(qualification.relative_to(tmp_path)),
                 "artifact_sha256": sha256_file(qualification),
                 "computed_sha256": json.loads(
                     qualification.read_text())["computed_sha256"],
-                "annual_drawdown_gate_passed": True,
-                "absolute_drawdown_gate_enabled": False,
+                "balanced_drawdown_gate_passed": True,
+                "raw_absolute_drawdown_gate_enabled": False,
+                "account_deployment_risk_passed": True,
             },
             "paper_backtest_alignment": {
                 "passed": True,
@@ -101,7 +104,7 @@ def test_source_drift_fails_closed(tmp_path: Path) -> None:
 def test_qualification_digest_tamper_routes_to_hold(tmp_path: Path) -> None:
     evidence, _ = _fixture(tmp_path)
     payload = json.loads(evidence.read_text())
-    payload["qualification_v3"]["computed_sha256"] = "0" * 64
+    payload["qualification_v4"]["computed_sha256"] = "0" * 64
     evidence.write_text(json.dumps(payload), encoding="utf-8")
     result = validate_promotion_evidence(
         evidence,
@@ -110,7 +113,7 @@ def test_qualification_digest_tamper_routes_to_hold(tmp_path: Path) -> None:
         expected_code_commit=COMMIT,
     )
     assert not result.passed
-    assert "qualification_v3_computed_digest_mismatch" in result.failed_checks
+    assert "qualification_v4_computed_digest_mismatch" in result.failed_checks
 
 
 def test_missing_evidence_is_never_a_pass(tmp_path: Path) -> None:

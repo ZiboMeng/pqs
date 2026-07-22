@@ -1,0 +1,94 @@
+schema_version: 1
+campaign_id: mining-v5-balanced-20260722-v1
+status: PREREGISTERED_BEFORE_DIRECTIONAL_RETURN_COMPUTE
+evidence_scope: DEVELOPMENT_ONLY
+observed_through: '2026-07-17'
+historical_data_end: '2024-12-31'
+automatic_promotion_eligible: false
+capital_eligible: false
+prd:
+  path: docs/prd/20260722-annual-spy-relative-dd-strategy-mining-v5-prd.md
+  sha256: d20d19e8f42a81e9cd49d124beafee8206bdcea2b1a8042e04e5f030306b0e1c
+governance:
+  path: config/research_governance.yaml
+  sha256: c8fb8abaccc17fcf3f22438735be6e0ab9e54772c98621c0a1b797e63d62d7b0
+evaluation_contract:
+  path: research/protocols/mining_v5/evaluation_contract_v2.yaml
+  sha256: 6a7179cbfd1026653dcec8cc14ee418be0c497350c1379ac984165f0a5c46bd7
+canonical_benchmark:
+  path: research/protocols/mining_v5/canonical_spy_total_return.json
+  sha256: 4b6aca573ada57feded1b167c9054408a10c70c57f0082f596d6b2f29773de8a
+track_a_data:
+  snapshot_id: track_a_yahoo_exact_cash_v1
+  manifest_path: data/research/mining_v5/track_a_yahoo_exact_cash_v1/manifest.json
+  manifest_sha256: 4509d5982281666971fce553553e322301351b86c27d1c1253ead38713b394fa
+  common_evaluation_start: '2015-01-02'
+  common_evaluation_end: '2024-12-31'
+  symbols: [SPY, BIL, QUAL, MTUM, USMV, IEF, GLD]
+  provenance_status: FROZEN_DEVELOPMENT_VENDOR_SNAPSHOT
+track_b_data:
+  status: BLOCKED_NO_TRUE_HISTORICAL_PIT_UNIVERSE_AND_PIT_FUNDAMENTAL_PANEL
+semantic_data:
+  status: BLOCKED_NO_PRD_COMPLIANT_10K_10Q_ACCEPTANCE_BOUND_CORPUS
+llm_data:
+  status: BLOCKED_NO_PINNED_REPLAYABLE_EXTRACTION_AND_HUMAN_QA_ARTIFACT
+historical_trial_universe:
+  - path: research/results/mining_campaign_20260721_v1/trial_ledger.jsonl
+    sha256: a2215c21d17280a3d867a20999cd2a92d33bc4d397cc40b443ff6790efbe1de1
+    expected_raw_independent_n: 30
+execution:
+  decision_information_cutoff: session_close
+  earliest_fill: next_session_open
+  long_only: true
+  gross_exposure_max: 1.0
+  margin_allowed: false
+  candidate_cost_scenarios_bps: [30.0, 60.0, 90.0]
+  hard_benchmark_cost_bps: 0.0
+  spy_anchor_primary: 0.70
+  spy_anchor_sensitivity: 0.60
+  equity_scale_leverage_cap: 1.0
+  unused_risk_budget_asset: BIL
+exit_rule:
+  stop_when_formal_candidates: 5
+  maximum_rounds: 30
+  one_sibling_per_family: true
+  maximum_absolute_candidate_correlation: 0.70
+blocked_round_policy:
+  consumes_slot: true
+  no_ad_hoc_replacement: true
+  allowed_statuses:
+    - BLOCKED_DATA
+    - BLOCKED_UPSTREAM_GATE
+    - BLOCKED_LLM_VALIDITY
+    - RESEARCH_INCOMPLETE
+rounds:
+  - {round: 1, id: canonical_spy_replication, family: benchmark_control, mechanism: exact_cash_reinvestment, kind: benchmark_control}
+  - {round: 2, id: spy80_bil20_negative_control, family: static_dilution, mechanism: static_cash_dilution, kind: etf_portfolio, construction: static_80_20}
+  - {round: 3, id: spy_vol_only, family: volatility_management, mechanism: monthly_vol_scaler, kind: etf_portfolio, construction: spy_vol_only}
+  - {round: 4, id: spy_trend_only, family: trend_defense, mechanism: dual_sma_derisk, kind: etf_portfolio, construction: spy_trend_only}
+  - {round: 5, id: spy_vol_trend, family: combined_risk_engine, mechanism: min_vol_trend_scale, kind: etf_portfolio, construction: spy_vol_trend}
+  - {round: 6, id: spy70_qmlv30, family: etf_factor_sleeve, mechanism: static_quality_momentum_lowvol, kind: etf_portfolio, construction: qmlv_no_overlay}
+  - {round: 7, id: spy70_qmlv30_risk, family: etf_factor_risk, mechanism: qmlv_plus_risk_engine, kind: etf_portfolio, construction: qmlv_risk}
+  - {round: 8, id: spy70_qm30_risk, family: etf_factor_ablation_qm, mechanism: quality_momentum_risk, kind: etf_portfolio, construction: qm_risk}
+  - {round: 9, id: spy70_qlv30_risk, family: etf_factor_ablation_qlv, mechanism: quality_lowvol_risk, kind: etf_portfolio, construction: qlv_risk}
+  - {round: 10, id: spy70_mlv30_risk, family: etf_factor_ablation_mlv, mechanism: momentum_lowvol_risk, kind: etf_portfolio, construction: mlv_risk}
+  - {round: 11, id: spy60_qmlv40_risk, family: anchor_sensitivity, mechanism: qmlv_60_40_risk, kind: etf_portfolio, construction: qmlv_60_40_risk}
+  - {round: 12, id: qmlv_multidefense, family: multi_asset_defense, mechanism: conditional_bil_ief_gld, kind: etf_portfolio, construction: qmlv_multidefense}
+  - {round: 13, id: stock_quality_risk, family: stock_quality, mechanism: pit_quality_rank, kind: stock_portfolio}
+  - {round: 14, id: stock_momentum_risk, family: stock_momentum, mechanism: buffered_12_1_6_1_rank, kind: stock_portfolio}
+  - {round: 15, id: stock_lowrisk_risk, family: stock_lowrisk, mechanism: residual_realized_lowvol, kind: stock_portfolio}
+  - {round: 16, id: stock_qm_risk, family: stock_quality_momentum, mechanism: pit_quality_momentum, kind: stock_portfolio}
+  - {round: 17, id: stock_qmlv_risk, family: stock_qmlv, mechanism: pit_quality_momentum_lowrisk, kind: stock_portfolio}
+  - {round: 18, id: stock_qmlv_sector_neutral, family: sector_neutral, mechanism: within_sector_qmlv, kind: stock_portfolio}
+  - {round: 19, id: stock_qmlv_no_buffer, family: turnover_ablation, mechanism: no_enter_hold_buffer, kind: stock_portfolio}
+  - {round: 20, id: stock_qmlv_semantic_peer, family: semantic_peer, mechanism: train_only_peer_residual, kind: semantic_portfolio}
+  - {round: 21, id: filing_structured_change, family: filing_structured, mechanism: pit_structured_filing_change, kind: semantic_portfolio}
+  - {round: 22, id: filing_lm_change, family: filing_dictionary, mechanism: lm_dictionary_change, kind: semantic_portfolio}
+  - {round: 23, id: filing_tfidf_svd, family: sparse_semantic, mechanism: train_only_tfidf_svd, kind: semantic_portfolio}
+  - {round: 24, id: filing_frozen_encoder, family: dense_semantic, mechanism: frozen_encoder_novelty, kind: semantic_portfolio}
+  - {round: 25, id: semantic_winner_structured, family: semantic_increment, mechanism: mechanical_r22_r24_winner, kind: conditional_portfolio}
+  - {round: 26, id: ridge_residual_rank, family: linear_ml, mechanism: ridge_63d_residual_rank, kind: ml_portfolio}
+  - {round: 27, id: shallow_gbdt_rank, family: shallow_nonlinear_ml, mechanism: constrained_gbdt_63d_rank, kind: ml_portfolio}
+  - {round: 28, id: numeric_winner_risk, family: numeric_winner, mechanism: mechanical_numeric_winner, kind: conditional_portfolio}
+  - {round: 29, id: numeric_semantic_sidecar, family: numeric_semantic, mechanism: numeric_plus_semantic_increment, kind: conditional_portfolio}
+  - {round: 30, id: schema_llm_extraction, family: llm_extraction, mechanism: evidence_span_structured_llm, kind: llm_portfolio}

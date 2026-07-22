@@ -18,7 +18,7 @@ class GovernanceError(RuntimeError):
     """Raised when an action conflicts with the active governance policy."""
 
 
-class BenchmarkPolicy(BaseModel):
+class BenchmarkPolicyV2(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     primary: Literal["SPY"]
@@ -30,6 +30,14 @@ class BenchmarkPolicy(BaseModel):
     risk_matched_passive_required_for_review: Literal[True]
     manual_exception_requires_explicit_user_approval: Literal[True]
     manual_exception_must_not_be_relabelled_as_gate_pass: Literal[True]
+
+
+class BenchmarkPolicy(BenchmarkPolicyV2):
+    benchmark_return_basis: Literal[
+        "split_and_distribution_adjusted_total_return"
+    ]
+    benchmark_cost_policy: Literal["costless_total_return_hurdle"]
+    strategy_return_basis: Literal["after_cost"]
 
 
 class AnnualDrawdownComparisonPolicy(BaseModel):
@@ -50,7 +58,89 @@ class AnnualDrawdownComparisonPolicy(BaseModel):
     report_absolute_drawdowns: Literal[True]
 
 
-class AutomaticPromotionEvidencePolicy(BaseModel):
+class BalancedDrawdownComparisonPolicy(BaseModel):
+    """Prospective multi-horizon strategy drawdown gate."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    benchmark: Literal["SPY"]
+    benchmark_return_basis: Literal[
+        "split_and_distribution_adjusted_total_return"
+    ]
+    benchmark_cost_policy: Literal["costless_total_return_hurdle"]
+    candidate_cost_scenarios: tuple[
+        Literal["base_30bps", "double_60bps", "triple_90bps"], ...
+    ]
+    require_full_period_strictly_better: Literal[True]
+    rolling_window_months: Literal[36]
+    rolling_sample_at_month_end: Literal[True]
+    min_rolling_drawdown_win_fraction: Literal[0.6]
+    rolling_effective_count_method: Literal[
+        "conservative_non_overlapping_36m"
+    ]
+    material_episode_trigger: Literal[0.15]
+    require_every_material_episode_strictly_better: Literal[True]
+    downside_capture_strict_max: Literal[1.0]
+    annual_material_harm_max_pp: Literal[3.0]
+    require_all_cost_scenarios: Literal[True]
+    annual_all_years_strict_dominance: Literal[False]
+    raw_strategy_absolute_max_drawdown_gate_enabled: Literal[False]
+    raw_strategy_stress_absolute_drawdown_gate_enabled: Literal[False]
+    report_absolute_drawdowns: Literal[True]
+
+    @model_validator(mode="after")
+    def _exact_cost_scenarios(self) -> "BalancedDrawdownComparisonPolicy":
+        expected = (
+            "base_30bps",
+            "double_60bps",
+            "triple_90bps",
+        )
+        if self.candidate_cost_scenarios != expected:
+            raise ValueError(
+                "balanced drawdown cost scenarios must be exactly 30/60/90bps"
+            )
+        return self
+
+
+class AccountDeploymentRiskPolicy(BaseModel):
+    """Absolute risk contract for a sized PAPER account, not raw alpha."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: Literal[True]
+    applies_to_status: Literal["RISK_GOVERNED_PAPER_ELIGIBLE"]
+    operating_max_drawdown_target_min: Literal[0.15]
+    operating_max_drawdown_target_max: Literal[0.2]
+    stress_path_max_drawdown: Literal[0.25]
+    required_path_scenarios: tuple[
+        Literal["gfc_2008", "covid_2020", "rate_hike_2022"], ...
+    ]
+    require_path_capable_evidence: Literal[True]
+    terminal_weighted_shock_must_not_pass: Literal[True]
+    incomplete_evidence_status: Literal["SHADOW_PAPER_OBSERVATION"]
+    runtime_alert_drawdown: Literal[0.15]
+    runtime_derisk_drawdown: Literal[0.2]
+    runtime_halt_drawdown: Literal[0.25]
+    capital_eligible_in_this_phase: Literal[False]
+
+    @model_validator(mode="after")
+    def _ordered_and_complete(self) -> "AccountDeploymentRiskPolicy":
+        if self.required_path_scenarios != (
+            "gfc_2008",
+            "covid_2020",
+            "rate_hike_2022",
+        ):
+            raise ValueError("account risk scenarios must be exact and ordered")
+        if not (
+            self.runtime_alert_drawdown
+            < self.runtime_derisk_drawdown
+            < self.runtime_halt_drawdown
+        ):
+            raise ValueError("account drawdown responses must be strictly ordered")
+        return self
+
+
+class AutomaticPromotionEvidencePolicyV2(BaseModel):
     """Evidence required for a new automatic promotion decision.
 
     These controls apply prospectively.  Historical artifacts remain
@@ -70,6 +160,27 @@ class AutomaticPromotionEvidencePolicy(BaseModel):
     require_cpcv_pass: Literal[True]
     minimum_cpcv_folds: int = Field(ge=2)
     annual_drawdown_comparison: AnnualDrawdownComparisonPolicy
+    require_paper_backtest_alignment: Literal[True]
+    max_paper_backtest_equity_drift_bps: float = Field(ge=0.0)
+    failure_disposition: Literal["REVIEW_HOLD"]
+
+
+class AutomaticPromotionEvidencePolicy(BaseModel):
+    """Evidence required under prospective Balanced Drawdown governance."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal[3]
+    require_bound_artifact: Literal[True]
+    require_clean_code_commit: Literal[True]
+    require_lookahead_test_pass: Literal[True]
+    min_deflated_sharpe_probability: float = Field(ge=0.0, le=1.0)
+    max_probability_backtest_overfitting: float = Field(ge=0.0, le=1.0)
+    require_minimum_backtest_length_pass: Literal[True]
+    require_cpcv_pass: Literal[True]
+    minimum_cpcv_folds: int = Field(ge=2)
+    balanced_drawdown_comparison: BalancedDrawdownComparisonPolicy
+    account_deployment_risk: AccountDeploymentRiskPolicy
     require_paper_backtest_alignment: Literal[True]
     max_paper_backtest_equity_drift_bps: float = Field(ge=0.0)
     failure_disposition: Literal["REVIEW_HOLD"]
@@ -154,10 +265,32 @@ class CloudPolicy(BaseModel):
     templates_are_runtime_authority: Literal[False]
 
 
-class ResearchGovernancePolicy(BaseModel):
+class ResearchGovernancePolicyV2(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schema_version: Literal[2]
+    policy_id: str = Field(min_length=1)
+    approved_at_utc: str = Field(min_length=1)
+    authority: Literal["user_explicit_direction"]
+    benchmark: BenchmarkPolicyV2
+    automatic_promotion_evidence: AutomaticPromotionEvidencePolicyV2
+    research_boundary: ResearchBoundary
+    strategy_decisions: list[StrategyDecision] = Field(min_length=1)
+    forward_authority: ForwardAuthority
+    cloud: CloudPolicy
+
+    @model_validator(mode="after")
+    def _unique_strategy_decisions(self) -> "ResearchGovernancePolicyV2":
+        strategy_ids = [item.strategy_id for item in self.strategy_decisions]
+        if len(strategy_ids) != len(set(strategy_ids)):
+            raise ValueError("governance policy contains duplicate strategy decisions")
+        return self
+
+
+class ResearchGovernancePolicy(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal[3]
     policy_id: str = Field(min_length=1)
     approved_at_utc: str = Field(min_length=1)
     authority: Literal["user_explicit_direction"]
@@ -220,7 +353,7 @@ def _sha256(payload: object) -> str:
 
 def load_research_governance(
     path: str | Path = "config/research_governance.yaml",
-) -> ResearchGovernancePolicy:
+) -> ResearchGovernancePolicy | ResearchGovernancePolicyV2:
     policy_path = Path(path)
     try:
         raw = yaml.safe_load(policy_path.read_text(encoding="utf-8"))
@@ -229,7 +362,12 @@ def load_research_governance(
     if not isinstance(raw, dict):
         raise GovernanceError("research governance policy must be a mapping")
     try:
-        return ResearchGovernancePolicy.model_validate(raw)
+        schema_version = raw.get("schema_version")
+        if schema_version == 2:
+            return ResearchGovernancePolicyV2.model_validate(raw)
+        if schema_version == 3:
+            return ResearchGovernancePolicy.model_validate(raw)
+        raise ValueError(f"unsupported governance schema {schema_version!r}")
     except Exception as exc:
         raise GovernanceError(f"invalid research governance policy: {exc}") from exc
 

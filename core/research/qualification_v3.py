@@ -214,7 +214,12 @@ def recompute_qualification(
         raw_independent_n=raw_independent_n,
         governance_path=governance_path,
     )
-    policy = load_research_governance(governance_path).automatic_promotion_evidence
+    governance = load_research_governance(governance_path)
+    if governance.schema_version != 2:
+        raise QualificationV3Error(
+            "Qualification V3 requires historical governance schema v2"
+        )
+    policy = governance.automatic_promotion_evidence
     drawdown_policy = policy.annual_drawdown_comparison
     if (
         drawdown_policy.absolute_max_drawdown_gate_enabled

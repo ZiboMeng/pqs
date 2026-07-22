@@ -1,14 +1,14 @@
-schema_version: 3
-policy_id: pqs-governance-reconciliation-v3
-approved_at_utc: "2026-07-22T18:00:00-07:00"
+# Historical archive of the policy approved earlier on 2026-07-22.
+# Immutable validation aid for Qualification V3 artifacts only.
+# It is NOT the active governance authority.
+schema_version: 2
+policy_id: pqs-governance-reconciliation-v2
+approved_at_utc: "2026-07-22T00:00:00-07:00"
 authority: user_explicit_direction
 
 benchmark:
   primary: SPY
   comparison_basis: total_return_after_strategy_costs
-  benchmark_return_basis: split_and_distribution_adjusted_total_return
-  benchmark_cost_policy: costless_total_return_hurdle
-  strategy_return_basis: after_cost
   automatic_promotion_requires_positive_excess: true
   automatic_retirement_on_failure: false
   failure_disposition: REVIEW_HOLD
@@ -18,7 +18,7 @@ benchmark:
   manual_exception_must_not_be_relabelled_as_gate_pass: true
 
 automatic_promotion_evidence:
-  schema_version: 3
+  schema_version: 2
   require_bound_artifact: true
   require_clean_code_commit: true
   require_lookahead_test_pass: true
@@ -27,45 +27,14 @@ automatic_promotion_evidence:
   require_minimum_backtest_length_pass: true
   require_cpcv_pass: true
   minimum_cpcv_folds: 2
-  balanced_drawdown_comparison:
+  annual_drawdown_comparison:
     benchmark: SPY
-    benchmark_return_basis: split_and_distribution_adjusted_total_return
-    benchmark_cost_policy: costless_total_return_hurdle
-    candidate_cost_scenarios:
-      - base_30bps
-      - double_60bps
-      - triple_90bps
-    require_full_period_strictly_better: true
-    rolling_window_months: 36
-    rolling_sample_at_month_end: true
-    min_rolling_drawdown_win_fraction: 0.60
-    rolling_effective_count_method: conservative_non_overlapping_36m
-    material_episode_trigger: 0.15
-    require_every_material_episode_strictly_better: true
-    downside_capture_strict_max: 1.0
-    annual_material_harm_max_pp: 3.0
-    require_all_cost_scenarios: true
-    annual_all_years_strict_dominance: false
-    raw_strategy_absolute_max_drawdown_gate_enabled: false
-    raw_strategy_stress_absolute_drawdown_gate_enabled: false
+    comparison_basis: aligned_calendar_year_after_cost_returns
+    require_every_year_strictly_better: true
+    require_all_cost_stress_scenarios: true
+    absolute_max_drawdown_gate_enabled: false
+    stress_slice_absolute_drawdown_gate_enabled: false
     report_absolute_drawdowns: true
-  account_deployment_risk:
-    enabled: true
-    applies_to_status: RISK_GOVERNED_PAPER_ELIGIBLE
-    operating_max_drawdown_target_min: 0.15
-    operating_max_drawdown_target_max: 0.20
-    stress_path_max_drawdown: 0.25
-    required_path_scenarios:
-      - gfc_2008
-      - covid_2020
-      - rate_hike_2022
-    require_path_capable_evidence: true
-    terminal_weighted_shock_must_not_pass: true
-    incomplete_evidence_status: SHADOW_PAPER_OBSERVATION
-    runtime_alert_drawdown: 0.15
-    runtime_derisk_drawdown: 0.20
-    runtime_halt_drawdown: 0.25
-    capital_eligible_in_this_phase: false
   require_paper_backtest_alignment: true
   max_paper_backtest_equity_drift_bps: 10.0
   failure_disposition: REVIEW_HOLD

@@ -26,7 +26,7 @@ from core.research.promotion.evidence import (  # noqa: E402
     REQUIRED_BOUND_SOURCES,
     sha256_file,
 )
-from core.research.qualification_v3 import (  # noqa: E402
+from core.research.qualification_v4 import (  # noqa: E402
     validate_qualification_artifact,
 )
 
@@ -109,7 +109,7 @@ def main() -> int:
     )
     if not canonical.passed:
         print(
-            "ERROR: canonical qualification V3 failed: "
+            "ERROR: canonical qualification V4 failed: "
             + ",".join(canonical.failed_checks),
             file=sys.stderr,
         )
@@ -130,7 +130,7 @@ def main() -> int:
         path: sha256_file(ROOT / path) for path in REQUIRED_BOUND_SOURCES
     }
     payload = {
-        "schema_version": 3,
+        "schema_version": 4,
         "candidate_id": args.candidate_id,
         "code_commit": commit,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -149,23 +149,21 @@ def main() -> int:
             ).hexdigest(),
             "source_hashes": source_hashes,
         },
-        "qualification_v3": {
+        "qualification_v4": {
             "artifact_path": str(qualification_relative),
             "artifact_sha256": sha256_file(qualification_path),
             "computed_sha256": qualification.get("computed_sha256"),
-            "annual_drawdown_gate_passed": (
-                qualification_gates.get(
-                    "annual_max_drawdown_strictly_better_than_spy"
-                ) is True
-                and qualification_gates.get(
-                    "annual_cost_stress_max_drawdown_strictly_better_than_spy"
-                ) is True
-            ),
-            "absolute_drawdown_gate_enabled": bool(
-                (computed.get("drawdown_policy") or {}).get(
-                    "absolute_max_drawdown_gate_enabled", True
+            "balanced_drawdown_gate_passed": qualification_gates.get(
+                "balanced_drawdown_all_scenarios"
+            ) is True,
+            "raw_absolute_drawdown_gate_enabled": bool(
+                (computed.get("balanced_drawdown") or {}).get(
+                    "raw_strategy_absolute_cap_enabled", True
                 )
             ),
+            "account_deployment_risk_passed": (
+                computed.get("account_deployment") or {}
+            ).get("absolute_risk_contract_passed") is True,
         },
     }
     if alignment_path is not None and alignment is not None:

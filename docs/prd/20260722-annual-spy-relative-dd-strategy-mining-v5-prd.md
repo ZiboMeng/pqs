@@ -4,11 +4,11 @@
 
 日期：2026-07-22
 
-状态：`PROPOSED / MUST_PAUSE_FOR_GOVERNANCE_V3_APPROVAL`
+状态：`APPROVED / ACTIVE_IMPLEMENTATION`
 
 证据范围：`DEVELOPMENT_ONLY`
 
-当前机器权威：`config/research_governance.yaml`（schema v2；本 PRD 尚未生效）
+当前机器权威：`config/research_governance.yaml`（schema v3）
 
 前置 PRD：`docs/prd/20260720-governed-semantic-ml-mining-prd.md`
 
@@ -21,9 +21,9 @@ v1.1 同时吸收：
 - 外部审计员对绝对账户风险、SPY 口径、D5 materiality 和 36-month 有效样本数的复核；
 - `docs/audit/20260722-drawdown-auditor-opinion-disposition.md` 的独立处置。
 
-因为 v1.1 改变正式 evaluation definition，它需要新的 research-governance schema v3、evaluation
-contract v2 和 Qualification V4。用户明确批准并完成实现前，schema v2/Qualification V3 仍是唯一机器
-权威，且**不得启动本 PRD 的方向性 return trial**。
+因为 v1.1 改变正式 evaluation definition，用户已于 2026-07-22 明确批准新的 research-governance
+schema v3、evaluation contract v2、Qualification V4 和账户风险分层。schema v2/Qualification V3
+保留为只读历史证据，不得为 V5 新候选出具资格。
 
 ## 1. 执行摘要
 
@@ -214,7 +214,7 @@ V4 必须：
 - signal 只使用 decision close 及以前信息，最早 T+1 open 成交；
 - long-only、gross<=1、cash>=0、无 margin；
 - future append、future mutation、timestamp/weekend/holiday、deterministic replay 测试全部通过；
-- schema v2/Qualification V3 在批准前保持有效，但 V5 runner 必须 fail closed，不得用 V3 近似 V4；
+- schema v2/Qualification V3 仅保留历史验证；V5 runner 必须 fail closed，不得用 V3 近似 V4；
 - Qualification V4 必须绑定 clean commit、governance v3、evaluation contract v2、composite ledger 和
   raw candidate/SPY/deployment returns；
 - `temporal_split_v1/v2/v3` 的 20%/25% gate 只属于锁定历史 protocol，不得被 V4 误读为当前权威；
@@ -555,9 +555,8 @@ PAPER 未满 756 sessions 时不得宣称已经完成该门的 forward 验证。
 7. raw 与 deployed NAV、收益损耗、exposure、trigger、override 和 parity 全部并列输出，不能用 sizing 后
    结果替换或美化 raw strategy evidence。
 
-本节会新增账户部署评价定义，因此与整个 v1.1 一样处于 `PENDING_USER_APPROVAL`。批准前不得改
-`config/research_governance.yaml`，也不得声称旧 `stress_slice_absolute_drawdown_gate_enabled:false` 已被
-悄悄反转。若用户最终决定绝对风险仍只作诊断，则状态必须继续停在 shadow、不能授予资本权限。
+本节的账户部署评价定义已随 governance schema v3 获用户批准。它不反转 raw-strategy 的相对 gate：
+账户路径证据不完整时状态必须停在 shadow，完整通过也仍保持本阶段 `capital_eligible=false`。
 
 ### 11.4 组合前置 gate
 

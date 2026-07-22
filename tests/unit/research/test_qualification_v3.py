@@ -22,7 +22,10 @@ COMMIT = "a" * 40
 
 def _fixture(tmp_path: Path) -> Path:
     (tmp_path / "config").mkdir(parents=True)
-    shutil.copy(ROOT / "config/research_governance.yaml", tmp_path / "config")
+    shutil.copy(
+        ROOT / "config/research_governance_v2.yaml",
+        tmp_path / "config/research_governance.yaml",
+    )
     return write_passing_qualification_v3(
         tmp_path, candidate_id="candidate-v3", code_commit=COMMIT
     )

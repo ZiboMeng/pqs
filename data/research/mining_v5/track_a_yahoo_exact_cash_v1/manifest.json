@@ -1,0 +1,133 @@
+{
+  "content_sha256": "8c9884d98b59bc31c7fb9988fa7d85eb3bc242ade79c363cc5be34890d6ad5b1",
+  "created_at_utc": "2026-07-22T22:54:33.375015+00:00",
+  "immutable": true,
+  "limitations": [
+    "Yahoo is a frozen development-data source, not exchange ground truth.",
+    "Current download time is recorded; reruns must create a new snapshot ID."
+  ],
+  "schema_version": 1,
+  "snapshot_id": "track_a_yahoo_exact_cash_v1",
+  "symbols": {
+    "BIL": {
+      "daily_path": "data/research/mining_v5/track_a_yahoo_exact_cash_v1/daily/BIL.parquet",
+      "daily_sha256": "0acfdfca1b11ec4819c62b3e6aceeb21f694b7b1095ff27628414a0f61e75152",
+      "distribution_events": 105,
+      "first_session": "2007-05-30",
+      "last_session": "2024-12-31",
+      "raw_normalized_records_sha256": "d9d6a1c7b60a65d10eb187586773c31dc49d4e4e37bd14d9c7d2715a1b837026",
+      "request": {
+        "actions": true,
+        "auto_adjust": false,
+        "end_exclusive": "2025-01-02",
+        "repair": true,
+        "start": "2006-12-01"
+      },
+      "sessions": 4429,
+      "source": "Yahoo Finance via pinned local yfinance environment",
+      "total_return_close_sha256": "6d4ffe6bc792d42253f574ac15ef2077f27527cfa78d262fd0f5bbf4d5d32cce"
+    },
+    "GLD": {
+      "daily_path": "data/research/mining_v5/track_a_yahoo_exact_cash_v1/daily/GLD.parquet",
+      "daily_sha256": "05b200e1d854a1dfc4565612b61d6161b82fae0117cd6f41ece4900d6b93627a",
+      "distribution_events": 0,
+      "first_session": "2006-12-01",
+      "last_session": "2024-12-31",
+      "raw_normalized_records_sha256": "aab58d99b367d195857985a75c80b4ccd8512ddea1d7199916a0dba8ea6a5537",
+      "request": {
+        "actions": true,
+        "auto_adjust": false,
+        "end_exclusive": "2025-01-02",
+        "repair": true,
+        "start": "2006-12-01"
+      },
+      "sessions": 4550,
+      "source": "Yahoo Finance via pinned local yfinance environment",
+      "total_return_close_sha256": "b8e803c60c8c74a0608b2a95f8cf87047b800ca173a982b463894335883f8a28"
+    },
+    "IEF": {
+      "daily_path": "data/research/mining_v5/track_a_yahoo_exact_cash_v1/daily/IEF.parquet",
+      "daily_sha256": "27f9dfe8ca09e926c1388881a5532eb99c181fa1034166fa9f3937edc28a2e32",
+      "distribution_events": 213,
+      "first_session": "2006-12-01",
+      "last_session": "2024-12-31",
+      "raw_normalized_records_sha256": "76cf33f85a6c3ab0917e7ece7879fda1c4b11ee71ec6294d0872b9dc0624e7c5",
+      "request": {
+        "actions": true,
+        "auto_adjust": false,
+        "end_exclusive": "2025-01-02",
+        "repair": true,
+        "start": "2006-12-01"
+      },
+      "sessions": 4550,
+      "source": "Yahoo Finance via pinned local yfinance environment",
+      "total_return_close_sha256": "ccab7e26ea1a17b42fccc18fdfb18d6e98d845f00ac9cfcd819576b4bf1ce660"
+    },
+    "MTUM": {
+      "daily_path": "data/research/mining_v5/track_a_yahoo_exact_cash_v1/daily/MTUM.parquet",
+      "daily_sha256": "c88d27f643abf055d4de82bea58c2d1ffd047877036fcfe1aa1d12aaf56ca00e",
+      "distribution_events": 47,
+      "first_session": "2013-04-18",
+      "last_session": "2024-12-31",
+      "raw_normalized_records_sha256": "1513f717914488fffba3d82e0e342f370cb5c9b2d5f80ddff6131271f8255ce2",
+      "request": {
+        "actions": true,
+        "auto_adjust": false,
+        "end_exclusive": "2025-01-02",
+        "repair": true,
+        "start": "2006-12-01"
+      },
+      "sessions": 2947,
+      "source": "Yahoo Finance via pinned local yfinance environment",
+      "total_return_close_sha256": "a4dabd46cbbfccc31656272341c63bad06c659bea5637769d5552e1dbe17431f"
+    },
+    "QUAL": {
+      "daily_path": "data/research/mining_v5/track_a_yahoo_exact_cash_v1/daily/QUAL.parquet",
+      "daily_sha256": "0d09c1bc52849daafac79b03a465784ee795f4a0f6374cde6c280556d06068b7",
+      "distribution_events": 45,
+      "first_session": "2013-07-18",
+      "last_session": "2024-12-31",
+      "raw_normalized_records_sha256": "d2cb62432e3beac49bd6a6d590c85c8fd65056011e5a0333b508ef422f28e8c9",
+      "request": {
+        "actions": true,
+        "auto_adjust": false,
+        "end_exclusive": "2025-01-02",
+        "repair": true,
+        "start": "2006-12-01"
+      },
+      "sessions": 2884,
+      "source": "Yahoo Finance via pinned local yfinance environment",
+      "total_return_close_sha256": "3b3a9a261199062bfbea15f9be6835e5a81832e4fae3ed03fd7885cd823dd38a"
+    },
+    "SPY": {
+      "daily_path": "data/research/mining_v5/track_a_yahoo_exact_cash_v1/daily/SPY.parquet",
+      "daily_sha256": "6dd5370a56faf090dacb8841d0ba019ee7b0f4bbc5f52d98c95e563e5fa0ccf9",
+      "distribution_events": 72,
+      "first_session": "2007-01-03",
+      "last_session": "2024-12-31",
+      "sessions": 4530,
+      "source": "preexisting_canonical_exact_cash_snapshot",
+      "total_return_close_sha256": "ee89a44af6f8830474a00a05c7562ca1d8f7402de12a32e498f6fd3552b9de3a",
+      "upstream_path_at_build": "/home/zibo/Documents/projects/pqs/data/research/mining_v4/yahoo_exact_cash_ledger_2007_2024_v6/daily/SPY.parquet",
+      "upstream_sha256": "1990e0b88a726c250d6b01998793e864f85cf5daa240d66770699f21b76c91d8"
+    },
+    "USMV": {
+      "daily_path": "data/research/mining_v5/track_a_yahoo_exact_cash_v1/daily/USMV.parquet",
+      "daily_sha256": "5494bcef5fb90e49e9f6df3db705f5439d44cf9652c4d1ebc1464298b6933c6c",
+      "distribution_events": 55,
+      "first_session": "2011-10-20",
+      "last_session": "2024-12-31",
+      "raw_normalized_records_sha256": "f287f3b735f10e875ae3382665430eaf4a1e7383a9fdb702df74bd0480efb825",
+      "request": {
+        "actions": true,
+        "auto_adjust": false,
+        "end_exclusive": "2025-01-02",
+        "repair": true,
+        "start": "2006-12-01"
+      },
+      "sessions": 3320,
+      "source": "Yahoo Finance via pinned local yfinance environment",
+      "total_return_close_sha256": "c8df69226a6696b7e7208ee7e03070323167d1f8d6aead80c3fc72e68df45fdc"
+    }
+  }
+}

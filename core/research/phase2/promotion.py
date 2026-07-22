@@ -91,13 +91,18 @@ class PromotionPolicy:
         c = evidence.controls
         gates: list[GateResult] = []
         governance = load_research_governance(self.governance_path)
-        drawdown_policy = (
-            governance.automatic_promotion_evidence.annual_drawdown_comparison
-        )
-        annual_relative_drawdown_is_authoritative = (
-            governance.schema_version >= 2
-            and drawdown_policy.absolute_max_drawdown_gate_enabled is False
-        )
+        promotion_policy = governance.automatic_promotion_evidence
+        if governance.schema_version == 2:
+            drawdown_policy = promotion_policy.annual_drawdown_comparison
+            relative_drawdown_is_authoritative = (
+                drawdown_policy.absolute_max_drawdown_gate_enabled is False
+            )
+        else:
+            drawdown_policy = promotion_policy.balanced_drawdown_comparison
+            relative_drawdown_is_authoritative = (
+                drawdown_policy.raw_strategy_absolute_max_drawdown_gate_enabled
+                is False
+            )
 
         def minimum(
             name: str,
@@ -179,7 +184,7 @@ class PromotionPolicy:
             "max_drawdown_legacy_absolute_diagnostic",
             abs(float(m.get("max_drawdown", 1.0))),
             min(common["max_drawdown"], type_gates["max_drawdown"]),
-            binding=not annual_relative_drawdown_is_authoritative,
+            binding=not relative_drawdown_is_authoritative,
         )
         minimum("calmar", m.get("calmar"), type_gates["min_calmar"])
         minimum("positive_walk_forward_fraction", r.get("positive_walk_forward_fraction"), common["min_positive_walk_forward_fraction"])
@@ -192,7 +197,7 @@ class PromotionPolicy:
             "stress_drawdown_legacy_absolute_diagnostic",
             abs(float(r.get("worst_stress_drawdown", 1.0))),
             common["max_stress_drawdown"],
-            binding=not annual_relative_drawdown_is_authoritative,
+            binding=not relative_drawdown_is_authoritative,
         )
         maximum("annual_turnover", m.get("annual_turnover"), min(common["max_annual_turnover"], type_gates.get("max_annual_turnover", float("inf"))))
 
@@ -207,7 +212,7 @@ class PromotionPolicy:
                 "maxdd_improvement_vs_spy",
                 abs(float(b.get("max_drawdown", 0.0))) - abs(float(m.get("max_drawdown", 1.0))),
                 type_gates["min_max_drawdown_improvement_vs_spy"],
-                binding=not annual_relative_drawdown_is_authoritative,
+                binding=not relative_drawdown_is_authoritative,
             )
         elif evidence.strategy_type == "growth_engine":
             minimum(
@@ -235,7 +240,7 @@ class PromotionPolicy:
                 "maxdd_improvement_vs_spy",
                 abs(float(b.get("max_drawdown", 0.0))) - abs(float(m.get("max_drawdown", 1.0))),
                 type_gates["min_max_drawdown_improvement_vs_spy"],
-                binding=not annual_relative_drawdown_is_authoritative,
+                binding=not relative_drawdown_is_authoritative,
             )
 
         required_true("deterministic_rerun", c.get("deterministic_rerun"))
@@ -257,12 +262,19 @@ class PromotionPolicy:
                 "bound_promotion_evidence",
                 promotion_evidence.passed,
             )
-            qualification_v3 = promotion_evidence.payload.get("qualification_v3")
+            qualification_v4 = promotion_evidence.payload.get("qualification_v4")
             required_true(
-                "annual_drawdown_strictly_better_than_spy",
-                isinstance(qualification_v3, Mapping)
-                and qualification_v3.get("annual_drawdown_gate_passed") is True
-                and qualification_v3.get("absolute_drawdown_gate_enabled") is False,
+                "balanced_drawdown_all_scenarios",
+                isinstance(qualification_v4, Mapping)
+                and qualification_v4.get("balanced_drawdown_gate_passed") is True
+                and qualification_v4.get(
+                    "raw_absolute_drawdown_gate_enabled"
+                ) is False,
+            )
+            required_true(
+                "account_deployment_risk_contract",
+                isinstance(qualification_v4, Mapping)
+                and qualification_v4.get("account_deployment_risk_passed") is True,
             )
         return PromotionDecision(
             strategy_id=evidence.strategy_id,
