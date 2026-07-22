@@ -195,7 +195,126 @@ class AppendOnlyTrialLedger:
             os.fsync(descriptor)
         finally:
             os.close(descriptor)
+        # Persist the directory entry as well as the file contents.  This is
+        # material for a newly-created ledger if the host loses power between
+        # the file fsync and the directory metadata reaching stable storage.
+        directory = os.open(self.path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
         return event
+
+    def _record_lifecycle_event(
+        self,
+        trial_id: str,
+        *,
+        event_type: str,
+        payload: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        allowed = {"STARTED", "FAILED", "ABORTED", "ARTIFACT_BOUND"}
+        if event_type not in allowed:
+            raise ValueError(f"unsupported lifecycle event {event_type!r}")
+        self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with self.lock_path.open("a+b") as lock:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            try:
+                events = self._read_verified_unlocked()
+                intents = [
+                    event for event in events
+                    if event["trial_id"] == trial_id
+                    and event["event_type"] in {"INTENT", "REPLAY_INTENT"}
+                ]
+                if not intents:
+                    raise TrialLedgerError(
+                        f"cannot record {event_type.lower()} before intent "
+                        f"for {trial_id!r}"
+                    )
+                terminal = {"OUTCOME", "FAILED", "ABORTED"}
+                if event_type in terminal and any(
+                    event["trial_id"] == trial_id
+                    and event["event_type"] in terminal
+                    for event in events
+                ):
+                    raise TrialLedgerError(
+                        f"terminal event already exists for trial {trial_id!r}"
+                    )
+                if event_type == "STARTED" and any(
+                    event["trial_id"] == trial_id
+                    and event["event_type"] == "STARTED"
+                    for event in events
+                ):
+                    raise TrialLedgerError(
+                        f"started event already exists for trial {trial_id!r}"
+                    )
+                if event_type == "ARTIFACT_BOUND" and not any(
+                    event["trial_id"] == trial_id
+                    and event["event_type"] == "OUTCOME"
+                    for event in events
+                ):
+                    raise TrialLedgerError(
+                        f"cannot bind artifact before outcome for {trial_id!r}"
+                    )
+                return self._append_unlocked(
+                    events,
+                    event_type=event_type,
+                    trial_id=trial_id,
+                    content_hash=intents[0]["content_hash"],
+                    payload=dict(payload),
+                )
+            finally:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+    def record_started(self, trial_id: str) -> dict[str, Any]:
+        """Mark compute start after a durable intent was registered."""
+
+        return self._record_lifecycle_event(
+            trial_id, event_type="STARTED", payload={"started": True})
+
+    def record_failed(
+        self,
+        trial_id: str,
+        *,
+        error_type: str,
+        message: str,
+    ) -> dict[str, Any]:
+        """Retain a failed computation as a counted terminal trial."""
+
+        if not error_type.strip() or not message.strip():
+            raise ValueError("failed trial requires error_type and message")
+        return self._record_lifecycle_event(
+            trial_id,
+            event_type="FAILED",
+            payload={"error_type": error_type, "message": message},
+        )
+
+    def record_aborted(self, trial_id: str, *, reason: str) -> dict[str, Any]:
+        """Retain a deliberately pruned/aborted trial without erasing N."""
+
+        if not reason.strip():
+            raise ValueError("aborted trial requires a reason")
+        return self._record_lifecycle_event(
+            trial_id, event_type="ABORTED", payload={"reason": reason})
+
+    def bind_artifact(
+        self,
+        trial_id: str,
+        *,
+        path: str,
+        sha256: str,
+        artifact_type: str,
+    ) -> dict[str, Any]:
+        """Bind an immutable outcome artifact after successful completion."""
+
+        if len(sha256) != 64 or any(char not in "0123456789abcdef" for char in sha256):
+            raise ValueError("artifact sha256 must be 64 lowercase hex characters")
+        if not path.strip() or not artifact_type.strip():
+            raise ValueError("artifact binding requires path and artifact_type")
+        return self._record_lifecycle_event(
+            trial_id,
+            event_type="ARTIFACT_BOUND",
+            payload={"path": path, "sha256": sha256, "artifact_type": artifact_type},
+        )
 
     def register_intent(self, intent: TrialIntent) -> TrialRegistration:
         self.lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -282,11 +401,11 @@ class AppendOnlyTrialLedger:
                         f"cannot record outcome before intent for {trial_id!r}")
                 if any(
                     event["trial_id"] == trial_id
-                    and event["event_type"] == "OUTCOME"
+                    and event["event_type"] in {"OUTCOME", "FAILED", "ABORTED"}
                     for event in events
                 ):
                     raise TrialLedgerError(
-                        f"outcome already exists for trial {trial_id!r}")
+                        f"terminal event already exists for trial {trial_id!r}")
                 return self._append_unlocked(
                     events,
                     event_type="OUTCOME",
@@ -316,9 +435,42 @@ class AppendOnlyTrialLedger:
         }
         complete = {
             event["trial_id"] for event in events
-            if event["event_type"] == "OUTCOME"
+            if event["event_type"] in {"OUTCOME", "FAILED", "ABORTED"}
         }
         return sorted(intended - complete)
+
+    def snapshot(self) -> dict[str, Any]:
+        """Return the mechanically verifiable trial universe at this head."""
+
+        events = self.verified_events()
+        terminal = {"OUTCOME", "FAILED", "ABORTED"}
+        status_by_id: dict[str, str] = {}
+        content_hashes: list[str] = []
+        for event in events:
+            if event["event_type"] == "INTENT":
+                content_hashes.append(event["content_hash"])
+                status_by_id[event["trial_id"]] = "INTENT"
+            elif event["event_type"] in terminal:
+                status_by_id[event["trial_id"]] = event["event_type"]
+        ledger_sha = hashlib.sha256(self.path.read_bytes()).hexdigest() if self.path.exists() else hashlib.sha256(b"").hexdigest()
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "ledger_sha256": ledger_sha,
+            "head_event_hash": events[-1]["event_hash"] if events else GENESIS_HASH,
+            "event_count": len(events),
+            "raw_independent_n": len(content_hashes),
+            "independent_content_hashes_sha256": hashlib.sha256(
+                "\n".join(sorted(content_hashes)).encode("utf-8")
+            ).hexdigest(),
+            "terminal_counts": {
+                name: sum(status == name for status in status_by_id.values())
+                for name in ("OUTCOME", "FAILED", "ABORTED", "INTENT")
+            },
+            "incomplete_trial_ids": sorted(
+                trial_id for trial_id, status in status_by_id.items()
+                if status == "INTENT"
+            ),
+        }
 
 
 def count_independent_trials(events: Iterable[Mapping[str, Any]]) -> int:

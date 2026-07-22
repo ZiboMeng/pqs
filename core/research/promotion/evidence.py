@@ -16,7 +16,10 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from core.research.governance import load_research_governance
-
+from core.research.qualification_v2 import (
+    canonical_sha256,
+    validate_qualification_artifact,
+)
 
 REQUIRED_BOUND_SOURCES = (
     "config/backtest.yaml",
@@ -40,6 +43,7 @@ REQUIRED_BOUND_SOURCES = (
     "core/research/overfit_metrics.py",
     "core/research/phase2/promotion.py",
     "core/research/promotion/evidence.py",
+    "core/research/qualification_v2.py",
     "core/research/temporal_split_acceptance.py",
     "core/signals/strategies/multi_factor.py",
     "scripts/promote_strategy.py",
@@ -131,7 +135,7 @@ def validate_promotion_evidence(
         policy = None
 
     if payload:
-        if payload.get("schema_version") != 1:
+        if payload.get("schema_version") != 2:
             failed.append("promotion_evidence_schema")
         if payload.get("candidate_id") != expected_candidate_id:
             failed.append("promotion_evidence_candidate_mismatch")
@@ -184,28 +188,12 @@ def validate_promotion_evidence(
                     ):
                         failed.append(f"lookahead_source_hash_mismatch:{relative}")
 
-        overfit = payload.get("overfit")
-        if not isinstance(overfit, dict):
-            failed.append("overfit_evidence_missing")
-        elif policy is not None:
-            honest_n = overfit.get("honest_n_trials")
-            if not isinstance(honest_n, int) or isinstance(honest_n, bool) or honest_n < 2:
-                failed.append("overfit_honest_n_invalid")
-            dsr = _finite_number(overfit.get("deflated_sharpe_probability"))
-            if dsr is None or dsr < policy.min_deflated_sharpe_probability:
-                failed.append("overfit_dsr_below_threshold")
-            pbo = _finite_number(overfit.get("probability_backtest_overfitting"))
-            if pbo is None or pbo > policy.max_probability_backtest_overfitting:
-                failed.append("overfit_pbo_above_threshold")
-            if overfit.get("minimum_backtest_length_passed") is not True:
-                failed.append("overfit_minimum_backtest_length_failed")
-            if overfit.get("cpcv_passed") is not True:
-                failed.append("overfit_cpcv_failed")
-            folds = overfit.get("cpcv_n_folds")
-            if not isinstance(folds, int) or isinstance(folds, bool) or folds < policy.minimum_cpcv_folds:
-                failed.append("overfit_cpcv_folds_insufficient")
-            source = _resolve_reference(root, overfit.get("artifact_path"))
-            expected_sha = overfit.get("artifact_sha256")
+        qualification = payload.get("qualification_v2")
+        if not isinstance(qualification, dict):
+            failed.append("qualification_v2_missing")
+        else:
+            source = _resolve_reference(root, qualification.get("artifact_path"))
+            expected_sha = qualification.get("artifact_sha256")
             if (
                 source is None
                 or _repo_relative(root, source) is None
@@ -213,7 +201,24 @@ def validate_promotion_evidence(
                 or not isinstance(expected_sha, str)
                 or sha256_file(source) != expected_sha
             ):
-                failed.append("overfit_source_artifact_mismatch")
+                failed.append("qualification_v2_artifact_mismatch")
+            else:
+                canonical = validate_qualification_artifact(
+                    source,
+                    expected_candidate_id=expected_candidate_id,
+                    repo_root=root,
+                    expected_code_commit=expected_code_commit or code_commit,
+                    governance_path=governance_path,
+                )
+                if not canonical.passed:
+                    failed.extend(
+                        f"qualification_v2:{item}"
+                        for item in canonical.failed_checks
+                    )
+                if qualification.get("computed_sha256") != canonical_sha256(
+                    canonical.recomputed
+                ):
+                    failed.append("qualification_v2_computed_digest_mismatch")
 
         alignment = payload.get("paper_backtest_alignment")
         if not isinstance(alignment, dict):

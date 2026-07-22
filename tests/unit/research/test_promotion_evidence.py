@@ -9,7 +9,9 @@ from core.research.promotion.evidence import (
     sha256_file,
     validate_promotion_evidence,
 )
-
+from tests.unit.research._qualification_fixture import (
+    write_passing_qualification_v2,
+)
 
 ROOT = Path(__file__).resolve().parents[3]
 COMMIT = "a" * 40
@@ -26,8 +28,8 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path]:
             source.write_text(f"fixture for {relative}\n", encoding="utf-8")
         source_hashes[relative] = sha256_file(source)
     source = tmp_path / REQUIRED_BOUND_SOURCES[0]
-    qualification = tmp_path / "qualification.json"
-    qualification.write_text(json.dumps({"candidate_id": "candidate-1"}))
+    qualification = write_passing_qualification_v2(
+        tmp_path, candidate_id="candidate-1", code_commit=COMMIT)
     alignment = tmp_path / "alignment.json"
     alignment.write_text(
         json.dumps({"passed": True, "max_equity_drift_bps": 0.5}),
@@ -36,7 +38,7 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path]:
     evidence = tmp_path / "evidence.json"
     evidence.write_text(
         json.dumps({
-            "schema_version": 1,
+            "schema_version": 2,
             "candidate_id": "candidate-1",
             "code_commit": COMMIT,
             "benchmark": {
@@ -50,15 +52,11 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path]:
                 "tests": ["timing"],
                 "source_hashes": source_hashes,
             },
-            "overfit": {
-                "honest_n_trials": 20,
-                "deflated_sharpe_probability": 0.97,
-                "probability_backtest_overfitting": 0.25,
-                "minimum_backtest_length_passed": True,
-                "cpcv_passed": True,
-                "cpcv_n_folds": 15,
-                "artifact_path": "qualification.json",
+            "qualification_v2": {
+                "artifact_path": str(qualification.relative_to(tmp_path)),
                 "artifact_sha256": sha256_file(qualification),
+                "computed_sha256": json.loads(
+                    qualification.read_text())["computed_sha256"],
             },
             "paper_backtest_alignment": {
                 "passed": True,
@@ -98,10 +96,10 @@ def test_source_drift_fails_closed(tmp_path: Path) -> None:
     assert any(item.startswith("lookahead_source_hash_mismatch") for item in result.failed_checks)
 
 
-def test_overfit_threshold_failure_routes_to_hold(tmp_path: Path) -> None:
+def test_qualification_digest_tamper_routes_to_hold(tmp_path: Path) -> None:
     evidence, _ = _fixture(tmp_path)
     payload = json.loads(evidence.read_text())
-    payload["overfit"]["deflated_sharpe_probability"] = 0.50
+    payload["qualification_v2"]["computed_sha256"] = "0" * 64
     evidence.write_text(json.dumps(payload), encoding="utf-8")
     result = validate_promotion_evidence(
         evidence,
@@ -110,7 +108,7 @@ def test_overfit_threshold_failure_routes_to_hold(tmp_path: Path) -> None:
         expected_code_commit=COMMIT,
     )
     assert not result.passed
-    assert "overfit_dsr_below_threshold" in result.failed_checks
+    assert "qualification_v2_computed_digest_mismatch" in result.failed_checks
 
 
 def test_missing_evidence_is_never_a_pass(tmp_path: Path) -> None:

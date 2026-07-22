@@ -11,6 +11,9 @@ from core.research.phase2.paper_promotion import promote
 from core.research.phase2.promotion import CandidateEvidence, PromotionPolicy
 from core.research.phase2.registry import ExperimentRegistry, ExperimentSpec
 from core.research.promotion.evidence import REQUIRED_BOUND_SOURCES, sha256_file
+from tests.unit.research._qualification_fixture import (
+    write_passing_qualification_v2,
+)
 
 
 def _spec(commit: str = "abc123") -> ExperimentSpec:
@@ -277,13 +280,16 @@ def _paper_promotion_fixture(tmp_path: Path) -> dict[str, object]:
         if not source.exists():
             source.write_text(f"fixture for {relative}\n", encoding="utf-8")
         source_hashes[relative] = sha256_file(source)
-    qualification = tmp_path / "qualification.json"
-    _write_json(qualification, {"candidate_id": "dual_index_growth_v1"})
+    qualification = write_passing_qualification_v2(
+        tmp_path,
+        candidate_id="dual_index_growth_v1",
+        code_commit=commit,
+    )
     promotion_evidence = tmp_path / "promotion_evidence.json"
     _write_json(
         promotion_evidence,
         {
-            "schema_version": 1,
+            "schema_version": 2,
             "candidate_id": "dual_index_growth_v1",
             "code_commit": commit,
             "benchmark": {
@@ -297,15 +303,11 @@ def _paper_promotion_fixture(tmp_path: Path) -> dict[str, object]:
                 "tests": ["timing"],
                 "source_hashes": source_hashes,
             },
-            "overfit": {
-                "honest_n_trials": 20,
-                "deflated_sharpe_probability": 0.97,
-                "probability_backtest_overfitting": 0.20,
-                "minimum_backtest_length_passed": True,
-                "cpcv_passed": True,
-                "cpcv_n_folds": 10,
+            "qualification_v2": {
                 "artifact_path": str(qualification.relative_to(tmp_path)),
                 "artifact_sha256": sha256_file(qualification),
+                "computed_sha256": json.loads(
+                    qualification.read_text())["computed_sha256"],
             },
             "paper_backtest_alignment": {
                 "passed": True,

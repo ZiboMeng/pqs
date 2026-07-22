@@ -96,3 +96,38 @@ def test_concurrent_intents_form_one_contiguous_chain(tmp_path):
     events = ledger.verified_events()
     assert [event["sequence"] for event in events] == list(range(1, 17))
     assert ledger.independent_trial_count("numeric_rank") == 16
+
+
+def test_failed_aborted_and_artifact_lifecycle_are_append_only(tmp_path):
+    ledger = AppendOnlyTrialLedger(tmp_path / "trials.jsonl")
+    ledger.register_intent(_intent("success"))
+    ledger.record_started("success")
+    ledger.record_outcome("success", {"verdict": "PASS"})
+    ledger.bind_artifact(
+        "success", path="result.json", sha256="a" * 64,
+        artifact_type="trial_result",
+    )
+
+    ledger.register_intent(_intent("failed", seed=43))
+    ledger.record_failed(
+        "failed", error_type="DataError", message="missing borrow snapshot")
+    ledger.register_intent(_intent("aborted", seed=44))
+    ledger.record_aborted("aborted", reason="pre-registered feasibility gate")
+
+    assert ledger.independent_trial_count() == 3
+    assert ledger.incomplete_trial_ids() == []
+    snapshot = ledger.snapshot()
+    assert snapshot["terminal_counts"] == {
+        "OUTCOME": 1, "FAILED": 1, "ABORTED": 1, "INTENT": 0,
+    }
+    assert snapshot["event_count"] == 8
+
+
+def test_crash_after_intent_is_recoverable_as_counted_failure(tmp_path):
+    ledger = AppendOnlyTrialLedger(tmp_path / "trials.jsonl")
+    ledger.register_intent(_intent("crashed"))
+    assert ledger.snapshot()["incomplete_trial_ids"] == ["crashed"]
+    ledger.record_failed(
+        "crashed", error_type="RecoveredProcessCrash", message="no outcome found")
+    assert ledger.snapshot()["incomplete_trial_ids"] == []
+    assert ledger.independent_trial_count() == 1

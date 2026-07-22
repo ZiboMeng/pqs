@@ -10,6 +10,9 @@ defined at the bottom of this file. Within each category section,
 
 ## Active Codex phase-three evidence
 
+- [prd/20260721-short-paper-research-lane-prd.md](prd/20260721-short-paper-research-lane-prd.md) —
+  隔离 short PAPER 的 signed account、borrow/locate、margin、Rule 201、recall、公司行动、
+  source-batch 和同日起 forward 契约；当前历史 borrow 不足时严格为 `RESEARCH_INCOMPLETE`。
 - [memos/20260721-next-stage-audited-action-plan.md](memos/20260721-next-stage-audited-action-plan.md) —
   审计后的下一阶段可执行顺序：先做 append-only trial ledger 与 canonical qualification
   重算，再做共享 score 的 long-only/short constructions、隔离 Short PAPER 和同日起并行 forward。

@@ -26,7 +26,9 @@ from core.research.promotion.evidence import (  # noqa: E402
     REQUIRED_BOUND_SOURCES,
     sha256_file,
 )
-
+from core.research.qualification_v2 import (  # noqa: E402
+    validate_qualification_artifact,
+)
 
 LOOKAHEAD_TESTS = (
     "tests/unit/backtest/test_backtest_engine.py",
@@ -99,6 +101,19 @@ def main() -> int:
     if qualification.get("code_commit") != commit:
         print("ERROR: qualification code_commit mismatch", file=sys.stderr)
         return 2
+    canonical = validate_qualification_artifact(
+        qualification_path,
+        expected_candidate_id=args.candidate_id,
+        expected_code_commit=commit,
+        repo_root=ROOT,
+    )
+    if not canonical.passed:
+        print(
+            "ERROR: canonical qualification V2 failed: "
+            + ",".join(canonical.failed_checks),
+            file=sys.stderr,
+        )
+        return 2
 
     command = [sys.executable, "-m", "pytest", "-q", *LOOKAHEAD_TESTS]
     completed = subprocess.run(
@@ -113,7 +128,7 @@ def main() -> int:
         path: sha256_file(ROOT / path) for path in REQUIRED_BOUND_SOURCES
     }
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "candidate_id": args.candidate_id,
         "code_commit": commit,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -132,10 +147,10 @@ def main() -> int:
             ).hexdigest(),
             "source_hashes": source_hashes,
         },
-        "overfit": {
-            **qualification.get("overfit", {}),
+        "qualification_v2": {
             "artifact_path": str(qualification_relative),
             "artifact_sha256": sha256_file(qualification_path),
+            "computed_sha256": qualification.get("computed_sha256"),
         },
     }
     if alignment_path is not None and alignment is not None:
