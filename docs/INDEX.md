@@ -10,6 +10,9 @@ defined at the bottom of this file. Within each category section,
 
 ## Active Codex phase-three evidence
 
+- [audit/20260721-diverse-mining-final-audit.md](audit/20260721-diverse-mining-final-audit.md) —
+  30 轮多样化挖掘的最终权威审计：0 formal、2 个仅 DSR 失败的 REVIEW_HOLD、short/LLM
+  诚实未完成，以及两次自审纠错、ledger/qualification 独立复算和明确出口。
 - [audit/20260721-diverse-mining-postrun-correction.md](audit/20260721-diverse-mining-postrun-correction.md) —
   首次 30 轮完成后的窗口语义自审：保留 raw-N=30 ledger，失效含 pre-activation cash/2020 截短的
   汇总，并限定同规格、零新增 trial 的 corrective replay。

@@ -1,0 +1,182 @@
+{
+  "automatic_promotion_eligible": false,
+  "candidate_id": "volatility_regime_overlay",
+  "code_commit": "d7e0192d6176d3c1cc56b322af0323561573ed42",
+  "computed": {
+    "active": {
+      "annualized_sharpe": 0.37298253854580043,
+      "beta_alpha": {
+        "annualized_alpha": 0.029966476290056082,
+        "annualized_alpha_ci95_high": 0.07841683524652582,
+        "annualized_alpha_ci95_low": -0.018483882666413643,
+        "beta": 0.9936025906194753
+      },
+      "cagr_excess_vs_spy": 0.02987477571481678,
+      "max_drawdown_vs_spy_ratio": 0.9176075893702385,
+      "mean_confidence_interval": {
+        "annualized_ci95_high": 0.07633143618172979,
+        "annualized_ci95_low": -0.018059276939228083,
+        "annualized_mean": 0.02913607962125085,
+        "daily_mean": 0.00011561936357639226,
+        "newey_west_lag": 5
+      },
+      "rolling_252d_excess_fraction": 0.7190812720848057
+    },
+    "automatic_promotion_eligible": false,
+    "benchmark": {
+      "cagr": 0.12350343605936565,
+      "max_drawdown": -0.3143458359623982,
+      "symbol": "SPY"
+    },
+    "binding_return_basis": "after_cost_candidate_minus_spy_active_returns",
+    "candidate": {
+      "annualized_sharpe": 0.8842931655164191,
+      "cagr": 0.15337821177418243,
+      "max_drawdown": -0.2884461247660286
+    },
+    "candidate_id": "volatility_regime_overlay",
+    "candidate_specific_timing": {
+      "deterministic_replay_passed": true,
+      "future_mutation_passed": true,
+      "next_session_execution_passed": true,
+      "prefix_invariance_passed": true
+    },
+    "cost_stress": {
+      "base_30bps": {
+        "cagr": 0.15337821177418243,
+        "cagr_excess_vs_spy": 0.02987477571481678,
+        "max_drawdown": -0.2884461247660286,
+        "max_drawdown_vs_spy_ratio": 0.9176075893702385
+      },
+      "double_60bps": {
+        "cagr": 0.1248677516921104,
+        "cagr_excess_vs_spy": 0.0013643156327447503,
+        "max_drawdown": -0.29249402209711495,
+        "max_drawdown_vs_spy_ratio": 0.930484799334523
+      },
+      "triple_90bps": {
+        "cagr": 0.09718356016099006,
+        "cagr_excess_vs_spy": -0.02631987589837559,
+        "max_drawdown": -0.30915103472336913,
+        "max_drawdown_vs_spy_ratio": 0.9834742482809588
+      }
+    },
+    "effective_n_diagnostic_only": {
+      "effective_n": 12,
+      "n_configs": 27,
+      "silhouette": 0.5755
+    },
+    "evidence_scope": "DEVELOPMENT_ONLY",
+    "gates": {
+      "after_cost_cagr_excess_vs_spy": true,
+      "base_drawdown_vs_spy": true,
+      "candidate_specific_timing": true,
+      "cpcv_return_distribution": true,
+      "deflated_sharpe_probability": false,
+      "minimum_backtest_length": false,
+      "probability_backtest_overfitting": true,
+      "rolling_252d_excess_fraction": true,
+      "worst_cost_stress_drawdown_vs_spy": true
+    },
+    "overfit": {
+      "cpcv": {
+        "active_sharpe_by_split": [
+          0.19494320497130765,
+          -0.13508988535712343,
+          0.7230464854070979,
+          0.5446311202026006,
+          0.40080209284908647,
+          -0.27587670943022563,
+          0.5746915658637871,
+          0.37154315974565777,
+          0.265304919996919,
+          0.35004593939058093,
+          0.10177880812973786,
+          0.03473531426060278,
+          0.8139531218487022,
+          0.689666268534437,
+          0.5261743824696082
+        ],
+        "annualized_active_mean_by_split": [
+          0.01141979941310061,
+          -0.0077795701477244295,
+          0.05825509530967186,
+          0.035984750413974795,
+          0.03167148318232616,
+          -0.01739943755964415,
+          0.04862374834236798,
+          0.02635340344667092,
+          0.022051615770406433,
+          0.02938003557662129,
+          0.007136234596175355,
+          0.002862445677680825,
+          0.07318869934324217,
+          0.06883108890667188,
+          0.04658728792622594
+        ],
+        "embargo_frac": 0.01,
+        "horizon": 21,
+        "k_test": 2,
+        "median_annualized_active_mean": 0.02938003557662129,
+        "n_groups": 6,
+        "n_paths": 5,
+        "n_splits": 15,
+        "passed": true,
+        "positive_active_split_fraction": 0.8666666666666667
+      },
+      "deflated_sharpe": {
+        "T": 2516,
+        "deflated_sharpe": 0.022426860552977212,
+        "kurtosis": 8.484669048240688,
+        "n_trials": 30,
+        "sharpe": 0.023495691437184538,
+        "skew": -0.14888360860521946,
+        "sr0": 0.06358686362227783
+      },
+      "minimum_backtest_length": {
+        "actual_years": 9.984126984126984,
+        "expected_max_sr_annual": 2.608140096567727,
+        "min_btl_years": 48.8972945722759,
+        "n_trials": 30,
+        "passed": false,
+        "reason": "backtest_shorter_than_min_btl",
+        "safety_multiple": 1.0
+      },
+      "probability_backtest_overfitting": {
+        "S": 10,
+        "mean_logit": 1.5697740483699738,
+        "n_combinations": 252,
+        "pbo": 0.011904761904761904
+      }
+    },
+    "periods": 2516,
+    "qualification_passed": false,
+    "raw_independent_n": 30,
+    "successful_trials_in_performance_matrix": 27,
+    "worst_cost_stress_drawdown_vs_spy_ratio": 0.9834742482809588
+  },
+  "computed_sha256": "bb84f00d9555ae84f14a24f9321fa866b0605bbb30bb7a52f621a234edf4d8df",
+  "evidence_scope": "DEVELOPMENT_ONLY",
+  "input_bundle": {
+    "path": "research/results/mining_campaign_20260721_v1_authoritative/qualification_inputs/volatility_regime_overlay.json",
+    "sha256": "4374fcf0c884066e2a614c9710d70120aac1c96b968dff5563d58abbbfec4b06"
+  },
+  "observed_through": "2026-07-17",
+  "schema_version": 2,
+  "trial_ledger": {
+    "event_count": 118,
+    "head_event_hash": "d056cbee3a5d276855c72c78f71c70fda273eef02ffb3d222750d0a087d6a276",
+    "incomplete_trial_ids": [],
+    "independent_content_hashes_sha256": "26bbe59e0608f4dae274c9af2f6ff06476fca4e0a6cb429f3ef4eeb50a987c45",
+    "ledger_sha256": "a2215c21d17280a3d867a20999cd2a92d33bc4d397cc40b443ff6790efbe1de1",
+    "path": "research/results/mining_campaign_20260721_v1/trial_ledger.jsonl",
+    "raw_independent_n": 30,
+    "schema_version": 1,
+    "terminal_counts": {
+      "ABORTED": 0,
+      "FAILED": 1,
+      "INTENT": 0,
+      "OUTCOME": 29
+    }
+  }
+}

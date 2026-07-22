@@ -1,0 +1,36 @@
+{
+  "campaign_id": "diverse-mining-20260721-v1",
+  "outcome": {
+    "formal_candidate_eligible": false,
+    "reason": "NO_POINT_IN_TIME_BORROW_LOCATE_FEE_RECALL_HISTORY",
+    "status": "RESEARCH_INCOMPLETE",
+    "synthetic_diagnostic": {
+      "30": {
+        "annualized_mean": -0.031193426133682808,
+        "cumulative_return": -0.5438504547928542
+      },
+      "60": {
+        "annualized_mean": -0.05247157182904705,
+        "cumulative_return": -0.6893518625976569
+      },
+      "90": {
+        "annualized_mean": -0.07374971752441128,
+        "cumulative_return": -0.7887192970117872
+      }
+    }
+  },
+  "round_spec": {
+    "construction": "market_neutral",
+    "family": "long_short_residual",
+    "features": {
+      "beta_63": -0.5,
+      "rs_spy_126": 1.0,
+      "rs_spy_63": 1.0
+    },
+    "id": "synthetic_long_short_residual",
+    "kind": "synthetic_short",
+    "round": 29
+  },
+  "schema_version": 1,
+  "trial_id": "diverse-mining-v1-r29-synthetic_long_short_residual"
+}

@@ -28,8 +28,8 @@ Qualification V2 逐项对账。发现两个相反方向的窗口错误：
 - short 两轮仍是 `RESEARCH_INCOMPLETE`，LLM blocker 仍是 counted failure；
 - 没有第 31 个参数、没有看结果后修改 feature/model/construction。
 
-因此 ledger 不能删除或重置；原 result artifacts 作为失效审计证据保留。失效的是跨窗口汇总和基于它的
-qualification/freeze 判断。
+因此 ledger 不能删除或重置；原 report、ledger 和 29 个 ledger-bound round artifacts 作为失效审计证据保留。
+失效且不再保留的是跨窗口 qualification inputs/outputs 与 daily matrix。
 
 ## 3. 纠正方式
 
@@ -58,3 +58,15 @@ active DSR 仅约 0.18–0.34，MinBTL 需要约 5.6–8.9 年而实际只有约
 
 SEC structured+lexical event 30 bps 仍呈显著负 after-cost active return，且 12,641 fills；文本 IC 增量没有
 解决 turnover economics。LLM 没有冻结 response corpus，保持 fail/count 是正确处置。
+
+## 5. 第二次自审补充
+
+第一次 corrective replay 后又发现 primary pre-screen rejection 被追加到报告的同时，完整 Qualification V2
+循环仍遍历全部 successful long candidates，导致部分候选出现两条互相冲突的资格结论。该中间报告
+SHA-256 为 `b46417b66645266bbaccfc0f61aa3f4acfe442cdad604913f8dafdbd2b165b2e`，已失效且不保留为
+可消费 artifact。
+
+commit `d7e0192d` 将完整 qualification 循环限制为 pre-screen PASS 集合，并新增互斥、完整、唯一的分区断言。
+最终权威重放为 `research/results/mining_campaign_20260721_v1_authoritative/campaign_report.json`；最终结论和
+机器谱系见 `docs/audit/20260721-diverse-mining-final-audit.md` 与
+`research/results/governance/diverse_mining_v1_result_lineage.json`。

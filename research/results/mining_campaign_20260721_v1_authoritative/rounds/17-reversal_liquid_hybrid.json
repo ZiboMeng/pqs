@@ -1,0 +1,155 @@
+{
+  "campaign_id": "diverse-mining-20260721-v1",
+  "outcome": {
+    "candidate_specific_timing": {
+      "deterministic_replay_passed": true,
+      "future_mutation_passed": true,
+      "next_session_execution_passed": true,
+      "prefix_invariance_passed": true
+    },
+    "formal_candidate_eligible": true,
+    "status": "COMPLETED_DEVELOPMENT_ONLY",
+    "stress_metrics": {
+      "30": {
+        "cagr_excess_vs_spy": 0.02677820798851216,
+        "candidate_metrics": {
+          "alpha": 0.015651422772419862,
+          "avg_dd_duration": 20.46788990825688,
+          "beta": 1.1356469771849789,
+          "cagr": 0.15028164404787803,
+          "calmar": 0.33109293253540173,
+          "dd_5th_pct": -0.18608353236918374,
+          "dd_median": -0.038541068562637164,
+          "ir": 0.30183674077448985,
+          "max_dd_duration": 480.0,
+          "max_drawdown": -0.45389565671810084,
+          "n_trading_days": 2515.0,
+          "sharpe": 0.5746564633487682,
+          "sortino": 0.7226030834673273,
+          "total_return": 3.046473949301661,
+          "tracking_error": 0.11021082260235239,
+          "volatility": 0.2142485394435973,
+          "win_rate": 0.5424679487179487
+        },
+        "commission_usd": 0.0,
+        "max_drawdown_vs_spy_ratio": 1.4439372334246399,
+        "rolling_252d_excess_fraction": 0.5070671378091873,
+        "slippage_usd": 86296.60263182722,
+        "spy_metrics": {
+          "avg_dd_duration": 11.666666666666666,
+          "cagr": 0.12350343605936587,
+          "calmar": 0.3928903199282057,
+          "dd_5th_pct": -0.15918084734616275,
+          "dd_median": -0.016677153564027415,
+          "max_dd_duration": 487.0,
+          "max_drawdown": -0.3143458359623981,
+          "n_trading_days": 2515.0,
+          "sharpe": 0.5514207038401868,
+          "sortino": 0.6677110311367038,
+          "total_return": 2.1984626340903692,
+          "volatility": 0.1629493267774883,
+          "win_rate": 0.5481927710843374
+        },
+        "trades": 2433
+      },
+      "60": {
+        "cagr_excess_vs_spy": -0.022792097024653346,
+        "candidate_metrics": {
+          "alpha": -0.027923858122395916,
+          "avg_dd_duration": 32.647887323943664,
+          "beta": 1.1335574841995064,
+          "cagr": 0.10037531449755743,
+          "calmar": 0.22005968593862552,
+          "dd_5th_pct": -0.2078817509827613,
+          "dd_median": -0.05699986985741862,
+          "ir": -0.09437059617062551,
+          "max_dd_duration": 629.0,
+          "max_drawdown": -0.4561276822214135,
+          "n_trading_days": 2515.0,
+          "sharpe": 0.36679369340009227,
+          "sortino": 0.46260167543454245,
+          "total_return": 1.598657306907982,
+          "tracking_error": 0.11254664169875417,
+          "volatility": 0.21519411479540412,
+          "win_rate": 0.5344551282051282
+        },
+        "commission_usd": 0.0,
+        "max_drawdown_vs_spy_ratio": 1.4510377744465346,
+        "rolling_252d_excess_fraction": 0.24911660777385158,
+        "slippage_usd": 133419.92906284746,
+        "spy_metrics": {
+          "avg_dd_duration": 11.666666666666666,
+          "cagr": 0.12316741152221078,
+          "calmar": 0.3918213554352412,
+          "dd_5th_pct": -0.15918084734616272,
+          "dd_median": -0.01667715356402758,
+          "max_dd_duration": 487.0,
+          "max_drawdown": -0.314345835962398,
+          "n_trading_days": 2515.0,
+          "sharpe": 0.5496022361913317,
+          "sortino": 0.6654765403100482,
+          "total_return": 2.188924475141789,
+          "volatility": 0.16294136366415207,
+          "win_rate": 0.5481927710843374
+        },
+        "trades": 2432
+      },
+      "90": {
+        "cagr_excess_vs_spy": -0.07016045429233664,
+        "candidate_metrics": {
+          "alpha": -0.07132394562459549,
+          "avg_dd_duration": 50.87234042553192,
+          "beta": 1.1317225831679374,
+          "cagr": 0.05267203331548198,
+          "calmar": 0.11358533497606234,
+          "dd_5th_pct": -0.23813311470688447,
+          "dd_median": -0.09733932114611733,
+          "ir": -0.4672878022195413,
+          "max_dd_duration": 748.0,
+          "max_drawdown": -0.4637221286232277,
+          "n_trading_days": 2515.0,
+          "sharpe": 0.16116093779571852,
+          "sortino": 0.2037549281037793,
+          "total_return": 0.6694637443559919,
+          "tracking_error": 0.11619877617272094,
+          "volatility": 0.2168997092512896,
+          "win_rate": 0.5272435897435898
+        },
+        "commission_usd": 0.0,
+        "max_drawdown_vs_spy_ratio": 1.4751973004620873,
+        "rolling_252d_excess_fraction": 0.15680212014134276,
+        "slippage_usd": 157243.18813982714,
+        "spy_metrics": {
+          "avg_dd_duration": 11.666666666666666,
+          "cagr": 0.12283248760781862,
+          "calmar": 0.3907558922540072,
+          "dd_5th_pct": -0.15918084734616275,
+          "dd_median": -0.01667715356402743,
+          "max_dd_duration": 487.0,
+          "max_drawdown": -0.314345835962398,
+          "n_trading_days": 2515.0,
+          "sharpe": 0.5477759535818358,
+          "sortino": 0.6632553368421271,
+          "total_return": 2.1794430346805154,
+          "volatility": 0.16293893644890253,
+          "win_rate": 0.5481927710843374
+        },
+        "trades": 2432
+      }
+    }
+  },
+  "round_spec": {
+    "construction": "hybrid",
+    "family": "short_reversal_liquid",
+    "features": {
+      "dollar_volume_trend_20_63": 0.5,
+      "reversal_5": 1.0,
+      "vol_21": -0.25
+    },
+    "id": "reversal_liquid_hybrid",
+    "kind": "rule",
+    "round": 17
+  },
+  "schema_version": 1,
+  "trial_id": "diverse-mining-v1-r17-reversal_liquid_hybrid"
+}

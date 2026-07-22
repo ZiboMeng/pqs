@@ -1,0 +1,182 @@
+{
+  "automatic_promotion_eligible": false,
+  "candidate_id": "mom_12_1_hybrid",
+  "code_commit": "d7e0192d6176d3c1cc56b322af0323561573ed42",
+  "computed": {
+    "active": {
+      "annualized_sharpe": 0.7393255601467265,
+      "beta_alpha": {
+        "annualized_alpha": 0.08144561450131815,
+        "annualized_alpha_ci95_high": 0.17641345233008543,
+        "annualized_alpha_ci95_low": -0.013522223327449104,
+        "beta": 1.2833624025818038
+      },
+      "cagr_excess_vs_spy": 0.1153879854331441,
+      "max_drawdown_vs_spy_ratio": 1.213067036804469,
+      "mean_confidence_interval": {
+        "annualized_ci95_high": 0.21501760521434193,
+        "annualized_ci95_low": 0.021435649030854983,
+        "annualized_mean": 0.11822662712259847,
+        "daily_mean": 0.0004691532822325336,
+        "newey_west_lag": 5
+      },
+      "rolling_252d_excess_fraction": 0.8763250883392226
+    },
+    "automatic_promotion_eligible": false,
+    "benchmark": {
+      "cagr": 0.12350343605936565,
+      "max_drawdown": -0.3143458359623982,
+      "symbol": "SPY"
+    },
+    "binding_return_basis": "after_cost_candidate_minus_spy_active_returns",
+    "candidate": {
+      "annualized_sharpe": 0.9571074621300588,
+      "cagr": 0.23889142149250975,
+      "max_drawdown": -0.38132257176273
+    },
+    "candidate_id": "mom_12_1_hybrid",
+    "candidate_specific_timing": {
+      "deterministic_replay_passed": true,
+      "future_mutation_passed": true,
+      "next_session_execution_passed": true,
+      "prefix_invariance_passed": true
+    },
+    "cost_stress": {
+      "base_30bps": {
+        "cagr": 0.23889142149250975,
+        "cagr_excess_vs_spy": 0.1153879854331441,
+        "max_drawdown": -0.38132257176273,
+        "max_drawdown_vs_spy_ratio": 1.213067036804469
+      },
+      "double_60bps": {
+        "cagr": 0.20228875734849527,
+        "cagr_excess_vs_spy": 0.07878532128912963,
+        "max_drawdown": -0.3824106949403129,
+        "max_drawdown_vs_spy_ratio": 1.2165285847338425
+      },
+      "triple_90bps": {
+        "cagr": 0.16674552147740584,
+        "cagr_excess_vs_spy": 0.0432420854180402,
+        "max_drawdown": -0.38348652262283733,
+        "max_drawdown_vs_spy_ratio": 1.2199510181159507
+      }
+    },
+    "effective_n_diagnostic_only": {
+      "effective_n": 12,
+      "n_configs": 27,
+      "silhouette": 0.5755
+    },
+    "evidence_scope": "DEVELOPMENT_ONLY",
+    "gates": {
+      "after_cost_cagr_excess_vs_spy": true,
+      "base_drawdown_vs_spy": true,
+      "candidate_specific_timing": true,
+      "cpcv_return_distribution": true,
+      "deflated_sharpe_probability": false,
+      "minimum_backtest_length": false,
+      "probability_backtest_overfitting": true,
+      "rolling_252d_excess_fraction": true,
+      "worst_cost_stress_drawdown_vs_spy": true
+    },
+    "overfit": {
+      "cpcv": {
+        "active_sharpe_by_split": [
+          0.7491076992775665,
+          0.7479177982778724,
+          0.7973609528417872,
+          0.4007614523262176,
+          1.1368687862746507,
+          0.6105605867965607,
+          0.7173808278856668,
+          0.32292893827299274,
+          1.0285734837903322,
+          0.7149059862007997,
+          0.3188408743744982,
+          1.0269949329638353,
+          0.5036456943627141,
+          1.0690970726108786,
+          0.7958298064121323
+        ],
+        "annualized_active_mean_by_split": [
+          0.08363840336112477,
+          0.0827575085407607,
+          0.13204500933699442,
+          0.04943085762575236,
+          0.18284411183419808,
+          0.07836575636418625,
+          0.12764801640603265,
+          0.04503386469479059,
+          0.17845235965762363,
+          0.1267146667429452,
+          0.04419898243541143,
+          0.17745963976407367,
+          0.09344047067066026,
+          0.2268012700363826,
+          0.14428558572884884
+        ],
+        "embargo_frac": 0.01,
+        "horizon": 21,
+        "k_test": 2,
+        "median_annualized_active_mean": 0.1267146667429452,
+        "n_groups": 6,
+        "n_paths": 5,
+        "n_splits": 15,
+        "passed": true,
+        "positive_active_split_fraction": 1.0
+      },
+      "deflated_sharpe": {
+        "T": 2516,
+        "deflated_sharpe": 0.19747565284682822,
+        "kurtosis": 6.545378120555704,
+        "n_trials": 30,
+        "sharpe": 0.046573132620518196,
+        "skew": -0.06497697079766727,
+        "sr0": 0.06358686362227783
+      },
+      "minimum_backtest_length": {
+        "actual_years": 9.984126984126984,
+        "expected_max_sr_annual": 2.608140096567727,
+        "min_btl_years": 12.44487072933573,
+        "n_trials": 30,
+        "passed": false,
+        "reason": "backtest_shorter_than_min_btl",
+        "safety_multiple": 1.0
+      },
+      "probability_backtest_overfitting": {
+        "S": 10,
+        "mean_logit": 1.5697740483699738,
+        "n_combinations": 252,
+        "pbo": 0.011904761904761904
+      }
+    },
+    "periods": 2516,
+    "qualification_passed": false,
+    "raw_independent_n": 30,
+    "successful_trials_in_performance_matrix": 27,
+    "worst_cost_stress_drawdown_vs_spy_ratio": 1.2199510181159507
+  },
+  "computed_sha256": "f99c0366d5dc65fc8068afda9b4ce2cc58de4d1e294967c217515234931a6e3c",
+  "evidence_scope": "DEVELOPMENT_ONLY",
+  "input_bundle": {
+    "path": "research/results/mining_campaign_20260721_v1_authoritative/qualification_inputs/mom_12_1_hybrid.json",
+    "sha256": "c54a24d9f6058d0eae03e7b2deb6422789c860b073f49a277de48e58a9adf785"
+  },
+  "observed_through": "2026-07-17",
+  "schema_version": 2,
+  "trial_ledger": {
+    "event_count": 118,
+    "head_event_hash": "d056cbee3a5d276855c72c78f71c70fda273eef02ffb3d222750d0a087d6a276",
+    "incomplete_trial_ids": [],
+    "independent_content_hashes_sha256": "26bbe59e0608f4dae274c9af2f6ff06476fca4e0a6cb429f3ef4eeb50a987c45",
+    "ledger_sha256": "a2215c21d17280a3d867a20999cd2a92d33bc4d397cc40b443ff6790efbe1de1",
+    "path": "research/results/mining_campaign_20260721_v1/trial_ledger.jsonl",
+    "raw_independent_n": 30,
+    "schema_version": 1,
+    "terminal_counts": {
+      "ABORTED": 0,
+      "FAILED": 1,
+      "INTENT": 0,
+      "OUTCOME": 29
+    }
+  }
+}

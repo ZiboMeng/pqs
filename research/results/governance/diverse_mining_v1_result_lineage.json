@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "artifact_type": "MINING_CAMPAIGN_RESULT_LINEAGE",
+  "campaign_id": "diverse-mining-20260721-v1",
+  "trial_ledger": {
+    "path": "research/results/mining_campaign_20260721_v1/trial_ledger.jsonl",
+    "sha256": "a2215c21d17280a3d867a20999cd2a92d33bc4d397cc40b443ff6790efbe1de1",
+    "head_event_hash": "d056cbee3a5d276855c72c78f71c70fda273eef02ffb3d222750d0a087d6a276",
+    "event_count": 118,
+    "raw_independent_n": 30,
+    "terminal_counts": {
+      "OUTCOME": 29,
+      "FAILED": 1,
+      "ABORTED": 0,
+      "INTENT": 0
+    },
+    "valid": true
+  },
+  "result_versions": [
+    {
+      "name": "original_execution",
+      "code_commit": "ac88ba75f5b2a82ea6252ad807ae897cc41f1220",
+      "report_path": "research/results/mining_campaign_20260721_v1/campaign_report.json",
+      "report_sha256": "4f05fdb118bfa0bd9e3826748912d3a109e3e2fe53c86d48d9d5d5c9abb1fb21",
+      "status": "INVALIDATED_METRICS_AND_QUALIFICATION",
+      "reason": "PRE_ACTIVATION_CASH_AND_TRUNCATED_COMMON_WINDOW",
+      "retained": true
+    },
+    {
+      "name": "first_corrective_replay",
+      "code_commit": "9b489031",
+      "original_report_path": "research/results/mining_campaign_20260721_v1_corrective_replay/campaign_report.json",
+      "report_sha256": "b46417b66645266bbaccfc0f61aa3f4acfe442cdad604913f8dafdbd2b165b2e",
+      "status": "INVALIDATED_QUALIFICATION_ROWS",
+      "reason": "PRIMARY_PRESCREEN_REJECTIONS_WERE_ALSO_FULLY_QUALIFIED",
+      "retained": false
+    },
+    {
+      "name": "authoritative_corrective_replay",
+      "code_commit": "d7e0192d6176d3c1cc56b322af0323561573ed42",
+      "report_path": "research/results/mining_campaign_20260721_v1_authoritative/campaign_report.json",
+      "report_sha256": "85016714484f2fd03b8d940e295d2f73232f730eeb12c870ded9804d1d4e3f43",
+      "daily_returns_path": "research/results/mining_campaign_20260721_v1_authoritative/daily_net_returns.parquet",
+      "daily_returns_sha256": "d12da17d866008cb5e6e854ff7552f69dd8f4e2c1ba5b7ead1774d3e268bd74c",
+      "tree_sha256": "7144877df62ee8ab24316ca1d38c345f2555e892616c0328329a572bc15a3ea0",
+      "file_count": 51,
+      "execution_mode": "CORRECTIVE_REPLAY_NO_NEW_TRIALS",
+      "mining_rounds_added": 0,
+      "status": "AUTHORITATIVE_DEVELOPMENT_RESULT",
+      "formal_candidate_count": 0,
+      "exit_condition": "MAXIMUM_30_ROUNDS",
+      "retained": true
+    }
+  ],
+  "automatic_promotion_eligible": false,
+  "historical_oos_claim_allowed": false
+}

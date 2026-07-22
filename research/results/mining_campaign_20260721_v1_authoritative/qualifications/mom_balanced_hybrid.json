@@ -1,0 +1,182 @@
+{
+  "automatic_promotion_eligible": false,
+  "candidate_id": "mom_balanced_hybrid",
+  "code_commit": "d7e0192d6176d3c1cc56b322af0323561573ed42",
+  "computed": {
+    "active": {
+      "annualized_sharpe": 0.7218705155810686,
+      "beta_alpha": {
+        "annualized_alpha": 0.09191104410492482,
+        "annualized_alpha_ci95_high": 0.18705315862324082,
+        "annualized_alpha_ci95_low": -0.0032310704133911915,
+        "beta": 1.1566587483927293
+      },
+      "cagr_excess_vs_spy": 0.1130709533473957,
+      "max_drawdown_vs_spy_ratio": 1.152527649506511,
+      "mean_confidence_interval": {
+        "annualized_ci95_high": 0.20836324484609128,
+        "annualized_ci95_low": 0.01612808776151151,
+        "annualized_mean": 0.11224566630380138,
+        "daily_mean": 0.0004454193107293706,
+        "newey_west_lag": 5
+      },
+      "rolling_252d_excess_fraction": 0.8069787985865724
+    },
+    "automatic_promotion_eligible": false,
+    "benchmark": {
+      "cagr": 0.12350343605936565,
+      "max_drawdown": -0.3143458359623982,
+      "symbol": "SPY"
+    },
+    "binding_return_basis": "after_cost_candidate_minus_spy_active_returns",
+    "candidate": {
+      "annualized_sharpe": 0.9961905128158183,
+      "cagr": 0.23657438940676134,
+      "max_drawdown": -0.3622922674539021
+    },
+    "candidate_id": "mom_balanced_hybrid",
+    "candidate_specific_timing": {
+      "deterministic_replay_passed": true,
+      "future_mutation_passed": true,
+      "next_session_execution_passed": true,
+      "prefix_invariance_passed": true
+    },
+    "cost_stress": {
+      "base_30bps": {
+        "cagr": 0.23657438940676134,
+        "cagr_excess_vs_spy": 0.1130709533473957,
+        "max_drawdown": -0.3622922674539021,
+        "max_drawdown_vs_spy_ratio": 1.152527649506511
+      },
+      "double_60bps": {
+        "cagr": 0.20227412439772796,
+        "cagr_excess_vs_spy": 0.07877068833836232,
+        "max_drawdown": -0.36348092217241645,
+        "max_drawdown_vs_spy_ratio": 1.1563090093418504
+      },
+      "triple_90bps": {
+        "cagr": 0.16900574353171605,
+        "cagr_excess_vs_spy": 0.0455023074723504,
+        "max_drawdown": -0.36465331304383375,
+        "max_drawdown_vs_spy_ratio": 1.1600386304702102
+      }
+    },
+    "effective_n_diagnostic_only": {
+      "effective_n": 12,
+      "n_configs": 27,
+      "silhouette": 0.5755
+    },
+    "evidence_scope": "DEVELOPMENT_ONLY",
+    "gates": {
+      "after_cost_cagr_excess_vs_spy": true,
+      "base_drawdown_vs_spy": true,
+      "candidate_specific_timing": true,
+      "cpcv_return_distribution": true,
+      "deflated_sharpe_probability": false,
+      "minimum_backtest_length": false,
+      "probability_backtest_overfitting": true,
+      "rolling_252d_excess_fraction": true,
+      "worst_cost_stress_drawdown_vs_spy": true
+    },
+    "overfit": {
+      "cpcv": {
+        "active_sharpe_by_split": [
+          0.5525273473316069,
+          0.6448809226973554,
+          0.8681364304014649,
+          0.3499309225749022,
+          1.071667121232021,
+          0.43989344864422214,
+          0.7631854594820118,
+          0.209384962194717,
+          0.9365486853485185,
+          0.8104917583769834,
+          0.2798289192531558,
+          0.9915410079525465,
+          0.6590101872732869,
+          1.144926842522933,
+          0.7861356604979818
+        ],
+        "annualized_active_mean_by_split": [
+          0.05091485802979215,
+          0.06000008231716645,
+          0.1560724496264081,
+          0.04236179679032112,
+          0.1607953268209376,
+          0.04423220429883614,
+          0.1402857555245237,
+          0.026575102688436724,
+          0.14502744880260732,
+          0.14926445907590902,
+          0.0356893374112596,
+          0.15398981854824328,
+          0.13173269428505266,
+          0.25005970357968016,
+          0.13648458191503074
+        ],
+        "embargo_frac": 0.01,
+        "horizon": 21,
+        "k_test": 2,
+        "median_annualized_active_mean": 0.13648458191503074,
+        "n_groups": 6,
+        "n_paths": 5,
+        "n_splits": 15,
+        "passed": true,
+        "positive_active_split_fraction": 1.0
+      },
+      "deflated_sharpe": {
+        "T": 2516,
+        "deflated_sharpe": 0.18184404692518086,
+        "kurtosis": 11.584894862673726,
+        "n_trials": 30,
+        "sharpe": 0.04547356816708296,
+        "skew": 0.11947218542710861,
+        "sr0": 0.06358686362227783
+      },
+      "minimum_backtest_length": {
+        "actual_years": 9.984126984126984,
+        "expected_max_sr_annual": 2.608140096567727,
+        "min_btl_years": 13.053988460205776,
+        "n_trials": 30,
+        "passed": false,
+        "reason": "backtest_shorter_than_min_btl",
+        "safety_multiple": 1.0
+      },
+      "probability_backtest_overfitting": {
+        "S": 10,
+        "mean_logit": 1.5697740483699738,
+        "n_combinations": 252,
+        "pbo": 0.011904761904761904
+      }
+    },
+    "periods": 2516,
+    "qualification_passed": false,
+    "raw_independent_n": 30,
+    "successful_trials_in_performance_matrix": 27,
+    "worst_cost_stress_drawdown_vs_spy_ratio": 1.1600386304702102
+  },
+  "computed_sha256": "062555ef2028cdb0cc14bc95910ce15cc7e44bbc667e89c63f59fe86223b180c",
+  "evidence_scope": "DEVELOPMENT_ONLY",
+  "input_bundle": {
+    "path": "research/results/mining_campaign_20260721_v1_authoritative/qualification_inputs/mom_balanced_hybrid.json",
+    "sha256": "982ebf3713597a6784ba38a426224482474380f5624e0b055e7d741fbdbb64c0"
+  },
+  "observed_through": "2026-07-17",
+  "schema_version": 2,
+  "trial_ledger": {
+    "event_count": 118,
+    "head_event_hash": "d056cbee3a5d276855c72c78f71c70fda273eef02ffb3d222750d0a087d6a276",
+    "incomplete_trial_ids": [],
+    "independent_content_hashes_sha256": "26bbe59e0608f4dae274c9af2f6ff06476fca4e0a6cb429f3ef4eeb50a987c45",
+    "ledger_sha256": "a2215c21d17280a3d867a20999cd2a92d33bc4d397cc40b443ff6790efbe1de1",
+    "path": "research/results/mining_campaign_20260721_v1/trial_ledger.jsonl",
+    "raw_independent_n": 30,
+    "schema_version": 1,
+    "terminal_counts": {
+      "ABORTED": 0,
+      "FAILED": 1,
+      "INTENT": 0,
+      "OUTCOME": 29
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "artifact_type": "NON_PROMOTING_REVIEW_HOLD",
+  "campaign_id": "diverse-mining-20260721-v1",
+  "source_report": {
+    "path": "research/results/mining_campaign_20260721_v1_authoritative/campaign_report.json",
+    "sha256": "85016714484f2fd03b8d940e295d2f73232f730eeb12c870ded9804d1d4e3f43"
+  },
+  "selection_note": "Descriptive post-run queue: exactly one canonical gate failed. This is not a gate override or a new mining trial.",
+  "status": "REVIEW_HOLD_NOT_FORMAL",
+  "counts_toward_formal_exit": false,
+  "paper_eligible": false,
+  "candidates": [
+    {
+      "candidate_id": "dual_momentum_regime",
+      "qualification_path": "research/results/mining_campaign_20260721_v1_authoritative/qualifications/dual_momentum_regime.json",
+      "qualification_sha256": "8c7dda845a1e4cb70c26a764023ebd3d7b5573eb29f18a82f9617893bf4a90d7",
+      "failed_canonical_gates": [
+        "deflated_sharpe_probability"
+      ],
+      "deflated_sharpe_probability": 0.38669982080940146,
+      "required_deflated_sharpe_probability": 0.95
+    },
+    {
+      "candidate_id": "mom_balanced_buffer15",
+      "qualification_path": "research/results/mining_campaign_20260721_v1_authoritative/qualifications/mom_balanced_buffer15.json",
+      "qualification_sha256": "ca81df141905485250fcab8eb58b13e6fec895a3b3a804c0b5a1feddc9c130b6",
+      "failed_canonical_gates": [
+        "deflated_sharpe_probability"
+      ],
+      "deflated_sharpe_probability": 0.29362612049268155,
+      "required_deflated_sharpe_probability": 0.95
+    }
+  ]
+}

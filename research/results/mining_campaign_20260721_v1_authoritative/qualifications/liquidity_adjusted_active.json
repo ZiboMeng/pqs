@@ -1,0 +1,182 @@
+{
+  "automatic_promotion_eligible": false,
+  "candidate_id": "liquidity_adjusted_active",
+  "code_commit": "d7e0192d6176d3c1cc56b322af0323561573ed42",
+  "computed": {
+    "active": {
+      "annualized_sharpe": 0.477273289429603,
+      "beta_alpha": {
+        "annualized_alpha": 0.06456744606901134,
+        "annualized_alpha_ci95_high": 0.14735281139271647,
+        "annualized_alpha_ci95_low": -0.018217919254693783,
+        "beta": 0.9933201677266764
+      },
+      "cagr_excess_vs_spy": 0.06337251421765755,
+      "max_drawdown_vs_spy_ratio": 1.0083405865652835,
+      "mean_confidence_interval": {
+        "annualized_ci95_high": 0.1402024408063114,
+        "annualized_ci95_low": -0.012801660130604004,
+        "annualized_mean": 0.0637003903378537,
+        "daily_mean": 0.00025277932673751466,
+        "newey_west_lag": 5
+      },
+      "rolling_252d_excess_fraction": 0.6643109540636042
+    },
+    "automatic_promotion_eligible": false,
+    "benchmark": {
+      "cagr": 0.12350343605936565,
+      "max_drawdown": -0.3143458359623982,
+      "symbol": "SPY"
+    },
+    "binding_return_basis": "after_cost_candidate_minus_spy_active_returns",
+    "candidate": {
+      "annualized_sharpe": 0.9224772443819176,
+      "cagr": 0.1868759502770232,
+      "max_drawdown": -0.316967664618679
+    },
+    "candidate_id": "liquidity_adjusted_active",
+    "candidate_specific_timing": {
+      "deterministic_replay_passed": true,
+      "future_mutation_passed": true,
+      "next_session_execution_passed": true,
+      "prefix_invariance_passed": true
+    },
+    "cost_stress": {
+      "base_30bps": {
+        "cagr": 0.1868759502770232,
+        "cagr_excess_vs_spy": 0.06337251421765755,
+        "max_drawdown": -0.316967664618679,
+        "max_drawdown_vs_spy_ratio": 1.0083405865652835
+      },
+      "double_60bps": {
+        "cagr": 0.15333060756709305,
+        "cagr_excess_vs_spy": 0.0298271715077274,
+        "max_drawdown": -0.3182570954556273,
+        "max_drawdown_vs_spy_ratio": 1.0124425363588943
+      },
+      "triple_90bps": {
+        "cagr": 0.12072505866577887,
+        "cagr_excess_vs_spy": -0.002778377393586773,
+        "max_drawdown": -0.3196544504726365,
+        "max_drawdown_vs_spy_ratio": 1.016887815593248
+      }
+    },
+    "effective_n_diagnostic_only": {
+      "effective_n": 12,
+      "n_configs": 27,
+      "silhouette": 0.5755
+    },
+    "evidence_scope": "DEVELOPMENT_ONLY",
+    "gates": {
+      "after_cost_cagr_excess_vs_spy": true,
+      "base_drawdown_vs_spy": true,
+      "candidate_specific_timing": true,
+      "cpcv_return_distribution": true,
+      "deflated_sharpe_probability": false,
+      "minimum_backtest_length": false,
+      "probability_backtest_overfitting": true,
+      "rolling_252d_excess_fraction": true,
+      "worst_cost_stress_drawdown_vs_spy": true
+    },
+    "overfit": {
+      "cpcv": {
+        "active_sharpe_by_split": [
+          0.6819457638419248,
+          0.3142549997026782,
+          0.7598005725525477,
+          0.39391912828675385,
+          0.4419740465147778,
+          0.3555641110106059,
+          0.7791477101142675,
+          0.42611156804939404,
+          0.47293568316084567,
+          0.5548916523789595,
+          0.15368374209370655,
+          0.18682776091595718,
+          0.6019725139087764,
+          0.6363968451505053,
+          0.29238237545023776
+        ],
+        "annualized_active_mean_by_split": [
+          0.0639723053842819,
+          0.02826095658141719,
+          0.11367069652930102,
+          0.04903972494070306,
+          0.05191706141275893,
+          0.034374355695297384,
+          0.11979139086885411,
+          0.05516041928025615,
+          0.05803046052663913,
+          0.08401351157077534,
+          0.019459573321377144,
+          0.022368698859084525,
+          0.10485881042527524,
+          0.1076696164021171,
+          0.043115678152718884
+        ],
+        "embargo_frac": 0.01,
+        "horizon": 21,
+        "k_test": 2,
+        "median_annualized_active_mean": 0.05516041928025615,
+        "n_groups": 6,
+        "n_paths": 5,
+        "n_splits": 15,
+        "passed": true,
+        "positive_active_split_fraction": 1.0
+      },
+      "deflated_sharpe": {
+        "T": 2516,
+        "deflated_sharpe": 0.047077015406873535,
+        "kurtosis": 7.026688180051566,
+        "n_trials": 30,
+        "sharpe": 0.03006539122010671,
+        "skew": -0.24199195032607546,
+        "sr0": 0.06358686362227783
+      },
+      "minimum_backtest_length": {
+        "actual_years": 9.984126984126984,
+        "expected_max_sr_annual": 2.608140096567727,
+        "min_btl_years": 29.862596912797702,
+        "n_trials": 30,
+        "passed": false,
+        "reason": "backtest_shorter_than_min_btl",
+        "safety_multiple": 1.0
+      },
+      "probability_backtest_overfitting": {
+        "S": 10,
+        "mean_logit": 1.5697740483699738,
+        "n_combinations": 252,
+        "pbo": 0.011904761904761904
+      }
+    },
+    "periods": 2516,
+    "qualification_passed": false,
+    "raw_independent_n": 30,
+    "successful_trials_in_performance_matrix": 27,
+    "worst_cost_stress_drawdown_vs_spy_ratio": 1.016887815593248
+  },
+  "computed_sha256": "213a159e1805f96efc4709132270ed908ea2a001f76db8ba7db644f053c62a81",
+  "evidence_scope": "DEVELOPMENT_ONLY",
+  "input_bundle": {
+    "path": "research/results/mining_campaign_20260721_v1_authoritative/qualification_inputs/liquidity_adjusted_active.json",
+    "sha256": "471331071312328749cf780c8ab178754b4436be6f967740433b3b4d7588b277"
+  },
+  "observed_through": "2026-07-17",
+  "schema_version": 2,
+  "trial_ledger": {
+    "event_count": 118,
+    "head_event_hash": "d056cbee3a5d276855c72c78f71c70fda273eef02ffb3d222750d0a087d6a276",
+    "incomplete_trial_ids": [],
+    "independent_content_hashes_sha256": "26bbe59e0608f4dae274c9af2f6ff06476fca4e0a6cb429f3ef4eeb50a987c45",
+    "ledger_sha256": "a2215c21d17280a3d867a20999cd2a92d33bc4d397cc40b443ff6790efbe1de1",
+    "path": "research/results/mining_campaign_20260721_v1/trial_ledger.jsonl",
+    "raw_independent_n": 30,
+    "schema_version": 1,
+    "terminal_counts": {
+      "ABORTED": 0,
+      "FAILED": 1,
+      "INTENT": 0,
+      "OUTCOME": 29
+    }
+  }
+}
