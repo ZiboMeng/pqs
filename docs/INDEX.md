@@ -1,6 +1,6 @@
 # docs/ Index
 
-Navigation across 353 docs (51 PRDs, 168 memos + others) by category — this index
+Navigation across 354 docs (51 PRDs, 168 memos + others) by category — this index
 does NOT enumerate every file (many memos are unindexed; count via `find docs -name '*.md' | wc -l`).
 **Existing files** are kept flat
 (no subdirectories) so cross-references stay intact; this index is the
@@ -10,6 +10,10 @@ defined at the bottom of this file. Within each category section,
 
 ## Active Codex phase-three evidence
 
+- [audit/20260722-drawdown-gate-authoritative-web-research.md](audit/20260722-drawdown-gate-authoritative-web-research.md) —
+  基于同行评审、GIPS、SEC、CFA、Morningstar、MSCI、S&P、BlackRock 与 Man Group 一手资料复审
+  annual-all-years MaxDD gate；建议 prospective Balanced Drawdown Gate：full-period、36 月滚动、15%
+  benchmark episode、downside capture 与年度 5pp material-harm veto，当前治理尚未修改。
 - [prd/20260722-annual-spy-relative-dd-strategy-mining-v5-prd.md](prd/20260722-annual-spy-relative-dd-strategy-mining-v5-prd.md) —
   基于可信论文、监管/指数方法和机构一手资料制定的下一轮 V5 挖掘 PRD：SPY participation anchor、
   低换手质量/动量/低风险 sleeve、无杠杆防御层、受治理 semantic/ML/LLM 阶梯，以及逐年逐成本
