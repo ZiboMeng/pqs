@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# ruff: noqa: E402
 """Manual paper run for a frozen research candidate (Phase E-2 R8).
 
 MVP paper runner per charter §6.1 "只做手动 daily run + frozen
@@ -125,15 +126,25 @@ def _load_panel(
     # fallback, string index from a misconfigured source, etc.) would
     # otherwise crash on `close.index >= start` with a cryptic pandas
     # TypeError. Fail clean instead.
-    if not close.empty and not isinstance(close.index, pd.DatetimeIndex):
+    if close.empty:
+        close.index = pd.DatetimeIndex([], name=close.index.name)
+    elif not isinstance(close.index, pd.DatetimeIndex):
+        if pd.api.types.is_numeric_dtype(close.index.dtype):
+            raise RuntimeError(
+                "_load_panel: numeric non-DatetimeIndex cannot be interpreted "
+                "as trading sessions"
+            )
         try:
-            close.index = pd.to_datetime(close.index)
+            converted = pd.to_datetime(close.index, errors="raise")
         except (ValueError, TypeError) as exc:
             raise RuntimeError(
                 f"_load_panel: close panel has non-DatetimeIndex "
                 f"({type(close.index).__name__}) and cannot be coerced "
                 f"to datetime: {exc}"
             ) from exc
+        if converted.isna().any():
+            raise RuntimeError("_load_panel: close panel index contains invalid dates")
+        close.index = converted
     close = close[(close.index >= start) & (close.index <= end)]
 
     def _df(col: str) -> Optional[pd.DataFrame]:
@@ -354,8 +365,8 @@ def main() -> int:
 
     # R9: extended paper artifacts (live-like + benchmark-relative + turnover)
     from core.research.paper_artifacts import (
-        write_live_like_pnl,
         write_benchmark_relative_paper,
+        write_live_like_pnl,
         write_turnover_log,
     )
     initial_capital = 100_000.0  # matches BacktestEngine default in _simulate
@@ -412,8 +423,8 @@ def main() -> int:
           if len(pnl_df) else "  Final equity    : nan")
     print(f"  Trades          : {len(fills_df)}")
     print(f"  Artifacts       : {out_dir}")
-    print(f"\n  Next: run scripts/paper_drift_report.py after >=5 days of "
-          f"paper runs (R10).")
+    print("\n  Next: run scripts/paper_drift_report.py after >=5 days of "
+          "paper runs (R10).")
     return 0
 
 

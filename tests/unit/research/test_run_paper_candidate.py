@@ -27,7 +27,6 @@ from core.research.candidate_registry import (
 )
 from core.research.frozen_spec import FeatureEntry, FrozenStrategySpec
 
-
 ROOT = Path(__file__).resolve().parent.parent.parent.parent
 SCRIPT = ROOT / "scripts" / "run_paper_candidate.py"
 
@@ -399,18 +398,31 @@ def test_load_panel_coerces_string_index_to_datetime():
 
 
 def test_load_panel_rangeindex_raises_clean():
-    """RangeIndex (not coercible to datetime via pd.to_datetime on the
-    raw integer 0..n-1) produces a clean RuntimeError."""
+    """A numeric index must not silently become 1970 nanosecond dates."""
     mod = _import_script_module()
     cfg = _minimal_cfg_with_syms(["FAKE1"])
     store = _BadIndexStore(n_rows=5, symbols=["FAKE1"])
     start = pd.Timestamp("2024-01-01")
     end = pd.Timestamp("2024-03-01")
-    # pd.to_datetime on RangeIndex(5) does NOT raise (it silently
-    # converts 0..4 to epoch-nanosecond timestamps), so the panel WILL
-    # coerce. Verify the coerced index is DatetimeIndex — this locks
-    # in that we never drop back into the old raw-pandas crash path.
-    out = mod._load_panel(cfg, store, start, end)
+    with pytest.raises(RuntimeError, match="numeric non-DatetimeIndex"):
+        mod._load_panel(cfg, store, start, end)
+
+
+def test_load_panel_empty_store_returns_empty_datetime_index():
+    mod = _import_script_module()
+    cfg = _minimal_cfg_with_syms(["MISSING"])
+
+    class EmptyStore:
+        def read(self, symbol: str, freq: str) -> None:
+            return None
+
+    out = mod._load_panel(
+        cfg,
+        EmptyStore(),
+        pd.Timestamp("2024-01-01"),
+        pd.Timestamp("2024-03-01"),
+    )
+    assert out["close"].empty
     assert isinstance(out["close"].index, pd.DatetimeIndex)
 
 

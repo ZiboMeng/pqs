@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
@@ -22,6 +23,12 @@ from core.research.sealed_evidence import (
     SealedSubmission,
     load_hypothesis_registry,
 )
+from core.runtime.strategy_artifact import (
+    REQUIRED_COMPONENT_ROLES,
+    build_strategy_artifact,
+    current_environment,
+    write_strategy_artifact,
+)
 
 ARTIFACT_PATH = (
     "research/registries/strategy_artifacts/dual_index_growth_v1/observation_v1.json"
@@ -30,7 +37,12 @@ ARTIFACT_ROOT = "21a268f103295c0b11243f4264885844b019cdeeab8da89106e83d91a3b306e
 EVENT_TIME = datetime(2026, 7, 21, 20, 0, tzinfo=UTC)
 
 
-def _batch(batch_id: str = "batch-1", **changes) -> SealedBatchInput:
+def _batch(
+    batch_id: str = "batch-1",
+    *,
+    artifact_root_sha256: str = ARTIFACT_ROOT,
+    **changes,
+) -> SealedBatchInput:
     values = {
         "batch_id": batch_id,
         "source": "future-forward-authority",
@@ -41,13 +53,13 @@ def _batch(batch_id: str = "batch-1", **changes) -> SealedBatchInput:
         "rows": [
             {
                 "session": "2026-07-20",
-                "artifact_root_sha256": ARTIFACT_ROOT,
+                "artifact_root_sha256": artifact_root_sha256,
                 "strategy_return": 0.01,
                 "benchmark_return": 0.005,
             },
             {
                 "session": "2026-07-21",
-                "artifact_root_sha256": ARTIFACT_ROOT,
+                "artifact_root_sha256": artifact_root_sha256,
                 "strategy_return": -0.002,
                 "benchmark_return": -0.004,
             },
@@ -83,14 +95,20 @@ def _hypothesis(hypothesis_id: str = "hypothesis-1", **changes):
     return HypothesisRegistration(**values)
 
 
-def _submission(submission_id: str = "submission-1", **changes):
+def _submission(
+    submission_id: str = "submission-1",
+    *,
+    artifact_path: str = ARTIFACT_PATH,
+    artifact_root_sha256: str = ARTIFACT_ROOT,
+    **changes,
+):
     values = {
         "submission_id": submission_id,
         "hypothesis_id": "hypothesis-1",
-        "artifact_path": ARTIFACT_PATH,
+        "artifact_path": artifact_path,
         "artifact_id": "dual_index_growth_v1",
         "artifact_version": "v1",
-        "artifact_root_sha256": ARTIFACT_ROOT,
+        "artifact_root_sha256": artifact_root_sha256,
         "sealed_batch_id": "batch-1",
         "metric_policy_id": "daily_return_summary_v1",
         "benchmark_policy_id": "spy_total_return_after_costs_v1",
@@ -100,7 +118,13 @@ def _submission(submission_id: str = "submission-1", **changes):
     return SealedSubmission(**values)
 
 
-def _governance(tmp_path: Path, policy: SealedBudgetPolicy | None = None):
+def _governance(
+    tmp_path: Path,
+    policy: SealedBudgetPolicy | None = None,
+    *,
+    artifact_path: str = ARTIFACT_PATH,
+    artifact_root_sha256: str = ARTIFACT_ROOT,
+):
     governance = SealedGovernance(
         tmp_path / "governance.db",
         policy or _policy(),
@@ -110,7 +134,10 @@ def _governance(tmp_path: Path, policy: SealedBudgetPolicy | None = None):
         now=datetime(2026, 7, 20, 12, 0, tzinfo=UTC),
     )
     governance.register_submission(
-        _submission(),
+        _submission(
+            artifact_path=artifact_path,
+            artifact_root_sha256=artifact_root_sha256,
+        ),
         now=datetime(2026, 7, 20, 12, 1, tzinfo=UTC),
     )
     return governance
@@ -138,6 +165,47 @@ def _evaluator(tmp_path: Path, store, governance, **changes):
     }
     values.update(changes)
     return SealedEvaluator(**values)
+
+
+def _current_test_artifact(tmp_path: Path) -> dict[str, str | Path]:
+    """Build an isolated current-code artifact instead of re-signing stale evidence."""
+
+    root = tmp_path / "artifact-repo"
+    root.mkdir()
+    component_paths: dict[str, list[str]] = {}
+    for role in sorted(REQUIRED_COMPONENT_ROLES):
+        component = root / f"{role}.txt"
+        component.write_text(f"{role}\n", encoding="utf-8")
+        component_paths[role] = [component.name]
+    evidence = root / "evidence.json"
+    evidence.write_text('{"passed":true}\n', encoding="utf-8")
+    worker = root / "sealed_worker.py"
+    shutil.copyfile(Path("core/research/sealed_worker.py"), worker)
+    artifact = build_strategy_artifact(
+        repo_root=root,
+        strategy_id="dual_index_growth_v1",
+        strategy_version="v1",
+        promotion_status="PAPER_APPROVED",
+        allowed_runtime_modes=["PAPER"],
+        live_enabled=False,
+        component_paths=component_paths,
+        strategy_parameters={"test_fixture": True},
+        universe=["SPY"],
+        schedule={"signal": "close", "execution": "next_open"},
+        data_schema_version="sealed-test-v1",
+        promotion_evidence_paths=[evidence.name],
+        code_commit="0" * 40,
+        created_at_utc="2026-07-20T00:00:00Z",
+        environment=current_environment(["pydantic"]),
+    )
+    relative = "artifact.json"
+    write_strategy_artifact(root / relative, artifact)
+    return {
+        "repo_root": root,
+        "artifact_path": relative,
+        "artifact_root_sha256": str(artifact["artifact_root_sha256"]),
+        "worker_path": worker,
+    }
 
 
 def test_store_appends_verifies_reuses_and_links_revisions(tmp_path) -> None:
@@ -302,10 +370,21 @@ def test_evaluator_returns_only_fixed_summary_and_duplicate_consumes_budget(
     tmp_path,
     monkeypatch,
 ) -> None:
+    identity = _current_test_artifact(tmp_path)
     store = SealedEvidenceStore(tmp_path / "sealed")
-    store.append(_batch())
-    governance = _governance(tmp_path)
-    evaluator = _evaluator(tmp_path, store, governance)
+    store.append(_batch(artifact_root_sha256=str(identity["artifact_root_sha256"])))
+    governance = _governance(
+        tmp_path,
+        artifact_path=str(identity["artifact_path"]),
+        artifact_root_sha256=str(identity["artifact_root_sha256"]),
+    )
+    evaluator = _evaluator(
+        tmp_path,
+        store,
+        governance,
+        repo_root=identity["repo_root"],
+        worker_path=identity["worker_path"],
+    )
     monkeypatch.setenv("PQS_TEST_SECRET", "must-not-cross-worker-boundary")
 
     first = evaluator.evaluate("submission-1")
@@ -328,6 +407,8 @@ def test_evaluator_returns_only_fixed_summary_and_duplicate_consumes_budget(
 
 
 def test_invalid_worker_data_is_counted_and_returns_no_raw_detail(tmp_path) -> None:
+    identity = _current_test_artifact(tmp_path)
+    artifact_root = str(identity["artifact_root_sha256"])
     store = SealedEvidenceStore(tmp_path / "sealed")
     store.append(
         _batch(
@@ -341,8 +422,18 @@ def test_invalid_worker_data_is_counted_and_returns_no_raw_detail(tmp_path) -> N
             ]
         )
     )
-    governance = _governance(tmp_path)
-    evaluator = _evaluator(tmp_path, store, governance)
+    governance = _governance(
+        tmp_path,
+        artifact_path=str(identity["artifact_path"]),
+        artifact_root_sha256=artifact_root,
+    )
+    evaluator = _evaluator(
+        tmp_path,
+        store,
+        governance,
+        repo_root=identity["repo_root"],
+        worker_path=identity["worker_path"],
+    )
     with pytest.raises(SealedEvaluationError, match="worker rejected"):
         evaluator.evaluate("submission-1")
     attempt = governance.attempts()[0]
@@ -379,25 +470,55 @@ def test_invalid_worker_data_is_counted_and_returns_no_raw_detail(tmp_path) -> N
     ],
 )
 def test_worker_rejects_out_of_order_or_impossible_returns(tmp_path, rows) -> None:
+    identity = _current_test_artifact(tmp_path)
+    artifact_root = str(identity["artifact_root_sha256"])
+    rows = [
+        {**row, "artifact_root_sha256": artifact_root}
+        for row in rows
+    ]
     store = SealedEvidenceStore(tmp_path / "sealed")
     store.append(_batch(rows=rows))
-    governance = _governance(tmp_path)
-    evaluator = _evaluator(tmp_path, store, governance)
+    governance = _governance(
+        tmp_path,
+        artifact_path=str(identity["artifact_path"]),
+        artifact_root_sha256=artifact_root,
+    )
+    evaluator = _evaluator(
+        tmp_path,
+        store,
+        governance,
+        repo_root=identity["repo_root"],
+        worker_path=identity["worker_path"],
+    )
     with pytest.raises(SealedEvaluationError, match="worker rejected"):
         evaluator.evaluate("submission-1")
     assert governance.attempts()[0]["counted"] == 1
 
 
 def test_hypothesis_registered_after_event_is_counted_failure(tmp_path) -> None:
+    identity = _current_test_artifact(tmp_path)
+    artifact_root = str(identity["artifact_root_sha256"])
     store = SealedEvidenceStore(tmp_path / "sealed")
-    store.append(_batch())
+    store.append(_batch(artifact_root_sha256=artifact_root))
     governance = SealedGovernance(tmp_path / "governance.db", _policy())
     governance.preregister(
         _hypothesis(),
         now=EVENT_TIME + timedelta(seconds=1),
     )
-    governance.register_submission(_submission(), now=EVENT_TIME + timedelta(seconds=2))
-    evaluator = _evaluator(tmp_path, store, governance)
+    governance.register_submission(
+        _submission(
+            artifact_path=str(identity["artifact_path"]),
+            artifact_root_sha256=artifact_root,
+        ),
+        now=EVENT_TIME + timedelta(seconds=2),
+    )
+    evaluator = _evaluator(
+        tmp_path,
+        store,
+        governance,
+        repo_root=identity["repo_root"],
+        worker_path=identity["worker_path"],
+    )
     with pytest.raises(SealedEvaluationError, match="registered after"):
         evaluator.evaluate("submission-1")
     assert governance.attempts()[0]["status"] == "EVALUATION_FAILED"
@@ -426,9 +547,15 @@ def test_evaluator_policy_is_frozen_with_worker_and_metric_hashes(tmp_path) -> N
 
 
 def test_worker_timeout_is_automatically_audited_and_refunded(tmp_path) -> None:
+    identity = _current_test_artifact(tmp_path)
+    artifact_root = str(identity["artifact_root_sha256"])
     store = SealedEvidenceStore(tmp_path / "sealed")
-    store.append(_batch())
-    governance = _governance(tmp_path)
+    store.append(_batch(artifact_root_sha256=artifact_root))
+    governance = _governance(
+        tmp_path,
+        artifact_path=str(identity["artifact_path"]),
+        artifact_root_sha256=artifact_root,
+    )
     worker = tmp_path / "slow_worker.py"
     worker.write_text(
         "import time\ntime.sleep(5)\n",
@@ -438,6 +565,7 @@ def test_worker_timeout_is_automatically_audited_and_refunded(tmp_path) -> None:
         tmp_path,
         store,
         governance,
+        repo_root=identity["repo_root"],
         worker_path=worker,
         timeout_seconds=1,
     )

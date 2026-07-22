@@ -40,7 +40,11 @@ from core.mining.research_miner import zscore_cs
 from core.research.candidate_registry import CandidateRegistry
 from core.research.concentration import (
     ConcentrationReport,
+)
+from core.research.concentration import (
     compute as compute_concentration,
+)
+from core.research.concentration import (
     write_artifacts as write_concentration_artifacts,
 )
 from core.research.concentration.sector_map import SECTOR_MAP
@@ -230,8 +234,24 @@ def _load_panel(cfg, store: PriceStore, start: pd.Timestamp, end: pd.Timestamp,
             if col in df.columns:
                 frames[col][sym] = df[col]
     close = pd.DataFrame(frames["close"]).sort_index()
-    if not close.empty and not isinstance(close.index, pd.DatetimeIndex):
-        close.index = pd.to_datetime(close.index)
+    if close.empty:
+        close.index = pd.DatetimeIndex([], name=close.index.name)
+    elif not isinstance(close.index, pd.DatetimeIndex):
+        if pd.api.types.is_numeric_dtype(close.index.dtype):
+            raise RuntimeError(
+                "_load_panel: numeric non-DatetimeIndex cannot be interpreted "
+                "as trading sessions"
+            )
+        try:
+            converted = pd.to_datetime(close.index, errors="raise")
+        except (ValueError, TypeError) as exc:
+            raise RuntimeError(
+                "_load_panel: close panel has a non-DatetimeIndex that cannot "
+                "be coerced to trading sessions"
+            ) from exc
+        if converted.isna().any():
+            raise RuntimeError("_load_panel: close panel index contains invalid dates")
+        close.index = converted
     close = close[(close.index >= start) & (close.index <= end)]
 
     def _df(col: str) -> Optional[pd.DataFrame]:

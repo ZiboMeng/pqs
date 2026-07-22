@@ -18,6 +18,7 @@ from core.research.robustness.runner import (
     _carve_window,
     _data_integrity_snapshot,
     _format_eval_md,
+    _load_panel,
     _write_artifacts,
     evaluate,
 )
@@ -139,6 +140,35 @@ def test_format_eval_md_marks_pseudo_oos():
     assert "pseudo_oos_robustness" in md
     assert "NOT deployable OOS" in md
     assert "PRD v3" in md
+
+
+def test_load_panel_empty_adjusted_source_has_datetime_index(monkeypatch):
+    from types import SimpleNamespace
+
+    cfg = SimpleNamespace(
+        universe=SimpleNamespace(
+            seed_pool=["MISSING"],
+            sector_etfs=[],
+            factor_etfs=[],
+            cross_asset=[],
+            blacklist=[],
+            macro_reference=[],
+        ),
+        system=SimpleNamespace(paths=SimpleNamespace(data_dir="unused")),
+    )
+    monkeypatch.setattr(
+        "core.research.robustness.runner.load_adjusted",
+        lambda *args, **kwargs: None,
+    )
+    result = _load_panel(
+        cfg,
+        store=None,
+        start=pd.Timestamp("2024-01-01"),
+        end=pd.Timestamp("2024-01-31"),
+        adjusted=True,
+    )
+    assert result["close"].empty
+    assert isinstance(result["close"].index, pd.DatetimeIndex)
 
 
 @pytest.mark.skipif(
