@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "artifact_type": "RESEARCH_RESULT_INVALIDATION",
+  "campaign_id": "diverse-mining-20260721-v1",
+  "invalidated_report": "research/results/mining_campaign_20260721_v1/campaign_report.json",
+  "invalidated_report_sha256": "4f05fdb118bfa0bd9e3826748912d3a109e3e2fe53c86d48d9d5d5c9abb1fb21",
+  "ledger_path": "research/results/mining_campaign_20260721_v1/trial_ledger.jsonl",
+  "ledger_sha256": "a2215c21d17280a3d867a20999cd2a92d33bc4d397cc40b443ff6790efbe1de1",
+  "ledger_valid": true,
+  "raw_independent_n_retained": 30,
+  "invalidated_fields": [
+    "round_results.*.stress_metrics",
+    "qualification_common_period",
+    "qualifications",
+    "formal_frozen_candidates",
+    "formal_candidate_count"
+  ],
+  "reason": "PRE_ACTIVATION_CASH_INCLUDED_IN_ROUND_METRICS_AND_2020_COMMON_WINDOW_TRUNCATED_NUMERIC_QUALIFICATION",
+  "correction_policy": "SAME_30_FROZEN_SPECS_CORRECTIVE_REPLAY_NO_NEW_TRIALS",
+  "automatic_promotion_eligible": false
+}

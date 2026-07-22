@@ -22,7 +22,10 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from core.backtest.backtest_engine import BacktestEngine  # noqa: E402
+from core.backtest.backtest_engine import (  # noqa: E402
+    BacktestEngine,
+    compute_metrics,
+)
 from core.research.diverse_mining_campaign import (  # noqa: E402
     cross_sectional_rule_score,
     load_campaign,
@@ -286,10 +289,25 @@ def _spy_backtest(
     return _run_backtest(targets, panel, cost_bps=cost_bps)[0]
 
 
-def _metric_summary(result: Any, spy: Any) -> dict[str, Any]:
+def _metric_summary(
+    result: Any,
+    spy: Any,
+    *,
+    evaluation_start: pd.Timestamp,
+) -> dict[str, Any]:
     common = result.equity_curve.index.intersection(spy.equity_curve.index)
+    common = common[common >= evaluation_start]
     strategy = result.equity_curve.loc[common]
     benchmark = spy.equity_curve.loc[common]
+    strategy_metrics = compute_metrics(
+        strategy,
+        initial_capital=float(strategy.iloc[0]),
+        benchmark=benchmark,
+    )
+    spy_metrics = compute_metrics(
+        benchmark,
+        initial_capital=float(benchmark.iloc[0]),
+    )
     window = 252
     rolling_fraction = None
     if len(common) > window:
@@ -297,14 +315,16 @@ def _metric_summary(result: Any, spy: Any) -> dict[str, Any]:
         benchmark_window = benchmark.div(benchmark.shift(window)).sub(1.0)
         valid = pd.concat([strategy_window, benchmark_window], axis=1).dropna()
         rolling_fraction = float((valid.iloc[:, 0] > valid.iloc[:, 1]).mean())
-    spy_drawdown = abs(float(spy.metrics["max_drawdown"]))
+    spy_drawdown = abs(float(spy_metrics["max_drawdown"]))
     return {
-        "candidate_metrics": _finite(result.metrics),
-        "spy_metrics": _finite(spy.metrics),
-        "cagr_excess_vs_spy": float(result.metrics["cagr"] - spy.metrics["cagr"]),
+        "candidate_metrics": _finite(strategy_metrics),
+        "spy_metrics": _finite(spy_metrics),
+        "cagr_excess_vs_spy": float(
+            strategy_metrics["cagr"] - spy_metrics["cagr"]
+        ),
         "rolling_252d_excess_fraction": rolling_fraction,
         "max_drawdown_vs_spy_ratio": (
-            abs(float(result.metrics["max_drawdown"])) / spy_drawdown
+            abs(float(strategy_metrics["max_drawdown"])) / spy_drawdown
             if spy_drawdown > 0 else None
         ),
         "trades": result.n_trades,
@@ -377,6 +397,14 @@ def main() -> int:
         "--output-dir",
         default="research/results/mining_campaign_20260721_v1",
     )
+    parser.add_argument(
+        "--corrective-replay-ledger",
+        default=None,
+        help=(
+            "Reuse a completed 30-round ledger for metric/qualification replay. "
+            "No new intent or outcome is appended."
+        ),
+    )
     args = parser.parse_args()
 
     prereg_path = (ROOT / args.preregistration).resolve()
@@ -401,8 +429,21 @@ def main() -> int:
     _assert_input_hash(numeric_path, data_doc["numeric_oof_sha256"], "numeric OOF")
     _assert_input_hash(semantic_path, data_doc["semantic_oof_sha256"], "semantic OOF")
     output_dir.mkdir(parents=True, exist_ok=True)
-    ledger = AppendOnlyTrialLedger(output_dir / "trial_ledger.jsonl")
-    if ledger.verified_events():
+    corrective_replay = args.corrective_replay_ledger is not None
+    ledger_path = (
+        Path(args.corrective_replay_ledger).resolve()
+        if corrective_replay
+        else output_dir / "trial_ledger.jsonl"
+    )
+    ledger = AppendOnlyTrialLedger(ledger_path)
+    if corrective_replay:
+        prior_snapshot = ledger.snapshot()
+        if (
+            prior_snapshot["raw_independent_n"] != 30
+            or prior_snapshot["incomplete_trial_ids"]
+        ):
+            raise RuntimeError("corrective replay requires a complete raw-N=30 ledger")
+    elif ledger.verified_events():
         raise RuntimeError("campaign output ledger already exists and is non-empty")
 
     pool = json.loads(pool_path.read_text(encoding="utf-8"))
@@ -472,14 +513,16 @@ def main() -> int:
             config_hash=config_hash,
         )
         trial_id_by_candidate[candidate_id] = intent.trial_id
-        ledger.register_intent(intent)
+        if not corrective_replay:
+            ledger.register_intent(intent)
         print(f"[round {round_number:02d}/30] {candidate_id}", flush=True)
         if spec["kind"] == "blocked_feasibility":
-            ledger.record_failed(
-                intent.trial_id,
-                error_type="PreRegisteredFeasibilityBlocker",
-                message=str(spec["blocker"]),
-            )
+            if not corrective_replay:
+                ledger.record_failed(
+                    intent.trial_id,
+                    error_type="PreRegisteredFeasibilityBlocker",
+                    message=str(spec["blocker"]),
+                )
             result_rows.append({
                 "round": round_number,
                 "candidate_id": candidate_id,
@@ -489,7 +532,8 @@ def main() -> int:
                 "formal_candidate_eligible": False,
             })
             continue
-        ledger.record_started(intent.trial_id)
+        if not corrective_replay:
+            ledger.record_started(intent.trial_id)
         try:
             if spec["kind"] in {"rule", "synthetic_short"}:
                 score = cross_sectional_rule_score(
@@ -586,7 +630,11 @@ def main() -> int:
                         targets, panel, cost_bps=cost
                     )
                     spy = _spy_backtest(targets.index[0], panel, cost)
-                    stress_metrics[f"{cost:g}"] = _metric_summary(result, spy)
+                    stress_metrics[f"{cost:g}"] = _metric_summary(
+                        result,
+                        spy,
+                        evaluation_start=pd.Timestamp("2015-01-01"),
+                    )
                     returns_by_cost[f"{cost:g}"] = result.equity_curve.pct_change(
                         fill_method=None
                     )
@@ -618,7 +666,8 @@ def main() -> int:
                     },
                     "formal_candidate_eligible": is_candidate_specific,
                 }
-            ledger.record_outcome(intent.trial_id, _finite(outcome))
+            if not corrective_replay:
+                ledger.record_outcome(intent.trial_id, _finite(outcome))
             round_artifact = output_dir / "rounds" / f"{round_number:02d}-{candidate_id}.json"
             _atomic_json(round_artifact, _finite({
                 "schema_version": 1,
@@ -627,12 +676,13 @@ def main() -> int:
                 "round_spec": spec,
                 "outcome": outcome,
             }))
-            ledger.bind_artifact(
-                intent.trial_id,
-                path=str(round_artifact.relative_to(ROOT)),
-                sha256=sha256_file(round_artifact),
-                artifact_type="MINING_ROUND_RESULT",
-            )
+            if not corrective_replay:
+                ledger.bind_artifact(
+                    intent.trial_id,
+                    path=str(round_artifact.relative_to(ROOT)),
+                    sha256=sha256_file(round_artifact),
+                    artifact_type="MINING_ROUND_RESULT",
+                )
             result_rows.append({
                 "round": round_number,
                 "candidate_id": candidate_id,
@@ -640,11 +690,12 @@ def main() -> int:
                 **_finite(outcome),
             })
         except Exception as exc:
-            ledger.record_failed(
-                intent.trial_id,
-                error_type=type(exc).__name__,
-                message=str(exc),
-            )
+            if not corrective_replay:
+                ledger.record_failed(
+                    intent.trial_id,
+                    error_type=type(exc).__name__,
+                    message=str(exc),
+                )
             result_rows.append({
                 "round": round_number,
                 "candidate_id": candidate_id,
@@ -665,9 +716,51 @@ def main() -> int:
         if row.get("status") == "COMPLETED_DEVELOPMENT_ONLY"
         and row["candidate_id"] in family_by_candidate
     ]
-    common_start = pd.Timestamp(data_doc["common_qualification_start"])
+    # Correct evaluation begins with the first actually deployable numeric
+    # decision period.  The semantic event candidate remains cash before its
+    # 2020 activation and cannot shorten every other candidate's evidence.
+    common_start = pd.Timestamp(data_doc["development_start"])
     common_index: pd.DatetimeIndex | None = None
+    qualification_candidates: list[str] = []
+    prescreen_rows: list[dict[str, Any]] = []
     for candidate_id in successful_long:
+        row = next(item for item in result_rows if item["candidate_id"] == candidate_id)
+        base = row["stress_metrics"]["30"]
+        stress_ratios = [
+            row["stress_metrics"][cost]["max_drawdown_vs_spy_ratio"]
+            for cost in ("30", "60", "90")
+        ]
+        timing = row["candidate_specific_timing"]
+        primary = {
+            "after_cost_cagr_excess_vs_spy": base["cagr_excess_vs_spy"] > 0,
+            "rolling_252d_excess_fraction": (
+                base["rolling_252d_excess_fraction"] is not None
+                and base["rolling_252d_excess_fraction"] >= 0.60
+            ),
+            "base_and_stress_drawdown": all(
+                value is not None and value <= 1.25 for value in stress_ratios
+            ),
+            "candidate_specific_timing": all(timing.values()),
+        }
+        if all(primary.values()):
+            qualification_candidates.append(candidate_id)
+        else:
+            prescreen_rows.append({
+                "candidate_id": candidate_id,
+                "family": family_by_candidate[candidate_id],
+                "qualification_passed": False,
+                "failed_checks": [
+                    f"primary_prescreen:{name}"
+                    for name, passed in primary.items() if not passed
+                ],
+                "active_cagr_excess": base["cagr_excess_vs_spy"],
+                "active_sharpe": None,
+                "qualification_path": None,
+                "qualification_sha256": None,
+                "canonical_gates": primary,
+            })
+
+    for candidate_id in qualification_candidates:
         index = candidate_returns[candidate_id]["30"].dropna().index
         index = index[index >= common_start]
         common_index = index if common_index is None else common_index.intersection(index)
@@ -732,7 +825,7 @@ def main() -> int:
         _atomic_json(input_path, _finite(input_bundle))
         artifact = build_qualification_artifact(
             input_bundle_path=input_path,
-            ledger_path=output_dir / "trial_ledger.jsonl",
+            ledger_path=ledger_path,
             repo_root=ROOT,
             code_commit=commit,
         )
@@ -757,6 +850,7 @@ def main() -> int:
             "canonical_gates": computed["gates"],
         })
 
+    qualification_rows.extend(prescreen_rows)
     qualification_rows.sort(
         key=lambda row: float(row["active_cagr_excess"]), reverse=True
     )
@@ -818,6 +912,15 @@ def main() -> int:
         "snapshot_evidence": snapshot_evidence,
         "timing_audit": timing_audit,
         "ledger": ledger.snapshot(),
+        "execution_mode": (
+            "CORRECTIVE_REPLAY_NO_NEW_TRIALS"
+            if corrective_replay else "ORIGINAL_MINING_EXECUTION"
+        ),
+        "mining_rounds_added": 0 if corrective_replay else 30,
+        "corrects_report": (
+            "research/results/mining_campaign_20260721_v1/campaign_report.json"
+            if corrective_replay else None
+        ),
         "rounds_executed": 30,
         "round_results": result_rows,
         "qualification_common_period": {

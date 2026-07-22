@@ -10,6 +10,9 @@ defined at the bottom of this file. Within each category section,
 
 ## Active Codex phase-three evidence
 
+- [audit/20260721-diverse-mining-postrun-correction.md](audit/20260721-diverse-mining-postrun-correction.md) —
+  首次 30 轮完成后的窗口语义自审：保留 raw-N=30 ledger，失效含 pre-activation cash/2020 截短的
+  汇总，并限定同规格、零新增 trial 的 corrective replay。
 - [audit/20260721-diverse-mining-preexecution-audit.md](audit/20260721-diverse-mining-preexecution-audit.md) —
   30 轮执行前的数据、holdout、trial-N、active-return 统计、short/LLM 可行性与算力审计，
   冻结了 5 个 formal candidates 或最多 30 轮的退出语义。
