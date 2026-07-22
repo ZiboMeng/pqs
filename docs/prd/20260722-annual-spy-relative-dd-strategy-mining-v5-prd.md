@@ -1,19 +1,29 @@
-# PQS Mining V5：逐年 SPY 相对回撤约束下的策略挖掘 PRD
+# PQS Mining V5：Balanced Drawdown 与账户风险分层下的策略挖掘 PRD
 
-版本：1.0
+版本：1.1
 
 日期：2026-07-22
 
-状态：`PROPOSED / READY_FOR_PREREGISTRATION`
+状态：`PROPOSED / MUST_PAUSE_FOR_GOVERNANCE_V3_APPROVAL`
 
 证据范围：`DEVELOPMENT_ONLY`
 
-上位治理：`config/research_governance.yaml`（schema v2）
+当前机器权威：`config/research_governance.yaml`（schema v2；本 PRD 尚未生效）
 
 前置 PRD：`docs/prd/20260720-governed-semantic-ml-mining-prd.md`
 
 本 PRD 替代前置 PRD 的“下一轮策略方向、label horizon、组合构造和候选冻结门”；已经完成的历史
 实现、失败证据、ledger 和审计记录不回写、不删除。
+
+v1.1 同时吸收：
+
+- `docs/audit/20260722-drawdown-gate-authoritative-web-research.md`；
+- 外部审计员对绝对账户风险、SPY 口径、D5 materiality 和 36-month 有效样本数的复核；
+- `docs/audit/20260722-drawdown-auditor-opinion-disposition.md` 的独立处置。
+
+因为 v1.1 改变正式 evaluation definition，它需要新的 research-governance schema v3、evaluation
+contract v2 和 Qualification V4。用户明确批准并完成实现前，schema v2/Qualification V3 仍是唯一机器
+权威，且**不得启动本 PRD 的方向性 return trial**。
 
 ## 1. 执行摘要
 
@@ -26,11 +36,18 @@
 4. SEC filing 语义、peer clustering 和浅层 ML 只作为对上述规则组合的可证伪增量；
 5. LLM 只做带证据位置的结构化抽取，不直接预测收益、不生成仓位。
 
-每个被评估的对象必须是**完整可交易组合**，不是单独 sleeve。正式目标同时满足：成本后整体收益
-跑赢 SPY，并在每个对齐日历年、base 与所有冻结成本压力情景下，年度 MaxDD 严格优于 SPY。
-绝对 MaxDD 继续完整报告，但不设任何绝对硬阈值。
+每个被评估的对象必须是**完整可交易组合**，不是单独 sleeve。正式 research-candidate 目标同时满足：
 
-本轮仍遵守既定退出标准：最多 30 个新的方向性 trial，或提前获得 5 个通过 Qualification V3 的
+1. base 和 2x 成本后整体收益跑赢 canonical SPY total-return hurdle；
+2. full-period、36-month rolling、SPY material-drawdown episode、downside capture 和年度 material-harm
+   veto 组成的 Balanced Drawdown Gate；
+3. DSR/PBO/MinBTL/CPCV、时序、复现、数据来源和多重试验纪律不放松。
+
+绝对风险不与相对 gate 混为一件事。原始 research candidate 不恢复旧 15%/20%/25% 历史 MaxDD cap；
+但任何 `RISK_GOVERNED_PAPER_ELIGIBLE` 状态必须额外证明账户部署组合的风险覆盖层满足第 11.3 节的
+绝对风险合同。未完成时只允许 `SHADOW_PAPER_OBSERVATION`，无资本权限。
+
+本轮仍遵守既定退出标准：最多 30 个新的方向性 trial，或提前获得 5 个通过 Qualification V4 的
 冻结候选，以先到者为准。鉴于当前历史区间已经被观察，所谓“通过”只能产生
 `FROZEN_FORWARD_CANDIDATE`，不能把历史开发结果改写为 sealed OOS 或直接晋升实盘。
 
@@ -82,16 +99,17 @@
 
 ### 3.1 目标
 
-1. 建立完整的 SPY-plus 组合与严格可复现的年度相对回撤资格计算；
-2. 找到最多 5 个机制不同、通过 Qualification V3 的 future-forward 候选；
+1. 建立完整的 SPY-plus 组合与严格可复现的 Balanced Drawdown 资格计算；
+2. 找到最多 5 个机制不同、通过 Qualification V4 的 future-forward 候选；
 3. 独立判断 quality/momentum/low-risk、risk overlay、semantic、ML、LLM 各自是否有增量；
 4. 将所有正负结果写入跨 campaign 的 append-only trial universe；
 5. 对通过者统一冻结，在同一个未来 session 开始 PAPER observation。
 
 ### 3.2 成功定义
 
-`FORMAL_V5_CANDIDATE` 必须同时满足第 11 节全部机器 gate、数据 gate 与复现 gate，并生成完整
-Qualification V3 artifact。5 个 candidate 必须具有不同的 mechanism ID；仅改变权重、lookback、seed、
+`FORMAL_V5_RESEARCH_CANDIDATE` 必须同时满足第 11.1、11.2、11.4 节的机器 gate、数据 gate 与复现
+gate，并生成完整 Qualification V4 artifact。`RISK_GOVERNED_PAPER_ELIGIBLE` 还必须满足第 11.3 节。
+5 个 candidate 必须具有不同的 mechanism ID；仅改变权重、lookback、seed、
 模型深度或 ticker 组合的 sibling 不算不同正式策略。
 
 ### 3.3 非目标
@@ -141,21 +159,26 @@ locate、fee、recall 和 Rule 201 数据前，short 结果保持 `RESEARCH_INCO
 - blocked/failed/near-miss 方向性 intent 也占用一个 trial slot；
 - 单纯 parser、data QA、单元测试且未查看策略收益的运行不计方向性 trial。
 
-Qualification V3 的 `raw_independent_n` 下限是 30 加本轮已消费的独立方向性 trial 数；若审计发现其他
+Qualification V4 的 `raw_independent_n` 下限是 30 加本轮已消费的独立方向性 trial 数；若审计发现其他
 相关历史 trial，必须继续向上修正，不能向下裁剪。
 
-### R0.2 V5 evaluation contract
+### R0.2 V5 evaluation contract v2
 
 在看任何候选收益前冻结：
 
 - protocol/program ID；
 - evaluation start/end、return-date index 和 SHA-256；
-- 纳入比较的完整对齐日历年集合；
+- 纳入比较的完整对齐日历年、month-end 36-month window 和 SPY episode 集合；
 - base 30 bps、stress 60/90 bps 的准确引擎语义；
-- 每个情景的 candidate 与 canonical SPY daily return series；
-- benchmark cost/entry policy，不允许通过给 SPY 增加未记录成本改善候选；
-- 252-session rolling window、CPCV、DSR、PBO、MinBTL 参数；
-- full-period 和命名 stress-slice 诊断集合；
+- 每个情景的 candidate 与同一 canonical SPY daily total-return series；
+- SPY material episode 的 15% trigger、recovery/end 和 evaluation-end 规则；
+- 36-month rolling return/DD 的 month-end 取样、60% 阈值和 overlap-adjusted effective-count 方法；
+- annual material-harm budget=`3 percentage points`、比较方向、equality 和浮点容差；
+- downside capture 的月频、负 SPY 月筛选和几何复合方法；
+- canonical benchmark basis 与 benchmark cost policy，不允许通过给 SPY 增加未记录成本改善候选；
+- CPCV、DSR、PBO、MinBTL 参数，以及保留为 diagnostic 的 252-session 结果；
+- full-period、GFC/Covid/2022 和其他预命名 stress-slice 集合；
+- raw candidate 与 deployed-account-composite 的身份、position-sizing/risk-overlay 边界；
 - candidate selection rule 与 sibling 去重规则。
 
 ### R0.3 数据可行性
@@ -167,12 +190,34 @@ Qualification V3 的 `raw_independent_n` 下限是 30 加本轮已消费的独�
 - SEC filing 只从官方 submissions/XBRL/bulk archive 取得，保存 acceptance timestamp 与原文 hash；
 - 所有缺失、ticker/CIK 变化、并购、退市、corporate action 必须 fail closed 或显式进入 quarantine。
 
-### R0.4 代码不变量
+### R0.4 canonical SPY benchmark 修复
+
+上一轮 Qualification input 绑定的 SPY backtest path 不能直接沿用。独立复算发现，它在 2015–2024 的
+CAGR 为 12.35%、2020/2022 年度 MaxDD 为 31.43%/22.71%；直接从同一 exact-cash snapshot 的
+`total_return_close` 重算则为 13.04%、33.70%/24.50%。差异与 single-entry SPY backtest 将历年现金分红
+留在 cash、没有持续再投资的实现一致。审计员的 raw-close 34.10%/25.36% 也不是正式口径，因为它忽略
+分红；正确结论是**旧 bound path 和 raw close 都不能充当 V4 canonical total-return hurdle**。
+
+V4 必须：
+
+- 硬 benchmark 使用冻结 SPY `total_return_close.pct_change()` 或与其逐日等价的、分红持续再投资的独立
+  recurrence；
+- candidate 使用 30/60/90 bps after-cost returns，hard SPY hurdle 不随 candidate cost scenario 改写；
+- implementable SPY one-time entry cost 另作 diagnostic，不能代替更严格的 costless total-return hurdle；
+- 将 raw payload、distribution ledger、total-return series、date index 和 SHA-256 全部绑定；
+- 建立 direct-total-return、独立 exact-cash reinvest recurrence 和 Qualification input 三方 parity test；
+- 专门测试“分红留现金”negative control 必须与 canonical benchmark 不相等；
+- 旧 Qualification V2/V3 和旧 31.43%/22.71% 数值保留为历史证据，不回写、不用于 V4 阈值校准。
+
+### R0.5 权威与代码不变量
 
 - signal 只使用 decision close 及以前信息，最早 T+1 open 成交；
 - long-only、gross<=1、cash>=0、无 margin；
 - future append、future mutation、timestamp/weekend/holiday、deterministic replay 测试全部通过；
-- Qualification V3 必须绑定 clean commit、governance、evaluation contract、composite ledger 和 raw returns；
+- schema v2/Qualification V3 在批准前保持有效，但 V5 runner 必须 fail closed，不得用 V3 近似 V4；
+- Qualification V4 必须绑定 clean commit、governance v3、evaluation contract v2、composite ledger 和
+  raw candidate/SPY/deployment returns；
+- `temporal_split_v1/v2/v3` 的 20%/25% gate 只属于锁定历史 protocol，不得被 V4 误读为当前权威；
 - 旧 artifact 不重签、不覆盖。
 
 ## 6. 数据和时间边界
@@ -361,7 +406,7 @@ formal artifact。LLM extraction 必须经分层人工双审样本和 determinis
 
 | ID | 完整组合/机制 | 目的 |
 |---|---|---|
-| R01 | canonical SPY exact-cash replication | benchmark、日期、成本、replay 正控制；不是候选 |
+| R01 | canonical SPY total-return replication + dividend-cash negative control | benchmark、日期、分红再投资、replay 正/负控制；不是候选 |
 | R02 | 80% SPY + 20% BIL | 静态稀释的 gate-gaming 负控制 |
 | R03 | SPY + vol-only scaler | 单独识别 volatility management |
 | R04 | SPY + trend-only scaler | 单独识别 long-only trend defense |
@@ -400,50 +445,121 @@ R19 只生成一条新的“无 buffer”return series，并与已经存在的 R
 禁止研究者在看完表格后“凭感觉”拼最终组合。R25、R28、R29、R30 的上游 winner 按以下字典序规则选择：
 
 1. 必须先通过数据、timing、replay、成本与本 family 的增量门；
-2. 通过逐年/逐成本 SPY 相对 MaxDD 的年份/情景数量最多；
-3. 再比较最差年度的 `abs(SPY DD) - abs(candidate DD)` margin；
-4. 再比较 90 bps 后 CAGR excess；
-5. 再比较较低 annual turnover；
-6. 完全相同时选择机制更简单、feature 更少者。
+2. 必须先通过第 11.1、11.2、11.4 节全部 formal research gate；
+3. 再比较 SPY>=15% material episode 中最差的 candidate-vs-SPY drawdown improvement；
+4. 再比较 36-month rolling DD win fraction；
+5. 再比较 90 bps 后 CAGR excess；
+6. 再比较较低 annual turnover；
+7. 完全相同时选择机制更简单、feature 更少者。
 
 该规则不会把“接近通过”改写成 gate pass。若任何正式 gate 失败，状态只能是 `REVIEW_HOLD` 或
-`REJECTED/BLOCKED`；极小正 drawdown margin 可以通过数学硬门，但必须额外报告 `epsilon_margin_warning`，
-供人工判断而不构成隐藏阈值。
+`REJECTED/BLOCKED`；不能靠人工调整 episode、window、年度 budget 或 benchmark basis 把 near-miss 改写
+为 PASS。
 
 同 family 中 NAV correlation>=0.70 的 siblings 最多冻结一个；不同 mechanism 也必须报告 return、active
 return、drawdown-state correlation，不能靠 ticker 名称差异制造“5 个策略”。
 
 ## 11. 资格门与处置
 
-### 11.1 Qualification V3 机器硬门
+### 11.1 Qualification V4 return 与统计硬门
 
 每个正式候选必须由 raw inputs 机械重算并同时满足：
 
 1. base 30 bps 后 candidate CAGR 严格大于 canonical SPY CAGR；
-2. 252-session rolling excess-positive fraction>=60%；
-3. 每个对齐完整日历年，base candidate `abs(MaxDD)` 严格小于 SPY；
-4. 60 bps、90 bps 每个冻结情景的每个对齐完整日历年也严格小于匹配 SPY；
-5. DSR statistic>=0.95；其语义是相对多重检验调整后 `SR0` 的 PSR statistic，不是“真 Sharpe>0 概率”；
-6. PBO<=0.50；
-7. MinBTL PASS；
-8. CPCV development return-distribution stability PASS；它是开发稳定性诊断，不是假 OOS；
-9. prefix invariance、next-session execution、deterministic replay、future mutation 全 PASS；
-10. clean commit、governance、evaluation contract、composite ledger、raw candidate/SPY/stress returns 的 hash
-    binding 全 PASS。
+2. 60 bps 后 candidate CAGR 大于或等于 canonical SPY CAGR；
+3. 90 bps 后 CAGR excess 强制报告，v1.1 只作 tail-cost diagnostic；
+4. month-end trailing 36-month after-cost excess-positive fraction>=60%，base/60 bps 均通过；
+5. 252-session rolling excess-positive fraction 继续报告但不 binding；
+6. DSR statistic>=0.95；其语义是相对多重检验调整后 `SR0` 的 PSR statistic，不是“真 Sharpe>0 概率”；
+7. PBO<=0.50；
+8. MinBTL PASS；
+9. CPCV development return-distribution stability PASS；它是开发稳定性诊断，不是假 OOS；
+10. prefix invariance、next-session execution、deterministic replay、future mutation 全 PASS；
+11. clean commit、governance v3、evaluation contract v2、composite ledger、raw candidate/SPY/deployment
+    returns 的 hash binding 全 PASS。
 
-### 11.2 不得加入的隐藏 MaxDD 门
+### 11.2 Balanced Drawdown Gate（D1-D5）
 
-以下只强制报告，不得决定机器 PASS/FAIL：
+除明确写明者外，D1-D5 对 candidate 的 30/60/90 bps 三条 after-cost return path 全部执行，SPY 始终是
+R0.4 定义的同一条 canonical costless total-return path。
 
-- full-period absolute MaxDD；
-- Covid、2022 rate-hike 及其他预命名 stress-slice absolute MaxDD；
-- 15%/20%/25% 等绝对 MaxDD cap；
-- “至少改善 5%/10%”等额外相对回撤阈值。
+#### D1. Full-period relative MaxDD
 
-年度严格优于 SPY 是唯一 binding drawdown comparison。每年 margin、最小 margin 和数值容差必须输出，
-但除严格 `<` 外不新设阈值。
+`abs(candidate_full_period_MDD) < abs(SPY_full_period_MDD)`
 
-### 11.3 组合前置 gate
+三种成本情景都必须严格通过。不能恢复旧 `<=1.25x SPY` 宽松倍数。
+
+#### D2. Month-end trailing 36-month relative MaxDD
+
+- 每个 month-end 形成 trailing 36 calendar months aligned window；
+- candidate/SPY 使用相同 date index、opening NAV 和 MaxDD 算法；
+- 至少 60% 窗口满足 `abs(candidate_MDD) < abs(SPY_MDD)`；
+- base/60/90 bps 分别计算并全部达到 60%；
+- 强制报告窗口总数、失败窗口、overlap-adjusted effective count 和方法敏感性。
+
+36-month 窗口高度重叠；10 年样本的有效独立信息通常只有少数几个 regime。60% 是 pre-registered
+consistency gate，不得被解释为大量独立样本或显著性证明。若覆盖不足 36 个月则 fail closed；prospective
+PAPER 未满 756 sessions 时不得宣称已经完成该门的 forward 验证。
+
+#### D3. SPY-defined material drawdown episode
+
+- episode 从 SPY high-water mark 开始；
+- SPY peak-to-trough 首次达到 15% 时成为 binding episode；
+- 到 SPY 恢复原 high-water mark 或 evaluation end 结束；
+- candidate 不得参与 episode 选择、边界或合并；
+- aligned episode 内 `abs(candidate_MDD) < abs(SPY_episode_MDD)`；
+- 历史与未来每个 binding episode、每个成本情景都必须通过。
+
+15% 是 material-market-episode trigger，不是 candidate absolute MaxDD cap。
+
+#### D4. Monthly downside capture
+
+- 从 daily canonical returns 机械复合为 calendar-month total returns；
+- 只选 SPY monthly return<0 的月份；
+- 使用 evaluation contract 冻结的几何 capture 方法；
+- `downside_capture < 100%`，base/60/90 bps 全部通过；
+- upside capture、down-market hit rate、downside deviation 和 Expected Shortfall 同时报告但不替代 D4。
+
+#### D5. Annual material-harm veto
+
+完整日历年 MaxDD 继续逐年报告，但不再要求每年都赢：
+
+`abs(candidate_annual_MDD) - abs(SPY_annual_MDD) <= 3 percentage points`
+
+任一年、任一成本情景超过 3pp 即失败；等于 3pp 可通过，浮点容差写入 evaluation contract。3pp 是
+结合本项目账户规模和保守偏好作出的 materiality budget，不是权威文献的普适常数。年度 win rate、最差/
+中位 margin 强制报告，但不额外设“至少赢 X 年”的隐藏 gate。
+
+### 11.3 账户绝对风险合同：与 raw strategy qualification 分层
+
+审计员的极端反例成立：若 SPY 在 GFC 跌 55%，candidate 跌 50%，它可能通过相对门，却不适合承受能力
+有限的个人账户。因此 v1.1 采用架构 B，但不把旧 cap 偷渡回 raw strategy gate：
+
+- `FORMAL_V5_RESEARCH_CANDIDATE`：由 11.1、11.2、11.4 决定；绝对 MaxDD 是强制报告项；
+- `SHADOW_PAPER_OBSERVATION`：冻结原始信号并只做内部模拟，无资本权限；
+- `RISK_GOVERNED_PAPER_ELIGIBLE`：candidate 经过独立、冻结、无杠杆的 account sizing/risk overlay 后，
+  还必须通过本节；
+- `CAPITAL_ELIGIBLE`：本阶段一律为 false，真实 broker/LIVE 不在本 PRD 范围。
+
+账户风险合同的 proposed hard requirements 是：
+
+1. deployed composite 的设计/运营 MaxDD target band 为 15%-20%，目标不是历史保证；
+2. 在可真实重放的 GFC-2008、Covid-2020、rate-hike-2022 路径中，deployed composite MaxDD<=25%；
+3. 组件在某历史危机尚未发行时不得 proxy backfill 或用 terminal shock 冒充 drawdown path；必须标
+   `BLOCKED_DEPLOYMENT_STRESS_DATA`，最多进入 shadow observation；
+4. 现有 `core/risk/stress_tester.py` 只产生 terminal weighted shock，不能计算路径 MaxDD，因此不得为
+   requirement 2 出具 PASS；
+5. risk overlay 的 decision timestamp、next-open execution、cost、cash、gap、distribution 和 PAPER replay
+   必须与策略层同口径；
+6. runtime 15% alert、20% mandatory de-risk、25% halt 是响应控制，不得宣传为能防止隔夜 gap 超过阈值；
+7. raw 与 deployed NAV、收益损耗、exposure、trigger、override 和 parity 全部并列输出，不能用 sizing 后
+   结果替换或美化 raw strategy evidence。
+
+本节会新增账户部署评价定义，因此与整个 v1.1 一样处于 `PENDING_USER_APPROVAL`。批准前不得改
+`config/research_governance.yaml`，也不得声称旧 `stress_slice_absolute_drawdown_gate_enabled:false` 已被
+悄悄反转。若用户最终决定绝对风险仍只作诊断，则状态必须继续停在 shadow、不能授予资本权限。
+
+### 11.4 组合前置 gate
 
 在构造 Qualification bundle 前还必须通过：
 
@@ -454,14 +570,15 @@ return、drawdown-state correlation，不能靠 ticker 名称差异制造“5 �
 - Track B 的 survivor-bias 标记；
 - representation/LLM incremental gate（若适用）。
 
-这些是数据真实性和实现有效性要求，不是新增绝对风险门。
+这些是数据真实性和实现有效性要求，不是用于绕过 D1-D5 或账户风险合同的例外。
 
-### 11.4 失败处置
+### 11.5 失败处置
 
 - 正式 gate 任一失败：`REVIEW_HOLD`，不自动删除；
 - 数据/时间因果无法证明：`BLOCKED_DATA` 或 `RESEARCH_INCOMPLETE`；
 - 模型只有裸 IC、没有成本后组合增量：`REJECTED_NO_ECONOMIC_INCREMENT`；
 - survivor-biased Track B 历史 PASS：仍只能 `DEVELOPMENT_ONLY_FORWARD_ELIGIBLE`，不能称历史 formal OOS；
+- 通过 research gate 但账户风险合同未完成：只能 `SHADOW_PAPER_OBSERVATION`；
 - 人工例外需要用户显式批准，并且永远不得重标为 machine gate PASS。
 
 ## 12. 必须输出的 artifact
@@ -471,22 +588,27 @@ return、drawdown-state correlation，不能靠 ticker 名称差异制造“5 �
 - intent/outcome ledger events 与 content hash；
 - exact data/source manifest；
 - daily target、fill、turnover、cost、cash、position 和 NAV；
-- base/60/90 bps candidate 与匹配 SPY daily returns；
-- calendar-year CAGR、volatility、MaxDD、margin；
+- base/60/90 bps candidate 与 canonical costless SPY daily total returns；
+- SPY raw-close、旧 bound path、canonical total-return path 的 basis reconciliation（前两者只作诊断）；
+- calendar-year CAGR、volatility、MaxDD、3pp gap、win/loss 与 margin；
+- full-period 和 month-end 36-month rolling return/DD、window pass fraction、overlap-adjusted effective count；
+- SPY>=15% episode state machine、episode boundaries、candidate/SPY episode MaxDD；
+- monthly downside/upside capture、downside deviation、Expected Shortfall；
 - rolling 252d excess、beta/alpha（诊断）、active return distribution；
+- raw strategy 与 deployed-account-composite 的独立 NAV、absolute stress path、trigger 和 exposure；
 - DSR/PBO/MinBTL/CPCV inputs 与结果；
 - concentration、sector、factor exposure、missing/quarantine；
 - timing/future-mutation/deterministic-replay test evidence；
 - 若为 text/LLM：accession、acceptance time、section/document hash、representation/model/prompt hash、
   extraction JSON、evidence spans 与 negative controls；
-- Qualification V3 artifact 或明确 prescreen/block reason。
+- Qualification V4 artifact 或明确 prescreen/block reason。
 
 campaign 结束必须生成：
 
 1. 30-trial 或 5-candidate exit summary；
 2. composite trial-universe snapshot；
 3. candidate correlation/机制去重矩阵；
-4. 每个 gate 的 candidate × year × cost scenario 矩阵；
+4. 每个 gate 的 candidate × full/rolling/episode/year × cost scenario 矩阵；
 5. formal、REVIEW_HOLD、blocked、rejected 的完整清单；
 6. 冻结 forward manifest 与同日起 PAPER 计划（如有）；
 7. 负结果和未解决数据边界，不得只报告 winner。
@@ -499,23 +621,28 @@ campaign 结束必须生成：
 - code/config/data/model/prompt/universe/cost/execution 全 hash；
 - forward 期间不重训、不重聚类、不改 prompt、不换阈值；
 - source-batch 必须绑定 collector 实际消费的数据；未完成时只允许 replay；
-- 最少 252 个 future sessions 前不得自动 promotion；
+- raw shadow 与 risk-governed account 必须分账户/分 manifest；前者不能获得 capital eligibility；
+- 最少 252 个 future sessions 前不得作任何自动 promotion；
+- 满 252 sessions 只提供一年运营/执行证据；未满 756 sessions 不得宣称 forward 已验证 36-month gate；
 - PAPER 与 backtest equity drift 必须<=10 bps；
-- 年中只报告 year-to-date drawdown margin，年度 gate 只能在完整日历年结束后正式判定；
+- 每月更新 rolling/episode/downside-capture；完整年度结束后更新 D5，但不恢复 annual-all-win；
 - 组合只读诊断不能把多个未通过策略合成后规避单策略 gate。
 
 ## 14. 实施顺序与停止规则
 
-1. 冻结本 PRD、evidence manifest、composite trial universe 与 V5 evaluation contract；
-2. 补全 ETF/defense exact-cash 数据并做 benchmark parity；
-3. 运行 R01-R05，验证风险层是否真的改善逐年回撤，而不先假定有收益；
-4. 运行 R06-R12 的可实现 ETF/SPY-plus 主线；
-5. 独立审计 Track B survivor/PIT 边界后运行 R13-R20；
-6. 只有 deterministic 文本地基通过才运行 R21-R25；
-7. 只有规则基线有效才运行 R26-R27；
-8. 按机械 selector 运行 R28-R30；
-9. 达到 5 个 Qualification V3 candidate 或消费 30 个方向性 trial 立即停止挖掘；
-10. 完成独立复算、审计报告、候选冻结和同日起 forward handoff。
+1. 用户显式批准或拒绝 v1.1 的新 evaluation definition 与第 11.3 节账户风险合同；
+2. 批准后新建 governance schema v3、evaluation contract v2、Qualification V4；不原地改 V3；
+3. 修复并三方验证 canonical SPY total-return benchmark；
+4. 冻结本 PRD、evidence manifest、composite trial universe 与 V5 evaluation contract v2；
+5. 补全 ETF/defense exact-cash 数据并完成账户 risk-overlay/path-stress 可行性审计；
+6. 运行 R01-R05，验证风险层是否真的改善 D1-D5，而不先假定有收益；
+7. 运行 R06-R12 的可实现 ETF/SPY-plus 主线；
+8. 独立审计 Track B survivor/PIT 边界后运行 R13-R20；
+9. 只有 deterministic 文本地基通过才运行 R21-R25；
+10. 只有规则基线有效才运行 R26-R27；
+11. 按机械 selector 运行 R28-R30；
+12. 达到 5 个 Qualification V4 research candidate 或消费 30 个方向性 trial 立即停止挖掘；
+13. 完成独立复算、审计报告、候选冻结和同日起 shadow/risk-governed forward handoff。
 
 若前面已产生 5 个正式候选，后续 trial 不得为了“看一眼”继续。若 30 轮仍为 0 formal，这是有效结论，
 不得扩大搜索空间、修改 gate、重新打开 2025-2026 或把 near-miss 写成成功。
@@ -524,19 +651,36 @@ campaign 结束必须生成：
 
 ### 数据与 benchmark
 
-- SPY exact-cash replay 与 canonical benchmark 在冻结 date index 上逐日一致；
+- canonical SPY direct total return 与独立 dividend-reinvestment recurrence 在冻结 date index 上逐日一致；
+- single-entry、dividend-cash-not-reinvested SPY negative control 必须与 canonical benchmark 不一致；
+- hard SPY hurdle 在 30/60/90 candidate cost scenarios 中逐日完全相同；
+- 对 frozen snapshot 复算 2020/2022 canonical total-return MaxDD 应为约 33.70%/24.50%，精确期望值及容差
+  由 source hash 绑定；不得误用 raw-close 34.10%/25.36% 或旧 bound 31.43%/22.71%；
 - distribution 缺失、ETF inception 前数据、proxy backfill 均使 evaluation fail closed；
 - 在末尾追加未来 rows 不改变任何历史 eligibility、feature、cluster、signal 或 target；
 - filing acceptance 在盘后/周末/节假日时映射到正确 next tradable open。
 
 ### 回撤 gate
 
-- synthetic 多年样本证明每个 calendar year 独立重置 high-water mark；
-- candidate 仅某一年等于 SPY DD 时严格失败；
-- base 通过但 60/90 bps 任一情景任一年失败时严格失败；
-- full-period absolute DD 很低但某一年不优于 SPY 时失败；
-- absolute DD 超过任意 legacy 15%/20%/25% 但逐年优于 SPY时，不得因 legacy cap 失败；
-- evaluation date hash、year set 或 scenario set 变化使 artifact invalid。
+- cross-year drawdown 不得在 D1/D2/D3 中被 calendar reset；calendar reset 只用于 D5 报告/veto；
+- D1 equality 必须失败，base 通过但 60/90 bps 任一失败时整体失败；
+- month-end trailing 36-month date index、60% equality、overlap count 与 insufficient-history fail-closed；
+- SPY 15% episode 的 peak/trigger/recovery/evaluation-end 状态机，以及 candidate mutation 不能改变 episode；
+- D4 只选负 SPY 月、几何复合，99.999% 通过而 100% equality 失败；
+- D5 annual extra DD 2.999pp/3.000pp/3.001pp 与冻结浮点容差边界；
+- synthetic calm-year slight lag 可以通过 D5，但 2021-like 20pp blow-up 必须失败；
+- raw research candidate 不因 legacy absolute cap 隐藏失败；deployed account 则必须按 11.3 独立判定；
+- evaluation date hash、window set、episode set、year set 或 scenario set 变化使 artifact invalid；
+- V2/V3 artifact 在 V4 validator 下 fail closed，不自动迁移。
+
+### 账户绝对风险
+
+- synthetic candidate 跌 50%、SPY 跌 55% 时可通过相对 comparison 的反例必须存在，但 account-risk gate
+  必须拒绝其 `RISK_GOVERNED_PAPER_ELIGIBLE`；
+- terminal weighted shock 不得被 validator 接受为 path MaxDD；
+- 组件 inception 不覆盖 GFC 且无已批准 path model 时 fail closed 到 shadow；
+- raw/deployed NAV 不可互换，risk overlay 的未来信息 mutation 必须被检测；
+- 15/20/25% runtime trigger 发生后仍可能 gap overshoot，报告不得声称硬保证。
 
 ### 组合与执行
 
@@ -560,6 +704,7 @@ campaign 结束必须生成：
 - duplicate content hash 不增加独立 N，改名不减少 N；
 - 并发、crash、retry 后 ledger 不丢 intent/outcome；
 - 第 31 次未经授权的方向性 return inspection 被 runner 拒绝。
+- governance v3 未获用户显式批准时，V5 runner 在首个方向性 trial 前拒绝运行。
 
 ## 16. 可信来源
 
@@ -579,6 +724,12 @@ campaign 结束必须生成：
 
 ### 官方数据、指数与机构一手资料
 
+- [GIPS Standards Handbook for Firms](https://www.gipsstandards.org/standards/gips-standards-for-firms/gips-standards-handbook-for-firms/)
+- [SEC standardized 1/5/10-year benchmark disclosure](https://www.sec.gov/files/rules/final/33-7941.htm)
+- [CFA Institute Investment Manager Selection](https://www.cfainstitute.org/insights/professional-learning/refresher-readings/2026/investment-manager-selection)
+- [Morningstar Rating for Funds Methodology](https://www.morningstar.com/content/dam/marketing/shared/research/methodology/771945_Morningstar_Rating_for_Funds_Methodology.pdf)
+- [Drawdowns, Journal of Portfolio Management / Duke record](https://scholars.duke.edu/publication/1461725)
+- [Drawdown: From Practice to Theory and Back Again](https://doi.org/10.1007/s11579-016-0181-9)
 - [SEC EDGAR submissions/XBRL APIs](https://www.sec.gov/search-filings/edgar-application-programming-interfaces)
 - [S&P Quality Indices Methodology](https://www.spglobal.com/spdji/en/documents/methodologies/methodology-sp-quality-indices.pdf)
 - [S&P Low Volatility Indices Methodology](https://www.spglobal.com/spdji/en/documents/methodologies/methodology-sp-low-volatility-indices.pdf)
@@ -596,6 +747,9 @@ campaign 结束必须生成：
 
 `可实现的风险/组合几何 > 低换手规则 alpha > 语义 representation > 浅层 ML > LLM extraction`
 
-理由不是“传统模型一定更好”，而是当前最强约束是每年相对 SPY 的完整组合回撤、交易成本、PIT 数据和
-样本量，而不是模型表达能力。只有前一级已经产生可交易、可复算的基线时，更智能的 representation 才有
-明确的增量问题可回答。
+理由不是“传统模型一定更好”，而是当前最强约束是完整组合的成本后 SPY excess、Balanced Drawdown、
+账户绝对风险边界、PIT 数据和样本量，而不是模型表达能力。只有前一级已经产生可交易、可复算的基线时，
+更智能的 representation 才有明确的增量问题可回答。
+
+本 PRD 的建议不是恢复旧 annual-all-win，也不是允许“只要比 SPY 少跌一点就承受任意绝对损失”。它把
+研究策略的相对质量与账户部署的绝对承受能力分别治理；任何一层证据不足都不能跨层借 PASS。

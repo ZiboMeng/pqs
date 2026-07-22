@@ -4,6 +4,11 @@
 
 状态：`RECOMMENDATION_ONLY / NOT_YET_EFFECTIVE`
 
+后续审计修订：本文关于废除 annual-all-years gate 的主体结论保留；§6 的旧 bound SPY 数值不能作为
+canonical total-return benchmark，§8.4“永久禁止任何绝对门”改为“raw strategy 不设 absolute cap，但
+account deployment 必须有独立绝对风险合同”。最新处置以
+`docs/audit/20260722-drawdown-auditor-opinion-disposition.md` 和 V5 PRD v1.1 为准。
+
 当前机器权威：`config/research_governance.yaml`（schema v2）
 
 当前实现：Qualification V3
@@ -28,15 +33,16 @@
 2. 36 个月滚动 MaxDD 至少 60% 窗口优于 SPY；
 3. 所有 SPY 跌幅达到 15% 的 benchmark-defined episode 必须优于 SPY；
 4. monthly downside capture 必须小于 100%；
-5. 年度 MaxDD 不再要求每年都赢，但任何一年不得比 SPY 多回撤超过 5 percentage points；
-6. base/60/90 bps 的适用范围预先冻结，绝对 MaxDD 继续报告但不设绝对硬 cap；
+5. 年度 MaxDD 不再要求每年都赢，但任何一年不得比 SPY 多回撤超过 3 percentage points；
+6. base/60/90 bps 的适用范围预先冻结；raw strategy 绝对 MaxDD 继续报告但不设绝对晋升 cap，账户部署
+   另设绝对风险合同；
 7. CAGR、DSR、PBO、MinBTL、CPCV、timing、replay 和 PAPER alignment 等其他门不放松。
 
-其中“60%”和“5 percentage points”是结合本项目风险偏好作出的治理选择，不是外部文献宣称的唯一
+其中“60%”和“3 percentage points”是结合本项目风险偏好作出的治理选择，不是外部文献宣称的唯一
 正确常数。权威资料支持的是**多期限、多指标、与基准对齐和避免单一 MaxDD 点估计**这一结构。
 
-本报告没有修改当前 governance、Qualification V3、历史 artifact 或 V5 PRD。是否采用必须由用户明确
-决定；若采用，应新建 prospective Qualification V4，不能回签旧候选。
+本报告及后续审计已经形成 V5 PRD v1.1 提案，但没有修改当前 governance、Qualification V3 或历史
+artifact。是否采用必须由用户明确决定；若采用，应新建 prospective Qualification V4，不能回签旧候选。
 
 ## 2. 研究问题
 
@@ -137,6 +143,9 @@ calendar-year reset 会产生三个问题：
 ## 6. PQS 本地事实复算
 
 以下只是对已经观察历史的治理诊断，不是新的 OOS，也不用于回签候选。
+
+**后续 basis 审计警告：**本节旧 bound SPY path 未持续再投资现金分红，不能作为 V4 canonical
+total-return benchmark；修正值和处置见 §15。本节只保留为“当时 artifact 实际绑定了什么”的历史证据。
 
 ### 6.1 SPY 年度 MaxDD 的尺度变化
 
@@ -250,12 +259,12 @@ base cost、已观察开发区间的诊断如下：
 
 每个完整 calendar year 继续计算并公布 MaxDD，但不再要求每年都赢。改为：
 
-`abs(candidate_annual_MDD) - abs(SPY_annual_MDD) <= 5 percentage points`
+`abs(candidate_annual_MDD) - abs(SPY_annual_MDD) <= 3 percentage points`
 
-任一年、任一成本情景超过 5pp 即失败。等于 5pp 可通过，浮点容差必须在 evaluation contract 冻结。
+任一年、任一成本情景超过 3pp 即失败。等于 3pp 可通过，浮点容差必须在 evaluation contract 冻结。
 
 这个 veto 会允许“2017 SPY -2.5%、策略 -5%”这类小幅 active-risk excursion，但拒绝“2021 SPY
--4.8%、策略 -26%”这类机制失控。5pp 是本项目建议的 materiality budget；它是**相对 SPY 的额外
+-4.8%、策略 -26%”这类机制失控。3pp 是本项目建议的 materiality budget；它是**相对 SPY 的额外
 损失上限**，不是 candidate absolute MaxDD cap。
 
 ### 8.3 强制诊断但暂不 binding
@@ -272,15 +281,20 @@ base cost、已观察开发区间的诊断如下：
 CED/bootstrap 第一轮只作诊断，因为 bootstrap model、block length 和 regime non-stationarity 本身也会引入
 模型风险。完成独立实现、synthetic calibration 和一轮 prospective observation 后，再决定是否升级为硬门。
 
-### 8.4 没有绝对 MaxDD cap
+### 8.4 raw strategy 与 account deployment 分层
 
-继续禁止以下机器硬门：
+raw strategy qualification 继续禁止以下隐藏机器硬门：
 
 - candidate MaxDD 必须小于 15%/20%/25%；
 - stress slice candidate MaxDD 的绝对 cap；
 - “至少比 SPY 改善 5%/10%”的隐藏 improvement threshold。
 
 full-period、rolling、episode、annual 和 CED 的绝对数值仍必须全部报告。
+
+但相对门不能执行个人账户绝对承受能力。candidate 经过 position sizing/risk overlay 后的 deployed
+account composite 应另有 15%-20% operating target 和真实可重放危机 path<=25% 的 proposed contract；
+没有 path-capable 实现和验证时只能 shadow PAPER、无资本权限。该账户合同与 raw strategy gate 正交，
+仍需用户显式批准。
 
 ## 9. 为什么这个方案更符合用户目标
 
@@ -292,7 +306,7 @@ full-period、rolling、episode、annual 和 CED 的绝对数值仍必须全部�
 - 真实严重市场回撤 episode 必须更小；
 - 所有负 SPY 月份合起来必须少跌；
 - 三年滚动窗口要多数更好；
-- 任一年都不能出现超过 SPY 5pp 的额外资本损失。
+- 任一年都不能出现超过 SPY 3pp 的额外资本损失。
 
 它只删除了“每个任意自然年、哪怕差 0.01pp 也永久失败”的逻辑。
 
@@ -304,14 +318,15 @@ full-period、rolling、episode、annual 和 CED 的绝对数值仍必须全部�
 若用户批准：
 
 1. 保留 V5 的 SPY anchor、quality/momentum/low-risk sleeve、无杠杆 risk engine 和受治理语义/ML 方向；
-2. 将 V5 §11 的 Qualification V3 annual all-years gate 替换为本报告的 Balanced Drawdown Gate；
+2. V5 v1.1 已将原 Qualification V3 annual all-years 提案替换为本报告修订后的 Balanced Drawdown Gate；
 3. 将 return rolling window 从 252 sessions 改为 36 months，252 sessions 降为诊断；
 4. R01-R05 风险层首先验证 D1-D5，而不是优化年度全胜数量；
 5. trial budget、过去 30 次试验并集、survivor-bias、PIT、成本、LLM 和 short 边界不变；
 6. 新建 `research_governance` schema v3、evaluation contract v2、Qualification V4；
 7. 新规则正式生效前不得运行方向性 V5 return trial。
 
-若用户不批准，当前 schema v2/Qualification V3 继续是唯一机器权威，V5 按逐年全胜标准执行。
+若用户不批准，当前 schema v2/Qualification V3 继续是唯一机器权威，V5 v1.1 不运行；不能拿旧 V3
+近似执行新 PRD。
 
 ## 11. 历史与 forward 边界
 
@@ -319,8 +334,8 @@ full-period、rolling、episode、annual 和 CED 的绝对数值仍必须全部�
 - 所有旧候选仍为 0 formal，不允许按新建议 retroactive promotion；
 - 旧 Qualification V2/V3 artifact 不回写、不重签；
 - 新 gate 只适用于新 protocol、新 ledger intent 之后生成的 returns；
-- future PAPER 前 252 sessions 继续积累，不以不完整 calendar year 作正式年度结论；
-- PAPER/LIVE 的最短 forward 长度是否从 252 增加到 756 sessions 是独立治理问题，本报告不擅自修改；
+- future PAPER 前 252 sessions 只提供一年运营/执行证据，不以不完整 calendar year 作正式年度结论；
+- V5 v1.1 要求未满 756 sessions 不得宣称完成 36-month forward gate；
 - 未完成 source-batch binding、broker authority 和 PAPER/backtest parity 前仍不得真实执行。
 
 ## 12. 验收测试要求
@@ -333,13 +348,16 @@ Qualification V4 至少需要：
 4. SPY 15% episode start/trigger/recovery/end state-machine test；
 5. candidate 不能改变 episode selection 的 mutation test；
 6. downside capture 的负 benchmark 月筛选与几何复合 test；
-7. annual 5pp gap 的 equality、floating tolerance、成本情景 test；
+7. annual 3pp gap 的 equality、floating tolerance、成本情景 test；
 8. base/60/90 scenario completeness 与 benchmark alignment test；
-9. legacy absolute MaxDD config 不得重新进入 hard gate；
+9. legacy absolute MaxDD config 不得重新进入 raw-strategy hard gate；
 10. old artifact 在 V4 validator 下 fail closed，而不是自动迁移；
 11. synthetic cash-dilution strategy 因 return gate 失败；
 12. synthetic crisis-protection strategy 可以在一个平静年小幅落后、但仍通过 drawdown structure；
 13. synthetic 2021-like annual blow-up 即使 full-period MDD 较好也被 D5 拒绝。
+14. synthetic candidate -50% / SPY -55% 即使通过 relative comparison，也必须被 account-risk contract
+    拒绝进入 risk-governed PAPER；
+15. terminal weighted shock 不得冒充 path MaxDD PASS。
 
 ## 13. 权威来源
 
@@ -375,7 +393,45 @@ Qualification V4 至少需要：
 
 `拒绝继续使用 annual-all-years strict dominance；批准 Balanced Drawdown Gate 作为新的 prospective 方向。`
 
-如果风险偏好仍希望更保守，优先把 annual material-harm veto 从 5pp 收紧到 3pp，而不是恢复“每年差
-0.01pp 也失败”。前者表达可理解的资本损失容忍度，后者主要表达统计符号一致性。
+外部审计后 annual material-harm veto 已从原建议 5pp 收紧到 3pp，而不是恢复“每年差 0.01pp 也失败”。
+前者表达可理解的资本损失容忍度，后者主要表达统计符号一致性。
 
 在用户明确批准前，当前逐年全胜规则保持有效，本报告只作为决策依据。
+
+## 15. 外部审计后的校正附录
+
+### 15.1 SPY basis 校正
+
+本文 §6 明确使用的是上一轮 Qualification 实际绑定的 SPY path，因此数值复算本身没有抄错；但后续
+审计证明该 path 不是应继续使用的 canonical benchmark。它来自 single-entry SPY backtest，后续现金分红
+长期停留在 cash，没有持续再投资。对同一 frozen snapshot 直接使用 `total_return_close`：
+
+- 2015-2024 CAGR：旧 bound path 12.35%，canonical total-return 13.04%；
+- 2020 MaxDD：31.43% 应改为 33.70%；
+- 2022 MaxDD：22.71% 应改为 24.50%。
+
+审计员用 raw close 得到 34.10%/25.36%，成功揭示了异常，但 raw close 忽略分红，同样不能成为最终
+total-return basis。V4 必须在任何 trial 前修复并冻结 benchmark；§6 的候选校准不得用于回签或设定阈值。
+
+### 15.2 绝对风险校正
+
+外部审计给出的反例成立：SPY -55%、candidate -50% 可以通过所有相对门，却可能超出个人账户承受能力。
+原 §8.4 把“raw strategy 不设 absolute promotion cap”扩大成“任何层都不得有 absolute gate”，这个推论
+过度。
+
+修订方向是分层治理：
+
+- raw research candidate：Balanced relative gate，不恢复旧 20%/25% cap；
+- deployed account composite：position sizing/risk overlay 后另测 15%-20% operating target 与真实危机
+  path <=25% proposed contract；
+- 账户层未验证时只能 shadow PAPER，无资本权限。
+
+这保持用户 2026-07-22 对 strategy gate 的显式决定，同时补回账户绝对亏损容忍度。该新账户合同仍需
+用户批准，不能靠本附录直接修改当前 config。
+
+### 15.3 阈值校正
+
+- annual material-harm veto 从建议 5pp 收紧为 3pp；
+- 36-month 60% 保留为 consistency gate，但必须输出 overlap-adjusted effective count，不能冒充几十份
+  独立证据；
+- 15% episode trigger、60% 和 3pp 均是 prospective project-governance choices，不是文献唯一阈值。

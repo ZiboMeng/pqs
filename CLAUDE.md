@@ -42,7 +42,9 @@ See `docs/memos/20260720-governance-reconciliation.md`.
 **Why QQQ deprecated as hard gate** (8-angle analysis at `docs/memos/20260502-qqq_benchmark_deprecation.md`):
 - QQQ = Nasdaq-100 = sector-tilt (60% tech), not market-broad
 - 1999-2025 long-term: QQQ +8.3% vs SPY +7.8% = +0.5% only (the 2009-2021 +5.7%/yr gap was zero-rate cherry-pick, not regime invariant)
-- Long-only beat-QQQ requires beta>1 → MaxDD>QQQ → DIRECTLY violates 15-20% MaxDD invariant
+- Historical 2026-05-02 rationale: under the then-active 15-20% absolute MaxDD rule, a high-beta
+  long-only attempt to beat QQQ conflicted with that cap. The numeric cap was superseded prospectively
+  by the 2026-07-22 policy below; this line is context for QQQ deprecation, not a current hidden gate.
 - Industry / academic norm: long-only US large-cap benchmark = S&P 500 / Russell 1000, NOT QQQ
 - 5 mining cycles' sibling-by-NAV convergence root-caused by infeasibility of (beat QQQ AND MaxDD ≤ 20%)
 

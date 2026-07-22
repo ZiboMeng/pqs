@@ -1,6 +1,6 @@
 # docs/ Index
 
-Navigation across 354 docs (51 PRDs, 168 memos + others) by category — this index
+Navigation across 355 docs (51 PRDs, 168 memos + others) by category — this index
 does NOT enumerate every file (many memos are unindexed; count via `find docs -name '*.md' | wc -l`).
 **Existing files** are kept flat
 (no subdirectories) so cross-references stay intact; this index is the
@@ -10,14 +10,17 @@ defined at the bottom of this file. Within each category section,
 
 ## Active Codex phase-three evidence
 
+- [audit/20260722-drawdown-auditor-opinion-disposition.md](audit/20260722-drawdown-auditor-opinion-disposition.md) —
+  独立处置外部审计：接受账户绝对风险反例、SPY basis 修复、D5=3pp 和重叠窗口 caveat；纠正当前 config
+  “未经批准”的事实误判；采用 raw-strategy Balanced gate + account-deployment absolute contract 分层方案。
 - [audit/20260722-drawdown-gate-authoritative-web-research.md](audit/20260722-drawdown-gate-authoritative-web-research.md) —
   基于同行评审、GIPS、SEC、CFA、Morningstar、MSCI、S&P、BlackRock 与 Man Group 一手资料复审
-  annual-all-years MaxDD gate；建议 prospective Balanced Drawdown Gate：full-period、36 月滚动、15%
-  benchmark episode、downside capture 与年度 5pp material-harm veto，当前治理尚未修改。
+  annual-all-years MaxDD gate；审计附录将 D5 收紧为 3pp、修正 SPY total-return basis，并把绝对风险下沉
+  到 account deployment 层；当前治理尚未修改。
 - [prd/20260722-annual-spy-relative-dd-strategy-mining-v5-prd.md](prd/20260722-annual-spy-relative-dd-strategy-mining-v5-prd.md) —
-  基于可信论文、监管/指数方法和机构一手资料制定的下一轮 V5 挖掘 PRD：SPY participation anchor、
-  低换手质量/动量/低风险 sleeve、无杠杆防御层、受治理 semantic/ML/LLM 阶梯，以及逐年逐成本
-  严格优于 SPY MaxDD 的 Qualification V3 和最多 30-trial 预注册矩阵。
+  v1.1 下一轮挖掘 PRD：SPY participation anchor、低换手质量/动量/低风险 sleeve、无杠杆防御层、
+  受治理 semantic/ML/LLM 阶梯、Qualification V4 Balanced Drawdown、账户风险分层及最多 30-trial
+  预注册矩阵；需 governance schema v3 显式批准后才可运行。
 - [audit/20260722-v4-independent-verification-disposition.md](audit/20260722-v4-independent-verification-disposition.md) —
   独立审计逐项处置：接受机械复算，纠正 DSR/beta/不可行性过度推断，记录 2015 replay 的预注册偏离。
 - [memos/20260722-annual-spy-relative-drawdown-governance.md](memos/20260722-annual-spy-relative-drawdown-governance.md) —
