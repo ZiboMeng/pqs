@@ -79,6 +79,7 @@ nohup.out
 # Jupyter
 .ipynb_checkpoints/
 research/**/*.ipynb
+research/results/**/*.lock
 
 # macOS
 .DS_Store

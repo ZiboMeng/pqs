@@ -11,6 +11,7 @@ import os
 import subprocess
 import sys
 import tempfile
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
@@ -262,11 +263,21 @@ def main() -> int:
         "--output-dir",
         default="research/results/mining_v5_balanced_20260722_v1",
     )
+    parser.add_argument(
+        "--corrective-replay",
+        action="store_true",
+        help=(
+            "Reuse a complete failed ledger after a non-directional runner bug. "
+            "Replay intents retain their original content hash and do not reset N."
+        ),
+    )
     args = parser.parse_args()
     prereg_path = (ROOT / args.preregistration).resolve()
     output = (ROOT / args.output_dir).resolve()
-    if output.exists():
+    if output.exists() and not args.corrective_replay:
         raise RuntimeError(f"campaign output is immutable: {output}")
+    if args.corrective_replay and (output / "campaign_report.json").exists():
+        raise RuntimeError("corrective replay cannot overwrite a completed report")
     if _git("status", "--porcelain", "--untracked-files=no"):
         raise RuntimeError("tracked worktree must be clean before V5 execution")
     _git("ls-files", "--error-unmatch", str(prereg_path.relative_to(ROOT)))
@@ -295,9 +306,22 @@ def main() -> int:
     ):
         raise RuntimeError("Track-A SPY path differs from canonical benchmark")
 
-    output.mkdir(parents=True)
+    output.mkdir(parents=True, exist_ok=args.corrective_replay)
     ledger_path = output / "trial_ledger.jsonl"
     ledger = AppendOnlyTrialLedger(ledger_path)
+    intent_commit = commit
+    if args.corrective_replay:
+        prior_snapshot = ledger.snapshot()
+        if (
+            prior_snapshot["raw_independent_n"] != 30
+            or prior_snapshot["incomplete_trial_ids"]
+        ):
+            raise RuntimeError("corrective replay requires a complete raw-N=30 ledger")
+        first_intent = next(
+            event for event in ledger.verified_events()
+            if event["event_type"] == "INTENT"
+        )
+        intent_commit = str(first_intent["payload"]["intent"]["code_commit"])
     results: list[dict[str, Any]] = []
     return_paths: dict[str, dict[str, np.ndarray]] = {}
     targets_by_id: dict[str, pd.DataFrame] = {}
@@ -307,14 +331,47 @@ def main() -> int:
 
     for spec in campaign["rounds"]:
         candidate_id = str(spec["id"])
+        if args.corrective_replay and candidate_id not in TRACK_A_CONSTRUCTIONS:
+            if candidate_id == "canonical_spy_replication":
+                results.append({
+                    "round": spec["round"],
+                    "candidate_id": candidate_id,
+                    "family": spec["family"],
+                    "status": "PASS_BENCHMARK_CONTROL_NOT_CANDIDATE",
+                })
+            else:
+                blocker = (
+                    campaign["track_b_data"]["status"]
+                    if int(spec["round"]) <= 19
+                    else campaign["semantic_data"]["status"]
+                    if int(spec["round"]) <= 29
+                    else campaign["llm_data"]["status"]
+                )
+                results.append({
+                    "round": spec["round"],
+                    "candidate_id": candidate_id,
+                    "family": spec["family"],
+                    "status": "BLOCKED_DATA_COUNTED",
+                    "reason": blocker,
+                })
+            continue
         intent = _intent(
             spec,
-            commit=commit,
+            commit=intent_commit,
             data_hash=data_ref["manifest_sha256"],
             prereg_hash=prereg_hash,
         )
+        if args.corrective_replay:
+            intent = replace(
+                intent,
+                trial_id=f"{intent.trial_id}-corrective-serialization-replay",
+            )
         registration = ledger.register_intent(intent)
-        if not registration.independent_trial:
+        if args.corrective_replay and registration.independent_trial:
+            raise RuntimeError(
+                f"corrective replay unexpectedly increased N: {candidate_id}"
+            )
+        if not args.corrective_replay and not registration.independent_trial:
             raise RuntimeError(f"unexpected replay in fresh V5 ledger: {candidate_id}")
         trial_ids[candidate_id] = intent.trial_id
         print(f"[R{int(spec['round']):02d}/30] {candidate_id}", flush=True)
@@ -369,9 +426,11 @@ def main() -> int:
                 "status": "COMPLETED_DEVELOPMENT_ONLY",
                 "timing": timing,
                 "execution": execution,
-                "targets_sha256": canonical_sha256(
-                    targets.reset_index().to_dict(orient="records")
-                ),
+                "targets_sha256": hashlib.sha256(
+                    targets.to_json(
+                        orient="split", date_format="iso", double_precision=15
+                    ).encode("utf-8")
+                ).hexdigest(),
             }
             ledger.record_outcome(intent.trial_id, _finite(outcome))
             targets_by_id[candidate_id] = targets
@@ -537,6 +596,11 @@ def main() -> int:
         "evidence_scope": "DEVELOPMENT_ONLY",
         "observed_through": campaign["observed_through"],
         "rounds_consumed": 30,
+        "execution_mode": (
+            "CORRECTIVE_SERIALIZATION_REPLAY_NO_NEW_INDEPENDENT_TRIALS"
+            if args.corrective_replay
+            else "ORIGINAL_EXECUTION"
+        ),
         "exit_condition": (
             "FIVE_FORMAL_CANDIDATES" if len(frozen) == 5 else "MAXIMUM_30_ROUNDS"
         ),
