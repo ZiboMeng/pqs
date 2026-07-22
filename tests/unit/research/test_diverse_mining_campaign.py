@@ -4,12 +4,15 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from core.research.diverse_mining_campaign import (
+    MiningCampaignError,
     cross_sectional_rule_score,
     load_campaign,
     select_formal_candidates,
     synthetic_market_neutral_returns,
+    validate_qualification_partition,
 )
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -77,3 +80,25 @@ def test_formal_selection_enforces_family_and_correlation() -> None:
         "c": "RETURN_CORRELATION_BUDGET",
         "d": "QUALIFICATION_FAILED",
     }
+
+
+def test_qualification_paths_are_an_exact_partition() -> None:
+    validate_qualification_partition(
+        ["a", "b", "c"],
+        ["a", "c"],
+        [{"candidate_id": "b"}],
+    )
+
+    with pytest.raises(MiningCampaignError, match="overlap"):
+        validate_qualification_partition(
+            ["a", "b"],
+            ["a"],
+            [{"candidate_id": "a"}, {"candidate_id": "b"}],
+        )
+
+    with pytest.raises(MiningCampaignError, match="do not partition"):
+        validate_qualification_partition(
+            ["a", "b"],
+            ["a"],
+            [],
+        )

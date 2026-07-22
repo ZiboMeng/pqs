@@ -154,10 +154,37 @@ def select_formal_candidates(
     return selected, rejected
 
 
+def validate_qualification_partition(
+    successful_candidate_ids: list[str],
+    qualification_candidate_ids: list[str],
+    prescreen_rows: list[dict[str, Any]],
+) -> None:
+    """Require each successful long candidate to take exactly one gate path."""
+
+    successful = [str(item) for item in successful_candidate_ids]
+    qualified = [str(item) for item in qualification_candidate_ids]
+    prescreened = [str(row.get("candidate_id", "")) for row in prescreen_rows]
+    for label, values in (
+        ("successful", successful),
+        ("qualification", qualified),
+        ("prescreen", prescreened),
+    ):
+        if not all(values) or len(values) != len(set(values)):
+            raise MiningCampaignError(f"{label} candidate ids must be unique and non-empty")
+    overlap = set(qualified).intersection(prescreened)
+    if overlap:
+        raise MiningCampaignError(
+            f"qualification and prescreen paths overlap: {sorted(overlap)}"
+        )
+    if set(qualified).union(prescreened) != set(successful):
+        raise MiningCampaignError("qualification paths do not partition successful candidates")
+
+
 __all__ = [
     "MiningCampaignError",
     "cross_sectional_rule_score",
     "load_campaign",
     "select_formal_candidates",
     "synthetic_market_neutral_returns",
+    "validate_qualification_partition",
 ]

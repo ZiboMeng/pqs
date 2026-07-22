@@ -31,6 +31,7 @@ from core.research.diverse_mining_campaign import (  # noqa: E402
     load_campaign,
     select_formal_candidates,
     synthetic_market_neutral_returns,
+    validate_qualification_partition,
 )
 from core.research.dynamic_universe import (  # noqa: E402
     DynamicEligibilityConfig,
@@ -760,7 +761,12 @@ def main() -> int:
                 "canonical_gates": primary,
             })
 
-    for candidate_id in qualification_candidates:
+    validate_qualification_partition(
+        successful_long,
+        qualification_candidates,
+        prescreen_rows,
+    )
+    for candidate_id in successful_long:
         index = candidate_returns[candidate_id]["30"].dropna().index
         index = index[index >= common_start]
         common_index = index if common_index is None else common_index.intersection(index)
@@ -784,7 +790,7 @@ def main() -> int:
     returns_frame["SPY__30"] = benchmark_common
     _atomic_parquet(output_dir / "daily_net_returns.parquet", returns_frame)
 
-    for candidate_id in successful_long:
+    for candidate_id in qualification_candidates:
         row = next(item for item in result_rows if item["candidate_id"] == candidate_id)
         timing = row["candidate_specific_timing"]
         input_bundle = {
@@ -851,6 +857,11 @@ def main() -> int:
         })
 
     qualification_rows.extend(prescreen_rows)
+    if (
+        len(qualification_rows) != len(successful_long)
+        or {row["candidate_id"] for row in qualification_rows} != set(successful_long)
+    ):
+        raise RuntimeError("qualification result must contain each successful candidate once")
     qualification_rows.sort(
         key=lambda row: float(row["active_cagr_excess"]), reverse=True
     )
