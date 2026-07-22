@@ -1,6 +1,6 @@
 # docs/ Index
 
-Navigation across ~310 docs (48 PRDs, 168 memos + others) by category — this index
+Navigation across 353 docs (51 PRDs, 168 memos + others) by category — this index
 does NOT enumerate every file (many memos are unindexed; count via `find docs -name '*.md' | wc -l`).
 **Existing files** are kept flat
 (no subdirectories) so cross-references stay intact; this index is the
@@ -10,6 +10,10 @@ defined at the bottom of this file. Within each category section,
 
 ## Active Codex phase-three evidence
 
+- [prd/20260722-annual-spy-relative-dd-strategy-mining-v5-prd.md](prd/20260722-annual-spy-relative-dd-strategy-mining-v5-prd.md) —
+  基于可信论文、监管/指数方法和机构一手资料制定的下一轮 V5 挖掘 PRD：SPY participation anchor、
+  低换手质量/动量/低风险 sleeve、无杠杆防御层、受治理 semantic/ML/LLM 阶梯，以及逐年逐成本
+  严格优于 SPY MaxDD 的 Qualification V3 和最多 30-trial 预注册矩阵。
 - [audit/20260722-v4-independent-verification-disposition.md](audit/20260722-v4-independent-verification-disposition.md) —
   独立审计逐项处置：接受机械复算，纠正 DSR/beta/不可行性过度推断，记录 2015 replay 的预注册偏离。
 - [memos/20260722-annual-spy-relative-drawdown-governance.md](memos/20260722-annual-spy-relative-drawdown-governance.md) —
@@ -94,7 +98,7 @@ If you want chronological order, sort by filename — the
 
 ---
 
-## 1. PRDs (specs, mandates, governing docs) — 48 (`ls docs/prd/*.md | wc -l`)
+## 1. PRDs (specs, mandates, governing docs) — 51 (`ls docs/prd/*.md | wc -l`)
 
 Prescriptive documents that define what to build / what to constrain.
 
