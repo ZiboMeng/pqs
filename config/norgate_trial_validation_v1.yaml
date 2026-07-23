@@ -1,0 +1,62 @@
+schema_version: 1
+validation_id: pqs-norgate-trial-validation-v1
+provider: norgate
+contract_id: pqs-pit-data-v1
+approved_at: "2026-07-23"
+authority: user_explicit_free_field_validation
+
+boundaries:
+  evidence_scope: DATA_ENGINEERING_NO_DIRECTIONAL_RETURN
+  paid_subscription_enabled: false
+  directional_compute_enabled: false
+  credentials_must_not_be_collected: true
+  personal_eula_acceptance_required: true
+  tracked_artifacts_must_not_contain_vendor_rows: true
+
+trial:
+  expected_package: US Stocks Platinum Trial
+  expected_duration_days: 21
+  expected_history_years: 2
+  current_database: US Equities
+  delisted_database: US Equities Delisted
+
+sampling:
+  max_securities_per_database: 50
+  max_price_rows_per_security: 10
+  max_timeseries_probe_securities: 5
+
+required_capabilities:
+  - permanent_security_id
+  - ticker_and_name_history
+  - listing_and_delisting_history
+  - daily_open_close_volume
+  - distributions_and_splits
+  - delisting_disposition
+  - revision_policy
+
+documented_interfaces:
+  permanent_security_id:
+    - assetid
+    - symbol
+    - database
+  current_identity_metadata:
+    - security_name
+    - exchange_name
+    - domicile
+    - base_type
+    - subtype1
+    - subtype2
+    - subtype3
+  listing_lifecycle:
+    - first_quoted_date
+    - second_last_quoted_date
+    - major_exchange_listed_timeseries
+  raw_daily:
+    - price_timeseries
+    - StockPriceAdjustmentType.NONE
+    - PaddingType.NONE
+  action_indicators:
+    - capital_event_timeseries
+  database_inventory:
+    - databases
+    - database

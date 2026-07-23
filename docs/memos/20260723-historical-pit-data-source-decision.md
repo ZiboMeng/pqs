@@ -2,7 +2,11 @@
 
 日期：2026-07-23
 
-状态：`USER DECISION REQUIRED BEFORE PROCUREMENT OR FORMAL INGESTION`
+状态：`NORGATE FREE FIELD VALIDATION APPROVED; PERSONAL REGISTRATION PENDING`
+
+后续决定：用户于 2026-07-23 明确批准“免费字段验收”。该批准不包含付费订阅，也不授权第三方代替
+许可证本人提供身份信息或接受 EULA。预检与可执行验收器已落地，见
+`docs/audit/20260723-norgate-free-trial-preflight.md`。
 
 适用契约：`config/pit_data_v1.yaml` / `pqs-pit-data-v1`
 
@@ -77,11 +81,12 @@ Norgate 只能作为**条件式候选源**，必须先通过下面的字段验�
 
 ## 建议的最小决策
 
-下一步只需要用户选择一条，不涉及策略参数：
+用户已选择 Norgate 免费字段验收。当前只剩许可证本人必须完成的注册动作：
 
-- 提供现有 CRSP/WRDS 或其他机构数据访问方式；或
-- 允许创建 Norgate 免费试用账户并在 Windows 环境做字段/API 验收，验收后再单独决定是否购买
-  Platinum；或
-- 明确本阶段保持零采购，仅积累 prospective PIT。
+- 在 Norgate 官方免费试用页用真实身份注册；
+- 由许可证本人阅读并接受 EULA，选择 `Python (Windows)` 与 `US Stocks Data Trial / Platinum`；
+- 在本机安装、登录 NDU 并完成首次更新；
+- 不要把用户名、密码或其他个人资料发给项目或 Codex。只需通知“NDU 已登录并更新完成”。
 
-在该决定前，Phase B 继续由机器门禁阻断，binding raw independent trial N 保持 60。
+在免费 runtime 验收完成且正式数据 Gate 另行通过前，Phase B 继续由机器门禁阻断，binding raw
+independent trial N 保持 60。

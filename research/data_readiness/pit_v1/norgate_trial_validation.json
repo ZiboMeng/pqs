@@ -1,0 +1,87 @@
+{
+  "capabilities": [
+    {
+      "capability_id": "permanent_security_id",
+      "evidence": [
+        "documented:assetid",
+        "documented:database"
+      ],
+      "reason": "unique unchanging assetid is documented but trial data is not connected",
+      "runtime_verified": false,
+      "status": "PARTIAL"
+    },
+    {
+      "capability_id": "ticker_and_name_history",
+      "evidence": [
+        "documented:assetid_to_current_symbol_only"
+      ],
+      "reason": "public Python API does not document dated ticker/name alias intervals",
+      "runtime_verified": false,
+      "status": "BLOCKED"
+    },
+    {
+      "capability_id": "listing_and_delisting_history",
+      "evidence": [
+        "documented:major_exchange_listed_timeseries",
+        "documented:first_quoted_date",
+        "documented:second_last_quoted_date"
+      ],
+      "reason": "interfaces are documented but trial coverage and delisting semantics are unverified",
+      "runtime_verified": false,
+      "status": "PARTIAL"
+    },
+    {
+      "capability_id": "daily_open_close_volume",
+      "evidence": [
+        "documented:price_timeseries",
+        "documented:no_adjustment_no_padding"
+      ],
+      "reason": "raw daily interface is documented but trial fields are unverified",
+      "runtime_verified": false,
+      "status": "PARTIAL"
+    },
+    {
+      "capability_id": "distributions_and_splits",
+      "evidence": [
+        "documented:capital_event_binary_indicator"
+      ],
+      "reason": "binary capital-event indication is not an auditable event type/amount ledger",
+      "runtime_verified": false,
+      "status": "BLOCKED"
+    },
+    {
+      "capability_id": "delisting_disposition",
+      "evidence": [
+        "documented:no_disposition_interface"
+      ],
+      "reason": "public Python API does not document delisting reason, consideration or disposition amount",
+      "runtime_verified": false,
+      "status": "BLOCKED"
+    },
+    {
+      "capability_id": "revision_policy",
+      "evidence": [
+        "documented:corrections_may_be_published"
+      ],
+      "reason": "no immutable licensed edition/export and replay policy has been runtime verified",
+      "runtime_verified": false,
+      "status": "BLOCKED"
+    }
+  ],
+  "contract_id": "pqs-pit-data-v1",
+  "created_at_utc": "2026-07-23T18:29:41.608701+00:00",
+  "credentials_collected": false,
+  "directional_compute_performed": false,
+  "evidence_scope": "DATA_ENGINEERING_NO_DIRECTIONAL_RETURN",
+  "expected_duration_days": 21,
+  "expected_history_years": 2,
+  "expected_package": "US Stocks Platinum Trial",
+  "formal_source_eligible": false,
+  "paid_subscription_created": false,
+  "personal_action_required": "licensee must register with genuine identity and personally accept EULA",
+  "provider": "norgate",
+  "runtime_status": "BLOCKED_PERSONAL_TRIAL_REGISTRATION_REQUIRED",
+  "schema_version": 1,
+  "validation_id": "pqs-norgate-trial-validation-v1",
+  "vendor_rows_persisted": false
+}

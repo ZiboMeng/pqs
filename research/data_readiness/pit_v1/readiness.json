@@ -4,7 +4,11 @@
   "bound_artifacts": {
     "contract": {
       "path": "config/pit_data_v1.yaml",
-      "sha256": "f576e24a8c2f7cf4fb9e40d8c4980c6b5283fb5e8857792e459241e4db8cf463"
+      "sha256": "f411834b43d852bf4e43f0f1166af6f031c767381b3a24ff653124a35da43487"
+    },
+    "norgate_trial_validation": {
+      "path": "research/data_readiness/pit_v1/norgate_trial_validation.json",
+      "sha256": "cfd55d878288705cecac9035db958521b72fb4d57bae2dead4f385fc44c3c229"
     },
     "prospective_snapshot": {
       "path": "research/data_readiness/pit_v1/prospective_latest.json",
@@ -16,17 +20,18 @@
     }
   },
   "contract_id": "pqs-pit-data-v1",
-  "created_at_utc": "2026-07-23T18:01:15.887765+00:00",
+  "created_at_utc": "2026-07-23T18:29:41.993018+00:00",
   "directional_compute_performed": false,
   "evidence_scope": "DATA_ENGINEERING_NO_DIRECTIONAL_RETURN",
   "formal_historical_source_unlocked": false,
   "gates": [
     {
       "details": {
-        "reason": "no approved formal permanent-identity security master"
+        "reason": "Norgate documents an unchanging assetid, but the trial is not connected and dated ticker/name alias intervals are not documented"
       },
       "evidence": [
-        "research/data_readiness/pit_v1/source_inventory.json"
+        "research/data_readiness/pit_v1/source_inventory.json",
+        "research/data_readiness/pit_v1/norgate_trial_validation.json"
       ],
       "gate_id": "G1",
       "passed": false,
@@ -34,10 +39,11 @@
     },
     {
       "details": {
-        "reason": "formal historical universe has not been reconstructed without a current-company intersection"
+        "reason": "formal historical universe has not been reconstructed; the free trial is limited to two years and cannot establish 2012-2024 coverage"
       },
       "evidence": [
-        "research/data_readiness/pit_v1/source_inventory.json"
+        "research/data_readiness/pit_v1/source_inventory.json",
+        "research/data_readiness/pit_v1/norgate_trial_validation.json"
       ],
       "gate_id": "G2",
       "passed": false,
@@ -45,10 +51,11 @@
     },
     {
       "details": {
-        "reason": "source-bound historical delisting dispositions are unavailable"
+        "reason": "Norgate's public Python interface does not document source-bound delisting reason, consideration or disposition amount"
       },
       "evidence": [
-        "research/data_readiness/pit_v1/source_inventory.json"
+        "research/data_readiness/pit_v1/source_inventory.json",
+        "research/data_readiness/pit_v1/norgate_trial_validation.json"
       ],
       "gate_id": "G3",
       "passed": false,
@@ -56,10 +63,11 @@
     },
     {
       "details": {
-        "reason": "formal corporate-action/delisting parity has not been established; split coverage table is absent in the inventoried source root"
+        "reason": "formal action/delisting parity is absent; local split coverage is missing and Norgate documents a binary capital-event indicator rather than a complete event ledger"
       },
       "evidence": [
-        "research/data_readiness/pit_v1/source_inventory.json"
+        "research/data_readiness/pit_v1/source_inventory.json",
+        "research/data_readiness/pit_v1/norgate_trial_validation.json"
       ],
       "gate_id": "G4",
       "passed": false,
@@ -145,10 +153,11 @@
     },
     {
       "details": {
-        "reason": "prospective snapshot is hash-bound, but no immutable formal historical snapshot/license edition exists"
+        "reason": "prospective snapshot is hash-bound, but Norgate trial/runtime has no verified immutable historical edition or replay contract"
       },
       "evidence": [
-        "research/data_readiness/pit_v1/prospective_latest.json"
+        "research/data_readiness/pit_v1/prospective_latest.json",
+        "research/data_readiness/pit_v1/norgate_trial_validation.json"
       ],
       "gate_id": "G12",
       "passed": false,

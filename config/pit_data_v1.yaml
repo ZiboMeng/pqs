@@ -9,6 +9,7 @@ phase_a:
   paid_resource_creation_enabled: false
   allowed_operations:
     - source_inventory
+    - vendor_field_validation
     - schema_validation
     - identity_reconciliation
     - price_continuity_qa

@@ -60,38 +60,51 @@ def main() -> int:
         default="research/data_readiness/pit_v1/prospective_latest.json",
     )
     parser.add_argument(
+        "--norgate-validation",
+        default="research/data_readiness/pit_v1/norgate_trial_validation.json",
+    )
+    parser.add_argument(
         "--output", default="research/data_readiness/pit_v1/readiness.json"
     )
     args = parser.parse_args()
     contract = PitDataContract.load(args.contract)
     inventory_path = Path(args.inventory)
     prospective_path = Path(args.prospective)
+    norgate_validation_path = Path(args.norgate_validation)
     inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
     prospective = json.loads(prospective_path.read_text(encoding="utf-8"))
+    norgate_validation = json.loads(
+        norgate_validation_path.read_text(encoding="utf-8")
+    )
     contract.assert_artifact_non_directional(inventory)
     contract.assert_artifact_non_directional(prospective)
+    contract.assert_artifact_non_directional(norgate_validation)
 
     source_status = inventory["historical_source_assessment"]["status"]
     gates = {
         "G1": _blocked(
             "G1",
-            "no approved formal permanent-identity security master",
+            "Norgate documents an unchanging assetid, but the trial is not connected and dated ticker/name alias intervals are not documented",
             str(inventory_path),
+            str(norgate_validation_path),
         ),
         "G2": _blocked(
             "G2",
-            "formal historical universe has not been reconstructed without a current-company intersection",
+            "formal historical universe has not been reconstructed; the free trial is limited to two years and cannot establish 2012-2024 coverage",
             str(inventory_path),
+            str(norgate_validation_path),
         ),
         "G3": _blocked(
             "G3",
-            "source-bound historical delisting dispositions are unavailable",
+            "Norgate's public Python interface does not document source-bound delisting reason, consideration or disposition amount",
             str(inventory_path),
+            str(norgate_validation_path),
         ),
         "G4": _blocked(
             "G4",
-            "formal corporate-action/delisting parity has not been established; split coverage table is absent in the inventoried source root",
+            "formal action/delisting parity is absent; local split coverage is missing and Norgate documents a binary capital-event indicator rather than a complete event ledger",
             str(inventory_path),
+            str(norgate_validation_path),
         ),
         "G5": _blocked(
             "G5",
@@ -131,8 +144,9 @@ def main() -> int:
         ),
         "G12": _blocked(
             "G12",
-            "prospective snapshot is hash-bound, but no immutable formal historical snapshot/license edition exists",
+            "prospective snapshot is hash-bound, but Norgate trial/runtime has no verified immutable historical edition or replay contract",
             str(prospective_path),
+            str(norgate_validation_path),
         ),
     }
     bound = {
@@ -144,6 +158,10 @@ def main() -> int:
         "prospective_snapshot": {
             "path": str(prospective_path),
             "sha256": _sha256(prospective_path),
+        },
+        "norgate_trial_validation": {
+            "path": str(norgate_validation_path),
+            "sha256": _sha256(norgate_validation_path),
         },
     }
     artifact = evaluate_pit_readiness(
