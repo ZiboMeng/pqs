@@ -1,0 +1,147 @@
+schema_version: 1
+contract_id: pqs-pit-data-v1
+approved_at: "2026-07-23"
+authority: user_explicit_go
+
+phase_a:
+  evidence_scope: DATA_ENGINEERING_NO_DIRECTIONAL_RETURN
+  directional_compute_enabled: false
+  paid_resource_creation_enabled: false
+  allowed_operations:
+    - source_inventory
+    - schema_validation
+    - identity_reconciliation
+    - price_continuity_qa
+    - corporate_action_reconciliation
+    - delisting_reconciliation
+    - fundamental_value_reconciliation
+    - feature_value_construction
+    - coverage_analysis
+    - missingness_analysis
+    - filing_corpus_construction
+    - prospective_collection
+    - temporal_invariance_test
+    - readiness_evaluation
+  forbidden_operations:
+    - label_construction
+    - forward_return
+    - candidate_portfolio_return
+    - benchmark_comparison
+    - information_coefficient
+    - sharpe
+    - drawdown
+    - directional_model_training
+    - directional_trial_registration
+  forbidden_artifact_keys:
+    - return
+    - returns
+    - forward_return
+    - excess_return
+    - cagr
+    - sharpe
+    - maxdd
+    - max_drawdown
+    - information_coefficient
+    - ic
+    - alpha
+    - label
+    - labels
+
+evidence_scopes:
+  free_prospective: FREE_PROSPECTIVE_PIT
+  survivor_biased: SURVIVOR_BIASED_DEVELOPMENT_ONLY
+  formal_historical: FORMAL_HISTORICAL_PIT
+
+paths:
+  raw_root: data/pit
+  prospective_root: data/pit/prospective
+  compact_readiness_root: research/data_readiness/pit_v1
+
+security_master:
+  schema_version: 1
+  identity_key: asset_id
+  require_vendor_security_id_for_formal: true
+  require_source_hash: true
+  valid_to_is_exclusive: true
+  formal_security_types:
+    - common_stock
+  excluded_instrument_types:
+    - etf
+    - etn
+    - adr
+    - foreign_ordinary
+    - preferred
+    - right
+    - warrant
+    - unit
+    - spac_pre_combination_unit
+    - otc
+    - test_issue
+    - inverse
+    - leveraged
+
+dynamic_universe:
+  decision_frequency: month_end
+  effective_at: next_session_open
+  min_history_sessions: 504
+  lookback_sessions: 63
+  min_observation_density: 0.95
+  min_price: 5.0
+  min_median_dollar_volume: 20000000.0
+  max_assets: 600
+
+fundamentals:
+  availability_rule: first_exchange_session_strictly_after_acceptance
+  formal_source: filing_level_accession_xbrl
+  companyfacts_role: reconciliation_only
+  allow_filed_date_fallback: false
+  allow_period_end_fallback: false
+  amendments_append_new_vintage: true
+  preserve_missing_as_na: true
+
+readiness:
+  required_gate_ids:
+    - G1
+    - G2
+    - G3
+    - G4
+    - G5
+    - G6
+    - G7
+    - G8
+    - G9
+    - G10
+    - G11
+    - G12
+  min_eligible_assets_each_rebalance: 200
+  min_annual_median_eligible_assets: 300
+  min_feature_assets_each_rebalance: 150
+  min_annual_median_feature_assets: 250
+  require_all_gates: true
+
+historical_sources:
+  approved_source_ids: []
+  formal_lane_unlocked: false
+  required_capabilities:
+    - permanent_security_id
+    - ticker_and_name_history
+    - listing_and_delisting_history
+    - daily_open_close_volume
+    - distributions_and_splits
+    - delisting_return_or_consideration
+    - revision_policy
+
+prospective_sources:
+  sec_company_tickers_exchange:
+    url: https://www.sec.gov/files/company_tickers_exchange.json
+  nasdaq_listed:
+    url: https://www.nasdaqtrader.com/dynamic/symdir/nasdaqlisted.txt
+  other_listed:
+    url: https://www.nasdaqtrader.com/dynamic/symdir/otherlisted.txt
+  max_requests_per_second: 7.0
+
+phase_b:
+  enabled: false
+  minimum_binding_raw_independent_n: 60
+  maximum_new_directional_trials: 20
+  unlock_requires_all_readiness_gates: true

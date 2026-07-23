@@ -30,6 +30,9 @@ data/mining/
 data/research/mining_v4/
 # Mining V5 compact manifests are tracked; large immutable daily snapshots are local.
 data/research/mining_v5/**/daily/
+# V6 PIT raw snapshots and prospective hash-chain ledger are local evidence.
+# Schemas, compact inventories/readiness artifacts, and tests are tracked.
+data/pit/
 data/.yf_cache/
 data/_catalog.parquet
 data/baseline/

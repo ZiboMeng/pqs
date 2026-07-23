@@ -1,0 +1,52 @@
+{
+  "batch_id": "20260723T175930807077Z",
+  "captured_at_utc": "2026-07-23T17:59:30.807077+00:00",
+  "contract_id": "pqs-pit-data-v1",
+  "diff_counts": {
+    "added": 23436,
+    "changed": 0,
+    "removed": 0
+  },
+  "directional_compute_performed": false,
+  "evidence_scope": "FREE_PROSPECTIVE_PIT",
+  "ledger": {
+    "events": 1,
+    "head_event_sha256": "e05d08fb13c49ac30332ed09b3527fc01f5fa67301a2ef5276e4b561cf88e4c0",
+    "integrity_pass": true
+  },
+  "normalized_records": 23436,
+  "normalized_sha256": "df632aa9b913378be1127e556e0bd97f0a835256efb3a6614755fc1e9872ad86",
+  "raw_sources": {
+    "nasdaq_listed": {
+      "bytes": 345093,
+      "content_type": "text/plain",
+      "etag": "\"0fd5ee2bd1add1:0\"",
+      "last_modified": "Thu, 23 Jul 2026 16:11:14 GMT",
+      "raw_relative_path": "raw/nasdaq_listed.txt",
+      "records": 5556,
+      "sha256": "67c459094e11a364b989df6a4a75c755cded2cbb35ffd8bc82e64373736b4bad",
+      "url": "https://www.nasdaqtrader.com/dynamic/symdir/nasdaqlisted.txt"
+    },
+    "other_listed": {
+      "bytes": 531512,
+      "content_type": "text/plain",
+      "etag": "\"0fd5ee2bd1add1:0\"",
+      "last_modified": "Thu, 23 Jul 2026 16:11:14 GMT",
+      "raw_relative_path": "raw/other_listed.txt",
+      "records": 7466,
+      "sha256": "0be06c54f597a23f7a58586c1278bcd2398904990526af4ee1896362b4d2ec13",
+      "url": "https://www.nasdaqtrader.com/dynamic/symdir/otherlisted.txt"
+    },
+    "sec_company_tickers_exchange": {
+      "bytes": 521990,
+      "content_type": "application/json",
+      "etag": "",
+      "last_modified": "Fri, 17 Jul 2026 21:04:00 GMT",
+      "raw_relative_path": "raw/sec_company_tickers_exchange.json",
+      "records": 10414,
+      "sha256": "4abaa8d6c427e0b7ee2cb9bf5f731333bc47bd7d4e9a53fe06dfd41eeb640b37",
+      "url": "https://www.sec.gov/files/company_tickers_exchange.json"
+    }
+  },
+  "schema_version": 1
+}

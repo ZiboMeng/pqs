@@ -4,7 +4,10 @@
 
 日期：2026-07-22
 
-状态：PROPOSED FOR USER REVIEW
+状态：APPROVED FOR PHASE A IMPLEMENTATION
+
+批准：用户于 2026-07-23 明确指示 `go`。Phase A 可自主实施；付费数据、云资源与 Phase B
+方向性收益计算仍受本 PRD 的显式边界与 Data Readiness Gate 约束。
 
 建议实施顺序：`Phase A 数据工程与无收益 QA -> Data Readiness Gate -> Phase B 受限方向性挖掘 -> 同日起 future PAPER`
 

@@ -1,0 +1,168 @@
+{
+  "contract_id": "pqs-pit-data-v1",
+  "created_at_utc": "2026-07-23T17:53:11.926761+00:00",
+  "directional_compute_performed": false,
+  "evidence_scope": "DATA_ENGINEERING_NO_DIRECTIONAL_RETURN",
+  "historical_security_master_access": {
+    "environment_variable_names": [],
+    "known_access_files": [],
+    "values_recorded": false
+  },
+  "historical_source_assessment": {
+    "approved_source_ids": [],
+    "formal_lane_unlocked": false,
+    "required_capabilities": [
+      "permanent_security_id",
+      "ticker_and_name_history",
+      "listing_and_delisting_history",
+      "daily_open_close_volume",
+      "distributions_and_splits",
+      "delisting_return_or_consideration",
+      "revision_policy"
+    ],
+    "status": "BLOCKED_NO_APPROVED_HISTORICAL_SECURITY_MASTER"
+  },
+  "inventory_id": "pqs-pit-source-inventory-v1",
+  "local_market_data": {
+    "daily_parquet": {
+      "bytes": 994312938,
+      "exists": true,
+      "files": 25344
+    },
+    "reference_tables": {
+      "bar_provenance.parquet": {
+        "bytes": 23552591,
+        "columns": [
+          "first_bar_ts",
+          "freq",
+          "last_bar_ts",
+          "n_bars_added",
+          "rule_version",
+          "source_type",
+          "symbol",
+          "updated_at"
+        ],
+        "exists": true,
+        "readable": true,
+        "rows": 3797742,
+        "sha256": "8b786e698c084edd85a0452a3f41322d380c7a1fc3cc35ca465869334eb41a43"
+      },
+      "distribution_coverage.parquet": {
+        "bytes": 8795,
+        "columns": [
+          "checked_at",
+          "checked_end",
+          "checked_start",
+          "error",
+          "first_ex_date",
+          "last_ex_date",
+          "n_events",
+          "source",
+          "splits_table_sha",
+          "status",
+          "symbol"
+        ],
+        "exists": true,
+        "readable": true,
+        "rows": 81,
+        "sha256": "dce18b674384759f14570747d2f13cb17fe90393f5d84a70d43d934250cec1ff"
+      },
+      "distributions.parquet": {
+        "bytes": 132180,
+        "columns": [
+          "cash_amount",
+          "ex_date",
+          "factor",
+          "pulled_at",
+          "ref_close_pre_ex",
+          "source",
+          "splits_table_sha",
+          "symbol"
+        ],
+        "exists": true,
+        "readable": true,
+        "rows": 5376,
+        "sha256": "f5ebf5c63b7f6f8aacf1e4f8bba8dae3967d110a506c182e0e1ee47da8c48edf"
+      },
+      "split_coverage.parquet": {
+        "exists": false
+      },
+      "splits.parquet": {
+        "bytes": 60110,
+        "columns": [
+          "date",
+          "from",
+          "symbol",
+          "to"
+        ],
+        "exists": true,
+        "readable": true,
+        "rows": 4960,
+        "sha256": "624165282c1142b43f1445b2ac737f6c8f509b66a57126af8277b371e14c1b1b"
+      }
+    }
+  },
+  "schema_version": 1,
+  "sec_data": {
+    "companyfacts_cache": {
+      "bytes": 219573584,
+      "exists": true,
+      "files": 56
+    },
+    "primary_documents_8k": {
+      "exists": true,
+      "fields": {
+        "corpus_id": "sec_8k_primary_docs_2015_2024_v1",
+        "created_at_utc": "2026-07-21T02:05:16.050043+00:00",
+        "documents": 16180,
+        "evidence_scope": "DEVELOPMENT_TEXT_CORPUS_NO_MODEL_CLAIM",
+        "schema_version": 1,
+        "source": "SEC Archives primaryDocument",
+        "unique_document_hashes": 16176
+      },
+      "readable": true,
+      "sha256": "ebaab24e31ca5cd3a3e8181cb149a58f8aba7b30698934093c40328a90f95be1"
+    },
+    "submissions_complete": {
+      "exists": true,
+      "fields": {
+        "corpus_id": "sec_submissions_complete_v2",
+        "created_at_utc": "2026-07-21T01:22:55.531228+00:00",
+        "evidence_scope": "RAW_CORPUS_INCLUDES_SEALED_DATES_MODEL_MUST_SLICE",
+        "first_acceptance_utc": "1994-01-05T05:00:00+00:00",
+        "historical_shard_responses": 374,
+        "last_acceptance_utc": "2026-07-20T16:30:21+00:00",
+        "main_responses": 300,
+        "raw_responses": 674,
+        "schema_version": 1,
+        "selected_filings": 49634,
+        "source": "SEC submissions main endpoint plus overlapping historical shards"
+      },
+      "readable": true,
+      "sha256": "319360e0101d9cc74b2cceca3dbfba9d1e6b249035ad89c3ed9a5e56400e0748"
+    },
+    "submissions_metadata": {
+      "bytes": 2142951,
+      "columns": [
+        "acceptance_datetime_utc",
+        "accession_number",
+        "cik",
+        "filing_date",
+        "form",
+        "is_inline_xbrl",
+        "is_xbrl",
+        "items",
+        "primary_doc_description",
+        "primary_document",
+        "report_date",
+        "size_bytes",
+        "ticker"
+      ],
+      "exists": true,
+      "readable": true,
+      "rows": 49634,
+      "sha256": "4ff62a0d34c94664a1189afbff948563f757d6e36ff70214a8ba42524c5ddb3b"
+    }
+  },
+  "source_root": "/home/zibo/Documents/projects/pqs"
+}
